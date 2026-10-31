@@ -1405,12 +1405,27 @@
 
         if (d.type === 'media-move') {
           if (_mirrorIsFrozen) return;
+          var _liveMedia = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          if (Array.isArray(d.positions)) {
+            d.positions.forEach(function (pos) {
+              var mEl = document.querySelector('.con-media-item[data-id="' + pos.id + '"]');
+              if (mEl) {
+                if (typeof pos.x === 'number') mEl.style.left = pos.x + 'px';
+                if (typeof pos.y === 'number') mEl.style.top = pos.y + 'px';
+              }
+              var mObj = _liveMedia.find(function (m) { return String(m.id) === String(pos.id); });
+              if (mObj) {
+                if (typeof pos.x === 'number') mObj.x = pos.x;
+                if (typeof pos.y === 'number') mObj.y = pos.y;
+              }
+            });
+            return;
+          }
           var mEl = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
           if (mEl) {
             if (typeof d.x === 'number') mEl.style.left = d.x + 'px';
             if (typeof d.y === 'number') mEl.style.top = d.y + 'px';
           }
-          var _liveMedia = window.conGetMediaItems ? window.conGetMediaItems() : [];
           var mObj = _liveMedia.find(function (m) { return String(m.id) === String(d.id); });
           if (mObj) {
             if (typeof d.x === 'number') mObj.x = d.x;
@@ -1522,6 +1537,22 @@
             } else {
               var mWrap = document.querySelector('.con-media-item[data-id="' + d.id + '"]');
               if (mWrap) mWrap.classList.toggle('con-media-hidden', !!d.hidden);
+            }
+          }
+          return;
+        }
+
+        if (d.type === 'media-filter') {
+          if (_mirrorIsFrozen) return;
+          var _liveMediaF = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mObjF = _liveMediaF.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObjF) {
+            if (typeof d.brightness === 'number') mObjF.brightness = d.brightness;
+            if (typeof d.contrast === 'number') mObjF.contrast = d.contrast;
+            if (typeof d.saturation === 'number') mObjF.saturation = d.saturation;
+            var wrapF = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(mObjF) : document.querySelector('.con-media-item[data-id="' + d.id + '"]');
+            if (wrapF && typeof _conApplyMediaStyles === 'function') {
+              _conApplyMediaStyles(mObjF, wrapF);
             }
           }
           return;
@@ -2307,6 +2338,36 @@
           var mEl = document.querySelector('#constellation-board .con-media-item[data-id="' + d.id + '"]');
           if (mEl && d.hidden !== undefined) {
             mEl.classList.toggle('con-media-hidden', !!d.hidden);
+          }
+          return;
+        }
+
+        if (d.type === 'media-filter') {
+          if (_mirrorIsFrozen) return;
+          var _liveMediaF2 = window.conGetMediaItems ? window.conGetMediaItems() : [];
+          var mObjF2 = _liveMediaF2.find(function (m) { return String(m.id) === String(d.id); });
+          if (mObjF2) {
+            if (typeof d.brightness === 'number') mObjF2.brightness = d.brightness;
+            if (typeof d.contrast === 'number') mObjF2.contrast = d.contrast;
+            if (typeof d.saturation === 'number') mObjF2.saturation = d.saturation;
+          }
+          var mElF = document.querySelector('#constellation-board .con-media-item[data-id="' + d.id + '"]');
+          if (mElF) {
+            if (mObjF2 && typeof _conApplyMediaStyles === 'function') {
+              _conApplyMediaStyles(mObjF2, mElF);
+            } else {
+              var imgF = mElF.querySelector('.con-media-asset') || mElF.querySelector('img');
+              if (imgF) {
+                var b2 = typeof d.brightness === 'number' ? d.brightness : 100;
+                var c2 = typeof d.contrast === 'number' ? d.contrast : 100;
+                var s2 = typeof d.saturation === 'number' ? d.saturation : 100;
+                if (b2 !== 100 || c2 !== 100 || s2 !== 100) {
+                  imgF.style.filter = 'brightness(' + b2 + '%) contrast(' + c2 + '%) saturate(' + s2 + '%)';
+                } else {
+                  imgF.style.filter = '';
+                }
+              }
+            }
           }
           return;
         }

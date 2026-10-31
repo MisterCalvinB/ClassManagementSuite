@@ -2651,6 +2651,15 @@
       let dragStartX = 0, dragStartY = 0, baseX = 0, baseY = 0;
       let dragging = false;
       let _mediaMoveRaf = null, _pendingMediaMoveMsg = null;
+      let _mediaJointSnapshots = [];
+      let _nodeJointSnapshots = [];
+      let _noteJointSnapshots = [];
+      let _drawJointSnapshots = [];
+      let _shapeJointSnapshots = [];
+      let _tableJointSnapshots = [];
+      let _mediaPreDragSnap = null;
+      let _mediaUndoPushed = false;
+
       wrap.addEventListener('mousedown', ev => {
         if (ev.button !== 0) return;
         window._conActiveMediaItem = item;
@@ -2669,6 +2678,7 @@
             if (conMediaSelected.has(item.id)) {
               conMediaSelected.delete(item.id);
               wrap.classList.remove('con-media-selected');
+              return;
             } else {
               conMediaSelected.add(item.id);
               wrap.classList.add('con-media-selected');
@@ -2706,6 +2716,91 @@
         dragStartY = ev.clientY;
         baseX = item.x;
         baseY = item.y;
+        _mediaUndoPushed = false;
+        _mediaPreDragSnap = typeof conBuildPageSnapshot === 'function' ? conBuildPageSnapshot() : null;
+
+        // Snapshot other selected media items
+        _mediaJointSnapshots = [];
+        const liveMediaList = typeof window.conGetMediaItems === 'function' ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : []);
+        const mediaSel = typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+        if (mediaSel && mediaSel.size > 0 && mediaSel.has(item.id)) {
+          mediaSel.forEach(mid => {
+            if (mid === item.id || String(mid) === String(item.id)) return;
+            const m = liveMediaList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            if (m && !m.locked) {
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+              _mediaJointSnapshots.push({ m, sx: m.x, sy: m.y, el: mEl });
+            }
+          });
+        }
+
+        // Snapshot co-selected nodes
+        _nodeJointSnapshots = [];
+        const _allSelNodes = new Set(window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : []));
+        if (typeof conSelected !== 'undefined' && conSelected) _allSelNodes.add(conSelected);
+        if (window.conGetSelected && window.conGetSelected()) _allSelNodes.add(window.conGetSelected());
+        const _allNodesList = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : []);
+        _allSelNodes.forEach(nid => {
+          const nd = _allNodesList.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+          if (nd && !(typeof conIsNodeLocked === 'function' && conIsNodeLocked(nd))) {
+            _nodeJointSnapshots.push({ nd, sx: nd.x, sy: nd.y });
+          }
+        });
+
+        // Snapshot co-selected notes
+        _noteJointSnapshots = [];
+        const _noteSel = window.conGetNoteSelected ? window.conGetNoteSelected() : (typeof conNoteSelected !== 'undefined' ? conNoteSelected : new Set());
+        const _allNotesList = window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
+        _noteSel.forEach(nid => {
+          const nd = _allNotesList.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+          if (nd && !nd.locked) {
+            const noteEl = (typeof window.wnGetNoteElementById === 'function')
+              ? window.wnGetNoteElementById(nd.id)
+              : ((typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`));
+            const sx = (nd.x != null) ? nd.x : (noteEl ? (parseInt(noteEl.style.left) || 0) : 0);
+            const sy = (nd.y != null) ? nd.y : (noteEl ? (parseInt(noteEl.style.top) || 0) : 0);
+            _noteJointSnapshots.push({ nd, sx, sy, el: noteEl });
+          }
+        });
+
+        // Snapshot co-selected drawings
+        _drawJointSnapshots = [];
+        const _drawSel = window.conGetDrawingSelected ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : new Set());
+        const _allDrawList = window.conGetDrawings ? window.conGetDrawings() : (typeof conDrawings !== 'undefined' ? conDrawings : []);
+        _drawSel.forEach(did => {
+          const dr = _allDrawList.find(d => d && (d.id === did || String(d.id) === String(did)));
+          if (dr) {
+            _drawJointSnapshots.push({ dr, sx: dr.x, sy: dr.y, pad: dr.pad || Math.max((dr.thickness || 2) + 4, 12) });
+          }
+        });
+
+        // Snapshot co-selected shapes
+        _shapeJointSnapshots = [];
+        const _shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
+        const _allShapeList = window.conGetShapes ? window.conGetShapes() : (typeof conShapes !== 'undefined' ? conShapes : []);
+        _shapeSel.forEach(sid => {
+          const s = _allShapeList.find(x => x && (x.id === sid || String(x.id) === String(sid)));
+          if (s) {
+            _shapeJointSnapshots.push({
+              s, sx: s.x, sy: s.y,
+              slx1: s.lx1, sly1: s.ly1, slx2: s.lx2, sly2: s.ly2,
+              spts: s.pts ? s.pts.map(p => ({ ...p })) : null,
+              pad: s.pad || (typeof _conShapeGetPAD === 'function' ? _conShapeGetPAD(s) : 16)
+            });
+          }
+        });
+
+        // Snapshot co-selected tables
+        _tableJointSnapshots = [];
+        const _tableSel = window.conGetTableSelected ? window.conGetTableSelected() : (typeof conTableSelected !== 'undefined' ? conTableSelected : new Set());
+        const _allTableList = window.conGetTables ? window.conGetTables() : (typeof conTables !== 'undefined' ? conTables : []);
+        _tableSel.forEach(tid => {
+          const tbl = _allTableList.find(t => t && (t.id === tid || String(t.id) === String(tid)));
+          if (tbl && !tbl.locked) {
+            _tableJointSnapshots.push({ tbl, sx: tbl.x, sy: tbl.y });
+          }
+        });
+
         ev.preventDefault();
         ev.stopPropagation();
       });
@@ -2727,17 +2822,127 @@
 
       document.addEventListener('mousemove', ev => {
         if (dragging) {
-          item.x = Math.max(0, baseX + (ev.clientX - dragStartX));
-          item.y = Math.max(0, baseY + (ev.clientY - dragStartY));
+          const dx = ev.clientX - dragStartX;
+          const dy = ev.clientY - dragStartY;
+          if (!_mediaUndoPushed && (Math.abs(dx) > 2 || Math.abs(dy) > 2)) {
+            _mediaUndoPushed = true;
+            if (_mediaPreDragSnap && typeof conPushUndo === 'function') conPushUndo(_mediaPreDragSnap);
+          }
+          item.x = Math.max(0, baseX + dx);
+          item.y = Math.max(0, baseY + dy);
           wrap.style.left = item.x + 'px';
           wrap.style.top = item.y + 'px';
+
+          // Move other co-selected media items
+          _mediaJointSnapshots.forEach(({ m, sx, sy, el: mEl }) => {
+            m.x = Math.max(0, sx + dx);
+            m.y = Math.max(0, sy + dy);
+            const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+            if (targetEl) {
+              targetEl.style.left = m.x + 'px';
+              targetEl.style.top = m.y + 'px';
+            }
+          });
+
+          // Move co-selected nodes
+          if (_nodeJointSnapshots.length > 0) {
+            _nodeJointSnapshots.forEach(({ nd, sx, sy }) => {
+              nd.x = Math.max(0, sx + dx);
+              nd.y = Math.max(0, sy + dy);
+              if (nd.el) {
+                nd.el.style.left = nd.x + 'px';
+                nd.el.style.top = nd.y + 'px';
+              }
+            });
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+            if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          }
+
+          // Move co-selected notes
+          if (_noteJointSnapshots.length > 0) {
+            _noteJointSnapshots.forEach(({ nd, sx, sy, el: nEl }) => {
+              nd.x = sx + dx;
+              nd.y = sy + dy;
+              const targetEl = nEl || (typeof window.wnGetNoteElementById === 'function' ? window.wnGetNoteElementById(nd.id) : document.querySelector(`.con-word-note[data-id="${nd.id}"]`));
+              if (targetEl) {
+                targetEl.style.left = nd.x + 'px';
+                targetEl.style.top = nd.y + 'px';
+              }
+            });
+          }
+
+          // Move co-selected drawings
+          if (_drawJointSnapshots.length > 0) {
+            _drawJointSnapshots.forEach(({ dr, sx, sy, pad }) => {
+              dr.x = sx + dx;
+              dr.y = sy + dy;
+              const p = pad != null ? pad : (dr.pad || 12);
+              if (dr.el) {
+                dr.el.style.left = (dr.x - p) + 'px';
+                dr.el.style.top = (dr.y - p) + 'px';
+              }
+            });
+          }
+
+          // Move co-selected shapes
+          if (_shapeJointSnapshots.length > 0) {
+            _shapeJointSnapshots.forEach(({ s, sx, sy, slx1, sly1, slx2, sly2, spts, pad }) => {
+              s.x = sx + dx;
+              s.y = sy + dy;
+              if (s.lx1 !== undefined && slx1 !== undefined) {
+                s.lx1 = slx1 + dx; s.ly1 = sly1 + dy;
+                s.lx2 = slx2 + dx; s.ly2 = sly2 + dy;
+              }
+              if (s.pts && spts) {
+                s.pts = spts.map(p => ({ x: p.x + dx, y: p.y + dy }));
+              }
+              const p = pad != null ? pad : (s.pad || 16);
+              if (s.el) {
+                s.el.style.left = (s.x - p) + 'px';
+                s.el.style.top = (s.y - p) + 'px';
+              }
+              if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+            });
+          }
+
+          // Move co-selected tables
+          if (_tableJointSnapshots.length > 0) {
+            _tableJointSnapshots.forEach(({ tbl, sx, sy }) => {
+              tbl.x = Math.max(0, sx + dx);
+              tbl.y = Math.max(0, sy + dy);
+              if (tbl.el) {
+                tbl.el.style.left = tbl.x + 'px';
+                tbl.el.style.top = tbl.y + 'px';
+              }
+            });
+          }
+
           if (window._conMirrorSend) {
-            _pendingMediaMoveMsg = { type: 'media-move', id: item.id, x: item.x, y: item.y };
+            const allMediaPositions = [{ id: item.id, x: item.x, y: item.y }];
+            _mediaJointSnapshots.forEach(({ m }) => {
+              allMediaPositions.push({ id: m.id, x: m.x, y: m.y });
+            });
+            _pendingMediaMoveMsg = { type: 'media-move', positions: allMediaPositions, id: item.id, x: item.x, y: item.y };
             if (!_mediaMoveRaf) {
               _mediaMoveRaf = requestAnimationFrame(function () {
                 _mediaMoveRaf = null;
-                if (window._conMirrorSend && _pendingMediaMoveMsg) {
-                  window._conMirrorSend(_pendingMediaMoveMsg);
+                if (window._conMirrorSend) {
+                  if (_pendingMediaMoveMsg) window._conMirrorSend(_pendingMediaMoveMsg);
+                  if (_nodeJointSnapshots.length > 0) {
+                    window._conMirrorSend({ type: 'node-move', positions: _nodeJointSnapshots.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                  }
+                  if (_noteJointSnapshots.length > 0) {
+                    window._conMirrorSend({ type: 'note-move', positions: _noteJointSnapshots.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+                  }
+                  if (_drawJointSnapshots.length > 0) {
+                    window._conMirrorSend({ type: 'drawing-move', positions: _drawJointSnapshots.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+                  }
+                  if (_shapeJointSnapshots.length > 0) {
+                    window._conMirrorSend({ type: 'shape-move', positions: _shapeJointSnapshots.map(({ s }) => ({ id: s.id, x: s.x, y: s.y, lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2, pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined })) });
+                  }
+                  if (_tableJointSnapshots.length > 0) {
+                    window._conMirrorSend({ type: 'table-move', positions: _tableJointSnapshots.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
+                  }
                 }
               });
             }
@@ -2785,8 +2990,31 @@
           if (_mediaMoveRaf) { cancelAnimationFrame(_mediaMoveRaf); _mediaMoveRaf = null; }
           if (window._conMirrorSend && _pendingMediaMoveMsg) {
             window._conMirrorSend(_pendingMediaMoveMsg);
+            if (_nodeJointSnapshots.length > 0) {
+              window._conMirrorSend({ type: 'node-move', positions: _nodeJointSnapshots.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+            }
+            if (_noteJointSnapshots.length > 0) {
+              window._conMirrorSend({ type: 'note-move', positions: _noteJointSnapshots.map(({ nd }) => ({ id: nd.id, x: nd.x, y: nd.y })) });
+            }
+            if (_drawJointSnapshots.length > 0) {
+              window._conMirrorSend({ type: 'drawing-move', positions: _drawJointSnapshots.map(({ dr }) => ({ id: dr.id, x: dr.x, y: dr.y })) });
+            }
+            if (_shapeJointSnapshots.length > 0) {
+              window._conMirrorSend({ type: 'shape-move', positions: _shapeJointSnapshots.map(({ s }) => ({ id: s.id, x: s.x, y: s.y, lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2, pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined })) });
+            }
+            if (_tableJointSnapshots.length > 0) {
+              window._conMirrorSend({ type: 'table-move', positions: _tableJointSnapshots.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
+            }
             _pendingMediaMoveMsg = null;
           }
+          _mediaJointSnapshots = [];
+          _nodeJointSnapshots = [];
+          _noteJointSnapshots = [];
+          _drawJointSnapshots = [];
+          _shapeJointSnapshots = [];
+          _tableJointSnapshots = [];
+          _mediaPreDragSnap = null;
+          _mediaUndoPushed = false;
         }
         if (wasResizing) {
           if (_mediaResizeRaf) { cancelAnimationFrame(_mediaResizeRaf); _mediaResizeRaf = null; }
@@ -2916,6 +3144,9 @@
           borderColor: raw.borderColor || '#111111',
           rotation: (kind === 'pics' ? (Number(raw.rotation) || 0) : undefined),
           opacity: (raw.opacity != null && Number.isFinite(Number(raw.opacity))) ? Number(raw.opacity) : 1,
+          brightness: (kind === 'pics' && raw.brightness != null && Number.isFinite(Number(raw.brightness))) ? Number(raw.brightness) : 100,
+          contrast: (kind === 'pics' && raw.contrast != null && Number.isFinite(Number(raw.contrast))) ? Number(raw.contrast) : 100,
+          saturation: (kind === 'pics' && raw.saturation != null && Number.isFinite(Number(raw.saturation))) ? Number(raw.saturation) : 100,
           _fullscreen: raw._fullscreen ? true : undefined,
           _fsZoom: raw._fullscreen ? (Number(raw._fsZoom) || 1) : undefined,
           _fsPanX: raw._fullscreen ? (Number(raw._fsPanX) || 0) : undefined,
@@ -7391,7 +7622,8 @@
 
           const shapeSel = window.conGetShapeSelected ? window.conGetShapeSelected() : (typeof _conShapeSelected !== 'undefined' ? _conShapeSelected : new Set());
           const tableSel = (typeof conTableSelected !== 'undefined') ? conTableSelected : new Set();
-          const totalSelectedObjects = allSelectedNodeIds.size + activeNoteSel.size + conDrawingSelected.size + shapeSel.size + tableSel.size;
+          const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+          const totalSelectedObjects = allSelectedNodeIds.size + activeNoteSel.size + conDrawingSelected.size + shapeSel.size + tableSel.size + (mediaSel ? mediaSel.size : 0);
           const isMulti = isSelected && (allSelectedNodeIds.size > 1 || totalSelectedObjects > 1);
 
           // Expand selection to include phrase siblings of any selected node
@@ -7451,6 +7683,16 @@
             ? Array.from(tableSel).map(tid => {
               const tbl = (window.conGetTables ? window.conGetTables() : []).find(t => t.id === tid);
               return tbl ? { tbl, snapX: tbl.x, snapY: tbl.y } : null;
+            }).filter(Boolean)
+            : [];
+          // Snapshot selected media items for joint drag
+          const mediaGroupSnap = (mediaSel && mediaSel.size > 0 && isSelected)
+            ? Array.from(mediaSel).map(mid => {
+              const liveMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : []);
+              const m = liveMedia.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+              if (!m || m.locked) return null;
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+              return { m, snapX: m.x, snapY: m.y, el: mEl };
             }).filter(Boolean)
             : [];
 
@@ -7689,6 +7931,16 @@
                 if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
               });
             }
+            // Move jointly-selected media items
+            if (mediaGroupSnap.length > 0) {
+              const ddx = node.x - nodeStartX, ddy = node.y - nodeStartY;
+              mediaGroupSnap.forEach(({ m, snapX, snapY, el: mEl }) => {
+                m.x = Math.max(0, snapX + ddx);
+                m.y = Math.max(0, snapY + ddy);
+                const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+                if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
+              });
+            }
             // Highlight nearby nodes as drop targets (single-node drag only)
             if (!groupSnap) {
               const DROP_DIST = 24;
@@ -7744,6 +7996,12 @@
                       positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
                     });
                   }
+                  if (mediaGroupSnap.length > 0) {
+                    window._conMirrorSend({
+                      type: 'media-move',
+                      positions: mediaGroupSnap.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
+                    });
+                  }
                 });
               }
             }
@@ -7789,6 +8047,12 @@
                 window._conMirrorSend({
                   type: 'table-move',
                   positions: tableGroupSnap.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
+              if (mediaGroupSnap.length > 0) {
+                window._conMirrorSend({
+                  type: 'media-move',
+                  positions: mediaGroupSnap.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
                 });
               }
             }
@@ -15802,6 +16066,15 @@
         if (mediaSel && mediaSel.size > 0) {
           mediaSel.forEach(id => mediaIds.add(id));
         }
+        document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => {
+          if (el.dataset && el.dataset.id) mediaIds.add(el.dataset.id);
+        });
+        if (!mediaIds.size && window._conActiveMediaItem && window._conActiveMediaItem.id) {
+          const activeEl = document.querySelector(`.con-media-item[data-id="${window._conActiveMediaItem.id}"]`);
+          if (activeEl && activeEl.classList.contains('con-media-selected')) {
+            mediaIds.add(window._conActiveMediaItem.id);
+          }
+        }
 
         const groupCtxMenu = document.getElementById('con-group-ctx-menu');
         const isGroupCtxVisible = groupCtxMenu && groupCtxMenu.classList.contains('visible');
@@ -15817,17 +16090,28 @@
           (g.nodeIds || []).forEach(id => nodeIds.add(id));
           (g.noteIds || []).forEach(id => noteIds.add(id));
           (g.mediaIds || []).forEach(id => mediaIds.add(id));
+          (g.drawingIds || []).forEach(id => drawingIds.add(id));
+          (g.shapeIds || []).forEach(id => shapeIds.add(id));
         });
 
         conGroups.forEach(g => {
           const gNodeIds = g.nodeIds || [];
           const gNoteIds = g.noteIds || [];
           const gMediaIds = g.mediaIds || [];
-          if (!gNodeIds.length && !gNoteIds.length && !gMediaIds.length) return;
-          const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) || gNoteIds.some(id => noteIds.has(id)) || gMediaIds.some(id => mediaIds.has(id));
+          const gDrawingIds = g.drawingIds || [];
+          const gShapeIds = g.shapeIds || [];
+          const totalCount = gNodeIds.length + gNoteIds.length + gMediaIds.length + gDrawingIds.length + gShapeIds.length;
+          if (totalCount === 0) return;
+          const hasAnySelected = gNodeIds.some(id => nodeIds.has(id)) ||
+                                 gNoteIds.some(id => noteIds.has(id)) ||
+                                 gMediaIds.some(id => mediaIds.has(id)) ||
+                                 gDrawingIds.some(id => drawingIds.has(id)) ||
+                                 gShapeIds.some(id => shapeIds.has(id));
           const fullySelected = (gNodeIds.length === 0 || gNodeIds.every(id => nodeIds.has(id))) &&
                                 (gNoteIds.length === 0 || gNoteIds.every(id => noteIds.has(id))) &&
-                                (gMediaIds.length === 0 || gMediaIds.every(id => mediaIds.has(id)));
+                                (gMediaIds.length === 0 || gMediaIds.every(id => mediaIds.has(id))) &&
+                                (gDrawingIds.length === 0 || gDrawingIds.every(id => drawingIds.has(id))) &&
+                                (gShapeIds.length === 0 || gShapeIds.every(id => shapeIds.has(id)));
           if (hasAnySelected && fullySelected) groupIds.add(g.id);
         });
 
@@ -15917,6 +16201,9 @@
             id: g.id,
             nodeIds: [...(g.nodeIds || [])].filter(id => sel.nodeIds.includes(id)),
             noteIds: [...(g.noteIds || [])].filter(id => sel.noteIds.includes(id)),
+            mediaIds: [...(g.mediaIds || [])].filter(id => sel.mediaIds.includes(id)),
+            drawingIds: [...(g.drawingIds || [])].filter(id => sel.drawingIds.includes(id)),
+            shapeIds: [...(g.shapeIds || [])].filter(id => sel.shapeIds.includes(id)),
             title: g.title || '',
             blink: !!g.blink,
             paletteIdx: Number(g.paletteIdx) || 0,
@@ -15973,18 +16260,50 @@
         const media = (sel.mediaIds || [])
           .map(id => _liveMedia.find(m => m && (m.id === id || String(m.id) === String(id))))
           .filter(Boolean)
-          .map(m => ({
-            id: m.id,
-            kind: m.kind,
-            name: m.name,
-            x: Number(m.x) || 0,
-            y: Number(m.y) || 0,
-            w: Number(m.w) || 120,
-            h: Number(m.h) || 80,
-            src: m.src || null,
-            attachmentId: m.attachmentId || null,
-            locked: !!m.locked
-          }));
+          .map(m => {
+            const att = (typeof conFindAttachmentById === 'function') ? conFindAttachmentById(m.attachmentId) : null;
+            let dUrl = m.dataUrl || (m._cachedDataUrl && m._cachedDataUrl.startsWith('data:') ? m._cachedDataUrl : '');
+            if (!dUrl && att) {
+              dUrl = (att._cachedDataUrl && att._cachedDataUrl.startsWith('data:')) ? att._cachedDataUrl : (att.dataUrl || '');
+            }
+            if (!dUrl && m.src && m.src.startsWith('data:')) dUrl = m.src;
+            return {
+              id: m.id,
+              kind: m.kind || 'pics',
+              name: m.name || (att ? att.name : 'image'),
+              x: Number(m.x) || 0,
+              y: Number(m.y) || 0,
+              w: Number(m.w) || 120,
+              h: Number(m.h) || 80,
+              src: m.src || null,
+              attachmentId: m.attachmentId || null,
+              mime: m.mime || (att ? att.mime : null),
+              relativePath: m.relativePath || (att ? att.relativePath : ''),
+              base64: m.base64 || (att ? att.base64 : ''),
+              dataUrl: dUrl,
+              pageNumber: m.pageNumber != null ? m.pageNumber : (att ? att.pageNumber : null),
+              pdfZoom: m.pdfZoom != null ? m.pdfZoom : null,
+              pdfRotation: m.pdfRotation != null ? m.pdfRotation : null,
+              pdfLockSize: !!m.pdfLockSize,
+              emojiStickers: Array.isArray(m.emojiStickers) ? JSON.parse(JSON.stringify(m.emojiStickers)) : [],
+              borderWidth: m.borderWidth || null,
+              borderStyle: m.borderStyle || null,
+              borderColor: m.borderColor || null,
+              borderRadius: m.borderRadius != null ? m.borderRadius : null,
+              opacity: m.opacity != null ? m.opacity : null,
+              rotation: m.rotation != null ? m.rotation : 0,
+              brightness: m.brightness != null ? m.brightness : null,
+              contrast: m.contrast != null ? m.contrast : null,
+              saturate: m.saturate != null ? m.saturate : null,
+              grayscale: m.grayscale != null ? m.grayscale : null,
+              sepia: m.sepia != null ? m.sepia : null,
+              invert: m.invert != null ? m.invert : null,
+              hueRotate: m.hueRotate != null ? m.hueRotate : null,
+              blur: m.blur != null ? m.blur : null,
+              hidden: !!m.hidden,
+              locked: !!m.locked
+            };
+          });
 
         const nodeSet = new Set(nodes.map(n => n.id));
         const edges = conEdges
@@ -16046,6 +16365,7 @@
         nodes.forEach(n => { if (n.baseWord) textParts.push(n.baseWord); });
         notes.forEach(n => { if (n.text) textParts.push(n.text); });
         groups.forEach(g => { if (g.title) textParts.push(g.title); });
+        media.forEach(m => { if (m.name) textParts.push(m.name); });
         const plainText = textParts.join('\n');
 
         return {
@@ -16080,12 +16400,44 @@
         if (typeof window.conShapeClearSelection === 'function') {
           window.conShapeClearSelection();
         }
+        if (typeof window.conMediaClearSelection === 'function') {
+          window.conMediaClearSelection();
+        } else if (typeof conMediaSelected !== 'undefined' && conMediaSelected) {
+          conMediaSelected.clear();
+          document.querySelectorAll('#constellation-board .con-media-item.con-media-selected')
+            .forEach(el => el.classList.remove('con-media-selected'));
+        }
         window._conSelectedEdgeId = null;
         conRedrawEdges();
       }
 
       function conClipboardDeletePayload(payload) {
         if (!payload) return;
+
+        if (payload.media && payload.media.length) {
+          payload.media.forEach(m => {
+            const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+            if (mEl) mEl.remove();
+            [conMediaItems, window.conMediaItems, global.conMediaItems].forEach(arr => {
+              if (Array.isArray(arr)) {
+                for (let i = arr.length - 1; i >= 0; i--) {
+                  if (arr[i] && String(arr[i].id) === String(m.id)) arr.splice(i, 1);
+                }
+              }
+            });
+            if (typeof conGroups !== 'undefined') {
+              conGroups.forEach(g => {
+                if (g.mediaIds) g.mediaIds = g.mediaIds.filter(id => String(id) !== String(m.id));
+              });
+            }
+          });
+          if (typeof window.conMediaClearSelection === 'function') window.conMediaClearSelection();
+          if (typeof conMediaSelected !== 'undefined') conMediaSelected.clear();
+          if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          if (typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+          }
+        }
 
         if (payload.notes && payload.notes.length) {
           const _liveNotes = (typeof window.conGetNotes === 'function')
@@ -16286,27 +16638,32 @@
           });
         }
 
+        const drawingIdMap = new Map();
         if (typeof conDrawingFromData === 'function' && Array.isArray(payload.drawings)) {
           payload.drawings.forEach(d => {
             const dx = targetMinX + ((Number(d.x) || 0) - sourceBounds.minX);
             const dy = targetMinY + ((Number(d.y) || 0) - sourceBounds.minY);
-            conDrawingFromData({
+            const newDr = conDrawingFromData({
               ...d,
               id: undefined,
               x: dx,
               y: dy,
               points: Array.isArray(d.points) ? d.points.map(p => (p ? { x: p.x, y: p.y } : null)) : []
             });
+            if (newDr && newDr.id && d.id) {
+              drawingIdMap.set(d.id, newDr.id);
+            }
           });
         }
 
+        const shapeIdMap = new Map();
         if (typeof conShapeFromData === 'function' && Array.isArray(payload.shapes)) {
           const shapeOffsetDx = targetMinX - sourceBounds.minX;
           const shapeOffsetDy = targetMinY - sourceBounds.minY;
           payload.shapes.forEach(s => {
             const sx = targetMinX + ((Number(s.x) || 0) - sourceBounds.minX);
             const sy = targetMinY + ((Number(s.y) || 0) - sourceBounds.minY);
-            conShapeFromData({
+            const newSh = conShapeFromData({
               ...s,
               id: undefined,
               x: sx,
@@ -16317,25 +16674,115 @@
               ly2: s.ly2 != null ? (Number(s.ly2) + shapeOffsetDy) : undefined,
               pts: Array.isArray(s.pts) ? s.pts.map(p => ({ x: Number(p.x) + shapeOffsetDx, y: Number(p.y) + shapeOffsetDy })) : null
             });
+            if (newSh && newSh.id && s.id) {
+              shapeIdMap.set(s.id, newSh.id);
+            }
+          });
+        }
+
+        const mediaIdMap = new Map();
+        const pastedMediaIds = [];
+        if (Array.isArray(payload.media) && payload.media.length > 0) {
+          payload.media.forEach(m => {
+            const mx = targetMinX + ((Number(m.x) || 0) - sourceBounds.minX);
+            const my = targetMinY + ((Number(m.y) || 0) - sourceBounds.minY);
+            const newId = 'cm' + (conMediaNextId++);
+
+            let att = (typeof conFindAttachmentById === 'function') ? conFindAttachmentById(m.attachmentId) : null;
+            if (!att && (m.dataUrl || m.base64)) {
+              _conAttachmentCounter += 1;
+              const newAttId = 'att_' + _conAttachmentCounter;
+              att = {
+                id: newAttId,
+                name: (typeof conSanitizeAttachmentName === 'function') ? conSanitizeAttachmentName(m.name || ('pasted-image-' + Date.now() + '.png')) : (m.name || ('pasted-image-' + Date.now() + '.png')),
+                mime: m.mime || 'image/png',
+                kind: m.kind || 'pics',
+                size: 0,
+                base64: m.base64 || (m.dataUrl && m.dataUrl.includes(',') ? m.dataUrl.split(',')[1] : ''),
+                _cachedDataUrl: m.dataUrl || '',
+                relativePath: m.relativePath || ''
+              };
+              conAttachments.push(att);
+              if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+            }
+
+            const clone = {
+              id: newId,
+              kind: m.kind || (att ? att.kind : 'pics'),
+              attachmentId: att ? att.id : (m.attachmentId || null),
+              name: m.name || (att ? att.name : 'image'),
+              mime: m.mime || (att ? att.mime : 'image/png'),
+              relativePath: m.relativePath || (att ? att.relativePath : ''),
+              file: (att && att.file) ? att.file : (m.file || null),
+              base64: m.base64 || (att ? att.base64 : ''),
+              dataUrl: m.dataUrl || (att && att._cachedDataUrl ? att._cachedDataUrl : ''),
+              x: Math.max(12, Math.round(mx)),
+              y: Math.max(12, Math.round(my)),
+              w: Math.max(20, Number(m.w) || 260),
+              h: Math.max(20, Number(m.h) || 200),
+              locked: false,
+              pageNumber: m.pageNumber != null ? m.pageNumber : (att ? att.pageNumber : null),
+              pdfZoom: m.pdfZoom != null ? m.pdfZoom : null,
+              pdfRotation: m.pdfRotation != null ? m.pdfRotation : null,
+              pdfLockSize: !!m.pdfLockSize,
+              emojiStickers: Array.isArray(m.emojiStickers) ? JSON.parse(JSON.stringify(m.emojiStickers)) : [],
+              borderWidth: m.borderWidth || null,
+              borderStyle: m.borderStyle || null,
+              borderColor: m.borderColor || null,
+              borderRadius: m.borderRadius != null ? m.borderRadius : null,
+              opacity: m.opacity != null ? m.opacity : null,
+              rotation: m.rotation != null ? m.rotation : 0,
+              brightness: m.brightness != null ? m.brightness : null,
+              contrast: m.contrast != null ? m.contrast : null,
+              saturate: m.saturate != null ? m.saturate : null,
+              grayscale: m.grayscale != null ? m.grayscale : null,
+              sepia: m.sepia != null ? m.sepia : null,
+              invert: m.invert != null ? m.invert : null,
+              hueRotate: m.hueRotate != null ? m.hueRotate : null,
+              blur: m.blur != null ? m.blur : null,
+              hidden: !!m.hidden
+            };
+
+            [conMediaItems, window.conMediaItems, global.conMediaItems].forEach(arr => {
+              if (Array.isArray(arr) && !arr.includes(clone)) arr.push(clone);
+            });
+
+            if (typeof conBuildMediaWidget === 'function') {
+              conBuildMediaWidget(clone);
+            } else if (typeof window.conBuildMediaWidget === 'function') {
+              window.conBuildMediaWidget(clone);
+            }
+
+            mediaIdMap.set(m.id, newId);
+            pastedMediaIds.push(newId);
           });
         }
 
         (payload.groups || []).forEach(g => {
           const mappedNodeIds = (g.nodeIds || []).map(id => nodeIdMap.get(id)).filter(Boolean);
           const mappedNoteIds = (g.noteIds || []).map(id => noteIdMap.get(id)).filter(Boolean);
+          const mappedMediaIds = (g.mediaIds || []).map(id => mediaIdMap.get(id)).filter(Boolean);
+          const mappedDrawingIds = (g.drawingIds || []).map(id => drawingIdMap.get(id)).filter(Boolean);
+          const mappedShapeIds = (g.shapeIds || []).map(id => shapeIdMap.get(id)).filter(Boolean);
 
           const gx = targetMinX + ((Number(g.x) || 0) - sourceBounds.minX);
           const gy = targetMinY + ((Number(g.y) || 0) - sourceBounds.minY);
 
-          let newGroup = null;
-          if (mappedNodeIds.length >= 2) {
-            newGroup = conGroupCreate(mappedNodeIds, undefined, undefined, mappedNoteIds, [], [], { phraseGroup: !!g.phraseGroup });
-          } else {
-            newGroup = conGroupCreate([], gx, gy, mappedNoteIds, [], [], { phraseGroup: !!g.phraseGroup });
-            if (newGroup && mappedNodeIds.length === 1) {
-              newGroup.nodeIds = [mappedNodeIds[0]];
+          let newGroup = conGroupCreate(
+            mappedNodeIds,
+            gx,
+            gy,
+            mappedNoteIds,
+            mappedDrawingIds,
+            mappedShapeIds,
+            {
+              phraseGroup: !!g.phraseGroup,
+              drawingGroup: !!g.drawingGroup,
+              invisible: !!g.invisible,
+              mediaIds: mappedMediaIds,
+              noCtxMenu: true
             }
-          }
+          );
           if (!newGroup) return;
 
           newGroup.title = g.title || '';
@@ -16382,6 +16829,16 @@
             if (el) el.classList.add('wn-selected');
           });
         }
+        if (typeof conMediaSelected !== 'undefined' && pastedMediaIds.length > 0) {
+          pastedMediaIds.forEach(mid => {
+            conMediaSelected.add(mid);
+            const el = document.querySelector(`.con-media-item[data-id="${mid}"]`);
+            if (el) el.classList.add('con-media-selected');
+          });
+        }
+        if (typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        }
         return true;
       }
 
@@ -16392,13 +16849,13 @@
         if (!allowWhileTyping && conClipboardTypingFocus()) return false;
         const payload = conClipboardBuildPayload();
         if (!payload) {
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select nodes, notes, or a group first.');
+          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select words, notes, drawings, shapes, or pictures first.');
           return false;
         }
         _conClipboardWrite(payload);
         _lastConCopiedText = payload.plainText || '';
         _lastConCopyTime = Date.now();
-        const textToWrite = payload.plainText || '';
+        const textToWrite = payload.plainText || ('[ClassBoard:' + _lastConCopyTime + ']');
         _lastConCopiedOsText = textToWrite;
         if (textToWrite) {
           _conWriteOsClipboardText(textToWrite);
@@ -16415,13 +16872,13 @@
         if (!allowWhileTyping && conClipboardTypingFocus()) return false;
         const payload = conClipboardBuildPayload();
         if (!payload) {
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select nodes, notes, or a group first.');
+          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select words, notes, drawings, shapes, or pictures first.');
           return false;
         }
         _conClipboardWrite(payload);
         _lastConCopiedText = payload.plainText || '';
         _lastConCopyTime = Date.now();
-        const textToWrite = payload.plainText || '';
+        const textToWrite = payload.plainText || ('[ClassBoard:' + _lastConCopyTime + ']');
         _lastConCopiedOsText = textToWrite;
         if (textToWrite) {
           _conWriteOsClipboardText(textToWrite);
@@ -16494,7 +16951,38 @@
           try { osPlainText = await navigator.clipboard.readText(); } catch (e) {}
         }
 
-        // 3. Handle image paste from OS clipboard
+        const _pasteTarget = _conClipboardRead();
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length) ||
+           (_pasteTarget.media && _pasteTarget.media.length));
+
+        const plain = String(osPlainText || '').trim();
+
+        // 3. Disambiguate Internal Board payload vs External Clipboard
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim()) ||
+          (plain.startsWith('[ClassBoard:') && _lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
+        );
+
+        if (isInternalCopyMatch) {
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length + (_pasteTarget.media || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return ok;
+        }
+
+        // 4. Handle image paste from OS clipboard (external copy)
         if (osImageDataUrl) {
           try {
             const parts = osImageDataUrl.split(',');
@@ -16537,35 +17025,6 @@
           } catch (err) {}
         }
 
-        const _pasteTarget = _conClipboardRead();
-        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
-          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
-           (_pasteTarget.notes && _pasteTarget.notes.length) ||
-           (_pasteTarget.groups && _pasteTarget.groups.length) ||
-           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
-           (_pasteTarget.shapes && _pasteTarget.shapes.length));
-
-        const plain = String(osPlainText || '').trim();
-
-        // 4. Disambiguate Internal Board payload vs External Clipboard
-        const isInternalCopyMatch = hasValidInternalPayload && (
-          !plain ||
-          plain === (_pasteTarget.plainText || '').trim() ||
-          plain === (_lastConCopiedText || '').trim() ||
-          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
-        );
-
-        if (isInternalCopyMatch) {
-          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
-          conPushUndo();
-          const ok = conClipboardPastePayload(_pasteTarget);
-          if (ok && typeof mdbToast === 'function') {
-            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
-            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
-          }
-          return ok;
-        }
-
         // 5. Check for Table (HTML / TSV) from OS clipboard
         const mockClip = {
           getData: (t) => t === 'text/html' ? osHtml : (t === 'text/plain' ? (osPlainText || '') : '')
@@ -16601,7 +17060,7 @@
           conPushUndo();
           const ok = conClipboardPastePayload(_pasteTarget);
           if (ok && typeof mdbToast === 'function') {
-            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length + (_pasteTarget.media || []).length;
             mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
           }
           return ok;
@@ -17191,7 +17650,43 @@
         const clip = (e.clipboardData || window.clipboardData);
         if (!clip) return;
 
-        // 1. Check for image attachments from system clipboard
+        const text = clip.getData ? clip.getData('text/plain') : '';
+        const html = clip.getData ? clip.getData('text/html') : '';
+        const plain = String(text || '').trim();
+
+        // 1. Check for Internal Board Clipboard first if it matches
+        const _pasteTarget = _conClipboardRead();
+        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
+          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
+           (_pasteTarget.notes && _pasteTarget.notes.length) ||
+           (_pasteTarget.groups && _pasteTarget.groups.length) ||
+           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
+           (_pasteTarget.shapes && _pasteTarget.shapes.length) ||
+           (_pasteTarget.media && _pasteTarget.media.length));
+
+        // If internal payload was copied and the OS clipboard matches the copied text,
+        // or hasn't changed since copy, or is empty, paste the internal payload
+        const isInternalCopyMatch = hasValidInternalPayload && (
+          !plain ||
+          plain === (_pasteTarget.plainText || '').trim() ||
+          plain === (_lastConCopiedText || '').trim() ||
+          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim()) ||
+          (plain.startsWith('[ClassBoard:') && _lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
+        );
+
+        if (isInternalCopyMatch) {
+          e.preventDefault();
+          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
+          conPushUndo();
+          const ok = conClipboardPastePayload(_pasteTarget);
+          if (ok && typeof mdbToast === 'function') {
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length + (_pasteTarget.media || []).length;
+            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
+          }
+          return;
+        }
+
+        // 2. Check for image attachments from system clipboard (external copy)
         const items = clip.items || [];
         const imageItems = [];
         for (let i = 0; i < items.length; i++) {
@@ -17246,11 +17741,7 @@
         const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2) : 100);
         const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2) : 100);
 
-        const text = clip.getData ? clip.getData('text/plain') : '';
-        const html = clip.getData ? clip.getData('text/html') : '';
-        const plain = String(text || '').trim();
-
-        // 2. Check for Table data (HTML <table> or TSV)
+        // 3. Check for Table data (HTML <table> or TSV)
         if (typeof wnPasteAsConTable === 'function' && (html.includes('<table') || (plain.includes('\t') && plain.includes('\n')))) {
           if (wnPasteAsConTable(clip, x, y)) {
             e.preventDefault();
@@ -17258,37 +17749,7 @@
           }
         }
 
-        // 3. Check for Internal Board Clipboard vs External Plain Text
-        const _pasteTarget = _conClipboardRead();
-        const hasValidInternalPayload = _pasteTarget && _pasteTarget.type === 'constellation-selection' &&
-          ((_pasteTarget.nodes && _pasteTarget.nodes.length) ||
-           (_pasteTarget.notes && _pasteTarget.notes.length) ||
-           (_pasteTarget.groups && _pasteTarget.groups.length) ||
-           (_pasteTarget.drawings && _pasteTarget.drawings.length) ||
-           (_pasteTarget.shapes && _pasteTarget.shapes.length));
-
-        // If internal payload was copied and the OS clipboard matches the copied text,
-        // or hasn't changed since copy, or is empty, paste the internal payload
-        const isInternalCopyMatch = hasValidInternalPayload && (
-          !plain ||
-          plain === (_pasteTarget.plainText || '').trim() ||
-          plain === (_lastConCopiedText || '').trim() ||
-          (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim())
-        );
-
-        if (isInternalCopyMatch) {
-          e.preventDefault();
-          if (!_conClipboard) { _conClipboard = _pasteTarget; _conClipboardPasteCount = 0; }
-          conPushUndo();
-          const ok = conClipboardPastePayload(_pasteTarget);
-          if (ok && typeof mdbToast === 'function') {
-            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
-            mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
-          }
-          return;
-        }
-
-        // 4. Fallback: If external plain text exists in OS clipboard, create a text note
+        // 4. External plain text: paste as a new text note
         if (plain) {
           e.preventDefault();
           conPushUndo();
@@ -17314,7 +17775,7 @@
           conPushUndo();
           const ok = conClipboardPastePayload(_pasteTarget);
           if (ok && typeof mdbToast === 'function') {
-            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length;
+            const count = (_pasteTarget.nodes || []).length + (_pasteTarget.notes || []).length + (_pasteTarget.groups || []).length + (_pasteTarget.drawings || []).length + (_pasteTarget.shapes || []).length + (_pasteTarget.media || []).length;
             mdbToast('⎗ Pasted ' + count + ' item' + (count === 1 ? '' : 's'));
           }
         }

@@ -586,6 +586,17 @@
             const tbl = _sTablesList.find(t => t.id === tid);
             if (tbl && !tbl.locked) _shapeTableSnaps.push({ tbl, sx: tbl.x, sy: tbl.y });
           });
+          // Snapshot co-selected media items
+          const _shapeMediaSnaps = [];
+          const _sMediaSel = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+          const _sMediaList = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : []);
+          _sMediaSel.forEach(mid => {
+            const m = _sMediaList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            if (m && !m.locked) {
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+              _shapeMediaSnaps.push({ m, sx: m.x, sy: m.y, el: mEl });
+            }
+          });
           function onMove(ev) {
             if (!dragging) return;
             const zoom = window.conCurrentZoom || 1;
@@ -721,6 +732,14 @@
                 if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
               });
             }
+            // Move co-selected media items
+            if (_shapeMediaSnaps.length > 0) {
+              _shapeMediaSnaps.forEach(({ m, sx, sy, el: mEl }) => {
+                m.x = Math.max(0, sx + dx); m.y = Math.max(0, sy + dy);
+                const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+                if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
+              });
+            }
             if (window._conMirrorSend) {
               _pendingShapeMoveMsg = {
                 type: 'shape-move',
@@ -751,6 +770,9 @@
                     }
                     if (_shapeTableSnaps.length > 0) {
                       window._conMirrorSend({ type: 'table-move', positions: _shapeTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
+                    }
+                    if (_shapeMediaSnaps.length > 0) {
+                      window._conMirrorSend({ type: 'media-move', positions: _shapeMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y })) });
                     }
                   }
                 });
@@ -786,9 +808,12 @@
               if (_shapeTableSnaps.length > 0) {
                 window._conMirrorSend({ type: 'table-move', positions: _shapeTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y })) });
               }
+              if (_shapeMediaSnaps.length > 0) {
+                window._conMirrorSend({ type: 'media-move', positions: _shapeMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y })) });
+              }
               if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
             } else if (!_hasActuallyMoved && ev && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey) {
-              const _totalOther = (_conShapeSelected.size > 1 ? _conShapeSelected.size - 1 : 0) + _shapeNodeSnaps.length + _shapeNoteSnaps.length + _shapeDrawSnaps.length + _shapeTableSnaps.length;
+              const _totalOther = (_conShapeSelected.size > 1 ? _conShapeSelected.size - 1 : 0) + _shapeNodeSnaps.length + _shapeNoteSnaps.length + _shapeDrawSnaps.length + _shapeTableSnaps.length + _shapeMediaSnaps.length;
               if (_totalOther > 0) {
                 if (window.conNodeClearSelection) window.conNodeClearSelection();
                 if (window.conNoteClearSelection) window.conNoteClearSelection();

@@ -156,12 +156,18 @@
       const conSelected = window.conGetSelected ? window.conGetSelected() : (typeof conSelected !== 'undefined' ? conSelected : (global.conSelected || null));
       const conMultiSelected = window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : (global.conMultiSelected || null));
       const conNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : (global.conNodes || []));
-      const hasSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-      if (!hasSelection) return false;
+      const conMediaSelected = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : (global.conMediaSelected || null));
+      const conMediaItems = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : (global.conMediaItems || []));
+      const hasNodeSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
+      const hasMediaSelection = conMediaSelected && conMediaSelected.size > 0;
+      if (!hasNodeSelection && !hasMediaSelection) return false;
       const targets = (conMultiSelected && conMultiSelected.size > 0)
         ? conNodes.filter(n => conMultiSelected.has(n.id))
-        : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
-      if (!targets.length) return false;
+        : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+      const mediaTargets = hasMediaSelection
+        ? conMediaItems.filter(m => conMediaSelected.has(m.id) && !m.locked)
+        : [];
+      if (!targets.length && !mediaTargets.length) return false;
       if (typeof window.conPushUndo === 'function') window.conPushUndo();
       else if (typeof global.conPushUndo === 'function') global.conPushUndo();
       const movedPhraseGroups = new Set();
@@ -186,9 +192,23 @@
           node.el.style.top = node.y + 'px';
         }
       });
+      mediaTargets.forEach(m => {
+        m.x += dx; m.y += dy;
+        const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+        if (mEl) {
+          mEl.style.left = m.x + 'px';
+          mEl.style.top = m.y + 'px';
+        }
+      });
       movedPhraseGroups.forEach(pg => { phraseLayout(pg); });
       if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+      if (mediaTargets.length > 0 && window._conMirrorSend) {
+        window._conMirrorSend({
+          type: 'media-move',
+          positions: mediaTargets.map(m => ({ id: m.id, x: m.x, y: m.y }))
+        });
+      }
       return true;
     }
 
@@ -266,9 +286,9 @@
       { id: 'node_set_page', name: 'Set Page Number', desc: 'Set or edit page number for selected node', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/page-number.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSetPage === 'function') window.conCtxSetPage(); else if (typeof conCtxSetPage === 'function') conCtxSetPage(); } },
 
       // Clipboard
-      { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') window.conClipboardCopy({ allowWhileTyping: false }); } },
-      { id: 'clipboard_cut', name: 'Cut', desc: 'Cut selected nodes or notes', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/split.svg', defaultShortcut: { ctrl: true, key: 'x' }, fn: () => { if (typeof window.conClipboardCut === 'function') window.conClipboardCut({ allowWhileTyping: false }); } },
-      { id: 'clipboard_paste', name: 'Paste', desc: 'Paste copied nodes, notes or clipboard images', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/paste.svg', defaultShortcut: { ctrl: true, key: 'v' }, fn: () => { if (typeof window.conClipboardPaste === 'function') window.conClipboardPaste(); } },
+      { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes, notes, or pictures', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') return window.conClipboardCopy({ allowWhileTyping: false }); return false; } },
+      { id: 'clipboard_cut', name: 'Cut', desc: 'Cut selected nodes, notes, or pictures', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/split.svg', defaultShortcut: { ctrl: true, key: 'x' }, fn: () => { if (typeof window.conClipboardCut === 'function') return window.conClipboardCut({ allowWhileTyping: false }); return false; } },
+      { id: 'clipboard_paste', name: 'Paste', desc: 'Paste copied nodes, notes, pictures or clipboard images', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/paste.svg', defaultShortcut: { ctrl: true, key: 'v' }, fn: () => { if (typeof window.conClipboardPaste === 'function') return window.conClipboardPaste(); return false; } },
 
       // Modes & Drawing Tools
       { id: 'mode_move', name: 'Text / Selection Mode', desc: 'Switch to text selection and moving mode', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/text.svg', defaultShortcut: { ctrl: true, key: 'w' }, fn: () => { if (typeof window.conSetMode === 'function') window.conSetMode('move'); else if (typeof window.setBoardMode === 'function') window.setBoardMode('text'); else if (typeof setBoardMode === 'function') setBoardMode('text'); } },

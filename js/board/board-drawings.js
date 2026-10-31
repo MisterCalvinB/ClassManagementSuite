@@ -282,6 +282,17 @@
             const tbl = _allTablesList.find(t => t.id === tid);
             if (tbl && !tbl.locked) _dragTableSnaps.push({ tbl, sx: tbl.x, sy: tbl.y });
           });
+          // Snapshot selected media items for joint drag
+          _dragMediaSnaps = [];
+          const _mediaSel = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+          const _mediaList = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : []);
+          _mediaSel.forEach(mid => {
+            const m = _mediaList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            if (m && !m.locked) {
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+              _dragMediaSnaps.push({ m, sx: m.x, sy: m.y, el: mEl });
+            }
+          });
         });
         document.addEventListener('mousemove', function (e) {
           if (!dragging) return;
@@ -334,6 +345,14 @@
               if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
             });
           }
+          // Move co-selected media items
+          if (_dragMediaSnaps.length > 0) {
+            _dragMediaSnaps.forEach(({ m, sx, sy, el: mEl }) => {
+              m.x = Math.max(0, sx + dx); m.y = Math.max(0, sy + dy);
+              const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+              if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
+            });
+          }
           if (window._conMirrorSend) {
             _pendingDrawMoveMsg = {
               type: 'drawing-move',
@@ -367,6 +386,13 @@
                 positions: _dragTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
               };
             }
+            let _pendingMediaMoveMsgLocal = null;
+            if (_dragMediaSnaps.length > 0) {
+              _pendingMediaMoveMsgLocal = {
+                type: 'media-move',
+                positions: _dragMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
+              };
+            }
             if (!_dragDrawRaf) {
               _dragDrawRaf = requestAnimationFrame(function () {
                 _dragDrawRaf = null;
@@ -376,6 +402,7 @@
                   if (_pendingNoteMoveMsg) { window._conMirrorSend(_pendingNoteMoveMsg); _pendingNoteMoveMsg = null; }
                   if (_pendingShapeMoveMsg) { window._conMirrorSend(_pendingShapeMoveMsg); _pendingShapeMoveMsg = null; }
                   if (_pendingTableMoveMsg) { window._conMirrorSend(_pendingTableMoveMsg); _pendingTableMoveMsg = null; }
+                  if (_pendingMediaMoveMsgLocal) { window._conMirrorSend(_pendingMediaMoveMsgLocal); _pendingMediaMoveMsgLocal = null; }
                 }
               });
             }
@@ -418,9 +445,15 @@
                 positions: _dragTableSnaps.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
               });
             }
+            if (_dragMediaSnaps.length > 0) {
+              window._conMirrorSend({
+                type: 'media-move',
+                positions: _dragMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
+              });
+            }
             if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
           } else if (!_hasActuallyMoved && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
-            const _totalOther = (conDrawingSelected.size > 1 ? conDrawingSelected.size - 1 : 0) + _dragNodeSnaps.length + _dragNoteSnaps.length + _dragShapeSnaps.length + _dragTableSnaps.length;
+            const _totalOther = (conDrawingSelected.size > 1 ? conDrawingSelected.size - 1 : 0) + _dragNodeSnaps.length + _dragNoteSnaps.length + _dragShapeSnaps.length + _dragTableSnaps.length + _dragMediaSnaps.length;
             if (_totalOther > 0) {
               if (window.conNodeClearSelection) window.conNodeClearSelection();
               if (window.conNoteClearSelection) window.conNoteClearSelection();

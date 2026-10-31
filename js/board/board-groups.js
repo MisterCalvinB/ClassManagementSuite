@@ -135,7 +135,7 @@
         conGroupRefit(group);
         conGroupApplyStyle(group);
         // If empty group, open its context menu automatically
-        if (nodeIds.length === 0 && placeholderX !== undefined) {
+        if (_totalGroupItems === 0 && placeholderX !== undefined && !(opts && opts.noCtxMenu)) {
           const fakeEvt = {
             clientX: placeholderX + 170, clientY: placeholderY + 30,
             preventDefault: () => { }, stopPropagation: () => { }
@@ -232,6 +232,9 @@
             allRects.forEach(r => { minX = Math.min(minX, r.x); minY = Math.min(minY, r.y); });
             group.el.style.left = (minX - _pad) + 'px';
             group.el.style.top = (minY - _pad) + 'px';
+          } else {
+            group.el.style.left = (group._px || 40) + 'px';
+            group.el.style.top = (group._py || 40) + 'px';
           }
           return;
         }

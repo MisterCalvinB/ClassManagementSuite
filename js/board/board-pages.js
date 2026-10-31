@@ -2431,9 +2431,16 @@
             if (!window._conThumbImgCache) window._conThumbImgCache = new Map();
             let cachedImg = window._conThumbImgCache.get(cacheKey);
 
+            var _tb = (m.brightness != null && Number.isFinite(Number(m.brightness))) ? Number(m.brightness) : 100;
+            var _tc = (m.contrast != null && Number.isFinite(Number(m.contrast))) ? Number(m.contrast) : 100;
+            var _ts = (m.saturation != null && Number.isFinite(Number(m.saturation))) ? Number(m.saturation) : 100;
+            var _hasF = (_tb !== 100 || _tc !== 100 || _ts !== 100);
+
             if (cachedImg && cachedImg.complete && cachedImg.naturalWidth > 0) {
               try {
+                if (_hasF) ctx.filter = 'brightness(' + _tb + '%) contrast(' + _tc + '%) saturate(' + _ts + '%)';
                 ctx.drawImage(cachedImg, mx, my, mw, mh);
+                if (_hasF) ctx.filter = 'none';
                 drawn = true;
               } catch (_) { }
             }
@@ -2442,7 +2449,9 @@
               const liveImg = document.querySelector('.con-media-item[data-id="' + m.id + '"] img');
               if (liveImg && liveImg.complete && liveImg.naturalWidth > 0) {
                 try {
+                  if (_hasF) ctx.filter = 'brightness(' + _tb + '%) contrast(' + _tc + '%) saturate(' + _ts + '%)';
                   ctx.drawImage(liveImg, mx, my, mw, mh);
+                  if (_hasF) ctx.filter = 'none';
                   drawn = true;
                   window._conThumbImgCache.set(cacheKey, liveImg);
                 } catch (_) { }
@@ -2999,6 +3008,14 @@
         allShapes.forEach(s => {
           if (typeof _conShapeSelected !== 'undefined') _conShapeSelected.add(s.id);
           if (s && s.el) s.el.classList.add('con-shape-selected');
+        });
+        const allMedia = (typeof window.conGetMediaItems === 'function')
+          ? window.conGetMediaItems()
+          : ((typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : []);
+        allMedia.forEach(m => {
+          if (typeof conMediaSelected !== 'undefined') conMediaSelected.add(m.id);
+          const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+          if (mEl) mEl.classList.add('con-media-selected');
         });
         if (typeof conUpdateToolbarStatus === 'function') conUpdateToolbarStatus();
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -4098,6 +4115,9 @@
           borderColor: m.borderColor || '#111111',
           opacity: (m.opacity != null && Number.isFinite(Number(m.opacity))) ? Number(m.opacity) : 1,
           rotation: (m.kind === 'pics' ? (Number(m.rotation) || 0) : undefined),
+          brightness: (m.kind === 'pics' && m.brightness != null && Number(m.brightness) !== 100) ? Number(m.brightness) : undefined,
+          contrast: (m.kind === 'pics' && m.contrast != null && Number(m.contrast) !== 100) ? Number(m.contrast) : undefined,
+          saturation: (m.kind === 'pics' && m.saturation != null && Number(m.saturation) !== 100) ? Number(m.saturation) : undefined,
           _fullscreen: m._fullscreen ? true : undefined,
           _fsZoom: m._fullscreen ? (m._fsZoom || 1) : undefined,
           _fsPanX: m._fullscreen ? (m._fsPanX || 0) : undefined,
@@ -6705,7 +6725,14 @@
             const srcRect = src.getBoundingClientRect(); const contentRect = content.getBoundingClientRect();
             const relX = srcRect.left - contentRect.left; const relY = srcRect.top - contentRect.top;
             const dw = srcRect.width; const dh = srcRect.height; if (!dw || !dh) return false;
-            ctx.drawImage(src, contentX + relX, contentY + relY, dw, dh); return true;
+            var _tb = (m.brightness != null && Number.isFinite(Number(m.brightness))) ? Number(m.brightness) : 100;
+            var _tc = (m.contrast != null && Number.isFinite(Number(m.contrast))) ? Number(m.contrast) : 100;
+            var _ts = (m.saturation != null && Number.isFinite(Number(m.saturation))) ? Number(m.saturation) : 100;
+            var _hasF = (_tb !== 100 || _tc !== 100 || _ts !== 100);
+            if (_hasF && src.tagName === 'IMG') ctx.filter = 'brightness(' + _tb + '%) contrast(' + _tc + '%) saturate(' + _ts + '%)';
+            ctx.drawImage(src, contentX + relX, contentY + relY, dw, dh);
+            if (_hasF && src.tagName === 'IMG') ctx.filter = 'none';
+            return true;
           } catch { return false; }
         };
         let drawn = false;

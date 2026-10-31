@@ -1072,6 +1072,14 @@
         var bWidth = m.borderWidth != null ? Number(m.borderWidth) : 1.5;
         var bDash = m.borderStyle === 'dashed' ? ' stroke-dasharray="6,4"' : (m.borderStyle === 'dotted' ? ' stroke-dasharray="2,3"' : '');
         var clipId = 'bes-img-' + Math.random().toString(36).substring(2, 9);
+        var filterParts = [];
+        var bVal = (m.brightness != null && Number.isFinite(Number(m.brightness))) ? Number(m.brightness) : 100;
+        var cVal = (m.contrast != null && Number.isFinite(Number(m.contrast))) ? Number(m.contrast) : 100;
+        var sVal = (m.saturation != null && Number.isFinite(Number(m.saturation))) ? Number(m.saturation) : 100;
+        if (bVal !== 100) filterParts.push('brightness(' + bVal + '%)');
+        if (cVal !== 100) filterParts.push('contrast(' + cVal + '%)');
+        if (sVal !== 100) filterParts.push('saturate(' + sVal + '%)');
+        var filterAttr = filterParts.length > 0 ? (' style="filter: ' + filterParts.join(' ') + ';"') : '';
         svg += '  <g class="bes-media"' + rotTransform + opAttr + '>\n' +
           '    <defs>\n' +
           '      <clipPath id="' + clipId + '">\n' +
@@ -1079,7 +1087,7 @@
           '      </clipPath>\n' +
           '    </defs>\n' +
           '    <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" rx="6" fill="#f8f9fa" stroke="' + bColor + '" stroke-width="' + bWidth + '"' + bDash + ' />\n' +
-          '    <image href="' + escapeXml(imgSrc) + '" xlink:href="' + escapeXml(imgSrc) + '" x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" preserveAspectRatio="xMidYMid meet" clip-path="url(#' + clipId + ')" />\n' +
+          '    <image href="' + escapeXml(imgSrc) + '" xlink:href="' + escapeXml(imgSrc) + '" x="' + mx + '" y="' + my + '" width="' + mw + '" height="' + mh + '" preserveAspectRatio="xMidYMid meet" clip-path="url(#' + clipId + ')"' + filterAttr + ' />\n' +
           '  </g>\n';
       } else {
         svg += '  <g class="bes-media">\n' +
@@ -1689,6 +1697,12 @@
             }
             if (m.opacity != null && Number.isFinite(Number(m.opacity))) {
               ctx.globalAlpha = Number(m.opacity);
+            }
+            var bVal = (m.brightness != null && Number.isFinite(Number(m.brightness))) ? Number(m.brightness) : 100;
+            var cVal = (m.contrast != null && Number.isFinite(Number(m.contrast))) ? Number(m.contrast) : 100;
+            var sVal = (m.saturation != null && Number.isFinite(Number(m.saturation))) ? Number(m.saturation) : 100;
+            if (bVal !== 100 || cVal !== 100 || sVal !== 100) {
+              ctx.filter = 'brightness(' + bVal + '%) contrast(' + cVal + '%) saturate(' + sVal + '%)';
             }
             ctx.drawImage(domImg, mx, my, mw, mh);
             ctx.strokeStyle = m.borderColor || '#333333';

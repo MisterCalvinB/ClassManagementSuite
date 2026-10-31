@@ -4505,6 +4505,7 @@
       let _drawOffsets = [];
       let _shapeOffsets = [];
       let _tableOffsets = [];
+      let _mediaOffsets = [];
       let _preDragSnap = null;
       let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
@@ -4652,6 +4653,17 @@
         _nTableSel.forEach(tid => {
           const tbl = _nTableList.find(t => t.id === tid);
           if (tbl && !tbl.locked) _tableOffsets.push({ tbl, sx: tbl.x, sy: tbl.y });
+        });
+        // Snapshot selected media items for joint drag
+        _mediaOffsets = [];
+        const _nMediaSel = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : new Set());
+        const _nMediaList = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : []);
+        _nMediaSel.forEach(mid => {
+          const m = _nMediaList.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+          if (m && !m.locked) {
+            const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+            _mediaOffsets.push({ m, sx: m.x, sy: m.y, el: mEl });
+          }
         });
         note.style.cursor = 'grabbing';
         e.preventDefault();
@@ -4828,6 +4840,14 @@
             if (tbl.el) { tbl.el.style.left = tbl.x + 'px'; tbl.el.style.top = tbl.y + 'px'; }
           });
         }
+        if (_mediaOffsets.length > 0) {
+          _mediaOffsets.forEach(({ m, sx, sy, el: mEl }) => {
+            m.x = Math.max(0, sx + dx);
+            m.y = Math.max(0, sy + dy);
+            const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+            if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
+          });
+        }
         // Lightweight mirror update — send object positions directly
         if (hasDragged && window._conMirrorSend) {
           if (!_conNoteMoveRaf) {
@@ -4858,6 +4878,12 @@
                 window._conMirrorSend({
                   type: 'table-move',
                   positions: _tableOffsets.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+                });
+              }
+              if (_mediaOffsets.length > 0) {
+                window._conMirrorSend({
+                  type: 'media-move',
+                  positions: _mediaOffsets.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
                 });
               }
             });
@@ -4900,6 +4926,12 @@
                 positions: _tableOffsets.map(({ tbl }) => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
               });
             }
+            if (_mediaOffsets.length > 0) {
+              window._conMirrorSend({
+                type: 'media-move',
+                positions: _mediaOffsets.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
+              });
+            }
           }
           if (_nodeOffsets.length > 0) {
             _nodeOffsets.forEach(({ nd }) => {
@@ -4924,7 +4956,7 @@
           // Full mirror sync with revision bumped
           if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         } else if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-          const totalOther = (conNoteSelected.size > 1 ? conNoteSelected.size - 1 : 0) + _nodeOffsets.length + _drawOffsets.length + _shapeOffsets.length + _tableOffsets.length;
+          const totalOther = (conNoteSelected.size > 1 ? conNoteSelected.size - 1 : 0) + _nodeOffsets.length + _drawOffsets.length + _shapeOffsets.length + _tableOffsets.length + _mediaOffsets.length;
           if (totalOther > 0) {
             document.querySelectorAll('#constellation-board .con-word-note.wn-selected')
               .forEach(n => n.classList.remove('wn-selected'));
@@ -4951,6 +4983,7 @@
         _drawOffsets = [];
         _shapeOffsets = [];
         _tableOffsets = [];
+        _mediaOffsets = [];
         setTimeout(() => {
           window._conMirrorDragging = false;
         }, 60);

@@ -439,6 +439,17 @@
           contentEl.style.transform = item.rotation ? 'rotate(' + item.rotation + 'deg)' : '';
         }
       }
+      var imgEl = wrap.querySelector('.con-media-asset') || wrap.querySelector('img');
+      if (imgEl && item.kind === 'pics') {
+        var b = (item.brightness != null && Number.isFinite(Number(item.brightness))) ? Number(item.brightness) : 100;
+        var c = (item.contrast != null && Number.isFinite(Number(item.contrast))) ? Number(item.contrast) : 100;
+        var s = (item.saturation != null && Number.isFinite(Number(item.saturation))) ? Number(item.saturation) : 100;
+        if (b !== 100 || c !== 100 || s !== 100) {
+          imgEl.style.filter = 'brightness(' + b + '%) contrast(' + c + '%) saturate(' + s + '%)';
+        } else {
+          imgEl.style.filter = '';
+        }
+      }
       wrap.classList.toggle('con-media-blink', !!item.blink);
       wrap.classList.toggle('con-media-locked', !!item.locked);
       wrap.classList.toggle('con-media-hidden', !!item.hidden);
@@ -667,6 +678,23 @@
       var op = (item.opacity != null && Number.isFinite(Number(item.opacity))) ? Number(item.opacity) : 1;
       if (opSlider) opSlider.value = String(op);
       if (opVal) opVal.textContent = Math.round(op * 100) + '%';
+      var brSlider = document.getElementById('con-img-sp-brightness');
+      var brVal = document.getElementById('con-img-sp-brightness-val');
+      var br = (item.brightness != null && Number.isFinite(Number(item.brightness))) ? Number(item.brightness) : 100;
+      if (brSlider) brSlider.value = String(br);
+      if (brVal) brVal.textContent = br + '%';
+      var ctSlider = document.getElementById('con-img-sp-contrast');
+      var ctVal = document.getElementById('con-img-sp-contrast-val');
+      var ct = (item.contrast != null && Number.isFinite(Number(item.contrast))) ? Number(item.contrast) : 100;
+      if (ctSlider) ctSlider.value = String(ct);
+      if (ctVal) ctVal.textContent = ct + '%';
+      var satSlider = document.getElementById('con-img-sp-saturation');
+      var satVal = document.getElementById('con-img-sp-saturation-val');
+      var sat = (item.saturation != null && Number.isFinite(Number(item.saturation))) ? Number(item.saturation) : 100;
+      if (satSlider) satSlider.value = String(sat);
+      if (satVal) satVal.textContent = sat + '%';
+      var bwBtn = document.getElementById('con-img-sp-preset-bw');
+      if (bwBtn) bwBtn.classList.toggle('active', sat === 0);
       var blinkBtn = document.getElementById('con-img-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-img-sp-lock-btn');
@@ -726,6 +754,92 @@
       if (!_conCtxItem) return;
       _conCtxItem.opacity = v;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+    };
+    var _conFilterMirrorRaf = null;
+    function _conSendFilterMirror(item) {
+      if (!item || !window._conMirrorSend) return;
+      if (_conFilterMirrorRaf) cancelAnimationFrame(_conFilterMirrorRaf);
+      _conFilterMirrorRaf = requestAnimationFrame(function () {
+        _conFilterMirrorRaf = null;
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'media-filter',
+            id: String(item.id),
+            brightness: (item.brightness != null && Number.isFinite(Number(item.brightness))) ? Number(item.brightness) : 100,
+            contrast: (item.contrast != null && Number.isFinite(Number(item.contrast))) ? Number(item.contrast) : 100,
+            saturation: (item.saturation != null && Number.isFinite(Number(item.saturation))) ? Number(item.saturation) : 100
+          });
+        }
+      });
+    }
+    window.conImgSpSetBrightness = function (v) {
+      if (!_conCtxItem) return;
+      _conCtxItem.brightness = Number(v);
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      _conSendFilterMirror(_conCtxItem);
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      else if (typeof boardSetDirty === 'function') boardSetDirty(true);
+    };
+    window.conImgSpSetContrast = function (v) {
+      if (!_conCtxItem) return;
+      _conCtxItem.contrast = Number(v);
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      _conSendFilterMirror(_conCtxItem);
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      else if (typeof boardSetDirty === 'function') boardSetDirty(true);
+    };
+    window.conImgSpSetSaturation = function (v) {
+      if (!_conCtxItem) return;
+      var numV = Number(v);
+      _conCtxItem.saturation = numV;
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      _conSendFilterMirror(_conCtxItem);
+      var bwBtn = document.getElementById('con-img-sp-preset-bw');
+      if (bwBtn) bwBtn.classList.toggle('active', numV === 0);
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      else if (typeof boardSetDirty === 'function') boardSetDirty(true);
+    };
+    window.conImgSpResetFilters = function () {
+      if (!_conCtxItem) return;
+      _conCtxItem.brightness = 100;
+      _conCtxItem.contrast = 100;
+      _conCtxItem.saturation = 100;
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      _conSendFilterMirror(_conCtxItem);
+      var bEl = document.getElementById('con-img-sp-brightness');
+      var bVal = document.getElementById('con-img-sp-brightness-val');
+      if (bEl) bEl.value = '100';
+      if (bVal) bVal.textContent = '100%';
+      var cEl = document.getElementById('con-img-sp-contrast');
+      var cVal = document.getElementById('con-img-sp-contrast-val');
+      if (cEl) cEl.value = '100';
+      if (cVal) cVal.textContent = '100%';
+      var sEl = document.getElementById('con-img-sp-saturation');
+      var sVal = document.getElementById('con-img-sp-saturation-val');
+      if (sEl) sEl.value = '100';
+      if (sVal) sVal.textContent = '100%';
+      var bwBtn = document.getElementById('con-img-sp-preset-bw');
+      if (bwBtn) bwBtn.classList.remove('active');
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      else if (typeof boardSetDirty === 'function') boardSetDirty(true);
+    };
+    window.conImgSpSetPreset = function (preset) {
+      if (!_conCtxItem) return;
+      if (preset === 'bw') {
+        var isAlreadyBw = (_conCtxItem.saturation === 0);
+        var newSat = isAlreadyBw ? 100 : 0;
+        _conCtxItem.saturation = newSat;
+        var sEl = document.getElementById('con-img-sp-saturation');
+        var sVal = document.getElementById('con-img-sp-saturation-val');
+        if (sEl) sEl.value = String(newSat);
+        if (sVal) sVal.textContent = newSat + '%';
+        var bwBtn = document.getElementById('con-img-sp-preset-bw');
+        if (bwBtn) bwBtn.classList.toggle('active', newSat === 0);
+      }
+      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      _conSendFilterMirror(_conCtxItem);
+      if (typeof conMarkBoardDirty === 'function') conMarkBoardDirty();
+      else if (typeof boardSetDirty === 'function') boardSetDirty(true);
     };
     window.conImgSpToggleBlink = function () {
       if (!_conCtxItem) return;
