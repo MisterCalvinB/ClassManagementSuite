@@ -1907,11 +1907,11 @@
       left: 0;
       z-index: 9999;
       background: #fff;
-      border: 2.5px solid #111;
-      border-radius: 4px;
-      box-shadow: 4px 4px 0 #111;
-      min-width: 230px;
-      max-width: 340px;
+      border: 2px solid #333;
+      border-radius: 6px;
+      box-shadow: 4px 4px 0 #333;
+      min-width: 270px;
+      max-width: 370px;
       padding: 0;
       display: none;
       flex-direction: column;
@@ -1943,21 +1943,75 @@
       opacity: 0.75;
     }
     .con-comp-popup-close:hover { opacity: 1; }
+    .con-comp-popup-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #475569;
+    }
+    .con-comp-popup-select-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .con-comp-popup-select-all input[type="checkbox"],
+    .con-comp-popup-item-check {
+      accent-color: #2563eb;
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      flex-shrink: 0;
+    }
+    .con-comp-popup-selected-count {
+      font-size: 0.7rem;
+      color: #64748b;
+      font-weight: 600;
+    }
     .con-comp-popup-list {
       list-style: none;
       margin: 0;
-      padding: 6px 0;
-      max-height: 220px;
+      padding: 4px 0;
+      max-height: 240px;
       overflow-y: auto;
     }
     .con-comp-popup-item {
       display: flex;
-      flex-direction: column;
-      padding: 5px 12px;
+      flex-direction: row;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 6px 10px;
       border-bottom: 1px solid #f0f0f0;
-      cursor: default;
+      cursor: pointer;
+      transition: background-color 0.12s ease;
+      user-select: none;
     }
     .con-comp-popup-item:last-child { border-bottom: none; }
+    .con-comp-popup-item:hover {
+      background: #f1f5f9;
+    }
+    .con-comp-popup-item.is-selected {
+      background: #eff6ff;
+    }
+    .con-comp-popup-item-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .con-comp-popup-item-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
     .con-comp-popup-item-code {
       font-size: 0.72rem;
       font-weight: 800;
@@ -1969,9 +2023,37 @@
       margin-top: 1px;
       line-height: 1.3;
     }
+    .con-comp-popup-item-action {
+      background: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      padding: 3px 5px;
+      cursor: pointer;
+      opacity: 0.55;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+      flex-shrink: 0;
+      align-self: center;
+    }
+    .con-comp-popup-item:hover .con-comp-popup-item-action {
+      opacity: 0.95;
+    }
+    .con-comp-popup-item-action:hover {
+      opacity: 1 !important;
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+    .con-comp-popup-item-action img {
+      width: 13px;
+      height: 13px;
+    }
     .con-comp-popup-footer {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
       padding: 7px 10px;
       border-top: 1.5px solid #e2e8f0;
       background: #f8fafc;
@@ -1979,11 +2061,11 @@
     .con-comp-popup-manage-btn {
       font-size: 0.7rem;
       font-weight: 800;
-      padding: 4px 10px;
-      border: 2px solid #111;
-      border-radius: 3px;
-      background: #111;
-      color: #fff;
+      padding: 4px 9px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #fff;
+      color: #111;
       cursor: pointer;
       box-shadow: 2px 2px 0 #555;
       transition: transform 0.1s ease, box-shadow 0.1s ease;
@@ -1991,6 +2073,283 @@
     .con-comp-popup-manage-btn:hover {
       transform: translate(-1px, -1px);
       box-shadow: 3px 3px 0 #555;
+      background: #f3f4f6;
+    }
+    .con-comp-popup-add-btn {
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 4px 10px;
+      border: 2px solid #333;
+      border-radius: 4px;
+      background: #e2c96e;
+      color: #111;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 #555;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
+    }
+    .con-comp-popup-add-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555;
+      background: #ebd47c;
+    }
+    .con-comp-popup-add-btn img {
+      width: 12px;
+      height: 12px;
+    }
+
+    /* Competence note creation popover */
+    .con-comp-note-popover {
+      position: fixed;
+      z-index: 100075;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 8px;
+      box-shadow: 4px 4px 0 #333333;
+      width: 380px;
+      max-width: calc(100vw - 24px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: inherit;
+      font-size: 0.84rem;
+      color: #111111;
+      animation: conCompPopoverIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes conCompPopoverIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .con-comp-note-popover-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #f5f5f0;
+      border-bottom: 2px solid #333333;
+      font-weight: 900;
+      font-size: 0.82rem;
+      letter-spacing: 0.3px;
+    }
+    .con-comp-note-popover-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .con-comp-note-popover-title-wrap img {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+    .con-comp-note-popover-close {
+      background: none;
+      border: none;
+      font-size: 1.15rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #555555;
+      padding: 0 3px;
+    }
+    .con-comp-note-popover-close:hover {
+      color: #111111;
+    }
+    .con-comp-note-popover-body {
+      padding: 12px 14px;
+      max-height: 480px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+    .con-comp-note-section-title {
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #555555;
+      margin-bottom: 5px;
+    }
+    .con-comp-note-scope-group,
+    .con-comp-note-mode-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #f8fafc;
+      padding: 7px 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+    }
+    .con-comp-note-radio-label {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #334155;
+    }
+    .con-comp-note-radio-label input[type="radio"] {
+      accent-color: #2563eb;
+      cursor: pointer;
+      margin: 0;
+    }
+    .con-comp-note-elements-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      background: #fafaf9;
+      border: 1px solid #e7e5e4;
+      border-radius: 6px;
+      padding: 8px 10px;
+    }
+    .con-comp-note-check-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #292524;
+      user-select: none;
+    }
+    .con-comp-note-check-label input[type="checkbox"] {
+      accent-color: #2563eb;
+      cursor: pointer;
+      width: 14px;
+      height: 14px;
+      margin: 0;
+    }
+    .con-comp-note-detailed-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .con-comp-note-detailed-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .con-comp-note-detailed-quick-btn {
+      background: none;
+      border: none;
+      color: #2563eb;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .con-comp-note-detailed-quick-btn:hover {
+      color: #1d4ed8;
+    }
+    .con-comp-note-detailed-line {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      font-size: 0.76rem;
+      color: #334155;
+      cursor: pointer;
+      line-height: 1.35;
+      padding: 2px 0;
+      user-select: none;
+    }
+    .con-comp-note-detailed-line input[type="checkbox"] {
+      accent-color: #2563eb;
+      cursor: pointer;
+      width: 13px;
+      height: 13px;
+      margin: 2px 0 0;
+      flex-shrink: 0;
+    }
+    .con-comp-note-colors-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .con-comp-note-color-chip {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      border: 2px solid #333333;
+      cursor: pointer;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      position: relative;
+    }
+    .con-comp-note-color-chip:hover {
+      transform: scale(1.1);
+    }
+    .con-comp-note-color-chip.is-active {
+      box-shadow: 0 0 0 2px #2563eb;
+    }
+    .con-comp-note-preview-box {
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      padding: 8px 10px;
+      min-height: 48px;
+      max-height: 140px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+    }
+    .con-comp-note-popover-ftr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      background: #f5f5f0;
+      border-top: 2px solid #333333;
+      gap: 8px;
+    }
+    .con-comp-note-ftr-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .con-comp-note-btn {
+      font-size: 0.76rem;
+      font-weight: 800;
+      padding: 5px 11px;
+      border: 2px solid #333333;
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 2px 2px 0 #555555;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .con-comp-note-btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555555;
+    }
+    .con-comp-note-btn-primary {
+      background: #e2c96e;
+      color: #111111;
+    }
+    .con-comp-note-btn-secondary {
+      background: #ffffff;
+      color: #333333;
+    }
+    .con-comp-note-btn img {
+      width: 13px;
+      height: 13px;
     }
     .con-comp-pill {
       display: none; /* hidden — retained for legacy node badge refs */

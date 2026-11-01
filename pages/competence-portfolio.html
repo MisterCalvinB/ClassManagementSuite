@@ -202,17 +202,23 @@
         </button>
       </div>
 
-      <!-- View Switcher -->
-      <div class="cp-view-switcher">
-        <button type="button" class="cp-view-btn active" id="cp-view-accordion-btn" onclick="cpSwitchView('accordion')">
-          <span data-i18n="cpViewAccordion">Domain View</span>
+      <!-- Options & View Switcher -->
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="cp-toggle-detail-btn" id="cp-toggle-detail-btn" onclick="cpToggleGlobalDetailDesc()" title="Toggle detailed description on all cards">
+          <img src="../assets/icons/file-text.svg" alt="" style="width:13px;height:13px;" />
+          <span id="cp-toggle-detail-label" data-i18n="cpShowDetailedDescription">Detailed Description</span>
         </button>
-        <button type="button" class="cp-view-btn" id="cp-view-timeline-btn" onclick="cpSwitchView('timeline')">
-          <span data-i18n="cpViewTimeline">Audit Timeline</span>
-        </button>
-        <button type="button" class="cp-view-btn" id="cp-view-table-btn" onclick="cpSwitchView('table')">
-          <span data-i18n="cpViewTable">Matrix Table</span>
-        </button>
+        <div class="cp-view-switcher">
+          <button type="button" class="cp-view-btn active" id="cp-view-accordion-btn" onclick="cpSwitchView('accordion')">
+            <span data-i18n="cpViewAccordion">Domain View</span>
+          </button>
+          <button type="button" class="cp-view-btn" id="cp-view-timeline-btn" onclick="cpSwitchView('timeline')">
+            <span data-i18n="cpViewTimeline">Audit Timeline</span>
+          </button>
+          <button type="button" class="cp-view-btn" id="cp-view-table-btn" onclick="cpSwitchView('table')">
+            <span data-i18n="cpViewTable">Matrix Table</span>
+          </button>
+        </div>
       </div>
     </section>
 
@@ -270,6 +276,15 @@
       </div>
       <div class="cp-modal-body">
         <div id="modal-comp-desc" style="font-size:0.88rem;color:var(--ink-secondary);line-height:1.45;background:var(--bg-subtle);padding:10px 14px;border-radius:6px;border:1px solid var(--border);"></div>
+
+        <div id="modal-detailed-section" style="margin-top:6px;display:none;">
+          <div style="font-size:0.82rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;" data-i18n="cpDetailedDescription">
+            Detailed Description
+          </div>
+          <div id="modal-detailed-box" class="cp-modal-detail-box">
+            <ul id="modal-detailed-list" class="cp-modal-detail-list"></ul>
+          </div>
+        </div>
         
         <div id="modal-linked-section" style="margin-top:10px;display:none;">
           <div style="font-size:0.82rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:6px;" data-i18n="portfolioLinkedCompetencesTitle">
@@ -296,6 +311,9 @@
     let _activeClassId = '';
     let _activePortfolio = null;
     let _activeView = 'accordion';
+    let _showDetailedDesc = (function () {
+      try { return localStorage.getItem('cmt_cp_show_detailed') === '1'; } catch (_) { return false; }
+    })();
     let _availableSubjects = [];
     let _availableYears = [];
     let _availableLevels = [];
@@ -305,6 +323,7 @@
     // ── Initialization ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async function () {
       if (typeof applyTranslations === 'function') applyTranslations();
+      cpUpdateDetailToggleUI();
 
       // Read query param if passed: ?classId=...
       const params = new URLSearchParams(window.location.search);
@@ -324,6 +343,46 @@
         });
       }
     });
+
+    // ── Detailed Description Toggle Handlers ───────────────────────────
+    function cpUpdateDetailToggleUI() {
+      const btn = document.getElementById('cp-toggle-detail-btn');
+      const label = document.getElementById('cp-toggle-detail-label');
+      if (!btn || !label) return;
+      btn.classList.toggle('active', _showDetailedDesc);
+      const key = _showDetailedDesc ? 'cpHideDetailedDescription' : 'cpShowDetailedDescription';
+      label.setAttribute('data-i18n', key);
+      label.textContent = typeof t === 'function' ? t(key, _showDetailedDesc ? 'Hide Details' : 'Detailed Description') : (_showDetailedDesc ? 'Hide Details' : 'Detailed Description');
+    }
+
+    function cpToggleGlobalDetailDesc() {
+      _showDetailedDesc = !_showDetailedDesc;
+      try {
+        localStorage.setItem('cmt_cp_show_detailed', _showDetailedDesc ? '1' : '0');
+      } catch (_) {}
+      cpUpdateDetailToggleUI();
+      // Smooth in-place DOM sync
+      document.querySelectorAll('.cp-comp-detail-box').forEach(el => {
+        el.style.display = _showDetailedDesc ? 'block' : 'none';
+      });
+      document.querySelectorAll('.cp-table-detail-list').forEach(el => {
+        el.style.display = _showDetailedDesc ? 'block' : 'none';
+      });
+      document.querySelectorAll('.cp-detail-pill-btn').forEach(btn => {
+        btn.classList.toggle('active', _showDetailedDesc);
+      });
+    }
+
+    function cpToggleCardDetails(btn) {
+      if (!btn) return;
+      const card = btn.closest('.cp-comp-card') || btn.closest('td');
+      if (!card) return;
+      const box = card.querySelector('.cp-comp-detail-box') || card.querySelector('.cp-table-detail-list');
+      if (!box) return;
+      const isHidden = window.getComputedStyle(box).display === 'none';
+      box.style.display = isHidden ? 'block' : 'none';
+      btn.classList.toggle('active', isHidden);
+    }
 
     // ── Load Classes into Dropdown ─────────────────────────────────────
     async function cpLoadClasses(preferredClassId = null) {
@@ -735,7 +794,11 @@
           if (!matchStatus) return false;
         }
         if (search) {
-          const hay = `${c.code} ${c.title} ${c.description} ${c.tags ? c.tags.join(' ') : ''} ${c.category} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`.toLowerCase();
+          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+            ? CompetenceAggregatorService.getDetailedLines(c)
+            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+          const dText = dLines.join(' ');
+          const hay = `${c.code} ${c.title} ${c.description} ${dText} ${c.tags ? c.tags.join(' ') : ''} ${c.category} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`.toLowerCase();
           if (!hay.includes(search)) return false;
         }
         return true;
@@ -828,6 +891,13 @@
 
         items.forEach(item => {
           const comp = item.competence;
+          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+            ? CompetenceAggregatorService.getDetailedLines(comp)
+            : (Array.isArray(comp.detailedDescription) ? comp.detailedDescription : []);
+          const hasDetails = dLines.length > 0;
+          const detailBoxDisplay = _showDetailedDesc ? 'block' : 'none';
+          const detailBtnActive = _showDetailedDesc ? ' active' : '';
+
           const compCard = document.createElement('div');
           compCard.className = 'cp-comp-card';
           compCard.onclick = () => cpOpenDetailModal(item);
@@ -844,17 +914,35 @@
             statusLabel = 'Untouched';
           }
 
+          const detailBtnHtml = hasDetails
+            ? `<button type="button" class="cp-detail-pill-btn${detailBtnActive}" onclick="event.stopPropagation(); cpToggleCardDetails(this)" title="Toggle detailed description">
+                <img src="../assets/icons/file-text.svg" alt="" style="width:11px;height:11px;" />
+                <span>${dLines.length} ${typeof t === 'function' ? t('cpDetailsCount', '{n} details').replace('{n}', dLines.length) : (dLines.length + ' details')}</span>
+              </button>`
+            : '';
+
+          const detailBoxHtml = hasDetails
+            ? `<div class="cp-comp-detail-box" style="display:${detailBoxDisplay};">
+                <div class="cp-comp-detail-box-title">${typeof t === 'function' ? t('cpDetailedDescription', 'Detailed Description') : 'Detailed Description'}:</div>
+                <ul class="cp-comp-detail-list">
+                  ${dLines.map(l => `<li>${cpEscapeHtml(l)}</li>`).join('')}
+                </ul>
+              </div>`
+            : '';
+
           compCard.innerHTML = `
             <div class="cp-comp-top">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 <span class="cp-comp-code">${cpEscapeHtml(comp.code)}</span>
                 ${comp.level ? `<span class="cp-comp-level-badge" title="Level: ${cpEscapeHtml(comp.level)}">${cpEscapeHtml(comp.level)}</span>` : ''}
                 ${comp._sourceDb ? `<span class="cp-comp-source-badge" title="Source: ${cpEscapeHtml(comp._sourceDb)}">${cpEscapeHtml(comp._sourceDb)}</span>` : ''}
+                ${detailBtnHtml}
               </div>
               <span class="cp-comp-status-pill ${statusClass}">${statusLabel}</span>
             </div>
             <div class="cp-comp-title">${cpEscapeHtml(comp.title)}</div>
             ${comp.description ? `<div class="cp-comp-desc">${cpEscapeHtml(comp.description)}</div>` : ''}
+            ${detailBoxHtml}
             <div class="cp-comp-footer">
               <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
                 ${comp.subCategory ? `<span style="font-weight:700;color:var(--ink-secondary);">${cpEscapeHtml(comp.subCategory)}</span>` : ''}
@@ -919,6 +1007,12 @@
       Object.keys(categories).sort().forEach(cat => {
         categories[cat].forEach(item => {
           const c = item.competence;
+          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+            ? CompetenceAggregatorService.getDetailedLines(c)
+            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+          const hasDetails = dLines.length > 0;
+          const detailListDisplay = _showDetailedDesc ? 'block' : 'none';
+
           const tr = document.createElement('tr');
           tr.style.cursor = 'pointer';
           tr.onclick = () => cpOpenDetailModal(item);
@@ -927,9 +1021,25 @@
             ? c.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join(' ') 
             : '—';
 
+          const detailTableHtml = hasDetails
+            ? `<div style="margin-top:4px;">
+                <button type="button" class="cp-detail-pill-btn${_showDetailedDesc ? ' active' : ''}" onclick="event.stopPropagation(); cpToggleCardDetails(this)" style="font-size:0.68rem;padding:1px 6px;">
+                  <img src="../assets/icons/file-text.svg" alt="" style="width:10px;height:10px;" />
+                  <span>${dLines.length} ${typeof t === 'function' ? t('cpDetailsCount', '{n} details').replace('{n}', dLines.length) : (dLines.length + ' details')}</span>
+                </button>
+                <ul class="cp-table-detail-list" style="display:${detailListDisplay};">
+                  ${dLines.map(l => `<li>${cpEscapeHtml(l)}</li>`).join('')}
+                </ul>
+              </div>`
+            : '';
+
           tr.innerHTML = `
             <td><span class="cp-comp-code">${cpEscapeHtml(c.code)}</span></td>
-            <td><strong>${cpEscapeHtml(c.title)}</strong></td>
+            <td>
+              <strong>${cpEscapeHtml(c.title)}</strong>
+              ${c.description ? `<div class="cp-table-desc">${cpEscapeHtml(c.description)}</div>` : ''}
+              ${detailTableHtml}
+            </td>
             <td>${cpEscapeHtml(c.category || '')}</td>
             <td>${cpEscapeHtml(c.subCategory || '—')}</td>
             <td>${cpEscapeHtml(c.yearLevel || '—')}</td>
@@ -990,6 +1100,22 @@
         </div>
         <div style="line-height:1.45;color:var(--ink);">${cpEscapeHtml(c.description || 'No detailed statement or description available.')}</div>
       `;
+
+      // Render Detailed Description if present
+      const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+        ? CompetenceAggregatorService.getDetailedLines(c)
+        : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+      const detailedSec = document.getElementById('modal-detailed-section');
+      const detailedList = document.getElementById('modal-detailed-list');
+      if (detailedSec && detailedList) {
+        if (dLines && dLines.length) {
+          detailedSec.style.display = 'block';
+          detailedList.innerHTML = dLines.map(line => `<li>${cpEscapeHtml(line)}</li>`).join('');
+        } else {
+          detailedSec.style.display = 'none';
+          detailedList.innerHTML = '';
+        }
+      }
 
       // Query cross-database linked competences
       const linkedSection = document.getElementById('modal-linked-section');
@@ -1141,12 +1267,15 @@
     function cpExportCsv() {
       if (!_activePortfolio) return;
       const rows = [
-        ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description']
+        ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description', 'Detailed Description']
       ];
 
       Object.keys(_activePortfolio.categories).forEach(cat => {
         _activePortfolio.categories[cat].forEach(item => {
           const c = item.competence;
+          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+            ? CompetenceAggregatorService.getDetailedLines(c)
+            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
           rows.push([
             _activePortfolio.className,
             c.code,
@@ -1164,7 +1293,8 @@
             item.assessedCount,
             item.averageScorePct !== null ? `${item.averageScorePct}%` : '',
             item.latestDate || '',
-            c.description || ''
+            c.description || '',
+            dLines.join(' ; ')
           ]);
         });
       });

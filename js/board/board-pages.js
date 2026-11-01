@@ -8995,6 +8995,7 @@
     let _conCompSelectedObjects = new Map();
     let _conCompFilterSelectedOnly = false;
     let _conPlannerSuggestedCompetences = [];
+    let _conCompPopupSelectedSet = new Set();
 
     function conRenderHeaderCompetenceBar() {
       const bar = document.getElementById('con-header-competence-bar');
@@ -9021,12 +9022,24 @@
         popup.id = 'con-comp-group-popup';
         bar.appendChild(popup);
 
-        /* Close when clicking outside */
+        /* Close when clicking outside (defensively ignore clicks inside popover) */
         document.addEventListener('mousedown', function _conCompPopupOutside(e) {
+          const popover = document.getElementById('con-comp-note-popover');
+          if (popover && popover.contains(e.target)) return;
           if (!bar.contains(e.target)) {
             popup.classList.remove('con-comp-popup-open');
           }
         }, true);
+      }
+
+      /* Clean stale selection IDs if competences list changed */
+      if (hasComps) {
+        const liveCodes = new Set(_conCurrentCompetences.map(c => String(c.id || c.code || c.title || '')));
+        for (const selId of Array.from(_conCompPopupSelectedSet)) {
+          if (!liveCodes.has(selId)) _conCompPopupSelectedSet.delete(selId);
+        }
+      } else {
+        _conCompPopupSelectedSet.clear();
       }
 
       /* --- Update toggle button label --- */
@@ -9067,19 +9080,118 @@
       hdr.appendChild(closeBtn);
       popup.appendChild(hdr);
 
+      /* Multi-select Toolbar */
+      let countSpan = null;
+      let selectAllCb = null;
+      let addNotesBtn = null;
+
+      function updatePopupAddBtnState() {
+        if (!addNotesBtn) return;
+        const selectedCount = _conCompPopupSelectedSet.size;
+        if (selectedCount > 0) {
+          addNotesBtn.innerHTML = `<img src="../assets/icons/note.svg" alt="" /><span>${t_('compPopupAddSelected', 'Add Selected ({count}) to Board').replace('{count}', selectedCount)}</span>`;
+          if (countSpan) countSpan.textContent = selectedCount + ' / ' + _conCurrentCompetences.length;
+          if (selectAllCb) selectAllCb.checked = (selectedCount === _conCurrentCompetences.length);
+        } else {
+          addNotesBtn.innerHTML = `<img src="../assets/icons/note.svg" alt="" /><span>${t_('compPopupAddAll', 'Add All to Board')}</span>`;
+          if (countSpan) countSpan.textContent = '';
+          if (selectAllCb) selectAllCb.checked = false;
+        }
+      }
+
+      if (hasComps && _conCurrentCompetences.length > 1) {
+        const toolbar = document.createElement('div');
+        toolbar.className = 'con-comp-popup-toolbar';
+
+        const selectAllLbl = document.createElement('label');
+        selectAllLbl.className = 'con-comp-popup-select-all';
+        selectAllCb = document.createElement('input');
+        selectAllCb.type = 'checkbox';
+        selectAllCb.id = 'con-comp-popup-check-all';
+        selectAllCb.checked = (_conCurrentCompetences.length > 0 && _conCompPopupSelectedSet.size === _conCurrentCompetences.length);
+        selectAllCb.onchange = () => {
+          if (selectAllCb.checked) {
+            _conCurrentCompetences.forEach(c => _conCompPopupSelectedSet.add(String(c.id || c.code || c.title || '')));
+          } else {
+            _conCompPopupSelectedSet.clear();
+          }
+          list.querySelectorAll('.con-comp-popup-item').forEach(liEl => {
+            const chkEl = liEl.querySelector('.con-comp-popup-item-check');
+            if (chkEl) chkEl.checked = selectAllCb.checked;
+            liEl.classList.toggle('is-selected', selectAllCb.checked);
+          });
+          updatePopupAddBtnState();
+        };
+
+        const selectAllSpan = document.createElement('span');
+        selectAllSpan.textContent = t_('compPopupSelectAll', 'Select all');
+        selectAllLbl.appendChild(selectAllCb);
+        selectAllLbl.appendChild(selectAllSpan);
+
+        countSpan = document.createElement('span');
+        countSpan.className = 'con-comp-popup-selected-count';
+
+        toolbar.appendChild(selectAllLbl);
+        toolbar.appendChild(countSpan);
+        popup.appendChild(toolbar);
+      }
+
       /* List */
       const list = document.createElement('ul');
       list.className = 'con-comp-popup-list';
       if (hasComps) {
         _conCurrentCompetences.forEach(c => {
           if (!c) return;
+          const cId = String(c.id || c.code || c.title || '');
           const code = String(c.code || c.title || c.id || '');
           const title = String(c.title || code);
           const isFromLesson = !!(c.autoLinkedFrom || c.cascadeType === 'lesson_competence');
           const lessonBadge = isFromLesson ? `<span class="con-comp-from-lesson-badge" style="display:inline-block;margin-left:6px;font-size:0.65rem;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-weight:700;">${t_('compFromLessonTag', 'From Lesson')}</span>` : '';
+          
+          const isChecked = _conCompPopupSelectedSet.has(cId);
           const li = document.createElement('li');
-          li.className = 'con-comp-popup-item';
-          li.innerHTML = `<span class="con-comp-popup-item-code">${boardEscapeHtml(code)}</span>${title && title !== code ? `<span class="con-comp-popup-item-title">${boardEscapeHtml(title)}</span>` : ''}${lessonBadge}`;
+          li.className = 'con-comp-popup-item' + (isChecked ? ' is-selected' : '');
+          li.title = t_('compNotePopoverTitle', 'Copy competence to board');
+
+          const chk = document.createElement('input');
+          chk.type = 'checkbox';
+          chk.className = 'con-comp-popup-item-check';
+          chk.checked = isChecked;
+          chk.title = t_('compShowSelected', 'Select');
+          chk.onclick = (e) => e.stopPropagation();
+          chk.onchange = () => {
+            if (chk.checked) _conCompPopupSelectedSet.add(cId);
+            else _conCompPopupSelectedSet.delete(cId);
+            li.classList.toggle('is-selected', chk.checked);
+            updatePopupAddBtnState();
+          };
+
+          const body = document.createElement('div');
+          body.className = 'con-comp-popup-item-body';
+          body.innerHTML = `<div class="con-comp-popup-item-header"><span class="con-comp-popup-item-code">${boardEscapeHtml(code)}</span>${lessonBadge}</div>${title && title !== code ? `<div class="con-comp-popup-item-title">${boardEscapeHtml(title)}</div>` : ''}`;
+
+          const actionBtn = document.createElement('button');
+          actionBtn.type = 'button';
+          actionBtn.className = 'con-comp-popup-item-action';
+          actionBtn.title = t_('compNotePopoverTitle', 'Copy to Board as Note');
+          actionBtn.innerHTML = '<img src="../assets/icons/note.svg" alt="" />';
+          actionBtn.onclick = (e) => {
+            e.stopPropagation();
+            conOpenCompetenceNotePopover(c, li);
+          };
+
+          li.appendChild(chk);
+          li.appendChild(body);
+          li.appendChild(actionBtn);
+
+          /* Clicking the item opens the popover to copy elements to board */
+          li.onclick = (e) => {
+            if (e.target === chk) return;
+            e.preventDefault();
+            e.stopPropagation();
+            conOpenCompetenceNotePopover(c, li);
+          };
+
           list.appendChild(li);
         });
       }
@@ -9094,7 +9206,845 @@
       manageBtn.textContent = t_('compPopupManage', 'Manage Tags');
       manageBtn.onclick = (e) => { e.stopPropagation(); popup.classList.remove('con-comp-popup-open'); conOpenCompetenceModal('board'); };
       footer.appendChild(manageBtn);
+
+      if (hasComps) {
+        addNotesBtn = document.createElement('button');
+        addNotesBtn.type = 'button';
+        addNotesBtn.className = 'con-comp-popup-add-btn';
+        updatePopupAddBtnState();
+        addNotesBtn.onclick = (e) => {
+          e.stopPropagation();
+          const selectedComps = _conCompPopupSelectedSet.size > 0
+            ? _conCurrentCompetences.filter(c => _conCompPopupSelectedSet.has(String(c.id || c.code || c.title || '')))
+            : _conCurrentCompetences.slice();
+          conOpenCompetenceNotePopover(selectedComps, addNotesBtn, { isBatch: true });
+        };
+        footer.appendChild(addNotesBtn);
+      }
+
       popup.appendChild(footer);
+    }
+
+    // ── Competence Note Popover & Board Export Helpers ─────────────────
+    let _conActiveCompNotePopover = null;
+
+    async function conResolveFullCompetence(comp) {
+      if (!comp) return null;
+      if (!_conAvailableCompetences || !_conAvailableCompetences.length) {
+        try {
+          await conLoadAvailableCompetences();
+        } catch (_) {}
+      }
+      const idStr = String(comp.id || '').trim().toLowerCase();
+      const codeStr = String(comp.code || '').trim().toLowerCase();
+      const titleStr = String(comp.title || '').trim().toLowerCase();
+
+      const hit = (_conAvailableCompetences || []).find(ac => {
+        if (!ac) return false;
+        const acId = String(ac.id || '').trim().toLowerCase();
+        const acCode = String(ac.code || '').trim().toLowerCase();
+        const acTitle = String(ac.title || '').trim().toLowerCase();
+        return (idStr && acId && acId === idStr) ||
+               (codeStr && acCode && acCode === codeStr) ||
+               (titleStr && acTitle && acTitle === titleStr);
+      });
+      const merged = Object.assign({}, hit || {}, comp);
+
+      let detailed = [];
+      if (window.CompetenceAggregatorService && typeof CompetenceAggregatorService.getDetailedLines === 'function') {
+        detailed = CompetenceAggregatorService.getDetailedLines(merged);
+        if (!detailed.length && hit) detailed = CompetenceAggregatorService.getDetailedLines(hit);
+      }
+      if (!detailed.length) {
+        const raw = merged.detailedDescription || (hit && hit.detailedDescription);
+        detailed = Array.isArray(raw)
+          ? raw.map(s => String(s).trim()).filter(Boolean)
+          : (raw ? String(raw).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
+      }
+      merged.detailedDescription = detailed;
+      return merged;
+    }
+
+    function conBuildCompetenceNoteHtml(c, options = {}) {
+      if (!c) return '';
+      const code = String(c.code || c.id || '').trim();
+      const title = String(c.title || code).trim();
+      const cat = String(c.category || c.domain || c.strand || '').trim();
+      const level = [c.level, c.yearLevel].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join(' • ');
+      const desc = String(c.description || c.statement || '').trim();
+      const tasks = String(c.sampleTasks || c.examples || '').trim();
+      const rawTags = Array.isArray(c.tags) ? c.tags : (c.tags ? String(c.tags).split(',') : []);
+      const tagsStr = rawTags.map(t => String(t).trim()).filter(Boolean).map(t => t.startsWith('#') ? t : ('#' + t)).join(' ');
+
+      const parts = [];
+
+      // Header: Code Badge and Title
+      const headerParts = [];
+      if (options.code && code) {
+        headerParts.push(`<span class="con-comp-note-code" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:0.8em;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:0.3px;margin-right:6px;vertical-align:middle;">${boardEscapeHtml(code)}</span>`);
+      }
+      if (options.title && title) {
+        headerParts.push(`<strong class="con-comp-note-title" style="font-size:1.02em;color:#111111;vertical-align:middle;">${boardEscapeHtml(title)}</strong>`);
+      }
+      if (headerParts.length) {
+        parts.push(`<div class="con-comp-note-hdr" style="margin-bottom:6px;border-bottom:1.5px solid #333333;padding-bottom:4px;line-height:1.35;">${headerParts.join(' ')}</div>`);
+      }
+
+      // Metadata line: Category and/or Level
+      const metaParts = [];
+      if (options.category && cat) {
+        metaParts.push(`<span><strong>${(typeof t === 'function' ? t('compNoteElCategory') : 'Domain')}:</strong> ${boardEscapeHtml(cat)}</span>`);
+      }
+      if (options.level && level) {
+        metaParts.push(`<span><strong>${(typeof t === 'function' ? t('compNoteElLevel') : 'Level')}:</strong> ${boardEscapeHtml(level)}</span>`);
+      }
+      if (metaParts.length) {
+        parts.push(`<div class="con-comp-note-meta" style="font-size:0.78em;color:#4b5563;margin-bottom:6px;line-height:1.35;">${metaParts.join(' &nbsp;•&nbsp; ')}</div>`);
+      }
+
+      // Description
+      if (options.desc && desc) {
+        parts.push(`<div class="con-comp-note-desc" style="font-size:0.86em;color:#222222;line-height:1.45;margin-bottom:6px;">${boardEscapeHtml(desc)}</div>`);
+      }
+
+      // Detailed Description lines
+      const detailedLines = Array.isArray(c.detailedDescription)
+        ? c.detailedDescription.map(s => String(s).trim()).filter(Boolean)
+        : (c.detailedDescription ? String(c.detailedDescription).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
+
+      const activeDetailedLines = (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines))
+        ? detailedLines.filter(l => options.selectedDetailedLines.includes(l))
+        : detailedLines;
+
+      if (options.detailedDesc && activeDetailedLines.length > 0) {
+        const label = (typeof t === 'function' ? t('compNoteElDetailedDesc') : 'Detailed Description');
+        const itemsHtml = activeDetailedLines.map(l => `<li style="margin-bottom:3px;">${boardEscapeHtml(l)}</li>`).join('');
+        parts.push(`<div class="con-comp-note-detailed" style="font-size:0.83em;color:#222222;line-height:1.45;margin-bottom:6px;"><strong style="color:#111;">${boardEscapeHtml(label)}:</strong><ul style="margin:4px 0 0;padding-left:18px;">${itemsHtml}</ul></div>`);
+      }
+
+      // Sample tasks
+      if (options.tasks && tasks) {
+        parts.push(`<div class="con-comp-note-tasks" style="font-size:0.8em;color:#1f2937;background:#f3f4f6;border-left:3px solid #1d4ed8;padding:4px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;"><strong>${(typeof t === 'function' ? t('compNoteElTasks') : 'Tasks')}:</strong> ${boardEscapeHtml(tasks)}</div>`);
+      }
+
+      // Tags
+      if (options.tags && tagsStr) {
+        parts.push(`<div class="con-comp-note-tags" style="font-size:0.75em;color:#6b7280;font-weight:600;margin-top:2px;">${boardEscapeHtml(tagsStr)}</div>`);
+      }
+
+      return `<div class="con-comp-card-content" style="font-family:inherit;line-height:1.4;">${parts.join('')}</div>`;
+    }
+
+    function conBuildCompetenceNoteText(c, options = {}) {
+      if (!c) return '';
+      const code = String(c.code || c.id || '').trim();
+      const title = String(c.title || code).trim();
+      const cat = String(c.category || c.domain || c.strand || '').trim();
+      const level = [c.level, c.yearLevel].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join(' • ');
+      const desc = String(c.description || c.statement || '').trim();
+      const tasks = String(c.sampleTasks || c.examples || '').trim();
+      const rawTags = Array.isArray(c.tags) ? c.tags : (c.tags ? String(c.tags).split(',') : []);
+      const tagsStr = rawTags.map(t => String(t).trim()).filter(Boolean).map(t => t.startsWith('#') ? t : ('#' + t)).join(' ');
+
+      const lines = [];
+      const head = [];
+      if (options.code && code) head.push(`[${code}]`);
+      if (options.title && title) head.push(title);
+      if (head.length) lines.push(head.join(' '));
+
+      const meta = [];
+      if (options.category && cat) meta.push(`Domain: ${cat}`);
+      if (options.level && level) meta.push(`Level: ${level}`);
+      if (meta.length) lines.push(meta.join(' • '));
+
+      if (options.desc && desc) lines.push(desc);
+
+      const detailedLines = Array.isArray(c.detailedDescription)
+        ? c.detailedDescription.map(s => String(s).trim()).filter(Boolean)
+        : (c.detailedDescription ? String(c.detailedDescription).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
+
+      const activeDetailedLines = (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines))
+        ? detailedLines.filter(l => options.selectedDetailedLines.includes(l))
+        : detailedLines;
+
+      if (options.detailedDesc && activeDetailedLines.length > 0) {
+        lines.push('Detailed Description:\n' + activeDetailedLines.map(l => `- ${l}`).join('\n'));
+      }
+
+      if (options.tasks && tasks) lines.push(`Tasks: ${tasks}`);
+      if (options.tags && tagsStr) lines.push(tagsStr);
+
+      return lines.join('\n\n');
+    }
+
+    function conBuildCombinedCompetenceNoteHtml(compsList, options = {}) {
+      const title = (typeof t === 'function' ? t('compPopupTitle') : 'Board Competences');
+      const titleHtml = `<div style="display:flex;align-items:center;gap:6px;font-size:1.02em;font-weight:900;color:#111;margin-bottom:8px;border-bottom:2px solid #333;padding-bottom:4px;"><img src="../assets/icons/award.svg" style="width:16px;height:16px;vertical-align:middle;" alt="" /> <span>${boardEscapeHtml(title)} (${compsList.length})</span></div>`;
+      const itemsHtml = compsList.map(c => conBuildCompetenceNoteHtml(c, options)).join('<div style="height:1px;background:#e5e7eb;margin:8px 0;"></div>');
+      return `<div class="con-comp-combined-card">${titleHtml}${itemsHtml}</div>`;
+    }
+
+    function conBuildCombinedCompetenceNoteText(compsList, options = {}) {
+      return `# Competences (${compsList.length})\n\n` + compsList.map(c => conBuildCompetenceNoteText(c, options)).join('\n\n---\n\n');
+    }
+
+    function conCloseCompetenceNotePopover() {
+      if (_conActiveCompNotePopover) {
+        if (_conActiveCompNotePopover._cleanup) {
+          _conActiveCompNotePopover._cleanup();
+        }
+        _conActiveCompNotePopover.remove();
+        _conActiveCompNotePopover = null;
+      }
+    }
+
+    async function conOpenCompetenceNotePopover(targetCompOrList, anchorEl, popoverOpts = {}) {
+      conCloseCompetenceNotePopover();
+
+      const t_ = (k, fb) => (typeof t === 'function' ? t(k) : fb);
+
+      // Determine initial selection
+      let singleComp = null;
+      let multiComps = [];
+      let isBatchInitial = !!popoverOpts.isBatch;
+
+      if (Array.isArray(targetCompOrList)) {
+        multiComps = targetCompOrList.slice();
+        singleComp = multiComps[0] || null;
+      } else {
+        singleComp = targetCompOrList;
+        multiComps = [targetCompOrList];
+      }
+
+      // Pre-resolve full competence details
+      if (singleComp) {
+        singleComp = await conResolveFullCompetence(singleComp);
+      }
+      multiComps = await Promise.all(multiComps.map(c => conResolveFullCompetence(c)));
+
+      // Load saved user preferences
+      let elemPrefs = { code: true, title: true, desc: true, detailedDesc: false, category: false, level: false, tasks: false, tags: false };
+      try {
+        const stored = localStorage.getItem('cmt-comp-note-elements-pref');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object') {
+            elemPrefs = Object.assign(elemPrefs, parsed);
+          }
+        }
+      } catch (_) {}
+
+      let chosenColor = '#ffffff';
+      try {
+        const storedColor = localStorage.getItem('cmt-comp-note-color-pref');
+        if (storedColor) chosenColor = storedColor;
+      } catch (_) {}
+
+      let chosenMode = 'separate';
+      try {
+        const storedMode = localStorage.getItem('cmt-comp-note-mode-pref');
+        if (storedMode === 'combined' || storedMode === 'separate') chosenMode = storedMode;
+      } catch (_) {}
+
+      // Scope: 'single', 'selected', or 'all'
+      const totalBoardComps = (_conCurrentCompetences || []).length;
+      const selectedPopupCount = _conCompPopupSelectedSet.size;
+      let currentScope = (isBatchInitial || !singleComp)
+        ? (selectedPopupCount > 0 ? 'selected' : 'all')
+        : 'single';
+
+      function getEffectiveCompetenceList() {
+        if (currentScope === 'single' && singleComp) {
+          return [singleComp];
+        }
+        if (currentScope === 'selected' && selectedPopupCount > 0) {
+          return _conCurrentCompetences.filter(c => _conCompPopupSelectedSet.has(String(c.id || c.code || c.title || '')));
+        }
+        return _conCurrentCompetences.slice();
+      }
+
+      // Create Popover element
+      const pop = document.createElement('div');
+      pop.id = 'con-comp-note-popover';
+      pop.className = 'con-comp-note-popover';
+      _conActiveCompNotePopover = pop;
+
+      // Header
+      const hdr = document.createElement('div');
+      hdr.className = 'con-comp-note-popover-hdr';
+
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'con-comp-note-popover-title-wrap';
+      const hdrIcon = document.createElement('img');
+      hdrIcon.src = '../assets/icons/award.svg';
+      hdrIcon.alt = '';
+      const hdrText = document.createElement('span');
+      titleWrap.appendChild(hdrIcon);
+      titleWrap.appendChild(hdrText);
+
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'con-comp-note-popover-close';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.title = 'Close';
+      closeBtn.onclick = (e) => { e.stopPropagation(); conCloseCompetenceNotePopover(); };
+
+      hdr.appendChild(titleWrap);
+      hdr.appendChild(closeBtn);
+      pop.appendChild(hdr);
+
+      // Body
+      const body = document.createElement('div');
+      body.className = 'con-comp-note-popover-body';
+
+      // 1. Scope selection (only if more than 1 competence on the board)
+      let scopeWrap = null;
+      if (totalBoardComps > 1) {
+        scopeWrap = document.createElement('div');
+        const scopeTitle = document.createElement('div');
+        scopeTitle.className = 'con-comp-note-section-title';
+        scopeTitle.textContent = t_('compNoteScopeTitle', 'Apply To');
+        scopeWrap.appendChild(scopeTitle);
+
+        const scopeGroup = document.createElement('div');
+        scopeGroup.className = 'con-comp-note-scope-group';
+
+        // Single option
+        if (singleComp) {
+          const singleCode = String(singleComp.code || singleComp.id || singleComp.title || '');
+          const lblSingle = document.createElement('label');
+          lblSingle.className = 'con-comp-note-radio-label';
+          const rSingle = document.createElement('input');
+          rSingle.type = 'radio';
+          rSingle.name = 'conCompNoteScope';
+          rSingle.value = 'single';
+          rSingle.checked = (currentScope === 'single');
+          rSingle.onchange = () => { if (rSingle.checked) { currentScope = 'single'; onStateChanged(); } };
+          const spanSingle = document.createElement('span');
+          spanSingle.textContent = t_('compNoteScopeSingle', 'This competence only') + ` (${singleCode})`;
+          lblSingle.appendChild(rSingle);
+          lblSingle.appendChild(spanSingle);
+          scopeGroup.appendChild(lblSingle);
+        }
+
+        // Selected option
+        if (selectedPopupCount > 0) {
+          const lblSelected = document.createElement('label');
+          lblSelected.className = 'con-comp-note-radio-label';
+          const rSelected = document.createElement('input');
+          rSelected.type = 'radio';
+          rSelected.name = 'conCompNoteScope';
+          rSelected.value = 'selected';
+          rSelected.checked = (currentScope === 'selected');
+          rSelected.onchange = () => { if (rSelected.checked) { currentScope = 'selected'; onStateChanged(); } };
+          const spanSelected = document.createElement('span');
+          spanSelected.textContent = t_('compNoteScopeSelected', 'Selected competences ({count})').replace('{count}', selectedPopupCount);
+          lblSelected.appendChild(rSelected);
+          lblSelected.appendChild(spanSelected);
+          scopeGroup.appendChild(lblSelected);
+        }
+
+        // All option
+        const lblAll = document.createElement('label');
+        lblAll.className = 'con-comp-note-radio-label';
+        const rAll = document.createElement('input');
+        rAll.type = 'radio';
+        rAll.name = 'conCompNoteScope';
+        rAll.value = 'all';
+        rAll.checked = (currentScope === 'all');
+        rAll.onchange = () => { if (rAll.checked) { currentScope = 'all'; onStateChanged(); } };
+        const spanAll = document.createElement('span');
+        spanAll.textContent = t_('compNoteScopeAll', 'All board competences ({count})').replace('{count}', totalBoardComps);
+        lblAll.appendChild(rAll);
+        lblAll.appendChild(spanAll);
+        scopeGroup.appendChild(lblAll);
+
+        scopeWrap.appendChild(scopeGroup);
+        body.appendChild(scopeWrap);
+      }
+
+      // 2. Elements to include checklist
+      const elemWrap = document.createElement('div');
+      const elemTitle = document.createElement('div');
+      elemTitle.className = 'con-comp-note-section-title';
+      elemTitle.textContent = t_('compNoteElementsTitle', 'Elements to include in note:');
+      elemWrap.appendChild(elemTitle);
+
+      const elemGrid = document.createElement('div');
+      elemGrid.className = 'con-comp-note-elements-grid';
+
+      const elementDefs = [
+        { key: 'code', label: t_('compNoteElCode', 'Code') },
+        { key: 'title', label: t_('compNoteElTitle', 'Title') },
+        { key: 'desc', label: t_('compNoteElDesc', 'Description') },
+        { key: 'detailedDesc', label: t_('compNoteElDetailedDesc', 'Detailed Description') },
+        { key: 'category', label: t_('compNoteElCategory', 'Domain / Category') },
+        { key: 'level', label: t_('compNoteElLevel', 'Level / Year') },
+        { key: 'tasks', label: t_('compNoteElTasks', 'Sample Tasks') },
+        { key: 'tags', label: t_('compNoteElTags', 'Tags') }
+      ];
+
+      elementDefs.forEach(def => {
+        const lbl = document.createElement('label');
+        lbl.className = 'con-comp-note-check-label';
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.checked = !!elemPrefs[def.key];
+        chk.onchange = () => {
+          elemPrefs[def.key] = chk.checked;
+          try {
+            localStorage.setItem('cmt-comp-note-elements-pref', JSON.stringify(elemPrefs));
+          } catch (_) {}
+          onStateChanged();
+        };
+        const txt = document.createElement('span');
+        txt.textContent = def.label;
+        lbl.appendChild(chk);
+        lbl.appendChild(txt);
+        elemGrid.appendChild(lbl);
+      });
+      elemWrap.appendChild(elemGrid);
+
+      // Interactive Detailed Description Lines box
+      const detailedLinesBox = document.createElement('div');
+      detailedLinesBox.className = 'con-comp-note-detailed-box';
+      detailedLinesBox.style.display = 'none';
+
+      const initialTargetComp = singleComp || (multiComps && multiComps[0]);
+      let availableDetailedLines = (initialTargetComp && Array.isArray(initialTargetComp.detailedDescription))
+        ? initialTargetComp.detailedDescription.slice()
+        : [];
+      const selectedDetailedLinesSet = new Set(availableDetailedLines);
+
+      function refreshDetailedLinesUi() {
+        if (!elemPrefs.detailedDesc) {
+          detailedLinesBox.style.display = 'none';
+          return;
+        }
+        const activeComp = (currentScope === 'single' ? singleComp : (getEffectiveCompetenceList()[0] || singleComp));
+        const currentLines = (activeComp && Array.isArray(activeComp.detailedDescription))
+          ? activeComp.detailedDescription.slice()
+          : [];
+
+        if (!currentLines.length) {
+          detailedLinesBox.style.display = 'none';
+          return;
+        }
+
+        detailedLinesBox.style.display = 'flex';
+        detailedLinesBox.innerHTML = '';
+
+        const dHdr = document.createElement('div');
+        dHdr.className = 'con-comp-note-detailed-hdr';
+        const dTitle = document.createElement('span');
+        const activeCount = currentLines.filter(l => selectedDetailedLinesSet.has(l)).length;
+        dTitle.textContent = t_('compNoteDetailedLines', 'Detailed Description Lines') + ` (${activeCount}/${currentLines.length})`;
+        
+        const dToggleBtn = document.createElement('button');
+        dToggleBtn.type = 'button';
+        dToggleBtn.className = 'con-comp-note-detailed-quick-btn';
+        const allChecked = activeCount === currentLines.length;
+        dToggleBtn.textContent = allChecked ? t_('compDeselectVisible', 'Deselect all') : t_('compSelectVisible', 'Select all');
+        dToggleBtn.onclick = (e) => {
+          e.stopPropagation();
+          if (allChecked) {
+            currentLines.forEach(l => selectedDetailedLinesSet.delete(l));
+          } else {
+            currentLines.forEach(l => selectedDetailedLinesSet.add(l));
+          }
+          refreshDetailedLinesUi();
+          onStateChanged();
+        };
+
+        dHdr.appendChild(dTitle);
+        dHdr.appendChild(dToggleBtn);
+        detailedLinesBox.appendChild(dHdr);
+
+        currentLines.forEach(line => {
+          const row = document.createElement('label');
+          row.className = 'con-comp-note-detailed-line';
+          const lineChk = document.createElement('input');
+          lineChk.type = 'checkbox';
+          lineChk.checked = selectedDetailedLinesSet.has(line);
+          lineChk.onchange = () => {
+            if (lineChk.checked) selectedDetailedLinesSet.add(line);
+            else selectedDetailedLinesSet.delete(line);
+            const newCount = currentLines.filter(l => selectedDetailedLinesSet.has(l)).length;
+            dTitle.textContent = t_('compNoteDetailedLines', 'Detailed Description Lines') + ` (${newCount}/${currentLines.length})`;
+            dToggleBtn.textContent = newCount === currentLines.length
+              ? t_('compDeselectVisible', 'Deselect all')
+              : t_('compSelectVisible', 'Select all');
+            onStateChanged();
+          };
+          const lineTxt = document.createElement('span');
+          lineTxt.textContent = line;
+          row.appendChild(lineChk);
+          row.appendChild(lineTxt);
+          detailedLinesBox.appendChild(row);
+        });
+      }
+
+      elemWrap.appendChild(detailedLinesBox);
+      body.appendChild(elemWrap);
+
+      // 3. Multi-note mode selection (separate vs combined)
+      const modeWrap = document.createElement('div');
+      const modeTitle = document.createElement('div');
+      modeTitle.className = 'con-comp-note-section-title';
+      modeTitle.textContent = t_('compNoteModeTitle', 'Creation mode:');
+      modeWrap.appendChild(modeTitle);
+
+      const modeGroup = document.createElement('div');
+      modeGroup.className = 'con-comp-note-mode-group';
+
+      const lblSep = document.createElement('label');
+      lblSep.className = 'con-comp-note-radio-label';
+      const rSep = document.createElement('input');
+      rSep.type = 'radio';
+      rSep.name = 'conCompNoteMode';
+      rSep.value = 'separate';
+      rSep.checked = (chosenMode === 'separate');
+      rSep.onchange = () => {
+        if (rSep.checked) {
+          chosenMode = 'separate';
+          try { localStorage.setItem('cmt-comp-note-mode-pref', 'separate'); } catch (_) {}
+          onStateChanged();
+        }
+      };
+      const spanSep = document.createElement('span');
+      spanSep.textContent = t_('compNoteModeSeparate', 'Separate note for each competence');
+      lblSep.appendChild(rSep);
+      lblSep.appendChild(spanSep);
+
+      const lblComb = document.createElement('label');
+      lblComb.className = 'con-comp-note-radio-label';
+      const rComb = document.createElement('input');
+      rComb.type = 'radio';
+      rComb.name = 'conCompNoteMode';
+      rComb.value = 'combined';
+      rComb.checked = (chosenMode === 'combined');
+      rComb.onchange = () => {
+        if (rComb.checked) {
+          chosenMode = 'combined';
+          try { localStorage.setItem('cmt-comp-note-mode-pref', 'combined'); } catch (_) {}
+          onStateChanged();
+        }
+      };
+      const spanComb = document.createElement('span');
+      spanComb.textContent = t_('compNoteModeCombined', 'Single combined summary note');
+      lblComb.appendChild(rComb);
+      lblComb.appendChild(spanComb);
+
+      modeGroup.appendChild(lblSep);
+      modeGroup.appendChild(lblComb);
+      modeWrap.appendChild(modeGroup);
+      body.appendChild(modeWrap);
+
+      // 4. Color selection
+      const colorWrap = document.createElement('div');
+      const colorTitle = document.createElement('div');
+      colorTitle.className = 'con-comp-note-section-title';
+      colorTitle.textContent = t_('compNoteColorTitle', 'Card color:');
+      colorWrap.appendChild(colorTitle);
+
+      const colorsRow = document.createElement('div');
+      colorsRow.className = 'con-comp-note-colors-row';
+
+      const colorOptions = [
+        { hex: '#ffffff', title: 'White' },
+        { hex: '#fef9c3', title: 'Yellow' },
+        { hex: '#e0f2fe', title: 'Blue' },
+        { hex: '#dcfce7', title: 'Green' },
+        { hex: '#f3e8ff', title: 'Purple' }
+      ];
+
+      colorOptions.forEach(opt => {
+        const chip = document.createElement('div');
+        chip.className = 'con-comp-note-color-chip' + (chosenColor === opt.hex ? ' is-active' : '');
+        chip.style.backgroundColor = opt.hex;
+        chip.title = opt.title;
+        chip.onclick = () => {
+          chosenColor = opt.hex;
+          try { localStorage.setItem('cmt-comp-note-color-pref', opt.hex); } catch (_) {}
+          colorsRow.querySelectorAll('.con-comp-note-color-chip').forEach(c => c.classList.remove('is-active'));
+          chip.classList.add('is-active');
+          onStateChanged();
+        };
+        colorsRow.appendChild(chip);
+      });
+      colorWrap.appendChild(colorsRow);
+      body.appendChild(colorWrap);
+
+      // 5. Live Preview
+      const prevWrap = document.createElement('div');
+      const prevTitle = document.createElement('div');
+      prevTitle.className = 'con-comp-note-section-title';
+      prevTitle.textContent = t_('compNotePreviewTitle', 'Live Preview:');
+      prevWrap.appendChild(prevTitle);
+
+      const previewBox = document.createElement('div');
+      previewBox.className = 'con-comp-note-preview-box';
+      prevWrap.appendChild(previewBox);
+      body.appendChild(prevWrap);
+
+      pop.appendChild(body);
+
+      // Footer
+      const ftr = document.createElement('div');
+      ftr.className = 'con-comp-note-popover-ftr';
+
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.className = 'con-comp-note-btn con-comp-note-btn-secondary';
+      copyBtn.innerHTML = `<img src="../assets/icons/copy.svg" alt="" /><span>${t_('compNoteBtnCopyText', 'Copy Text')}</span>`;
+      copyBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const targets = getEffectiveCompetenceList();
+        const isCombined = (chosenMode === 'combined' && targets.length > 1);
+        const resolved = await Promise.all(targets.map(c => conResolveFullCompetence(c)));
+        const activeOpts = Object.assign({}, elemPrefs, {
+          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : []
+        });
+        const textToCopy = isCombined
+          ? conBuildCombinedCompetenceNoteText(resolved, activeOpts)
+          : conBuildCompetenceNoteText(resolved[0], activeOpts);
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          try {
+            await navigator.clipboard.writeText(textToCopy);
+            if (typeof showToast === 'function') {
+              showToast(t_('compNoteToastCopied', 'Competence note text copied to clipboard.'));
+            }
+          } catch (_) {}
+        }
+      };
+
+      const ftrRight = document.createElement('div');
+      ftrRight.className = 'con-comp-note-ftr-right';
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'con-comp-note-btn con-comp-note-btn-secondary';
+      cancelBtn.textContent = t_('btnCancel', 'Cancel');
+      cancelBtn.onclick = (e) => { e.stopPropagation(); conCloseCompetenceNotePopover(); };
+
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'con-comp-note-btn con-comp-note-btn-primary';
+      addBtn.innerHTML = `<img src="../assets/icons/note.svg" alt="" /><span>${t_('compNoteBtnAdd', 'Add Note to Board')}</span>`;
+      addBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const targets = getEffectiveCompetenceList();
+        conCloseCompetenceNotePopover();
+        const popupEl = document.getElementById('con-comp-group-popup');
+        if (popupEl) popupEl.classList.remove('con-comp-popup-open');
+
+        await conExecuteAddCompetenceNotes(targets, {
+          mode: chosenMode,
+          bg: chosenColor,
+          code: !!elemPrefs.code,
+          title: !!elemPrefs.title,
+          desc: !!elemPrefs.desc,
+          detailedDesc: !!elemPrefs.detailedDesc,
+          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : [],
+          category: !!elemPrefs.category,
+          level: !!elemPrefs.level,
+          tasks: !!elemPrefs.tasks,
+          tags: !!elemPrefs.tags
+        });
+      };
+
+      ftrRight.appendChild(cancelBtn);
+      ftrRight.appendChild(addBtn);
+      ftr.appendChild(copyBtn);
+      ftr.appendChild(ftrRight);
+      pop.appendChild(ftr);
+
+      // Live updates & preview refresh
+      function onStateChanged() {
+        const targets = getEffectiveCompetenceList();
+        const isMulti = targets.length > 1;
+
+        // Title update
+        if (isMulti) {
+          hdrText.textContent = t_('compNotePopoverTitleMulti', 'Copy Competences to Board') + ` (${targets.length})`;
+          modeWrap.style.display = 'block';
+        } else {
+          const sample = targets[0] || singleComp;
+          const code = sample ? String(sample.code || sample.id || sample.title || '') : '';
+          hdrText.textContent = t_('compNotePopoverTitle', 'Copy Competence to Board') + (code ? `: ${code}` : '');
+          modeWrap.style.display = 'none';
+        }
+
+        refreshDetailedLinesUi();
+
+        const activeOpts = Object.assign({}, elemPrefs, {
+          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : []
+        });
+
+        // Preview box styling & content
+        previewBox.style.backgroundColor = chosenColor;
+        const sampleComp = targets[0] || singleComp;
+        if (chosenMode === 'combined' && isMulti) {
+          previewBox.innerHTML = conBuildCombinedCompetenceNoteHtml(targets.slice(0, 3), activeOpts) +
+            (targets.length > 3 ? `<div style="font-size:0.75rem;color:#888;text-align:center;margin-top:6px;">… and ${targets.length - 3} more</div>` : '');
+        } else if (sampleComp) {
+          previewBox.innerHTML = conBuildCompetenceNoteHtml(sampleComp, activeOpts);
+        } else {
+          previewBox.innerHTML = '<div style="color:#888;font-style:italic;">No competence selected</div>';
+        }
+
+        // Add button label
+        if (isMulti) {
+          addBtn.innerHTML = `<img src="../assets/icons/note.svg" alt="" /><span>${t_('compNoteBtnAdd', 'Add to Board')} (${targets.length})</span>`;
+        } else {
+          addBtn.innerHTML = `<img src="../assets/icons/note.svg" alt="" /><span>${t_('compNoteBtnAdd', 'Add Note to Board')}</span>`;
+        }
+      }
+
+      onStateChanged();
+
+      // Mount into DOM
+      document.body.appendChild(pop);
+
+      // Positioning logic
+      const anchorRect = anchorEl && anchorEl.getBoundingClientRect
+        ? anchorEl.getBoundingClientRect()
+        : { left: window.innerWidth / 2 - 150, top: 100, bottom: 140, right: window.innerWidth / 2 + 150 };
+
+      const popW = pop.offsetWidth || 380;
+      const popH = pop.offsetHeight || 440;
+
+      let left = Math.round(anchorRect.right + 12);
+      if (left + popW > window.innerWidth - 12) {
+        left = Math.max(12, Math.round(anchorRect.left - popW - 12));
+        if (left < 12) {
+          left = Math.max(12, Math.round((window.innerWidth - popW) / 2));
+        }
+      }
+
+      let top = Math.max(12, Math.min(Math.round(anchorRect.top), window.innerHeight - popH - 12));
+      pop.style.left = left + 'px';
+      pop.style.top = top + 'px';
+
+      // Defensive click outside & Escape listeners
+      const onOutsideClick = (e) => {
+        if (!pop.contains(e.target) && (!anchorEl || !anchorEl.contains(e.target))) {
+          conCloseCompetenceNotePopover();
+        }
+      };
+
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          conCloseCompetenceNotePopover();
+        }
+      };
+
+      pop._cleanup = () => {
+        document.removeEventListener('mousedown', onOutsideClick, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+      };
+
+      setTimeout(() => {
+        if (!_conActiveCompNotePopover) return;
+        document.addEventListener('mousedown', onOutsideClick, true);
+        document.addEventListener('keydown', onKeyDown, true);
+      }, 0);
+    }
+
+    async function conExecuteAddCompetenceNotes(compsToAdd, options = {}) {
+      if (!compsToAdd || !compsToAdd.length) return;
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+
+      const t_ = (k, fb) => (typeof t === 'function' ? t(k) : fb);
+
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+      const zoom = (typeof window.conGetZoom === 'function' ? window.conGetZoom() : 1) || 1;
+      const bW = board.clientWidth || 800;
+      const bH = board.clientHeight || 600;
+      const scrollL = board.scrollLeft || 0;
+      const scrollT = board.scrollTop || 0;
+      const centerX = Math.round((scrollL + bW / 2) / zoom);
+      const centerY = Math.round((scrollT + bH / 2) / zoom);
+
+      // Resolve full records for all targets
+      const resolvedList = await Promise.all(compsToAdd.map(c => conResolveFullCompetence(c)));
+      const isCombined = options.mode === 'combined' && resolvedList.length > 1;
+
+      if (isCombined) {
+        const html = conBuildCombinedCompetenceNoteHtml(resolvedList, options);
+        const text = conBuildCombinedCompetenceNoteText(resolvedList, options);
+        const noteData = {
+          id: null,
+          nodeId: null,
+          text: text,
+          html: html,
+          x: Math.max(40, centerX - 180),
+          y: Math.max(40, centerY - 120),
+          color: '#111111',
+          bg: options.bg || '#ffffff',
+          borderWidth: 2,
+          borderColor: '#333333',
+          borderStyle: 'solid',
+          fontSize: 16,
+          bold: false, italic: false, underline: false, strike: false,
+          hidden: false, locked: false, manualSize: false,
+          width: 360, height: null
+        };
+        if (typeof window.conAddNoteObject === 'function') {
+          window.conAddNoteObject(noteData);
+          if (typeof window.conSelectNote === 'function' && noteData.id) {
+            window.conSelectNote(noteData.id);
+          }
+        }
+      } else {
+        const cols = Math.min(3, Math.max(1, Math.floor(bW / (340 * zoom))));
+        resolvedList.forEach((comp, idx) => {
+          const html = conBuildCompetenceNoteHtml(comp, options);
+          const text = conBuildCompetenceNoteText(comp, options);
+          const col = idx % cols;
+          const row = Math.floor(idx / cols);
+          const startX = centerX - Math.round((cols * 340) / 2);
+          const noteX = Math.max(40, startX + (col * 350));
+          const noteY = Math.max(40, centerY - 100 + (row * 190));
+
+          const noteData = {
+            id: null,
+            nodeId: null,
+            text: text,
+            html: html,
+            x: noteX,
+            y: noteY,
+            color: '#111111',
+            bg: options.bg || '#ffffff',
+            borderWidth: 2,
+            borderColor: '#333333',
+            borderStyle: 'solid',
+            fontSize: 16,
+            bold: false, italic: false, underline: false, strike: false,
+            hidden: false, locked: false, manualSize: false,
+            width: 320, height: null
+          };
+          if (typeof window.conAddNoteObject === 'function') {
+            window.conAddNoteObject(noteData);
+            if (idx === 0 && typeof window.conSelectNote === 'function' && noteData.id) {
+              window.conSelectNote(noteData.id);
+            }
+          }
+        });
+      }
+
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
+      if (typeof BoardAudioService !== 'undefined' && typeof BoardAudioService.playAction === 'function') {
+        BoardAudioService.playAction('create_note');
+      }
+      if (typeof showToast === 'function') {
+        showToast(t_('compNoteToastAdded', 'Added {count} competence note(s) to board.').replace('{count}', resolvedList.length));
+      }
     }
 
     function conUpdateNodeCompetenceBadge(nodeObj) {
@@ -9157,6 +10107,11 @@
         const level = String(item.level || '').trim();
         const yearLevel = String(item.yearLevel || item.year || item.grade || '').trim();
         const description = String(item.description || item.statement || '').trim();
+        const rawDetailed = item.detailedDescription || item.detailedLines || item.details;
+        const detailedDescription = Array.isArray(rawDetailed)
+          ? rawDetailed.map(s => String(s).trim()).filter(Boolean)
+          : (rawDetailed ? String(rawDetailed).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
+        const sampleTasks = String(item.sampleTasks || item.sampleTask || item.examples || '').trim();
         const tags = Array.isArray(item.tags) ? item.tags : (item.tags ? String(item.tags).split(',').map(s => s.trim()).filter(Boolean) : []);
 
         if (!compMap.has(id)) {
@@ -9168,6 +10123,8 @@
             level,
             yearLevel,
             description,
+            detailedDescription,
+            sampleTasks,
             tags
           });
         } else {
@@ -9178,6 +10135,10 @@
           if (!existing.level && level) existing.level = level;
           if (!existing.yearLevel && yearLevel) existing.yearLevel = yearLevel;
           if (!existing.description && description) existing.description = description;
+          if ((!existing.detailedDescription || !existing.detailedDescription.length) && detailedDescription.length) {
+            existing.detailedDescription = detailedDescription;
+          }
+          if (!existing.sampleTasks && sampleTasks) existing.sampleTasks = sampleTasks;
         }
       }
 
@@ -11275,6 +12236,8 @@
   window.boardSetDirty = global.boardSetDirty = boardSetDirty;
   window._conCurrentCompetences = global._conCurrentCompetences = _conCurrentCompetences;
   window.conRenderHeaderCompetenceBar = global.conRenderHeaderCompetenceBar = conRenderHeaderCompetenceBar;
+  window.conOpenCompetenceNotePopover = global.conOpenCompetenceNotePopover = conOpenCompetenceNotePopover;
+  window.conCloseCompetenceNotePopover = global.conCloseCompetenceNotePopover = conCloseCompetenceNotePopover;
   window.conUpdateNodeCompetenceBadge = global.conUpdateNodeCompetenceBadge = conUpdateNodeCompetenceBadge;
   window.conBuildSessionData = global.conBuildSessionData = conBuildSessionData;
   window.renderSessionLoadPopup = global.renderSessionLoadPopup = renderSessionLoadPopup;

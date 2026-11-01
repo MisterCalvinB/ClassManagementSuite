@@ -215,6 +215,9 @@
             if (!ex.level && c.level) ex.level = c.level;
             if (!ex.yearLevel && c.yearLevel) ex.yearLevel = c.yearLevel;
             if (!ex.description && c.description) ex.description = c.description;
+            if ((!ex.detailedDescription || !ex.detailedDescription.length) && (c.detailedDescription && c.detailedDescription.length)) {
+              ex.detailedDescription = c.detailedDescription;
+            }
             if (c.tags.length && !ex.tags.length) ex.tags = c.tags;
             if (Array.isArray(c.linkedCompetenceIds) && c.linkedCompetenceIds.length) {
               const merged = new Set([...(ex.linkedCompetenceIds || []), ...c.linkedCompetenceIds]);
