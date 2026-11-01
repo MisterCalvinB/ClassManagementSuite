@@ -153,23 +153,124 @@
     let _bcQuickActionsDraftList = [];
 
     function _boardNudgeSelected(dx, dy) {
+      // 1. Nodes
       const conSelected = window.conGetSelected ? window.conGetSelected() : (typeof conSelected !== 'undefined' ? conSelected : (global.conSelected || null));
       const conMultiSelected = window.conGetMultiSelected ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : (global.conMultiSelected || null));
       const conNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : (global.conNodes || []));
-      const conMediaSelected = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : (global.conMediaSelected || null));
-      const conMediaItems = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : (global.conMediaItems || []));
-      const hasNodeSelection = conSelected || (conMultiSelected && conMultiSelected.size > 0);
-      const hasMediaSelection = conMediaSelected && conMediaSelected.size > 0;
-      if (!hasNodeSelection && !hasMediaSelection) return false;
       const targets = (conMultiSelected && conMultiSelected.size > 0)
         ? conNodes.filter(n => conMultiSelected.has(n.id))
         : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
-      const mediaTargets = hasMediaSelection
+
+      // 2. Notes
+      const conNoteSelected = (typeof window.conGetNoteSelected === 'function')
+        ? window.conGetNoteSelected()
+        : ((typeof window.conNoteSelected !== 'undefined' && window.conNoteSelected)
+          ? window.conNoteSelected
+          : (typeof global.conNoteSelected !== 'undefined' ? global.conNoteSelected : null));
+      const activeNote = (typeof window._wnActiveNote !== 'undefined' && window._wnActiveNote)
+        ? window._wnActiveNote
+        : (typeof _wnActiveNote !== 'undefined' ? _wnActiveNote : null);
+      const liveNotes = (typeof window.conGetNotes === 'function')
+        ? window.conGetNotes()
+        : ((typeof window.conNotes !== 'undefined' && Array.isArray(window.conNotes))
+          ? window.conNotes
+          : (typeof global.conNotes !== 'undefined' && Array.isArray(global.conNotes) ? global.conNotes : []));
+      const noteIdSet = new Set();
+      if (conNoteSelected && conNoteSelected.size > 0) {
+        conNoteSelected.forEach(id => noteIdSet.add(String(id)));
+      }
+      document.querySelectorAll('#constellation-board .con-word-note.wn-selected, #constellation-board .ta-word-note.wn-selected').forEach(el => {
+        const did = el.dataset.id || el.id;
+        if (did) noteIdSet.add(String(did));
+      });
+      if (noteIdSet.size === 0 && activeNote && activeNote.id) {
+        const isNoteFocused = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.con-word-note, .ta-word-note'));
+        const isNoteOverlayActive = !!(document.getElementById('wn-style-overlay') && document.getElementById('wn-style-overlay').classList.contains('active'));
+        if (isNoteFocused || isNoteOverlayActive) {
+          noteIdSet.add(String(activeNote.id));
+        }
+      }
+      const noteTargets = noteIdSet.size > 0
+        ? liveNotes.filter(n => n && noteIdSet.has(String(n.id)) && !n.locked)
+        : [];
+
+      // 3. Media Items
+      const conMediaSelected = window.conGetMediaSelected ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : (global.conMediaSelected || null));
+      const conMediaItems = window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : (global.conMediaItems || []));
+      const mediaTargets = (conMediaSelected && conMediaSelected.size > 0)
         ? conMediaItems.filter(m => conMediaSelected.has(m.id) && !m.locked)
         : [];
-      if (!targets.length && !mediaTargets.length) return false;
+
+      // 4. Shapes
+      const conShapeSelected = (typeof window.conGetShapeSelected === 'function')
+        ? window.conGetShapeSelected()
+        : ((typeof window._conShapeSelected !== 'undefined' && window._conShapeSelected)
+          ? window._conShapeSelected
+          : (typeof global._conShapeSelected !== 'undefined' ? global._conShapeSelected : null));
+      const liveShapes = (typeof window.conGetShapes === 'function')
+        ? window.conGetShapes()
+        : ((typeof window.conShapes !== 'undefined' && Array.isArray(window.conShapes))
+          ? window.conShapes
+          : (typeof global.conShapes !== 'undefined' && Array.isArray(global.conShapes) ? global.conShapes : []));
+      const shapeTargets = (conShapeSelected && conShapeSelected.size > 0)
+        ? liveShapes.filter(s => s && (conShapeSelected.has(s.id) || conShapeSelected.has(String(s.id))))
+        : [];
+
+      // 5. Drawings
+      const conDrawingSelected = (typeof window.conGetDrawingSelected === 'function')
+        ? window.conGetDrawingSelected()
+        : ((typeof window.conDrawingSelected !== 'undefined' && window.conDrawingSelected)
+          ? window.conDrawingSelected
+          : (typeof global.conDrawingSelected !== 'undefined' ? global.conDrawingSelected : null));
+      const liveDrawings = (typeof window.conGetDrawings === 'function')
+        ? window.conGetDrawings()
+        : ((typeof window.conDrawings !== 'undefined' && Array.isArray(window.conDrawings))
+          ? window.conDrawings
+          : (typeof global.conDrawings !== 'undefined' && Array.isArray(global.conDrawings) ? global.conDrawings : []));
+      const drawTargets = (conDrawingSelected && conDrawingSelected.size > 0)
+        ? liveDrawings.filter(d => d && (conDrawingSelected.has(d.id) || conDrawingSelected.has(String(d.id))))
+        : [];
+
+      // 6. Tables
+      const conTableSelected = (typeof window.conGetTableSelected === 'function')
+        ? window.conGetTableSelected()
+        : ((typeof window.conTableSelected !== 'undefined' && window.conTableSelected)
+          ? window.conTableSelected
+          : (typeof global.conTableSelected !== 'undefined' ? global.conTableSelected : null));
+      const liveTables = (typeof window.conGetTables === 'function')
+        ? window.conGetTables()
+        : ((typeof window.conTables !== 'undefined' && Array.isArray(window.conTables))
+          ? window.conTables
+          : (typeof global.conTables !== 'undefined' && Array.isArray(global.conTables) ? global.conTables : []));
+      const tableTargets = (conTableSelected && conTableSelected.size > 0)
+        ? liveTables.filter(t => t && (conTableSelected.has(t.id) || conTableSelected.has(String(t.id))))
+        : [];
+
+      // 7. Groups (Focused Group without individual sub-selections)
+      const focusedGroupId = (typeof window.conGetGroupFocused === 'function')
+        ? window.conGetGroupFocused()
+        : ((typeof window.conGroupFocused !== 'undefined' && window.conGroupFocused)
+          ? window.conGroupFocused
+          : (typeof global.conGroupFocused !== 'undefined' ? global.conGroupFocused : null));
+      const liveGroups = (typeof window.conGetGroups === 'function')
+        ? window.conGetGroups()
+        : ((typeof window.conGroups !== 'undefined' && Array.isArray(window.conGroups))
+          ? window.conGroups
+          : (typeof global.conGroups !== 'undefined' && Array.isArray(global.conGroups) ? global.conGroups : []));
+      const focusedGroup = (focusedGroupId && !targets.length && !noteTargets.length && !mediaTargets.length && !shapeTargets.length && !drawTargets.length && !tableTargets.length)
+        ? liveGroups.find(g => g && (g.id === focusedGroupId || String(g.id) === String(focusedGroupId)))
+        : null;
+
+      const hasAnyTargets = targets.length > 0 || noteTargets.length > 0 || mediaTargets.length > 0 ||
+        shapeTargets.length > 0 || drawTargets.length > 0 || tableTargets.length > 0 || !!focusedGroup;
+
+      if (!hasAnyTargets) return false;
+
       if (typeof window.conPushUndo === 'function') window.conPushUndo();
       else if (typeof global.conPushUndo === 'function') global.conPushUndo();
+      else if (typeof conPushUndo === 'function') conPushUndo();
+
+      // Move Nodes
       const movedPhraseGroups = new Set();
       const isLocked = typeof window.conIsNodeLocked === 'function' ? window.conIsNodeLocked : function () { return false; };
       const groupOf = typeof window.conGroupOfNode === 'function' ? window.conGroupOfNode : function () { return null; };
@@ -182,32 +283,207 @@
           if ((node.phraseOrder || 0) !== 0) return;
           const anchor = conNodes.find(n => pg.nodeIds.includes(n.id) && (n.phraseOrder || 0) === 0);
           if (anchor) {
-            anchor.x += dx; anchor.y += dy;
-            anchor.el.style.left = anchor.x + 'px';
-            anchor.el.style.top = anchor.y + 'px';
+            anchor.x = Math.max(0, (anchor.x != null ? anchor.x : 0) + dx);
+            anchor.y = Math.max(0, (anchor.y != null ? anchor.y : 0) + dy);
+            if (anchor.el) {
+              anchor.el.style.left = anchor.x + 'px';
+              anchor.el.style.top = anchor.y + 'px';
+            }
           }
         } else {
-          node.x += dx; node.y += dy;
-          node.el.style.left = node.x + 'px';
-          node.el.style.top = node.y + 'px';
+          node.x = Math.max(0, (node.x != null ? node.x : 0) + dx);
+          node.y = Math.max(0, (node.y != null ? node.y : 0) + dy);
+          if (node.el) {
+            node.el.style.left = node.x + 'px';
+            node.el.style.top = node.y + 'px';
+          }
         }
       });
+      movedPhraseGroups.forEach(pg => { phraseLayout(pg); });
+
+      // Move Notes
+      noteTargets.forEach(nd => {
+        if (nd.locked) return;
+        nd.x = Math.max(0, (nd.x != null ? nd.x : 0) + dx);
+        nd.y = Math.max(0, (nd.y != null ? nd.y : 0) + dy);
+        const noteEl = (typeof window.wnGetNoteElementById === 'function')
+          ? window.wnGetNoteElementById(nd.id)
+          : (document.querySelector(`.con-word-note[data-id="${nd.id}"], .ta-word-note[data-id="${nd.id}"]`) || document.getElementById(nd.id));
+        if (noteEl) {
+          noteEl.style.left = nd.x + 'px';
+          noteEl.style.top = nd.y + 'px';
+        }
+      });
+
+      // Move Media Items
       mediaTargets.forEach(m => {
-        m.x += dx; m.y += dy;
+        if (m.locked) return;
+        m.x = Math.max(0, (m.x != null ? m.x : 0) + dx);
+        m.y = Math.max(0, (m.y != null ? m.y : 0) + dy);
         const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
         if (mEl) {
           mEl.style.left = m.x + 'px';
           mEl.style.top = m.y + 'px';
         }
       });
-      movedPhraseGroups.forEach(pg => { phraseLayout(pg); });
+
+      // Move Shapes
+      shapeTargets.forEach(s => {
+        s.x = Math.max(0, (s.x != null ? s.x : 0) + dx);
+        s.y = Math.max(0, (s.y != null ? s.y : 0) + dy);
+        if (s.lx1 !== undefined) {
+          s.lx1 += dx; s.ly1 += dy;
+          s.lx2 += dx; s.ly2 += dy;
+        }
+        if (s.pts && Array.isArray(s.pts)) {
+          s.pts.forEach(p => { p.x += dx; p.y += dy; });
+        }
+        const pad = s.pad !== undefined ? s.pad : (typeof window._conShapeGetPAD === 'function' ? window._conShapeGetPAD(s) : 16);
+        if (s.el) {
+          s.el.style.left = (s.x - pad) + 'px';
+          s.el.style.top = (s.y - pad) + 'px';
+        }
+        if (typeof window._conShapeUpdateHandles === 'function') window._conShapeUpdateHandles(s);
+        else if (typeof _conShapeUpdateHandles === 'function') _conShapeUpdateHandles(s);
+      });
+
+      // Move Drawings
+      drawTargets.forEach(dr => {
+        dr.x = Math.max(0, (dr.x != null ? dr.x : 0) + dx);
+        dr.y = Math.max(0, (dr.y != null ? dr.y : 0) + dy);
+        const pad = dr.pad !== undefined ? dr.pad : 12;
+        if (dr.el) {
+          dr.el.style.left = (dr.x - pad) + 'px';
+          dr.el.style.top = (dr.y - pad) + 'px';
+        }
+      });
+
+      // Move Tables
+      tableTargets.forEach(tbl => {
+        tbl.x = Math.max(0, (tbl.x != null ? tbl.x : 0) + dx);
+        tbl.y = Math.max(0, (tbl.y != null ? tbl.y : 0) + dy);
+        if (tbl.el) {
+          tbl.el.style.left = tbl.x + 'px';
+          tbl.el.style.top = tbl.y + 'px';
+        }
+      });
+
+      // Move Focused Group
+      if (focusedGroup) {
+        if (focusedGroup.nodeIds) {
+          focusedGroup.nodeIds.forEach(nid => {
+            const n = conNodes.find(x => x && (x.id === nid || String(x.id) === String(nid)));
+            if (n && !isLocked(n)) {
+              n.x = Math.max(0, n.x + dx); n.y = Math.max(0, n.y + dy);
+              if (n.el) { n.el.style.left = n.x + 'px'; n.el.style.top = n.y + 'px'; }
+            }
+          });
+        }
+        if (focusedGroup.noteIds) {
+          focusedGroup.noteIds.forEach(nid => {
+            const nd = liveNotes.find(x => x && (x.id === nid || String(x.id) === String(nid)));
+            if (nd && !nd.locked) {
+              nd.x = Math.max(0, (nd.x != null ? nd.x : 0) + dx);
+              nd.y = Math.max(0, (nd.y != null ? nd.y : 0) + dy);
+              const noteEl = (typeof window.wnGetNoteElementById === 'function')
+                ? window.wnGetNoteElementById(nd.id)
+                : document.querySelector(`.con-word-note[data-id="${nd.id}"], .ta-word-note[data-id="${nd.id}"]`);
+              if (noteEl) { noteEl.style.left = nd.x + 'px'; noteEl.style.top = nd.y + 'px'; }
+            }
+          });
+        }
+        if (focusedGroup.shapeIds) {
+          focusedGroup.shapeIds.forEach(sid => {
+            const s = liveShapes.find(x => x && (x.id === sid || String(x.id) === String(sid)));
+            if (s) {
+              s.x = Math.max(0, (s.x != null ? s.x : 0) + dx);
+              s.y = Math.max(0, (s.y != null ? s.y : 0) + dy);
+              if (s.lx1 !== undefined) { s.lx1 += dx; s.ly1 += dy; s.lx2 += dx; s.ly2 += dy; }
+              if (s.pts && Array.isArray(s.pts)) s.pts.forEach(p => { p.x += dx; p.y += dy; });
+              const pad = s.pad !== undefined ? s.pad : 16;
+              if (s.el) { s.el.style.left = (s.x - pad) + 'px'; s.el.style.top = (s.y - pad) + 'px'; }
+              if (typeof window._conShapeUpdateHandles === 'function') window._conShapeUpdateHandles(s);
+            }
+          });
+        }
+        if (focusedGroup.drawingIds) {
+          focusedGroup.drawingIds.forEach(did => {
+            const dr = liveDrawings.find(x => x && (x.id === did || String(x.id) === String(did)));
+            if (dr) {
+              dr.x = Math.max(0, (dr.x != null ? dr.x : 0) + dx);
+              dr.y = Math.max(0, (dr.y != null ? dr.y : 0) + dy);
+              const pad = dr.pad !== undefined ? dr.pad : 12;
+              if (dr.el) { dr.el.style.left = (dr.x - pad) + 'px'; dr.el.style.top = (dr.y - pad) + 'px'; }
+            }
+          });
+        }
+        if (focusedGroup.mediaIds) {
+          focusedGroup.mediaIds.forEach(mid => {
+            const m = conMediaItems.find(x => x && (x.id === mid || String(x.id) === String(mid)));
+            if (m && !m.locked) {
+              m.x = Math.max(0, (m.x != null ? m.x : 0) + dx);
+              m.y = Math.max(0, (m.y != null ? m.y : 0) + dy);
+              const mEl = document.querySelector(`.con-media-item[data-id="${m.id}"]`) || (m.wrap || null);
+              if (mEl) { mEl.style.left = m.x + 'px'; mEl.style.top = m.y + 'px'; }
+            }
+          });
+        }
+      }
+
       if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
-      if (mediaTargets.length > 0 && window._conMirrorSend) {
-        window._conMirrorSend({
-          type: 'media-move',
-          positions: mediaTargets.map(m => ({ id: m.id, x: m.x, y: m.y }))
-        });
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+
+      // Mirror synchronization for multi-display / presentation
+      if (window._conMirrorSend) {
+        if (targets.length > 0) {
+          window._conMirrorSend({
+            type: 'node-move',
+            positions: targets.map(n => ({ id: n.id, x: n.x, y: n.y }))
+          });
+        }
+        if (noteTargets.length > 0) {
+          window._conMirrorSend({
+            type: 'note-move',
+            positions: noteTargets.map(nd => ({ id: nd.id, x: nd.x, y: nd.y }))
+          });
+        }
+        if (mediaTargets.length > 0) {
+          window._conMirrorSend({
+            type: 'media-move',
+            positions: mediaTargets.map(m => ({ id: m.id, x: m.x, y: m.y }))
+          });
+        }
+        if (shapeTargets.length > 0) {
+          window._conMirrorSend({
+            type: 'shape-move',
+            positions: shapeTargets.map(s => ({
+              id: s.id, x: s.x, y: s.y,
+              lx1: s.lx1, ly1: s.ly1, lx2: s.lx2, ly2: s.ly2,
+              pts: s.pts ? s.pts.map(p => ({ ...p })) : undefined
+            }))
+          });
+        }
+        if (drawTargets.length > 0) {
+          window._conMirrorSend({
+            type: 'drawing-move',
+            positions: drawTargets.map(dr => ({ id: dr.id, x: dr.x, y: dr.y, pad: dr.pad || 12 }))
+          });
+        }
+        if (tableTargets.length > 0) {
+          window._conMirrorSend({
+            type: 'table-move',
+            positions: tableTargets.map(tbl => ({ id: tbl.id, x: tbl.x, y: tbl.y }))
+          });
+        }
+        if (focusedGroup && focusedGroup.el) {
+          window._conMirrorSend({
+            type: 'group-move',
+            groupId: String(focusedGroup.id),
+            gx: parseInt(focusedGroup.el.style.left) || 0,
+            gy: parseInt(focusedGroup.el.style.top) || 0
+          });
+        }
       }
       return true;
     }
@@ -355,6 +631,14 @@
       { id: 'nudge_fast_down', name: 'Fast Nudge 10px Down', desc: 'Nudge selected nodes 10px down', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇓', defaultShortcut: { shift: true, key: 'ArrowDown' }, fn: () => { return _boardNudgeSelected(0, 10); } },
       { id: 'nudge_fast_left', name: 'Fast Nudge 10px Left', desc: 'Nudge selected nodes 10px left', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇐', defaultShortcut: { shift: true, key: 'ArrowLeft' }, fn: () => { return _boardNudgeSelected(-10, 0); } },
       { id: 'nudge_fast_right', name: 'Fast Nudge 10px Right', desc: 'Nudge selected nodes 10px right', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇒', defaultShortcut: { shift: true, key: 'ArrowRight' }, fn: () => { return _boardNudgeSelected(10, 0); } },
+      { id: 'nudge_up', name: 'Nudge 1px Up', desc: 'Nudge selected nodes, notes, or objects 1px up', category: 'movement', categoryName: 'Movement & Nudging', symbol: '↑', defaultShortcut: { key: 'ArrowUp' }, fn: () => { return _boardNudgeSelected(0, -1); } },
+      { id: 'nudge_down', name: 'Nudge 1px Down', desc: 'Nudge selected nodes, notes, or objects 1px down', category: 'movement', categoryName: 'Movement & Nudging', symbol: '↓', defaultShortcut: { key: 'ArrowDown' }, fn: () => { return _boardNudgeSelected(0, 1); } },
+      { id: 'nudge_left', name: 'Nudge 1px Left', desc: 'Nudge selected nodes, notes, or objects 1px left', category: 'movement', categoryName: 'Movement & Nudging', symbol: '←', defaultShortcut: { key: 'ArrowLeft' }, fn: () => { return _boardNudgeSelected(-1, 0); } },
+      { id: 'nudge_right', name: 'Nudge 1px Right', desc: 'Nudge selected nodes, notes, or objects 1px right', category: 'movement', categoryName: 'Movement & Nudging', symbol: '→', defaultShortcut: { key: 'ArrowRight' }, fn: () => { return _boardNudgeSelected(1, 0); } },
+      { id: 'nudge_fast_up', name: 'Fast Nudge 10px Up', desc: 'Nudge selected nodes, notes, or objects 10px up', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇑', defaultShortcut: { shift: true, key: 'ArrowUp' }, fn: () => { return _boardNudgeSelected(0, -10); } },
+      { id: 'nudge_fast_down', name: 'Fast Nudge 10px Down', desc: 'Nudge selected nodes, notes, or objects 10px down', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇓', defaultShortcut: { shift: true, key: 'ArrowDown' }, fn: () => { return _boardNudgeSelected(0, 10); } },
+      { id: 'nudge_fast_left', name: 'Fast Nudge 10px Left', desc: 'Nudge selected nodes, notes, or objects 10px left', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇐', defaultShortcut: { shift: true, key: 'ArrowLeft' }, fn: () => { return _boardNudgeSelected(-10, 0); } },
+      { id: 'nudge_fast_right', name: 'Fast Nudge 10px Right', desc: 'Nudge selected nodes, notes, or objects 10px right', category: 'movement', categoryName: 'Movement & Nudging', symbol: '⇒', defaultShortcut: { shift: true, key: 'ArrowRight' }, fn: () => { return _boardNudgeSelected(10, 0); } },
 
       // Creation & Pages
       { id: 'create_note', name: 'Add Sticky Note', desc: 'Create a new sticky note on the board', category: 'creation', categoryName: 'Creation & Pages', icon: '../assets/icons/note.svg', defaultShortcut: null, fn: () => { if (typeof window.wnCreateNote === 'function') window.wnCreateNote(); else if (typeof wnCreateNote === 'function') wnCreateNote(); } },
@@ -852,6 +1136,26 @@
       }
 
       if (isInput && e.key !== 'Escape' && !isSearchShortcut && !isSaveShortcut && !isLinkShortcut && !isFontSizeShortcut) return false;
+      // Allow movement / nudge keystrokes even inside note editor when custom shortcut is configured or has modifiers (Alt/Ctrl/Meta)
+      let isNudgeShortcut = false;
+      if (isInput) {
+        const customMap = getBoardCustomShortcutsMap();
+        for (const def of BOARD_ACTION_DEFINITIONS) {
+          if (def.id.startsWith('nudge_')) {
+            const sc = getActiveShortcutForDef(def, customMap);
+            if (sc && matchShortcutDef(def, sc, e)) {
+              const isCustom = customMap[def.id] !== undefined;
+              const hasModifier = !!(e.ctrlKey || e.altKey || e.metaKey);
+              if (hasModifier || isCustom) {
+                isNudgeShortcut = true;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (isInput && e.key !== 'Escape' && !isSearchShortcut && !isSaveShortcut && !isLinkShortcut && !isFontSizeShortcut && !isNudgeShortcut) return false;
 
       // When constellation section is hidden, only allow Escape and search shortcut
       const sec = document.getElementById('constellation-section');
@@ -2387,6 +2691,7 @@
   Board.shortcuts.saveBoardQuickActionsList = saveBoardQuickActionsList;
   Board.shortcuts.getActiveShortcutForDef = getActiveShortcutForDef;
   Board.shortcuts.boardDispatchCustomShortcut = boardDispatchCustomShortcut;
+  Board.shortcuts._boardNudgeSelected = _boardNudgeSelected;
   Board.shortcuts.openBoardShortcuts = openBoardShortcuts;
   Board.shortcuts.boardCustomiseOpen = boardCustomiseOpen;
   Board.shortcuts.boardCustomiseClose = boardCustomiseClose;
@@ -2429,6 +2734,7 @@
 
   window._bcSyncPickerFromText = global._bcSyncPickerFromText = _bcSyncPickerFromText;
   window.boardDispatchCustomShortcut = global.boardDispatchCustomShortcut = boardDispatchCustomShortcut;
+  window._boardNudgeSelected = global._boardNudgeSelected = _boardNudgeSelected;
   window.BOARD_ACTION_DEFINITIONS = global.BOARD_ACTION_DEFINITIONS = BOARD_ACTION_DEFINITIONS;
   window.getActiveShortcutForDef = global.getActiveShortcutForDef = getActiveShortcutForDef;
   window.getBoardCustomShortcutsMap = global.getBoardCustomShortcutsMap = getBoardCustomShortcutsMap;

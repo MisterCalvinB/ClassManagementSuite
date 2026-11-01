@@ -4994,8 +4994,8 @@
       let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
-        // Blur active editor so Delete key immediately acts on the selected note container
-        if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT')) {
+        // Blur active editor so Delete key or movement shortcuts immediately act on the selected note container
+        if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
           document.activeElement.blur();
         }
         // Selection handling

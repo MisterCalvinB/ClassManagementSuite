@@ -17474,12 +17474,16 @@
           if (document.activeElement && document.activeElement.isContentEditable) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
-          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
-          if (!hasSelection) return;
-          e.preventDefault();
           const step = e.shiftKey ? 10 : 1;
           const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
           const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+          if (typeof window._boardNudgeSelected === 'function' && window._boardNudgeSelected(dx, dy)) {
+            e.preventDefault();
+            return;
+          }
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+          if (!hasSelection) return;
+          e.preventDefault();
           const targets = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)
             ? conNodes.filter(n => conMultiSelected.has(n.id))
             : [conNodes.find(n => n.id === conSelected)].filter(Boolean);
