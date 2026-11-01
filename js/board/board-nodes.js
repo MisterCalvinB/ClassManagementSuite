@@ -4012,7 +4012,7 @@
       let conNodes = (global.conNodes = window.conNodes = (global.conNodes || []));
       let conEdges = (global.conEdges = window.conEdges = (global.conEdges || []));
       let conMode = 'move';   // 'move' | 'connect' | 'delete'
-      let conSnapEnabled = true; // snap-to-align when dragging nodes
+      let conSnapEnabled = true; // snap-to-align when dragging elements or resizing notes
       function conToggleSnap() {
         conSnapEnabled = !conSnapEnabled;
         const btn = document.getElementById('con-snap-toggle-btn');
@@ -4271,10 +4271,10 @@
               ? window.conGetNotes().find(n => n && conNoteSelected.has(n.id))
               : null);
           let px;
-          if (activeNote && (activeNote.fontSize || activeNote.size)) {
-            px = activeNote.fontSize || activeNote.size;
-          } else if (wnSlider.dataset.rawPx) {
+          if (wnSlider.dataset.rawPx) {
             px = parseFloat(wnSlider.dataset.rawPx);
+          } else if (activeNote && (activeNote.fontSize || activeNote.size)) {
+            px = activeNote.fontSize || activeNote.size;
           } else {
             const curVal = parseFloat(wnSlider.value);
             const wasPt = wnVal && wnVal.textContent ? wnVal.textContent.includes('pt') : (window.conFontUnit !== 'pt');
@@ -4283,6 +4283,8 @@
           if (isNaN(px) || px <= 0) px = 26;
           wnSlider.dataset.rawPx = String(px);
           const unitVal = conPxToFontUnit(px, window.conFontUnit);
+          if (parseFloat(wnSlider.max) < unitVal) wnSlider.max = String(Math.ceil(unitVal));
+          if (parseFloat(wnSlider.min) > unitVal) wnSlider.min = String(Math.floor(unitVal));
           wnSlider.value = String(unitVal);
           if (wnVal) wnVal.textContent = conFormatFontSize(px, window.conFontUnit);
         }
@@ -7516,6 +7518,14 @@
           });
           document.addEventListener('mouseup', function () {
             if (!_rz) return;
+            const _finalNode = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
+              || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+            if (_finalNode) {
+              _finalNode._cachedW = undefined;
+              _finalNode._cachedH = undefined;
+              _finalNode.w = undefined;
+              _finalNode.h = undefined;
+            }
             if (_nodeResizeRaf) { cancelAnimationFrame(_nodeResizeRaf); _nodeResizeRaf = null; }
             if (window._conMirrorSend && _pendingNodeResizeMsg) {
               window._conMirrorSend(_pendingNodeResizeMsg);
@@ -10092,6 +10102,10 @@
         try {
           targets.forEach(node => {
             if (conIsNodeLocked(node)) return;
+            node._cachedW = undefined;
+            node._cachedH = undefined;
+            node.w = undefined;
+            node.h = undefined;
             conSetNodeBaseFontSize(node, fontSize);
             conApplyNodeShape(node, node.shape);
             resizedNodes.push({ id: String(node.id), fontSize: numFontSize, shape: node.shape });
@@ -14413,6 +14427,11 @@
       }
 
       function conRenderNodeLabel(node) {
+        if (!node) return;
+        node._cachedW = undefined;
+        node._cachedH = undefined;
+        node.w = undefined;
+        node.h = undefined;
         // --- Random Number Node ---
         if (node && node.isRandom) {
           const val = (node.randomValue != null) ? node.randomValue : node.randomMin;

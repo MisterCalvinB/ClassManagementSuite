@@ -4764,6 +4764,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
             _classGroup: rawBoardData._classGroup || rawBoardData.classGroup || '',
             _plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
             plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
+            lessonId: rawBoardData._lessonId || rawBoardData.lessonId || (rawBoardData.manifest && (rawBoardData.manifest.lessonId || rawBoardData.manifest._lessonId)) || '',
+            competences: Array.isArray(rawBoardData.competences) ? rawBoardData.competences : (Array.isArray(rawBoardData.competenceTags) ? rawBoardData.competenceTags : []),
             pageCount: Array.isArray(rawBoardData.pages) ? rawBoardData.pages.length : 1
           };
         } catch {}
@@ -4802,6 +4804,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       thumbnail: thumbnail || null,
       classGroup: (manifest && manifest.classGroup) || (boardDataSummary && boardDataSummary.classGroup) || '',
       plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
+      lessonId: (manifest && (manifest.lessonId || manifest._lessonId)) || (boardDataSummary && boardDataSummary.lessonId) || '',
+      competences: (manifest && Array.isArray(manifest.competences)) ? manifest.competences : ((boardDataSummary && Array.isArray(boardDataSummary.competences)) ? boardDataSummary.competences : []),
       createdAt: createdAt || undefined,
       savedAt: savedAt || stat.mtimeMs,
       mtimeMs: stat.mtimeMs,

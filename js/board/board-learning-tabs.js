@@ -62,10 +62,26 @@
         onUpdate: () => {
           boardUpdateToolbarLinksCount();
           boardUpdateLinkedLessonBadge();
+          if (typeof LinksService !== 'undefined' && typeof LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
+            const sUrn = boardGetActiveSessionUrn();
+            LinksService.cascadeLessonCompetencesToBoardAndPlanner(sUrn, sUrn).then(res => {
+              if (res && res.success && res.linkedCount > 0 && typeof conRenderHeaderCompetenceBar === 'function') {
+                conRenderHeaderCompetenceBar();
+              }
+            }).catch(() => {});
+          }
         },
         onLinksChanged: () => {
           boardUpdateToolbarLinksCount();
           boardUpdateLinkedLessonBadge();
+          if (typeof LinksService !== 'undefined' && typeof LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
+            const sUrn = boardGetActiveSessionUrn();
+            LinksService.cascadeLessonCompetencesToBoardAndPlanner(sUrn, sUrn).then(res => {
+              if (res && res.success && res.linkedCount > 0 && typeof conRenderHeaderCompetenceBar === 'function') {
+                conRenderHeaderCompetenceBar();
+              }
+            }).catch(() => {});
+          }
         }
       });
     };
@@ -94,24 +110,80 @@
       if (!hdrBtn || typeof LinksService === 'undefined') return;
       const sessionUrn = boardGetActiveSessionUrn();
       const sessionLinks = LinksService.getLinksForSync(sessionUrn) || [];
+
+      // Find linked lesson
+      const lessonLink = sessionLinks.find(l => {
+        const p = LinksService.parseUrn(l.otherUrn);
+        return p && (p.type === 'lesson' || p.type === 'lessons');
+      });
+
+      // Find linked planner entry
       const planLink = sessionLinks.find(l => {
         const p = LinksService.parseUrn(l.otherUrn);
-        return p && p.type === 'planner-entry';
+        return p && (p.type === 'planner' || p.type === 'slot' || p.type === 'planner-entry');
       });
-      if (planLink) {
-        const title = (planLink.targetMeta && planLink.targetMeta.title) ? planLink.targetMeta.title : 'Lesson Plan';
-        hdrBtn.textContent = `[PLAN: ${title.toUpperCase()}]`;
+
+      const activePlannerId = (typeof activePlannerEntryId !== 'undefined' && activePlannerEntryId)
+        ? activePlannerEntryId
+        : '';
+
+      const compLinks = sessionLinks.filter(l => {
+        const p = LinksService.parseUrn(l.otherUrn);
+        return p && (p.type === 'competence' || p.type === 'competences');
+      });
+      const compCount = Math.max(
+        compLinks.length,
+        (typeof _conCurrentCompetences !== 'undefined' && Array.isArray(_conCurrentCompetences)) ? _conCurrentCompetences.length : 0
+      );
+
+      const t_ = (k, fb) => (typeof t === 'function' ? t(k) : (typeof i18n !== 'undefined' && i18n.t ? i18n.t(k) : fb));
+      const esc = (s) => (typeof boardEscapeHtml === 'function' ? boardEscapeHtml(s) : String(s || ''));
+
+      if (lessonLink) {
+        let lessonTitle = (lessonLink.targetMeta && lessonLink.targetMeta.title) ? lessonLink.targetMeta.title : '';
+        if (!lessonTitle) {
+          const pl = LinksService.parseUrn(lessonLink.otherUrn);
+          lessonTitle = pl ? pl.id : 'Lesson';
+        }
+        const badgeLabel = t_('conLinkedLessonBadge', 'LESSON');
+        hdrBtn.innerHTML = `<img src="../assets/icons/clipboard.svg" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" alt="" /><span>[${badgeLabel}: ${esc(lessonTitle.toUpperCase())}]</span>`;
         hdrBtn.style.display = 'inline-flex';
-        hdrBtn.dataset.urn = planLink.otherUrn;
+        hdrBtn.dataset.urn = lessonLink.otherUrn;
+        if (planLink) {
+          hdrBtn.dataset.plannerUrn = planLink.otherUrn;
+        } else if (activePlannerId) {
+          hdrBtn.dataset.plannerUrn = 'cmt:planner:' + activePlannerId;
+        } else {
+          hdrBtn.dataset.plannerUrn = '';
+        }
+        const tooltipTemplate = t_('conLinkedLessonBtnTooltip', 'Linked Lesson: {title} ({count} competences linked) — Click to open');
+        hdrBtn.title = tooltipTemplate.replace('{title}', lessonTitle).replace('{count}', String(compCount));
+      } else if (planLink || activePlannerId) {
+        let planTitle = (planLink && planLink.targetMeta && planLink.targetMeta.title) ? planLink.targetMeta.title : '';
+        if (!planTitle && activePlannerId && typeof bpBuildLabel === 'function') {
+          const entry = (typeof bpGetAllEntries === 'function') ? bpGetAllEntries().find(e => e.id === activePlannerId) : null;
+          if (entry) planTitle = bpBuildLabel(entry);
+        }
+        if (!planTitle) planTitle = 'Planner Slot';
+        const badgeLabel = t_('conLinkedPlanBadge', 'PLAN');
+        hdrBtn.innerHTML = `<img src="../assets/icons/calendar.svg" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" alt="" /><span>[${badgeLabel}: ${esc(planTitle.toUpperCase())}]</span>`;
+        hdrBtn.style.display = 'inline-flex';
+        hdrBtn.dataset.urn = planLink ? planLink.otherUrn : ('cmt:planner:' + activePlannerId);
+        hdrBtn.dataset.plannerUrn = hdrBtn.dataset.urn;
+        hdrBtn.title = `Linked Planner Slot: "${planTitle}". Click to open Planner.`;
       } else {
         hdrBtn.style.display = 'none';
         hdrBtn.dataset.urn = '';
+        hdrBtn.dataset.plannerUrn = '';
       }
     };
 
-    window.boardOpenLinkedLessonPlan = function () {
+    window.boardOpenLinkedLessonPlan = function (e) {
       const hdrBtn = document.getElementById('con-linked-lesson-btn');
-      const urn = hdrBtn ? hdrBtn.dataset.urn : null;
+      if (!hdrBtn) return;
+      const urn = (e && (e.altKey || e.shiftKey) && hdrBtn.dataset.plannerUrn)
+        ? hdrBtn.dataset.plannerUrn
+        : (hdrBtn.dataset.urn || hdrBtn.dataset.plannerUrn);
       if (urn && typeof LinksService !== 'undefined') {
         LinksService.navigateToUrn(urn);
       }

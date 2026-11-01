@@ -3513,7 +3513,12 @@
               window._conMirrorSend({
                 type: 'note-style',
                 id: String(note.id),
-                fontSize: next
+                fontSize: next,
+                baseWidth: note.liveBaseWidth,
+                baseHeight: note.liveBaseHeight,
+                width: note.width || note.liveBaseWidth,
+                height: note.height || note.liveBaseHeight,
+                manualSize: !!note.manualSize
               });
             }
           });
@@ -3612,8 +3617,15 @@
 
       window.conSetTitle = function (title) {
         conTitle = window.conTitle = global.conTitle = title;
+        const isMirror = (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('con-mirror-mode')) ||
+          (typeof location !== 'undefined' && location.search && location.search.indexOf('mirror=1') !== -1);
+        const isExporting = (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('con-exporting')) ||
+          (typeof document !== 'undefined' && document.body && document.body.classList.contains('con-exporting'));
         const el = document.getElementById('con-board-title');
-        if (el) { el.textContent = title; el.style.display = title ? 'block' : 'none'; }
+        if (el) {
+          el.textContent = title;
+          el.style.display = (title && !isMirror && !isExporting) ? 'block' : 'none';
+        }
         if (typeof conUpdateRenameButtonVisibility === 'function') {
           conUpdateRenameButtonVisibility();
         }
@@ -3661,15 +3673,18 @@
     let _conOffscreenMeasureNode = null;
     function conMeasureNodeDimensions(node) {
       if (!node) return { w: 80, h: 32 };
+      if (node.el && node.el.offsetWidth > 0 && node.el.offsetHeight > 0) {
+        const _boardZoom = (typeof conGetEffectiveZoom === 'function') ? conGetEffectiveZoom() : (parseFloat(window.conCurrentZoom) || 1);
+        node._cachedW = Math.round(node.el.offsetWidth / _boardZoom);
+        node._cachedH = Math.round(node.el.offsetHeight / _boardZoom);
+        node.w = node._cachedW;
+        node.h = node._cachedH;
+        return { w: node._cachedW, h: node._cachedH };
+      }
       if (typeof node.w === 'number' && node.w > 0 && typeof node.h === 'number' && node.h > 0) {
         return { w: node.w, h: node.h };
       }
       if (typeof node._cachedW === 'number' && node._cachedW > 0 && typeof node._cachedH === 'number' && node._cachedH > 0) {
-        return { w: node._cachedW, h: node._cachedH };
-      }
-      if (node.el && node.el.offsetWidth > 0 && node.el.offsetHeight > 0) {
-        node._cachedW = node.el.offsetWidth;
-        node._cachedH = node.el.offsetHeight;
         return { w: node._cachedW, h: node._cachedH };
       }
       try {
@@ -3834,6 +3849,42 @@
           }
         });
       }
+      if (Array.isArray(snapshot.groups)) {
+        const nodeMap = new Map((snapshot.nodes || []).map(n => [String(n.id), n]));
+        const noteMap = new Map((snapshot.notes || []).map(n => [String(n.id), n]));
+        const mediaMap = new Map((snapshot.media || []).map(m => [String(m.id), m]));
+        const drawMap = new Map((snapshot.drawings || []).map(d => [String(d.id), d]));
+        const shapeMap = new Map((snapshot.shapes || []).map(s => [String(s.id), s]));
+
+        snapshot.groups.forEach(g => {
+          if (!g) return;
+          if (typeof g.w === 'number' && g.w > 0 && typeof g.h === 'number' && g.h > 0) return;
+          const rects = [];
+          (g.nodeIds || []).forEach(nid => { const n = nodeMap.get(String(nid)); if (n) rects.push({ x: n.x, y: n.y, w: n.w || 80, h: n.h || 32 }); });
+          (g.noteIds || []).forEach(nid => { const nt = noteMap.get(String(nid)); if (nt && !nt.hidden) rects.push({ x: nt.x, y: nt.y, w: nt.w || 140, h: nt.h || 80 }); });
+          (g.mediaIds || []).forEach(mid => { const m = mediaMap.get(String(mid)); if (m && !m.hidden) rects.push({ x: m.x, y: m.y, w: m.w || 200, h: m.h || 140 }); });
+          (g.drawingIds || []).forEach(did => { const d = drawMap.get(String(did)); if (d) rects.push({ x: d.x, y: d.y, w: d.w || 1, h: d.h || 1 }); });
+          (g.shapeIds || []).forEach(sid => { const s = shapeMap.get(String(sid)); if (s) rects.push({ x: s.x, y: s.y, w: s.w || 100, h: s.h || 80 }); });
+          if (rects.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            rects.forEach(r => {
+              if (r.x < minX) minX = r.x;
+              if (r.y < minY) minY = r.y;
+              if (r.x + r.w > maxX) maxX = r.x + r.w;
+              if (r.y + r.h > maxY) maxY = r.y + r.h;
+            });
+            const pad = g.phraseGroup ? 12 : 18;
+            const topExtra = (g.title || g.name) ? 18 : 0;
+            g.x = minX - pad;
+            g.y = minY - pad - topExtra;
+            g.w = (maxX - minX) + pad * 2;
+            g.h = (maxY - minY) + pad * 2 + topExtra;
+          } else {
+            g.w = g.w || 160;
+            g.h = g.h || 64;
+          }
+        });
+      }
     }
 
     // Capture the current live board state as a plain page-snapshot object.
@@ -3858,27 +3909,28 @@
       const _noteZoom = window.conGetZoom ? Math.max(0.5, Number(window.conGetZoom()) || 1) : 1;
       return {
         nodes: nodes.map(n => {
-          let nw = (typeof n.w === 'number' && n.w > 0) ? n.w : null;
-          let nh = (typeof n.h === 'number' && n.h > 0) ? n.h : null;
-          if (nw == null || nh == null) {
-            if (n.el && n.el.offsetWidth > 0 && n.el.offsetHeight > 0) {
-              nw = nw || n.el.offsetWidth;
-              nh = nh || n.el.offsetHeight;
-              n._cachedW = nw;
-              n._cachedH = nh;
-            } else if (typeof n._cachedW === 'number' && n._cachedW > 0 && typeof n._cachedH === 'number' && n._cachedH > 0) {
-              nw = nw || n._cachedW;
-              nh = nh || n._cachedH;
-            } else {
-              const measured = conMeasureNodeDimensions(n);
-              nw = nw || measured.w;
-              nh = nh || measured.h;
-            }
+          let nw = null;
+          let nh = null;
+          if (n.el && n.el.offsetWidth > 0 && n.el.offsetHeight > 0) {
+            nw = Math.round(n.el.offsetWidth / _noteZoom);
+            nh = Math.round(n.el.offsetHeight / _noteZoom);
+          } else if (typeof n.w === 'number' && n.w > 0 && typeof n.h === 'number' && n.h > 0) {
+            nw = n.w;
+            nh = n.h;
+          } else if (typeof n._cachedW === 'number' && n._cachedW > 0 && typeof n._cachedH === 'number' && n._cachedH > 0) {
+            nw = n._cachedW;
+            nh = n._cachedH;
+          } else {
+            const measured = conMeasureNodeDimensions(n);
+            nw = measured.w;
+            nh = measured.h;
           }
           const finalW = nw || 80;
           const finalH = nh || 32;
           n._cachedW = finalW;
           n._cachedH = finalH;
+          n.w = finalW;
+          n.h = finalH;
           return {
             id: n.id,
             baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
@@ -3952,28 +4004,42 @@
           colorMode: (e.colorMode === 'auto' || e.colorMode === 'manual') ? e.colorMode : undefined,
           strokeColor: e.strokeColor || null
         })),
-        groups: groups.map(g => ({
-          id: g.id,
-          nodeIds: [...g.nodeIds],
-          noteIds: [...(g.noteIds || [])],
-          drawingIds: [...(g.drawingIds || [])],
-          shapeIds: [...(g.shapeIds || [])],
-          mediaIds: [...(g.mediaIds || [])],
-          title: g.title || '',
-          blink: !!g.blink,
-          paletteIdx: g.paletteIdx || 0,
-          invisible: !!g.invisible,
-          drawingGroup: !!g.drawingGroup,
-          phraseGroup: !!g.phraseGroup,
-          manualW: g._manualW != null ? g._manualW : null,
-          manualH: g._manualH != null ? g._manualH : null,
-          x: g.el ? (parseFloat(g.el.style.left) || 0) : 0,
-          y: g.el ? (parseFloat(g.el.style.top) || 0) : 0,
-          titleX: g._titleX != null ? g._titleX : null,
-          titleY: g._titleY != null ? g._titleY : null,
-          titleW: g._titleW != null ? g._titleW : null,
-          titleFS: g._titleFS != null ? g._titleFS : null
-        })),
+        groups: groups.map(g => {
+          let gw = (g._manualW != null) ? g._manualW : null;
+          let gh = (g._manualH != null) ? g._manualH : null;
+          if (gw == null && g.el) {
+            gw = parseFloat(g.el.style.width) || g.el.offsetWidth || null;
+          }
+          if (gh == null && g.el) {
+            gh = parseFloat(g.el.style.height) || g.el.offsetHeight || null;
+          }
+          let gx = g.el ? (parseFloat(g.el.style.left) || 0) : (g.x || 0);
+          let gy = g.el ? (parseFloat(g.el.style.top) || 0) : (g.y || 0);
+          return {
+            id: g.id,
+            nodeIds: [...g.nodeIds],
+            noteIds: [...(g.noteIds || [])],
+            drawingIds: [...(g.drawingIds || [])],
+            shapeIds: [...(g.shapeIds || [])],
+            mediaIds: [...(g.mediaIds || [])],
+            title: g.title || '',
+            blink: !!g.blink,
+            paletteIdx: g.paletteIdx || 0,
+            invisible: !!g.invisible,
+            drawingGroup: !!g.drawingGroup,
+            phraseGroup: !!g.phraseGroup,
+            manualW: g._manualW != null ? g._manualW : null,
+            manualH: g._manualH != null ? g._manualH : null,
+            w: gw,
+            h: gh,
+            x: gx,
+            y: gy,
+            titleX: g._titleX != null ? g._titleX : null,
+            titleY: g._titleY != null ? g._titleY : null,
+            titleW: g._titleW != null ? g._titleW : null,
+            titleFS: g._titleFS != null ? g._titleFS : null
+          };
+        }),
         masks: masks.map(m => ({
           id: m.id, x: m.x, y: m.y,
           width: m.width, height: m.height,
@@ -4188,6 +4254,7 @@
         _isPageRestore: true,
         _isMirrorSync: !!(opts && opts.mirrorSync),
         _isUndoRedo: isUndoRedo,
+        _isExport: !!(opts && opts.isExport),
         title: title,
         dateCreated: dateCreated,
         boardHeight: (snapshot && snapshot.boardHeight) || null,
@@ -5934,6 +6001,8 @@
         title: dataToSave.title || baseName,
         classGroup: dataToSave._classGroup || dataToSave.classGroup || '',
         plannerEntryId: dataToSave._plannerEntryId || '',
+        lessonId: dataToSave._lessonId || dataToSave.lessonId || '',
+        competences: Array.isArray(dataToSave.competences) ? dataToSave.competences : ((typeof _conCurrentCompetences !== 'undefined' && Array.isArray(_conCurrentCompetences)) ? _conCurrentCompetences : []),
         pageCount: pages.length,
         nodeCount: Array.isArray(dataToSave.nodes) ? dataToSave.nodes.length : 0,
         thumbnail: 'page-snapshots/page-001.webp',
@@ -6839,7 +6908,9 @@
       const board = document.getElementById('constellation-board');
       if (!board) return null;
 
-      // Pre-wait for any board images and web fonts to finish loading
+      document.documentElement.classList.add('con-exporting');
+      try {
+        // Pre-wait for any board images and web fonts to finish loading
       if (document.fonts && typeof document.fonts.ready !== 'undefined') {
         try { await document.fonts.ready; } catch (_) { }
       }
@@ -7281,7 +7352,10 @@
       ctx.font = '500 11px "Segoe UI",Arial,sans-serif'; ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       ctx.fillText(ts, bw + PAD * 2 - 8, bh + PAD * 2 - 6);
       return { canvas, now, scale, PAD, bw, bh };
+    } finally {
+      document.documentElement.classList.remove('con-exporting');
     }
+  }
 
     async function conExportPNG() {
       const result = await _conBuildBoardCanvas(); if (!result) return;
@@ -7646,7 +7720,7 @@
           const progressEl = document.getElementById('con-pdf-export-loading-progress');
           for (let i = 0; i < pagesToProcess.length; i++) {
             if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${pagesToProcess.length}...`;
-            _conRestorePageToBoard(pagesToProcess[i]);
+            _conRestorePageToBoard(pagesToProcess[i], { isExport: true });
             if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
               try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
             }
@@ -7760,6 +7834,9 @@
     }
 
     async function conExportPagesPDF(mode = 'vector', exportOpts = {}) {
+      if (typeof window.conGroupRefitAll === 'function') {
+        try { window.conGroupRefitAll(); } catch (_) { }
+      }
       conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       if (Array.isArray(conPageSnapshots) && typeof conEnsureSnapshotDimensions === 'function') {
         conPageSnapshots.forEach(snap => conEnsureSnapshotDimensions(snap));
@@ -7845,7 +7922,7 @@
         const progressEl = document.getElementById('con-pdf-export-loading-progress');
         for (let i = 0; i < pagesToProcess.length; i++) {
           if (progressEl) progressEl.textContent = `Processing page ${i + 1} of ${pagesToProcess.length}...`;
-          _conRestorePageToBoard(pagesToProcess[i]);
+          _conRestorePageToBoard(pagesToProcess[i], { isExport: true });
           if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
             try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
           }
@@ -8998,9 +9075,11 @@
           if (!c) return;
           const code = String(c.code || c.title || c.id || '');
           const title = String(c.title || code);
+          const isFromLesson = !!(c.autoLinkedFrom || c.cascadeType === 'lesson_competence');
+          const lessonBadge = isFromLesson ? `<span class="con-comp-from-lesson-badge" style="display:inline-block;margin-left:6px;font-size:0.65rem;background:#dbeafe;color:#1e40af;padding:1px 5px;border-radius:3px;font-weight:700;">${t_('compFromLessonTag', 'From Lesson')}</span>` : '';
           const li = document.createElement('li');
           li.className = 'con-comp-popup-item';
-          li.innerHTML = `<span class="con-comp-popup-item-code">${boardEscapeHtml(code)}</span>${title && title !== code ? `<span class="con-comp-popup-item-title">${boardEscapeHtml(title)}</span>` : ''}`;
+          li.innerHTML = `<span class="con-comp-popup-item-code">${boardEscapeHtml(code)}</span>${title && title !== code ? `<span class="con-comp-popup-item-title">${boardEscapeHtml(title)}</span>` : ''}${lessonBadge}`;
           list.appendChild(li);
         });
       }
@@ -9152,22 +9231,45 @@
     }
 
     function conGetPlannerSuggestedCompetences() {
-      if (!activePlannerEntryId || !window.PLANNER_ENTRIES_BY_CLASS) return [];
-      let foundEntry = null;
-      const byClass = window.PLANNER_ENTRIES_BY_CLASS;
-      for (const cid of Object.keys(byClass)) {
-        const list = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-        const hit = list.find(e => e && e.id === activePlannerEntryId);
-        if (hit) { foundEntry = hit; break; }
+      const results = [];
+      const seen = new Set();
+      const addComp = (c) => {
+        if (!c) return;
+        const code = String(typeof c === 'object' ? (c.code || c.id || c.title) : c).trim();
+        if (code && !seen.has(code.toLowerCase())) {
+          seen.add(code.toLowerCase());
+          results.push(c);
+        }
+      };
+
+      // 1. From linked planner entry
+      if (activePlannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
+        let foundEntry = null;
+        const byClass = window.PLANNER_ENTRIES_BY_CLASS;
+        for (const cid of Object.keys(byClass)) {
+          const list = Array.isArray(byClass[cid]) ? byClass[cid] : [];
+          const hit = list.find(e => e && e.id === activePlannerEntryId);
+          if (hit) { foundEntry = hit; break; }
+        }
+        if (foundEntry) {
+          if (Array.isArray(foundEntry.competences)) foundEntry.competences.forEach(addComp);
+          if (Array.isArray(foundEntry.competenceIds)) foundEntry.competenceIds.forEach(addComp);
+        }
       }
-      if (!foundEntry) return [];
-      if (Array.isArray(foundEntry.competences) && foundEntry.competences.length > 0) {
-        return foundEntry.competences;
+
+      // 2. From linked lesson or competences in LinksService
+      if (typeof LinksService !== 'undefined' && typeof boardGetActiveSessionUrn === 'function') {
+        const sessionUrn = boardGetActiveSessionUrn();
+        const links = LinksService.getLinksForSync(sessionUrn) || [];
+        links.forEach(l => {
+          const p = LinksService.parseUrn(l.otherUrn);
+          if (p && (p.type === 'competence' || p.type === 'competences')) {
+            addComp(l.targetMeta || { code: p.id, id: p.id, title: (l.targetMeta && l.targetMeta.title) || p.id });
+          }
+        });
       }
-      if (Array.isArray(foundEntry.competenceIds) && foundEntry.competenceIds.length > 0) {
-        return foundEntry.competenceIds;
-      }
-      return [];
+
+      return results;
     }
 
     async function conOpenCompetenceModal(targetType = 'board', targetId = null) {
@@ -10759,7 +10861,7 @@
 
       // Restore groups
       // NOTE: notes/drawings/shapes are restored AFTER groups, so we cannot filter by their
-      // current existence here — _conGroupRefit handles missing members gracefully and
+      // current existence here ÔÇö _conGroupRefit handles missing members gracefully and
       // conGroupRefitAll() is called at the end once everything is in place.
       if (data.groups) {
         data.groups.forEach(g => {

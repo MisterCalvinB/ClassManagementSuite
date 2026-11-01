@@ -8,6 +8,8 @@
       window._conSuppressMirrorObserver = true;
       document.title = 'Board – Presentation Mode';
       document.documentElement.classList.add('con-mirror-mode');
+      var _mirrorTitleEl = document.getElementById('con-board-title');
+      if (_mirrorTitleEl) _mirrorTitleEl.style.display = 'none';
       const _searchParams = new URLSearchParams(location.search);
       let _mirrorChannelName = (_searchParams.get('mirrorChannel') || '').trim();
       if (!_mirrorChannelName) {

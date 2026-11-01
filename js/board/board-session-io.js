@@ -1551,9 +1551,11 @@
       }
 
       if (rel && (classGroup || plannerEntryId || (entryData.competences && entryData.competences.length))) {
+        const lessonId = (sessionData && (sessionData._lessonId || sessionData.lessonId)) || '';
         boardHistoryMetaCache[rel] = {
           classGroup: classGroup || '',
           plannerEntryId: plannerEntryId || '',
+          lessonId: lessonId || '',
           competences: Array.isArray(entryData.competences) ? entryData.competences : [],
           createdAt: entryData.createdAt || 0,
           modifiedAt: now
@@ -1572,6 +1574,12 @@
           if (classGroup) {
             LinksService.addLink(bUrn, LinksService.makeUrn('class', classGroup), {
               relation: 'class_session',
+              sourceMeta: { title: baseName, relativePath: rel, target }
+            }).catch(() => {});
+          }
+          if (lessonId) {
+            LinksService.addLink(bUrn, LinksService.makeUrn('lesson', lessonId), {
+              relation: 'lesson_plan',
               sourceMeta: { title: baseName, relativePath: rel, target }
             }).catch(() => {});
           }
@@ -2817,6 +2825,18 @@
             else if (typeof window.conUpdateRenameButtonVisibility === 'function') window.conUpdateRenameButtonVisibility();
             if (typeof boardUpdateToolbarLinksCount === 'function') boardUpdateToolbarLinksCount();
             if (typeof conUpdateAllNodeLinkBadges === 'function') conUpdateAllNodeLinkBadges();
+            if (typeof LinksService !== 'undefined' && typeof LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
+              const bUrn = (typeof boardGetActiveSessionUrn === 'function') ? boardGetActiveSessionUrn() : null;
+              if (bUrn) {
+                LinksService.cascadeLessonCompetencesToBoardAndPlanner(bUrn, bUrn).then(res => {
+                  if (res && res.success && res.linkedCount > 0) {
+                    if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
+                    if (typeof boardUpdateLinkedLessonBadge === 'function') boardUpdateLinkedLessonBadge();
+                    if (typeof boardUpdateToolbarLinksCount === 'function') boardUpdateToolbarLinksCount();
+                  }
+                }).catch(() => {});
+              }
+            }
           }, 200);
           navTo('constellation-section');
           return;

@@ -275,8 +275,8 @@
    */
   function resolveNodeDims(n) {
     if (!n) return { w: 120, h: 40, fs: 16 };
-    var rawW = parseDim(n.w) || parseDim(n.width) || parseDim(n._cachedW) || parseDim(n.offsetWidth) || parseDim(n.clientWidth) || (n.el ? (parseDim(n.el.offsetWidth) || parseDim(n.el.clientWidth)) : 0);
-    var rawH = parseDim(n.h) || parseDim(n.height) || parseDim(n._cachedH) || parseDim(n.offsetHeight) || parseDim(n.clientHeight) || (n.el ? (parseDim(n.el.offsetHeight) || parseDim(n.el.clientHeight)) : 0);
+    var rawW = parseDim(n.w) || parseDim(n.width) || parseDim(n.liveBaseWidth) || parseDim(n.styleWidth) || (n.style ? parseDim(n.style.width) : 0) || parseDim(n._cachedW) || parseDim(n.offsetWidth) || parseDim(n.clientWidth) || (n.el ? (parseDim(n.el.offsetWidth) || parseDim(n.el.clientWidth)) : 0);
+    var rawH = parseDim(n.h) || parseDim(n.height) || parseDim(n.liveBaseHeight) || parseDim(n.styleHeight) || (n.style ? parseDim(n.style.height) : 0) || parseDim(n._cachedH) || parseDim(n.offsetHeight) || parseDim(n.clientHeight) || (n.el ? (parseDim(n.el.offsetHeight) || parseDim(n.el.clientHeight)) : 0);
     var fs = parseFloat(n.fontSize || n.fontPx || (n.fmt && n.fmt.fontSize)) || 16;
     var shape = String(n.shape || '').toLowerCase();
     var isSquareOrCircle = shape === 'circle' || shape === 'square';
@@ -294,11 +294,11 @@
     var maxLineLen = 0;
     rawLines.forEach(function (l) { if (l.length > maxLineLen) maxLineLen = l.length; });
 
-    // In Board, bold Lexend character width is ~0.68 * fontSize + 28px container padding + 4px border (32px total)
-    var charW = fs * 0.68;
-    var estimatedW = Math.max(48, Math.round(maxLineLen * charW + 32));
-    var lineH = Math.max(16, Math.round(fs * 1.35));
-    var estimatedH = Math.max(28, Math.round(rawLines.length * lineH + 16));
+    // In Board, bold Lexend character width is ~0.58 * fontSize + 18px container padding (9px left + 9px right) + 4px border (22px total)
+    var charW = fs * 0.58;
+    var estimatedW = Math.max(48, Math.round(maxLineLen * charW + 22));
+    var lineH = Math.max(16, Math.round(fs * 1.3));
+    var estimatedH = Math.max(28, Math.round(rawLines.length * lineH + 10));
 
     if (n.relation === 'translation' || n.relation === 'ipa') estimatedW += 24;
     if (n.pageNum != null) estimatedW += 20;
@@ -341,6 +341,215 @@
     var finalW = rawW > 0 ? rawW : fallbackW;
     var finalH = rawH > 0 ? rawH : fallbackH;
     return { w: finalW, h: finalH, fs: fs };
+  }
+
+  /**
+   * Helper: Resolve accurate note border properties (respecting main view styling: 1px dotted #cdc9c9 by default)
+   */
+  function resolveNoteBorder(nt) {
+    var bw = (nt && nt.borderWidth != null && !isNaN(Number(nt.borderWidth))) ? Number(nt.borderWidth) : 0;
+    var bc = (nt && (nt.borderColor || nt.border)) ? String(nt.borderColor || nt.border).trim() : '';
+    var bs = (nt && nt.borderStyle) ? String(nt.borderStyle).trim().toLowerCase() : '';
+
+    // Custom border with explicit width > 0
+    if (bw > 0) {
+      var style = (bs === 'dashed' || bs === 'dotted' || bs === 'solid') ? bs : 'solid';
+      var color = bc || '#111111';
+      var dash = style === 'dashed' ? 'stroke-dasharray="6,3"' : (style === 'dotted' ? 'stroke-dasharray="2,3"' : '');
+      return {
+        width: bw,
+        color: color,
+        style: style,
+        dash: dash,
+        lineDash: style === 'dashed' ? [6, 3] : (style === 'dotted' ? [2, 3] : [])
+      };
+    }
+
+    // Custom border with explicit color or style given without width
+    if (bc && bc !== 'transparent' && bc !== 'none') {
+      var styleNoW = (bs === 'dashed' || bs === 'dotted' || bs === 'solid') ? bs : 'solid';
+      var dashNoW = styleNoW === 'dashed' ? 'stroke-dasharray="6,3"' : (styleNoW === 'dotted' ? 'stroke-dasharray="2,3"' : '');
+      return {
+        width: 1.5,
+        color: bc,
+        style: styleNoW,
+        dash: dashNoW,
+        lineDash: styleNoW === 'dashed' ? [6, 3] : (styleNoW === 'dotted' ? [2, 3] : [])
+      };
+    }
+
+    // Default note border from main view (.con-word-note in CSS: border: 1px dotted #cdc9c9)
+    return {
+      width: 1,
+      color: '#cdc9c9',
+      style: 'dotted',
+      dash: 'stroke-dasharray="2,3"',
+      lineDash: [2, 3]
+    };
+  }
+
+  /**
+   * Helper: Resolve accurate bounding box for a group across all member types
+   * (nodes, notes/text, media/images, drawings, shapes).
+   */
+  function resolveGroupBounds(g, nodeMap, noteMap, mediaMap, drawingMap, shapeMap, allGroups) {
+    nodeMap = nodeMap || {};
+    noteMap = noteMap || {};
+    mediaMap = mediaMap || {};
+    drawingMap = drawingMap || {};
+    shapeMap = shapeMap || {};
+    allGroups = allGroups || [];
+
+    var allRects = [];
+
+    // Expand nodeIds to include phrase siblings if any member belongs to a phrase group
+    var refitNodeIds = new Set(g.nodeIds || []);
+    (g.nodeIds || []).forEach(function (nid) {
+      allGroups.forEach(function (otherG) {
+        if (otherG.phraseGroup && Array.isArray(otherG.nodeIds) && otherG.nodeIds.includes(nid)) {
+          otherG.nodeIds.forEach(function (sid) { refitNodeIds.add(sid); });
+        }
+      });
+    });
+
+    // 1. Member nodes
+    refitNodeIds.forEach(function (nid) {
+      var n = nodeMap[nid] || nodeMap[String(nid)];
+      if (n) {
+        var mx = Number(n.x) || 0, my = Number(n.y) || 0;
+        var md = resolveNodeDims(n);
+        var mw = md.w, mh = md.h;
+        var rot = Number(n.rotation) || 0;
+        if (!rot || rot % 360 === 0) {
+          allRects.push({ x: mx, y: my, w: mw, h: mh });
+        } else {
+          var rad = rot * Math.PI / 180;
+          var cos = Math.abs(Math.cos(rad));
+          var sin = Math.abs(Math.sin(rad));
+          var bbW = mw * cos + mh * sin;
+          var bbH = mw * sin + mh * cos;
+          var cx = mx + mw / 2;
+          var cy = my + mh / 2;
+          allRects.push({ x: cx - bbW / 2, y: cy - bbH / 2, w: bbW, h: bbH });
+        }
+      }
+    });
+
+    // 2. Member notes (text)
+    (g.noteIds || []).forEach(function (nid) {
+      var nt = noteMap[nid] || noteMap[String(nid)];
+      if (nt && !nt.hidden) {
+        var nx = Number(nt.x) || 0, ny = Number(nt.y) || 0;
+        var nd = resolveNoteDims(nt);
+        allRects.push({ x: nx, y: ny, w: nd.w, h: nd.h });
+      }
+    });
+
+    // 3. Member media (images & widgets)
+    (g.mediaIds || []).forEach(function (mid) {
+      var m = mediaMap[mid] || mediaMap[String(mid)];
+      if (m && !m.hidden) {
+        var mx = Number(m.x) || 0, my = Number(m.y) || 0;
+        var mw = parseDim(m.w) || parseDim(m.width) || (m.el ? (parseDim(m.el.offsetWidth) || parseDim(m.el.clientWidth)) : 0) || 200;
+        var mh = parseDim(m.h) || parseDim(m.height) || (m.el ? (parseDim(m.el.offsetHeight) || parseDim(m.el.clientHeight)) : 0) || 140;
+        allRects.push({ x: mx, y: my, w: mw, h: mh });
+      }
+    });
+
+    // 4. Member drawings
+    (g.drawingIds || []).forEach(function (did) {
+      var d = drawingMap[did] || drawingMap[String(did)];
+      if (d) {
+        var dx = Number(d.x) || 0, dy = Number(d.y) || 0;
+        var dw = Number(d.w || d.width) || 0, dh = Number(d.h || d.height) || 0;
+        if ((!dw || !dh) && Array.isArray(d.points) && d.points.length > 0) {
+          var pMinX = Infinity, pMinY = Infinity, pMaxX = -Infinity, pMaxY = -Infinity;
+          d.points.forEach(function (pt) {
+            if (!pt) return;
+            if (pt.x < pMinX) pMinX = pt.x;
+            if (pt.y < pMinY) pMinY = pt.y;
+            if (pt.x > pMaxX) pMaxX = pt.x;
+            if (pt.y > pMaxY) pMaxY = pt.y;
+          });
+          if (pMinX !== Infinity) {
+            dx += pMinX;
+            dy += pMinY;
+            dw = Math.max(1, pMaxX - pMinX);
+            dh = Math.max(1, pMaxY - pMinY);
+          }
+        }
+        allRects.push({ x: dx, y: dy, w: Math.max(1, dw), h: Math.max(1, dh) });
+      }
+    });
+
+    // 5. Member shapes
+    (g.shapeIds || []).forEach(function (sid) {
+      var s = shapeMap[sid] || shapeMap[String(sid)];
+      if (s) {
+        if (s.type === 'line' || s.type === 'arrow') {
+          var lx1 = Number(s.lx1) || 0, ly1 = Number(s.ly1) || 0;
+          var lx2 = Number(s.lx2) || 0, ly2 = Number(s.ly2) || 0;
+          allRects.push({
+            x: Math.min(lx1, lx2),
+            y: Math.min(ly1, ly2),
+            w: Math.max(10, Math.abs(lx2 - lx1)),
+            h: Math.max(10, Math.abs(ly2 - ly1))
+          });
+        } else {
+          allRects.push({
+            x: Number(s.x) || 0,
+            y: Number(s.y) || 0,
+            w: Number(s.w || s.width) || 100,
+            h: Number(s.h || s.height) || 80
+          });
+        }
+      }
+    });
+
+    var gPad = g.phraseGroup ? 12 : 18;
+    var gTitle = g.title || g.name || '';
+    var titleSpace = gTitle ? 18 : 0;
+
+    var manualW = Number(g.manualW || g._manualW) || 0;
+    var manualH = Number(g.manualH || g._manualH) || 0;
+
+    if (allRects.length > 0) {
+      var gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
+      allRects.forEach(function (r) {
+        if (r.x < gMinX) gMinX = r.x;
+        if (r.y < gMinY) gMinY = r.y;
+        if (r.x + r.w > gMaxX) gMaxX = r.x + r.w;
+        if (r.y + r.h > gMaxY) gMaxY = r.y + r.h;
+      });
+
+      var calcX = gMinX - gPad;
+      var calcY = gMinY - gPad - titleSpace;
+      var calcW = (gMaxX - gMinX) + gPad * 2;
+      var calcH = (gMaxY - gMinY) + gPad * 2 + titleSpace;
+
+      var finalW = manualW > 0 ? manualW : calcW;
+      var finalH = manualH > 0 ? manualH : calcH;
+
+      return {
+        x: calcX,
+        y: calcY,
+        w: Math.max(40, finalW),
+        h: Math.max(30, finalH)
+      };
+    }
+
+    // Fallback if no members found
+    var storedX = Number(g.x != null ? g.x : (g._px != null ? g._px : 40));
+    var storedY = Number(g.y != null ? g.y : (g._py != null ? g._py : 40));
+    var storedW = manualW || Number(g.w || g.width) || 160;
+    var storedH = manualH || Number(g.h || g.height) || 64;
+
+    return {
+      x: storedX,
+      y: storedY,
+      w: Math.max(40, storedW),
+      h: Math.max(30, storedH)
+    };
   }
 
   /**
@@ -677,11 +886,44 @@
         '</svg>\n';
     }
 
-    // Node lookup map
+    // Element lookup maps
     var nodeMap = {};
     nodes.forEach(function (n) {
       var nid = n.id || (String(n.x) + '_' + String(n.y));
       nodeMap[nid] = n;
+      if (n.id != null) nodeMap[String(n.id)] = n;
+    });
+
+    var noteMap = {};
+    notes.forEach(function (nt) {
+      if (nt && nt.id != null) {
+        noteMap[nt.id] = nt;
+        noteMap[String(nt.id)] = nt;
+      }
+    });
+
+    var mediaMap = {};
+    media.forEach(function (m) {
+      if (m && m.id != null) {
+        mediaMap[m.id] = m;
+        mediaMap[String(m.id)] = m;
+      }
+    });
+
+    var drawingMap = {};
+    drawings.forEach(function (d) {
+      if (d && d.id != null) {
+        drawingMap[d.id] = d;
+        drawingMap[String(d.id)] = d;
+      }
+    });
+
+    var shapeMap = {};
+    shapes.forEach(function (s) {
+      if (s && s.id != null) {
+        shapeMap[s.id] = s;
+        shapeMap[String(s.id)] = s;
+      }
     });
 
     // Calculate bounds across all elements
@@ -703,33 +945,12 @@
       expand(n.x, n.y, d.w, d.h);
     });
     groups.forEach(function (g) {
-      var gw = Number(g.w || g.width || g.manualW || g._manualW) || 0;
-      var gh = Number(g.h || g.height || g.manualH || g._manualH) || 0;
-      if (!gw || !gh) {
-        var memberNodes = (g.nodeIds || []).map(function (nid) { return nodeMap[nid]; }).filter(Boolean);
-        if (memberNodes.length > 0) {
-          var gMinX = Infinity, gMinY = Infinity, gMaxX = -Infinity, gMaxY = -Infinity;
-          memberNodes.forEach(function (mn) {
-            var mx = Number(mn.x) || 0, my = Number(mn.y) || 0;
-            var md = resolveNodeDims(mn);
-            var mw = md.w, mh = md.h;
-            if (mx < gMinX) gMinX = mx;
-            if (my < gMinY) gMinY = my;
-            if (mx + mw > gMaxX) gMaxX = mx + mw;
-            if (my + mh > gMaxY) gMaxY = my + mh;
-          });
-          var gPad = 20;
-          g.x = gMinX - gPad;
-          g.y = gMinY - gPad - 16;
-          gw = (gMaxX - gMinX) + gPad * 2;
-          gh = (gMaxY - gMinY) + gPad * 2 + 16;
-        } else {
-          gw = 280; gh = 180;
-        }
-      }
-      g._resolvedW = gw;
-      g._resolvedH = gh;
-      expand(g.x, g.y, gw, gh);
+      var b = resolveGroupBounds(g, nodeMap, noteMap, mediaMap, drawingMap, shapeMap, groups);
+      g.x = b.x;
+      g.y = b.y;
+      g._resolvedW = b.w;
+      g._resolvedH = b.h;
+      expand(g.x, g.y, b.w, b.h);
     });
     notes.forEach(function (nt) {
       if (nt.hidden) return;
@@ -805,8 +1026,8 @@
     groups.forEach(function (g) {
       if (g.invisible) return;
       var gx = Number(g.x) || 0, gy = Number(g.y) || 0;
-      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 280;
-      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 180;
+      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 160;
+      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 64;
       var a = {
         id: g.id,
         type: 'group',
@@ -989,8 +1210,8 @@
     groups.forEach(function (g) {
       if (g.invisible) return;
       var gx = Number(g.x) || 0, gy = Number(g.y) || 0;
-      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 280;
-      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 180;
+      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 160;
+      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 64;
       var gColor = g.color || g.bg || '#f3f4f6';
       var gTitle = g.title || g.name || '';
       svg += '  <g class="bes-group">\n' +
@@ -1236,9 +1457,14 @@
       svg += '      </clipPath>\n' +
         '    </defs>\n';
 
+      var fmt = n.fmt || {};
+      var hasMaxWidth = !!(fmt && typeof fmt.maxWidth === 'number' && fmt.maxWidth > 0 && !isRound && !isSquare) || (typeof n.maxWidth === 'number' && n.maxWidth > 0 && !isRound && !isSquare);
+      var hasMultiLine = /\/\/|\r?\n|<br\s*\/?>/i.test(nText);
+
       // 2. For diamond and circle shapes, scale the text container by sqrt(2)/2 ≈ 0.7071
-      // so text fits cleanly inside the widest inscribed part of the shape.
-      var shapeScale = (isDiamond || isRound) ? 0.7071 : 1.0;
+      // only when multi-line text or maxWidth is present. For single-line nodes at the horizontal
+      // center line, full width (nw) is available and squeezing causes single-line nodes to wrap.
+      var shapeScale = (hasMultiLine || hasMaxWidth) ? ((isDiamond || isRound) ? 0.7071 : 1.0) : 1.0;
       var tW = Math.max(20, Math.round(nw * shapeScale));
       var tH = Math.max(16, Math.round(nh * shapeScale));
       var tX = Math.round(nx + (nw - tW) / 2);
@@ -1249,12 +1475,13 @@
       var isVectorMode = (opts.renderMode === 'vector');
       var hasHtml = !!(n.html || (n.el && n.el.querySelector && n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup')) || /<[a-z][\s\S]*>/i.test(nText));
       var hasMath = /\$|\\\(|\\\[/.test(nText) || (n.html && /\$|\\\(|\\\[/.test(n.html));
-      var hasMultiLine = /\/\/|\r?\n|<br\s*\/?>/i.test(nText);
       var useForeignObject = isVectorMode && (hasHtml || hasMath || hasMultiLine || true);
 
       var align = (n.textAlign || (n.fmt && (n.fmt.align || n.fmt.textAlign)) || (n.align) || 'center').toLowerCase();
       if (align !== 'left' && align !== 'right' && align !== 'center') align = 'center';
       var justifyVal = align === 'center' ? 'center' : (align === 'right' ? 'flex-end' : 'flex-start');
+
+      var wsStyle = hasMaxWidth ? 'white-space:normal;word-break:break-word;' : 'white-space:nowrap;word-break:normal;';
 
       if (useForeignObject) {
         var contentHtml = '';
@@ -1273,8 +1500,8 @@
         var tdCss = td ? 'underline' : 'none';
         svg += '    <g class="bes-node-text-wrap" clip-path="url(#' + nodeClipId + ')">\n' +
           '      <foreignObject x="' + tX + '" y="' + tY + '" width="' + tW + '" height="' + tH + '">\n' +
-          '        <div xmlns="http://www.w3.org/1999/xhtml" style="width:' + tW + 'px;height:' + tH + 'px;display:flex;align-items:center;justify-content:' + justifyVal + ';text-align:' + align + ';word-break:break-word;box-sizing:border-box;overflow:hidden;padding:0 2px;">\n' +
-          '          <div style="width:100%;font-family:' + escapeXml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + tdCss + ';color:' + nColor + ';line-height:1.25;text-align:' + align + ';word-break:break-word;overflow:hidden;">\n' +
+          '        <div xmlns="http://www.w3.org/1999/xhtml" style="width:' + tW + 'px;height:' + tH + 'px;display:flex;align-items:center;justify-content:' + justifyVal + ';text-align:' + align + ';' + wsStyle + 'box-sizing:border-box;overflow:hidden;padding:0 2px;">\n' +
+          '          <div style="width:100%;font-family:' + escapeXml(ff) + ';font-size:' + fs + 'px;font-weight:' + fw + ';font-style:' + fst + ';text-decoration:' + tdCss + ';color:' + nColor + ';line-height:1.25;text-align:' + align + ';' + wsStyle + 'overflow:hidden;">\n' +
           '            ' + contentHtml + '\n' +
           '          </div>\n' +
           '        </div>\n' +
@@ -1284,26 +1511,30 @@
         // Fallback to standard SVG <text> elements
         var rawLines = String(nText).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
         var lines = [];
-        var availW = Math.max(20, tW - padX * 2);
-        var avgCharW = fs * 0.58;
-        var maxChars = Math.max(6, Math.floor(availW / avgCharW));
-        rawLines.forEach(function (rawSeg) {
-          if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
-            lines.push(rawSeg);
-          } else {
-            var words = rawSeg.split(/\s+/);
-            var cur = '';
-            words.forEach(function (w) {
-              if ((cur + ' ' + w).trim().length > maxChars) {
-                if (cur) lines.push(cur.trim());
-                cur = w;
-              } else {
-                cur = cur ? (cur + ' ' + w) : w;
-              }
-            });
-            if (cur) lines.push(cur.trim());
-          }
-        });
+        if (!hasMaxWidth) {
+          lines = rawLines;
+        } else {
+          var availW = Math.max(20, tW - padX * 2);
+          var avgCharW = fs * 0.58;
+          var maxChars = Math.max(6, Math.floor(availW / avgCharW));
+          rawLines.forEach(function (rawSeg) {
+            if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
+              lines.push(rawSeg);
+            } else {
+              var words = rawSeg.split(/\s+/);
+              var cur = '';
+              words.forEach(function (w) {
+                if ((cur + ' ' + w).trim().length > maxChars) {
+                  if (cur) lines.push(cur.trim());
+                  cur = w;
+                } else {
+                  cur = cur ? (cur + ' ' + w) : w;
+                }
+              });
+              if (cur) lines.push(cur.trim());
+            }
+          });
+        }
         if (!lines.length) lines = [''];
 
         var textAnchor = align === 'center' ? 'middle' : (align === 'right' ? 'end' : 'start');
@@ -1346,10 +1577,11 @@
       var tw = dims.w;
       var th = dims.h;
       var fs = dims.fs;
-      var nBg = nt.bg || '#fef3c7';
-      var nBorder = nt.borderColor || nt.border || '#d97706';
-      var nBorderW = nt.borderWidth != null ? Number(nt.borderWidth) : 1.5;
-      var nBorderDash = nt.borderStyle === 'dashed' ? 'stroke-dasharray="6,3"' : (nt.borderStyle === 'dotted' ? 'stroke-dasharray="2,3"' : '');
+      var nBg = nt.bg || '#ffffff';
+      var nBorderInfo = resolveNoteBorder(nt);
+      var nBorder = nBorderInfo.color;
+      var nBorderW = nBorderInfo.width;
+      var nBorderDash = nBorderInfo.dash;
 
       var ff = nt.fontFamily || 'Lexend, "Segoe UI", Arial, sans-serif';
       var fw = nt.bold ? '700' : '400';
@@ -1557,6 +1789,17 @@
     var tables = data.tables || [];
     var media = data.media || [];
 
+    var nodeMap = {};
+    nodes.forEach(function (n) { if (n && n.id != null) nodeMap[String(n.id)] = n; });
+    var noteMap = {};
+    notes.forEach(function (nt) { if (nt && nt.id != null) noteMap[String(nt.id)] = nt; });
+    var mediaMap = {};
+    media.forEach(function (m) { if (m && m.id != null) mediaMap[String(m.id)] = m; });
+    var drawingMap = {};
+    drawings.forEach(function (d) { if (d && d.id != null) drawingMap[String(d.id)] = d; });
+    var shapeMap = {};
+    shapes.forEach(function (s) { if (s && s.id != null) shapeMap[String(s.id)] = s; });
+
     var maxX = 0, maxY = 0;
     nodes.forEach(function (n) {
       var d = resolveNodeDims(n);
@@ -1566,8 +1809,13 @@
       if (ry > maxY) maxY = ry;
     });
     groups.forEach(function (g) {
-      var rx = (g.x || 0) + (g.w || g.width || 280);
-      var ry = (g.y || 0) + (g.h || g.height || 180);
+      var b = resolveGroupBounds(g, nodeMap, noteMap, mediaMap, drawingMap, shapeMap, groups);
+      g.x = b.x;
+      g.y = b.y;
+      g._resolvedW = b.w;
+      g._resolvedH = b.h;
+      var rx = (b.x || 0) + b.w;
+      var ry = (b.y || 0) + b.h;
       if (rx > maxX) maxX = rx;
       if (ry > maxY) maxY = ry;
     });
@@ -1620,7 +1868,8 @@
     groups.forEach(function (g) {
       if (g.invisible) return;
       var gx = PAD + (Number(g.x) || 0), gy = PAD + (Number(g.y) || 0);
-      var gw = Number(g.w || g.width || 280), gh = Number(g.h || g.height || 180);
+      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 160;
+      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 64;
       ctx.fillStyle = g.color || g.bg || '#f3f4f6';
       ctx.save();
       ctx.globalAlpha = 0.35;
@@ -1777,7 +2026,8 @@
     groups.forEach(function (g) {
       if (g.invisible) return;
       var gx = PAD + (Number(g.x) || 0), gy = PAD + (Number(g.y) || 0);
-      var gw = Number(g.w || g.width || 280), gh = Number(g.h || g.height || 180);
+      var gw = Number(g._resolvedW || g.w || g.width || g.manualW || g._manualW) || 160;
+      var gh = Number(g._resolvedH || g.h || g.height || g.manualH || g._manualH) || 64;
       var a = {
         id: g.id,
         type: 'group',
@@ -1990,28 +2240,35 @@
       ctx.textAlign = anchor === 'middle' ? 'center' : (anchor === 'end' ? 'right' : 'left');
       ctx.textBaseline = 'middle';
 
+      var fmt = n.fmt || {};
+      var hasMaxWidth = !!(fmt && typeof fmt.maxWidth === 'number' && fmt.maxWidth > 0 && !isRound && !isSquare) || (typeof n.maxWidth === 'number' && n.maxWidth > 0 && !isRound && !isSquare);
+
       var rawLines = String(text).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
       var lines = [];
-      var availW = Math.max(30, nw - padX * 2);
-      var avgCharW = fs * 0.58;
-      var maxChars = Math.max(10, Math.floor(availW / avgCharW));
-      rawLines.forEach(function (rawSeg) {
-        if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
-          lines.push(rawSeg);
-        } else {
-          var words = rawSeg.split(/\s+/);
-          var cur = '';
-          words.forEach(function (w) {
-            if ((cur + ' ' + w).trim().length > maxChars) {
-              if (cur) lines.push(cur.trim());
-              cur = w;
-            } else {
-              cur = cur ? (cur + ' ' + w) : w;
-            }
-          });
-          if (cur) lines.push(cur.trim());
-        }
-      });
+      if (!hasMaxWidth) {
+        lines = rawLines;
+      } else {
+        var availW = Math.max(30, nw - padX * 2);
+        var avgCharW = fs * 0.58;
+        var maxChars = Math.max(10, Math.floor(availW / avgCharW));
+        rawLines.forEach(function (rawSeg) {
+          if (rawSeg.length <= maxChars || !/\s+/.test(rawSeg)) {
+            lines.push(rawSeg);
+          } else {
+            var words = rawSeg.split(/\s+/);
+            var cur = '';
+            words.forEach(function (w) {
+              if ((cur + ' ' + w).trim().length > maxChars) {
+                if (cur) lines.push(cur.trim());
+                cur = w;
+              } else {
+                cur = cur ? (cur + ' ' + w) : w;
+              }
+            });
+            if (cur) lines.push(cur.trim());
+          }
+        });
+      }
       if (!lines.length) lines = [''];
 
       var startTextY = ny + (nh / 2) - ((lines.length - 1) * lineH / 2);
@@ -2048,8 +2305,9 @@
       var tw = dims.w;
       var th = dims.h;
       var fs = dims.fs;
-      var bg = nt.bg || nt.color || '#fef3c7';
-      var border = nt.borderColor || nt.border || '#d97706';
+      var bg = nt.bg || '#ffffff';
+      var nBorderInfo = resolveNoteBorder(nt);
+      var border = nBorderInfo.color;
       var textColor = nt.textColor || (nt.color && nt.color !== nt.bg ? nt.color : '#111111');
 
       var ff = nt.fontFamily || '"Lexend", "Segoe UI", Arial, sans-serif';
@@ -2064,9 +2322,8 @@
       ctx.save();
       ctx.fillStyle = bg;
       ctx.strokeStyle = border;
-      ctx.lineWidth = nt.borderWidth || 1.5;
-      if (nt.borderStyle === 'dashed') ctx.setLineDash([6, 3]);
-      else if (nt.borderStyle === 'dotted') ctx.setLineDash([2, 3]);
+      ctx.lineWidth = nBorderInfo.width;
+      ctx.setLineDash(nBorderInfo.lineDash);
 
       ctx.beginPath();
       if (typeof ctx.roundRect === 'function') {
@@ -2902,6 +3159,8 @@
     normalizeBoardData: normalizeBoardData,
     resolveNodeDims: resolveNodeDims,
     resolveNoteDims: resolveNoteDims,
+    resolveNoteBorder: resolveNoteBorder,
+    resolveGroupBounds: resolveGroupBounds,
     resolveMediaItemToDataUrl: resolveMediaItemToDataUrl,
     preloadAllMediaDataUrls: preloadAllMediaDataUrls
   };

@@ -683,7 +683,10 @@
     var badgeClass = 'cmt-lm-badge';
     var badgeText = '[' + typeLabel + ']';
 
-    if (isInherited) {
+    if (cascadeType === 'lesson_competence') {
+      badgeClass = 'cmt-lm-badge inferred-container';
+      badgeText = '[FROM LESSON]';
+    } else if (isInherited) {
       badgeClass = 'cmt-lm-badge inherited';
       badgeText = '[INHERITED: ' + (_currentOpts.classId || 'CLASS').toUpperCase() + ']';
     } else if (isInferred) {
@@ -2043,6 +2046,21 @@
               type: item.type
             }
           });
+          if (window.LinksService && typeof window.LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
+            try {
+              var cascadeRes = await window.LinksService.cascadeLessonCompetencesToBoardAndPlanner(_currentOpts.urn, item.urn);
+              if (cascadeRes && cascadeRes.success && cascadeRes.linkedCount > 0 && typeof showToast === 'function') {
+                var p1 = pOpt;
+                var p2 = window.LinksService ? window.LinksService.parseUrn(item.urn) : null;
+                if ((p1 && p1.type === 'board' && p2 && p2.type === 'lesson') || (p1 && p1.type === 'lesson' && p2 && p2.type === 'board')) {
+                  var tMsg = (typeof i18n !== 'undefined' && i18n.t)
+                    ? i18n.t('conLessonCompetencesLinked', { title: displayTitle, count: String(cascadeRes.linkedCount) })
+                    : ('Lesson linked: "' + displayTitle + '". ' + cascadeRes.linkedCount + ' competences automatically linked to board and planner.');
+                  showToast(tMsg);
+                }
+              }
+            } catch (_) {}
+          }
           await refreshModalData();
           renderCandidates();
           notifyUpdate();
@@ -2940,9 +2958,12 @@
     // 4. Sticky Notes
     notes.forEach(function(nt) {
       var tx = Number(nt.x) || 0, ty = Number(nt.y) || 0, tw = Number(nt.width) || 140, th = Number(nt.height) || 90;
-      var nBg = nt.color || nt.bgColor || '#fef3c7';
+      var nBg = nt.color || nt.bgColor || nt.bg || '#ffffff';
       var nText = nt.text || nt.content || '';
-      svg += '<rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="4" fill="' + nBg + '" stroke="#d97706" stroke-width="1.5" />\n';
+      var nBorder = (nt.borderWidth && (nt.borderColor || nt.border)) ? (nt.borderColor || nt.border) : '#cdc9c9';
+      var nBorderW = (nt.borderWidth != null && Number(nt.borderWidth) > 0) ? Number(nt.borderWidth) : 1;
+      var nBorderDash = (nt.borderWidth && nt.borderStyle === 'solid') ? '' : 'stroke-dasharray="2,3"';
+      svg += '<rect x="' + tx + '" y="' + ty + '" width="' + tw + '" height="' + th + '" rx="6" fill="' + nBg + '" stroke="' + nBorder + '" stroke-width="' + nBorderW + '" ' + nBorderDash + ' />\n';
       svg += '<text x="' + (tx + 6) + '" y="' + (ty + 16) + '" fill="#78350f" font-family="Lexend, sans-serif" font-size="9" font-weight="600">' + esc(nText.slice(0, 45)) + (nText.length > 45 ? '...' : '') + '</text>\n';
     });
 

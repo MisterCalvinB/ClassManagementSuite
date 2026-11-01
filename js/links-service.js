@@ -164,7 +164,7 @@
     if (type === 'scale' || type === 'scales') {
       return makeUrn('scale', id, p.anchor);
     }
-    if (type === 'planner' || type === 'slot') {
+    if (type === 'planner' || type === 'slot' || type === 'planner-entry') {
       return makeUrn('planner', id, p.anchor);
     }
     if (type === 'lesson' || type === 'lessons' || type === 'lessonplan') {
@@ -964,21 +964,23 @@
       }
     },
     board: {
-      parents: ['class', 'planner'],
+      parents: ['class', 'planner', 'lesson'],
       resolveParents: function(boardId) {
         var clean = boardId.split('#')[0];
         var parents = [];
         var classGroup = '';
         var plannerId = '';
+        var lessonId = '';
 
         if (_registryCache && _registryCache.entities) {
           var meta = _registryCache.entities[makeUrn('board', clean)] || _registryCache.entities[canonicalizeUrn(makeUrn('board', clean))];
           if (meta) {
             classGroup = meta.classGroup || meta.classId || (meta.meta && (meta.meta.classGroup || meta.meta.classId)) || '';
             plannerId = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId)) || '';
+            lessonId = meta.lessonId || (meta.meta && (meta.meta.lessonId || meta.meta.lessonPlanId)) || '';
           }
         }
-        if (!classGroup && !plannerId) {
+        if (!classGroup && !plannerId && !lessonId) {
           var metaCache = {};
           if (typeof localStorage !== 'undefined') {
             try { metaCache = JSON.parse(localStorage.getItem('board_history_meta_cache_v1') || '{}') || {}; } catch (_) {}
@@ -990,21 +992,40 @@
           if (hMeta) {
             classGroup = hMeta.classGroup || '';
             plannerId = hMeta.plannerEntryId || '';
+            lessonId = hMeta.lessonId || '';
           }
         }
         if (!classGroup) {
           classGroup = resolveClassGroupFromFilename(clean);
         }
 
+        if (lessonId) parents.push(makeUrn('lesson', lessonId));
         if (plannerId) parents.push(makeUrn('planner', plannerId));
         if (classGroup) parents.push(makeUrn('class', classGroup));
         return parents;
       }
     },
     mindmap: {
-      parents: ['class', 'planner'],
+      parents: ['class', 'planner', 'lesson'],
       resolveParents: function(boardId) {
         return RELATIONSHIP_RULES.board.resolveParents(boardId);
+      }
+    },
+    lesson: {
+      parents: ['class', 'planner'],
+      resolveParents: function(lessonId) {
+        var clean = lessonId.split('#')[0];
+        var parents = [];
+        if (_registryCache && _registryCache.entities) {
+          var meta = _registryCache.entities[makeUrn('lesson', clean)] || _registryCache.entities[canonicalizeUrn(makeUrn('lesson', clean))];
+          if (meta) {
+            var cid = meta.classId || meta.classGroup || (meta.meta && (meta.meta.classId || meta.meta.classGroup));
+            var pid = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId));
+            if (pid) parents.push(makeUrn('planner', pid));
+            if (cid) parents.push(makeUrn('class', cid));
+          }
+        }
+        return parents;
       }
     },
     'board-node': {
@@ -1755,6 +1776,431 @@
     return created;
   }
 
+  function _mergePlanIntoLessonInfo(info, plan) {
+    if (!plan || !info) return;
+    if (plan.title && !info.title) info.title = plan.title;
+    if (plan.classId && !info.classId) info.classId = plan.classId;
+    if (plan.plannerEntryId && !info.plannerEntryId) info.plannerEntryId = plan.plannerEntryId;
+    if (Array.isArray(plan.competences)) info.competences = info.competences.concat(plan.competences);
+    if (Array.isArray(plan.descriptorIds)) info.descriptorIds = info.descriptorIds.concat(plan.descriptorIds);
+    if (Array.isArray(plan.sections)) {
+      plan.sections.forEach(function(sec) {
+        if (!sec) return;
+        if (Array.isArray(sec.competences)) info.competences = info.competences.concat(sec.competences);
+        if (Array.isArray(sec.descriptorIds)) info.descriptorIds = info.descriptorIds.concat(sec.descriptorIds);
+      });
+    }
+  }
+
+  async function resolveLessonData(lessonIdOrUrn) {
+    if (!lessonIdOrUrn) return null;
+    var p = parseUrn(String(lessonIdOrUrn));
+    var lessonId = (p && p.id) ? p.id : String(lessonIdOrUrn).replace(/^cmt:lesson:/i, '').trim();
+    if (!lessonId) return null;
+    var normLessonId = lessonId.replace(/\.json$/i, '');
+
+    var lessonInfo = {
+      id: normLessonId,
+      title: '',
+      classId: '',
+      plannerEntryId: '',
+      competences: [],
+      descriptorIds: []
+    };
+
+    // 1. Check registry cache entity metadata
+    var reg = _registryCache || await loadRegistry();
+    if (reg && reg.entities) {
+      var entityMeta = reg.entities[makeUrn('lesson', normLessonId)] || reg.entities[canonicalizeUrn(makeUrn('lesson', normLessonId))];
+      if (entityMeta) {
+        if (entityMeta.title) lessonInfo.title = entityMeta.title;
+        if (entityMeta.classId || entityMeta.classGroup) lessonInfo.classId = entityMeta.classId || entityMeta.classGroup;
+        if (entityMeta.plannerEntryId) lessonInfo.plannerEntryId = entityMeta.plannerEntryId;
+        if (Array.isArray(entityMeta.competences)) lessonInfo.competences = lessonInfo.competences.concat(entityMeta.competences);
+        if (Array.isArray(entityMeta.descriptorIds)) lessonInfo.descriptorIds = lessonInfo.descriptorIds.concat(entityMeta.descriptorIds);
+      }
+    }
+
+    // 2. Check in-memory global state
+    if (typeof window !== 'undefined') {
+      if (window.currentPlan && (window.currentPlan.id === normLessonId || window.currentPlan.id === lessonId)) {
+        _mergePlanIntoLessonInfo(lessonInfo, window.currentPlan);
+      }
+      if (Array.isArray(window.LESSON_PLANS)) {
+        var foundPlan = window.LESSON_PLANS.find(function(lp) {
+          return lp && (lp.id === normLessonId || lp.id === lessonId || (lp._filename && lp._filename.replace(/\.json$/i, '') === normLessonId));
+        });
+        if (foundPlan) _mergePlanIntoLessonInfo(lessonInfo, foundPlan);
+      }
+      if (Array.isArray(window.plannerLessonPlansList)) {
+        var foundPPlan = window.plannerLessonPlansList.find(function(lp) {
+          return lp && (lp.id === normLessonId || lp.id === lessonId || (lp._filename && lp._filename.replace(/\.json$/i, '') === normLessonId));
+        });
+        if (foundPPlan) _mergePlanIntoLessonInfo(lessonInfo, foundPPlan);
+      }
+      if (window.plannerLessonPlansByEntryId && window.plannerLessonPlansByEntryId[normLessonId]) {
+        _mergePlanIntoLessonInfo(lessonInfo, window.plannerLessonPlansByEntryId[normLessonId]);
+      }
+      if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+        var pEnt = window.PLANNER_CONFIG.entries.find(function(e) {
+          return e && (e.id === normLessonId || e.lessonPlanId === normLessonId || e.lessonId === normLessonId);
+        });
+        if (pEnt) {
+          if (!lessonInfo.plannerEntryId && pEnt.id) lessonInfo.plannerEntryId = pEnt.id;
+          if (!lessonInfo.classId && pEnt.classId) lessonInfo.classId = pEnt.classId;
+          if (!lessonInfo.title && (pEnt.title || pEnt.topic)) lessonInfo.title = pEnt.title || pEnt.topic;
+          if (Array.isArray(pEnt.competences)) lessonInfo.competences = lessonInfo.competences.concat(pEnt.competences);
+          if (Array.isArray(pEnt.descriptorIds)) lessonInfo.descriptorIds = lessonInfo.descriptorIds.concat(pEnt.descriptorIds);
+        }
+      }
+    }
+
+    // 3. Desktop file system read if available
+    var desktop = _getDesktop();
+    if (desktop && typeof desktop.readJson === 'function' && (!lessonInfo.competences.length && !lessonInfo.descriptorIds.length)) {
+      var candidateNames = [normLessonId + '.json', lessonId, normLessonId];
+      for (var ci = 0; ci < candidateNames.length; ci++) {
+        var cn = candidateNames[ci];
+        try {
+          var readRes = await desktop.readJson('lessons', cn);
+          if (readRes && readRes.ok && readRes.data) {
+            _mergePlanIntoLessonInfo(lessonInfo, readRes.data);
+            break;
+          }
+        } catch (_) {}
+        try {
+          var readRes2 = await desktop.readJson('user', 'lessons/' + cn);
+          if (readRes2 && readRes2.ok && readRes2.data) {
+            _mergePlanIntoLessonInfo(lessonInfo, readRes2.data);
+            break;
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 4. Check existing links in registry for this lesson
+    var lessonUrn = canonicalizeUrn(makeUrn('lesson', normLessonId));
+    if (reg && Array.isArray(reg.edges)) {
+      reg.edges.forEach(function(e) {
+        var s = canonicalizeUrn(e.source);
+        var t = canonicalizeUrn(e.target);
+        var other = (s === lessonUrn) ? t : ((t === lessonUrn) ? s : null);
+        if (!other) return;
+        var po = parseUrn(other);
+        if (!po) return;
+        if (po.type === 'competence') {
+          lessonInfo.competences.push(po.id);
+        } else if (po.type === 'planner' || po.type === 'slot') {
+          if (!lessonInfo.plannerEntryId) lessonInfo.plannerEntryId = po.id;
+        }
+      });
+    }
+
+    return lessonInfo;
+  }
+
+  function _findLinkedLessonForUrn(urn, reg) {
+    if (!urn || !reg || !Array.isArray(reg.edges)) return null;
+    var cUrn = canonicalizeUrn(urn);
+    for (var i = 0; i < reg.edges.length; i++) {
+      var e = reg.edges[i];
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      var other = (s === cUrn) ? t : ((t === cUrn) ? s : null);
+      if (other && parseUrn(other) && parseUrn(other).type === 'lesson') return other;
+    }
+    var p = parseUrn(cUrn);
+    if (p && (p.type === 'planner' || p.type === 'slot') && typeof window !== 'undefined') {
+      if (window.plannerLessonPlansByEntryId && window.plannerLessonPlansByEntryId[p.id]) {
+        var lp = window.plannerLessonPlansByEntryId[p.id];
+        return canonicalizeUrn(makeUrn('lesson', lp.id || p.id));
+      }
+    }
+    return null;
+  }
+
+  function _findLinkedBoardForUrn(urn, reg) {
+    if (!urn || !reg || !Array.isArray(reg.edges)) return null;
+    var cUrn = canonicalizeUrn(urn);
+    for (var i = 0; i < reg.edges.length; i++) {
+      var e = reg.edges[i];
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      var other = (s === cUrn) ? t : ((t === cUrn) ? s : null);
+      if (other && parseUrn(other) && parseUrn(other).type === 'board') return other;
+    }
+    return null;
+  }
+
+  function _findLinkedPlannerForUrn(urn, reg) {
+    if (!urn || !reg || !Array.isArray(reg.edges)) return null;
+    var cUrn = canonicalizeUrn(urn);
+    for (var i = 0; i < reg.edges.length; i++) {
+      var e = reg.edges[i];
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      var other = (s === cUrn) ? t : ((t === cUrn) ? s : null);
+      if (other) {
+        var po = parseUrn(other);
+        if (po && (po.type === 'planner' || po.type === 'slot')) return other;
+      }
+    }
+    return null;
+  }
+
+  function _ensureDirectEdge(reg, src, tgt, relation, meta) {
+    var cSrc = canonicalizeUrn(src);
+    var cTgt = canonicalizeUrn(tgt);
+    if (!cSrc || !cTgt || cSrc === cTgt) return null;
+    var existing = reg.edges.find(function(e) {
+      var s = canonicalizeUrn(e.source);
+      var t = canonicalizeUrn(e.target);
+      return (s === cSrc && t === cTgt) || (s === cTgt && t === cSrc);
+    });
+    if (existing) {
+      if (meta && Object.keys(meta).length) {
+        existing.meta = Object.assign({}, existing.meta || {}, meta);
+      }
+      return null;
+    }
+    var newEdge = {
+      id: 'edge_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7),
+      source: cSrc,
+      target: cTgt,
+      relation: relation || 'related',
+      meta: Object.assign({}, meta || {}),
+      createdAt: Date.now()
+    };
+    reg.edges.push(newEdge);
+    return newEdge;
+  }
+
+  function _syncCompetencesToPlannerInMemory(planId, compObjects) {
+    if (!planId || !Array.isArray(compObjects) || typeof window === 'undefined') return;
+    var targets = [];
+    if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+      var e = window.PLANNER_CONFIG.entries.find(function(ent) { return ent && ent.id === planId; });
+      if (e) targets.push(e);
+    }
+    if (window.PLANNER_ENTRIES_BY_CLASS) {
+      for (var cid in window.PLANNER_ENTRIES_BY_CLASS) {
+        var arr = window.PLANNER_ENTRIES_BY_CLASS[cid];
+        if (Array.isArray(arr)) {
+          var hit = arr.find(function(ent) { return ent && ent.id === planId; });
+          if (hit) targets.push(hit);
+        }
+      }
+    }
+    if (Array.isArray(window.entries)) {
+      var hit2 = window.entries.find(function(ent) { return ent && ent.id === planId; });
+      if (hit2) targets.push(hit2);
+    }
+    targets.forEach(function(target) {
+      if (!Array.isArray(target.competences)) target.competences = [];
+      var existing = new Set(target.competences.map(function(c) {
+        return String(typeof c === 'object' ? (c.code || c.id || c.title) : c).toLowerCase().trim();
+      }));
+      compObjects.forEach(function(c) {
+        if (!existing.has(c.code.toLowerCase().trim())) {
+          target.competences.push(c);
+          existing.add(c.code.toLowerCase().trim());
+        }
+      });
+    });
+  }
+
+  async function cascadeLessonCompetencesToBoardAndPlanner(urn1, urn2, optionalPlannerUrn, reg) {
+    if (!urn1 || !urn2) return { success: false, linkedCount: 0 };
+    reg = reg || await loadRegistry();
+
+    var cUrn1 = canonicalizeUrn(urn1);
+    var cUrn2 = canonicalizeUrn(urn2);
+    var p1 = parseUrn(cUrn1);
+    var p2 = parseUrn(cUrn2);
+    if (!p1 || !p2) return { success: false, linkedCount: 0 };
+
+    var boardUrn = null;
+    var lessonUrn = null;
+    var plannerUrn = optionalPlannerUrn ? canonicalizeUrn(optionalPlannerUrn) : null;
+
+    if (p1.type === 'board' && p2.type === 'lesson') {
+      boardUrn = cUrn1;
+      lessonUrn = cUrn2;
+    } else if (p1.type === 'lesson' && p2.type === 'board') {
+      lessonUrn = cUrn1;
+      boardUrn = cUrn2;
+    } else if (p1.type === 'board' && (p2.type === 'planner' || p2.type === 'slot')) {
+      boardUrn = cUrn1;
+      plannerUrn = cUrn2;
+      lessonUrn = _findLinkedLessonForUrn(plannerUrn, reg);
+    } else if ((p1.type === 'planner' || p1.type === 'slot') && p2.type === 'board') {
+      plannerUrn = cUrn1;
+      boardUrn = cUrn2;
+      lessonUrn = _findLinkedLessonForUrn(plannerUrn, reg);
+    } else if (p1.type === 'lesson' && (p2.type === 'planner' || p2.type === 'slot')) {
+      lessonUrn = cUrn1;
+      plannerUrn = cUrn2;
+      boardUrn = _findLinkedBoardForUrn(plannerUrn, reg);
+    } else if ((p1.type === 'planner' || p1.type === 'slot') && p2.type === 'lesson') {
+      plannerUrn = cUrn1;
+      lessonUrn = cUrn2;
+      boardUrn = _findLinkedBoardForUrn(plannerUrn, reg);
+    } else if (p1.type === 'board' && p1 === p2) {
+      boardUrn = cUrn1;
+      lessonUrn = _findLinkedLessonForUrn(boardUrn, reg);
+      plannerUrn = _findLinkedPlannerForUrn(boardUrn, reg);
+    }
+
+    if (!lessonUrn || !boardUrn) {
+      return { success: false, linkedCount: 0 };
+    }
+
+    var pLesson = parseUrn(lessonUrn);
+    var lessonData = await resolveLessonData(pLesson ? pLesson.id : lessonUrn);
+    if (!lessonData) return { success: false, linkedCount: 0 };
+
+    if (!plannerUrn) {
+      if (lessonData.plannerEntryId) {
+        plannerUrn = canonicalizeUrn(makeUrn('planner', lessonData.plannerEntryId));
+      } else {
+        plannerUrn = _findLinkedPlannerForUrn(boardUrn, reg) || _findLinkedPlannerForUrn(lessonUrn, reg);
+      }
+    }
+
+    _ensureDirectEdge(reg, boardUrn, lessonUrn, 'lesson_plan', {
+      title: lessonData.title || (pLesson ? pLesson.id : 'Lesson')
+    });
+
+    if (plannerUrn) {
+      _ensureDirectEdge(reg, boardUrn, plannerUrn, 'planner_slot', {});
+      _ensureDirectEdge(reg, lessonUrn, plannerUrn, 'planner_lesson', {
+        title: lessonData.title || (pLesson ? pLesson.id : 'Lesson')
+      });
+    }
+
+    var rawComps = [].concat(lessonData.competences || [], lessonData.descriptorIds || []);
+    var compMap = new Map();
+
+    rawComps.forEach(function(item) {
+      if (!item) return;
+      var code = '';
+      var title = '';
+      var meta = {};
+      if (typeof item === 'object') {
+        code = String(item.code || item.id || item.title || '').trim();
+        title = String(item.title || item.name || code).trim();
+        meta = Object.assign({}, item);
+      } else {
+        code = String(item).trim();
+        title = code;
+      }
+      if (code && !compMap.has(code.toLowerCase())) {
+        compMap.set(code.toLowerCase(), { code: code, title: title, meta: meta });
+      }
+    });
+
+    var newlyLinkedCount = 0;
+    var linkedCompObjects = [];
+
+    compMap.forEach(function(comp) {
+      var compUrn = canonicalizeUrn(makeUrn('competence', comp.code));
+      linkedCompObjects.push({
+        id: comp.code,
+        code: comp.code,
+        title: comp.title,
+        domain: (comp.meta && comp.meta.domain) || (comp.meta && comp.meta.category) || '',
+        level: (comp.meta && comp.meta.level) || ''
+      });
+
+      if (!reg.entities[compUrn]) reg.entities[compUrn] = {};
+      Object.assign(reg.entities[compUrn], {
+        type: 'competence',
+        title: comp.title,
+        code: comp.code,
+        label: comp.code + (comp.title && comp.title !== comp.code ? ' — ' + comp.title : '')
+      }, comp.meta || {});
+
+      var bEdge = _ensureDirectEdge(reg, boardUrn, compUrn, 'competence', {
+        autoLinkedFrom: lessonUrn,
+        cascadeType: 'lesson_competence',
+        title: comp.title,
+        code: comp.code
+      });
+      if (bEdge) newlyLinkedCount++;
+
+      if (plannerUrn) {
+        _ensureDirectEdge(reg, plannerUrn, compUrn, 'competence', {
+          autoLinkedFrom: lessonUrn,
+          cascadeType: 'lesson_competence',
+          title: comp.title,
+          code: comp.code
+        });
+      }
+    });
+
+    if (typeof window !== 'undefined') {
+      var activeBoardUrn = (typeof window.boardGetActiveSessionUrn === 'function')
+        ? canonicalizeUrn(window.boardGetActiveSessionUrn())
+        : null;
+
+      if (activeBoardUrn && activeBoardUrn === boardUrn) {
+        if (!Array.isArray(window._conCurrentCompetences)) {
+          window._conCurrentCompetences = [];
+        }
+        var existingCodes = new Set(window._conCurrentCompetences.map(function(c) {
+          return String(c ? (c.code || c.id || c.title || '') : '').toLowerCase().trim();
+        }));
+
+        linkedCompObjects.forEach(function(newComp) {
+          if (!existingCodes.has(newComp.code.toLowerCase().trim())) {
+            window._conCurrentCompetences.push(newComp);
+            existingCodes.add(newComp.code.toLowerCase().trim());
+          }
+        });
+
+        if (typeof window.conRenderHeaderCompetenceBar === 'function') {
+          window.conRenderHeaderCompetenceBar();
+        }
+        if (typeof window.boardUpdateLinkedLessonBadge === 'function') {
+          window.boardUpdateLinkedLessonBadge();
+        }
+        if (typeof window.boardUpdateToolbarLinksCount === 'function') {
+          window.boardUpdateToolbarLinksCount();
+        }
+      }
+
+      if (plannerUrn) {
+        var pPlan = parseUrn(plannerUrn);
+        var planId = pPlan ? pPlan.id : '';
+        if (planId) {
+          _syncCompetencesToPlannerInMemory(planId, linkedCompObjects);
+        }
+      }
+    }
+
+    if (_channel) {
+      try {
+        _channel.postMessage({
+          action: 'lesson-competences-cascaded',
+          lessonUrn: lessonUrn,
+          boardUrn: boardUrn,
+          plannerUrn: plannerUrn,
+          competences: linkedCompObjects,
+          count: linkedCompObjects.length
+        });
+      } catch (_) {}
+    }
+
+    return {
+      success: true,
+      linkedCount: linkedCompObjects.length,
+      competences: linkedCompObjects,
+      boardUrn: boardUrn,
+      lessonUrn: lessonUrn,
+      plannerUrn: plannerUrn
+    };
+  }
+
   async function addLink(sourceUrn, targetUrn, opts) {
     if (sourceUrn && typeof sourceUrn === 'object' && !targetUrn) {
       opts = sourceUrn;
@@ -1811,6 +2257,11 @@
     if (opts.autonomous !== false) {
       await _ensureRosterLoaded();
       expandAutonomousLinks(cSrc, cTgt, edge.id, reg);
+      try {
+        await cascadeLessonCompetencesToBoardAndPlanner(cSrc, cTgt, null, reg);
+      } catch (cascadeErr) {
+        console.warn('LinksService: cascadeLessonCompetences error', cascadeErr);
+      }
     }
 
     await saveRegistry(reg);
@@ -5030,6 +5481,11 @@
     storeAttachment: storeAttachment,
     storeGradeAttachment: storeGradeAttachment,
     syncAutoRegressiveLinks: syncAutoRegressiveLinks,
+    cascadeLessonCompetencesToBoardAndPlanner: cascadeLessonCompetencesToBoardAndPlanner,
+    syncLessonCompetences: cascadeLessonCompetencesToBoardAndPlanner,
+    resolveLessonData: resolveLessonData,
+    findAssociatedPlannerUrn: _findLinkedPlannerForUrn,
+    findAssociatedLessonUrn: _findLinkedLessonForUrn,
     updatePath: updatePath
   };
 });

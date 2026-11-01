@@ -853,61 +853,98 @@
       conRenderSearchResults(rawQuery);
     };
 
-    async function conResolvePageSnapshotDataUrl(targetIdx) {
+    async function conResolvePageSnapshotDataUrl(targetIdx, options = {}) {
       const totalPages = (conPageSnapshots && conPageSnapshots.length) || 1;
       const idx = (typeof targetIdx === 'number' && targetIdx >= 0)
         ? Math.min(targetIdx, Math.max(0, totalPages - 1))
         : ((typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0);
 
+      const targetScale = (options && typeof options.scale === 'number' && options.scale > 0) ? options.scale : 1.5;
+      const targetQuality = (options && typeof options.quality === 'number' && options.quality > 0) ? options.quality : 0.92;
+
       let dataUrl = '';
-      if (idx === conCurrentPageIndex) {
-        if (_conSearchBoardCanvasData && _conSearchBoardCanvasData.canvas) {
-          try {
-            dataUrl = _conSearchBoardCanvasData.canvas.toDataURL('image/webp', 0.94);
-            if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
-              dataUrl = _conSearchBoardCanvasData.canvas.toDataURL('image/png');
-            }
-          } catch (_) {}
-          if (dataUrl) {
-            if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-            _conPageSnapshotPngs[idx] = dataUrl;
-          }
+
+      // Commit any active note editor & ensure current page snapshot is captured
+      if (typeof conBuildPageSnapshot === 'function') {
+        const curSnap = conBuildPageSnapshot();
+        if (Array.isArray(conPageSnapshots)) {
+          conPageSnapshots[conCurrentPageIndex] = curSnap;
         }
-        if (!dataUrl && typeof _conBuildBoardCanvas === 'function') {
+      }
+
+      if (idx === conCurrentPageIndex) {
+        // High-DPI Canvas rasterization directly from live board (identical to PDF snapshots export)
+        if (typeof _conBuildBoardCanvas === 'function') {
           try {
-            const liveRes = await _conBuildBoardCanvas();
+            if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
+              try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+            }
+            await new Promise(r => setTimeout(r, 40));
+            const liveRes = await _conBuildBoardCanvas({ scale: targetScale });
             if (liveRes && liveRes.canvas) {
               try {
-                dataUrl = liveRes.canvas.toDataURL('image/webp', 0.94);
+                dataUrl = liveRes.canvas.toDataURL('image/webp', targetQuality);
                 if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
                   dataUrl = liveRes.canvas.toDataURL('image/png');
                 }
               } catch (_) {
                 dataUrl = liveRes.canvas.toDataURL('image/png');
               }
-              if (dataUrl) {
-                if (!_conPageSnapshotPngs) _conPageSnapshotPngs = [];
-                _conPageSnapshotPngs[idx] = dataUrl;
+            }
+          } catch (err) {
+            console.warn('[Board Snapshot] Error generating live board canvas:', err);
+          }
+        }
+      } else {
+        // Target is another page: restore it temporarily to board (hidden) to render the exact same snapshot as PDF export
+        const origIndex = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+        const allPages = (Array.isArray(conPageSnapshots) && conPageSnapshots.slice()) || [];
+        const targetPageSnap = allPages[idx];
+        const boardEl = document.getElementById('constellation-board');
+        const prevVisibility = boardEl ? boardEl.style.visibility : '';
+
+        if (targetPageSnap && typeof _conRestorePageToBoard === 'function' && typeof _conBuildBoardCanvas === 'function') {
+          if (boardEl) boardEl.style.visibility = 'hidden';
+          try {
+            _conRestorePageToBoard(targetPageSnap, { isExport: true });
+            if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
+              try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+            }
+            await new Promise(r => setTimeout(r, 80));
+            const res = await _conBuildBoardCanvas({ scale: targetScale });
+            if (res && res.canvas) {
+              try {
+                dataUrl = res.canvas.toDataURL('image/webp', targetQuality);
+                if (!dataUrl || !dataUrl.startsWith('data:image/webp')) {
+                  dataUrl = res.canvas.toDataURL('image/png');
+                }
+              } catch (_) {
+                dataUrl = res.canvas.toDataURL('image/png');
               }
             }
+          } catch (err) {
+            console.warn('[Board Snapshot] Error generating target page canvas:', err);
+          } finally {
+            if (allPages[origIndex]) {
+              _conRestorePageToBoard(allPages[origIndex]);
+            }
+            if (boardEl) boardEl.style.visibility = prevVisibility;
+          }
+        }
+      }
+
+      // Fallback: if board canvas rendering could not complete, fall back to lightweight thumbnail / cache
+      if (!dataUrl) {
+        const snap = (conPageSnapshots && conPageSnapshots[idx]);
+        if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
+          try {
+            dataUrl = conBuildPageThumbnailDataUrl(snap, 1800, 1125);
           } catch (_) {}
         }
       }
 
       if (!dataUrl && _conPageSnapshotPngs && _conPageSnapshotPngs[idx]) {
         dataUrl = _conPageSnapshotPngs[idx];
-      }
-
-      // If target is another page (or live build was unavailable), render high-resolution 1800x1125 snapshot
-      if (!dataUrl) {
-        const snap = (idx === conCurrentPageIndex && typeof conBuildPageSnapshot === 'function')
-          ? conBuildPageSnapshot()
-          : (conPageSnapshots && conPageSnapshots[idx]);
-        if (snap && typeof conBuildPageThumbnailDataUrl === 'function') {
-          try {
-            dataUrl = conBuildPageThumbnailDataUrl(snap, 1800, 1125);
-          } catch (_) {}
-        }
       }
 
       if (!dataUrl && typeof conResolveMiniPageSnapshotUrl === 'function') {
@@ -931,7 +968,7 @@
           const ctx = cvs.getContext('2d');
           if (ctx) {
             ctx.drawImage(img, 0, 0);
-            const webpUrl = cvs.toDataURL('image/webp', 0.92);
+            const webpUrl = cvs.toDataURL('image/webp', targetQuality);
             if (webpUrl && webpUrl.startsWith('data:image/webp')) {
               dataUrl = webpUrl;
             }
@@ -1527,8 +1564,8 @@
         ? Math.min(pageIndex, Math.max(0, totalPages - 1))
         : ((typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0);
 
-      // 1. Resolve WebP snapshot data URL (preferring fresh high-res live canvas or fresh high-res snapshot)
-      const dataUrl = await conResolvePageSnapshotDataUrl(targetIdx);
+      // 1. Resolve WebP snapshot data URL (identical high-res live canvas raster as PDF snapshots export)
+      const dataUrl = await conResolvePageSnapshotDataUrl(targetIdx, options);
 
       if (!dataUrl) {
         if (typeof showToast === 'function') {
@@ -1540,22 +1577,28 @@
       // 2. Prepare localized UI labels & Neobrutalist styling
       const curLang = (typeof window.getLang === 'function') ? window.getLang() : ((window.i18n && typeof window.i18n.getLang === 'function') ? window.i18n.getLang() : 'en');
       const isFr = (curLang === 'fr');
+      const isDe = (curLang === 'de');
+      const isIt = (curLang === 'it');
 
-      const pageNumText = `${isFr ? 'Page' : 'Page'} ${targetIdx + 1}`;
-      const constellationTitle = (typeof _conCurrentConstellationTitle === 'string' && _conCurrentConstellationTitle.trim())
-        ? _conCurrentConstellationTitle.trim()
-        : '';
+      const pageNumText = `${isFr ? 'Page' : (isDe ? 'Seite' : (isIt ? 'Pagina' : 'Page'))} ${targetIdx + 1}`;
+      const constellationTitle = (window.conGetTitle ? window.conGetTitle() : '').trim() || ((typeof _conCurrentConstellationTitle === 'string' && _conCurrentConstellationTitle.trim()) ? _conCurrentConstellationTitle.trim() : '');
       const fullTitle = constellationTitle ? `${constellationTitle} — ${pageNumText}` : pageNumText;
       const safeTitle = escapeSearchHtml(fullTitle);
 
-      const lblBadge = isFr ? 'VUE ENSEIGNANT EN LECTURE SEULE' : 'TEACHER READ-ONLY VIEW';
-      const lblNotice = isFr ? 'Capture WebP haute résolution · N\'affecte ni ne remplace l\'affichage miroir' : 'High-resolution WebP snapshot · Does not affect or replace mirrored display';
-      const lblZoomFit = isFr ? 'Ajuster' : 'Fit';
-      const lblZoom100 = isFr ? 'Taille réelle' : '100% Zoom';
-      const lblCopy = isFr ? 'Copier' : 'Copy';
-      const lblCopied = isFr ? 'Copié !' : 'Copied!';
-      const lblPrint = isFr ? 'Imprimer / PDF' : 'Print / PDF';
-      const lblClose = isFr ? 'Fermer' : 'Close';
+      const lblBadge = isFr ? 'VUE ENSEIGNANT EN LECTURE SEULE'
+        : (isDe ? 'LEHRER-ANSICHT (SCHREIBGESCHÜTZT)'
+        : (isIt ? 'VISTA DOCENTE DI SOLA LETTURA'
+        : 'TEACHER READ-ONLY VIEW'));
+      const lblNotice = isFr ? 'Capture WebP haute résolution · N\'affecte ni ne remplace l\'affichage miroir'
+        : (isDe ? 'Hochauflösender WebP-Schnappschuss · Beeinflusst die gespiegelte Anzeige nicht'
+        : (isIt ? 'Istantanea WebP ad alta risoluzione · Non influisce sul display duplicato'
+        : 'High-resolution WebP snapshot · Does not affect or replace mirrored display'));
+      const lblZoomFit = isFr ? 'Ajuster' : (isDe ? 'Anpassen' : (isIt ? 'Adatta' : 'Fit'));
+      const lblZoom100 = isFr ? 'Taille réelle' : (isDe ? 'Originalgröße' : (isIt ? 'Dimensione reale' : '100% Zoom'));
+      const lblCopy = isFr ? 'Copier' : (isDe ? 'Kopieren' : (isIt ? 'Copia' : 'Copy'));
+      const lblCopied = isFr ? 'Copié !' : (isDe ? 'Kopiert!' : (isIt ? 'Copiato!' : 'Copied!'));
+      const lblPrint = isFr ? 'Imprimer / PDF' : (isDe ? 'Drucken / PDF' : (isIt ? 'Stampa / PDF' : 'Print / PDF'));
+      const lblClose = isFr ? 'Fermer' : (isDe ? 'Schließen' : (isIt ? 'Chiudi' : 'Close'));
 
       const svgLock = '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fef08a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
       const svgZoom = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>';
@@ -1570,7 +1613,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${safeTitle} — ${isFr ? 'Aperçu Enseignant' : 'Teacher View'} (Read-Only)</title>
+  <title>${safeTitle} — ${isFr ? 'Aperçu Enseignant' : (isDe ? 'Lehreransicht' : (isIt ? 'Vista Docente' : 'Teacher View'))} (Read-Only)</title>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -1666,6 +1709,7 @@
     }
     .nb-viewport {
       flex: 1;
+      min-height: 0;
       overflow: auto;
       background: #1e293b;
       display: flex;
@@ -1682,6 +1726,7 @@
       border-radius: 4px;
       transition: box-shadow 0.15s ease;
       line-height: 0;
+      margin: auto;
     }
     .nb-snapshot-img {
       display: block;
@@ -1706,7 +1751,7 @@
       .nb-topbar, .nb-subbar, .no-print { display: none !important; }
       html, body { background: #ffffff !important; overflow: visible !important; height: auto !important; }
       .nb-viewport { background: #ffffff !important; padding: 0 !important; overflow: visible !important; display: block !important; }
-      .nb-snapshot-frame { border: none !important; box-shadow: none !important; }
+      .nb-snapshot-frame { border: none !important; box-shadow: none !important; margin: 0 !important; }
       .nb-snapshot-img { max-width: 100% !important; max-height: 100vh !important; }
     }
   </style>
@@ -1743,6 +1788,7 @@
     </div>
   </div>
 
+  <script>
     let isZoomed = false;
     const img = document.getElementById('snapshot-img');
     const zoomLabel = document.getElementById('btn-zoom-text');
@@ -1824,7 +1870,7 @@
 </html>`;
 
       // 3. Open in a dedicated read-only window on teacher's monitor
-      const winTitle = `${safeTitle} — ${isFr ? 'Aperçu Enseignant' : 'Teacher View'}`;
+      const winTitle = `${safeTitle} — ${isFr ? 'Aperçu Enseignant' : (isDe ? 'Lehreransicht' : (isIt ? 'Vista Docente' : 'Teacher View'))}`;
       const winWidth = 1100;
       const winHeight = 820;
 

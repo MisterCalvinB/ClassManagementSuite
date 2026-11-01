@@ -239,6 +239,135 @@
     }
     window.wnApplyStoredSize = wnApplyStoredSize;
 
+    function wnComputeResizeSnap(noteData, note, rawW, rawH, cfg, maxW, maxH, scale) {
+      const _snapEnabled = window.conGetSnapEnabled ? window.conGetSnapEnabled() : false;
+      let nextW = Math.max(cfg.minW, Math.min(maxW, rawW));
+      let nextH = Math.max(cfg.minH, Math.min(maxH, rawH));
+
+      if (!_snapEnabled) {
+        return { nextW, nextH, snapLineX: null, snapLineY: null };
+      }
+
+      const SNAP_DIST = 8;
+      const noteX = Number.isFinite(Number(noteData.x)) ? Number(noteData.x) : (parseFloat(note.style.left) || 0);
+      const noteY = Number.isFinite(Number(noteData.y)) ? Number(noteData.y) : (parseFloat(note.style.top) || 0);
+
+      const curRight = noteX + nextW;
+      const curBottom = noteY + nextH;
+      const curCenterX = noteX + nextW / 2;
+      const curCenterY = noteY + nextH / 2;
+
+      let bestSnapX = null;
+      let bestSnapY = null;
+
+      const checkTarget = (tx, ty, tw, th) => {
+        if (!Number.isFinite(tx) || !Number.isFinite(ty) || tw <= 0 || th <= 0) return;
+        const linesX = [tx, tx + tw / 2, tx + tw];
+        const linesY = [ty, ty + th / 2, ty + th];
+
+        // Width snap: align right edge with target's left, center, or right
+        linesX.forEach(na => {
+          const candW = na - noteX;
+          if (candW >= cfg.minW && candW <= maxW) {
+            const diff = Math.abs(curRight - na);
+            if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) {
+              bestSnapX = { nextW: candW, line: na, diff };
+            }
+          }
+        });
+
+        // Width snap: align center X with target's center X
+        const centerXLine = tx + tw / 2;
+        const candCenterW = (centerXLine - noteX) * 2;
+        if (candCenterW >= cfg.minW && candCenterW <= maxW) {
+          const diff = Math.abs(curCenterX - centerXLine);
+          if (diff < SNAP_DIST && (!bestSnapX || diff < bestSnapX.diff)) {
+            bestSnapX = { nextW: candCenterW, line: centerXLine, diff };
+          }
+        }
+
+        // Height snap: align bottom edge with target's top, center, or bottom
+        linesY.forEach(na => {
+          const candH = na - noteY;
+          if (candH >= cfg.minH && candH <= maxH) {
+            const diff = Math.abs(curBottom - na);
+            if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) {
+              bestSnapY = { nextH: candH, line: na, diff };
+            }
+          }
+        });
+
+        // Height snap: align center Y with target's center Y
+        const centerYLine = ty + th / 2;
+        const candCenterH = (centerYLine - noteY) * 2;
+        if (candCenterH >= cfg.minH && candCenterH <= maxH) {
+          const diff = Math.abs(curCenterY - centerYLine);
+          if (diff < SNAP_DIST && (!bestSnapY || diff < bestSnapY.diff)) {
+            bestSnapY = { nextH: candCenterH, line: centerYLine, diff };
+          }
+        }
+      };
+
+      // 1. Nodes
+      const _snapNodes = window.conGetNodes ? window.conGetNodes() : (window.conNodes || []);
+      _snapNodes.forEach(sn => {
+        if (!sn) return;
+        const snW = sn.el ? (sn.el.offsetWidth / scale) : 80;
+        const snH = sn.el ? (sn.el.offsetHeight / scale) : 32;
+        checkTarget(sn.x, sn.y, snW, snH);
+      });
+
+      // 2. Other Notes
+      const _allNotes = window.conGetNotes ? window.conGetNotes() : (window.conNotes || conNotes || []);
+      _allNotes.forEach(on => {
+        if (!on || on.id === noteData.id) return;
+        const oEl = wnGetNoteElementById(on.id);
+        const oW = (Number.isFinite(Number(on.width)) && Number(on.width) > 0) ? Number(on.width) : (oEl ? oEl.offsetWidth / scale : 120);
+        const oH = (Number.isFinite(Number(on.height)) && Number(on.height) > 0) ? Number(on.height) : (oEl ? oEl.offsetHeight / scale : 80);
+        const oX = Number.isFinite(Number(on.x)) ? Number(on.x) : (oEl ? (parseFloat(oEl.style.left) || 0) : 0);
+        const oY = Number.isFinite(Number(on.y)) ? Number(on.y) : (oEl ? (parseFloat(oEl.style.top) || 0) : 0);
+        checkTarget(oX, oY, oW, oH);
+      });
+
+      // 3. Shapes
+      const _snapShapes = window.conGetShapes ? window.conGetShapes() : (window.conShapes || []);
+      _snapShapes.forEach(sh => {
+        if (!sh) return;
+        const sW = Math.max(2, Number(sh.w) || 40);
+        const sH = Math.max(2, Number(sh.h) || 40);
+        checkTarget(sh.x, sh.y, sW, sH);
+      });
+
+      // 4. Drawings
+      const _snapDrawings = window.conGetDrawings ? window.conGetDrawings() : (window.conDrawings || []);
+      _snapDrawings.forEach(d => {
+        if (!d) return;
+        const dW = Math.max(2, Number(d.w) || 40);
+        const dH = Math.max(2, Number(d.h) || 40);
+        checkTarget(d.x, d.y, dW, dH);
+      });
+
+      // 5. Tables
+      const _snapTables = window.conGetTables ? window.conGetTables() : (window.conTables || []);
+      _snapTables.forEach(tbl => {
+        if (!tbl) return;
+        const tW = Math.max(20, Number(tbl.w) || 200);
+        const tH = Math.max(20, Number(tbl.h) || 100);
+        checkTarget(tbl.x, tbl.y, tW, tH);
+      });
+
+      if (bestSnapX) nextW = bestSnapX.nextW;
+      if (bestSnapY) nextH = bestSnapY.nextH;
+
+      return {
+        nextW,
+        nextH,
+        snapLineX: bestSnapX ? bestSnapX.line : null,
+        snapLineY: bestSnapY ? bestSnapY.line : null
+      };
+    }
+    window.wnComputeResizeSnap = wnComputeResizeSnap;
+
     function wnAttachResizeHandle(note, ta, noteData, opts) {
       const cfg = Object.assign({ minW: 80, maxW: 540, minH: 28, maxH: 360 }, opts || {});
       const getScale = typeof cfg.scaleGetter === 'function' ? cfg.scaleGetter : (() => 1);
@@ -256,6 +385,21 @@
 
       let resizing = false, sx = 0, sy = 0, sw = 0, sh = 0;
       let _noteResizeRaf = null, _pendingNoteResizeMsg = null;
+
+      function _clearNoteResizeSnapLines() {
+        document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+      }
+
+      function _cancelNoteResize() {
+        if (!resizing) return;
+        resizing = false;
+        _clearNoteResizeSnapLines();
+        if (_noteResizeRaf) {
+          cancelAnimationFrame(_noteResizeRaf);
+          _noteResizeRaf = null;
+        }
+        window._conMirrorDragging = false;
+      }
 
       handle.addEventListener('mousedown', e => {
         if (noteData.locked) {
@@ -282,8 +426,44 @@
         const scale = Math.max(0.5, Math.min(3, Number(getScale()) || 1));
         const maxW = resolveMax(cfg.maxW, 540);
         const maxH = resolveMax(cfg.maxH, 360);
-        const nextW = Math.max(cfg.minW, Math.min(maxW, sw + ((e.clientX - sx) / scale)));
-        const nextH = Math.max(cfg.minH, Math.min(maxH, sh + ((e.clientY - sy) / scale)));
+        const rawW = sw + ((e.clientX - sx) / scale);
+        const rawH = sh + ((e.clientY - sy) / scale);
+
+        _clearNoteResizeSnapLines();
+
+        let nextW = Math.max(cfg.minW, Math.min(maxW, rawW));
+        let nextH = Math.max(cfg.minH, Math.min(maxH, rawH));
+
+        const _snapEnabled = window.conGetSnapEnabled ? window.conGetSnapEnabled() : false;
+        if (_snapEnabled && !e.altKey) {
+          const snapRes = wnComputeResizeSnap(noteData, note, rawW, rawH, cfg, maxW, maxH, scale);
+          nextW = snapRes.nextW;
+          nextH = snapRes.nextH;
+
+          const svgEl = document.getElementById('constellation-svg');
+          const brdEl = document.getElementById('constellation-board');
+          if (snapRes.snapLineX !== null && svgEl && brdEl) {
+            const brdH = Math.max(brdEl.clientHeight || 0, brdEl.scrollHeight || 0, svgEl.clientHeight || 0, 2000);
+            const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            sl.setAttribute('class', 'con-snap-line');
+            sl.setAttribute('x1', snapRes.snapLineX);
+            sl.setAttribute('y1', 0);
+            sl.setAttribute('x2', snapRes.snapLineX);
+            sl.setAttribute('y2', brdH);
+            svgEl.appendChild(sl);
+          }
+          if (snapRes.snapLineY !== null && svgEl && brdEl) {
+            const brdW = Math.max(brdEl.clientWidth || 0, brdEl.scrollWidth || 0, svgEl.clientWidth || 0, 3000);
+            const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            sl.setAttribute('class', 'con-snap-line');
+            sl.setAttribute('x1', 0);
+            sl.setAttribute('y1', snapRes.snapLineY);
+            sl.setAttribute('x2', brdW);
+            sl.setAttribute('y2', snapRes.snapLineY);
+            svgEl.appendChild(sl);
+          }
+        }
+
         noteData.manualSize = true;
         noteData.width = nextW;
         noteData.height = nextH;
@@ -316,6 +496,7 @@
       document.addEventListener('mouseup', () => {
         if (resizing) {
           resizing = false;
+          _clearNoteResizeSnapLines();
           if (_noteResizeRaf) {
             cancelAnimationFrame(_noteResizeRaf);
             _noteResizeRaf = null;
@@ -340,10 +521,21 @@
           }, 60);
         }
       });
+      window.addEventListener('keydown', e => {
+        if (resizing && e.key === 'Escape') {
+          _cancelNoteResize();
+        }
+      });
+      window.addEventListener('blur', () => {
+        if (resizing) {
+          _cancelNoteResize();
+        }
+      });
     }
 
     function wnDeleteNoteData(nd) {
       if (!nd) return;
+      document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
       conCancelNoteMirrorUpdate();
       if (_conNoteCtxData && _conNoteCtxData.id === nd.id) _conNoteCtxData = null;
       if (nd.id && nd.id.startsWith('cn')) {
@@ -530,14 +722,20 @@
       }
     });
 
-    function wnRememberSelection(editor) {
+    function wnRememberSelection(editor, isExplicit) {
       if (!editor || editor.tagName === 'TEXTAREA') return;
       const sel = window.getSelection && window.getSelection();
       if (!sel || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       const anc = range.commonAncestorContainer;
       if (!(editor === anc || editor.contains(anc))) return;
-      _wnSavedSelectionRange = range.cloneRange();
+      if (!range.collapsed) {
+        _wnSavedSelectionRange = range.cloneRange();
+      } else if (isExplicit) {
+        _wnSavedSelectionRange = range.cloneRange();
+      } else if (!_wnSavedSelectionRange || _wnSavedSelectionRange.collapsed || !(editor === _wnSavedSelectionRange.commonAncestorContainer || editor.contains(_wnSavedSelectionRange.commonAncestorContainer))) {
+        _wnSavedSelectionRange = range.cloneRange();
+      }
       if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
         wnSyncAndBroadcastNoteSelection(true);
       }
@@ -843,12 +1041,13 @@
 
     function wnStyleOpen(noteData, anchorEl, triggerEvent, wordMeta) {
       if (window._wnClearOutsideClickSuppression) window._wnClearOutsideClickSuppression();
+      let prevEditor = null;
       {
         const prevNoteEl = document.querySelector(
           `.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`
         );
         if (prevNoteEl) {
-          const prevEditor = prevNoteEl.querySelector('.wn-note-editor, textarea');
+          prevEditor = prevNoteEl.querySelector('.wn-note-editor, textarea');
           if (prevEditor) wnRememberSelection(prevEditor);
         }
       }
@@ -961,18 +1160,24 @@
         });
       }
 
+      const effectiveFs = wnGetActualFontSizeOfSelection(prevEditor || wnGetActiveEditor(), noteData, triggerEvent);
       const szSlider = document.getElementById('wn-sp-size-slider');
       const szVal = document.getElementById('wn-sp-size-val');
       const setupFontSlider = window._conSetupFontSizeSlider || (typeof _conSetupFontSizeSlider === 'function' ? _conSetupFontSizeSlider : null);
       const pxToFont = window.conPxToFontUnit || (typeof conPxToFontUnit === 'function' ? conPxToFontUnit : null);
       const fmtFont = window.conFormatFontSize || (typeof conFormatFontSize === 'function' ? conFormatFontSize : null);
       if (szSlider) {
-        szSlider.dataset.rawPx = String(noteData.fontSize || 16);
+        szSlider.dataset.rawPx = String(effectiveFs);
         if (setupFontSlider) setupFontSlider(szSlider, window.conFontUnit, 'note');
-        if (pxToFont) szSlider.value = String(pxToFont(noteData.fontSize || 16, window.conFontUnit));
+        if (pxToFont) {
+          const unitVal = pxToFont(effectiveFs, window.conFontUnit);
+          if (parseFloat(szSlider.max) < unitVal) szSlider.max = String(Math.ceil(unitVal));
+          if (parseFloat(szSlider.min) > unitVal) szSlider.min = String(Math.floor(unitVal));
+          szSlider.value = String(unitVal);
+        }
       }
       if (szVal) {
-        szVal.textContent = fmtFont ? fmtFont(noteData.fontSize || 16, window.conFontUnit) : (noteData.fontSize || 16) + 'px';
+        szVal.textContent = fmtFont ? fmtFont(effectiveFs, window.conFontUnit) : effectiveFs + 'px';
       }
 
       const bwSlider = document.getElementById('wn-sp-border-width');
@@ -2798,6 +3003,171 @@
       return { sel, range, editor, noteEl, noteData };
     }
 
+    function wnGetActualFontSizeOfSelection(editor, noteData, triggerEvent) {
+      const zoom = (window.conGetZoom && noteData && noteData.id && String(noteData.id).startsWith('cn')) ? window.conGetZoom() : 1;
+      const baseFs = Number(noteData && noteData.fontSize) || 16;
+
+      if (!editor) return baseFs;
+
+      // 1. Detect active or saved text selection inside editor
+      let sel = window.getSelection && window.getSelection();
+      let range = null;
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const r = sel.getRangeAt(0);
+        const anc = r.commonAncestorContainer;
+        if (editor === anc || editor.contains(anc)) {
+          range = r;
+        }
+      }
+      if (!range && typeof _wnSavedSelectionRange !== 'undefined' && _wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed) {
+        const anc = _wnSavedSelectionRange.commonAncestorContainer;
+        if (editor === anc || editor.contains(anc)) {
+          range = _wnSavedSelectionRange;
+        }
+      }
+
+      // If there is no non-collapsed text selection in this note, return base font size
+      if (!range || range.collapsed) {
+        return baseFs;
+      }
+
+      // 2. If right-click occurred, verify whether it occurred on or within the editor / selection
+      let clickedNode = null;
+      let isClickOnSelection = true; // default true if keyboard shortcut / no mouse coordinates
+
+      if (triggerEvent && Number.isFinite(triggerEvent.clientX) && Number.isFinite(triggerEvent.clientY)) {
+        isClickOnSelection = false;
+        // Check if point is inside editor bounds
+        const editorRect = editor.getBoundingClientRect ? editor.getBoundingClientRect() : null;
+        if (editorRect) {
+          const inBounds = triggerEvent.clientX >= editorRect.left - 4 &&
+                           triggerEvent.clientX <= editorRect.right + 4 &&
+                           triggerEvent.clientY >= editorRect.top - 4 &&
+                           triggerEvent.clientY <= editorRect.bottom + 4;
+          if (!inBounds) {
+            // Click was clearly outside the editor (e.g. on note outer chrome/border/resizer)
+            return baseFs;
+          }
+        }
+
+        if (document.caretRangeFromPoint) {
+          try {
+            const ptRange = document.caretRangeFromPoint(triggerEvent.clientX, triggerEvent.clientY);
+            if (ptRange && ptRange.startContainer) {
+              clickedNode = ptRange.startContainer;
+              if (range.comparePoint && range.comparePoint(ptRange.startContainer, ptRange.startOffset) === 0) {
+                isClickOnSelection = true;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (!isClickOnSelection && triggerEvent.target) {
+          const targetEl = triggerEvent.target.nodeType === 1 ? triggerEvent.target : triggerEvent.target.parentElement;
+          if (targetEl && (editor === targetEl || editor.contains(targetEl))) {
+            try {
+              if (range.intersectsNode(targetEl) || (range.commonAncestorContainer && range.commonAncestorContainer.contains(targetEl))) {
+                isClickOnSelection = true;
+                if (!clickedNode) clickedNode = targetEl;
+              }
+            } catch (_) {
+              isClickOnSelection = true;
+            }
+          }
+        }
+      }
+
+      // If the right click was clearly not on the selected text, return the base font size
+      if (!isClickOnSelection) {
+        return baseFs;
+      }
+
+      // 3. Resolve the actual font size of the selected text
+      function parseFontSize(val) {
+        if (!val || typeof val !== 'string') return null;
+        const s = val.trim();
+        const mPx = s.match(/^([\d.]+)px$/i);
+        if (mPx) return Math.round(parseFloat(mPx[1]) / zoom);
+        const mPt = s.match(/^([\d.]+)pt$/i);
+        if (mPt) return Math.round(parseFloat(mPt[1]) * (4 / 3));
+        const mRem = s.match(/^([\d.]+)rem$/i);
+        if (mRem) return Math.round(parseFloat(mRem[1]) * 16);
+        const mEm = s.match(/^([\d.]+)em$/i);
+        if (mEm) return Math.round(parseFloat(mEm[1]) * baseFs);
+        return null;
+      }
+
+      function getExplicitFs(el) {
+        let probe = el;
+        while (probe && probe !== editor) {
+          if (probe.style && probe.style.fontSize) {
+            const parsed = parseFontSize(probe.style.fontSize);
+            if (parsed != null && parsed > 0) return parsed;
+          }
+          probe = probe.parentElement;
+        }
+        return null;
+      }
+
+      // Priority A: check clicked node/element if right-click was on it
+      let clickedEl = clickedNode ? (clickedNode.nodeType === 1 ? clickedNode : clickedNode.parentElement) : null;
+      if (!clickedEl && triggerEvent && triggerEvent.target && triggerEvent.target !== editor && editor.contains(triggerEvent.target)) {
+        clickedEl = triggerEvent.target.nodeType === 1 ? triggerEvent.target : triggerEvent.target.parentElement;
+      }
+      if (clickedEl && editor.contains(clickedEl)) {
+        const fs = getExplicitFs(clickedEl);
+        if (fs != null) return fs;
+      }
+
+      // Priority B: check candidate span around commonAncestorContainer (like wn-text-fs)
+      const anc = range.commonAncestorContainer;
+      const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
+      if (ancEl && ancEl !== editor) {
+        const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
+        if (candidate && editor.contains(candidate)) {
+          const fs = getExplicitFs(candidate);
+          if (fs != null) return fs;
+        }
+        const fs = getExplicitFs(ancEl);
+        if (fs != null) return fs;
+      }
+
+      // Priority C: check startContainer
+      let startEl = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+      if (startEl && startEl !== editor) {
+        const fs = getExplicitFs(startEl);
+        if (fs != null) return fs;
+      }
+
+      // Priority D: check any styled elements inside commonAncestorContainer intersecting the range
+      if (ancEl && ancEl.querySelectorAll) {
+        const styled = ancEl.querySelectorAll('[style*="font-size"], .wn-text-fs, font[size]');
+        for (let i = 0; i < styled.length; i++) {
+          try {
+            if (range.intersectsNode(styled[i])) {
+              const fs = getExplicitFs(styled[i]);
+              if (fs != null) return fs;
+            }
+          } catch (_) {}
+        }
+      }
+
+      // Priority E: check getComputedStyle on probeTarget
+      const probeTarget = clickedEl || startEl || ancEl;
+      if (probeTarget && probeTarget !== editor) {
+        try {
+          const cs = window.getComputedStyle(probeTarget);
+          if (cs && cs.fontSize) {
+            const parsed = parseFontSize(cs.fontSize);
+            if (parsed != null && parsed > 0) return parsed;
+          }
+        } catch (_) {}
+      }
+
+      // Fallback: note base font size
+      return baseFs;
+    }
+
     function wnAdjustSelectionOrNoteFontSize(delta) {
       if (!delta) return false;
       let textSelInfo = wnGetActiveNoteTextSelection();
@@ -2953,20 +3323,98 @@
       if (!_wnActiveNote) return;
       const zoom = (window.conGetZoom && _wnActiveNote.id && String(_wnActiveNote.id).startsWith('cn')) ? window.conGetZoom() : 1;
       const targetPx = Math.round(value * zoom) + 'px';
-      if (wnApplySelectionCommand('fontSize', '7')) {
+
+      let textSelInfo = (typeof wnGetActiveNoteTextSelection === 'function') ? wnGetActiveNoteTextSelection() : null;
+      if (!textSelInfo && _wnActiveNote) {
         const editor = wnGetActiveEditor();
         if (editor) {
-          editor.querySelectorAll('font[size="7"]').forEach(node => {
-            node.removeAttribute('size');
-            node.style.fontSize = targetPx;
-            node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+          if (typeof wnRestoreSelection === 'function') wnRestoreSelection(editor);
+          const sel = window.getSelection && window.getSelection();
+          if (sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(editor)) {
+            textSelInfo = { sel, range: sel.getRangeAt(0), editor, noteEl: wnGetNoteElementById(_wnActiveNote.id), noteData: _wnActiveNote };
+          }
+        }
+      }
+
+      if (textSelInfo) {
+        const { sel, range, editor } = textSelInfo;
+        let targetSpan = null;
+        const anc = range.commonAncestorContainer;
+        const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
+        if (ancEl && ancEl !== editor) {
+          const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
+          if (candidate && editor.contains(candidate)) {
+            const candText = (candidate.textContent || '').trim();
+            const selText = range.toString().trim();
+            if (candText === selText || (candidate.contains(range.startContainer) && candidate.contains(range.endContainer))) {
+              targetSpan = candidate;
+            }
+          }
+        }
+
+        if (targetSpan) {
+          targetSpan.style.fontSize = targetPx;
+          targetSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
+          const newRange = document.createRange();
+          newRange.selectNodeContents(targetSpan);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        } else {
+          let span = document.createElement('span');
+          span.className = 'wn-text-fs';
+          span.style.fontSize = targetPx;
+          let wrapped = false;
+          try {
+            span.appendChild(range.extractContents());
+            span.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+            range.insertNode(span);
+            wrapped = true;
+          } catch (_) {
+            wrapped = false;
+          }
+
+          if (!wrapped) {
+            if (wnApplySelectionCommand('fontSize', '7')) {
+              editor.querySelectorAll('font[size="7"]').forEach(node => {
+                node.removeAttribute('size');
+                node.style.fontSize = targetPx;
+                node.className = 'wn-text-fs';
+                node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+                span = node;
+              });
+              editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
+                node.style.fontSize = targetPx;
+                node.className = 'wn-text-fs';
+                node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+                span = node;
+              });
+            }
+          }
+
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
+
+        editor.focus();
+        wnRememberSelection(editor);
+        wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+        conNoteAutosize(editor, _wnActiveNote);
+        if (typeof wnSyncAndBroadcastNoteSelection === 'function') wnSyncAndBroadcastNoteSelection(true);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({
+            type: 'note-text',
+            id: String(_wnActiveNote.id),
+            html: _wnActiveNote.html,
+            text: _wnActiveNote.text,
+            baseWidth: _wnActiveNote.liveBaseWidth,
+            baseHeight: _wnActiveNote.liveBaseHeight,
+            width: _wnActiveNote.width || _wnActiveNote.liveBaseWidth,
+            height: _wnActiveNote.height || _wnActiveNote.liveBaseHeight,
+            manualSize: !!_wnActiveNote.manualSize
           });
-          editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
-            node.style.fontSize = targetPx;
-            node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-          });
-          wnSyncNoteDataFromEditor(_wnActiveNote, editor);
-          _wnActiveNote._applyStyle && _wnActiveNote._applyStyle();
         }
         return;
       }
@@ -3776,18 +4224,45 @@
       const note = ta.closest('.con-word-note, .ta-word-note');
       if (!note) return;
       const zoom = Math.max(0.2, Math.min(5, Number(window.conGetZoom ? window.conGetZoom() : 1) || 1));
-      if (wnApplyStoredSize(note, ta, noteData, zoom)) {
-        const contentH = Math.ceil(ta.scrollHeight / zoom);
-        const neededH = Math.max(40, contentH + 12);
-        if (noteData && noteData.manualSize && neededH > (Number(noteData.height) || 0)) {
-          noteData.height = neededH;
-          wnApplyStoredSize(note, ta, noteData, zoom);
-          ta.style.overflowY = 'hidden';
-        }
-        return;
-      }
       const isMirrorMode = document.documentElement.classList.contains('con-mirror-mode') ||
         (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+
+      if (noteData && noteData.manualSize) {
+        const containerH = Math.max(
+          200,
+          (note && note.parentElement && note.parentElement.clientHeight) || 0,
+          window.innerHeight || document.documentElement.clientHeight || 720
+        );
+        const maxBaseH = Math.max(40, containerH / zoom);
+        const baseW = Math.max(80, Math.min(1560, Number(noteData.width) || note.offsetWidth || 80));
+        note.style.width = (baseW * zoom) + 'px';
+        ta.style.width = '100%';
+        ta.style.height = 'auto';
+        ta.style.overflowY = 'hidden';
+
+        const editorScrollH = ta.scrollHeight;
+        const unzoomedScrollH = editorScrollH / zoom;
+        const manualH = (Number(noteData.height) > 0) ? Number(noteData.height) : ((note.offsetHeight / zoom) || 40);
+        let neededH;
+        if (isMirrorMode && Number.isFinite(Number(noteData.liveBaseHeight)) && Number(noteData.liveBaseHeight) > 0) {
+          neededH = Number(noteData.liveBaseHeight);
+        } else {
+          neededH = Math.max(manualH, Math.max(28, Math.min(maxBaseH, Math.round(unzoomedScrollH + 12))));
+        }
+
+        noteData.width = baseW;
+        noteData.height = neededH;
+        noteData.liveBaseWidth = baseW;
+        noteData.liveBaseHeight = neededH;
+
+        note.style.height = (neededH * zoom) + 'px';
+        ta.style.height = Math.max(16, (neededH - 12) * zoom) + 'px';
+        ta.style.overflowY = 'hidden';
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
+        else if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+        return;
+      }
+
       const minBaseW = 120;
       const maxBaseW = 460;
       const minBaseH = 40;
@@ -3803,8 +4278,15 @@
         ta.style.height = 'auto';
         ta.style.width = 'auto';
         const clone = ta.cloneNode(true);
-        clone.style.cssText = `position:absolute;visibility:hidden;height:auto;width:auto;
-          white-space:pre-wrap;overflow:hidden;font:${getComputedStyle(ta).font};padding:0;border:0;`;
+        const comp = window.getComputedStyle ? getComputedStyle(ta) : null;
+        if (comp) {
+          clone.style.cssText = `position:absolute;visibility:hidden;height:auto;width:auto;
+            white-space:pre-wrap;overflow:hidden;padding:0;border:0;
+            font-family:${comp.fontFamily};font-size:${comp.fontSize};font-weight:${comp.fontWeight};font-style:${comp.fontStyle};line-height:${comp.lineHeight};letter-spacing:${comp.letterSpacing};`;
+        } else {
+          clone.style.cssText = `position:absolute;visibility:hidden;height:auto;width:auto;
+            white-space:pre-wrap;overflow:hidden;font:${getComputedStyle(ta).font};padding:0;border:0;`;
+        }
         document.body.appendChild(clone);
         const contentW = clone.scrollWidth + 2;
         clone.remove();
@@ -3820,7 +4302,7 @@
       const unzoomedScrollH = editorScrollH / zoom;
       let baseH;
       if (isMirrorMode && noteData && Number.isFinite(Number(noteData.liveBaseHeight)) && Number(noteData.liveBaseHeight) > 0) {
-        baseH = Math.max(minBaseH, Math.round(unzoomedScrollH + 12), Number(noteData.liveBaseHeight));
+        baseH = Number(noteData.liveBaseHeight);
       } else {
         baseH = Math.max(minBaseH, Math.round(unzoomedScrollH + 12));
       }
@@ -3835,6 +4317,8 @@
         noteData.width = baseW;
         noteData.height = baseH;
       }
+      if (typeof conRedrawEdges === 'function') conRedrawEdges();
+      else if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
     }
 
     function conNoteBuild(noteData) {
@@ -5809,6 +6293,7 @@
   window.wnGetActiveEditor = global.wnGetActiveEditor = wnGetActiveEditor;
   window.wnGetActiveNoteTextSelection = global.wnGetActiveNoteTextSelection = wnGetActiveNoteTextSelection;
   window.wnAdjustSelectionOrNoteFontSize = global.wnAdjustSelectionOrNoteFontSize = wnAdjustSelectionOrNoteFontSize;
+  window.wnGetActualFontSizeOfSelection = global.wnGetActualFontSizeOfSelection = wnGetActualFontSizeOfSelection;
   window._wnActiveNote = global._wnActiveNote = _wnActiveNote;
   window.wnGetNoteElementById = global.wnGetNoteElementById = wnGetNoteElementById;
   window.conNoteBuild = global.conNoteBuild = conNoteBuild;
