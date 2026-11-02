@@ -11052,9 +11052,36 @@
             const groupMeta = window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[targetGroupId];
             const groupName = groupMeta ? groupMeta.name : targetGroupId;
 
+            const _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : {};
+            const semNum = _cgd.activeSemester ? String(_cgd.activeSemester) : '1';
+            const semester = (semNum === '2' || semNum === 'sem2') ? 'sem2' : 'sem1';
+
+            const testConfig = {
+                testName: (typeof t === 'function' ? t('ptParticipationTestName') : '') || 'Participation',
+                testDate: dateRange.to || new Date().toISOString().split('T')[0],
+                type: 'participation',
+                source: 'participation-tracker',
+                criteria: criteria,
+                grading: {
+                    mode: 'manual',
+                    manualInputMode: 'points',
+                    maxGrade: maxGrade,
+                    minGrade: 0,
+                    interval: 0.5,
+                    manualThresholds: {}
+                }
+            };
+
             const importData = {
                 class: groupName,
+                className: groupName,
+                groupId: targetGroupId,
                 classGroupId: targetGroupId,
+                classId: targetGroupId,
+                semester: semester,
+                test: 'next',
+                testIndex: 'next',
+                testConfig: testConfig,
                 grades: grades,
                 criteria: criteria,
                 studentCriteriaScores: studentCriteriaScores,
@@ -11067,17 +11094,43 @@
 
             localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(importData));
 
-            showMessage('Grades & rule criteria prepared! Opening Grade Sheet tool...', 'success');
+            if (typeof BroadcastChannel !== 'undefined') {
+                try {
+                    const gradesCh = new BroadcastChannel('cmt-grades');
+                    gradesCh.postMessage({
+                        action: 'pending-import-available'
+                    });
+                } catch (e) {}
+            }
+
+            const navParams = {
+                classId: targetGroupId,
+                groupId: targetGroupId,
+                className: groupName,
+                semester: semester,
+                test: 'next'
+            };
+
+            showMessage((typeof t === 'function' ? t('ptGradesPreparedNotice') : '') || 'Grades & rule criteria prepared! Opening Grade Sheet tool...', 'success');
             setTimeout(() => {
-                openGradeSheetTool();
+                openGradeSheetTool(navParams);
             }, 1000);
         }
 
-        function openGradeSheetTool() {
+        function openGradeSheetTool(navParams = null) {
+            if (navParams) {
+                try {
+                    localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify(navParams));
+                    if (typeof BroadcastChannel !== 'undefined') {
+                        const navCh = new BroadcastChannel('cmt-gradesheet-nav');
+                        navCh.postMessage(navParams);
+                    }
+                } catch (e) {}
+            }
             if (window.Desktop && typeof Desktop.openTool === 'function') {
                 Desktop.openTool('grade-sheet.html');
             } else {
-                showMessage('Desktop API not available. Please open Grade Sheet from the launcher.', 'error');
+                window.location.href = 'grade-sheet.html';
             }
         }
 

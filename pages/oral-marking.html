@@ -2496,6 +2496,20 @@
   }
 
   function openInGradeSheet() {
+    const navParams = linkedGradeTest ? {
+      classId: linkedGradeTest.classId,
+      semester: linkedGradeTest.semester,
+      testIndex: linkedGradeTest.testIndex
+    } : null;
+    if (navParams) {
+      try {
+        localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify(navParams));
+        if (typeof BroadcastChannel !== 'undefined') {
+          const navCh = new BroadcastChannel('cmt-gradesheet-nav');
+          navCh.postMessage(navParams);
+        }
+      } catch (e) {}
+    }
     if (window.Desktop && typeof Desktop.openTool === 'function') {
       Desktop.openTool('grade-sheet.html');
     } else {
@@ -2601,10 +2615,7 @@
       showNotice(t('omSaveNoGrades'), true);
       return;
     }
-    if (!window.Desktop || !Desktop.isElectron()) {
-      showNotice('Electron required.', true);
-      return;
-    }
+    const isElec = Boolean(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
 
     showNotice(t('saving') || 'Saving…', false);
     const btn = document.getElementById('om-action-btn');
@@ -2621,18 +2632,20 @@
       let isNewClass     = false;
       let nextTestIndex  = 0;
 
-      const listRes = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
-      if (listRes?.ok && Array.isArray(listRes.files)) {
-        const classFiles = listRes.files.filter(f => f.filename === '_class.js');
-        for (const cf of classFiles) {
-          const r = await Desktop.readByPath('grades', cf.relativePath);
-          if (!r?.content) continue;
-          const data = parseJsVar(r.content, 'GRADE_CLASS');
-          if (data?.groupId === schedule?.group || (schedule?.group && data?.className === getGroupName(schedule.group))) {
-            classId       = data.classId;
-            classStudents = data.students || [];
-            classMeta     = data;
-            break;
+      if (isElec) {
+        const listRes = await Desktop.listByPath('grades', '', { recursive: true, extensions: ['.js'] });
+        if (listRes?.ok && Array.isArray(listRes.files)) {
+          const classFiles = listRes.files.filter(f => f.filename === '_class.js');
+          for (const cf of classFiles) {
+            const r = await Desktop.readByPath('grades', cf.relativePath);
+            if (!r?.content) continue;
+            const data = parseJsVar(r.content, 'GRADE_CLASS');
+            if (data?.groupId === schedule?.group || (schedule?.group && data?.className === getGroupName(schedule.group))) {
+              classId       = data.classId;
+              classStudents = data.students || [];
+              classMeta     = data;
+              break;
+            }
           }
         }
       }
@@ -2701,20 +2714,21 @@
 
       if (existingLinked) {
         nextTestIndex = existingLinked.testIndex;
-      } else {
+      } else if (isElec) {
         for (let i = 0; i < 8; i++) {
           const label = `${semKey}-test-${String(i + 1).padStart(2, '0')}`;
           let r = null;
           try {
             r = await Desktop.readByPath('grades', `${classId}/${label}.js`);
           } catch (e) {
-            // Missing file means this slot is available.
             nextTestIndex = i;
             break;
           }
           if (!r?.ok || !r?.content) { nextTestIndex = i; break; }
           if (i === 7) nextTestIndex = 7;
         }
+      } else {
+        nextTestIndex = Math.min(7, (classMeta.testCounts && classMeta.testCounts[semKey]) || 0);
       }
 
       // Auto-create/register the test slot in class metadata so Grade Sheet exposes it.
@@ -2742,12 +2756,14 @@
       classMeta.students = classStudents;
       classMeta.testCounts[semKey] = Math.max(classMeta.testCounts[semKey] || 0, nextTestIndex + 1);
 
-      await Desktop.saveText(
-        'grades',
-        '_class.js',
-        `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
-        classId
-      );
+      if (isElec) {
+        await Desktop.saveText(
+          'grades',
+          '_class.js',
+          `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
+          classId
+        );
+      }
 
       // Build Grade Sheet-compatible criteria config from the criteria used in this oral session.
       const selectedCriteriaNames = (Array.isArray(sessionCriteria) && sessionCriteria.length)
@@ -2825,52 +2841,67 @@
         type:         'oral',
         scope:        '',
         criteria:     criteriaDefs,
-        grading:      { mode: 'manual', manualThresholds: {} }
+        grading:      {
+          mode: 'manual',
+          manualInputMode: 'percent',
+          minGrade: 1.0,
+          maxGrade: 6.0,
+          interval: 0.5,
+          manualThresholds: {
+            "6": 90, "5.5": 80, "5": 70, "4.5": 60, "4": 50,
+            "3.5": 40, "3": 30, "2.5": 20, "2": 10, "1.5": 0, "1": 0
+          }
+        }
       };
 
       const testLabel = `${semKey}-test-${String(nextTestIndex + 1).padStart(2, '0')}`;
       const testData  = { _savedAt: now, classId, semester: semKey, testIndex: nextTestIndex, testUuid, testConfig, results };
-      await Desktop.saveText('grades', `${testLabel}.js`,
-        `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
-        classId);
+      if (isElec) {
+        await Desktop.saveText('grades', `${testLabel}.js`,
+          `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
+          classId);
+      }
 
-      // Save pending import payload in localStorage for dual-synchronization
-      try {
-        const studentScoresMap = {};
-        doneStudents.forEach(s => {
-          const sCrit = {};
-          criteriaDefs.forEach(def => {
-            if (s.criteriaScores && s.criteriaScores[def.name] != null) {
-              sCrit[def.id] = { points: Number(s.criteriaScores[def.name]), comment: s.criteriaComments ? s.criteriaComments[def.name] : '' };
-            }
+      // For web/browser mode, stage in CMS_PENDING_GRADE_IMPORT for seamless Grade Sheet import
+      if (!isElec) {
+        try {
+          const studentScoresMap = {};
+          doneStudents.forEach(s => {
+            const sCrit = {};
+            criteriaDefs.forEach(def => {
+              if (s.criteriaScores && s.criteriaScores[def.name] != null) {
+                sCrit[def.id] = { points: Number(s.criteriaScores[def.name]), comment: s.criteriaComments ? s.criteriaComments[def.name] : '' };
+              }
+            });
+            studentScoresMap[s.name] = sCrit;
           });
-          studentScoresMap[s.name] = sCrit;
-        });
 
-        const pendingImport = {
-          _savedAt: now,
-          class: classMeta.className || getGroupName(schedule?.group) || 'Oral',
-          className: classMeta.className || getGroupName(schedule?.group) || 'Oral',
-          groupId: schedule?.group || '',
-          classId,
-          semester: semKey,
-          test: nextTestIndex + 1,
-          testIndex: nextTestIndex,
-          testUuid,
-          criteria: criteriaDefs,
-          studentCriteriaScores: studentScoresMap,
-          students: doneStudents.map(s => ({
-            name: s.name,
-            studentId: s.studentId || null,
-            grade: s.grade,
-            criteriaResults: studentScoresMap[s.name]
-          })),
-          grades: Object.fromEntries(doneStudents.filter(s => s.grade != null).map(s => [s.name, s.grade])),
-          testConfig,
-          results
-        };
-        localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(pendingImport));
-      } catch (e) { /* ignore */ }
+          const pendingImport = {
+            _savedAt: now,
+            class: classMeta.className || getGroupName(schedule?.group) || 'Oral',
+            className: classMeta.className || getGroupName(schedule?.group) || 'Oral',
+            groupId: schedule?.group || '',
+            classGroupId: schedule?.group || '',
+            classId,
+            semester: semKey,
+            test: nextTestIndex + 1,
+            testIndex: nextTestIndex,
+            testUuid,
+            criteria: criteriaDefs,
+            studentCriteriaScores: studentScoresMap,
+            students: doneStudents.map(s => ({
+              name: s.name,
+              studentId: s.studentId || null,
+              grade: s.grade,
+              criteriaResults: studentScoresMap[s.name]
+            })),
+            grades: Object.fromEntries(doneStudents.filter(s => s.grade != null).map(s => [s.name, s.grade])),
+            testConfig,
+            results
+          };
+          localStorage.setItem('CMS_PENDING_GRADE_IMPORT', JSON.stringify(pendingImport));
+        } catch (e) { /* ignore */ }
+      }
 
       // Also update in-memory/localStorage grade-sheet state for instant sync
       try {
@@ -2919,6 +2950,19 @@
       };
       persistSession();
       updateSaveBtn();
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        try {
+          const gradesCh = new BroadcastChannel('cmt-grades');
+          gradesCh.postMessage({
+            action: 'grades-updated',
+            classId,
+            semester: semKey,
+            testIndex: nextTestIndex,
+            testUuid
+          });
+        } catch (_) {}
+      }
 
       const msg = isNewClass ? t('omSaveClassNew') : t('omSaveClassFound');
       showNotice(t('omSaved') + ' ' + msg, false);

@@ -9312,9 +9312,16 @@
         ? c.detailedDescription.map(s => String(s).trim()).filter(Boolean)
         : (c.detailedDescription ? String(c.detailedDescription).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
 
-      const activeDetailedLines = (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines))
-        ? detailedLines.filter(l => options.selectedDetailedLines.includes(l))
-        : detailedLines;
+      let activeDetailedLines = detailedLines;
+      if (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines)) {
+        activeDetailedLines = detailedLines.filter(l => options.selectedDetailedLines.includes(l));
+      } else if (options.selectedDetailedLines && typeof options.selectedDetailedLines === 'object') {
+        const cKey = String(c.id || c.code || c.title || '');
+        const specificLines = options.selectedDetailedLines[cKey] || options.selectedDetailedLines[c.id] || options.selectedDetailedLines[c.code];
+        if (Array.isArray(specificLines)) {
+          activeDetailedLines = detailedLines.filter(l => specificLines.includes(l));
+        }
+      }
 
       if (options.detailedDesc && activeDetailedLines.length > 0) {
         const label = (typeof t === 'function' ? t('compNoteElDetailedDesc') : 'Detailed Description');
@@ -9363,9 +9370,16 @@
         ? c.detailedDescription.map(s => String(s).trim()).filter(Boolean)
         : (c.detailedDescription ? String(c.detailedDescription).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
 
-      const activeDetailedLines = (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines))
-        ? detailedLines.filter(l => options.selectedDetailedLines.includes(l))
-        : detailedLines;
+      let activeDetailedLines = detailedLines;
+      if (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines)) {
+        activeDetailedLines = detailedLines.filter(l => options.selectedDetailedLines.includes(l));
+      } else if (options.selectedDetailedLines && typeof options.selectedDetailedLines === 'object') {
+        const cKey = String(c.id || c.code || c.title || '');
+        const specificLines = options.selectedDetailedLines[cKey] || options.selectedDetailedLines[c.id] || options.selectedDetailedLines[c.code];
+        if (Array.isArray(specificLines)) {
+          activeDetailedLines = detailedLines.filter(l => specificLines.includes(l));
+        }
+      }
 
       if (options.detailedDesc && activeDetailedLines.length > 0) {
         lines.push('Detailed Description:\n' + activeDetailedLines.map(l => `- ${l}`).join('\n'));
@@ -9416,11 +9430,23 @@
         multiComps = [targetCompOrList];
       }
 
-      // Pre-resolve full competence details
+      // Pre-resolve full competence details for all candidates
+      const resolvedMap = new Map();
+      const allToResolve = [singleComp, ...multiComps, ...(_conCurrentCompetences || [])].filter(Boolean);
+      await Promise.all(allToResolve.map(async (c) => {
+        const key = String(c.id || c.code || c.title || '');
+        if (!key || resolvedMap.has(key)) return;
+        const res = await conResolveFullCompetence(c);
+        resolvedMap.set(key, res);
+      }));
       if (singleComp) {
-        singleComp = await conResolveFullCompetence(singleComp);
+        const sKey = String(singleComp.id || singleComp.code || singleComp.title || '');
+        singleComp = resolvedMap.get(sKey) || singleComp;
       }
-      multiComps = await Promise.all(multiComps.map(c => conResolveFullCompetence(c)));
+      multiComps = multiComps.map(c => {
+        const key = String(c.id || c.code || c.title || '');
+        return resolvedMap.get(key) || c;
+      });
 
       // Load saved user preferences
       let elemPrefs = { code: true, title: true, desc: true, detailedDesc: false, category: false, level: false, tasks: false, tags: false };
@@ -9454,13 +9480,18 @@
         : 'single';
 
       function getEffectiveCompetenceList() {
+        let list = [];
         if (currentScope === 'single' && singleComp) {
-          return [singleComp];
+          list = [singleComp];
+        } else if (currentScope === 'selected' && selectedPopupCount > 0) {
+          list = (_conCurrentCompetences || []).filter(c => _conCompPopupSelectedSet.has(String(c.id || c.code || c.title || '')));
+        } else {
+          list = (_conCurrentCompetences || []).slice();
         }
-        if (currentScope === 'selected' && selectedPopupCount > 0) {
-          return _conCurrentCompetences.filter(c => _conCompPopupSelectedSet.has(String(c.id || c.code || c.title || '')));
-        }
-        return _conCurrentCompetences.slice();
+        return list.map(c => {
+          const key = String(c.id || c.code || c.title || '');
+          return resolvedMap.get(key) || c;
+        });
       }
 
       // Create Popover element
@@ -9615,13 +9646,28 @@
         ? initialTargetComp.detailedDescription.slice()
         : [];
       const selectedDetailedLinesSet = new Set(availableDetailedLines);
+      let lastDetailedCompKey = initialTargetComp ? String(initialTargetComp.id || initialTargetComp.code || initialTargetComp.title || '') : '';
 
       function refreshDetailedLinesUi() {
-        if (!elemPrefs.detailedDesc) {
+        const targets = getEffectiveCompetenceList();
+        const isMulti = targets.length > 1;
+
+        if (!elemPrefs.detailedDesc || isMulti) {
           detailedLinesBox.style.display = 'none';
           return;
         }
-        const activeComp = (currentScope === 'single' ? singleComp : (getEffectiveCompetenceList()[0] || singleComp));
+
+        const activeComp = targets[0] || singleComp;
+        const currentCompKey = activeComp ? String(activeComp.id || activeComp.code || activeComp.title || '') : '';
+        if (currentCompKey && currentCompKey !== lastDetailedCompKey) {
+          lastDetailedCompKey = currentCompKey;
+          selectedDetailedLinesSet.clear();
+          const newLines = (activeComp && Array.isArray(activeComp.detailedDescription))
+            ? activeComp.detailedDescription.slice()
+            : [];
+          newLines.forEach(l => selectedDetailedLinesSet.add(l));
+        }
+
         const currentLines = (activeComp && Array.isArray(activeComp.detailedDescription))
           ? activeComp.detailedDescription.slice()
           : [];
@@ -9800,10 +9846,11 @@
       copyBtn.onclick = async (e) => {
         e.stopPropagation();
         const targets = getEffectiveCompetenceList();
-        const isCombined = (chosenMode === 'combined' && targets.length > 1);
+        const isMulti = targets.length > 1;
+        const isCombined = (chosenMode === 'combined' && isMulti);
         const resolved = await Promise.all(targets.map(c => conResolveFullCompetence(c)));
         const activeOpts = Object.assign({}, elemPrefs, {
-          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : []
+          selectedDetailedLines: isMulti ? null : (selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : [])
         });
         const textToCopy = isCombined
           ? conBuildCombinedCompetenceNoteText(resolved, activeOpts)
@@ -9835,6 +9882,7 @@
       addBtn.onclick = async (e) => {
         e.stopPropagation();
         const targets = getEffectiveCompetenceList();
+        const isMulti = targets.length > 1;
         conCloseCompetenceNotePopover();
         const popupEl = document.getElementById('con-comp-group-popup');
         if (popupEl) popupEl.classList.remove('con-comp-popup-open');
@@ -9846,7 +9894,7 @@
           title: !!elemPrefs.title,
           desc: !!elemPrefs.desc,
           detailedDesc: !!elemPrefs.detailedDesc,
-          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : [],
+          selectedDetailedLines: isMulti ? null : (selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : []),
           category: !!elemPrefs.category,
           level: !!elemPrefs.level,
           tasks: !!elemPrefs.tasks,
@@ -9879,7 +9927,7 @@
         refreshDetailedLinesUi();
 
         const activeOpts = Object.assign({}, elemPrefs, {
-          selectedDetailedLines: selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : []
+          selectedDetailedLines: isMulti ? null : (selectedDetailedLinesSet.size > 0 ? Array.from(selectedDetailedLinesSet) : [])
         });
 
         // Preview box styling & content

@@ -24977,9 +24977,9 @@ ${blocks}
       // Supported JSON formats:
       // { "class":"3A", "semester":"sem1", "test":1, "students":[{"name":"Alice","grade":4.5}], "criteria":[...], "studentCriteriaScores":{"Alice":{"crit1":4}} }
       // { "grades": { "Alice": 4.5 } }
-      let hintClass = parsed.class || parsed.className || parsed.classId || parsed.groupId || null;
+      let hintClass = parsed.classId || parsed.groupId || parsed.classGroupId || parsed.class || parsed.className || null;
       let hintSem = parsed.semester || null;
-      let hintTest = parsed.test != null ? Number(parsed.test) : (parsed.testIndex != null ? Number(parsed.testIndex) + 1 : null); // 1-based
+      let hintTest = (parsed.test != null && parsed.test !== 'next') ? Number(parsed.test) : ((parsed.testIndex != null && parsed.testIndex !== 'next') ? Number(parsed.testIndex) + 1 : null); // 1-based
 
       if (hintSem) {
         const s = String(hintSem).trim().toLowerCase();
@@ -25070,7 +25070,31 @@ ${blocks}
         }
         testSelect.innerHTML = html;
 
-        if (hintTest != null && hintTest >= 1 && hintTest <= count) {
+        const reqNext = parsed && (parsed.test === 'next' || parsed.testIndex === 'next');
+        if (reqNext) {
+          let emptySlot = -1;
+          for (let i = 0; i < count; i++) {
+            const hasGrades = (classObj.students || []).some(s => {
+              const arr = sem === 'sem1' ? s.sem1Tests : s.sem2Tests;
+              return arr && arr[i] != null;
+            });
+            const cfg = configs[i];
+            const hasCfg = cfg && (cfg.testName || cfg.testDate || (Array.isArray(cfg.criteria) && cfg.criteria.length > 0));
+            if (!hasGrades && !hasCfg) {
+              emptySlot = i;
+              break;
+            }
+          }
+          if (emptySlot >= 0) {
+            testSelect.value = String(emptySlot);
+          } else if (count < TEST_COUNT_PER_SEM) {
+            classObj.testCounts[sem] = count + 1;
+            refreshTestOptions();
+            testSelect.value = String(count);
+          } else if (count > 0) {
+            testSelect.value = String(count - 1);
+          }
+        } else if (hintTest != null && hintTest >= 1 && hintTest <= count) {
           testSelect.value = String(hintTest - 1);
         } else if (appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex < count) {
           testSelect.value = String(appState.activeTest.testIndex);
@@ -25106,7 +25130,7 @@ ${blocks}
             const current = arr[ti];
             let newGrade = entry.grade != null && !isNaN(entry.grade) ? Math.round(entry.grade * 2) / 2 : null;
 
-            if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0 &&
+            if (newGrade == null && parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0 &&
                 parsed.studentCriteriaScores && (parsed.studentCriteriaScores[entry.name] || (entry.studentId && parsed.studentCriteriaScores[entry.studentId]))) {
               const testCfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
               const mergedCfg = Object.assign({}, testCfg, {
@@ -25216,6 +25240,20 @@ ${blocks}
           if (parsed.testConfig && parsed.testConfig.type) {
             cfg.type = parsed.testConfig.type;
           }
+          if (parsed.testConfig && parsed.testConfig.source) {
+            cfg.source = parsed.testConfig.source;
+          }
+          if (parsed.testConfig && parsed.testConfig.grading) {
+            cfg.grading = Object.assign({}, cfg.grading, parsed.testConfig.grading);
+          }
+          classObj.testConfigs[sem][ti] = cfg;
+        } else if (parsed && parsed.testConfig) {
+          const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
+          if (parsed.testConfig.testName) cfg.testName = parsed.testConfig.testName;
+          if (parsed.testConfig.testDate) cfg.testDate = parsed.testConfig.testDate;
+          if (parsed.testConfig.type) cfg.type = parsed.testConfig.type;
+          if (parsed.testConfig.source) cfg.source = parsed.testConfig.source;
+          if (parsed.testConfig.grading) cfg.grading = Object.assign({}, cfg.grading, parsed.testConfig.grading);
           classObj.testConfigs[sem][ti] = cfg;
         }
 
@@ -25245,19 +25283,21 @@ ${blocks}
             if (!student.criteriaResults[sem]) {
               student.criteriaResults[sem] = Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}));
             }
-            student.criteriaResults[sem][ti] = Object.assign({}, parsed.studentCriteriaScores[entry.name]);
+            student.criteriaResults[sem][ti] = Object.assign({}, critScores);
           }
         });
 
-        if (parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
+        const hasExplicitGrades = entries.some(e => e.grade != null && !isNaN(e.grade));
+        if (!hasExplicitGrades && parsed && Array.isArray(parsed.criteria) && parsed.criteria.length > 0) {
           recalcAllStudentGradesForTest(classObj, sem, ti);
         }
 
         saveState();
+        appState.activeClassId = classObj.id;
+        appState.activeTest = { semester: sem, testIndex: ti };
         renderSummary();
-        if (appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
-          renderTestSheet();
-        }
+        renderTestSheet();
+        showScreen("test");
         overlay.classList.add("hidden");
         showAlert(tFmt('gsAlertGradesUpdated', { n: applied, s: applied !== 1 ? 's' : '' }));
       };
@@ -25679,6 +25719,28 @@ ${blocks}
                   renderTestSheet();
                 }
               }
+            } else if (msg.action === 'grades-updated') {
+              if (window.Desktop && Desktop.isElectron()) {
+                loadGradesStructured().then(structured => {
+                  if (structured) {
+                    appState.classes = deduplicateClasses(filterDeletedClasses(structured.classes));
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify({ classes: appState.classes }));
+                    renderClasses();
+                    if (appState.activeClassId) {
+                      const cur = appState.classes.find(c => c.id === appState.activeClassId);
+                      if (cur) {
+                        renderSummary();
+                        if (appState.activeTest) renderTestSheet();
+                      }
+                    }
+                    if (typeof showToast === 'function') {
+                      showToast(t('gsToastGradesUpdatedExternal') || 'Grades updated from external session.');
+                    }
+                  }
+                }).catch(() => {});
+              }
+            } else if (msg.action === 'pending-import-available') {
+              checkForPendingImport();
             }
           };
         } catch (_) {}
@@ -25686,6 +25748,11 @@ ${blocks}
 
       checkForPendingImport();
       window.addEventListener('focus', checkForPendingImport);
+      window.addEventListener('storage', (e) => {
+        if (e && e.key === 'CMS_PENDING_GRADE_IMPORT' && e.newValue) {
+          checkForPendingImport();
+        }
+      });
     }
 
     // ════════════════════════════════════════════════════════════════
