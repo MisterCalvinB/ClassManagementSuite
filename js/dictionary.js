@@ -505,6 +505,20 @@
     window.addEventListener('pagehide', function () {
       if (isDesktop && typeof api.dictionaryDispose === 'function') api.dictionaryDispose();
     });
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        var dictChannel = new BroadcastChannel('cmt-dictionary');
+        dictChannel.onmessage = function (ev) {
+          if (!ev || !ev.data) return;
+          var data = ev.data;
+          var query = data.q || data.word || (data.action === 'search' ? data.word : '');
+          if (query && typeof query === 'string') {
+            searchFor(query.trim());
+          }
+        };
+      } catch (_) {}
+    }
   }
 
   function init() {
@@ -545,9 +559,19 @@
       if (savedScope && el.scope.querySelector('option[value="' + savedScope + '"]')) el.scope.value = savedScope;
     } catch (_) { /* ignore */ }
 
+    var initialQuery = '';
+    try {
+      var sp = new URLSearchParams(window.location.search);
+      initialQuery = (sp.get('q') || sp.get('word') || '').trim();
+    } catch (_) {}
+
     bindEvents();
     setStatus('idle');
     showEmpty(t('qdEmptyPrompt', 'Type to search the selected word banks.'));
+
+    if (initialQuery) {
+      el.input.value = initialQuery;
+    }
 
     if (!isDesktop) {
       el.input.disabled = true;
@@ -557,10 +581,16 @@
     }
 
     el.input.focus();
+    if (initialQuery) {
+      el.input.select();
+    }
     loadBanks().then(function () {
+      if (initialQuery) {
+        runSearch();
+      }
       var seen = false;
       try { seen = localStorage.getItem(LS_TOUR_SEEN) === '1'; } catch (_) { /* ignore */ }
-      if (!seen) setTimeout(function () { window.startDictionaryTour(); }, 500);
+      if (!seen && !initialQuery) setTimeout(function () { window.startDictionaryTour(); }, 500);
     });
   }
 

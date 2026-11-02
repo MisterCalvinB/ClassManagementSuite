@@ -316,6 +316,47 @@
   global.invalidateThemeIndex = window.invalidateThemeIndex = invalidateThemeIndex;
   global.getItemThemes = window.getItemThemes = getItemThemes;
 
+  // Centralized Quick Dictionary opener
+  function boardOpenDictionary(word) {
+    if (!word || typeof word !== 'string') return Promise.resolve();
+    var raw = String(word).trim();
+    if (!raw) return Promise.resolve();
+    var clean = raw;
+    if (typeof window.stripParens === 'function') {
+      clean = window.stripParens(clean);
+    }
+    clean = clean.replace(/^[«"'({\[\s\.,;:!?\/]+|[»"')}\]\s\.,;:!?\/]+$/g, '').trim();
+    if (!clean) return Promise.resolve();
+
+    // 1. Send BroadcastChannel for instant search if dictionary window is already open
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var bc = new BroadcastChannel('cmt-dictionary');
+        bc.postMessage({ action: 'search', word: clean, q: clean });
+        setTimeout(function () { try { bc.close(); } catch (_) {} }, 800);
+      }
+    } catch (_) {}
+
+    // 2. Open / focus via Desktop.openTool
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      return Desktop.openTool('dictionary.html', {
+        query: { q: clean },
+        noReload: false
+      }).catch(function (err) {
+        console.warn('Desktop.openTool failed, falling back to window.open', err);
+        window.open('dictionary.html?q=' + encodeURIComponent(clean), 'cmt-quick-dictionary');
+      });
+    }
+
+    // 3. Web fallback
+    try {
+      window.open('dictionary.html?q=' + encodeURIComponent(clean), 'cmt-quick-dictionary');
+    } catch (_) {}
+    return Promise.resolve();
+  }
+
+  global.boardOpenDictionary = window.boardOpenDictionary = boardOpenDictionary;
+
   // Legacy Global Aliases
   global.boardCmsTimerChannel = boardCmsTimerChannel;
   global.boardCmsTimerUiState = boardCmsTimerUiState;

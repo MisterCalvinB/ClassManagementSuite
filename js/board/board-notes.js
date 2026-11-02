@@ -1046,6 +1046,44 @@
       return vocabBank.find(v => v && (matchForms(v.otherForms) || matchForms(v.otherTerms))) || null;
     }
 
+    function wnGetWordAtPoint(editor, x, y) {
+      if (!editor || !Number.isFinite(x) || !Number.isFinite(y)) return '';
+      if (editor.tagName === 'TEXTAREA') {
+        const pos = editor.selectionStart;
+        if (Number.isInteger(pos)) {
+          const val = editor.value || '';
+          const before = val.slice(0, pos).match(/[a-zA-ZÀ-ÖØ-öø-ÿ''-]+$/);
+          const after = val.slice(pos).match(/^[a-zA-ZÀ-ÖØ-öø-ÿ''-]+/);
+          if (before || after) return ((before ? before[0] : '') + (after ? after[0] : '')).trim();
+        }
+        return '';
+      }
+      let range = null;
+      if (typeof document.caretRangeFromPoint === 'function') {
+        range = document.caretRangeFromPoint(x, y);
+      } else if (typeof document.caretPositionFromPoint === 'function') {
+        const pos = document.caretPositionFromPoint(x, y);
+        if (pos && pos.offsetNode) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.collapse(true);
+        }
+      }
+      if (!range) return '';
+      const node = range.startContainer;
+      if (!node || !(editor === node || editor.contains(node))) return '';
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent || '';
+        const offset = range.startOffset;
+        const before = text.slice(0, offset).match(/[a-zA-ZÀ-ÖØ-öø-ÿ''-]+$/);
+        const after = text.slice(offset).match(/^[a-zA-ZÀ-ÖØ-öø-ÿ''-]+/);
+        if (before || after) {
+          return ((before ? before[0] : '') + (after ? after[0] : '')).trim();
+        }
+      }
+      return '';
+    }
+
     function wnGetSelectedTextInsideEditor(editor) {
       if (!editor) return '';
       if (editor.tagName === 'TEXTAREA') {
@@ -1055,29 +1093,48 @@
         return String(editor.value || '').slice(start, end).trim();
       }
       const sel = window.getSelection && window.getSelection();
-      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return '';
-      const range = sel.getRangeAt(0);
-      const anc = range.commonAncestorContainer;
-      if (!(editor === anc || editor.contains(anc))) return '';
-      return String(sel.toString() || '').trim();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const range = sel.getRangeAt(0);
+        const anc = range.commonAncestorContainer;
+        if (editor === anc || editor.contains(anc)) {
+          const s = String(sel.toString() || '').trim();
+          if (s) return s;
+        }
+      }
+      if (_wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed) {
+        const anc = _wnSavedSelectionRange.commonAncestorContainer;
+        if (editor === anc || editor.contains(anc)) {
+          const s = String(_wnSavedSelectionRange.toString() || '').trim();
+          if (s) return s;
+        }
+      }
+      return '';
     }
 
-    function wnResolveWordMetaFromNoteContext(noteEl) {
+    function wnResolveWordMetaFromNoteContext(noteEl, triggerEvent) {
       if (!noteEl) return null;
       const editor = noteEl.querySelector('.wn-note-editor, textarea');
       if (!editor) return null;
-      const selectedText = wnGetSelectedTextInsideEditor(editor);
+      let selectedText = wnGetSelectedTextInsideEditor(editor);
+      if (!selectedText && triggerEvent && Number.isFinite(triggerEvent.clientX)) {
+        selectedText = wnGetWordAtPoint(editor, triggerEvent.clientX, triggerEvent.clientY);
+      }
       const lookupWord = wnNormalizeLookupWord(selectedText);
       if (!lookupWord) return null;
       const entry = wnFindDbEntryForWord(lookupWord);
-      if (!entry) return null;
-      const defs = (typeof _allVals === 'function') ? _allVals(entry.definition) : (Array.isArray(entry.definition) ? entry.definition : [entry.definition]);
-      const frVals = (typeof _splitFrenchTranslations === 'function') ? _splitFrenchTranslations(entry.french) : (Array.isArray(entry.french) ? entry.french : [entry.french]);
+      const defs = (entry && typeof _allVals === 'function')
+        ? _allVals(entry.definition)
+        : (entry ? (Array.isArray(entry.definition) ? entry.definition : [entry.definition]) : []);
+      const frVals = (entry && typeof _splitFrenchTranslations === 'function')
+        ? _splitFrenchTranslations(entry.french)
+        : (entry ? (Array.isArray(entry.french) ? entry.french : [entry.french]) : []);
       return {
-        word: entry.word || lookupWord,
-        ipa: String(entry.ipa || '').trim(),
-        french: frVals.filter(Boolean).slice(0, 3).join(', '),
-        definition: String((defs.filter(Boolean)[0] || '')).trim()
+        word: entry ? (entry.word || lookupWord) : lookupWord,
+        lookupWord: lookupWord,
+        ipa: entry ? String(entry.ipa || '').trim() : '',
+        french: entry ? frVals.filter(Boolean).slice(0, 3).join(', ') : '',
+        definition: entry ? String((defs.filter(Boolean)[0] || '')).trim() : '',
+        entry: entry || null
       };
     }
 
@@ -1116,16 +1173,52 @@
       const ipaEl = document.getElementById('wn-sp-wordmeta-ipa');
       const frEl = document.getElementById('wn-sp-wordmeta-fr');
       const defEl = document.getElementById('wn-sp-wordmeta-def');
-      if (wordEl) wordEl.textContent = meta.word || '';
+      const ipaRow = document.getElementById('wn-sp-wordmeta-ipa-row');
+      const frRow = document.getElementById('wn-sp-wordmeta-fr-row');
+      const defRow = document.getElementById('wn-sp-wordmeta-def-row');
+
+      const wordStr = meta.word || meta.lookupWord || '';
+      if (wordEl) wordEl.textContent = wordStr;
       if (ipaEl) ipaEl.textContent = meta.ipa ? `/ ${meta.ipa} /` : '—';
       if (frEl) frEl.textContent = meta.french || '—';
       if (defEl) defEl.textContent = meta.definition || '—';
-      bindCopy(wordEl, meta.word || '');
+
+      if (ipaRow) ipaRow.style.display = meta.ipa ? '' : 'none';
+      if (frRow) frRow.style.display = meta.french ? '' : 'none';
+      if (defRow) defRow.style.display = meta.definition ? '' : 'none';
+
+      bindCopy(wordEl, wordStr);
       bindCopy(ipaEl, meta.ipa || '');
       bindCopy(frEl, meta.french || '');
       bindCopy(defEl, meta.definition || '');
       box.style.display = '';
     }
+
+    window.wnOpenDictionaryForSelectedWord = function () {
+      const word = (_wnPopupWordMeta && (_wnPopupWordMeta.word || _wnPopupWordMeta.lookupWord))
+        || (typeof wnGetSelectedTextInsideActiveNote === 'function' ? wnGetSelectedTextInsideActiveNote() : '');
+      if (word && typeof window.boardOpenDictionary === 'function') {
+        window.boardOpenDictionary(word);
+      } else if (word) {
+        window.open(`dictionary.html?q=${encodeURIComponent(word)}`, 'cmt-quick-dictionary');
+      }
+    };
+
+    window.wnOpenDictionaryForNote = function () {
+      let word = _wnPopupWordMeta && (_wnPopupWordMeta.word || _wnPopupWordMeta.lookupWord);
+      if (!word && _wnActiveNote) {
+        const noteEl = wnGetNoteElementById(_wnActiveNote.id);
+        const editor = noteEl && noteEl.querySelector('.wn-note-editor, textarea');
+        const selected = editor ? wnGetSelectedTextInsideEditor(editor) : '';
+        const rawNoteText = _wnActiveNote.text || (_wnActiveNote.content ? _wnActiveNote.content.replace(/<[^>]+>/g, ' ') : '');
+        word = selected || wnNormalizeLookupWord(rawNoteText) || String(rawNoteText || '').trim().split(/\s+/)[0];
+      }
+      if (word && typeof window.boardOpenDictionary === 'function') {
+        window.boardOpenDictionary(word);
+      } else if (word) {
+        window.open(`dictionary.html?q=${encodeURIComponent(word)}`, 'cmt-quick-dictionary');
+      }
+    };
 
     function wnStyleOpen(noteData, anchorEl, triggerEvent, wordMeta) {
       if (window._wnClearOutsideClickSuppression) window._wnClearOutsideClickSuppression();
@@ -5189,7 +5282,7 @@
       note.addEventListener('contextmenu', e => {
         e.preventDefault();
         e.stopPropagation();
-        wnStyleOpen(noteData, note, e, wnResolveWordMetaFromNoteContext(note));
+        wnStyleOpen(noteData, note, e, wnResolveWordMetaFromNoteContext(note, e));
       });
 
       note.addEventListener('dblclick', e => {
@@ -6536,6 +6629,8 @@
   window.conNoteRebuildAllStickers = global.conNoteRebuildAllStickers = conNoteRebuildAllStickers;
   window.wnRememberSelection = global.wnRememberSelection = wnRememberSelection;
   window.wnRestoreSelection = global.wnRestoreSelection = wnRestoreSelection;
+  window.wnOpenDictionaryForSelectedWord = global.wnOpenDictionaryForSelectedWord = wnOpenDictionaryForSelectedWord;
+  window.wnOpenDictionaryForNote = global.wnOpenDictionaryForNote = wnOpenDictionaryForNote;
   window.wnCreateNote = global.wnCreateNote = function(text, x, y) { if (typeof conCtxAddNote === 'function') return conCtxAddNote(text, x, y); };
   window.noteCtxSetColor = global.noteCtxSetColor = function(c) {
     if (typeof wnApplySelectionCommand === 'function' && wnApplySelectionCommand('foreColor', c)) {

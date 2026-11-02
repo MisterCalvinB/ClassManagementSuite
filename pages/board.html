@@ -1047,6 +1047,8 @@
         title="Attach competence tags to this element"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-links-btn" onclick="conCtxOpenLinksModal()"
         title="Links & Tags for this word"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-dict-btn" onclick="conCtxOpenDictionary()"
+        title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" /></button>
       <span class="con-ctx-icon-sep" id="con-ctx-relations-sep"></span>
       <button class="con-ctx-icon-btn" id="con-ctx-addconn-btn" onclick="conCtxAddConnectedWord()"
         title="Add Connected Word">＋</button>
@@ -1274,6 +1276,8 @@
         style="display:none"><img src="../assets/icons/learning-tools.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-card-btn" onclick="conCtxViewCard()" title="View word card"><img
           src="../assets/icons/word-card.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-dict-action-btn" onclick="conCtxOpenDictionary()" title="Quick Dictionary lookup"
+        data-i18n-title="conLookUpDictionary"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-ipa-kbd-btn" onclick="conCtxOpenIpaKeyboard()" title="Insert IPA phonetic symbols into this node" data-i18n-title="conCtxIpaKbdTitle"><img
           src="../assets/icons/ipa.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-lib-btn" onclick="conSaveNodeToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveToPremadeLibrary"><img
@@ -1333,7 +1337,13 @@
           <span class="con-ncp-count-pill" id="con-ncp-count" style="display:none;"></span>
         </div>
       </div>
-      <button type="button" class="con-ncp-close-btn" onclick="conCloseNodeWordCard()" title="Close">✕</button>
+      <div style="display:flex; align-items:center; gap:5px;">
+        <button type="button" class="action-btn btn-sm" id="con-ncp-dict-btn" onclick="conNodeCardOpenDictionary()" title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary" style="padding:2px 7px; font-size:0.68rem; display:inline-flex; align-items:center; gap:4px; font-weight:700;">
+          <img src="../assets/icons/dictionary.svg" style="width:13px;height:13px;" alt="" />
+          <span data-i18n="quickDictionary">Dictionary</span>
+        </button>
+        <button type="button" class="con-ncp-close-btn" onclick="conCloseNodeWordCard()" title="Close">✕</button>
+      </div>
     </div>
     <div class="con-ncp-body" id="con-ncp-body">
       <!-- Exhaustive All Forms Section -->
@@ -3108,12 +3118,18 @@
       <div id="wn-style-popup">
         <h4>Note style <button onclick="wnStyleDismiss()">✕</button></h4>
         <div id="wn-sp-wordmeta" style="display:none;">
-          <div class="wn-sp-wordmeta-head" id="wn-sp-wordmeta-word"></div>
-          <div class="wn-sp-wordmeta-row"><span class="wn-sp-wordmeta-k">IPA</span><span id="wn-sp-wordmeta-ipa"></span>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:5px;">
+            <div class="wn-sp-wordmeta-head" id="wn-sp-wordmeta-word" style="margin-bottom:0;"></div>
+            <button type="button" class="action-btn btn-sm btn-yellow" id="wn-sp-dict-meta-btn" onclick="wnOpenDictionaryForSelectedWord()" title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary" style="padding:2px 7px; font-size:0.65rem; font-weight:800; display:inline-flex; align-items:center; gap:4px; text-transform:none; letter-spacing:0; cursor:pointer;">
+              <img src="../assets/icons/dictionary.svg" style="width:13px;height:13px;" alt="" />
+              <span data-i18n="quickDictionary">Quick Dictionary</span>
+            </button>
           </div>
-          <div class="wn-sp-wordmeta-row"><span class="wn-sp-wordmeta-k">FR</span><span id="wn-sp-wordmeta-fr"></span>
+          <div class="wn-sp-wordmeta-row" id="wn-sp-wordmeta-ipa-row"><span class="wn-sp-wordmeta-k">IPA</span><span id="wn-sp-wordmeta-ipa"></span>
           </div>
-          <div class="wn-sp-wordmeta-row"><span class="wn-sp-wordmeta-k">DEF</span><span id="wn-sp-wordmeta-def"></span>
+          <div class="wn-sp-wordmeta-row" id="wn-sp-wordmeta-fr-row"><span class="wn-sp-wordmeta-k">FR</span><span id="wn-sp-wordmeta-fr"></span>
+          </div>
+          <div class="wn-sp-wordmeta-row" id="wn-sp-wordmeta-def-row"><span class="wn-sp-wordmeta-k">DEF</span><span id="wn-sp-wordmeta-def"></span>
           </div>
         </div>
 
@@ -3256,6 +3272,7 @@
             title="Split note at cursor into two notes"><img src="../assets/icons/split.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-wordcount-btn" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords"><img src="../assets/icons/sentence.svg" class="btn-icon" alt="" /></button>
           <button class="wn-sp-action-btn" id="wn-sp-ipa-btn" onmousedown="event.preventDefault()" onclick="wnOpenIpaKeyboard()" title="IPA Phonetic Keyboard" data-i18n-title="conIpaKbdTitle"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" /> IPA</button>
+          <button class="wn-sp-action-btn" id="wn-sp-dict-btn" onclick="wnOpenDictionaryForNote()" title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-convert-btn" onclick="wnStyleConvertToNode(event)" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"

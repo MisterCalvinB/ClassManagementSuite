@@ -301,7 +301,11 @@
     var estimatedH = Math.max(28, Math.round(rawLines.length * lineH + 10));
 
     if (n.relation === 'translation' || n.relation === 'ipa') estimatedW += 24;
-    if (n.pageNum != null) estimatedW += 20;
+    if (n.pageNum != null) {
+      var pStr = '(' + String(n.pageNum).trim() + ')';
+      var pBadgeW = Math.round(pStr.length * (fs * 0.8 * 0.58) + 12);
+      estimatedW += Math.max(24, pBadgeW);
+    }
     if (n.emoji) estimatedW += 16;
 
     var finalW = rawW > 0 ? rawW : estimatedW;
@@ -1186,6 +1190,16 @@
     var customMaxH = opts.maxHeight ? ('max-height:' + opts.maxHeight + ';') : 'max-height:500px;';
     var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
       '<defs>\n' +
+      '  <style>\n' +
+      '    .con-node-word-row { display: inline-flex; align-items: center; gap: 4px; line-height: inherit; }\n' +
+      '    .con-node-rel-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 16px; padding: 0 6px; border-radius: 999px; font-size: 0.52em; font-weight: 800; letter-spacing: 0.6px; line-height: 1; flex-shrink: 0; border: 1px solid transparent; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }\n' +
+      '    .con-node-rel-badge-fr { background: #ecfdf3; border-color: #34d399; color: #065f46; }\n' +
+      '    .con-node-rel-badge-ipa { background: #f3e8ff; border-color: #a78bfa; color: #5b21b6; }\n' +
+      '    .con-node-page { font-size: 0.80em; font-weight: 600; background: transparent; border: none; padding: 0 4px; color: #666666; line-height: 1.7; white-space: nowrap; flex-shrink: 0; display: inline-block; vertical-align: middle; margin-left: 2px; }\n' +
+      '    .con-node-ann { font-size: 0.75em; color: #666666; margin-top: 2px; text-align: center; }\n' +
+      '    .con-node-trans { font-style: italic; }\n' +
+      '    .con-node-ipa { font-family: \'Courier New\', monospace; }\n' +
+      '  </style>\n' +
       '  <marker id="' + markerId + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">\n' +
       '    <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#333333" />\n' +
       '  </marker>\n' +
@@ -1485,16 +1499,88 @@
 
       if (useForeignObject) {
         var contentHtml = '';
-        if (n.html) {
+        var wordRowEl = (n.el && n.el.querySelector) ? n.el.querySelector('.con-node-word-row') : null;
+
+        if (wordRowEl) {
+          contentHtml = wordRowEl.outerHTML;
+          var annEls = n.el.querySelectorAll('.con-node-ann');
+          annEls.forEach(function (ann) { contentHtml += ann.outerHTML; });
+        } else if (n.html) {
           contentHtml = renderMathInString(String(n.html));
-        } else if (n.el && n.el.querySelector && n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup')) {
-          contentHtml = n.el.innerHTML;
+          contentHtml = contentHtml.replace(/<div class="con-node-(?:resizer|note-btn|star-btn|links-bar|comp-badge)"[\s\S]*?<\/div>/gi, '');
+          if (n.pageNum != null && !contentHtml.includes('con-node-page') && !contentHtml.includes('(' + n.pageNum + ')')) {
+            contentHtml += '<span class="con-node-page" style="font-size:0.80em;font-weight:600;background:transparent;border:none;padding:0 4px;color:#666666;line-height:1.7;white-space:nowrap;flex-shrink:0;display:inline-block;vertical-align:middle;margin-left:2px;">(' + escapeXml(n.pageNum) + ')</span>';
+          }
         } else {
-          var rawSegs = String(nText).split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
-          var processedSegs = rawSegs.map(function (seg) {
-            return renderMathInString(seg);
-          });
-          contentHtml = processedSegs.join('<br/>');
+          var baseWordStr = String(nText || '').trim();
+          var wordPart = baseWordStr;
+
+          var casing = (fmt && fmt.casing) || n.casing || (typeof window !== 'undefined' && window._bcNodeDefaultCasing) || 'none';
+          if (casing && casing !== 'none' && casing !== 'smallcaps') {
+            if (typeof boardTransformCasingText === 'function') {
+              wordPart = boardTransformCasingText(wordPart, casing);
+            } else if (casing === 'uppercase') {
+              wordPart = wordPart.toUpperCase();
+            } else if (casing === 'lowercase') {
+              wordPart = wordPart.toLowerCase();
+            } else if (casing === 'capitalize') {
+              wordPart = wordPart.replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+            }
+          }
+
+          var pageBadge = (n.pageNum != null)
+            ? '<span class="con-node-page" style="font-size:0.80em;font-weight:600;background:transparent;border:none;padding:0 4px;color:#666666;line-height:1.7;white-space:nowrap;flex-shrink:0;display:inline-block;vertical-align:middle;margin-left:2px;">(' + escapeXml(n.pageNum) + ')</span>'
+            : '';
+
+          var rel = String(n.relation || '').toLowerCase();
+          var relationBadge = (rel === 'translation')
+            ? '<span class="con-node-rel-badge con-node-rel-badge-fr" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:16px;padding:0 6px;border-radius:999px;font-size:0.52em;font-weight:800;letter-spacing:0.6px;line-height:1;border:1px solid #34d399;background:#ecfdf3;color:#065f46;text-transform:uppercase;vertical-align:middle;margin-left:4px;">FR</span>'
+            : ((rel === 'ipa')
+              ? '<span class="con-node-rel-badge con-node-rel-badge-ipa" style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:16px;padding:0 6px;border-radius:999px;font-size:0.52em;font-weight:800;letter-spacing:0.6px;line-height:1;border:1px solid #a78bfa;background:#f3e8ff;color:#5b21b6;text-transform:uppercase;vertical-align:middle;margin-left:4px;">IPA</span>'
+              : '');
+
+          function applyWordFmt(textStr) {
+            var res = textStr;
+            if (fmt.underline) res = '<u>' + res + '</u>';
+            if (fmt.italic) res = '<em>' + res + '</em>';
+            if (fmt.bold) res = '<strong>' + res + '</strong>';
+            if (fmt.strike) res = '<s>' + res + '</s>';
+            return res;
+          }
+
+          var isExplicitMultiLine = wordPart.includes('//') || wordPart.includes('\n') || /<br\s*\/?>/i.test(wordPart);
+          var wordContent = '';
+
+          if (isExplicitMultiLine) {
+            var rawLines = wordPart.split(/\/\/|\r?\n|<br\s*\/?>/i).map(function (s) { return s.trim(); });
+            var formattedLines = rawLines.map(function (line, idx) {
+              var formatted = applyWordFmt(renderMathInString(line));
+              if (idx === rawLines.length - 1) {
+                return formatted + relationBadge + pageBadge;
+              }
+              return formatted;
+            });
+            wordContent = formattedLines.join('<br/>');
+          } else {
+            wordContent = applyWordFmt(renderMathInString(wordPart)) + relationBadge + pageBadge;
+          }
+
+          var smallCapsStyle = (casing === 'smallcaps') ? 'font-variant:small-caps;' : '';
+          var multiLineStyle = '';
+          if (hasMaxWidth) {
+            multiLineStyle = 'display:inline-block;width:100%;text-align:left;white-space:normal;word-break:break-word;';
+          } else if (isExplicitMultiLine) {
+            multiLineStyle = 'display:inline-block;text-align:center;';
+          }
+          var combinedStyle = (smallCapsStyle || multiLineStyle) ? (' style="' + smallCapsStyle + multiLineStyle + '"') : '';
+          contentHtml = '<span class="con-node-word-row"' + combinedStyle + '>' + wordContent + '</span>';
+
+          if (fmt.showTrans && (n.translation || fmt.translation)) {
+            contentHtml += '<div class="con-node-ann con-node-trans" style="font-size:0.75em;color:#666666;margin-top:2px;text-align:center;font-style:italic;">(' + escapeXml(n.translation || fmt.translation) + ')</div>';
+          }
+          if (fmt.showIpa && (n.ipa || fmt.ipa)) {
+            contentHtml += '<div class="con-node-ann con-node-ipa" style="font-size:0.75em;color:#666666;margin-top:2px;text-align:center;font-family:\'Courier New\',monospace;">[' + escapeXml(n.ipa || fmt.ipa) + ']</div>';
+          }
         }
 
         var tdCss = td ? 'underline' : 'none';
@@ -1541,24 +1627,35 @@
         var textAnchorX = textAnchor === 'middle' ? (tX + tW / 2) : (textAnchor === 'end' ? (tX + tW - padX) : (tX + padX));
         var startTextY = tY + (tH / 2) - ((lines.length - 1) * lineH / 2) + Math.round(fs * 0.35);
 
+        var relFallback = String(n.relation || '').toLowerCase();
         svg += '    <g class="bes-node-text-wrap" clip-path="url(#' + nodeClipId + ')">\n';
         lines.forEach(function (lStr, lIdx) {
-          svg += '      <text x="' + textAnchorX + '" y="' + (startTextY + lIdx * lineH) + '" fill="' + nColor + '" font-family="' + escapeXml(ff) + '" font-size="' + fs + '" font-weight="' + fw + '" font-style="' + fst + '" ' + td + ' text-anchor="' + textAnchor + '">' + escapeXml(lStr) + '</text>\n';
+          var extraTspans = '';
+          if (lIdx === lines.length - 1) {
+            if (relFallback === 'translation' || relFallback === 'ipa') {
+              var rColor = relFallback === 'translation' ? '#065f46' : '#5b21b6';
+              extraTspans += '<tspan fill="' + rColor + '" font-size="' + Math.round(fs * 0.55) + '" font-weight="800" dx="4">' + (relFallback === 'translation' ? 'FR' : 'IPA') + '</tspan>';
+            }
+            if (n.pageNum != null) {
+              extraTspans += '<tspan fill="#666666" font-size="' + Math.round(fs * 0.8) + '" font-weight="600" dx="3">(' + escapeXml(n.pageNum) + ')</tspan>';
+            }
+          }
+          svg += '      <text x="' + textAnchorX + '" y="' + (startTextY + lIdx * lineH) + '" fill="' + nColor + '" font-family="' + escapeXml(ff) + '" font-size="' + fs + '" font-weight="' + fw + '" font-style="' + fst + '" ' + td + ' text-anchor="' + textAnchor + '">' + escapeXml(lStr) + extraTspans + '</text>\n';
         });
         svg += '    </g>\n';
       }
 
-      // Relation or page number badge
-      var rel = String(n.relation || '').toLowerCase();
-      if (rel === 'translation' || rel === 'ipa') {
-        var badgeLabel = rel === 'translation' ? 'FR' : 'IPA';
-        var badgeBg = rel === 'translation' ? '#e53935' : '#8e24aa';
-        var badgeX = nx + nw - 22;
-        var badgeY = ny + 3;
-        svg += '    <rect x="' + badgeX + '" y="' + badgeY + '" width="18" height="12" rx="2" fill="' + badgeBg + '" />\n' +
-          '    <text x="' + (badgeX + 9) + '" y="' + (badgeY + 9) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="7.5" font-weight="800" text-anchor="middle">' + badgeLabel + '</text>\n';
-      } else if (n.pageNum != null) {
-        svg += '    <text x="' + (nx + nw - 4) + '" y="' + (ny + nh - 4) + '" fill="#888888" font-family="Lexend, sans-serif" font-size="8" font-weight="600" text-anchor="end">(' + n.pageNum + ')</text>\n';
+      // Fallback relation badge for non-foreignObject SVG text mode only
+      if (!useForeignObject) {
+        var rel = String(n.relation || '').toLowerCase();
+        if (rel === 'translation' || rel === 'ipa') {
+          var badgeLabel = rel === 'translation' ? 'FR' : 'IPA';
+          var badgeBg = rel === 'translation' ? '#e53935' : '#8e24aa';
+          var badgeX = nx + nw - 22;
+          var badgeY = ny + 3;
+          svg += '    <rect x="' + badgeX + '" y="' + badgeY + '" width="18" height="12" rx="2" fill="' + badgeBg + '" />\n' +
+            '    <text x="' + (badgeX + 9) + '" y="' + (badgeY + 9) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="7.5" font-weight="800" text-anchor="middle">' + badgeLabel + '</text>\n';
+        }
       }
 
       // Emoji dot
@@ -2274,6 +2371,17 @@
       var startTextY = ny + (nh / 2) - ((lines.length - 1) * lineH / 2);
       lines.forEach(function (lStr, lIdx) {
         ctx.fillText(lStr, textX, startTextY + lIdx * lineH);
+        if (lIdx === lines.length - 1 && n.pageNum != null) {
+          var pText = '(' + n.pageNum + ')';
+          var lW = ctx.measureText(lStr).width;
+          var pX = (anchor === 'middle') ? (textX + lW / 2 + 4) : ((anchor === 'end') ? (textX + 4) : (textX + lW + 4));
+          ctx.save();
+          ctx.font = '600 ' + Math.max(9, Math.round(fs * 0.8)) + 'px "Lexend", "Segoe UI", Arial, sans-serif';
+          ctx.fillStyle = '#666666';
+          ctx.textAlign = 'left';
+          ctx.fillText(pText, pX, startTextY + lIdx * lineH);
+          ctx.restore();
+        }
       });
 
       // Relation badge
@@ -2847,6 +2955,14 @@
       '.pg-title { font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #111; }\n' +
       '.pg-badge { font-size: 8pt; font-weight: 800; background: #3b82f6; color: #fff; padding: 2px 8px; border: 1.5px solid #333; border-radius: 4px; }\n' +
       '.bes-mindmap-svg, .bes-mindmap-img { flex: 1; width: 100%; max-height: calc(100vh - 46px); object-fit: contain; }\n' +
+      '.con-node-word-row { display: inline-flex; align-items: center; gap: 4px; line-height: inherit; }\n' +
+      '.con-node-rel-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 16px; padding: 0 6px; border-radius: 999px; font-size: 0.52em; font-weight: 800; letter-spacing: 0.6px; line-height: 1; flex-shrink: 0; border: 1px solid transparent; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }\n' +
+      '.con-node-rel-badge-fr { background: #ecfdf3; border-color: #34d399; color: #065f46; }\n' +
+      '.con-node-rel-badge-ipa { background: #f3e8ff; border-color: #a78bfa; color: #5b21b6; }\n' +
+      '.con-node-page { font-size: 0.80em; font-weight: 600; background: transparent; border: none; padding: 0 4px; color: #666666; line-height: 1.7; white-space: nowrap; flex-shrink: 0; display: inline-block; vertical-align: middle; margin-left: 2px; }\n' +
+      '.con-node-ann { font-size: 0.75em; color: #666666; margin-top: 2px; text-align: center; }\n' +
+      '.con-node-trans { font-style: italic; }\n' +
+      '.con-node-ipa { font-family: \'Courier New\', monospace; }\n' +
       '</style>\n</head>\n<body>\n' + pagesHtml + '</body>\n</html>';
 
     return html;

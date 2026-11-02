@@ -2069,6 +2069,7 @@
     <button id="all-test-menu-toggle-completed" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span id="all-test-menu-completed-text" data-i18n="gsMenuMarkingCompleted">Mark as marking completed</span></button>
     <button id="all-test-menu-duplicate" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuDuplicateTest"><img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" /> Duplicate / Copy test</button>
     <button id="all-test-menu-links" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuTestLinks">Test Links &amp; Attachments</span></button>
+    <button id="all-test-menu-reveal" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuRevealInFolder"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /> Reveal in folder</button>
     <hr class="menu-sep">
     <button id="all-test-menu-report-test" class="menu-item" type="button" role="menuitem" data-i18n="gsReportClassTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Test Report (Whole Class)</button>
     <button id="all-test-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportIndividualTestReports"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Individual Test Reports</button>
@@ -9471,6 +9472,55 @@
       renderSummary();
       if (appState.currentScreen === "test" && appState.activeClassId === classObj.id && appState.activeTest && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
         renderTestSheet();
+      }
+    }
+
+    async function revealTestInFolder(classObj, sem, ti) {
+      if (!classObj || sem == null || ti == null) return;
+      if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+        if (typeof showToast === 'function') {
+          showToast(t('mediaNodeFolderWebNotice', 'Folder location is only available in the desktop application.'), true);
+        }
+        return;
+      }
+
+      ensureClassStructures(classObj);
+      const testLabel = `${sem}-test-${String(ti + 1).padStart(2, '0')}`;
+      const testFileName = `${testLabel}.js`;
+      const primaryRelPath = `${classObj.id}/${testFileName}`;
+
+      try {
+        let targetRelPath = primaryRelPath;
+        const checkRes = await Desktop.readByPath('grades', primaryRelPath);
+        if (!checkRes || !checkRes.ok || checkRes.content == null) {
+          // Check fallback slug path
+          const slugPath = `${slugifyForPath(classObj.name)}/${testFileName}`;
+          const slugRes = await Desktop.readByPath('grades', slugPath);
+          if (slugRes && slugRes.ok && slugRes.content != null) {
+            targetRelPath = slugPath;
+          } else {
+            // Ensure test has a default name and save to disk so file exists
+            const cfg = getTestConfig(classObj, sem, ti);
+            if (cfg && !cfg.testName) {
+              cfg.testName = `Test ${ti + 1}`;
+            }
+            if (typeof saveGradesStructured === 'function') {
+              await saveGradesStructured(classObj.id, sem, ti);
+            }
+            targetRelPath = primaryRelPath;
+          }
+        }
+
+        const res = await Desktop.showInFolder('grades', targetRelPath);
+        if (res && res.error) {
+          console.warn('showInFolder error:', res.error);
+          await Desktop.showInFolder('grades', classObj.id).catch(() => Desktop.showInFolder('grades', ''));
+        }
+      } catch (err) {
+        console.error('revealTestInFolder error:', err);
+        if (typeof showToast === 'function') {
+          showToast(t('gsToastRevealFolderFailed', 'Could not reveal file in folder.'), true);
+        }
       }
     }
 
@@ -23532,6 +23582,12 @@
         appState.activeClassId = ctx.classObj.id;
         appState.activeTest = { semester: ctx.sem, testIndex: ctx.testIndex };
         gsOpenTestLinksModal();
+      });
+      document.getElementById("all-test-menu-reveal")?.addEventListener("click", () => {
+        const ctx = _allTestItemMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        revealTestInFolder(ctx.classObj, ctx.sem, ctx.testIndex);
       });
       document.getElementById("all-test-menu-report-test")?.addEventListener("click", () => {
         const ctx = _allTestItemMenuCtx;

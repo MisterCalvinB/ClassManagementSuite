@@ -10435,6 +10435,46 @@
         conCtxClose();
       };
 
+      window.conCtxOpenDictionary = function (targetNodeId) {
+        const id = targetNodeId || conCtxNodeId || (window.conGetSelected && window.conGetSelected()) || window.conSelected;
+        const node = (window.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id)));
+        let word = '';
+        if (node) {
+          word = node.baseWord || (node.el && (node.el.dataset.baseWord || ''));
+          if (!word && node.el) {
+            const mainEl = node.el.querySelector('.con-node-text, .con-node-main, .con-node-label');
+            word = mainEl ? mainEl.textContent : node.el.textContent;
+          }
+          if (!word && node.text) word = node.text;
+        }
+        word = String(word || '').trim();
+        if (typeof window.stripParens === 'function') {
+          word = window.stripParens(word);
+        }
+        word = word.replace(/^[«"'({\[\s\.,;:!?\/]+|[»"')}\]\s\.,;:!?\/]+$/g, '').trim();
+        if (typeof conCtxClose === 'function') conCtxClose();
+        if (word && typeof window.boardOpenDictionary === 'function') {
+          window.boardOpenDictionary(word);
+        } else if (word) {
+          window.open(`dictionary.html?q=${encodeURIComponent(word)}`, 'cmt-quick-dictionary');
+        }
+      };
+
+      window.conNodeCardOpenDictionary = function () {
+        const wordEl = document.getElementById('con-ncp-word');
+        let word = wordEl ? (wordEl.textContent || '') : '';
+        word = String(word || '').trim();
+        if (typeof window.stripParens === 'function') {
+          word = window.stripParens(word);
+        }
+        word = word.replace(/^[«"'({\[\s\.,;:!?\/]+|[»"')}\]\s\.,;:!?\/]+$/g, '').trim();
+        if (word && typeof window.boardOpenDictionary === 'function') {
+          window.boardOpenDictionary(word);
+        } else if (word) {
+          window.open(`dictionary.html?q=${encodeURIComponent(word)}`, 'cmt-quick-dictionary');
+        }
+      };
+
       window.conCtxAddToDb = function () {
         conAddSelectedToDb();
         conCtxClose();
@@ -21979,6 +22019,8 @@
   window.conImportTrayOpen = global.conImportTrayOpen = conImportTrayOpen;
   window.conImportPopulateThemes = global.conImportPopulateThemes = conImportPopulateThemes;
   window.conImportPopulateSources = global.conImportPopulateSources = conImportPopulateSources;
+  window.conCtxOpenDictionary = global.conCtxOpenDictionary = window.conCtxOpenDictionary;
+  window.conNodeCardOpenDictionary = global.conNodeCardOpenDictionary = window.conNodeCardOpenDictionary;
 
 
   window._BC_A4_SIZE_PX = global._BC_A4_SIZE_PX = _BC_A4_SIZE_PX;
