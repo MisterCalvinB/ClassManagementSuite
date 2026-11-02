@@ -302,9 +302,12 @@
     }
 
     var isRawTitle = false;
+    var isU = (window.LinksService && window.LinksService.isUuid) ? window.LinksService.isUuid : function(s) {
+      return /^st-[a-z0-9_-]+$/i.test(s) || /^ge-[a-z0-9_-]+$/i.test(s) || /^cls-[a-z0-9_-]+$/i.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || '').trim());
+    };
     if (opts.title) {
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(opts.title) ||
-          /^st-[a-z0-9_-]+$/i.test(opts.title) ||
+      if (isU(opts.title) ||
+          /^(st|ge|cls)-[a-z0-9_-]+$/i.test(opts.title) ||
           /^student:\s*[0-9a-f-]{10,}$/i.test(opts.title) ||
           /^class:\s*[0-9a-f-]{10,}$/i.test(opts.title)) {
         isRawTitle = true;
@@ -312,11 +315,18 @@
     }
 
     var finalTitle = (opts.title && !isRawTitle) ? opts.title : (displayInfo ? displayInfo.title : (opts.label || opts.urn));
-    if (p && p.type === 'student' && (isRawTitle || !opts.title)) {
+    if (p && p.type === 'student') {
       var resolvedSName = window.LinksService && typeof window.LinksService.resolveStudentName === 'function' ? window.LinksService.resolveStudentName(p.id) : null;
-      if (resolvedSName) finalTitle = resolvedSName;
+      if (resolvedSName && !isU(resolvedSName)) finalTitle = resolvedSName;
+    } else if (p && p.type === 'class') {
+      var resolvedCName = window.LinksService && typeof window.LinksService.resolveClassName === 'function' ? window.LinksService.resolveClassName(p.id) : null;
+      if (resolvedCName && !isU(resolvedCName)) finalTitle = resolvedCName;
     }
     var finalSub = opts.subtitle || opts.sub || (displayInfo ? displayInfo.subtitle : '');
+    if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
+      finalTitle = window.LinksService.cleanDisplayString(finalTitle);
+      finalSub = window.LinksService.cleanDisplayString(finalSub);
+    }
     var finalBadge = (displayInfo && displayInfo.badge) ? displayInfo.badge : ('[' + (p ? p.type.toUpperCase() : 'ITEM') + ']');
 
     document.getElementById('cmt-lm-header-badge').textContent = finalBadge;
@@ -645,12 +655,21 @@
       }
     }
 
-    // Safety fallback: if title looks like a student UUID, attempt student lookup
-    if (/^st-[a-z0-9_-]+$/i.test(title) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(title)) {
+    // Safety fallback: if title looks like a student or class UUID, attempt lookup
+    if (/^(st|ge|cls)-[a-z0-9_-]+$/i.test(title) || /^[0-9a-f]{8}-[0-9a-f]{4}/i.test(title)) {
       if (window.LinksService && typeof window.LinksService.resolveStudentName === 'function') {
         var candidateStudentName = window.LinksService.resolveStudentName(title);
-        if (candidateStudentName) title = candidateStudentName;
+        if (candidateStudentName && (!window.LinksService.isUuid || !window.LinksService.isUuid(candidateStudentName))) title = candidateStudentName;
       }
+      if (window.LinksService && typeof window.LinksService.resolveClassName === 'function') {
+        var candidateClassName = window.LinksService.resolveClassName(title);
+        if (candidateClassName && (!window.LinksService.isUuid || !window.LinksService.isUuid(candidateClassName))) title = candidateClassName;
+      }
+    }
+
+    if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
+      title = window.LinksService.cleanDisplayString(title);
+      sub = window.LinksService.cleanDisplayString(sub);
     }
 
     return {
@@ -688,7 +707,18 @@
       badgeText = '[FROM LESSON]';
     } else if (isInherited) {
       badgeClass = 'cmt-lm-badge inherited';
-      badgeText = '[INHERITED: ' + (_currentOpts.classId || 'CLASS').toUpperCase() + ']';
+      var rawInherited = (_currentOpts && (_currentOpts.className || _currentOpts.classId)) || 'CLASS';
+      var resolvedInherited = rawInherited;
+      if (window.LinksService && typeof window.LinksService.resolveClassName === 'function') {
+        var rName = window.LinksService.resolveClassName(rawInherited);
+        if (rName && (!window.LinksService.isUuid || !window.LinksService.isUuid(rName))) {
+          resolvedInherited = rName;
+        }
+      }
+      if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
+        resolvedInherited = window.LinksService.cleanDisplayString(resolvedInherited);
+      }
+      badgeText = '[INHERITED: ' + resolvedInherited.toUpperCase() + ']';
     } else if (isInferred) {
       if (p && p.type === 'class') {
         badgeClass = 'cmt-lm-badge inferred-class';
@@ -955,6 +985,22 @@
       if (!candidate || !candidate.urn) return;
       var cUrn = window.LinksService ? window.LinksService.canonicalizeUrn(candidate.urn) : candidate.urn;
       if (knownUrns.has(cUrn)) return;
+
+      var p = window.LinksService ? window.LinksService.parseUrn(candidate.urn) : null;
+      var isDocVer = false;
+      if (window.LinksService && typeof window.LinksService.isDocumentVersionFile === 'function') {
+        isDocVer = window.LinksService.isDocumentVersionFile(candidate.relativePath || (p && p.id) || '', candidate.title || '');
+      } else {
+        var str = String(candidate.relativePath || (p && p.id) || candidate.title || '').replace(/\\/g, '/');
+        isDocVer = /(?:^|\/)history\//i.test(str) || /\.v\d{8}-\d{6}\./i.test(str) || /\.v\d+\./i.test(str);
+      }
+      if (isDocVer) return;
+
+      if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
+        candidate.title = window.LinksService.cleanDisplayString(candidate.title);
+        candidate.subtitle = window.LinksService.cleanDisplayString(candidate.subtitle);
+      }
+
       knownUrns.add(cUrn);
       _cachedCandidates.push(Object.assign({}, candidate, { urn: cUrn }));
     }
@@ -1269,6 +1315,14 @@
 
     // 2. Documents from docEditorDocs or doceditor
     try {
+      var isDocVersion = function(rp, fn) {
+        if (window.LinksService && typeof window.LinksService.isDocumentVersionFile === 'function') {
+          return window.LinksService.isDocumentVersionFile(rp, fn);
+        }
+        var s = String(rp || fn || '').replace(/\\/g, '/');
+        return /(?:^|\/)history\//i.test(s) || /\.v\d{8}-\d{6}\./i.test(s) || /\.v\d+\./i.test(s);
+      };
+
       // 2a. Desktop listByPath in docEditorDocs
       if (desktop && typeof desktop.listByPath === 'function') {
         try {
@@ -1279,6 +1333,7 @@
             var rp = d.relativePath || d.filename || d.name;
             if (!rp) return;
             var fn = d.filename || rp.split(/[\\/]/).pop() || rp;
+            if (isDocVersion(rp, fn)) return;
             addCandidate({
               urn: window.LinksService.makeUrn('doc', 'docEditorDocs/' + rp.replace(/\\/g, '/')),
               type: 'docs',
@@ -1297,7 +1352,7 @@
           var docs2 = Array.isArray(docRes2) ? docRes2 : (docRes2 && Array.isArray(docRes2.files) ? docRes2.files : []);
           docs2.forEach(function(d) {
             var fn = typeof d === 'string' ? d : (d.filename || d.name);
-            if (!fn) return;
+            if (!fn || isDocVersion('', fn)) return;
             addCandidate({
               urn: window.LinksService.makeUrn('doc', 'docEditorDocs/' + fn),
               type: 'docs',
@@ -1319,6 +1374,7 @@
             var rp = d.relativePath || d.filename || d.name;
             if (!rp) return;
             var fn = d.filename || rp.split(/[\\/]/).pop() || rp;
+            if (isDocVersion(rp, fn)) return;
             addCandidate({
               urn: window.LinksService.makeUrn('doc', 'docEditorDocs/' + rp.replace(/\\/g, '/')),
               type: 'docs',
@@ -1337,6 +1393,7 @@
             var rp = d.relativePath || d.filename || d.name;
             if (!rp) return;
             var fn = d.filename || rp.split(/[\\/]/).pop() || rp;
+            if (isDocVersion(rp, fn)) return;
             addCandidate({
               urn: window.LinksService.makeUrn('doc', 'docEditorDocs/' + rp.replace(/\\/g, '/')),
               type: 'docs',
@@ -5554,20 +5611,43 @@
     }
 
     var st = dossier.student;
-    nameEl.textContent = st.name || opts.title || opts.name || cleanId;
+    var resolvedStTitle = (st && st.name) || opts.name || opts.title;
+    if (!resolvedStTitle || (window.LinksService && window.LinksService.isUuid && window.LinksService.isUuid(resolvedStTitle))) {
+      var lookup = window.LinksService && window.LinksService.resolveStudentName ? window.LinksService.resolveStudentName(cleanId) : null;
+      if (lookup && (!window.LinksService.isUuid || !window.LinksService.isUuid(lookup))) {
+        resolvedStTitle = lookup;
+      }
+    }
+    if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
+      resolvedStTitle = window.LinksService.cleanDisplayString(resolvedStTitle);
+    }
+    nameEl.textContent = resolvedStTitle || cleanId;
     var subParts = [];
     var classesArr = (st.classNames && st.classNames.length > 0) ? st.classNames : (st.className ? [st.className] : []);
     if (!classesArr.length && (opts.className || opts.classId)) {
       var fallbackName = opts.className || (opts.classId ? (window.LinksService && window.LinksService.resolveClassName ? window.LinksService.resolveClassName(opts.classId) : opts.classId) : '');
       if (fallbackName) classesArr.push(fallbackName);
     }
+    classesArr = classesArr.map(function(c) {
+      if (window.LinksService && typeof window.LinksService.resolveClassName === 'function') {
+        var r = window.LinksService.resolveClassName(c);
+        if (r && (!window.LinksService.isUuid || !window.LinksService.isUuid(r))) return r;
+      }
+      return c;
+    }).filter(function(c) {
+      return c && !(window.LinksService && window.LinksService.isUuid && window.LinksService.isUuid(c));
+    });
     if (classesArr.length > 0) {
       var classLabel = classesArr.length > 1 ? (t('lmClasses', 'Classes') || 'Classes') : (t('lmClass', 'Class') || 'Class');
       subParts.push(classLabel + ': ' + classesArr.join(', '));
     }
     var lvl = st.level || opts.level || (opts.classId ? (window.LinksService && window.LinksService.resolveClassLevel ? window.LinksService.resolveClassLevel(opts.classId) : '') : '');
     if (lvl) subParts.push((t('lmLevel', 'Level') || 'Level') + ': ' + lvl.toUpperCase());
-    if (st.id) subParts.push('ID: ' + st.id);
+    if (st.number != null && st.number !== '') {
+      subParts.push('#' + st.number);
+    } else if (st.id && (!window.LinksService || !window.LinksService.isUuid || !window.LinksService.isUuid(st.id))) {
+      subParts.push('ID: ' + st.id);
+    }
     subEl.textContent = subParts.join(' • ');
 
     var sortSelect = document.getElementById('cmt-dos-sort-select');

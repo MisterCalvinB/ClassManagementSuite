@@ -34,15 +34,32 @@
         var pClassGroups = Desktop.readText('user', 'class-groups.js').catch(function () { return null; });
         var pPlannerConfig = Desktop.readText('user', 'planner-config.js').catch(function () { return null; });
         var pTodos = Desktop.readText('user', 'todos.js').catch(function () { return null; });
+        var pStudents = Desktop.readText('user', 'students.js').catch(function () { return null; });
+        var pAdmin = Desktop.readText('user', 'administrative-groups.json').catch(function () { return null; });
         var pSubCache = Desktop.readByPath('user', 'planner/subscription-cache.json').catch(function () { return null; });
         var pListPlanner = Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] }).catch(function () { return null; });
 
-        var res = await Promise.all([pClassGroups, pPlannerConfig, pTodos, pSubCache, pListPlanner]);
-        var rGroups = res[0], rCfg = res[1], rTodos = res[2], rSub = res[3], _lr = res[4];
+        var res = await Promise.all([pClassGroups, pPlannerConfig, pTodos, pStudents, pAdmin, pSubCache, pListPlanner]);
+        var rGroups = res[0], rCfg = res[1], rTodos = res[2], rStudents = res[3], rAdmin = res[4], rSub = res[5], _lr = res[6];
 
-        if (rGroups && rGroups.ok && rGroups.content) injectScript(rGroups.content, 'user/class-groups.js');
+        if (rGroups && rGroups.ok && rGroups.content) {
+          injectScript(rGroups.content, 'user/class-groups.js');
+          try {
+            var _cgFn = new Function(rGroups.content + '\nreturn { data: (typeof CLASS_GROUPS_DATA !== "undefined" ? CLASS_GROUPS_DATA : null), meta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null), groups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null) };');
+            var _cgParsed = _cgFn();
+            if (_cgParsed) {
+              if (_cgParsed.data) window.CLASS_GROUPS_DATA = _cgParsed.data;
+              if (_cgParsed.meta) window.CLASS_GROUPS_META = _cgParsed.meta;
+              if (_cgParsed.groups) window.CLASS_GROUPS = _cgParsed.groups;
+            }
+          } catch (_) { }
+        }
         if (rCfg && rCfg.ok && rCfg.content) injectScript(rCfg.content, 'user/planner-config.js');
         if (rTodos && rTodos.ok && rTodos.content) injectScript(rTodos.content, 'user/todos.js');
+        if (rStudents && rStudents.ok && rStudents.content) injectScript(rStudents.content, 'user/students.js');
+        if (rAdmin && rAdmin.ok && rAdmin.content) {
+          try { window.ADMINISTRATIVE_DATA = JSON.parse(rAdmin.content); } catch (_) { }
+        }
         if (rSub && rSub.ok && rSub.content) {
           try { window.PLANNER_SUBSCRIPTION_CACHE = JSON.parse(rSub.content); } catch (_) { }
         }
@@ -1866,19 +1883,24 @@
       }
 
       // CLASS_GROUPS_DATA uses const — accessible as bare global, or on window
-      if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) {
-        classGroups = CLASS_GROUPS_DATA.classGroups || {};
-        classGroupsMeta = CLASS_GROUPS_DATA.classGroupsMeta || {};
-      } else if (typeof window.CLASS_GROUPS_DATA !== 'undefined' && window.CLASS_GROUPS_DATA) {
-        classGroups = window.CLASS_GROUPS_DATA.classGroups || {};
-        classGroupsMeta = window.CLASS_GROUPS_DATA.classGroupsMeta || {};
-      } else if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) {
-        classGroupsMeta = CLASS_GROUPS_META;
-      } else if (typeof window.CLASS_GROUPS_META !== 'undefined' && window.CLASS_GROUPS_META) {
-        classGroupsMeta = window.CLASS_GROUPS_META;
-      } else if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) {
-        classGroups = CLASS_GROUPS;
+      var _cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || null);
+      if (_cgd) {
+        classGroups = _cgd.classGroups || {};
+        classGroupsMeta = _cgd.classGroupsMeta || {};
       }
+      if (!classGroups || !Object.keys(classGroups).length) {
+        if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS) classGroups = CLASS_GROUPS;
+        else if (window.CLASS_GROUPS) classGroups = window.CLASS_GROUPS;
+      }
+      if (!classGroupsMeta || !Object.keys(classGroupsMeta).length) {
+        if (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) classGroupsMeta = CLASS_GROUPS_META;
+        else if (window.CLASS_GROUPS_META) classGroupsMeta = window.CLASS_GROUPS_META;
+      }
+      window.classGroups = classGroups;
+      window.classGroupsMeta = classGroupsMeta;
+      window.CLASS_GROUPS = classGroups;
+      window.CLASS_GROUPS_META = classGroupsMeta;
+      if (_cgd && !window.CLASS_GROUPS_DATA) window.CLASS_GROUPS_DATA = _cgd;
       if (window.PLANNER_CONFIG) {
         var raw = window.PLANNER_CONFIG;
         // Migrate old single-semester format → new multi-semester format
@@ -2759,7 +2781,10 @@
       if (!entry) return;
 
       var urn = 'cmt:planner:' + entry.id;
-      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || entry.classId || '';
+      var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || '';
+      if (clsName && window.LinksService && window.LinksService.isUuid && window.LinksService.isUuid(clsName)) {
+        clsName = '';
+      }
       var typeTxt = (typeof typeLabel === 'function' ? typeLabel(entry.type) : '') || entry.type || 'Lesson';
       var title = (entry.topic || typeTxt) + (clsName ? ' (' + clsName + ')' : '');
       var subtitle = (entry.date || '') + (entry.time ? ' ' + entry.time : '') + (clsName ? ' • ' + clsName : '');
@@ -2770,6 +2795,7 @@
           title: title,
           subtitle: subtitle,
           classId: entry.classId || null,
+          className: clsName || null,
           onUpdate: function () {
             plannerUpdateEntryLinkBadges(new Set([entry.id]));
           }
@@ -2914,7 +2940,10 @@
       if (!window.LinksService || !entry || !entry.id) return;
       try {
         var urn = 'cmt:planner:' + entry.id;
-        var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || entry.classId || '';
+        var clsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : '') || '';
+        if (clsName && window.LinksService && window.LinksService.isUuid && window.LinksService.isUuid(clsName)) {
+          clsName = '';
+        }
         var typeTxt = (typeof typeLabel === 'function' ? typeLabel(entry.type) : '') || entry.type || 'Lesson';
         var title = (entry.topic || typeTxt) + (clsName ? ' (' + clsName + ')' : '');
         var subtitle = (entry.date || '') + (entry.time ? ' ' + entry.time : '') + (clsName ? ' • ' + clsName : '');
@@ -2927,6 +2956,7 @@
           relativePath: 'planner/' + (entry.classId || '__unassigned') + '.js',
           meta: {
             classId: entry.classId,
+            className: clsName,
             date: entry.date,
             time: entry.time,
             timeEnd: entry.timeEnd,
@@ -2970,8 +3000,32 @@
 
     // ── Active-class helpers ───────────────────────────────────────────────────
     function plannerClassDisplayName(id) {
-      if (classGroupsMeta[id] && classGroupsMeta[id].name) return classGroupsMeta[id].name;
-      if (cfg.classes[id] && cfg.classes[id].name) return cfg.classes[id].name;
+      if (!id) return '';
+      // 1. Authoritative: planner's own loaded classGroupsMeta / window.CLASS_GROUPS_META
+      if (typeof classGroupsMeta !== 'undefined' && classGroupsMeta && classGroupsMeta[id] && classGroupsMeta[id].name) {
+        return classGroupsMeta[id].name;
+      }
+      if (window.CLASS_GROUPS_META && window.CLASS_GROUPS_META[id] && window.CLASS_GROUPS_META[id].name) {
+        return window.CLASS_GROUPS_META[id].name;
+      }
+      if (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[id] && window.CLASS_GROUPS_DATA.classGroupsMeta[id].name) {
+        return window.CLASS_GROUPS_DATA.classGroupsMeta[id].name;
+      }
+      // 2. Authoritative: planner's own config (cfg.classes)
+      if (typeof cfg !== 'undefined' && cfg && cfg.classes && cfg.classes[id] && cfg.classes[id].name) {
+        return cfg.classes[id].name;
+      }
+      // 3. LinksService resolution
+      if (window.LinksService && typeof window.LinksService.resolveClassName === 'function') {
+        var rName = window.LinksService.resolveClassName(id);
+        var isU = (window.LinksService.isUuid ? window.LinksService.isUuid(rName) : (/^(ge-|st-|cls-|class-|uuid:|[0-9a-f]{8}-[0-9a-f]{4})/i.test(rName)));
+        if (rName && rName !== id && !isU) return rName;
+      }
+      // 4. Legacy human-readable class name (if id itself is already the readable name)
+      var isIdUuid = (window.LinksService && window.LinksService.isUuid) ? window.LinksService.isUuid(id) : (/^(ge-|st-|cls-|class-|uuid:|[0-9a-f]{8}-[0-9a-f]{4})/i.test(id));
+      if (!isIdUuid && typeof classGroups !== 'undefined' && classGroups && classGroups[id]) {
+        return id;
+      }
       return id;
     }
 
@@ -3766,7 +3820,7 @@
       (sem ? sem.holidays : []).forEach(function (h) { list.appendChild(makeHolRow(h.date, h.dateTo || '', h.label)); });
 
       // Show Group Editor date hint only when creating (not editing)
-      var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+      var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || null);
       document.getElementById('sem-year').value = sem ? (sem.year || '') : ((cgd && cgd.activeYear && PL_YEAR_RE.test(cgd.activeYear)) ? cgd.activeYear : '');
       var cgdStart = cgd && cgd.activeSemesterStart;
       var cgdEnd = cgd && cgd.activeSemesterEnd;
@@ -3783,7 +3837,7 @@
     }
 
     function fillDatesFromGroupEditor() {
-      var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+      var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || null);
       if (!cgd) return;
       if (cgd.activeSemesterStart) document.getElementById('sem-start').value = cgd.activeSemesterStart;
       if (cgd.activeSemesterEnd) document.getElementById('sem-end').value = cgd.activeSemesterEnd;
@@ -4023,7 +4077,7 @@
         if (y && PL_YEAR_RE.test(y)) years.add(y);
       });
       try {
-        var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined') ? CLASS_GROUPS_DATA : null;
+        var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || null);
         if (cgd && cgd.activeYear && PL_YEAR_RE.test(cgd.activeYear)) years.add(cgd.activeYear);
         var meta = (cgd && cgd.classGroupsMeta) ? cgd.classGroupsMeta : {};
         Object.keys(meta).forEach(function (g) {
@@ -5941,7 +5995,7 @@
         });
         var testIndex = -1;
         for (var i = 0; i < 8; i++) { if (!usedIndices.has(i)) { testIndex = i; break; } }
-        if (testIndex < 0) { showToast(tFmt('pl_gsSlotsFull', { cls: entry.classId }), 3500); return; }
+        if (testIndex < 0) { showToast(tFmt('pl_gsSlotsFull', { cls: (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(entry.classId) : entry.classId) || entry.classId }), 3500); return; }
 
         var testData = {
           _savedAt: Date.now(),
@@ -10170,19 +10224,22 @@
         if (typeof LinksService.removeLinksFor === 'function') {
           LinksService.removeLinksFor(todoUrn).then(async function () {
             if (td.links && td.links.entryId) {
-              await LinksService.addLink(todoUrn, LinksService.makeUrn('slot', td.links.entryId), { relation: 'planner_entry', targetMeta: { title: td.text } });
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('slot', td.links.entryId), { relation: 'planner_entry' });
             }
             if (td.links && td.links.mindmapPath) {
-              await LinksService.addLink(todoUrn, LinksService.makeUrn('board', td.links.mindmapPath), { relation: 'mindmap', targetMeta: { title: td.text } });
+              var mmTitle = String(td.links.mindmapPath).split('/').pop().replace(/\.[^.]+$/, '').replace(/_/g, ' ');
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('board', td.links.mindmapPath), { relation: 'mindmap', targetMeta: { title: mmTitle } });
             }
             if (td.links && td.links.gsClassId) {
-              await LinksService.addLink(todoUrn, LinksService.makeUrn('gradesheet', td.links.gsClassId), { relation: 'gradesheet', targetMeta: { title: td.text } });
+              var gsName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(td.links.gsClassId) : '') || td.links.gsClassId;
+              await LinksService.addLink(todoUrn, LinksService.makeUrn('gradesheet', td.links.gsClassId), { relation: 'gradesheet', targetMeta: { title: gsName + ' Grade Sheet' } });
             }
             if (Array.isArray(td.classIds)) {
               for (var i = 0; i < td.classIds.length; i++) {
                 var cid = td.classIds[i];
                 if (cid) {
-                  await LinksService.addLink(todoUrn, LinksService.makeUrn('class', cid), { relation: 'class', targetMeta: { title: td.text } });
+                  var cName = (typeof plannerClassDisplayName === 'function' ? plannerClassDisplayName(cid) : '') || cid;
+                  await LinksService.addLink(todoUrn, LinksService.makeUrn('class', cid), { relation: 'class', targetMeta: { title: cName } });
                 }
               }
             }

@@ -369,6 +369,38 @@
   }
 
   // ── Roster & Class Display Resolvers (Human-Readable Names) ───────────────
+  function isUuid(str) {
+    if (!str || typeof str !== 'string') return false;
+    var s = str.trim();
+    return /^st-[a-z0-9_-]+$/i.test(s) ||
+      /^ge-[a-z0-9_-]+$/i.test(s) ||
+      /^cls-[a-z0-9_-]+$/i.test(s) ||
+      /^class-[a-z0-9_-]+$/i.test(s) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s) ||
+      /^[0-9a-f]{20,}$/i.test(s) ||
+      /^(student|class):\s*([0-9a-f-]{8,}|st-[a-z0-9_-]+|ge-[a-z0-9_-]+|cls-[a-z0-9_-]+)$/i.test(s);
+  }
+
+  function isDocumentVersionFile(relPath, filename) {
+    var p = String(relPath || '').replace(/\\/g, '/').trim();
+    var fn = String(filename || (p.split('/').pop()) || '').trim();
+    if (!p && !fn) return false;
+    var pLower = p.toLowerCase();
+    var fnLower = fn.toLowerCase();
+    // 1. History subfolder
+    if (pLower.startsWith('history/') || pLower.includes('/history/') || pLower === 'history') return true;
+    // 2. Timestamped version patterns (e.g. doc.v20261102-123456.md or doc.v20261102.md or doc.v1.md)
+    if (/\.v\d{8}-\d{6}\.[a-z0-9]+$/i.test(fnLower)) return true;
+    if (/\.v\d{4,}\.[a-z0-9]+$/i.test(fnLower)) return true;
+    if (/\.v\d+([-_.]\d+)*\.(md|html|typ|txt|pdf|docx)$/i.test(fnLower)) return true;
+    // 3. Backup, temporary, or lock files
+    if (/\.(bak|tmp|old|swp|orig|lock)$/i.test(fnLower) || fnLower.startsWith('~') || fnLower.startsWith('.~')) return true;
+    // 4. Companion metadata / style files in docEditorDocs
+    if (fnLower.endsWith('.json') || fnLower.endsWith('.css')) return true;
+    return false;
+  }
+
+  // ── Roster & Class Display Resolvers (Human-Readable Names) ───────────────
   var _rosterNameCache = null;
   var _rosterDiskLoadPromise = null;
 
@@ -376,11 +408,17 @@
     var students = {};
     var classes = {};
 
-    function isUuid(str) {
-      if (!str || typeof str !== 'string') return false;
-      return /^st-[a-z0-9_-]+$/i.test(str) ||
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str) ||
-        /^[0-9a-f]{8,}$/i.test(str);
+    function addClass(cid, cname) {
+      if (!cid) return;
+      var cleanCid = String(cid).trim();
+      var cleanName = (cname != null) ? String(cname).trim() : '';
+      if (!cleanName || isUuid(cleanName)) {
+        if (!classes[cleanCid] && !isUuid(cleanCid)) {
+          classes[cleanCid] = cleanCid;
+        }
+      } else {
+        classes[cleanCid] = cleanName;
+      }
     }
 
     // 0. Load from window.STUDENTS_ROSTER if present
@@ -402,16 +440,20 @@
           var gname = enr.groupName || enr.name || gid || '';
           if (gid && !classIds.includes(gid)) classIds.push(gid);
           if (gname && !classNames.includes(gname)) classNames.push(gname);
+          if (gid && gname && !isUuid(gname)) {
+            addClass(gid, gname);
+          }
         });
         if (s.adminClass) {
           if (!classIds.includes(s.adminClass)) classIds.push(s.adminClass);
           if (!classNames.includes(s.adminClass)) classNames.push(s.adminClass);
+          if (!isUuid(s.adminClass)) addClass(s.adminClass, s.adminClass);
         }
         var clsId = classIds[0] || (enrollments[0] && enrollments[0].groupUuid) || s.adminClass || '';
         var clsName = classNames[0] || (enrollments[0] && enrollments[0].groupName) || s.adminClass || '';
         students[sid] = {
           id: sid,
-          name: sname || sid,
+          name: (!isUuid(sname) && sname) ? sname : sid,
           firstName: s.firstName || '',
           lastName: s.lastName || '',
           customName: s.customName || '',
@@ -425,6 +467,33 @@
       });
     }
 
+    // Load from ADMINISTRATIVE_DATA if available
+    var admData = (typeof window !== 'undefined' && window.ADMINISTRATIVE_DATA) || null;
+    if (admData && admData.students && typeof admData.students === 'object') {
+      Object.keys(admData.students).forEach(function(sid) {
+        var aSt = admData.students[sid];
+        if (!aSt) return;
+        var sname = ([aSt.firstName, aSt.lastName].filter(Boolean).join(' ') || aSt.customName || aSt.name || '').trim();
+        var ac = aSt.adminClass || '';
+        if (ac && !isUuid(ac)) addClass(ac, ac);
+        if (!students[sid] || (isUuid(students[sid].name) && sname)) {
+          students[sid] = {
+            id: sid,
+            name: (!isUuid(sname) && sname) ? sname : sid,
+            firstName: aSt.firstName || '',
+            lastName: aSt.lastName || '',
+            customName: aSt.customName || '',
+            classId: ac,
+            className: ac,
+            classIds: ac ? [ac] : [],
+            classNames: ac ? [ac] : [],
+            enrollments: [],
+            number: aSt.number || null
+          };
+        }
+      });
+    }
+
     function addStudent(s, classId, className) {
       if (!s) return;
       var sid = typeof s === 'string' ? s : (s.uuid || s.id);
@@ -433,19 +502,19 @@
       if (typeof s === 'object') {
         sname = ([s.firstName, s.lastName].filter(Boolean).join(' ') || s.customName || s.name || '').trim();
       }
-      if (!sname && students[sid] && students[sid].name && !isUuid(students[sid].name)) {
+      if ((!sname || isUuid(sname)) && students[sid] && students[sid].name && !isUuid(students[sid].name)) {
         sname = students[sid].name;
       }
-      if (!sname && stRoster) {
+      if ((!sname || isUuid(sname)) && stRoster) {
         var found = stRoster.find(function(r) { return r && (r.uuid === sid || r.id === sid); });
         if (found) {
           sname = ([found.firstName, found.lastName].filter(Boolean).join(' ') || found.customName || found.name || '').trim();
         }
       }
-      if (!sname && typeof s === 'string' && !isUuid(s)) {
+      if ((!sname || isUuid(sname)) && typeof s === 'string' && !isUuid(s)) {
         sname = s;
       }
-      if (!sname) sname = sid;
+      if (!sname || isUuid(sname)) sname = sid;
 
       var existing = students[sid] || {
         id: sid,
@@ -487,7 +556,7 @@
 
       students[sid] = {
         id: sid,
-        name: sname || existing.name || sid,
+        name: (!isUuid(sname) && sname) ? sname : (existing.name && !isUuid(existing.name) ? existing.name : sid),
         firstName: fName,
         lastName: lName,
         customName: cstName,
@@ -500,20 +569,17 @@
       };
     }
 
-    function addClass(cid, cname) {
-      if (!cid) return;
-      classes[cid] = cname || cid;
-    }
-
     if (typeof window !== 'undefined') {
       var cgd = window.CLASS_GROUPS_DATA;
       if (cgd) {
         if (Array.isArray(cgd.classes)) {
           cgd.classes.forEach(function(cls) {
             if (!cls) return;
-            addClass(cls.id, cls.name || cls.id);
+            var cname = cls.name || (!isUuid(cls.id) ? cls.id : '');
+            if (cls.id) addClass(cls.id, cname);
+            if (cls.groupId && cname) addClass(cls.groupId, cname);
             if (Array.isArray(cls.students)) {
-              cls.students.forEach(function(st) { addStudent(st, cls.id, cls.name); });
+              cls.students.forEach(function(st) { addStudent(st, cls.id, cname); });
             }
           });
         }
@@ -521,9 +587,11 @@
           Object.keys(cgd.classGroupsMeta).forEach(function(k) {
             if (k.startsWith('_')) return;
             var m = cgd.classGroupsMeta[k];
-            addClass(k, (m && m.name) || k);
+            var cname = (m && m.name) || (!isUuid(k) ? k : '');
+            addClass(k, cname);
+            if (m && m.uuid && cname) addClass(m.uuid, cname);
             if (m && Array.isArray(m.students)) {
-              m.students.forEach(function(st) { addStudent(st, k, (m && m.name) || k); });
+              m.students.forEach(function(st) { addStudent(st, k, cname); });
             }
           });
         }
@@ -531,9 +599,10 @@
           Object.keys(cgd.classGroups).forEach(function(k) {
             if (k.startsWith('_')) return;
             var g = cgd.classGroups[k];
-            addClass(k, (g && g.name) || k);
+            var cname = (g && g.name) || (!isUuid(k) ? k : '');
+            addClass(k, cname);
             var arr = Array.isArray(g) ? g : ((g && g.students) || []);
-            arr.forEach(function(st) { addStudent(st, k, (g && g.name) || k); });
+            arr.forEach(function(st) { addStudent(st, k, cname); });
           });
         }
       }
@@ -542,9 +611,11 @@
         Object.keys(metaSource).forEach(function(k) {
           if (k.startsWith('_')) return;
           var m = metaSource[k];
-          addClass(k, (m && m.name) || k);
+          var cname = (m && m.name) || (!isUuid(k) ? k : '');
+          addClass(k, cname);
+          if (m && m.uuid && cname) addClass(m.uuid, cname);
           if (m && Array.isArray(m.students)) {
-            m.students.forEach(function(st) { addStudent(st, k, (m && m.name) || k); });
+            m.students.forEach(function(st) { addStudent(st, k, cname); });
           }
         });
       }
@@ -553,38 +624,42 @@
         Object.keys(groupsSource).forEach(function(k) {
           if (k.startsWith('_')) return;
           var g = groupsSource[k];
-          addClass(k, (g && g.name) || k);
+          var cname = (g && g.name) || (!isUuid(k) ? k : '');
+          addClass(k, cname);
           var arr = Array.isArray(g) ? g : ((g && g.students) || []);
-          arr.forEach(function(st) { addStudent(st, k, (g && g.name) || k); });
+          arr.forEach(function(st) { addStudent(st, k, cname); });
         });
       }
       if (window.appState && Array.isArray(window.appState.classes)) {
         window.appState.classes.forEach(function(cls) {
           if (!cls) return;
-          addClass(cls.id, cls.name || cls.id);
+          var cname = cls.name || (!isUuid(cls.id) ? cls.id : '');
+          if (cls.id) addClass(cls.id, cname);
+          if (cls.groupId && cname) addClass(cls.groupId, cname);
           if (Array.isArray(cls.students)) {
-            cls.students.forEach(function(st) { addStudent(st, cls.id, cls.name); });
+            cls.students.forEach(function(st) { addStudent(st, cls.id, cname); });
           }
         });
       }
       if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes && typeof window.PLANNER_CONFIG.classes === 'object') {
         Object.keys(window.PLANNER_CONFIG.classes).forEach(function(k) {
           var c = window.PLANNER_CONFIG.classes[k];
-          addClass(k, (c && c.name) || k);
+          var cname = (c && c.name) || (!isUuid(k) ? k : '');
+          if (cname) addClass(k, cname);
         });
       }
     }
     return { students: students, classes: classes };
   }
 
-  async function _ensureRosterLoaded() {
-    if (_rosterNameCache && Object.keys(_rosterNameCache.students).length > 0) {
+  async function _ensureRosterLoaded(forceReload) {
+    if (_rosterNameCache && !forceReload && Object.keys(_rosterNameCache.students).length > 0) {
       var hasRealNames = Object.values(_rosterNameCache.students).some(function(st) {
-        return st && st.name && !/^st-[a-z0-9_-]+$/i.test(st.name) && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(st.name);
+        return st && st.name && !isUuid(st.name);
       });
       if (hasRealNames) return _rosterNameCache;
     }
-    if (_rosterDiskLoadPromise) return _rosterDiskLoadPromise;
+    if (_rosterDiskLoadPromise && !forceReload) return _rosterDiskLoadPromise;
 
     _rosterDiskLoadPromise = (async function() {
       var desktop = (typeof window !== 'undefined' && window.Desktop) ? window.Desktop : null;
@@ -604,7 +679,17 @@
           }
         } catch (_) {}
 
-        // 2. Load class-groups.js
+        // 2. Load administrative-groups.json
+        try {
+          var admRes = await desktop.readText('user', 'administrative-groups.json');
+          if (admRes && admRes.ok && admRes.content) {
+            try {
+              window.ADMINISTRATIVE_DATA = JSON.parse(admRes.content);
+            } catch (_) {}
+          }
+        } catch (_) {}
+
+        // 3. Load class-groups.js
         try {
           var res = await desktop.readText('user', 'class-groups.js');
           if (res && res.ok && res.content) {
@@ -666,65 +751,235 @@
 
   function resolveStudentName(studentId) {
     if (!studentId) return null;
+    var cleanId = String(studentId).trim();
+    if (!cleanId) return null;
+    if (cleanId.startsWith('cmt:student:')) cleanId = cleanId.slice('cmt:student:'.length);
+    if (cleanId.startsWith('student:')) cleanId = cleanId.slice('student:'.length);
+
     var cache = _rosterNameCache || _buildRosterCache();
-    if (cache.students[studentId] && cache.students[studentId].name) {
-      var n = cache.students[studentId].name;
-      if (!/^st-[a-z0-9_-]+$/i.test(n) && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(n)) {
+    if (cache.students && cache.students[cleanId] && cache.students[cleanId].name) {
+      var n = cache.students[cleanId].name;
+      if (!isUuid(n)) {
         return n;
       }
     }
-    var lowerId = String(studentId).toLowerCase();
-    var matchKey = Object.keys(cache.students).find(function(k) {
-      return k.toLowerCase() === lowerId;
-    });
-    if (matchKey && cache.students[matchKey] && cache.students[matchKey].name) {
-      var n2 = cache.students[matchKey].name;
-      if (!/^st-[a-z0-9_-]+$/i.test(n2) && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(n2)) {
-        return n2;
+
+    var lowerId = cleanId.toLowerCase();
+    if (cache.students) {
+      var matchKey = Object.keys(cache.students).find(function(k) {
+        return k.toLowerCase() === lowerId;
+      });
+      if (matchKey && cache.students[matchKey] && cache.students[matchKey].name) {
+        var n2 = cache.students[matchKey].name;
+        if (!isUuid(n2)) {
+          return n2;
+        }
       }
     }
+
     // Check window.STUDENTS_ROSTER directly
-    if (typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER)) {
-      var sEntry = window.STUDENTS_ROSTER.find(function(r) {
-        return r && (r.uuid === studentId || r.id === studentId || String(r.uuid).toLowerCase() === lowerId);
+    var roster = (typeof window !== 'undefined' && Array.isArray(window.STUDENTS_ROSTER))
+      ? window.STUDENTS_ROSTER
+      : (typeof STUDENTS_ROSTER !== 'undefined' && Array.isArray(STUDENTS_ROSTER) ? STUDENTS_ROSTER : null);
+    if (Array.isArray(roster)) {
+      var sEntry = roster.find(function(r) {
+        return r && (r.uuid === cleanId || r.id === cleanId || String(r.uuid).toLowerCase() === lowerId || String(r.id).toLowerCase() === lowerId);
       });
       if (sEntry) {
         var fnLn = ([sEntry.firstName, sEntry.lastName].filter(Boolean).join(' ') || sEntry.customName || sEntry.name || '').trim();
-        if (fnLn) return fnLn;
+        if (fnLn && !isUuid(fnLn)) return fnLn;
       }
     }
-    // Check if studentId itself looks like a human name rather than a UUID
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId) &&
-        !/^st-[a-z0-9_-]+$/i.test(studentId) &&
-        !/^[0-9a-f]{8,}$/i.test(studentId) && studentId.length < 35 && studentId.includes(' ')) {
-      return studentId;
+
+    // Check window.ADMINISTRATIVE_DATA
+    if (typeof window !== 'undefined' && window.ADMINISTRATIVE_DATA && window.ADMINISTRATIVE_DATA.students) {
+      var admSt = window.ADMINISTRATIVE_DATA.students[cleanId] || window.ADMINISTRATIVE_DATA.students[lowerId];
+      if (admSt) {
+        var admName = ([admSt.firstName, admSt.lastName].filter(Boolean).join(' ') || admSt.customName || admSt.name || '').trim();
+        if (admName && !isUuid(admName)) return admName;
+      }
+    }
+
+    // Check Grade Sheet in-memory students
+    if (typeof window !== 'undefined' && window.appState && Array.isArray(window.appState.classes)) {
+      for (var ci = 0; ci < window.appState.classes.length; ci++) {
+        var cObj = window.appState.classes[ci];
+        if (cObj && Array.isArray(cObj.students)) {
+          var matchedSt = cObj.students.find(function(s) {
+            return s && (s.id === cleanId || s.uuid === cleanId || String(s.id).toLowerCase() === lowerId || String(s.uuid).toLowerCase() === lowerId);
+          });
+          if (matchedSt) {
+            var stNameRes = ([matchedSt.firstName, matchedSt.lastName].filter(Boolean).join(' ') || matchedSt.customName || matchedSt.name || '').trim();
+            if (stNameRes && !isUuid(stNameRes)) return stNameRes;
+          }
+        }
+      }
+    }
+
+    // Check if cleanId itself looks like a human name rather than a UUID
+    if (!isUuid(cleanId) && cleanId.length < 50) {
+      return cleanId;
     }
     return null;
   }
 
   function resolveStudentInfo(studentId) {
     if (!studentId) return null;
+    var cleanId = String(studentId).trim();
+    if (cleanId.startsWith('cmt:student:')) cleanId = cleanId.slice('cmt:student:'.length);
+    if (cleanId.startsWith('student:')) cleanId = cleanId.slice('student:'.length);
+
     var cache = _rosterNameCache || _buildRosterCache();
-    if (cache.students[studentId]) return cache.students[studentId];
-    var lowerId = String(studentId).toLowerCase();
-    var matchKey = Object.keys(cache.students).find(function(k) {
-      return k.toLowerCase() === lowerId;
-    });
-    return matchKey ? cache.students[matchKey] : null;
+    var lowerId = cleanId.toLowerCase();
+    var rawInfo = (cache.students && (cache.students[cleanId] || cache.students[lowerId])) || null;
+    if (!rawInfo && cache.students) {
+      var matchKey = Object.keys(cache.students).find(function(k) { return k.toLowerCase() === lowerId; });
+      if (matchKey) rawInfo = cache.students[matchKey];
+    }
+
+    var realName = resolveStudentName(cleanId) || (rawInfo && !isUuid(rawInfo.name) ? rawInfo.name : null) || cleanId;
+    var rawCid = (rawInfo && rawInfo.classId) || '';
+    var realClassName = (rawCid ? resolveClassName(rawCid) : null) || (rawInfo && !isUuid(rawInfo.className) ? rawInfo.className : null) || '';
+    var resolvedClassNames = [];
+    if (rawInfo && Array.isArray(rawInfo.classIds)) {
+      rawInfo.classIds.forEach(function(cid) {
+        var cn = resolveClassName(cid) || cid;
+        if (cn && !resolvedClassNames.includes(cn)) resolvedClassNames.push(cn);
+      });
+    }
+    if (realClassName && !resolvedClassNames.includes(realClassName)) {
+      resolvedClassNames.push(realClassName);
+    }
+
+    return {
+      id: cleanId,
+      name: realName,
+      firstName: (rawInfo && rawInfo.firstName) || '',
+      lastName: (rawInfo && rawInfo.lastName) || '',
+      customName: (rawInfo && rawInfo.customName) || '',
+      classId: rawCid,
+      className: realClassName,
+      classIds: (rawInfo && rawInfo.classIds) || (rawCid ? [rawCid] : []),
+      classNames: resolvedClassNames,
+      enrollments: (rawInfo && rawInfo.enrollments) || [],
+      number: (rawInfo && rawInfo.number) || null
+    };
   }
 
   function resolveClassName(classId) {
     if (!classId) return null;
+    var cleanId = String(classId).trim();
+    if (!cleanId) return null;
+    if (cleanId.startsWith('cmt:class:')) cleanId = cleanId.slice('cmt:class:'.length);
+    if (cleanId.startsWith('class:')) cleanId = cleanId.slice('class:'.length);
+
     var cache = _rosterNameCache || _buildRosterCache();
-    if (cache.classes[classId]) return cache.classes[classId];
-    var lowerId = String(classId).toLowerCase();
-    var matchKey = Object.keys(cache.classes).find(function(k) {
-      return k.toLowerCase() === lowerId;
-    });
-    if (matchKey) return cache.classes[matchKey];
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(classId) &&
-        !/^[0-9a-f]{8,}$/i.test(classId) && classId.length < 35) {
-      return classId;
+    if (cache.classes && cache.classes[cleanId]) {
+      var hit = cache.classes[cleanId];
+      if (hit && !isUuid(hit) && hit !== cleanId) return hit;
+    }
+
+    var lowerId = cleanId.toLowerCase();
+    if (cache.classes) {
+      var matchKey = Object.keys(cache.classes).find(function(k) {
+        return k.toLowerCase() === lowerId;
+      });
+      if (matchKey && cache.classes[matchKey] && !isUuid(cache.classes[matchKey]) && cache.classes[matchKey] !== cleanId) {
+        return cache.classes[matchKey];
+      }
+    }
+
+    // Check window.CLASS_GROUPS_META & window.CLASS_GROUPS_DATA
+    if (typeof window !== 'undefined') {
+      var metaSource = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta) ||
+                       window.CLASS_GROUPS_META ||
+                       (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : null);
+      if (metaSource && typeof metaSource === 'object') {
+        if (metaSource[cleanId] && metaSource[cleanId].name && !isUuid(metaSource[cleanId].name)) {
+          return metaSource[cleanId].name;
+        }
+        var mKey = Object.keys(metaSource).find(function(k) { return k.toLowerCase() === lowerId; });
+        if (mKey && metaSource[mKey] && metaSource[mKey].name && !isUuid(metaSource[mKey].name)) {
+          return metaSource[mKey].name;
+        }
+        for (var k in metaSource) {
+          var mObj = metaSource[k];
+          if (mObj && (mObj.uuid === cleanId || mObj.id === cleanId || mObj.groupId === cleanId) && mObj.name && !isUuid(mObj.name)) {
+            return mObj.name;
+          }
+        }
+      }
+
+      var grpSource = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroups) ||
+                      window.CLASS_GROUPS ||
+                      (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS : null);
+      if (grpSource && typeof grpSource === 'object') {
+        if (grpSource[cleanId] && grpSource[cleanId].name && !isUuid(grpSource[cleanId].name)) {
+          return grpSource[cleanId].name;
+        }
+        if (typeof grpSource[cleanId] === 'string' && !isUuid(grpSource[cleanId])) {
+          return grpSource[cleanId];
+        }
+      }
+
+      // Check appState.classes (Grade Sheet)
+      if (window.appState && Array.isArray(window.appState.classes)) {
+        var matchCls = window.appState.classes.find(function(c) {
+          return c && (c.id === cleanId || c.groupId === cleanId || String(c.id).toLowerCase() === lowerId || String(c.groupId).toLowerCase() === lowerId);
+        });
+        if (matchCls && matchCls.name && !isUuid(matchCls.name)) {
+          return matchCls.name;
+        }
+      }
+
+      // Check PLANNER_CONFIG.classes
+      if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes && typeof window.PLANNER_CONFIG.classes === 'object') {
+        var pc = window.PLANNER_CONFIG.classes;
+        if (pc[cleanId] && pc[cleanId].name && !isUuid(pc[cleanId].name)) {
+          return pc[cleanId].name;
+        }
+        var pcKey = Object.keys(pc).find(function(k) { return k.toLowerCase() === lowerId; });
+        if (pcKey && pc[pcKey] && pc[pcKey].name && !isUuid(pc[pcKey].name)) {
+          return pc[pcKey].name;
+        }
+      }
+
+      // Check STUDENTS_ROSTER enrollments
+      var roster = window.STUDENTS_ROSTER || (typeof STUDENTS_ROSTER !== 'undefined' ? STUDENTS_ROSTER : null);
+      if (Array.isArray(roster)) {
+        for (var ri = 0; ri < roster.length; ri++) {
+          var rst = roster[ri];
+          if (rst && Array.isArray(rst.enrollments)) {
+            var enrFound = rst.enrollments.find(function(e) {
+              return e && (e.groupUuid === cleanId || e.groupId === cleanId || String(e.groupUuid).toLowerCase() === lowerId || String(e.groupId).toLowerCase() === lowerId);
+            });
+            if (enrFound && (enrFound.groupName || enrFound.name) && !isUuid(enrFound.groupName || enrFound.name)) {
+              return enrFound.groupName || enrFound.name;
+            }
+          }
+        }
+      }
+    }
+
+    // Check localStorage fallback
+    if (typeof localStorage !== 'undefined') {
+      try {
+        var rawLs = localStorage.getItem('gradeSheetHtmlState.v1');
+        if (rawLs) {
+          var pGs = JSON.parse(rawLs);
+          if (pGs && Array.isArray(pGs.classes)) {
+            var lCls = pGs.classes.find(function(c) {
+              return c && (c.id === cleanId || c.groupId === cleanId || String(c.id).toLowerCase() === lowerId);
+            });
+            if (lCls && lCls.name && !isUuid(lCls.name)) return lCls.name;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // If cleanId is NOT a UUID, it's already a friendly name (e.g. "4ANdf-01", "10A")
+    if (!isUuid(cleanId) && cleanId.length < 50) {
+      return cleanId;
     }
     return null;
   }
@@ -1177,6 +1432,36 @@
   }
 
   /**
+   * Sanitizes any string meant for display or metadata by replacing raw UUIDs with
+   * resolved human names (classes, students) or stripping unresolvable raw hashes.
+   */
+  function cleanDisplayString(str) {
+    if (!str || typeof str !== 'string') return str;
+    var res = str;
+
+    // 1. Replace parenthesized UUIDs: e.g. "Topic (97cb7f77-d5d1-4cb5-8d93-1383c2ae913b)"
+    res = res.replace(/\s*\(([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|st-[a-z0-9_-]+|ge-[a-z0-9_-]+|cls-[a-z0-9_-]+)\)/gi, function(match, rawId) {
+      var cName = resolveClassName(rawId);
+      if (cName && !isUuid(cName)) return ' (' + cName + ')';
+      var sName = resolveStudentName(rawId);
+      if (sName && !isUuid(sName)) return ' (' + sName + ')';
+      return ''; // Strip unresolvable UUID instead of showing raw ugly hash
+    });
+
+    // 2. If the string is a standalone UUID or prefixed with "Student: <uuid>" or "Class: <uuid>"
+    var uuidOnly = res.match(/^(?:student:\s*|class:\s*)?([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|st-[a-z0-9_-]+|ge-[a-z0-9_-]+|cls-[a-z0-9_-]+)$/i);
+    if (uuidOnly && uuidOnly[1]) {
+      var rawId = uuidOnly[1];
+      var cName = resolveClassName(rawId);
+      if (cName && !isUuid(cName)) return cName;
+      var sName = resolveStudentName(rawId);
+      if (sName && !isUuid(sName)) return sName;
+    }
+
+    return res.trim();
+  }
+
+  /**
    * Resolves an entity's display information (title, subtitle, badge, type, relativePath, tags)
    * from registered metadata or infers it gracefully from the URN.
    * Guarantees human-readable student names and class titles instead of raw UUIDs.
@@ -1194,27 +1479,31 @@
     // Detect if meta.title is a raw UUID or default "Student: <uuid>"
     var isRawTitle = false;
     if (meta && meta.title) {
-      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(meta.title) ||
-          /^student:\s*[0-9a-f-]{30,}$/i.test(meta.title) ||
-          /^class:\s*[0-9a-f-]{30,}$/i.test(meta.title)) {
+      if (isUuid(meta.title) ||
+          /^student:\s*[0-9a-f-]{10,}$/i.test(meta.title) ||
+          /^class:\s*[0-9a-f-]{10,}$/i.test(meta.title)) {
         isRawTitle = true;
       }
     }
 
     if (meta && meta.title && !isRawTitle && type !== 'student' && type !== 'class') {
-      return {
-        urn: urn,
-        canonicalUrn: cUrn,
-        type: type,
-        badge: meta.badge || badge,
-        icon: meta.icon || 'links.svg',
-        title: meta.title,
-        subtitle: meta.subtitle || meta.relativePath || '',
-        relativePath: meta.relativePath || '',
-        target: meta.target || '',
-        tags: getTagsForSync(cUrn),
-        meta: meta
-      };
+      var cleanTitle = cleanDisplayString(meta.title);
+      var cleanSub = cleanDisplayString(meta.subtitle || meta.relativePath || '');
+      if (cleanTitle && !isUuid(cleanTitle)) {
+        return {
+          urn: urn,
+          canonicalUrn: cUrn,
+          type: type,
+          badge: meta.badge || badge,
+          icon: meta.icon || 'links.svg',
+          title: cleanTitle,
+          subtitle: cleanSub,
+          relativePath: meta.relativePath || '',
+          target: meta.target || '',
+          tags: getTagsForSync(cUrn),
+          meta: meta
+        };
+      }
     }
 
     // Infer friendly display when not explicitly registered
@@ -1303,21 +1592,50 @@
       case 'slot': {
         badge = '[PLANNER]';
         icon = 'planner.svg';
-        var slotTitle = (meta && meta.title && !isRawTitle) ? meta.title : null;
-        if (!slotTitle) {
+        var slotTitle = (meta && meta.title && !isRawTitle) ? cleanDisplayString(meta.title) : null;
+        if (!slotTitle || isUuid(slotTitle)) {
           if (p.id.startsWith('sched:')) {
             var parts = p.id.split(':');
-            var cName = resolveClassName(parts[1]) || parts[1];
+            var cName = resolveClassName(parts[1]);
+            if (isUuid(cName)) cName = '';
             slotTitle = (cName ? cName + ' • ' : '') + (parts[2] || '') + (parts[3] ? ' ' + parts[3] : '');
-          } else if (typeof window !== 'undefined' && window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
-            var ent = window.PLANNER_CONFIG.entries.find(function(e) { return e && e.id === p.id; });
-            if (ent) {
-              var cName2 = resolveClassName(ent.classId) || ent.classId;
-              slotTitle = (cName2 ? cName2 + ' • ' : '') + (ent.date || '') + (ent.time ? ' ' + ent.time : '') + (ent.topic ? ' · ' + ent.topic : '');
+          } else {
+            var foundEnt = null;
+            if (typeof window !== 'undefined') {
+              if (Array.isArray(window.entries)) {
+                foundEnt = window.entries.find(function(e) { return e && (e.id === p.id || String(e.id) === String(p.id)); });
+              }
+              if (!foundEnt && window.appState && Array.isArray(window.appState.entries)) {
+                foundEnt = window.appState.entries.find(function(e) { return e && (e.id === p.id || String(e.id) === String(p.id)); });
+              }
+              if (!foundEnt && window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+                foundEnt = window.PLANNER_CONFIG.entries.find(function(e) { return e && (e.id === p.id || String(e.id) === String(p.id)); });
+              }
+              if (!foundEnt && window.PLANNER_ENTRIES_BY_CLASS) {
+                var cKeys = Object.keys(window.PLANNER_ENTRIES_BY_CLASS);
+                for (var ki = 0; ki < cKeys.length; ki++) {
+                  var arr = window.PLANNER_ENTRIES_BY_CLASS[cKeys[ki]];
+                  if (Array.isArray(arr)) {
+                    foundEnt = arr.find(function(e) { return e && (e.id === p.id || String(e.id) === String(p.id)); });
+                    if (foundEnt) break;
+                  }
+                }
+              }
+            }
+            if (foundEnt) {
+              var cName2 = resolveClassName(foundEnt.classId);
+              if (isUuid(cName2)) cName2 = '';
+              var headerBits = [];
+              if (cName2) headerBits.push(cName2);
+              if (foundEnt.date) headerBits.push(foundEnt.date);
+              if (foundEnt.time) headerBits.push(foundEnt.time);
+              var headStr = headerBits.join(' • ');
+              var top = foundEnt.topic || foundEnt.title || '';
+              slotTitle = (headStr ? headStr + (top ? ' · ' + top : '') : top) || ('Planner Slot');
             }
           }
         }
-        title = slotTitle || ('Planner Slot: ' + p.id);
+        title = cleanDisplayString(slotTitle || ('Planner Slot'));
         subtitle = 'Timetable Slot';
         break;
       }
@@ -1363,8 +1681,13 @@
       case 'class': {
         badge = '[CLASS]';
         icon = 'groups.svg';
-        var resolvedCName = resolveClassName(p.id) || (meta && meta.title && !isRawTitle ? meta.title : null) || p.id;
-        title = resolvedCName;
+        var resolvedCName = resolveClassName(p.id);
+        if (!resolvedCName || isUuid(resolvedCName)) {
+          if (meta && meta.title && !isRawTitle && !isUuid(meta.title)) {
+            resolvedCName = cleanDisplayString(meta.title);
+          }
+        }
+        title = (resolvedCName && !isUuid(resolvedCName)) ? resolvedCName : ('Class ' + p.id);
         subtitle = 'Class Group';
         break;
       }
@@ -1372,8 +1695,13 @@
         badge = '[STUDENT]';
         icon = 'admin-groups.svg';
         var stObj = resolveStudentInfo(p.id);
-        var stName = (stObj && stObj.name) || resolveStudentName(p.id) || (meta && meta.title && !isRawTitle ? meta.title : null) || p.id;
-        title = stName;
+        var stName = (stObj && stObj.name) || resolveStudentName(p.id);
+        if (!stName || isUuid(stName)) {
+          if (meta && meta.title && !isRawTitle && !isUuid(meta.title)) {
+            stName = cleanDisplayString(meta.title);
+          }
+        }
+        title = (stName && !isUuid(stName)) ? stName : ('Student ' + p.id);
         var displayClasses = (stObj && Array.isArray(stObj.classNames) && stObj.classNames.length > 0)
           ? stObj.classNames.join(', ')
           : ((stObj && stObj.className) || '');
@@ -1613,8 +1941,8 @@
       type: type,
       badge: badge,
       icon: icon,
-      title: title,
-      subtitle: subtitle,
+      title: cleanDisplayString(title),
+      subtitle: cleanDisplayString(subtitle),
       relativePath: relPath,
       target: target,
       tags: getTagsForSync(cUrn),
@@ -2249,9 +2577,19 @@
 
     reg.edges.push(edge);
 
-    // Optionally save entity summaries if provided in opts
-    if (opts.sourceMeta) reg.entities[cSrc] = Object.assign(reg.entities[cSrc] || {}, opts.sourceMeta);
-    if (opts.targetMeta) reg.entities[cTgt] = Object.assign(reg.entities[cTgt] || {}, opts.targetMeta);
+    // Optionally save entity summaries if provided in opts (sanitizing titles/subtitles against raw UUIDs)
+    if (opts.sourceMeta) {
+      var sMeta = Object.assign({}, opts.sourceMeta);
+      if (sMeta.title) sMeta.title = cleanDisplayString(sMeta.title);
+      if (sMeta.subtitle) sMeta.subtitle = cleanDisplayString(sMeta.subtitle);
+      reg.entities[cSrc] = Object.assign(reg.entities[cSrc] || {}, sMeta);
+    }
+    if (opts.targetMeta) {
+      var tMeta = Object.assign({}, opts.targetMeta);
+      if (tMeta.title) tMeta.title = cleanDisplayString(tMeta.title);
+      if (tMeta.subtitle) tMeta.subtitle = cleanDisplayString(tMeta.subtitle);
+      reg.entities[cTgt] = Object.assign(reg.entities[cTgt] || {}, tMeta);
+    }
 
     // Autonomous cascade of hierarchical links
     if (opts.autonomous !== false) {
@@ -3766,11 +4104,12 @@
       function registerDoc(target, relPath, fileObj) {
         if (!relPath) return;
         var normRel = String(relPath).replace(/\\/g, '/').replace(/^\/+/, '');
+        var fn = normRel.split('/').pop() || normRel;
+        if (isDocumentVersionFile(normRel, fn)) return;
         var key = (target + ':' + normRel).toLowerCase();
         if (seenKeys.has(key)) return;
         seenKeys.add(key);
 
-        var fn = normRel.split('/').pop() || normRel;
         var extMatch = fn.match(/\.([a-z0-9]+)$/i);
         var ext = extMatch ? extMatch[1].toLowerCase() : '';
         var baseName = fn.replace(/\.[^.]+$/, '');
@@ -4548,8 +4887,11 @@
           }
 
           if (isDocOrFile && !seenUrns.has(matchedOther)) {
-            seenUrns.add(matchedOther);
+            var normOtherPath = (pOther ? pOther.id : '') || '';
+            if (isDocumentVersionFile(normOtherPath, normOtherPath)) continue;
             var display = await resolveUrnDisplay(matchedOther);
+            if (isDocumentVersionFile(display.relativePath || normOtherPath, display.title)) continue;
+            seenUrns.add(matchedOther);
             var isHandout = (e.relation && e.relation.includes('handout')) || (e.meta && e.meta.relation && e.meta.relation.includes('handout')) || display.title.toLowerCase().includes('handout') || (display.subtitle && display.subtitle.toLowerCase().includes('handout'));
             var isSubm = oType === 'submission' || (e.relation === 'submission') || (e.meta && e.meta.relation === 'submission');
             var badge = isSubm ? '[SUBMISSION]' : (isHandout ? '[HANDOUT]' : display.badge || '[DOC]');
@@ -5472,6 +5814,9 @@
     resolveClassYear: resolveClassYear,
     resolveEntityAncestors: resolveEntityAncestors,
     resolveUrnDisplay: resolveUrnDisplay,
+    isUuid: isUuid,
+    isDocumentVersionFile: isDocumentVersionFile,
+    cleanDisplayString: cleanDisplayString,
     promoteInferredLink: promoteInferredLink,
     getStudentAcademicDossier: getStudentAcademicDossier,
     getStudentDossier: getStudentAcademicDossier,

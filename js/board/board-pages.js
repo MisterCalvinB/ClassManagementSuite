@@ -2925,9 +2925,13 @@
         return global.conSelected || null;
       };
       window.conGetMultiSelected = function () {
+        if (typeof global.conGetMultiSelected === 'function' && global.conGetMultiSelected !== window.conGetMultiSelected) {
+          try { return global.conGetMultiSelected(); } catch (e) { }
+        }
         if (typeof window.conMultiSelected !== 'undefined' && window.conMultiSelected) return window.conMultiSelected;
+        if (typeof global.conMultiSelected !== 'undefined' && global.conMultiSelected) return global.conMultiSelected;
         if (typeof conMultiSelected !== 'undefined' && conMultiSelected) return conMultiSelected;
-        return global.conMultiSelected || new Set();
+        return new Set();
       };
       window.conGetSelectedNodes = function () {
         const multi = (typeof window.conGetMultiSelected === 'function') ? window.conGetMultiSelected() : (window.conMultiSelected || global.conMultiSelected || conMultiSelected);
@@ -3194,64 +3198,118 @@
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       };
       window.conToggleMaskSelected = function () {
+        const liveNodes = (typeof window.conGetNodes === 'function')
+          ? window.conGetNodes()
+          : ((typeof conNodes !== 'undefined' && Array.isArray(conNodes)) ? conNodes : (window.conNodes || global.conNodes || []));
         const allNotes = (typeof window.conGetNotes === 'function')
           ? window.conGetNotes()
-          : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (window.conNotes || []));
+          : ((typeof conNotes !== 'undefined' && Array.isArray(conNotes)) ? conNotes : (window.conNotes || global.conNotes || []));
+        const allMedia = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems))
+          ? conMediaItems
+          : (window.conMediaItems || global.conMediaItems || []);
 
-        const selectedNodes = (conMultiSelected && conMultiSelected.size > 0)
-          ? conNodes.filter(n => conMultiSelected.has(n.id))
-          : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
+        let selectedNodes = [];
+        let selectedNotes = [];
+        let selectedMedia = [];
 
-        // Also check any visually selected node elements in DOM
-        document.querySelectorAll('#constellation-board .con-node.con-selected, #constellation-board .con-node.con-multi-selected').forEach(el => {
-          const nid = el.id || el.dataset.id;
-          if (nid && !selectedNodes.some(n => n.id === nid)) {
-            const found = conNodes.find(n => n.id === nid);
-            if (found) selectedNodes.push(found);
-          }
-        });
-
-        // Collect all selected note IDs from multiple possible sources
-        const noteIdSet = new Set();
-        if (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0) {
-          conNoteSelected.forEach(id => noteIdSet.add(String(id)));
-        }
-        document.querySelectorAll('#constellation-board .con-word-note.wn-selected, #constellation-board .ta-word-note.wn-selected').forEach(el => {
-          if (el.dataset.id) noteIdSet.add(String(el.dataset.id));
-        });
+        // 1. Check if note styling overlay or note inline editor is actively open
         const isNoteOverlayActive = !!(document.getElementById('wn-style-overlay') && document.getElementById('wn-style-overlay').classList.contains('active'));
         const isNoteCtxActive = !!(document.getElementById('con-note-ctx-menu') && document.getElementById('con-note-ctx-menu').style.display !== 'none');
         const isNoteFocused = !!(document.activeElement && document.activeElement.closest && document.activeElement.closest('.con-word-note'));
-        if ((isNoteOverlayActive || isNoteFocused) && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
-          noteIdSet.add(String(_wnActiveNote.id));
-        }
-        if (isNoteCtxActive && typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) {
-          noteIdSet.add(String(_conNoteCtxData.id));
-        }
+        const activeNoteObj = ((isNoteOverlayActive || isNoteFocused) && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id)
+          ? _wnActiveNote
+          : ((isNoteCtxActive && typeof _conNoteCtxData !== 'undefined' && _conNoteCtxData && _conNoteCtxData.id) ? _conNoteCtxData : null);
 
-        const selectedNotes = allNotes.filter(n => n && noteIdSet.has(String(n.id)));
-
-        // Collect all selected media IDs from actual selection and active popovers (prevent stale ghosts)
-        const mediaSel = (typeof window.conGetMediaSelected === 'function')
-          ? window.conGetMediaSelected()
-          : ((typeof conMediaSelected !== 'undefined' && conMediaSelected) ? conMediaSelected : new Set());
-        const mediaIdSet = new Set(mediaSel ? [...mediaSel].map(String) : []);
-
-        document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => {
-          if (el.dataset && el.dataset.id) mediaIdSet.add(String(el.dataset.id));
-        });
-
+        // 2. Check if media styling overlay is actively open
         const isImgOverlayActive = !!(document.getElementById('con-img-style-overlay') && document.getElementById('con-img-style-overlay').classList.contains('active'));
         const isPdfOverlayActive = !!(document.getElementById('con-pdf-style-overlay') && document.getElementById('con-pdf-style-overlay').classList.contains('active'));
         const isSoundOverlayActive = !!(document.getElementById('con-sound-style-overlay') && document.getElementById('con-sound-style-overlay').classList.contains('active'));
-        if ((isImgOverlayActive || isPdfOverlayActive || isSoundOverlayActive) && typeof window._conCtxItem !== 'undefined' && window._conCtxItem && window._conCtxItem.id) {
-          mediaIdSet.add(String(window._conCtxItem.id));
-        }
+        const activeMediaObj = ((isImgOverlayActive || isPdfOverlayActive || isSoundOverlayActive) && typeof window._conCtxItem !== 'undefined' && window._conCtxItem && window._conCtxItem.id)
+          ? window._conCtxItem
+          : null;
 
-        const allMedia = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems))
-          ? conMediaItems
-          : (window.conMediaItems || []);
-        const selectedMedia = allMedia.filter(m => m && mediaIdSet.has(String(m.id)));
+        // 3. Check for single node selection
+        const singleNodeId = (typeof window.conGetSelected === 'function' ? window.conGetSelected() : null) || window.conSelected || global.conSelected || null;
+
+        // 4. Resolve multi-selection sets
+        const multiNodeSet = (typeof window.conGetMultiSelected === 'function' ? window.conGetMultiSelected() : null) || window.conMultiSelected || global.conMultiSelected || (typeof conMultiSelected !== 'undefined' ? conMultiSelected : null);
+        const multiNoteSet = (typeof window.conGetNoteSelected === 'function' ? window.conGetNoteSelected() : null) || window.conNoteSelected || global.conNoteSelected || (typeof conNoteSelected !== 'undefined' ? conNoteSelected : null);
+        const multiMediaSet = (typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected() : null) || window.conMediaSelected || global.conMediaSelected || (typeof conMediaSelected !== 'undefined' ? conMediaSelected : null);
+
+        const nodeMultiSize = (multiNodeSet && multiNodeSet.size) ? multiNodeSet.size : 0;
+        const noteMultiSize = (multiNoteSet && multiNoteSet.size) ? multiNoteSet.size : 0;
+        const mediaMultiSize = (multiMediaSet && multiMediaSet.size) ? multiMediaSet.size : 0;
+        const totalMultiSize = nodeMultiSize + noteMultiSize + mediaMultiSize;
+
+        if (activeNoteObj) {
+          // Priority A: Note styling overlay or active note editor takes immediate precedence
+          const found = allNotes.find(n => n && (n.id === activeNoteObj.id || String(n.id) === String(activeNoteObj.id)));
+          if (found) selectedNotes = [found];
+        } else if (activeMediaObj) {
+          // Priority B: Media styling overlay takes immediate precedence
+          const found = allMedia.find(m => m && (m.id === activeMediaObj.id || String(m.id) === String(activeMediaObj.id)));
+          if (found) selectedMedia = [found];
+        } else if (singleNodeId) {
+          // Priority C: Exactly one single node is selected — STRICTLY toggle ONLY that node!
+          const found = liveNodes.find(n => n && (n.id === singleNodeId || String(n.id) === String(singleNodeId)));
+          if (found) selectedNodes = [found];
+        } else if (totalMultiSize > 0) {
+          // Priority D: Multi-selection or joint selection
+          if (nodeMultiSize > 0) {
+            selectedNodes = liveNodes.filter(n => n && (multiNodeSet.has(n.id) || multiNodeSet.has(String(n.id))));
+          }
+          if (noteMultiSize > 0) {
+            selectedNotes = allNotes.filter(n => n && (multiNoteSet.has(n.id) || multiNoteSet.has(String(n.id))));
+          }
+          if (mediaMultiSize > 0) {
+            selectedMedia = allMedia.filter(m => m && (multiMediaSet.has(m.id) || multiMediaSet.has(String(m.id))));
+          }
+        } else {
+          // Priority E: DOM fallback when JS selection state might be desynced
+          const domSelectedNodes = Array.from(document.querySelectorAll('#constellation-board .con-node.con-selected'));
+          const domMultiNodes = Array.from(document.querySelectorAll('#constellation-board .con-node.con-multi-selected'));
+          const domSelectedNotes = Array.from(document.querySelectorAll('#constellation-board .con-word-note.wn-selected, #constellation-board .ta-word-note.wn-selected'));
+          const domSelectedMedia = Array.from(document.querySelectorAll('#constellation-board .con-media-item.con-media-selected'));
+
+          if (domSelectedNodes.length === 1 && domSelectedNotes.length === 0 && domSelectedMedia.length === 0) {
+            // Exactly one node has .con-selected in the DOM
+            const nid = domSelectedNodes[0].id || domSelectedNodes[0].dataset.id;
+            const found = liveNodes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+            if (found) selectedNodes = [found];
+          } else if (domSelectedNotes.length === 1 && domSelectedNodes.length === 0 && domSelectedMedia.length === 0) {
+            // Exactly one note is selected in the DOM
+            const nid = domSelectedNotes[0].dataset.id || domSelectedNotes[0].id;
+            const found = allNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+            if (found) selectedNotes = [found];
+          } else if (domSelectedMedia.length === 1 && domSelectedNodes.length === 0 && domSelectedNotes.length === 0) {
+            // Exactly one media item is selected in the DOM
+            const mid = domSelectedMedia[0].dataset.id || domSelectedMedia[0].id;
+            const found = allMedia.find(m => m && (m.id === mid || String(m.id) === String(mid)));
+            if (found) selectedMedia = [found];
+          } else {
+            // Fallback for visual multi-selection in DOM
+            domSelectedNodes.forEach(el => {
+              const nid = el.id || el.dataset.id;
+              const found = liveNodes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+              if (found && !selectedNodes.includes(found)) selectedNodes.push(found);
+            });
+            domMultiNodes.forEach(el => {
+              const nid = el.id || el.dataset.id;
+              const found = liveNodes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+              if (found && !selectedNodes.includes(found)) selectedNodes.push(found);
+            });
+            domSelectedNotes.forEach(el => {
+              const nid = el.dataset.id || el.id;
+              const found = allNotes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+              if (found && !selectedNotes.includes(found)) selectedNotes.push(found);
+            });
+            domSelectedMedia.forEach(el => {
+              const mid = el.dataset.id || el.id;
+              const found = allMedia.find(m => m && (m.id === mid || String(m.id) === String(mid)));
+              if (found && !selectedMedia.includes(found)) selectedMedia.push(found);
+            });
+          }
+        }
 
         const hasNodeSelection = selectedNodes.length > 0;
         const hasNoteSelection = selectedNotes.length > 0;
@@ -3332,12 +3390,17 @@
               });
             }
           }
-        } else if (conGroupFocused) {
-          const group = conGroups.find(g => g.id === conGroupFocused);
-          if (group) {
-            const grpNodes = (group.nodeIds || []).map(nid => conNodes.find(n => n.id === nid)).filter(Boolean);
-            const grpNotes = (group.noteIds || []).map(nid => allNotes.find(n => String(n.id) === String(nid))).filter(Boolean);
-            const grpMedia = (group.mediaIds || []).map(mid => allMedia.find(m => String(m.id) === String(mid))).filter(Boolean);
+        } else {
+          // If no element is selected, check if a non-phrase group is explicitly focused
+          const focusedGrpId = (typeof window.conGetGroupFocused === 'function' ? window.conGetGroupFocused() : null) || window.conGroupFocused || global.conGroupFocused || (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null);
+          const focusedGroup = (focusedGrpId && Array.isArray(conGroups)) ? conGroups.find(g => g && g.id === focusedGrpId) : null;
+          const focusedGrpEl = focusedGroup ? (focusedGroup.el || document.querySelector(`.con-group[data-id="${focusedGroup.id}"]`)) : null;
+          const isGroupVisualSelected = !!(focusedGrpEl && focusedGrpEl.classList && focusedGrpEl.classList.contains('con-group-selected'));
+
+          if (focusedGroup && isGroupVisualSelected && !focusedGroup.phraseGroup) {
+            const grpNodes = (focusedGroup.nodeIds || []).map(nid => liveNodes.find(n => n.id === nid)).filter(Boolean);
+            const grpNotes = (focusedGroup.noteIds || []).map(nid => allNotes.find(n => String(n.id) === String(nid))).filter(Boolean);
+            const grpMedia = (focusedGroup.mediaIds || []).map(mid => allMedia.find(m => String(m.id) === String(mid))).filter(Boolean);
             if (grpNodes.length || grpNotes.length || grpMedia.length) {
               conPushUndo();
               const anyVisible = grpNodes.some(n => !n.masked) || grpNotes.some(n => !n.hidden) || grpMedia.some(m => !m.hidden);

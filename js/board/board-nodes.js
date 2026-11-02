@@ -4043,7 +4043,9 @@
       window.conToggleSnap = conToggleSnap;
       window.conGetSnapEnabled = function () { return conSnapEnabled; };
       let conSelected = null; // id of selected node
+      window.conSelected = global.conSelected = null;
       let conMultiSelected = (typeof global.conMultiSelected !== 'undefined' && global.conMultiSelected) || new Set(); // ids of multi-selected nodes
+      window.conMultiSelected = global.conMultiSelected = conMultiSelected;
       let conGroupFocused = null; // id of focused group (Delete key support)
       let conTableSelected = (typeof global.conTableSelected !== 'undefined' && global.conTableSelected) || new Set(); // ids of selected tables
       function conTableClearSelection() {
@@ -6350,6 +6352,8 @@
         conSelected = null;
         window.conSelected = global.conSelected = null;
         conMultiSelected.clear();
+        if (window.conMultiSelected && window.conMultiSelected !== conMultiSelected) window.conMultiSelected.clear();
+        if (global.conMultiSelected && global.conMultiSelected !== conMultiSelected) global.conMultiSelected.clear();
         conNodes.forEach(n => {
           if (n && n.el) n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
         });
@@ -6368,6 +6372,8 @@
         window.conGroupFocused = global.conGroupFocused = null;
         // Clear multi-selection
         conMultiSelected.clear();
+        if (window.conMultiSelected && window.conMultiSelected !== conMultiSelected) window.conMultiSelected.clear();
+        if (global.conMultiSelected && global.conMultiSelected !== conMultiSelected) global.conMultiSelected.clear();
         conNodes.forEach(n => {
           n.el.classList.remove('con-selected', 'con-src', 'con-multi-selected');
         });
@@ -6418,11 +6424,27 @@
       function conSetMultiSelected(ids, preserveOthers) {
         // ids: array of node ids to multi-select
         conSelected = null;
+        window.conSelected = global.conSelected = null;
         if (ids && ids.length > 0 && window._conSelectedEdgeId) {
           window._conSelectedEdgeId = null;
           if (typeof conRedrawEdges === 'function') conRedrawEdges();
         }
-        conMultiSelected = new Set(ids);
+        conMultiSelected.clear();
+        if (ids && ids.length > 0) {
+          ids.forEach(id => conMultiSelected.add(id));
+        }
+        if (window.conMultiSelected && window.conMultiSelected !== conMultiSelected) {
+          window.conMultiSelected.clear();
+          if (ids && ids.length > 0) ids.forEach(id => window.conMultiSelected.add(id));
+        } else {
+          window.conMultiSelected = conMultiSelected;
+        }
+        if (global.conMultiSelected && global.conMultiSelected !== conMultiSelected) {
+          global.conMultiSelected.clear();
+          if (ids && ids.length > 0) ids.forEach(id => global.conMultiSelected.add(id));
+        } else {
+          global.conMultiSelected = conMultiSelected;
+        }
         conNodes.forEach(n => {
           n.el.classList.remove('con-selected', 'con-multi-selected');
           if (conMultiSelected.has(n.id)) n.el.classList.add('con-multi-selected');
@@ -7664,17 +7686,7 @@
           if (e.target.closest('.con-node-note-btn')) return; // let note toggle btn handle it
           if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
 
-          // Phrase-group nodes are not individually draggable in move mode — delegate to the group
-          if (conMode === 'move') {
-            const _pg = conGroupOfNode(id);
-            if (_pg && _pg.phraseGroup) {
-              _pg.el.dispatchEvent(new MouseEvent('mousedown', {
-                bubbles: false, cancelable: true, button: 0,
-                clientX: e.clientX, clientY: e.clientY, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey
-              }));
-              return;
-            }
-          }
+          // Phrase-group nodes can be individually selected or clicked without delegating away from the node
 
           e.stopPropagation(); // prevent board rubber-band from firing
 
@@ -7749,15 +7761,19 @@
 
           // Expand selection to include phrase siblings of any selected node
           let _multiDragIds = null;
+          const _nodePhraseGroup = conGroupOfNode(id);
+          const isPhraseMember = !!(_nodePhraseGroup && _nodePhraseGroup.phraseGroup);
           if (isMulti) {
             _multiDragIds = new Set(allSelectedNodeIds);
             allSelectedNodeIds.forEach(nid => {
               const pg = conGroups.find(g => g.phraseGroup && g.nodeIds && (g.nodeIds.includes(nid) || g.nodeIds.some(sid => String(sid) === String(nid))));
               if (pg) pg.nodeIds.forEach(sid => _multiDragIds.add(sid));
             });
+          } else if (isPhraseMember) {
+            _multiDragIds = new Set(_nodePhraseGroup.nodeIds);
           }
-          const groupSnap = isMulti
-            ? conNodes.filter(n => (_multiDragIds.has(n.id) || _multiDragIds.has(String(n.id))) && !conIsNodeLocked(n)).map(n => ({ n, dx: n.x - node.x, dy: n.y - node.y }))
+          const groupSnap = (isMulti || isPhraseMember)
+            ? conNodes.filter(n => (_multiDragIds && (_multiDragIds.has(n.id) || _multiDragIds.has(String(n.id)))) && !conIsNodeLocked(n)).map(n => ({ n, dx: n.x - node.x, dy: n.y - node.y }))
             : null;
           // Snapshot selected notes for joint drag
           const liveNotes = (typeof window.conGetNotes === 'function')
@@ -7851,9 +7867,9 @@
 
           function onMove(e) {
             if (conIsNodeLocked(node)) return;
-            // Nodes inside a phrase group move only as a group — block solo drag (allow if multi-select)
+            // Nodes inside a phrase group move only as a group — block solo drag (allow if multi-select or phrase groupSnap active)
             const _phraseGrp = conGroupOfNode(id);
-            if (_phraseGrp && _phraseGrp.phraseGroup && !isMulti) return;
+            if (_phraseGrp && _phraseGrp.phraseGroup && !isMulti && !groupSnap) return;
             const brd = board();
             let nx = e.clientX - ox;
             let ny = e.clientY - oy;
@@ -8257,6 +8273,10 @@
                 n.baseX = boardCenterX + (n.x - boardCenterX) / conCurrentZoom;
                 n.baseY = boardCenterY + (n.y - boardCenterY) / conCurrentZoom;
               });
+              if (_nodePhraseGroup && _nodePhraseGroup.phraseGroup) {
+                if (typeof conPhraseGroupLayout === 'function') conPhraseGroupLayout(_nodePhraseGroup);
+                if (typeof conGroupRefit === 'function') conGroupRefit(_nodePhraseGroup);
+              }
             }
             if (dragging && noteGroupSnap && noteGroupSnap.length > 0) {
               if (window._conMirrorSend) {

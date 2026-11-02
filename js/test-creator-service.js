@@ -1293,11 +1293,11 @@
     var s = String(str);
     if (!s) return '';
 
-    // Tokenize allowed safe inline HTML tags & styles before escaping
+    // Tokenize allowed safe inline and block HTML tags & styles before escaping
     var tokenMap = {};
     var tokenCounter = 0;
     function makeToken(htmlChunk) {
-      var key = '___TCR_TAG_' + (tokenCounter++) + '___';
+      var key = '\uE000TCRTAG' + (tokenCounter++) + '\uE001';
       tokenMap[key] = htmlChunk;
       return key;
     }
@@ -1308,7 +1308,7 @@
     });
 
     // Match safe HTML tags: <tag attr="..."> and </tag>
-    var safeTagPattern = /<\/?(b|strong|i|em|u|ins|s|del|strike|sub|sup|mark|small|code|kbd|var|abbr|span|font)(\s+[^>]*)?>/gi;
+    var safeTagPattern = /<\/?(b|strong|i|em|u|ins|s|del|strike|sub|sup|mark|small|code|kbd|var|abbr|span|font|p|div|blockquote|pre|hr|h1|h2|h3|h4|h5|h6|ul|ol|li|table|thead|tbody|tr|th|td|a)(\s+[^>]*)?>/gi;
     s = s.replace(safeTagPattern, function (match, tagName, attrs) {
       var isClosing = match.charAt(1) === '/';
       var tagLower = tagName.toLowerCase();
@@ -1359,11 +1359,42 @@
           var cleanTitle = titleMatch[2].replace(/"/g, '&quot;').replace(/</g, '&lt;');
           attrList.push('title="' + cleanTitle + '"');
         }
+        // Match href="..." on <a>
+        if (tagLower === 'a') {
+          var hrefMatch = attrs.match(/\bhref\s*=\s*(["'])(.*?)\1/i);
+          if (hrefMatch) {
+            var rawHref = hrefMatch[2].trim();
+            if (!/^javascript:/i.test(rawHref)) {
+              var cleanHref = rawHref.replace(/"/g, '&quot;').replace(/</g, '&lt;');
+              attrList.push('href="' + cleanHref + '" target="_blank" rel="noopener noreferrer"');
+            }
+          }
+        }
+        // Match align="..."
+        var alignMatch = attrs.match(/\balign\s*=\s*(["'])(.*?)\1/i);
+        if (alignMatch) {
+          var cleanAlign = alignMatch[2].replace(/[^a-zA-Z]/g, '');
+          attrList.push('align="' + cleanAlign + '"');
+        }
+        // Match colspan / rowspan
+        var colMatch = attrs.match(/\bcolspan\s*=\s*(["']?)(\d+)\1/i);
+        if (colMatch) attrList.push('colspan="' + colMatch[2] + '"');
+        var rowMatch = attrs.match(/\browspan\s*=\s*(["']?)(\d+)\1/i);
+        if (rowMatch) attrList.push('rowspan="' + rowMatch[2] + '"');
         if (attrList.length > 0) {
           sanitizedAttrs = ' ' + attrList.join(' ');
         }
       }
       return makeToken('<' + tagLower + sanitizedAttrs + '>');
+    });
+
+    // Fix previously corrupted double-escaped &amp;nbsp; back to &nbsp;
+    s = s.replace(/&amp;nbsp;/gi, '&nbsp;');
+
+    // Preserve safe HTML entities before escaping: &nbsp;, &#160;, &amp;, &lt;, &gt;, &quot;, &apos;, and numeric entities
+    var safeEntityPattern = /&(?:nbsp|amp|lt|gt|quot|apos|#\d+|#[xX][0-9a-fA-F]+);/gi;
+    s = s.replace(safeEntityPattern, function (match) {
+      return makeToken(match);
     });
 
     // Escape any remaining raw <, >, &, " for safety
@@ -1372,6 +1403,9 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+
+    // Markdown Links: [text](url)
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+|#[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
     // Markdown Bold: **bold** or __bold__
     s = s.replace(/(\*\*|__)([\s\S]*?)\1/g, '<strong>$2</strong>');
@@ -1395,14 +1429,28 @@
     // Markdown Inline code: `code`
     s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
 
+    // Markdown Blockquote: > text
+    s = s.replace(/(?:^|\n)&gt;\s*(.+)/g, '<blockquote>$1</blockquote>');
+
     // Restore safe HTML tokens
     for (var k in tokenMap) {
       if (tokenMap.hasOwnProperty(k)) {
-        s = s.replace(new RegExp(k, 'g'), tokenMap[k]);
+        s = s.split(k).join(tokenMap[k]);
       }
     }
 
+    // Preserve newlines as <br> for multiline textareas (unless next to block elements)
+    s = s.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    s = s.replace(/(<\/(?:p|div|h[1-6]|ul|ol|li|blockquote|table|tr|thead|tbody)>)\n/gi, '$1');
+    s = s.replace(/\n(<(?:p|div|h[1-6]|ul|ol|li|blockquote|table|tr|thead|tbody|hr))/gi, '$1');
+    s = s.replace(/\n/g, '<br>');
+
     return s;
+  };
+
+  TestCreatorService.hasRichFormatting = function (str) {
+    if (!str || typeof str !== 'string') return false;
+    return /(\*\*|__|\*|_|~~|==|\^|~|`|\[.+\]\(.+\)|<[a-z\/][\s\S]*>)/i.test(str);
   };
 
   // ── 3. Factory Helpers ───────────────────────────────────────────────────
@@ -4984,6 +5032,9 @@
     md.push('');
 
     var metaBits = [];
+    if (hc.showStudentName) {
+      metaBits.push('**' + (hc.studentLabel || 'Student:') + '** ' + (opts.studentName || '______________________'));
+    }
     if (hc.showClass) metaBits.push('**' + (hc.classLabel || 'Class:') + '** ' + (test.className || '______'));
     if (hc.showDate) metaBits.push('**' + (hc.dateLabel || 'Date:') + '** ' + (test.date || '______'));
     if (hc.showTeacher) metaBits.push('**' + (hc.teacherLabel || 'Teacher:') + '** ' + (test.teacher || '______'));
@@ -5554,6 +5605,26 @@
       compiledSheets.join('\n'),
       '</body></html>'
     ].join('\n');
+  };
+
+  TestCreatorService.exportClassBatchMarkdown = function (test, students, variantAssignments, options) {
+    var opts = options || {};
+    var isTeacherKey = !!opts.isTeacherKey;
+    var compiled = [];
+    (students || []).forEach(function (st, idx) {
+      var assignedVariant = (variantAssignments && variantAssignments[st.id]) || (idx % 2 === 0 ? 'A' : 'B');
+      var variantTest = TestCreatorService.generateVariant(test, assignedVariant);
+      var sName = (st.name || ((st.firstName || '') + ' ' + (st.lastName || '')).trim() || ('Student ' + (idx + 1)));
+      var sheetOpts = Object.assign({}, opts, {
+        studentName: sName,
+        className: test.className || '',
+        variant: assignedVariant,
+        isTeacherKey: isTeacherKey
+      });
+      var sheetMd = TestCreatorService.exportToMarkdown(variantTest, sheetOpts);
+      compiled.push(sheetMd);
+    });
+    return compiled.join('\n\n---\n\n');
   };
 
   return TestCreatorService;

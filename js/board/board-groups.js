@@ -478,7 +478,7 @@
 
         el.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
-          if (e.target.closest('.con-node') && !group.phraseGroup) return; // let node handle it (phrase groups own their nodes)
+          if (e.target.closest('.con-node')) return; // let node handle it (nodes in phrase groups can be individually selected)
           if (e.target.closest('.con-group-resizer')) return; // let resizer handle it
           if (e.target.closest('.con-group-title')) return; // let title handle it
           if (!group.phraseGroup && e.target.closest('.con-phrase-group')) return; // let phrase group handle it

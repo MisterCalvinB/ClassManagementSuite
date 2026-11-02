@@ -845,7 +845,7 @@
     _currentExportDefaultName = rawFilename;
     var ext = String(rawFilename).split('?')[0].split('.').pop().toLowerCase();
     _currentExportDefaultExt = ext;
-    var isDoc = (ext === 'html' || ext === 'md' || ext === 'htm' || ext === 'typ');
+    var isDoc = (ext === 'html' || ext === 'md' || ext === 'htm' || ext === 'typ' || ext === 'odt');
 
     destinationOverlay.querySelector('.cmt-dest-title').textContent = opts.title || _getExportText('exportDestinationTitle', 'Choose Export Location');
     destinationOverlay.querySelector('.cmt-dest-prompt').textContent = opts.prompt || _getExportText('exportDestinationPrompt', 'Where do you want to save the exported file?');
@@ -951,6 +951,12 @@
           return { ok: true, path: filename, name: filename, destination: 'doc-editor' };
         } catch (err) {}
       }
+      if (config.odtRequest && (!window.OdtConverter || !window.JSZip)) {
+        if (typeof showToast === 'function') {
+          showToast(_getExportText('deOdtRequiresElectron', 'ODT export requires the Electron desktop app.'), true);
+        }
+        return { ok: false, error: 'ODT export requires Electron' };
+      }
       try {
         var blob = content instanceof Blob
           ? content
@@ -975,7 +981,10 @@
     try {
       if (dest === 'doc-editor' || dest === 'doceditor') {
         var docRes = null;
-        if (typeof content === 'string') {
+        if (config.odtRequest) {
+          var reqOdtDoc = Object.assign({}, config.odtRequest, { target: 'docEditorDocs', defaultName: filename.replace(/\.odt$/i, '') });
+          docRes = await Desktop.exportOdt(reqOdtDoc);
+        } else if (typeof content === 'string') {
           docRes = await Desktop.saveText('docEditorDocs', filename, content);
         } else if (content instanceof Blob) {
           docRes = await Desktop.saveBlob('docEditorDocs', filename, content);
@@ -990,7 +999,7 @@
         if (docRes && docRes.ok) {
           if (typeof Desktop.openTool === 'function') {
             Desktop.openTool('document-editor.html', {
-              query: { editTarget: 'docEditorDocs', editRelPath: filename }
+              query: { editTarget: 'docEditorDocs', editRelPath: filename, editAbsPath: docRes.path || undefined }
             });
           }
           var openedMsg = _getExportText('exportOpenedInDocEditor', 'Opened in Document Editor: "{name}"').replace('{name}', filename);
@@ -1001,7 +1010,7 @@
           }
           return {
             ok: true,
-            path: (docRes.file && docRes.file.path) || ('user/document-editor/docs/' + filename),
+            path: (docRes.file && docRes.file.path) || docRes.path || ('user/document-editor/docs/' + filename),
             name: filename,
             target: 'docEditorDocs',
             destination: 'doc-editor'
@@ -1012,7 +1021,10 @@
           return { ok: false, error: errText };
         }
       } else if (dest === 'to-print') {
-        if (config.docxRequest) {
+        if (config.odtRequest) {
+          var reqOdtPrint = Object.assign({}, config.odtRequest, { target: 'toPrint', defaultName: filename.replace(/\.odt$/i, '') });
+          result = await Desktop.exportOdt(reqOdtPrint);
+        } else if (config.docxRequest) {
           var req = Object.assign({}, config.docxRequest, { target: 'toPrint', defaultName: filename.replace(/\.docx$/i, '') });
           result = await Desktop.exportDocx(req);
         } else if (typeof content === 'string') {
@@ -1034,7 +1046,10 @@
         }
         if (result && !result.name) result.name = filename;
       } else {
-        if (config.docxRequest) {
+        if (config.odtRequest) {
+          var reqOdtCustom = Object.assign({}, config.odtRequest, { defaultName: filename.replace(/\.odt$/i, '') });
+          result = await Desktop.exportOdt(reqOdtCustom);
+        } else if (config.docxRequest) {
           var reqCustom = Object.assign({}, config.docxRequest, { defaultName: filename.replace(/\.docx$/i, '') });
           result = await Desktop.exportDocx(reqCustom);
         } else {

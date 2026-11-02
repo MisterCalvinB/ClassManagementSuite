@@ -9627,15 +9627,20 @@ ipcMain.handle('app:export-odt', async (event, request = {}) => {
   try {
     const { markdownToOdtBuffer } = require('./js/odt-converter.js');
     const buffer = await markdownToOdtBuffer(request);
-    const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
-      ? request.defaultName.trim().replace(/\.(md|odt)$/i, '')
-      : 'document';
+    const rawName = (typeof request.filename === 'string' && request.filename.trim())
+      ? request.filename.trim()
+      : ((typeof request.defaultName === 'string' && request.defaultName.trim()) ? request.defaultName.trim() : 'document');
+    const baseName = rawName.replace(/\.(md|odt)$/i, '');
     let finalPath = request.targetPath || null;
     if (!finalPath) {
       if (request.target === 'toPrint') {
         const toPrintDir = getWritablePaths().toPrint;
         await fs.ensureDir(toPrintDir);
         finalPath = path.join(toPrintDir, baseName + '.odt');
+      } else if (request.target === 'docEditorDocs') {
+        const docsDir = getWritablePaths().docEditorDocs;
+        await fs.ensureDir(docsDir);
+        finalPath = path.join(docsDir, baseName + '.odt');
       } else {
         const { canceled, filePath } = await dialog.showSaveDialog({
           title: 'Save as LibreOffice Writer Document',
