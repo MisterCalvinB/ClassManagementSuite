@@ -120,7 +120,7 @@
         <!-- Search Input -->
         <div class="cp-search-wrap">
           <img src="../assets/icons/search.svg" class="cp-search-icon" alt="" />
-          <input type="search" id="cp-search-input" placeholder="Search by code, title, keywords…" oninput="cpApplyFilters()" />
+          <input type="search" id="cp-search-input" placeholder="Search by code, title, keywords…" oninput="cpScheduleFilter()" autocomplete="off" spellcheck="false" />
         </div>
 
         <!-- Subject Filter -->
@@ -320,10 +320,58 @@
     let _availableSources = [];
     let _availableTags = [];
 
+    const SEARCH_DEBOUNCE_MS = 60;
+    let _searchTimer = null;
+
+    /**
+     * Reconcile `container` children with `values`, reusing existing nodes.
+     * Direct parity with js/dictionary.js syncNodes function.
+     */
+    function syncNodes(container, values, create, update) {
+      const children = container.children;
+      while (children.length > values.length) container.removeChild(container.lastChild);
+      for (let i = 0; i < values.length; i++) {
+        let node = children[i];
+        if (!node) { node = create(); container.appendChild(node); }
+        update(node, values[i], i);
+      }
+    }
+
+    /**
+     * Fold string for fast diacritic-insensitive search matching (same as in dictionary).
+     */
+    function fold(value) {
+      return String(value == null ? '' : value)
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function cpScheduleFilter() {
+      clearTimeout(_searchTimer);
+      _searchTimer = setTimeout(cpApplyFilters, SEARCH_DEBOUNCE_MS);
+    }
+
     // ── Initialization ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async function () {
       if (typeof applyTranslations === 'function') applyTranslations();
       cpUpdateDetailToggleUI();
+
+      const searchInput = document.getElementById('cp-search-input');
+      if (searchInput) {
+        searchInput.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape') {
+            if (this.value) {
+              this.value = '';
+              clearTimeout(_searchTimer);
+              cpApplyFilters();
+            }
+          } else if (e.key === 'Enter') {
+            clearTimeout(_searchTimer);
+            cpApplyFilters();
+          }
+        });
+      }
 
       // Read query param if passed: ?classId=...
       const params = new URLSearchParams(window.location.search);
@@ -653,10 +701,58 @@
     }
 
     function cpResetAllFilters() {
+      clearTimeout(_searchTimer);
       document.getElementById('cp-search-input').value = '';
       ['cp-filter-subject','cp-filter-year','cp-filter-level','cp-filter-source',
        'cp-filter-domain','cp-filter-subdomain','cp-filter-tag','cp-filter-status'].forEach(cpClearMultiSelect);
       cpRefreshPortfolio();
+    }
+
+    function cpIndexPortfolio(portfolio) {
+      if (!portfolio) return;
+      if (portfolio.categories) {
+        Object.keys(portfolio.categories).forEach(cat => {
+          const items = portfolio.categories[cat];
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            if (!item || !item.competence) continue;
+            const c = item.competence;
+            if (!c._searchFolded) {
+              const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+                ? CompetenceAggregatorService.getDetailedLines(c)
+                : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+              const dText = dLines.join(' ');
+              const raw = `${c.code || ''} ${c.title || ''} ${c.description || ''} ${dText} ${Array.isArray(c.tags) ? c.tags.join(' ') : ''} ${c.category || ''} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`;
+              c._searchFolded = fold(raw);
+              c._subjectLower = (c.subjectId || '').toLowerCase();
+              c._yearLower = String(c.yearLevel || '').toLowerCase();
+              c._levelLower = (c.level || '').toLowerCase();
+              c._subCatLower = (c.subCategory || '').toLowerCase();
+              c._source = c._sourceDb || c.source || '';
+              c._category = c.category || 'General';
+              c._tagsLower = Array.isArray(c.tags) ? c.tags.map(t => t.toLowerCase()) : [];
+            }
+          }
+        });
+      }
+      if (portfolio.timeline) {
+        for (let i = 0; i < portfolio.timeline.length; i++) {
+          const ev = portfolio.timeline[i];
+          if (!ev || !ev.competence) continue;
+          const c = ev.competence;
+          if (!c._searchFolded) {
+            const raw = `${c.code || ''} ${c.title || ''} ${c.description || ''} ${ev.title || ''} ${ev.details || ''} ${Array.isArray(c.tags) ? c.tags.join(' ') : ''} ${c.category || ''} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`;
+            c._searchFolded = fold(raw);
+            c._subjectLower = (c.subjectId || '').toLowerCase();
+            c._yearLower = String(c.yearLevel || '').toLowerCase();
+            c._levelLower = (c.level || '').toLowerCase();
+            c._subCatLower = (c.subCategory || '').toLowerCase();
+            c._source = c._sourceDb || c.source || '';
+            c._category = c.category || 'General';
+            c._tagsLower = Array.isArray(c.tags) ? c.tags.map(t => t.toLowerCase()) : [];
+          }
+        }
+      }
     }
 
     // ── Refresh & Re-aggregate ─────────────────────────────────────────
@@ -679,6 +775,8 @@
         level:     levelVals.length  === 1 ? levelVals[0]  : (levelVals.length  > 1 ? 'all' : 'all'),
         source:    sourceVals.length === 1 ? sourceVals[0] : (sourceVals.length > 1 ? 'all' : 'all')
       });
+
+      cpIndexPortfolio(_activePortfolio);
 
       // Populate Domains & Sub-Domains dropdowns for current filtered list
       cpPopulateDomainFilter();
@@ -755,7 +853,8 @@
     function cpApplyFilters() {
       if (!_activePortfolio) return;
 
-      const search       = (document.getElementById('cp-search-input').value || '').trim().toLowerCase();
+      const rawSearch    = (document.getElementById('cp-search-input').value || '').trim();
+      const foldedSearch = fold(rawSearch);
       const subjVals     = cpGetMultiFilterValues('cp-filter-subject');
       const yearVals     = cpGetMultiFilterValues('cp-filter-year');
       const domainVals   = cpGetMultiFilterValues('cp-filter-domain');
@@ -765,41 +864,54 @@
       const tagVals      = cpGetMultiFilterValues('cp-filter-tag');
       const statusVals   = cpGetMultiFilterValues('cp-filter-status');
 
+      const subjSet      = new Set(subjVals.map(v => v.toLowerCase()));
+      const yearSet      = new Set(yearVals.map(v => String(v).toLowerCase()));
+      const domainSet    = new Set(domainVals);
+      const subDomSet    = new Set(subDomVals.map(v => v.toLowerCase()));
+      const levelSet     = new Set(levelVals.map(v => v.toLowerCase()));
+      const sourceSet    = new Set(sourceVals);
+      const tagSet       = new Set(tagVals.map(v => v.toLowerCase()));
+      const statusSet    = new Set(statusVals);
+
       function matchesFilters(item) {
         if (!item || !item.competence) return false;
         const c = item.competence;
         // Subject (multi)
-        if (subjVals.length > 0 && !subjVals.some(v => (c.subjectId || '').toLowerCase() === v.toLowerCase())) return false;
+        if (subjSet.size > 0 && !subjSet.has(c._subjectLower || (c.subjectId || '').toLowerCase())) return false;
         // Year level (multi)
-        if (yearVals.length > 0 && !yearVals.some(v => String(c.yearLevel || '').toLowerCase() === String(v).toLowerCase())) return false;
+        if (yearSet.size > 0 && !yearSet.has(c._yearLower || String(c.yearLevel || '').toLowerCase())) return false;
         // Source (multi)
-        if (sourceVals.length > 0 && !sourceVals.includes(c._sourceDb || c.source || '')) return false;
+        if (sourceSet.size > 0 && !sourceSet.has(c._source || c._sourceDb || c.source || '')) return false;
         // Level (multi)
-        if (levelVals.length > 0 && !levelVals.some(v => (c.level || '').toLowerCase() === v.toLowerCase())) return false;
+        if (levelSet.size > 0 && !levelSet.has(c._levelLower || (c.level || '').toLowerCase())) return false;
         // Domain (multi)
-        if (domainVals.length > 0 && !domainVals.includes(c.category || 'General')) return false;
+        if (domainSet.size > 0 && !domainSet.has(c._category || c.category || 'General')) return false;
         // Sub-domain (multi)
-        if (subDomVals.length > 0 && !subDomVals.some(v => (c.subCategory || '').toLowerCase() === v.toLowerCase())) return false;
+        if (subDomSet.size > 0 && !subDomSet.has(c._subCatLower || (c.subCategory || '').toLowerCase())) return false;
         // Tag (multi — OR logic: competence must have at least one of selected tags)
-        if (tagVals.length > 0) {
-          const tags = Array.isArray(c.tags) ? c.tags : [];
-          if (!tagVals.some(tv => tags.some(ct => ct.toLowerCase() === tv.toLowerCase()))) return false;
+        if (tagSet.size > 0) {
+          const tags = c._tagsLower || (Array.isArray(c.tags) ? c.tags.map(t => t.toLowerCase()) : []);
+          let hasTag = false;
+          for (let i = 0; i < tags.length; i++) {
+            if (tagSet.has(tags[i])) { hasTag = true; break; }
+          }
+          if (!hasTag) return false;
         }
         // Status (multi — OR logic)
-        if (statusVals.length > 0) {
-          const matchStatus = statusVals.some(sv => {
-            if (sv === 'covered') return item.status !== 'untouched';
-            return item.status === sv;
-          });
+        if (statusSet.size > 0) {
+          const matchStatus = statusSet.has(item.status) || (statusSet.has('covered') && item.status !== 'untouched');
           if (!matchStatus) return false;
         }
-        if (search) {
-          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
-            ? CompetenceAggregatorService.getDetailedLines(c)
-            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
-          const dText = dLines.join(' ');
-          const hay = `${c.code} ${c.title} ${c.description} ${dText} ${c.tags ? c.tags.join(' ') : ''} ${c.category} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`.toLowerCase();
-          if (!hay.includes(search)) return false;
+        if (foldedSearch) {
+          if (!c._searchFolded) {
+            const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+              ? CompetenceAggregatorService.getDetailedLines(c)
+              : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+            const dText = dLines.join(' ');
+            const raw = `${c.code || ''} ${c.title || ''} ${c.description || ''} ${dText} ${Array.isArray(c.tags) ? c.tags.join(' ') : ''} ${c.category || ''} ${c.subCategory || ''} ${c.level || ''} ${c.yearLevel || ''} ${c.subjectId || ''} ${c._sourceDb || c.source || ''}`;
+            c._searchFolded = fold(raw);
+          }
+          if (!c._searchFolded.includes(foldedSearch)) return false;
         }
         return true;
       }
@@ -816,9 +928,9 @@
       });
 
       // Filter timeline
-      const filteredTimeline = _activePortfolio.timeline.filter(h => {
+      const filteredTimeline = _activePortfolio.timeline ? _activePortfolio.timeline.filter(h => {
         return matchesFilters({ competence: h.competence, status: 'assessed' });
-      });
+      }) : [];
 
       const emptyEl = document.getElementById('cp-empty-state');
       if (matchCount === 0) {
@@ -861,14 +973,10 @@
     // ── Render Accordion View ──────────────────────────────────────────
     function cpRenderAccordionView(categories) {
       const container = document.getElementById('cp-view-accordion-container');
-      container.innerHTML = '';
+      const catKeys = Object.keys(categories).sort();
+      const domainEntries = catKeys.map(cat => ({ cat, items: categories[cat] }));
 
-      Object.keys(categories).sort().forEach(cat => {
-        const items = categories[cat];
-        const coveredCount = items.filter(i => i.status !== 'untouched').length;
-        const totalCount = items.length;
-        const isFull = coveredCount === totalCount && totalCount > 0;
-
+      syncNodes(container, domainEntries, () => {
         const card = document.createElement('div');
         card.className = 'cp-domain-card open';
 
@@ -878,18 +986,52 @@
         header.innerHTML = `
           <div class="cp-domain-info">
             <span class="cp-domain-chevron">▶</span>
-            <span class="cp-domain-title">${cpEscapeHtml(cat)}</span>
+            <span class="cp-domain-title"></span>
           </div>
           <div class="cp-domain-stats">
-            <span class="cp-domain-badge ${isFull ? 'full' : ''}">${coveredCount} / ${totalCount} (${Math.round((coveredCount / totalCount) * 100)}%)</span>
+            <span class="cp-domain-badge"></span>
           </div>
         `;
         card.appendChild(header);
 
         const body = document.createElement('div');
         body.className = 'cp-domain-body';
+        card.appendChild(body);
+        return card;
+      }, (card, entry) => {
+        const titleEl = card.querySelector('.cp-domain-title');
+        if (titleEl) titleEl.textContent = entry.cat;
 
-        items.forEach(item => {
+        const coveredCount = entry.items.filter(i => i.status !== 'untouched').length;
+        const totalCount = entry.items.length;
+        const isFull = coveredCount === totalCount && totalCount > 0;
+        const badgeEl = card.querySelector('.cp-domain-badge');
+        if (badgeEl) {
+          badgeEl.className = `cp-domain-badge ${isFull ? 'full' : ''}`;
+          badgeEl.textContent = `${coveredCount} / ${totalCount} (${Math.round((coveredCount / totalCount) * 100)}%)`;
+        }
+
+        const body = card.querySelector('.cp-domain-body');
+        syncNodes(body, entry.items, () => {
+          const compCard = document.createElement('div');
+          compCard.className = 'cp-comp-card';
+          return compCard;
+        }, (compCard, item) => {
+          compCard.onclick = () => cpOpenDetailModal(item);
+          if (compCard._renderedItem === item && compCard._detailedDescState === _showDetailedDesc) {
+            return;
+          }
+          if (compCard._renderedItem === item && compCard._detailedDescState !== _showDetailedDesc) {
+            compCard._detailedDescState = _showDetailedDesc;
+            const box = compCard.querySelector('.cp-comp-detail-box');
+            if (box) box.style.display = _showDetailedDesc ? 'block' : 'none';
+            const btn = compCard.querySelector('.cp-detail-pill-btn');
+            if (btn) btn.classList.toggle('active', _showDetailedDesc);
+            return;
+          }
+          compCard._renderedItem = item;
+          compCard._detailedDescState = _showDetailedDesc;
+
           const comp = item.competence;
           const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
             ? CompetenceAggregatorService.getDetailedLines(comp)
@@ -897,10 +1039,6 @@
           const hasDetails = dLines.length > 0;
           const detailBoxDisplay = _showDetailedDesc ? 'block' : 'none';
           const detailBtnActive = _showDetailedDesc ? ' active' : '';
-
-          const compCard = document.createElement('div');
-          compCard.className = 'cp-comp-card';
-          compCard.onclick = () => cpOpenDetailModal(item);
 
           let statusClass = item.status;
           let statusLabel = item.status;
@@ -954,28 +1092,31 @@
               </div>
             </div>
           `;
-          body.appendChild(compCard);
         });
-
-        card.appendChild(body);
-        container.appendChild(card);
       });
     }
 
     // ── Render Timeline View ───────────────────────────────────────────
     function cpRenderTimelineView(timeline) {
       const list = document.getElementById('cp-timeline-list');
-      list.innerHTML = '';
 
       if (!timeline.length) {
         list.innerHTML = `<div class="cp-empty-state"><p>${typeof t === 'function' ? t('cpTimelineEmpty') : 'No activities recorded yet.'}</p></div>`;
         return;
       }
 
-      timeline.forEach(event => {
+      if (list.querySelector('.cp-empty-state')) {
+        list.innerHTML = '';
+      }
+
+      syncNodes(list, timeline, () => {
         const item = document.createElement('div');
+        return item;
+      }, (item, event) => {
         item.className = `cp-timeline-item ${event.tool}`;
-        
+        if (item._renderedEvent === event) return;
+        item._renderedEvent = event;
+
         let toolName = event.tool;
         if (event.tool === 'grade-sheet') toolName = 'Grade Sheet';
         else if (event.tool === 'lesson') toolName = 'Lesson Plan';
@@ -995,66 +1136,82 @@
             <strong>${cpEscapeHtml(event.title)}</strong> ${event.details ? `— ${cpEscapeHtml(event.details)}` : ''}
           </div>
         `;
-        list.appendChild(item);
       });
     }
 
     // ── Render Matrix Table View ───────────────────────────────────────
     function cpRenderTableView(categories) {
       const tbody = document.getElementById('cp-table-body');
-      tbody.innerHTML = '';
-
+      const allRows = [];
       Object.keys(categories).sort().forEach(cat => {
         categories[cat].forEach(item => {
-          const c = item.competence;
-          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
-            ? CompetenceAggregatorService.getDetailedLines(c)
-            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
-          const hasDetails = dLines.length > 0;
-          const detailListDisplay = _showDetailedDesc ? 'block' : 'none';
-
-          const tr = document.createElement('tr');
-          tr.style.cursor = 'pointer';
-          tr.onclick = () => cpOpenDetailModal(item);
-
-          const tagsHtml = Array.isArray(c.tags) && c.tags.length 
-            ? c.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join(' ') 
-            : '—';
-
-          const detailTableHtml = hasDetails
-            ? `<div style="margin-top:4px;">
-                <button type="button" class="cp-detail-pill-btn${_showDetailedDesc ? ' active' : ''}" onclick="event.stopPropagation(); cpToggleCardDetails(this)" style="font-size:0.68rem;padding:1px 6px;">
-                  <img src="../assets/icons/file-text.svg" alt="" style="width:10px;height:10px;" />
-                  <span>${dLines.length} ${typeof t === 'function' ? t('cpDetailsCount', '{n} details').replace('{n}', dLines.length) : (dLines.length + ' details')}</span>
-                </button>
-                <ul class="cp-table-detail-list" style="display:${detailListDisplay};">
-                  ${dLines.map(l => `<li>${cpEscapeHtml(l)}</li>`).join('')}
-                </ul>
-              </div>`
-            : '';
-
-          tr.innerHTML = `
-            <td><span class="cp-comp-code">${cpEscapeHtml(c.code)}</span></td>
-            <td>
-              <strong>${cpEscapeHtml(c.title)}</strong>
-              ${c.description ? `<div class="cp-table-desc">${cpEscapeHtml(c.description)}</div>` : ''}
-              ${detailTableHtml}
-            </td>
-            <td>${cpEscapeHtml(c.category || '')}</td>
-            <td>${cpEscapeHtml(c.subCategory || '—')}</td>
-            <td>${cpEscapeHtml(c.yearLevel || '—')}</td>
-            <td>${c.level ? `<span class="cp-comp-level-badge">${cpEscapeHtml(c.level)}</span>` : '—'}</td>
-            <td>${cpEscapeHtml(c.subjectId || '—')}</td>
-            <td><span class="cp-comp-source-badge">${cpEscapeHtml(c._sourceDb || c.source || '—')}</span></td>
-            <td>${tagsHtml}</td>
-            <td style="text-align:center;">${item.plannedCount || '—'}</td>
-            <td style="text-align:center;">${item.deliveredCount || '—'}</td>
-            <td style="text-align:center;">${item.assessedCount || '—'}</td>
-            <td style="text-align:center;">${item.averageScorePct !== null ? `<strong>${item.averageScorePct}%</strong>` : '—'}</td>
-            <td><span class="cp-comp-status-pill ${item.status}">${item.status}</span></td>
-          `;
-          tbody.appendChild(tr);
+          allRows.push(item);
         });
+      });
+
+      syncNodes(tbody, allRows, () => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        return tr;
+      }, (tr, item) => {
+        tr.onclick = () => cpOpenDetailModal(item);
+        if (tr._renderedItem === item && tr._detailedDescState === _showDetailedDesc) {
+          return;
+        }
+        if (tr._renderedItem === item && tr._detailedDescState !== _showDetailedDesc) {
+          tr._detailedDescState = _showDetailedDesc;
+          const box = tr.querySelector('.cp-table-detail-list');
+          if (box) box.style.display = _showDetailedDesc ? 'block' : 'none';
+          const btn = tr.querySelector('.cp-detail-pill-btn');
+          if (btn) btn.classList.toggle('active', _showDetailedDesc);
+          return;
+        }
+        tr._renderedItem = item;
+        tr._detailedDescState = _showDetailedDesc;
+
+        const c = item.competence;
+        const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+          ? CompetenceAggregatorService.getDetailedLines(c)
+          : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+        const hasDetails = dLines.length > 0;
+        const detailListDisplay = _showDetailedDesc ? 'block' : 'none';
+
+        const tagsHtml = Array.isArray(c.tags) && c.tags.length 
+          ? c.tags.map(t => `<span class="cp-comp-tag-pill">${cpEscapeHtml(t)}</span>`).join(' ') 
+          : '—';
+
+        const detailTableHtml = hasDetails
+          ? `<div style="margin-top:4px;">
+              <button type="button" class="cp-detail-pill-btn${_showDetailedDesc ? ' active' : ''}" onclick="event.stopPropagation(); cpToggleCardDetails(this)" style="font-size:0.68rem;padding:1px 6px;">
+                <img src="../assets/icons/file-text.svg" alt="" style="width:10px;height:10px;" />
+                <span>${dLines.length} ${typeof t === 'function' ? t('cpDetailsCount', '{n} details').replace('{n}', dLines.length) : (dLines.length + ' details')}</span>
+              </button>
+              <ul class="cp-table-detail-list" style="display:${detailListDisplay};">
+                ${dLines.map(l => `<li>${cpEscapeHtml(l)}</li>`).join('')}
+              </ul>
+            </div>`
+          : '';
+
+        tr.innerHTML = `
+          <td><span class="cp-comp-code">${cpEscapeHtml(c.code)}</span></td>
+          <td>
+            <strong>${cpEscapeHtml(c.title)}</strong>
+            ${c.description ? `<div class="cp-table-desc">${cpEscapeHtml(c.description)}</div>` : ''}
+            ${detailTableHtml}
+          </td>
+          <td>${cpEscapeHtml(c.category || '')}</td>
+          <td>${cpEscapeHtml(c.subCategory || '—')}</td>
+          <td>${cpEscapeHtml(c.yearLevel || '—')}</td>
+          <td>${c.level ? `<span class="cp-comp-level-badge">${cpEscapeHtml(c.level)}</span>` : '—'}</td>
+          <td>${cpEscapeHtml(c.subjectId || '—')}</td>
+          <td><span class="cp-comp-source-badge">${cpEscapeHtml(c._sourceDb || c.source || '—')}</span></td>
+          <td>${tagsHtml}</td>
+          <td style="text-align:center;">${item.plannedCount || '—'}</td>
+          <td style="text-align:center;">${item.deliveredCount || '—'}</td>
+          <td style="text-align:center;">${item.assessedCount || '—'}</td>
+          <td style="text-align:center;">${item.averageScorePct !== null ? `<strong>${item.averageScorePct}%</strong>` : '—'}</td>
+          <td><span class="cp-comp-status-pill ${item.status}">${item.status}</span></td>
+        `;
       });
     }
 
