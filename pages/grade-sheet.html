@@ -2060,6 +2060,8 @@
     <hr class="menu-sep">
     <button id="test-header-menu-print-test" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuPrintTestResults"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print test results</button>
     <button id="test-header-menu-print-sem" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuPrintSemGrades"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print semester grades</button>
+    <hr class="menu-sep">
+    <button id="test-header-menu-delete" class="menu-item danger" type="button" role="menuitem" data-i18n="gsOptionDeleteTest"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete Test</button>
   </div>
 
   <div id="all-test-item-menu" class="row-context-menu hidden" role="menu" aria-label="Test item menu" data-i18n-aria="gsAriaTestItemMenu">
@@ -10383,6 +10385,43 @@
       }
     }
 
+    const _lastSavedClassMetaJson = new Map();
+    const _lastSavedTestDataJson = new Map();
+
+    function _serializeClassMetaCore(cls) {
+      return JSON.stringify({
+        classId: cls.id,
+        groupId: cls.groupId || undefined,
+        className: cls.name,
+        classYear: cls.year,
+        classSemester: cls.semester,
+        classLevel: cls.level,
+        classCreatedAt: cls.createdAt,
+        criteriaBank: cls.criteriaBank || (Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks[0] : 'correction-criteria.js'),
+        criteriaBanks: Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks : (cls.criteriaBank ? [cls.criteriaBank] : ['correction-criteria.js']),
+        testCounts: cls.testCounts || { sem1: 0, sem2: 0 },
+        students: (cls.students || []).map(s => ({
+          id: s.id,
+          index: s.index,
+          firstName: s.firstName,
+          lastName: s.lastName,
+          customName: s.customName || '',
+          comments: s.comments
+        }))
+      });
+    }
+
+    function _serializeTestDataCore(cls, sem, i, cfg, results) {
+      return JSON.stringify({
+        classId: cls.id,
+        className: cls.name || '',
+        semester: sem,
+        testIndex: i,
+        testConfig: cfg || createDefaultTestConfig(),
+        results: results
+      });
+    }
+
     async function saveGradesStructured(targetClassId = null, targetSem = null, targetTestIndex = null) {
       const now = Date.now();
       const classesToSave = targetClassId
@@ -10392,30 +10431,19 @@
       for (const cls of classesToSave) {
         const subdir = cls.id;
         const classSlug = slugifyForPath(cls.name);
-        const classMeta = {
-          _savedAt: now,
-          classId: cls.id,
-          groupId: cls.groupId || undefined,
-          className: cls.name,
-          classYear: cls.year,
-          classSemester: cls.semester,
-          classLevel: cls.level,
-          classCreatedAt: cls.createdAt,
-          criteriaBank: cls.criteriaBank || (Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks[0] : 'correction-criteria.js'),
-          criteriaBanks: Array.isArray(cls.criteriaBanks) && cls.criteriaBanks.length ? cls.criteriaBanks : (cls.criteriaBank ? [cls.criteriaBank] : ['correction-criteria.js']),
-          testCounts: cls.testCounts || { sem1: 0, sem2: 0 },
-          students: cls.students.map(s => ({
-            id: s.id,
-            index: s.index,
-            firstName: s.firstName,
-            lastName: s.lastName,
-            customName: s.customName || '',
-            comments: s.comments
-          }))
-        };
-        await Desktop.saveText('grades', '_class.js',
-          `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
-          subdir);
+
+        const currentMetaJson = _serializeClassMetaCore(cls);
+        if (_lastSavedClassMetaJson.get(cls.id) !== currentMetaJson) {
+          _lastSavedClassMetaJson.set(cls.id, currentMetaJson);
+          cls._savedAt = now;
+          const classMeta = {
+            _savedAt: now,
+            ...JSON.parse(currentMetaJson)
+          };
+          await Desktop.saveText('grades', '_class.js',
+            `// _savedAt: ${now}\nwindow.GRADE_CLASS = ${JSON.stringify(classMeta, null, 2)};`,
+            subdir);
+        }
 
         const semsToSave = targetSem ? [targetSem] : ['sem1', 'sem2'];
         for (const sem of semsToSave) {
@@ -10427,6 +10455,7 @@
           for (const i of indicesToSave) {
             const cfg = configs[i];
             const testLabel = `${sem}-test-${String(i + 1).padStart(2, '0')}`;
+            const testKey = `${subdir}/${testLabel}`;
             const hasScore = cls.students.some(s => {
               const tests = sem === 'sem1' ? s.sem1Tests : s.sem2Tests;
               return Array.isArray(tests) && tests[i] != null;
@@ -10434,7 +10463,10 @@
             const hasCfg = cfg && (cfg.testName || cfg.testDate || cfg.type || cfg.scope ||
               (Array.isArray(cfg.criteria) && cfg.criteria.length > 0));
             if (!hasScore && !hasCfg) {
-              Desktop.deleteByPath('grades', `${subdir}/${testLabel}.js`).catch(() => {});
+              if (_lastSavedTestDataJson.has(testKey)) {
+                _lastSavedTestDataJson.delete(testKey);
+                Desktop.deleteByPath('grades', `${subdir}/${testLabel}.js`).catch(() => {});
+              }
               continue;
             }
 
@@ -10453,18 +10485,18 @@
                 gradeOverride: !!((Array.isArray(overrides) ? overrides[i] : null) ?? false)
               };
             });
-            const testData = {
-              _savedAt: now,
-              classId: cls.id,
-              className: cls.name || '',
-              semester: sem,
-              testIndex: i,
-              testConfig: cfg || createDefaultTestConfig(),
-              results
-            };
-            await Desktop.saveText('grades', `${testLabel}.js`,
-              `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
-              subdir);
+
+            const currentTestJson = _serializeTestDataCore(cls, sem, i, cfg, results);
+            if (_lastSavedTestDataJson.get(testKey) !== currentTestJson) {
+              _lastSavedTestDataJson.set(testKey, currentTestJson);
+              const testData = {
+                _savedAt: now,
+                ...JSON.parse(currentTestJson)
+              };
+              await Desktop.saveText('grades', `${testLabel}.js`,
+                `// _savedAt: ${now}\nwindow.GRADE_TEST_DATA = ${JSON.stringify(testData, null, 2)};`,
+                subdir);
+            }
           }
         }
 
@@ -10497,7 +10529,11 @@
       const classFiles = listResult.files.filter(f => f.filename === '_class.js');
       if (!classFiles.length) return null;
 
+      _lastSavedClassMetaJson.clear();
+      _lastSavedTestDataJson.clear();
+
       const classMap = new Map(); // classId -> class structure
+      const foundMaxTestIndex = new Map(); // classId -> { sem1: -1, sem2: -1 }
 
       for (const cf of classFiles) {
         try {
@@ -10518,7 +10554,7 @@
             createdAt: meta.classCreatedAt || new Date().toISOString(),
             criteriaBank: meta.criteriaBank || (Array.isArray(meta.criteriaBanks) && meta.criteriaBanks.length ? meta.criteriaBanks[0] : 'correction-criteria.js'),
             criteriaBanks: Array.isArray(meta.criteriaBanks) && meta.criteriaBanks.length ? meta.criteriaBanks : (meta.criteriaBank ? [meta.criteriaBank] : ['correction-criteria.js']),
-            testCounts: meta.testCounts || { sem1: 0, sem2: 0 },
+            testCounts: { sem1: 0, sem2: 0 },
             students: (meta.students || []).map((s, idx) => ({
               id: s.id || uid(),
               index: s.index || idx + 1,
@@ -10548,6 +10584,7 @@
             testConfigs: createDefaultTestConfigs()
           };
           classMap.set(meta.classId, cls);
+          foundMaxTestIndex.set(meta.classId, { sem1: -1, sem2: -1 });
         } catch (err) {
           console.warn('loadGradesStructured: failed to read _class.js', cf.relativePath, err);
         }
@@ -10573,7 +10610,12 @@
           const idx = testData.testIndex;
           if (sem !== 'sem1' && sem !== 'sem2') continue;
           if (typeof idx !== 'number' || idx < 0 || idx >= TEST_COUNT_PER_SEM) continue;
-          cls.testCounts[sem] = Math.max(cls.testCounts[sem] || 0, idx + 1);
+
+          const maxIdxObj = foundMaxTestIndex.get(cls.id);
+          if (maxIdxObj) {
+            maxIdxObj[sem] = Math.max(maxIdxObj[sem], idx);
+          }
+
           if (testData.testConfig) {
             cls.testConfigs[sem][idx] = testData.testConfig;
           }
@@ -10597,6 +10639,42 @@
           }
         } catch (err) {
           console.warn('loadGradesStructured: failed to read test file', tf.relativePath, err);
+        }
+      }
+
+      // Finalize testCounts and initialize snapshot caches based on actual files read from disk
+      for (const cls of classMap.values()) {
+        const maxIdxObj = foundMaxTestIndex.get(cls.id);
+        cls.testCounts = {
+          sem1: maxIdxObj && maxIdxObj.sem1 >= 0 ? maxIdxObj.sem1 + 1 : 0,
+          sem2: maxIdxObj && maxIdxObj.sem2 >= 0 ? maxIdxObj.sem2 + 1 : 0
+        };
+
+        _lastSavedClassMetaJson.set(cls.id, _serializeClassMetaCore(cls));
+
+        for (const sem of ['sem1', 'sem2']) {
+          const cnt = cls.testCounts[sem] || 0;
+          for (let i = 0; i < cnt; i++) {
+            const cfg = (cls.testConfigs && cls.testConfigs[sem]) ? cls.testConfigs[sem][i] : null;
+            const testLabel = `${sem}-test-${String(i + 1).padStart(2, '0')}`;
+            const testKey = `${cls.id}/${testLabel}`;
+            const results = cls.students.map(s => {
+              const tests = sem === 'sem1' ? s.sem1Tests : s.sem2Tests;
+              const notes = s.testNotes ? (sem === 'sem1' ? s.testNotes.sem1 : s.testNotes.sem2) : [];
+              const criteria = s.criteriaResults ? (sem === 'sem1' ? s.criteriaResults.sem1 : s.criteriaResults.sem2) : [];
+              const corrTimes = s.correctionTime ? (sem === 'sem1' ? s.correctionTime.sem1 : s.correctionTime.sem2) : [];
+              const overrides = s.gradeOverrides ? (sem === 'sem1' ? s.gradeOverrides.sem1 : s.gradeOverrides.sem2) : [];
+              return {
+                studentId: s.id,
+                score: (Array.isArray(tests) ? tests[i] : null) ?? null,
+                testNotes: (Array.isArray(notes) ? notes[i] : null) || [],
+                criteriaResults: (Array.isArray(criteria) ? criteria[i] : null) || {},
+                correctionTime: (Array.isArray(corrTimes) ? corrTimes[i] : null) ?? null,
+                gradeOverride: !!((Array.isArray(overrides) ? overrides[i] : null) ?? false)
+              };
+            });
+            _lastSavedTestDataJson.set(testKey, _serializeTestDataCore(cls, sem, i, cfg, results));
+          }
         }
       }
 
@@ -22448,11 +22526,26 @@
                   : (classObj.semester === '2' ? 'sem2' : 'sem1');
 
                 const configs = classObj.testConfigs[sem] || [];
-                let testIdx = (te.gsLink && typeof te.gsLink.testIndex === 'number' && te.gsLink.testIndex >= 0 && te.gsLink.testIndex < TEST_COUNT_PER_SEM)
-                  ? te.gsLink.testIndex
-                  : configs.findIndex(cfg => cfg && cfg.testDate === te.date);
+                const currentCount = classObj.testCounts[sem] || 0;
 
-                if (testIdx < 0) {
+                // Match existing test by date and topic first
+                const sameDateIdx = configs.findIndex((cfg, idx) =>
+                  idx < currentCount && cfg && cfg.testDate === te.date
+                );
+
+                let testIdx = -1;
+                if (sameDateIdx >= 0 && (!configs[sameDateIdx].testName || !te.topic || configs[sameDateIdx].testName === te.topic)) {
+                  // Prefer existing test slot on same date/topic to prevent duplicate tests
+                  testIdx = sameDateIdx;
+                  if (te.gsLink && typeof te.gsLink === 'object') te.gsLink.testIndex = testIdx;
+                } else if (te.gsLink && typeof te.gsLink.testIndex === 'number' && te.gsLink.testIndex >= 0 && te.gsLink.testIndex < currentCount) {
+                  testIdx = te.gsLink.testIndex;
+                } else if (sameDateIdx >= 0) {
+                  testIdx = sameDateIdx;
+                  if (te.gsLink && typeof te.gsLink === 'object') te.gsLink.testIndex = testIdx;
+                } else if (te.gsLink && typeof te.gsLink.testIndex === 'number' && te.gsLink.testIndex >= 0 && te.gsLink.testIndex < TEST_COUNT_PER_SEM) {
+                  testIdx = te.gsLink.testIndex;
+                } else {
                   for (let i = 0; i < TEST_COUNT_PER_SEM; i++) {
                     const cfg = configs[i];
                     const isOccupied = cfg && (cfg.testDate || cfg.testName || (Array.isArray(cfg.criteria) && cfg.criteria.length));
@@ -22713,16 +22806,97 @@
       showScreen("classes");
     }
 
+    async function unlinkTestFromPlanner(classObj, sem, ti) {
+      if (!classObj || !window.Desktop || !Desktop.isElectron || !Desktop.isElectron() || typeof Desktop.readByPath !== 'function') return;
+      try {
+        const plannerClassId = classObj.groupId || classObj.id;
+        const candidates = [plannerClassId, classObj.id, slugifyForPath(classObj.name), '__unassigned'].filter(Boolean);
+        const checkedFiles = new Set();
+
+        for (const cid of candidates) {
+          const fn = cid + '.js';
+          if (checkedFiles.has(fn)) continue;
+          checkedFiles.add(fn);
+
+          const res = await Desktop.readByPath('user', 'planner/' + fn);
+          if (!res || !res.content) continue;
+
+          let list = null;
+          let allByClass = null;
+          try {
+            const fake = {};
+            new Function('window', res.content)(fake);
+            allByClass = fake.PLANNER_ENTRIES_BY_CLASS || {};
+            list = (allByClass[cid] || []).slice();
+          } catch (_) { continue; }
+
+          if (!Array.isArray(list) || !list.length) continue;
+
+          let changed = false;
+          const newList = [];
+
+          for (const e of list) {
+            if (!e) continue;
+
+            // 1. Correction deadline entries
+            if (e.isCorrectionDeadline && e._gradeRef &&
+                (e._gradeRef.classId === classObj.id || e._gradeRef.classId === classObj.groupId) &&
+                e._gradeRef.semester === sem) {
+              if (e._gradeRef.testIndex === ti) {
+                changed = true;
+                continue; // drop this deadline entry
+              } else if (e._gradeRef.testIndex > ti) {
+                e._gradeRef.testIndex--;
+                changed = true;
+              }
+            }
+
+            // 2. Test entries linked to Grade Sheet
+            if (e.gsLink &&
+                (e.gsLink.classId === classObj.id || e.gsLink.classId === classObj.groupId || e.gsLink.classSlug === slugifyForPath(classObj.name)) &&
+                e.gsLink.semester === sem) {
+              if (e.gsLink.testIndex === ti) {
+                changed = true;
+                if (e.id && String(e.id).startsWith('gs-')) {
+                  continue; // drop GS-created entry
+                } else {
+                  e.gsLink = null; // unlink user-created planner entry
+                }
+              } else if (e.gsLink.testIndex > ti) {
+                e.gsLink.testIndex--;
+                changed = true;
+              }
+            }
+
+            newList.push(e);
+          }
+
+          if (changed) {
+            allByClass[cid] = newList;
+            const content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+              'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(cid) + '] = ' +
+              JSON.stringify(newList, null, 2) + ';\n';
+            await Desktop.saveText('user', fn, content, 'planner');
+          }
+        }
+      } catch (err) {
+        console.warn('unlinkTestFromPlanner error:', err);
+      }
+    }
+
     async function deleteTest(classObj, sem, ti) {
       if (!classObj || !sem || ti == null) return false;
       ensureClassStructures(classObj);
       if (!(await showConfirm(tFmt('gsConfirmDeleteTest', { n: ti + 1, sem: sem.toUpperCase() })))) return false;
 
-      // Shift testConfigs left from ti
+      // 1. Unlink & shift linked entries in planner
+      await unlinkTestFromPlanner(classObj, sem, ti);
+
+      // 2. Shift testConfigs left from ti
       classObj.testConfigs[sem].splice(ti, 1);
       classObj.testConfigs[sem].push(createDefaultTestConfig());
 
-      // Shift student arrays left from ti
+      // 3. Shift student arrays left from ti
       classObj.students.forEach(student => {
         const arr = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
         arr.splice(ti, 1);
@@ -22746,11 +22920,29 @@
         }
       });
 
-      classObj.testCounts[sem] = Math.max(0, classObj.testCounts[sem] - 1);
+      const oldTestCount = classObj.testCounts[sem] || 0;
+      classObj.testCounts[sem] = Math.max(0, oldTestCount - 1);
       if (appState.activeTest && appState.activeClassId === classObj.id && appState.activeTest.semester === sem && appState.activeTest.testIndex === ti) {
         appState.activeTest = null;
       }
-      saveState();
+
+      // 4. Delete the shifted-off / excess test file from disk immediately
+      if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.deleteByPath === 'function') {
+        for (let k = classObj.testCounts[sem]; k < TEST_COUNT_PER_SEM; k++) {
+          const deadLabel = `${sem}-test-${String(k + 1).padStart(2, '0')}.js`;
+          Desktop.deleteByPath('grades', `${classObj.id}/${deadLabel}`).catch(() => {});
+          Desktop.deleteByPath('grades', `${slugifyForPath(classObj.name)}/${deadLabel}`).catch(() => {});
+          _lastSavedTestDataJson.delete(`${classObj.id}/${sem}-test-${String(k + 1).padStart(2, '0')}`);
+          _lastSavedTestDataJson.delete(`${slugifyForPath(classObj.name)}/${sem}-test-${String(k + 1).padStart(2, '0')}`);
+        }
+      }
+
+      // 5. Persist the updated class and shifted tests
+      saveState(classObj.id, sem);
+
+      // 6. Refresh all views immediately
+      renderClasses();
+      renderAllTests();
       renderSummary();
       if (appState.currentScreen === "test") {
         if (appState.activeTest == null) {
@@ -22758,6 +22950,10 @@
         } else {
           renderTestSheet();
         }
+      }
+
+      if (typeof showToast === 'function') {
+        showToast(t('gsToastTestDeleted') || 'Test deleted successfully.');
       }
       return true;
     }
@@ -23530,6 +23726,12 @@
         closeAllContextMenus();
         if (!ctx) return;
         printSemesterGrades(ctx.classObj, ctx.sem);
+      });
+      document.getElementById("test-header-menu-delete")?.addEventListener("click", () => {
+        const ctx = _testHeaderMenuCtx;
+        closeAllContextMenus();
+        if (!ctx || !ctx.classObj) return;
+        deleteTest(ctx.classObj, ctx.sem, ctx.testIndex);
       });
 
       // ── all-test-item-menu ────────────────────────────────────────
