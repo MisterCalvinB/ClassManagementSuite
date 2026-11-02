@@ -305,13 +305,13 @@
             const p = pad != null ? pad : (dr.pad || 12);
             if (dr.el) { dr.el.style.left = (dr.x - p) + 'px'; dr.el.style.top = (dr.y - p) + 'px'; }
           });
+          if (window.conRedrawEdges) window.conRedrawEdges();
           // Move co-selected nodes
           if (_dragNodeSnaps.length > 0) {
             _dragNodeSnaps.forEach(({ nd, sx, sy }) => {
               nd.x = sx + dx; nd.y = sy + dy;
               nd.el.style.left = nd.x + 'px'; nd.el.style.top = nd.y + 'px';
             });
-            if (window.conRedrawEdges) window.conRedrawEdges();
             if (window.conGroupRefitAll) window.conGroupRefitAll();
           }
           // Move co-selected notes
@@ -452,6 +452,7 @@
               });
             }
             if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+            if (window.conRedrawEdges) window.conRedrawEdges();
           } else if (!_hasActuallyMoved && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
             const _totalOther = (conDrawingSelected.size > 1 ? conDrawingSelected.size - 1 : 0) + _dragNodeSnaps.length + _dragNoteSnaps.length + _dragShapeSnaps.length + _dragTableSnaps.length + _dragMediaSnaps.length;
             if (_totalOther > 0) {
@@ -504,6 +505,7 @@
           d.y = startY + (e.clientY - dsy);
           el.style.left = (d.x - d.pad) + 'px';
           el.style.top = (d.y - d.pad) + 'px';
+          if (window.conRedrawEdges) window.conRedrawEdges();
           if (window._conMirrorSend) {
             if (!_pDrawRaf) {
               _pDrawRaf = requestAnimationFrame(function () {
@@ -529,6 +531,7 @@
           }
           if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
           if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+          if (window.conRedrawEdges) window.conRedrawEdges();
           pDragging = false;
           setTimeout(() => {
             window._conMirrorDragging = false;
@@ -606,6 +609,7 @@
             d.points = snap.points.map(p => p === null ? null : { x: p.x * sx, y: p.y * sy });
             _conDrawingUpdateGeom(d);
             _conDrawingUpdateHandles(d);
+            if (window.conRedrawEdges) window.conRedrawEdges();
             if (window._conMirrorSend) {
               if (!_drawResizeRaf) {
                 _drawResizeRaf = requestAnimationFrame(function () {
@@ -633,6 +637,7 @@
                 points: d.points
               });
             }
+            if (window.conRedrawEdges) window.conRedrawEdges();
             conPushUndo();
           }
           document.addEventListener('mousemove', onMove);
@@ -823,7 +828,21 @@
               }
             });
           }
+          // 4. Remove connected edges in-place
+          const _edgeList = (typeof window.conGetEdges === 'function') ? window.conGetEdges() : ((typeof conEdges !== 'undefined' && Array.isArray(conEdges)) ? conEdges : (window.conEdges || []));
+          for (let i = _edgeList.length - 1; i >= 0; i--) {
+            const e = _edgeList[i];
+            if (e && (String(e.a) === id || String(e.b) === id)) {
+              if (e.g && typeof e.g.remove === 'function') e.g.remove();
+              _edgeList.splice(i, 1);
+              if (window._conSelectedEdgeId === e.id) window._conSelectedEdgeId = null;
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+              }
+            }
+          }
         });
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
 
         // Mutate drawing arrays in-place so all module references remain synchronized
         const delSet = new Set(toDelete);
@@ -854,6 +873,15 @@
         return true;
       }
       window.conDrawingDeleteSelected = global.conDrawingDeleteSelected = conDrawingDeleteSelected;
+
+      window.conDrawingCtxLink = function () {
+        const did = _conDrawCtxId || (typeof conDrawingSelected !== 'undefined' && conDrawingSelected ? [...conDrawingSelected][0] : null);
+        if (did) {
+          if (typeof window.conDrawingCtxClose === 'function') window.conDrawingCtxClose();
+          if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(did);
+        }
+      };
+      global.conDrawingCtxLink = window.conDrawingCtxLink;
 
       window.conDrawingCtxDelete = function () {
         if (!_conDrawCtxId && (!conDrawingSelected || conDrawingSelected.size === 0)) return;

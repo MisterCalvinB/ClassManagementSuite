@@ -1433,6 +1433,7 @@
             if (typeof d.x === 'number') mObj.x = d.x;
             if (typeof d.y === 'number') mObj.y = d.y;
           }
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
           return;
         }
 
@@ -1453,6 +1454,7 @@
             if (typeof d.w === 'number') mObj.w = d.w;
             if (typeof d.h === 'number') mObj.h = d.h;
           }
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
           return;
         }
 
@@ -1661,6 +1663,7 @@
               dObj.y = p.y;
             }
           });
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
           return;
         }
 
@@ -1848,19 +1851,24 @@
         if (d.type === 'link-mode-start') {
           var _lmBrd = document.getElementById('constellation-board');
           if (_lmBrd) _lmBrd.classList.add('con-linking');
-          // Apply con-link-src to the source node element in-place
-          var _lmNodes = window.conGetNodes ? window.conGetNodes() : [];
-          _lmNodes.forEach(function (n) { if (n.el) n.el.classList.remove('con-link-src'); });
-          var _lmSrc = _lmNodes.find(function (n) { return String(n.id) === String(d.srcId); });
-          if (_lmSrc && _lmSrc.el) _lmSrc.el.classList.add('con-link-src');
+          document.querySelectorAll('#constellation-board .con-link-src, .con-link-src').forEach(function (el) { el.classList.remove('con-link-src'); });
+          var anchor = (typeof conResolveLinkAnchor === 'function') ? conResolveLinkAnchor(d.srcId) : null;
+          if (anchor && anchor.el) {
+            anchor.el.classList.add('con-link-src');
+          } else {
+            try {
+              var esc = (typeof CSS !== 'undefined' && CSS.escape) ? CSS.escape(d.srcId) : d.srcId;
+              var el = document.querySelector('#constellation-board .con-node#' + esc + ', #constellation-board .con-word-note[data-id="' + esc + '"], #constellation-board .con-drawing[data-did="' + esc + '"], #constellation-board .con-media-item[data-id="' + esc + '"], #constellation-board .con-group[data-gid="' + esc + '"]');
+              if (el) el.classList.add('con-link-src');
+            } catch (_) { }
+          }
           return;
         }
 
         if (d.type === 'link-mode-cancel') {
           var _lcBrd = document.getElementById('constellation-board');
           if (_lcBrd) _lcBrd.classList.remove('con-linking');
-          var _lcNodes = window.conGetNodes ? window.conGetNodes() : [];
-          _lcNodes.forEach(function (n) { if (n.el) n.el.classList.remove('con-link-src'); });
+          document.querySelectorAll('#constellation-board .con-link-src, .con-link-src').forEach(function (el) { el.classList.remove('con-link-src'); });
           return;
         }
 
@@ -2105,11 +2113,16 @@
             }
             if (typeof d.baseWidth === 'number') noteObj.liveBaseWidth = d.baseWidth;
             if (typeof d.baseHeight === 'number') noteObj.liveBaseHeight = d.baseHeight;
+            if (typeof d.fontSize === 'number' && d.fontSize > 0) noteObj.fontSize = d.fontSize;
           }
           var nel = document.querySelector('#constellation-board .con-word-note[data-id="' + d.id + '"]') || document.querySelector('.con-word-note[data-id="' + d.id + '"]');
           if (nel) {
             var ta = nel.querySelector('.wn-note-editor, textarea');
             var zoom = (window.conGetZoom ? window.conGetZoom() : 1);
+            if (typeof d.fontSize === 'number' && d.fontSize > 0) {
+              nel.style.fontSize = (d.fontSize * zoom) + 'px';
+              if (ta) ta.style.fontSize = (d.fontSize * zoom) + 'px';
+            }
             var applyFn = (typeof wnApplyStoredSize === 'function') ? wnApplyStoredSize : (window.wnApplyStoredSize || null);
             var nData = noteObj || { width: d.width, height: d.height, liveBaseWidth: d.baseWidth || d.width, liveBaseHeight: d.baseHeight || d.height, manualSize: (d.manualSize !== undefined ? d.manualSize : true) };
             if (applyFn && ta && nData.manualSize) {
@@ -2126,7 +2139,7 @@
                 if (ta) {
                   ta.style.width = '100%';
                   ta.style.height = Math.max(16, (h - 12) * z) + 'px';
-                  ta.style.overflowY = 'auto';
+                  ta.style.overflowY = (nData && nData.lockRatio) ? 'hidden' : 'auto';
                 }
               }
             }
@@ -2402,6 +2415,7 @@
               window._conDrawingUpdateGeom(fallbackDr);
             }
           }
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
           return;
         }
 

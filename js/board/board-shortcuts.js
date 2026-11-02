@@ -583,7 +583,7 @@
         }
       } },
       { id: 'mode_laser', name: 'Toggle Laser Pointer', desc: 'Toggle interactive laser pointer', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/laser.svg', defaultShortcut: null, fn: () => { if (typeof window.laserToggle === 'function') window.laserToggle(); else if (typeof window.setBoardMode === 'function') window.setBoardMode('laser'); else if (typeof setBoardMode === 'function') setBoardMode('laser'); } },
-      { id: 'mode_link', name: 'Link / Connect Nodes', desc: 'Connect selected node or note to another', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/zap.svg', defaultShortcut: { ctrl: true, key: 'j' }, fn: () => {
+      { id: 'mode_link', name: 'Link / Connect Objects', desc: 'Connect selected node, note, drawing, or picture to another', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/zap.svg', defaultShortcut: { ctrl: true, key: 'j' }, fn: () => {
         if (typeof window.conTriggerLinkShortcut === 'function') window.conTriggerLinkShortcut();
       } },
       { id: 'tool_eraser', name: 'Toggle Drawing Eraser', desc: 'Toggle drawing eraser mode', category: 'modes', categoryName: 'Modes & Tools', icon: '../assets/icons/eraser.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleEraserMode === 'function') window.conToggleEraserMode(); else if (typeof conToggleEraserMode === 'function') conToggleEraserMode(); } },
@@ -1547,7 +1547,11 @@
       const labelBgEl = document.getElementById('bc-link-label-bg');
       const labelSizeEl = document.getElementById('bc-link-label-size');
 
-      const thickness = Math.max(1, Math.min(20, parseFloat(thickEl ? thickEl.value : 2) || 2));
+      const thickUnit = document.getElementById('bc-link-stroke-thickness-unit')?.value || 'px';
+      const rawThick = parseFloat(thickEl ? thickEl.value : 2) || 2;
+      const thicknessPx = (typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(rawThick, thickUnit) : rawThick;
+      const thickness = Math.max(1, Math.min(20, thicknessPx));
+
       const strokeType = typeEl ? typeEl.value : 'solid';
       const routing = routingEl ? routingEl.value : 'straight';
       const dir = dirEl ? dirEl.value : 'none';
@@ -1556,7 +1560,11 @@
       const opacity = opEl ? (Math.max(10, Math.min(100, parseInt(opEl.value, 10) || 100)) / 100) : 1;
       const animated = animEl ? !!animEl.checked : false;
       const labelBg = labelBgEl ? !!labelBgEl.checked : false;
-      const labelSize = labelSizeEl ? Math.max(8, Math.min(36, parseInt(labelSizeEl.value, 10) || 16)) : 16;
+
+      const labelUnit = document.getElementById('bc-link-label-size-unit')?.value || 'px';
+      const rawLabelSize = parseFloat(labelSizeEl ? labelSizeEl.value : 16) || 16;
+      const labelSizePx = (typeof conFontUnitToPx === 'function') ? conFontUnitToPx(rawLabelSize, labelUnit) : rawLabelSize;
+      const labelSize = Math.max(8, Math.min(36, labelSizePx));
 
       const x1 = 34, y1 = (routing === 'orthogonal' ? 27 : 21);
       const x2 = 286, y2 = (routing === 'orthogonal' ? 15 : 21);
@@ -1654,9 +1662,9 @@
 
     function _bcBindLinkPreviewListeners() {
       const ids = [
-        'bc-link-stroke-thickness', 'bc-link-stroke-type', 'bc-link-routing',
+        'bc-link-stroke-thickness', 'bc-link-stroke-thickness-unit', 'bc-link-stroke-type', 'bc-link-routing',
         'bc-link-direction', 'bc-link-terminator', 'bc-link-color', 'bc-link-color-text',
-        'bc-link-opacity', 'bc-link-animated', 'bc-link-label-bg', 'bc-link-label-size'
+        'bc-link-opacity', 'bc-link-animated', 'bc-link-label-bg', 'bc-link-label-size', 'bc-link-label-size-unit'
       ];
       ids.forEach(id => {
         const el = document.getElementById(id);
@@ -1707,24 +1715,77 @@
       _bcBuildSwatchList('bc-note-border-list', bc.noteBorderSwatch || (window.WN_BORDER_SWATCHES ? window.WN_BORDER_SWATCHES.slice() : _BC_NOTE_BORDER_DEFAULTS.slice()));
 
       const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-      set('bc-node-font-size', bc.nodeDefaultFontSize !== undefined ? bc.nodeDefaultFontSize : 16);
-      set('bc-note-font-free', bc.noteDefaultFontSizeFree !== undefined ? bc.noteDefaultFontSizeFree : 26);
-      set('bc-note-font-linked', bc.noteDefaultFontSizeLinked !== undefined ? bc.noteDefaultFontSizeLinked : 14);
+
+      const nodeFsUnit = bc.nodeDefaultFontSizeUnit || (window.conFontUnit === 'pt' ? 'pt' : 'px');
+      set('bc-node-font-size-unit', nodeFsUnit);
+      const rawNodeFs = bc.nodeDefaultFontSize !== undefined ? bc.nodeDefaultFontSize : 16;
+      set('bc-node-font-size', (typeof conPxToFontUnit === 'function') ? conPxToFontUnit(rawNodeFs, nodeFsUnit) : rawNodeFs);
+      const nodeFsInput = document.getElementById('bc-node-font-size');
+      if (nodeFsInput) {
+        nodeFsInput.dataset.lastUnit = nodeFsUnit;
+        if (nodeFsUnit === 'pt') { nodeFsInput.min = '6'; nodeFsInput.max = '72'; nodeFsInput.step = '0.5'; }
+        else { nodeFsInput.min = '8'; nodeFsInput.max = '96'; nodeFsInput.step = '1'; }
+      }
+
+      const noteFsFreeUnit = bc.noteDefaultFontSizeFreeUnit || (window.conFontUnit === 'pt' ? 'pt' : 'px');
+      set('bc-note-font-free-unit', noteFsFreeUnit);
+      const rawNoteFsFree = bc.noteDefaultFontSizeFree !== undefined ? bc.noteDefaultFontSizeFree : 26;
+      set('bc-note-font-free', (typeof conPxToFontUnit === 'function') ? conPxToFontUnit(rawNoteFsFree, noteFsFreeUnit) : rawNoteFsFree);
+      const noteFsFreeInput = document.getElementById('bc-note-font-free');
+      if (noteFsFreeInput) {
+        noteFsFreeInput.dataset.lastUnit = noteFsFreeUnit;
+        if (noteFsFreeUnit === 'pt') { noteFsFreeInput.min = '3'; noteFsFreeInput.max = '72'; noteFsFreeInput.step = '0.5'; }
+        else { noteFsFreeInput.min = '4'; noteFsFreeInput.max = '96'; noteFsFreeInput.step = '1'; }
+      }
+
+      const noteFsLinkedUnit = bc.noteDefaultFontSizeLinkedUnit || (window.conFontUnit === 'pt' ? 'pt' : 'px');
+      set('bc-note-font-linked-unit', noteFsLinkedUnit);
+      const rawNoteFsLinked = bc.noteDefaultFontSizeLinked !== undefined ? bc.noteDefaultFontSizeLinked : 14;
+      set('bc-note-font-linked', (typeof conPxToFontUnit === 'function') ? conPxToFontUnit(rawNoteFsLinked, noteFsLinkedUnit) : rawNoteFsLinked);
+      const noteFsLinkedInput = document.getElementById('bc-note-font-linked');
+      if (noteFsLinkedInput) {
+        noteFsLinkedInput.dataset.lastUnit = noteFsLinkedUnit;
+        if (noteFsLinkedUnit === 'pt') { noteFsLinkedInput.min = '3'; noteFsLinkedInput.max = '72'; noteFsLinkedInput.step = '0.5'; }
+        else { noteFsLinkedInput.min = '4'; noteFsLinkedInput.max = '96'; noteFsLinkedInput.step = '1'; }
+      }
+
       set('bc-node-casing', bc.nodeDefaultCasing || 'none');
       set('bc-note-casing', bc.noteDefaultCasing || 'none');
-      set('bc-node-border-width', bc.nodeDefaultBorderWidth !== undefined ? bc.nodeDefaultBorderWidth : 2);
+
+      const nodeBwUnit = bc.nodeDefaultBorderWidthUnit || 'px';
+      set('bc-node-border-width-unit', nodeBwUnit);
+      const rawNodeBw = bc.nodeDefaultBorderWidth !== undefined ? bc.nodeDefaultBorderWidth : 2;
+      set('bc-node-border-width', (typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(rawNodeBw, nodeBwUnit) : rawNodeBw);
+      const nodeBwInput = document.getElementById('bc-node-border-width');
+      if (nodeBwInput) nodeBwInput.dataset.lastUnit = nodeBwUnit;
+
       const bsEl = document.getElementById('bc-node-border-style');
       if (bsEl) bsEl.value = bc.nodeDefaultBorderStyle || 'solid';
       set('bc-node-border-color', bc.nodeDefaultBorderColor || '#111111');
       set('bc-pen-color', bc.penDefaultColor || '#e53935');
-      const pt = bc.penDefaultThickness !== undefined ? bc.penDefaultThickness : 4;
-      set('bc-pen-thickness', pt);
+
+      const penThickUnit = bc.penDefaultThicknessUnit || window.conThicknessUnit || 'mm';
+      set('bc-pen-thickness-unit', penThickUnit);
+      const rawPenThick = bc.penDefaultThickness !== undefined ? bc.penDefaultThickness : 4;
+      const penSlider = document.getElementById('bc-pen-thickness');
+      if (penSlider) {
+        if (typeof _conSetupThicknessSlider === 'function') _conSetupThicknessSlider(penSlider, penThickUnit, 'drawing');
+        penSlider.dataset.rawPx = String(rawPenThick);
+        penSlider.value = String((typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(rawPenThick, penThickUnit) : rawPenThick);
+      }
       const ptv = document.getElementById('bc-pen-thickness-val');
-      if (ptv) ptv.textContent = pt + 'px';
+      if (ptv) ptv.textContent = (typeof conFormatThickness === 'function') ? conFormatThickness(rawPenThick, penThickUnit) : (rawPenThick + 'px');
+
       set('bc-laser-color', bc.laserColor || '#ff2200');
       set('bc-media-pdf-width', bc.pdfInsertWidth !== undefined ? bc.pdfInsertWidth : 0);
-      const lst = bc.linkDefaultStrokeThickness !== undefined ? bc.linkDefaultStrokeThickness : 2;
-      set('bc-link-stroke-thickness', lst);
+
+      const linkThickUnit = bc.linkDefaultStrokeThicknessUnit || 'px';
+      set('bc-link-stroke-thickness-unit', linkThickUnit);
+      const rawLinkThick = bc.linkDefaultStrokeThickness !== undefined ? bc.linkDefaultStrokeThickness : 2;
+      set('bc-link-stroke-thickness', (typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(rawLinkThick, linkThickUnit) : rawLinkThick);
+      const linkThickInput = document.getElementById('bc-link-stroke-thickness');
+      if (linkThickInput) linkThickInput.dataset.lastUnit = linkThickUnit;
+
       set('bc-link-stroke-type', bc.linkDefaultStrokeType || 'solid');
       set('bc-link-routing', bc.linkDefaultRouting || 'straight');
       set('bc-link-direction', bc.linkDefaultDirection || 'none');
@@ -1740,7 +1801,70 @@
       if (lAnimEl) lAnimEl.checked = !!bc.linkDefaultAnimated;
       const lBgEl = document.getElementById('bc-link-label-bg');
       if (lBgEl) lBgEl.checked = !!bc.linkDefaultLabelBg;
-      set('bc-link-label-size', bc.linkDefaultLabelSize !== undefined ? bc.linkDefaultLabelSize : 16);
+
+      const linkLabelUnit = bc.linkDefaultLabelSizeUnit || (window.conFontUnit === 'pt' ? 'pt' : 'px');
+      set('bc-link-label-size-unit', linkLabelUnit);
+      const rawLinkLabel = bc.linkDefaultLabelSize !== undefined ? bc.linkDefaultLabelSize : 16;
+      set('bc-link-label-size', (typeof conPxToFontUnit === 'function') ? conPxToFontUnit(rawLinkLabel, linkLabelUnit) : rawLinkLabel);
+      const linkLabelInput = document.getElementById('bc-link-label-size');
+      if (linkLabelInput) linkLabelInput.dataset.lastUnit = linkLabelUnit;
+
+      // Bind unit conversion helpers for customisation controls
+      function _bindUnitConversion(selectId, inputId, isFont) {
+        const sel = document.getElementById(selectId);
+        const inp = document.getElementById(inputId);
+        if (!sel || !inp || sel._bcBound) return;
+        sel._bcBound = true;
+        sel.addEventListener('change', () => {
+          const prevUnit = inp.dataset.lastUnit || (isFont ? 'px' : 'px');
+          const newUnit = sel.value;
+          if (prevUnit === newUnit) return;
+          const curVal = parseFloat(inp.value);
+          if (!isNaN(curVal)) {
+            const canonical = isFont ? conFontUnitToPx(curVal, prevUnit) : conThicknessUnitToPx(curVal, prevUnit);
+            inp.value = isFont ? conPxToFontUnit(canonical, newUnit) : conPxToThicknessUnit(canonical, newUnit);
+          }
+          if (isFont) {
+            if (newUnit === 'pt') { inp.min = '6'; inp.max = '72'; inp.step = '0.5'; }
+            else { inp.min = '8'; inp.max = '96'; inp.step = '1'; }
+          }
+          inp.dataset.lastUnit = newUnit;
+          if (typeof _bcUpdateFontPreview === 'function') {
+            if (inputId.indexOf('node') !== -1) _bcUpdateFontPreview('node');
+            else if (inputId.indexOf('note') !== -1) _bcUpdateFontPreview('note');
+          }
+          if (inputId.indexOf('link') !== -1 && typeof _bcUpdateLinkPreview === 'function') {
+            _bcUpdateLinkPreview();
+          }
+        });
+      }
+      _bindUnitConversion('bc-node-font-size-unit', 'bc-node-font-size', true);
+      _bindUnitConversion('bc-note-font-free-unit', 'bc-note-font-free', true);
+      _bindUnitConversion('bc-note-font-linked-unit', 'bc-note-font-linked', true);
+      _bindUnitConversion('bc-node-border-width-unit', 'bc-node-border-width', false);
+      _bindUnitConversion('bc-link-stroke-thickness-unit', 'bc-link-stroke-thickness', false);
+      _bindUnitConversion('bc-link-label-size-unit', 'bc-link-label-size', true);
+
+      const penThickUnitSel = document.getElementById('bc-pen-thickness-unit');
+      const penSliderEl = document.getElementById('bc-pen-thickness');
+      const penThickValEl = document.getElementById('bc-pen-thickness-val');
+      if (penThickUnitSel && penSliderEl && !penThickUnitSel._bcBound) {
+        penThickUnitSel._bcBound = true;
+        penThickUnitSel.addEventListener('change', () => {
+          const newUnit = penThickUnitSel.value;
+          const rawPx = parseFloat(penSliderEl.dataset.rawPx) || 4;
+          if (typeof _conSetupThicknessSlider === 'function') _conSetupThicknessSlider(penSliderEl, newUnit, 'drawing');
+          penSliderEl.value = String((typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(rawPx, newUnit) : rawPx);
+          if (penThickValEl) penThickValEl.textContent = (typeof conFormatThickness === 'function') ? conFormatThickness(rawPx, newUnit) : (rawPx + 'px');
+        });
+        penSliderEl.addEventListener('input', () => {
+          const unit = penThickUnitSel.value;
+          const pxVal = (typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(parseFloat(penSliderEl.value) || 0, unit) : parseFloat(penSliderEl.value);
+          penSliderEl.dataset.rawPx = String(pxVal);
+          if (penThickValEl) penThickValEl.textContent = penSliderEl.value + ' ' + unit;
+        });
+      }
+
       _bcBindLinkPreviewListeners();
       _bcUpdateLinkPreview();
       set('bc-media-image-width', bc.imageInsertWidth !== undefined ? bc.imageInsertWidth : 260);
@@ -1827,7 +1951,15 @@
         const isNode = type === 'node';
         const preview = document.getElementById(isNode ? 'bc-node-font-preview' : 'bc-note-font-preview');
         const casingSel = document.getElementById(isNode ? 'bc-node-casing' : 'bc-note-casing');
+        const sizeInput = document.getElementById(isNode ? 'bc-node-font-size' : 'bc-note-font-free');
+        const unitSel = document.getElementById(isNode ? 'bc-node-font-size-unit' : 'bc-note-font-free-unit');
         if (!preview) return;
+        if (sizeInput && unitSel) {
+          const val = parseFloat(sizeInput.value);
+          if (!isNaN(val) && val > 0) {
+            preview.style.fontSize = val + unitSel.value;
+          }
+        }
         const sample = "The quick brown fox";
         const casing = casingSel ? casingSel.value : 'none';
         if (casing === 'smallcaps') {
@@ -2243,20 +2375,52 @@
         noteHighlightSwatch: _bcGetSwatchList('bc-note-hl-list').map(c => c === 'blink' ? '__blink__' : c),
         nodeBorderSwatch: _bcGetSwatchList('bc-node-border-list'),
         noteBorderSwatch: _bcGetSwatchList('bc-note-border-list'),
-        nodeDefaultFontSize: getNum('bc-node-font-size', 16),
-        noteDefaultFontSizeFree: getNum('bc-note-font-free', 26),
-        noteDefaultFontSizeLinked: getNum('bc-note-font-linked', 14),
+        nodeDefaultFontSize: (() => {
+          const unit = document.getElementById('bc-node-font-size-unit')?.value || 'px';
+          const raw = parseFloat(document.getElementById('bc-node-font-size')?.value) || 16;
+          return unit === 'pt' ? conFontUnitToPx(raw, 'pt') : raw;
+        })(),
+        nodeDefaultFontSizeUnit: document.getElementById('bc-node-font-size-unit')?.value || 'px',
+        noteDefaultFontSizeFree: (() => {
+          const unit = document.getElementById('bc-note-font-free-unit')?.value || 'px';
+          const raw = parseFloat(document.getElementById('bc-note-font-free')?.value) || 26;
+          return unit === 'pt' ? conFontUnitToPx(raw, 'pt') : raw;
+        })(),
+        noteDefaultFontSizeFreeUnit: document.getElementById('bc-note-font-free-unit')?.value || 'px',
+        noteDefaultFontSizeLinked: (() => {
+          const unit = document.getElementById('bc-note-font-linked-unit')?.value || 'px';
+          const raw = parseFloat(document.getElementById('bc-note-font-linked')?.value) || 14;
+          return unit === 'pt' ? conFontUnitToPx(raw, 'pt') : raw;
+        })(),
+        noteDefaultFontSizeLinkedUnit: document.getElementById('bc-note-font-linked-unit')?.value || 'px',
         nodeDefaultFontFamily: getVal('bc-node-font-family', ''),
         noteDefaultFontFamily: getVal('bc-note-font-family', ''),
         nodeDefaultCasing: getVal('bc-node-casing', 'none'),
         noteDefaultCasing: getVal('bc-note-casing', 'none'),
-        nodeDefaultBorderWidth: getNum('bc-node-border-width', 2),
+        nodeDefaultBorderWidth: (() => {
+          const unit = document.getElementById('bc-node-border-width-unit')?.value || 'px';
+          const raw = parseFloat(document.getElementById('bc-node-border-width')?.value) || 2;
+          return conThicknessUnitToPx(raw, unit);
+        })(),
+        nodeDefaultBorderWidthUnit: document.getElementById('bc-node-border-width-unit')?.value || 'px',
         nodeDefaultBorderStyle: getVal('bc-node-border-style', 'solid'),
         nodeDefaultBorderColor: getVal('bc-node-border-color', '#111111'),
         penDefaultColor: getVal('bc-pen-color', '#e53935'),
-        penDefaultThickness: getNum('bc-pen-thickness', 4),
+        penDefaultThickness: (() => {
+          const unit = document.getElementById('bc-pen-thickness-unit')?.value || 'px';
+          const slider = document.getElementById('bc-pen-thickness');
+          if (slider && slider.dataset.rawPx) return parseFloat(slider.dataset.rawPx) || 4;
+          return conThicknessUnitToPx(parseFloat(slider?.value) || 4, unit);
+        })(),
+        penDefaultThicknessUnit: document.getElementById('bc-pen-thickness-unit')?.value || 'px',
         laserColor: getVal('bc-laser-color', '#ff2200'),
-        linkDefaultStrokeThickness: (() => { const el = document.getElementById('bc-link-stroke-thickness'); return el ? Math.max(1, Math.min(20, parseFloat(el.value) || 2)) : 2; })(),
+        linkDefaultStrokeThickness: (() => {
+          const unit = document.getElementById('bc-link-stroke-thickness-unit')?.value || 'px';
+          const el = document.getElementById('bc-link-stroke-thickness');
+          const raw = parseFloat(el ? el.value : 2) || 2;
+          return Math.max(0.5, Math.min(30, conThicknessUnitToPx(raw, unit)));
+        })(),
+        linkDefaultStrokeThicknessUnit: document.getElementById('bc-link-stroke-thickness-unit')?.value || 'px',
         linkDefaultStrokeType: getVal('bc-link-stroke-type', 'solid'),
         linkDefaultRouting: getVal('bc-link-routing', 'straight'),
         linkDefaultDirection: getVal('bc-link-direction', 'none'),
@@ -2265,7 +2429,12 @@
         linkDefaultOpacity: (() => { const el = document.getElementById('bc-link-opacity'); return el ? Math.max(0.1, Math.min(1, (parseInt(el.value, 10) || 100) / 100)) : 1; })(),
         linkDefaultAnimated: (() => { const el = document.getElementById('bc-link-animated'); return !!(el && el.checked); })(),
         linkDefaultLabelBg: (() => { const el = document.getElementById('bc-link-label-bg'); return !!(el && el.checked); })(),
-        linkDefaultLabelSize: getNum('bc-link-label-size', 16),
+        linkDefaultLabelSize: (() => {
+          const unit = document.getElementById('bc-link-label-size-unit')?.value || 'px';
+          const raw = parseFloat(document.getElementById('bc-link-label-size')?.value) || 16;
+          return unit === 'pt' ? conFontUnitToPx(raw, 'pt') : raw;
+        })(),
+        linkDefaultLabelSizeUnit: document.getElementById('bc-link-label-size-unit')?.value || 'px',
         pdfInsertWidth: getNum('bc-media-pdf-width', 0),
         imageInsertWidth: getNum('bc-media-image-width', 260),
         videoInsertWidth: getNum('bc-media-video-width', 260),

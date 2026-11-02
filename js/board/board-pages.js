@@ -3166,6 +3166,19 @@
           selMediaIds.forEach(mid => {
             const mEl = document.querySelector(`.con-media-item[data-id="${mid}"]`);
             if (mEl) mEl.remove();
+            const sMid = String(mid);
+            const _edgeList = (typeof window.conGetEdges === 'function') ? window.conGetEdges() : ((typeof conEdges !== 'undefined' && Array.isArray(conEdges)) ? conEdges : (window.conEdges || []));
+            for (let i = _edgeList.length - 1; i >= 0; i--) {
+              const e = _edgeList[i];
+              if (e && (String(e.a) === sMid || String(e.b) === sMid)) {
+                if (e.g && typeof e.g.remove === 'function') e.g.remove();
+                _edgeList.splice(i, 1);
+                if (window._conSelectedEdgeId === e.id) window._conSelectedEdgeId = null;
+                if (typeof window._conMirrorSend === 'function') {
+                  window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+                }
+              }
+            }
             if (typeof conMediaItems !== 'undefined') {
               conMediaItems = conMediaItems.filter(m => String(m.id) !== String(mid));
             }
@@ -3173,6 +3186,7 @@
               conGroups.forEach(g => { if (g.mediaIds) g.mediaIds = g.mediaIds.filter(id => String(id) !== String(mid)); });
             }
           });
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
           if (window.conMediaClearSelection) window.conMediaClearSelection();
         }
         if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
@@ -3410,7 +3424,43 @@
             }
           }
         }
-        // 3. Group focused
+        // 3. Drawing selected
+        if (!srcId) {
+          const drawSel = (typeof window.conGetDrawingSelected === 'function') ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : null);
+          if (drawSel && drawSel.size === 1) {
+            srcId = [...drawSel][0];
+          } else {
+            const selDrawEls = document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected');
+            if (selDrawEls.length === 1 && selDrawEls[0].dataset && selDrawEls[0].dataset.did) {
+              srcId = selDrawEls[0].dataset.did;
+            } else if (typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
+              srcId = _conDrawCtxId;
+            }
+          }
+        }
+        // 4. Picture / Media item selected or active
+        if (!srcId) {
+          const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : null);
+          if (mediaSel && mediaSel.size === 1) {
+            srcId = [...mediaSel][0];
+          } else {
+            const selMediaEls = document.querySelectorAll('#constellation-board .con-media-item.con-media-selected');
+            if (selMediaEls.length === 1 && selMediaEls[0].dataset && selMediaEls[0].dataset.id) {
+              srcId = selMediaEls[0].dataset.id;
+            } else if (document.activeElement && document.activeElement.closest) {
+              const activeMediaEl = document.activeElement.closest('.con-media-item');
+              if (activeMediaEl && activeMediaEl.dataset && activeMediaEl.dataset.id) {
+                srcId = activeMediaEl.dataset.id;
+              }
+            }
+            if (!srcId && typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem && window._conActiveMediaItem.id) {
+              srcId = window._conActiveMediaItem.id;
+            } else if (!srcId && typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id) {
+              srcId = _conCtxItem.id;
+            }
+          }
+        }
+        // 5. Group focused
         if (!srcId) {
           const focusedGroup = (typeof window.conGetGroupFocused === 'function') ? window.conGetGroupFocused() : (window.conGroupFocused || (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null));
           if (focusedGroup) srcId = focusedGroup;
@@ -4118,6 +4168,7 @@
             wavy: !!n.wavy,
             casing: n.casing || null,
             strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked,
+            lockRatio: !!n.lockRatio,
             manualSize: !!n.manualSize,
             width: finalW,
             height: finalH,
@@ -4520,6 +4571,7 @@
           strike: !!n.strike,
           hidden: !!n.hidden,
           locked: !!n.locked,
+          lockRatio: !!n.lockRatio,
           manualSize: !!n.manualSize,
           width: typeof n.width === 'number' ? n.width : null,
           height: typeof n.height === 'number' ? n.height : null,
@@ -11136,7 +11188,7 @@
               fontSize: n.fontSize,
               fontFamily: n.fontFamily || null,
               bold: !!n.bold, italic: !!n.italic, underline: !!n.underline,
-              strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked,
+              strike: !!n.strike, hidden: !!n.hidden, locked: !!n.locked, lockRatio: !!n.lockRatio,
               manualSize: !!n.manualSize,
               width: typeof n.width === 'number' ? n.width : (typeof n.liveBaseWidth === 'number' ? n.liveBaseWidth : (typeof n.w === 'number' ? n.w : null)),
               height: typeof n.height === 'number' ? n.height : (typeof n.liveBaseHeight === 'number' ? n.liveBaseHeight : (typeof n.h === 'number' ? n.h : null)),

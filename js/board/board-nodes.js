@@ -2140,6 +2140,20 @@
           item._pdfViewPoll = null;
         }
         if (typeof conMediaSelected !== 'undefined') conMediaSelected.delete(item.id);
+        const delMediaId = String(item.id);
+        const _edgeList = (typeof window.conGetEdges === 'function') ? window.conGetEdges() : ((typeof conEdges !== 'undefined' && Array.isArray(conEdges)) ? conEdges : (window.conEdges || []));
+        for (let i = _edgeList.length - 1; i >= 0; i--) {
+          const e = _edgeList[i];
+          if (e && (String(e.a) === delMediaId || String(e.b) === delMediaId)) {
+            if (e.g && typeof e.g.remove === 'function') e.g.remove();
+            _edgeList.splice(i, 1);
+            if (window._conSelectedEdgeId === e.id) window._conSelectedEdgeId = null;
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+            }
+          }
+        }
+        if (typeof conRedrawEdges === 'function') conRedrawEdges();
         conMediaItems = conMediaItems.filter(m => m.id !== item.id);
         if (typeof conGroups !== 'undefined') {
           conGroups.forEach(g => {
@@ -2541,7 +2555,11 @@
         const emojiMiniBtn = _mkMini('sparkles', 'Add emoji sticker', 'emoji', () => {
           if (typeof window._pickerOpenForMedia === 'function') window._pickerOpenForMedia(item);
         });
+        const linkMiniBtn = _mkMini('zap', 'Link / Connect (Ctrl+J)', 'link', () => {
+          if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(item.id);
+        });
         miniActions.appendChild(lockMiniBtn);
+        miniActions.appendChild(linkMiniBtn);
         miniActions.appendChild(hideMiniBtn);
         miniActions.appendChild(blinkMiniBtn);
         miniActions.appendChild(fullMiniBtn);
@@ -2854,9 +2872,9 @@
                 nd.el.style.top = nd.y + 'px';
               }
             });
-            if (typeof conRedrawEdges === 'function') conRedrawEdges();
             if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
           }
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
 
           // Move co-selected notes
           if (_noteJointSnapshots.length > 0) {
@@ -2969,6 +2987,7 @@
           item.h = newH;
           wrap.style.width = item.w + 'px';
           wrap.style.height = item.h + 'px';
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
           if (window._conMirrorSend) {
             _pendingMediaResizeMsg = { type: 'media-resize', id: item.id, w: item.w, h: item.h };
             if (!_mediaResizeRaf) {
@@ -3022,6 +3041,9 @@
             window._conMirrorSend(_pendingMediaResizeMsg);
             _pendingMediaResizeMsg = null;
           }
+        }
+        if (wasDragging || wasResizing) {
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
         }
         dragging = false;
         resizing = false;
@@ -4710,13 +4732,16 @@
           color: String(p.color || '#111111'),
           borderColor: String(p.borderColor || '#111111'),
           borderWidth: Number(p.borderWidth || 2),
+          borderWidthUnit: String(p.borderWidthUnit || 'px'),
           borderStyle: String(p.borderStyle || 'solid'),
           highlight: String(p.highlight || ''),
           shape: String(p.shape || 'rectangle'),
           fontFamily: String(p.fontFamily || ''),
           fontSize: (p.fontSize != null && p.fontSize !== '') ? Number(p.fontSize) : null,
+          fontSizeUnit: String(p.fontSizeUnit || 'px'),
           textStrokeColor: String(p.textStrokeColor || ''),
           textStrokeWidth: (p.textStrokeWidth != null && p.textStrokeWidth !== '') ? Number(p.textStrokeWidth) : 0,
+          textStrokeWidthUnit: String(p.textStrokeWidthUnit || 'px'),
           fmt: p.fmt && typeof p.fmt === 'object' ? {
             bold: !!p.fmt.bold,
             italic: !!p.fmt.italic,
@@ -4856,13 +4881,16 @@
         // Column headers
         const hdr = document.createElement('div');
         hdr.className = 'con-preset-editor-labels';
-        hdr.innerHTML = `<span></span><span>Key</span><span>Label</span><span title="${t('conPresetBgColorTitle')}">BG</span><span title="${t('conPresetTextColorTitle')}">Txt</span><span title="${t('conPresetBorderColorTitle')}">Bdr</span><span title="${t('conPresetBorderWidthTitle')}">W</span><span title="${t('conPresetBorderStyleTitle')}">Style</span><span title="${t('conPresetGlowTitle')}">Glow</span><span title="${t('conPresetShapeTitle')}">Shape</span><span title="${t('conPresetFontSizeTitle')}">Size</span><span title="${t('conPresetStrokeColorTitle')}">StC</span><span title="${t('conPresetStrokeWidthTitle')}">StW</span><span>Fmt</span><span></span>`;
+        hdr.innerHTML = `<span></span><span>Key</span><span>Label</span><span title="${t('conPresetBgColorTitle')}">BG</span><span title="${t('conPresetTextColorTitle')}">Txt</span><span title="${t('conPresetBorderColorTitle')}">Bdr</span><span title="${t('conPresetBorderWidthTitle')}">W</span><span title="${t('conPresetBorderStyleTitle')}">Style</span><span title="${t('conPresetGlowTitle')}">Glow</span><span title="${t('conPresetShapeTitle')}">Shape</span><span>Font</span><span title="${t('conPresetFontSizeTitle')}">Size</span><span title="${t('conPresetStrokeColorTitle')}">StC</span><span title="${t('conPresetStrokeWidthTitle')}">StW</span><span>Fmt</span><span></span>`;
         list.appendChild(hdr);
 
         _conPresetEditorDraft.forEach((p, i) => {
           const row = document.createElement('div');
           row.className = 'con-preset-editor-row';
           row.draggable = true;
+          const bwVal = p.borderWidth != null ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.borderWidth, p.borderWidthUnit || 'px') : p.borderWidth) : 2;
+          const fsVal = p.fontSize != null && p.fontSize !== '' ? (typeof conPxToFontUnit === 'function' ? conPxToFontUnit(p.fontSize, p.fontSizeUnit || 'px') : p.fontSize) : '';
+          const tswVal = p.textStrokeWidth != null && p.textStrokeWidth !== '' ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.textStrokeWidth, p.textStrokeWidthUnit || 'px') : p.textStrokeWidth) : 0;
           row.innerHTML = `
             <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
             <input type="text" class="pe-key" value="${_esc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
@@ -4879,7 +4907,14 @@
               <input type="color" class="pe-color-btn pe-bdr-btn" value="${_safeHex(p.borderColor, '#111111')}" title="${t('conPresetBorderColorTitle')}">
               <input type="text" class="pe-color-input pe-bdr" value="${_esc(p.borderColor)}" placeholder="#111 / rgba(...)" title="${t('conPresetBorderColorTitle')}">
             </div>
-            <input type="number" class="pe-bw" min="1" max="10" value="${p.borderWidth || 2}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <div class="pe-unit-input-wrap">
+              <input type="number" class="pe-bw" min="0" max="30" step="any" value="${_esc(bwVal)}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
+              <select class="pe-bw-unit" title="Unit (px, pt, mm)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:38px;">
+                <option value="px" ${(p.borderWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                <option value="pt" ${p.borderWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
+                <option value="mm" ${p.borderWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
+              </select>
+            </div>
             <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
               <option value="solid"  ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
               <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
@@ -4897,12 +4932,25 @@
               <option value="square"    ${p.shape === 'square' ? 'selected' : ''}>${t('conShapeSquare')}</option>
             </select>
             <div class="pe-font-wrap"></div>
-            <input type="number" class="pe-fs" min="6" max="96" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <div class="pe-unit-input-wrap">
+              <input type="number" class="pe-fs" min="1" max="144" step="any" value="${_esc(fsVal)}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
+              <select class="pe-fs-unit" title="Unit (px or pt)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:34px;">
+                <option value="px" ${(p.fontSizeUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                <option value="pt" ${p.fontSizeUnit === 'pt' ? 'selected' : ''}>pt</option>
+              </select>
+            </div>
             <div class="pe-color-cell">
               <input type="color" class="pe-color-btn pe-tsc-btn" value="${_safeHex(p.textStrokeColor || '#000000', '#000000')}" title="${t('conPresetStrokeColorTitle')}">
               <input type="text" class="pe-color-input pe-tsc" value="${_esc(p.textStrokeColor || '')}" placeholder="stroke (rgba/hex)" title="${t('conPresetStrokeColorTitle')}">
             </div>
-            <input type="number" class="pe-tsw" min="0" max="10" step="0.5" value="${p.textStrokeWidth != null ? p.textStrokeWidth : 0}" title="${t('conPresetStrokeWidthTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+            <div class="pe-unit-input-wrap">
+              <input type="number" class="pe-tsw" min="0" max="30" step="any" value="${_esc(tswVal)}" title="${t('conPresetStrokeWidthTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
+              <select class="pe-tsw-unit" title="Unit (px, pt, mm)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:38px;">
+                <option value="px" ${(p.textStrokeWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                <option value="pt" ${p.textStrokeWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
+                <option value="mm" ${p.textStrokeWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
+              </select>
+            </div>
             <div class="pe-fmt-btns">
               <button class="pe-fmt-btn${p.fmt.bold ? ' active' : ''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="${t('conPresetBoldTitle')}"><b>B</b></button>
               <button class="pe-fmt-btn${p.fmt.italic ? ' active' : ''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="${t('conPresetItalicTitle')}"><i>I</i></button>
@@ -4911,6 +4959,55 @@
             </div>
             <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="conPresetEditorDeleteRow(${i})">🗑</button>
           `;
+
+          // Bind unit conversion on unit select changes
+          const bwInput = row.querySelector('.pe-bw');
+          const bwUnitSel = row.querySelector('.pe-bw-unit');
+          if (bwInput && bwUnitSel) {
+            bwUnitSel.dataset.lastUnit = bwUnitSel.value;
+            bwUnitSel.addEventListener('change', () => {
+              const prevUnit = bwUnitSel.dataset.lastUnit || 'px';
+              const newUnit = bwUnitSel.value;
+              const val = parseFloat(bwInput.value);
+              if (!isNaN(val)) {
+                const px = conThicknessUnitToPx(val, prevUnit);
+                bwInput.value = String(conPxToThicknessUnit(px, newUnit));
+              }
+              bwUnitSel.dataset.lastUnit = newUnit;
+            });
+          }
+
+          const fsInput = row.querySelector('.pe-fs');
+          const fsUnitSel = row.querySelector('.pe-fs-unit');
+          if (fsInput && fsUnitSel) {
+            fsUnitSel.dataset.lastUnit = fsUnitSel.value;
+            fsUnitSel.addEventListener('change', () => {
+              const prevUnit = fsUnitSel.dataset.lastUnit || 'px';
+              const newUnit = fsUnitSel.value;
+              const val = parseFloat(fsInput.value);
+              if (!isNaN(val)) {
+                const px = conFontUnitToPx(val, prevUnit);
+                fsInput.value = String(conPxToFontUnit(px, newUnit));
+              }
+              fsUnitSel.dataset.lastUnit = newUnit;
+            });
+          }
+
+          const tswInput = row.querySelector('.pe-tsw');
+          const tswUnitSel = row.querySelector('.pe-tsw-unit');
+          if (tswInput && tswUnitSel) {
+            tswUnitSel.dataset.lastUnit = tswUnitSel.value;
+            tswUnitSel.addEventListener('change', () => {
+              const prevUnit = tswUnitSel.dataset.lastUnit || 'px';
+              const newUnit = tswUnitSel.value;
+              const val = parseFloat(tswInput.value);
+              if (!isNaN(val)) {
+                const px = conThicknessUnitToPx(val, prevUnit);
+                tswInput.value = String(conPxToThicknessUnit(px, newUnit));
+              }
+              tswUnitSel.dataset.lastUnit = newUnit;
+            });
+          }
 
           function _bindColorPair(btnEl, inputEl) {
             if (!btnEl || !inputEl) return;
@@ -4949,7 +5046,6 @@
             fontWrap.appendChild(fsel);
           }
           // Sync text-stroke enable state via opacity on the width input
-          const tswInput = row.querySelector('.pe-tsw');
           if (tswInput && !(p.textStrokeWidth > 0)) tswInput.style.opacity = '0.45';
           if (tswInput) tswInput.addEventListener('input', () => { tswInput.style.opacity = Number(tswInput.value) > 0 ? '1' : '0.45'; });
           list.appendChild(row);
@@ -5036,7 +5132,12 @@
           const color = (colorInput ? colorInput.value : '#111111').trim() || '#111111';
           const bdrInput = row.querySelector('.pe-bdr');
           const borderColor = (bdrInput ? bdrInput.value : '#111111').trim() || '#111111';
-          const borderWidth = Math.max(1, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 2));
+          const bwInput = row.querySelector('.pe-bw');
+          const bwUnit = row.querySelector('.pe-bw-unit')?.value || 'px';
+          const rawBw = parseFloat(bwInput ? bwInput.value : 2);
+          const borderWidth = !isNaN(rawBw) && rawBw >= 0 ? ((typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(rawBw, bwUnit) : rawBw) : 2;
+          const borderWidthUnit = bwUnit;
+
           const borderStyle = row.querySelector('.pe-bs').value || 'solid';
           const hlInput = row.querySelector('.pe-hl');
           const highlight = hlInput ? hlInput.value.trim() : '';
@@ -5050,13 +5151,23 @@
           };
           const fontSel = row.querySelector('.pe-font');
           const fontFamily = fontSel ? (fontSel.value || '') : '';
+
           const fsInput = row.querySelector('.pe-fs');
-          const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
+          const fsUnit = row.querySelector('.pe-fs-unit')?.value || 'px';
+          const rawFs = parseFloat(fsInput ? fsInput.value : '');
+          const fontSize = !isNaN(rawFs) && rawFs > 0 ? ((typeof conFontUnitToPx === 'function') ? conFontUnitToPx(rawFs, fsUnit) : rawFs) : null;
+          const fontSizeUnit = fsUnit;
+
           const tscInput = row.querySelector('.pe-tsc');
           const textStrokeColor = tscInput ? tscInput.value.trim() : '';
+
           const tswInput = row.querySelector('.pe-tsw');
-          const textStrokeWidth = tswInput ? Math.max(0, Math.min(10, parseFloat(tswInput.value) || 0)) : 0;
-          flushed.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, highlight, shape, fontFamily, fontSize, textStrokeColor, textStrokeWidth, fmt });
+          const tswUnit = row.querySelector('.pe-tsw-unit')?.value || 'px';
+          const rawTsw = parseFloat(tswInput ? tswInput.value : 0);
+          const textStrokeWidth = !isNaN(rawTsw) && rawTsw > 0 ? ((typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(rawTsw, tswUnit) : rawTsw) : 0;
+          const textStrokeWidthUnit = tswUnit;
+
+          flushed.push({ key, label, bg, color, borderColor, borderWidth, borderWidthUnit, borderStyle, highlight, shape, fontFamily, fontSize, fontSizeUnit, textStrokeColor, textStrokeWidth, textStrokeWidthUnit, fmt });
         });
         if (flushed.length > 0) _conPresetEditorDraft = flushed;
       }
@@ -5070,7 +5181,7 @@
       window.conPresetEditorAddRow = function () {
         if (_conPresetEditorDraft.length >= 15) return;
         _conPresetEditorFlushDOM();
-        _conPresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, textStrokeColor: '', textStrokeWidth: 0, fmt: { bold: false, italic: false, underline: false, strike: false } });
+        _conPresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderWidthUnit: 'px', borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, fontSizeUnit: 'px', textStrokeColor: '', textStrokeWidth: 0, textStrokeWidthUnit: 'px', fmt: { bold: false, italic: false, underline: false, strike: false } });
         _conPresetEditorRender();
         // Focus the key field of the new row
         const rows = document.querySelectorAll('#con-preset-editor-list .con-preset-editor-row');
@@ -8649,6 +8760,18 @@
           const hex = (typeof rgbToHex === 'function' ? rgbToHex(border) : (window.rgbToHex ? window.rgbToHex(border) : border)).toLowerCase();
           return _CON_NEUTRAL.has(hex) ? null : hex;
         }
+        const drawArr = (typeof conDrawings !== 'undefined' && Array.isArray(conDrawings)) ? conDrawings : ((typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : []);
+        const dr = drawArr.find(d => d && (d.id === id || String(d.id) === String(id)));
+        if (dr && dr.color && dr.color !== 'transparent') {
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(dr.color) : (window.rgbToHex ? window.rgbToHex(dr.color) : dr.color)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
+        const mediaArr = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : ((typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : []);
+        const media = mediaArr.find(m => m && (m.id === id || String(m.id) === String(id)));
+        if (media && media.borderColor && media.borderColor !== 'transparent') {
+          const hex = (typeof rgbToHex === 'function' ? rgbToHex(media.borderColor) : (window.rgbToHex ? window.rgbToHex(media.borderColor) : media.borderColor)).toLowerCase();
+          return _CON_NEUTRAL.has(hex) ? null : hex;
+        }
         return null;
       }
       window.conGetAnchorColor = conGetAnchorColor;
@@ -9107,6 +9230,9 @@
             return gn && gn.masked;
           });
         }
+        const mediaArr = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : ((typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : []);
+        const media = mediaArr.find(m => m && (m.id === id || String(m.id) === String(id)));
+        if (media) return !!media.hidden;
         return false;
       }
 
@@ -9439,6 +9565,71 @@
             node: group
           };
         }
+        // Drawing
+        const drawArr = (typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : ((typeof conDrawings !== 'undefined' && Array.isArray(conDrawings)) ? conDrawings : (window.conDrawings || []));
+        const dr = drawArr.find(d => d && (d.id === id || String(d.id) === String(id)));
+        if (dr) {
+          const el = dr.el || document.querySelector(`#constellation-board .con-drawing[data-did="${id}"], .con-drawing[data-did="${id}"]`);
+          const w = (typeof dr.w === 'number' && dr.w > 0) ? dr.w : (el ? (el.offsetWidth || 60) : 60);
+          const h = (typeof dr.h === 'number' && dr.h > 0) ? dr.h : (el ? (el.offsetHeight || 40) : 40);
+          const rot = (typeof dr.rotation === 'number') ? dr.rotation : 0;
+          return {
+            cx: dr.x + w / 2,
+            cy: dr.y + h / 2,
+            x: dr.x,
+            y: dr.y,
+            w: Math.max(20, w),
+            h: Math.max(10, h),
+            el,
+            shape: 'rectangle',
+            rotation: rot,
+            node: dr
+          };
+        }
+        const drawEl = document.querySelector(`#constellation-board .con-drawing[data-did="${id}"], .con-drawing[data-did="${id}"]`);
+        if (drawEl) {
+          const pad = 12;
+          const dx = (parseFloat(drawEl.style.left) || 0) + pad;
+          const dy = (parseFloat(drawEl.style.top) || 0) + pad;
+          const dw = Math.max(20, (drawEl.offsetWidth || (60 + 2 * pad)) - 2 * pad);
+          const dh = Math.max(10, (drawEl.offsetHeight || (40 + 2 * pad)) - 2 * pad);
+          return {
+            cx: dx + dw / 2, cy: dy + dh / 2, x: dx, y: dy, w: dw, h: dh, el: drawEl, shape: 'rectangle', rotation: 0, node: { id, x: dx, y: dy, w: dw, h: dh }
+          };
+        }
+
+        // Media item (Picture / Audio / Video / PDF)
+        const mediaArr = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : ((typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : (window.conMediaItems || []));
+        const media = mediaArr.find(m => m && (m.id === id || String(m.id) === String(id)));
+        if (media) {
+          const el = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(media) : document.querySelector(`.con-media-item[data-id="${media.id}"]`);
+          const w = (typeof media.w === 'number' && media.w > 0) ? media.w : (el ? (el.offsetWidth || 160) : 160);
+          const h = (typeof media.h === 'number' && media.h > 0) ? media.h : (el ? (el.offsetHeight || 120) : 120);
+          const rot = (typeof media.rotation === 'number') ? media.rotation : ((el && el.dataset && el.dataset.rotation) ? (parseFloat(el.dataset.rotation) || 0) : 0);
+          return {
+            cx: media.x + w / 2,
+            cy: media.y + h / 2,
+            x: media.x,
+            y: media.y,
+            w: Math.max(20, w),
+            h: Math.max(10, h),
+            el,
+            shape: 'rectangle',
+            rotation: rot,
+            node: media
+          };
+        }
+        const mediaEl = document.querySelector(`.con-media-item[data-id="${id}"]`);
+        if (mediaEl) {
+          const mx = parseFloat(mediaEl.style.left) || 0;
+          const my = parseFloat(mediaEl.style.top) || 0;
+          const mw = mediaEl.offsetWidth || 160;
+          const mh = mediaEl.offsetHeight || 120;
+          const rot = (mediaEl.dataset && mediaEl.dataset.rotation) ? (parseFloat(mediaEl.dataset.rotation) || 0) : 0;
+          return {
+            cx: mx + mw / 2, cy: my + mh / 2, x: mx, y: my, w: mw, h: mh, el: mediaEl, shape: 'rectangle', rotation: rot, node: { id, x: mx, y: my, w: mw, h: mh }
+          };
+        }
         return null;
       }
 
@@ -9487,6 +9678,7 @@
         const anchor = conResolveLinkAnchor(currentSrc);
         const cancelledId = currentSrc;
         if (anchor && anchor.el) anchor.el.classList.remove('con-link-src');
+        document.querySelectorAll('#constellation-board .con-link-src, .con-link-src').forEach(el => el.classList.remove('con-link-src'));
         _conLinkSrc = null;
         window._conLinkSrc = global._conLinkSrc = null;
         const brd = board();
@@ -17390,7 +17582,11 @@
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
           e.preventDefault();
-          // Find the single currently-selected element (node, note, or group).
+          if (typeof window.conTriggerLinkShortcut === 'function') {
+            window.conTriggerLinkShortcut();
+            return;
+          }
+          // Fallback if conTriggerLinkShortcut is not yet defined
           let srcId = null;
           if (document.activeElement && document.activeElement.closest('.con-word-note')) {
             const an = document.activeElement.closest('.con-word-note');
@@ -17404,6 +17600,14 @@
             srcId = conSelected;
           } else if (!srcId && typeof window.conGetSelected === 'function' && window.conGetSelected()) {
             srcId = window.conGetSelected();
+          } else if (!srcId && typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size === 1) {
+            srcId = [...conDrawingSelected][0];
+          } else if (!srcId && typeof window.conGetDrawingSelected === 'function' && window.conGetDrawingSelected() && window.conGetDrawingSelected().size === 1) {
+            srcId = [...window.conGetDrawingSelected()][0];
+          } else if (!srcId && typeof conMediaSelected !== 'undefined' && conMediaSelected && conMediaSelected.size === 1) {
+            srcId = [...conMediaSelected][0];
+          } else if (!srcId && typeof window.conGetMediaSelected === 'function' && window.conGetMediaSelected() && window.conGetMediaSelected().size === 1) {
+            srcId = [...window.conGetMediaSelected()][0];
           } else if (!srcId && typeof conGroupFocused !== 'undefined' && conGroupFocused) {
             srcId = conGroupFocused;
           } else if (!srcId && typeof window.conGetGroupFocused === 'function' && window.conGetGroupFocused()) {
@@ -17419,6 +17623,18 @@
             const singleNodeEl = document.querySelectorAll('#constellation-board .con-node.con-selected');
             if (singleNodeEl.length === 1 && singleNodeEl[0].id) {
               srcId = singleNodeEl[0].id;
+            }
+          }
+          if (!srcId) {
+            const singleDrawEl = document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected');
+            if (singleDrawEl.length === 1 && singleDrawEl[0].dataset && singleDrawEl[0].dataset.did) {
+              srcId = singleDrawEl[0].dataset.did;
+            }
+          }
+          if (!srcId) {
+            const singleMediaEl = document.querySelectorAll('#constellation-board .con-media-item.con-media-selected');
+            if (singleMediaEl.length === 1 && singleMediaEl[0].dataset && singleMediaEl[0].dataset.id) {
+              srcId = singleMediaEl[0].dataset.id;
             }
           }
           if (!srcId) return;
@@ -18089,13 +18305,18 @@
           if (!_conLinkSrc || e.button !== 0) return;
           // Don't intercept clicks when draw mode is active — the draw overlay handles them.
           if (conMode === 'draw') return;
-          const nodeEl = e.target.closest('.con-node');
-          const noteEl = e.target.closest('.con-word-note');
-          const groupEl = e.target.closest('.con-group');
+          if (e.target.closest && e.target.closest('.con-media-remove-btn, .con-media-resizer, .con-drawing-handle')) return;
+          const nodeEl = e.target.closest ? e.target.closest('.con-node') : null;
+          const noteEl = e.target.closest ? e.target.closest('.con-word-note') : null;
+          const groupEl = e.target.closest ? e.target.closest('.con-group') : null;
+          const drawEl = e.target.closest ? e.target.closest('.con-drawing') : null;
+          const mediaEl = e.target.closest ? e.target.closest('.con-media-item') : null;
           let targetId = null;
           if (nodeEl) targetId = nodeEl.id;
           else if (noteEl) targetId = noteEl.dataset.id;
           else if (groupEl) targetId = groupEl.dataset.gid;
+          else if (drawEl) targetId = drawEl.dataset.did;
+          else if (mediaEl) targetId = mediaEl.dataset.id;
           if (!targetId) {
             // Click on the board background — cancel link mode
             _conCancelLinkMode();
@@ -21275,15 +21496,52 @@
         const thLabel = document.createElement('span');
         thLabel.textContent = 'Size';
         thLabel.style.cssText = 'font-size:0.62rem;color:#888;white-space:nowrap;';
+
+        const thUnitSel = document.createElement('select');
+        thUnitSel.className = 'bc-select pe-pen-unit';
+        thUnitSel.title = 'Thickness unit (mm, pt, px)';
+        thUnitSel.style.cssText = 'font-size:0.68rem;padding:1px 3px;';
+        ['mm', 'pt', 'px'].forEach(u => {
+          const opt = document.createElement('option');
+          opt.value = u; opt.textContent = u;
+          thUnitSel.appendChild(opt);
+        });
+        const currentThickUnit = p.thicknessUnit || window.conThicknessUnit || 'mm';
+        thUnitSel.value = currentThickUnit;
+        thUnitSel.dataset.lastUnit = currentThickUnit;
+
         const thInput = document.createElement('input');
         thInput.type = 'range';
-        thInput.min = '1'; thInput.max = '40'; thInput.step = '1';
-        thInput.value = p.thickness || 4;
+        thInput.className = 'pe-pen-thickness';
+        if (typeof _conSetupThicknessSlider === 'function') {
+          _conSetupThicknessSlider(thInput, currentThickUnit, 'drawing');
+        }
+        const canonicalPx = p.thickness || 4;
+        thInput.dataset.rawPx = String(canonicalPx);
+        thInput.value = String((typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(canonicalPx, currentThickUnit) : canonicalPx);
         thInput.style.cssText = 'width:60px;accent-color:#111;cursor:pointer;';
+
         const thVal = document.createElement('span');
-        thVal.textContent = (p.thickness || 4) + 'px';
-        thVal.style.cssText = 'font-size:0.72rem;color:#555;width:30px;text-align:right;flex-shrink:0;';
-        thInput.oninput = () => { thVal.textContent = thInput.value + 'px'; };
+        thVal.textContent = (typeof conFormatThickness === 'function') ? conFormatThickness(canonicalPx, currentThickUnit) : (canonicalPx + 'px');
+        thVal.style.cssText = 'font-size:0.72rem;color:#555;width:40px;text-align:right;flex-shrink:0;';
+
+        thInput.oninput = () => {
+          const unit = thUnitSel.value;
+          const pxVal = (typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(parseFloat(thInput.value) || 0, unit) : parseFloat(thInput.value);
+          thInput.dataset.rawPx = String(pxVal);
+          thVal.textContent = thInput.value + ' ' + unit;
+        };
+
+        thUnitSel.onchange = () => {
+          const newUnit = thUnitSel.value;
+          const rawPx = parseFloat(thInput.dataset.rawPx) || 4;
+          if (typeof _conSetupThicknessSlider === 'function') {
+            _conSetupThicknessSlider(thInput, newUnit, 'drawing');
+          }
+          thInput.value = String((typeof conPxToThicknessUnit === 'function') ? conPxToThicknessUnit(rawPx, newUnit) : rawPx);
+          thVal.textContent = (typeof conFormatThickness === 'function') ? conFormatThickness(rawPx, newUnit) : (rawPx + ' ' + newUnit);
+          thUnitSel.dataset.lastUnit = newUnit;
+        };
 
         // Shape selector
         const shapeSelect = document.createElement('select');
@@ -21341,6 +21599,7 @@
         row.appendChild(thLabel);
         row.appendChild(thInput);
         row.appendChild(thVal);
+        row.appendChild(thUnitSel);
         row.appendChild(shapeSelect);
         row.appendChild(iconSelect);
         row.appendChild(removeBtn);
@@ -21363,19 +21622,24 @@
     function _bcGetPenPresets() {
       const rows = document.querySelectorAll('#bc-pen-preset-list .bc-swatch-row');
       return Array.from(rows).map(row => {
-        const inputs = row.querySelectorAll('input');
-        const colorPick = inputs[0];
-        const nameInput = inputs[1];
-        const opInput = inputs[2];
-        const thInput = inputs[3];
-        const selects = row.querySelectorAll('select');
-        const shapeSelect = selects[0];
-        const iconSelect = selects[1];
+        const colorPick = row.querySelector('input[type="color"]');
+        const nameInput = row.querySelector('.bc-swatch-input');
+        const opInput = row.querySelectorAll('input[type="range"]')[0];
+        const thInput = row.querySelector('.pe-pen-thickness') || row.querySelectorAll('input[type="range"]')[1];
+        const thUnitSel = row.querySelector('.pe-pen-unit');
+        const shapeSelect = row.querySelector('.pe-pen-shape') || row.querySelectorAll('select')[row.querySelectorAll('select').length - 2];
+        const iconSelect = row.querySelector('.pe-pen-icon') || row.querySelectorAll('select')[row.querySelectorAll('select').length - 1];
+
+        const unit = thUnitSel ? thUnitSel.value : 'mm';
+        const rawSliderVal = thInput ? parseFloat(thInput.value) : 4;
+        const thicknessPx = (thInput && thInput.dataset.rawPx) ? parseFloat(thInput.dataset.rawPx) : ((typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(rawSliderVal, unit) : rawSliderVal);
+
         return {
           name: nameInput ? nameInput.value.trim() : '',
           color: colorPick ? colorPick.value : '#111111',
           opacity: opInput ? parseFloat(opInput.value) : 1,
-          thickness: thInput ? parseInt(thInput.value, 10) : 4,
+          thickness: Math.round(thicknessPx * 10) / 10,
+          thicknessUnit: unit,
           shape: shapeSelect ? shapeSelect.value : '',
           icon: iconSelect ? iconSelect.value : '',
         };
@@ -21431,8 +21695,9 @@
         const iconName = _conGetPresetIconName(p);
         const shapeLabel = p.shape ? (p.shape.charAt(0).toUpperCase() + p.shape.slice(1)) : 'Freehand';
         const thickVal = p.thickness || 4;
+        const thickUnit = p.thicknessUnit || window.conThicknessUnit || 'mm';
         const opVal = Math.round((p.opacity !== undefined ? p.opacity : 1) * 100);
-        const titleText = (p.name || 'Preset') + ' (' + shapeLabel + ' · ' + thickVal + 'px · ' + opVal + '%)';
+        const titleText = (p.name || 'Preset') + ' (' + shapeLabel + ' · ' + ((typeof conFormatThickness === 'function') ? conFormatThickness(thickVal, thickUnit) : (thickVal + 'px')) + ' · ' + opVal + '%)';
         btn.title = titleText;
         btn.setAttribute('aria-label', titleText);
 

@@ -499,6 +499,22 @@
       if (typeof conMediaItems !== 'undefined') {
         conMediaItems = conMediaItems.filter(function (m) { return m.id !== item.id; });
       }
+      if (item && item.id) {
+        var mid = String(item.id);
+        var _edgeList = (typeof window.conGetEdges === 'function') ? window.conGetEdges() : ((typeof conEdges !== 'undefined' && Array.isArray(conEdges)) ? conEdges : (window.conEdges || []));
+        for (var i = _edgeList.length - 1; i >= 0; i--) {
+          var e = _edgeList[i];
+          if (e && (String(e.a) === mid || String(e.b) === mid)) {
+            if (e.g && typeof e.g.remove === 'function') e.g.remove();
+            _edgeList.splice(i, 1);
+            if (window._conSelectedEdgeId === e.id) window._conSelectedEdgeId = null;
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+            }
+          }
+        }
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+      }
     }
 
     function _conMediaDuplicate(item) {
@@ -991,6 +1007,15 @@
       window.conImgStyleDismiss();
       if (item) { _conCtxItem = null; _conMediaDeleteItem(item); }
     };
+    window.conImgSpLink = function () {
+      var item = _conCtxItem || (window.conGetMediaSelected ? [...window.conGetMediaSelected()][0] : null);
+      if (item) {
+        var id = (typeof item === 'object') ? item.id : item;
+        window.conImgStyleDismiss();
+        if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(id);
+      }
+    };
+    window.conMediaCtxLink = window.conImgSpLink;
 
     // ── PDF style popup ───────────────────────────────────────────
     var _conPdfOverlayOpenTime = 0;

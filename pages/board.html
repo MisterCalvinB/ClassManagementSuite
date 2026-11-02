@@ -1789,6 +1789,10 @@
           style="font-size:0.72rem;color:#666;width:36px;text-align:right;flex-shrink:0;">100%</span>
       </div>
       <div class="wn-sp-actions">
+        <button type="button" class="wn-sp-action-btn" id="con-drawing-ctx-link-btn" onclick="conDrawingCtxLink()" title="Link / Connect (Ctrl+J)" data-i18n-title="conLinkObject">
+          <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+          <span data-i18n="conLinkObjectBtn">Link</span>
+        </button>
         <button type="button" class="wn-sp-action-btn" id="con-drawing-ctx-lib-btn" onclick="conDrawingCtxSaveToLibrary()" title="Save to Premade Library" data-i18n-title="conSaveSelectionToLibrary">
           <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
           <span data-i18n="conSaveSelectionToLibrary">Add to Library</span>
@@ -3783,8 +3787,13 @@
               <div class="bc-section-title">Default Typography (Nodes)</div>
               <div class="bc-fields-grid">
                 <label>Default font size</label>
-                <div class="bc-field-row"><input type="number" id="bc-node-font-size" min="8" max="96" value="16"
-                    class="bc-num-input"><span class="bc-unit">px</span></div>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-node-font-size" min="8" max="96" value="16" class="bc-num-input">
+                  <select id="bc-node-font-size-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                  </select>
+                </div>
                 <label>Default font family</label>
                 <div class="bc-field-row" id="bc-node-font-family-wrap"
                   style="flex-direction:column;align-items:stretch;gap:4px;">
@@ -3813,8 +3822,14 @@
               <div class="bc-section-title">Default Node Border</div>
               <div class="bc-fields-grid">
                 <label>Width</label>
-                <div class="bc-field-row"><input type="number" id="bc-node-border-width" min="0" max="10" value="2"
-                    class="bc-num-input"><span class="bc-unit">px</span></div>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-node-border-width" min="0" max="10" step="any" value="2" class="bc-num-input">
+                  <select id="bc-node-border-width-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                    <option value="mm">mm</option>
+                  </select>
+                </div>
                 <label>Style</label>
                 <div class="bc-field-row">
                   <select id="bc-node-border-style" class="bc-select">
@@ -3886,11 +3901,21 @@
               <div class="bc-section-title">Default Typography (Notes)</div>
               <div class="bc-fields-grid">
                 <label>Font size (free floating)</label>
-                <div class="bc-field-row"><input type="number" id="bc-note-font-free" min="8" max="96" value="26"
-                    class="bc-num-input"><span class="bc-unit">px</span></div>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-note-font-free" min="8" max="96" value="26" class="bc-num-input">
+                  <select id="bc-note-font-free-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                  </select>
+                </div>
                 <label>Font size (node-linked)</label>
-                <div class="bc-field-row"><input type="number" id="bc-note-font-linked" min="8" max="96" value="14"
-                    class="bc-num-input"><span class="bc-unit">px</span></div>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-note-font-linked" min="8" max="96" value="14" class="bc-num-input">
+                  <select id="bc-note-font-linked-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                  </select>
+                </div>
                 <label>Default font family</label>
                 <div class="bc-field-row" id="bc-note-font-family-wrap"
                   style="flex-direction:column;align-items:stretch;gap:4px;">
@@ -3986,8 +4011,12 @@
               <div class="bc-fields-grid">
                 <label data-i18n="bcLinkStrokeThickness">Stroke thickness</label>
                 <div class="bc-field-row">
-                  <input type="number" id="bc-link-stroke-thickness" min="1" max="20" step="0.5" value="2" class="bc-num-input">
-                  <span class="bc-unit">px</span>
+                  <input type="number" id="bc-link-stroke-thickness" min="0.2" max="20" step="any" value="2" class="bc-num-input">
+                  <select id="bc-link-stroke-thickness-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                    <option value="mm">mm</option>
+                  </select>
                 </div>
 
                 <label data-i18n="bcLinkStrokeType">Stroke type</label>
@@ -4060,8 +4089,11 @@
 
                 <label data-i18n="bcLinkLabelFontSize">Label font size</label>
                 <div class="bc-field-row">
-                  <input type="number" id="bc-link-label-size" min="8" max="36" step="1" value="16" class="bc-num-input">
-                  <span class="bc-unit">px</span>
+                  <input type="number" id="bc-link-label-size" min="6" max="48" step="any" value="16" class="bc-num-input">
+                  <select id="bc-link-label-size-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="px">px</option>
+                    <option value="pt">pt</option>
+                  </select>
                 </div>
 
                 <label data-i18n="bcLinkPreview">Preview</label>
@@ -4157,9 +4189,13 @@
                 <label>Default thickness</label>
                 <div class="bc-field-row">
                   <input type="range" id="bc-pen-thickness" min="1" max="40" value="4"
-                    style="flex:1;cursor:pointer;accent-color:#111;"
-                    oninput="document.getElementById('bc-pen-thickness-val').textContent=this.value+'px'">
-                  <span id="bc-pen-thickness-val" style="min-width:2.5em;font-size:0.75rem;color:#555;">4px</span>
+                    style="flex:1;cursor:pointer;accent-color:#111;">
+                  <span id="bc-pen-thickness-val" style="min-width:3.2em;font-size:0.75rem;color:#555;">4px</span>
+                  <select id="bc-pen-thickness-unit" class="bc-select" style="width:68px;padding:3px 6px;">
+                    <option value="mm">mm</option>
+                    <option value="pt">pt</option>
+                    <option value="px">px</option>
+                  </select>
                 </div>
               </div>
             </div>
@@ -4875,6 +4911,8 @@
           style="font-size:0.72rem;padding:2px 8px;width:auto;height:24px;display:inline-flex;align-items:center;gap:4px;" title="Reset filters"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /><span data-i18n="conSpResetFilters">Reset</span></button>
       </div>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
+        <button class="wn-sp-action-btn" id="con-img-sp-link-btn" onclick="conImgSpLink()"
+          data-i18n-title="conLinkObject" title="Link / Connect (Ctrl+J)"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="conLinkObjectBtn">Link</span></button>
         <button class="wn-sp-action-btn" id="con-img-sp-blink-btn" onclick="conImgSpToggleBlink()"
           data-i18n="conSpBlink"><img src="../assets/icons/blink.svg" class="btn-icon" alt="" /> Blink</button>
         <button class="wn-sp-action-btn" id="con-img-sp-fullscreen-btn" onclick="conImgSpToggleFullscreen()"
@@ -4950,6 +4988,8 @@
           style="font-size:0.72rem;color:#666;width:36px;text-align:right;flex-shrink:0;">100%</span>
       </div>
       <div class="wn-sp-actions" style="flex-wrap:wrap;">
+        <button class="wn-sp-action-btn" id="con-pdf-sp-link-btn" onclick="conImgSpLink()"
+          data-i18n-title="conLinkObject" title="Link / Connect (Ctrl+J)"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="conLinkObjectBtn">Link</span></button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-blink-btn" onclick="conPdfSpToggleBlink()"
           data-i18n="conSpBlink"><img src="../assets/icons/blink.svg" class="btn-icon" alt="" /> Blink</button>
         <button class="wn-sp-action-btn" id="con-pdf-sp-fullscreen-btn" onclick="conPdfSpToggleFullscreen()"

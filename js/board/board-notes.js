@@ -234,7 +234,8 @@
       note.style.height = (baseH * zoom) + 'px';
       ta.style.width = '100%';
       ta.style.height = Math.max(16, (baseH - 12) * zoom) + 'px';
-      ta.style.overflowY = 'auto';
+      ta.style.overflowY = (noteData && noteData.lockRatio) ? 'hidden' : 'auto';
+      ta.style.overflowX = 'hidden';
       return true;
     }
     window.wnApplyStoredSize = wnApplyStoredSize;
@@ -401,6 +402,9 @@
         window._conMirrorDragging = false;
       }
 
+      let _sFont = 14;
+      let _inlineFontMap = [];
+
       handle.addEventListener('mousedown', e => {
         if (noteData.locked) {
           e.preventDefault();
@@ -414,6 +418,16 @@
         sy = e.clientY;
         sw = (noteData.manualSize && Number.isFinite(Number(noteData.width))) ? Number(noteData.width) : (note.offsetWidth / scale);
         sh = (noteData.manualSize && Number.isFinite(Number(noteData.height))) ? Number(noteData.height) : (note.offsetHeight / scale);
+        _sFont = Number(noteData.fontSize) || 14;
+        _inlineFontMap = [];
+        if (noteData.lockRatio) {
+          ta.querySelectorAll('[style*="font-size"]').forEach(el => {
+            const match = el.style.fontSize.match(/^([\d.]+)px$/);
+            if (match) {
+              _inlineFontMap.push({ el, basePx: parseFloat(match[1]) / scale });
+            }
+          });
+        }
         e.preventDefault();
         e.stopPropagation();
       });
@@ -431,36 +445,88 @@
 
         _clearNoteResizeSnapLines();
 
-        let nextW = Math.max(cfg.minW, Math.min(maxW, rawW));
-        let nextH = Math.max(cfg.minH, Math.min(maxH, rawH));
+        let nextW, nextH;
 
-        const _snapEnabled = window.conGetSnapEnabled ? window.conGetSnapEnabled() : false;
-        if (_snapEnabled && !e.altKey) {
-          const snapRes = wnComputeResizeSnap(noteData, note, rawW, rawH, cfg, maxW, maxH, scale);
-          nextW = snapRes.nextW;
-          nextH = snapRes.nextH;
+        if (noteData.lockRatio) {
+          const dx = (e.clientX - sx) / scale;
+          const dy = (e.clientY - sy) / scale;
+          const diagLenSq = sw * sw + sh * sh;
+          const proj = diagLenSq > 0 ? ((dx * sw + dy * sh) / diagLenSq) : 0;
+          let factor = Math.max(0.1, 1 + proj);
 
-          const svgEl = document.getElementById('constellation-svg');
-          const brdEl = document.getElementById('constellation-board');
-          if (snapRes.snapLineX !== null && svgEl && brdEl) {
-            const brdH = Math.max(brdEl.clientHeight || 0, brdEl.scrollHeight || 0, svgEl.clientHeight || 0, 2000);
-            const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            sl.setAttribute('class', 'con-snap-line');
-            sl.setAttribute('x1', snapRes.snapLineX);
-            sl.setAttribute('y1', 0);
-            sl.setAttribute('x2', snapRes.snapLineX);
-            sl.setAttribute('y2', brdH);
-            svgEl.appendChild(sl);
+          let candW = sw * factor;
+          let candH = sh * factor;
+
+          if (candW < cfg.minW) {
+            factor = cfg.minW / sw;
+            candW = cfg.minW;
+            candH = sh * factor;
           }
-          if (snapRes.snapLineY !== null && svgEl && brdEl) {
-            const brdW = Math.max(brdEl.clientWidth || 0, brdEl.scrollWidth || 0, svgEl.clientWidth || 0, 3000);
-            const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            sl.setAttribute('class', 'con-snap-line');
-            sl.setAttribute('x1', 0);
-            sl.setAttribute('y1', snapRes.snapLineY);
-            sl.setAttribute('x2', brdW);
-            sl.setAttribute('y2', snapRes.snapLineY);
-            svgEl.appendChild(sl);
+          if (candH < cfg.minH) {
+            factor = cfg.minH / sh;
+            candH = cfg.minH;
+            candW = sw * factor;
+          }
+          if (candW > maxW) {
+            factor = maxW / sw;
+            candW = maxW;
+            candH = sh * factor;
+          }
+          if (candH > maxH) {
+            factor = maxH / sh;
+            candH = maxH;
+            candW = sw * factor;
+          }
+
+          nextW = Math.max(cfg.minW, Math.min(maxW, Math.round(candW)));
+          nextH = Math.max(cfg.minH, Math.min(maxH, Math.round(candH)));
+
+          const newFontSize = Math.max(6, Math.min(120, Math.round(_sFont * factor)));
+          noteData.fontSize = newFontSize;
+          note.style.fontSize = (newFontSize * scale) + 'px';
+          ta.style.fontSize = (newFontSize * scale) + 'px';
+          _inlineFontMap.forEach(({ el, basePx }) => {
+            el.style.fontSize = Math.max(4, Math.round(basePx * factor * scale)) + 'px';
+          });
+
+          const spSlider = document.getElementById('wn-sp-size-slider');
+          const spVal = document.getElementById('wn-sp-size-val');
+          if (spSlider && spVal && _wnActiveNote && _wnActiveNote.id === noteData.id) {
+            spSlider.value = newFontSize;
+            spVal.textContent = newFontSize + 'px';
+          }
+        } else {
+          nextW = Math.max(cfg.minW, Math.min(maxW, rawW));
+          nextH = Math.max(cfg.minH, Math.min(maxH, rawH));
+
+          const _snapEnabled = window.conGetSnapEnabled ? window.conGetSnapEnabled() : false;
+          if (_snapEnabled && !e.altKey) {
+            const snapRes = wnComputeResizeSnap(noteData, note, rawW, rawH, cfg, maxW, maxH, scale);
+            nextW = snapRes.nextW;
+            nextH = snapRes.nextH;
+
+            const svgEl = document.getElementById('constellation-svg');
+            const brdEl = document.getElementById('constellation-board');
+            if (snapRes.snapLineX !== null && svgEl && brdEl) {
+              const brdH = Math.max(brdEl.clientHeight || 0, brdEl.scrollHeight || 0, svgEl.clientHeight || 0, 2000);
+              const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              sl.setAttribute('class', 'con-snap-line');
+              sl.setAttribute('x1', snapRes.snapLineX);
+              sl.setAttribute('y1', 0);
+              sl.setAttribute('x2', snapRes.snapLineX);
+              sl.setAttribute('y2', brdH);
+              svgEl.appendChild(sl);
+            }
+            if (snapRes.snapLineY !== null && svgEl && brdEl) {
+              const brdW = Math.max(brdEl.clientWidth || 0, brdEl.scrollWidth || 0, svgEl.clientWidth || 0, 3000);
+              const sl = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+              sl.setAttribute('class', 'con-snap-line');
+              sl.setAttribute('x1', 0);
+              sl.setAttribute('y1', snapRes.snapLineY);
+              sl.setAttribute('x2', brdW);
+              sl.setAttribute('y2', snapRes.snapLineY);
+              svgEl.appendChild(sl);
+            }
           }
         }
 
@@ -470,6 +536,19 @@
         noteData.liveBaseWidth = nextW;
         noteData.liveBaseHeight = nextH;
         wnApplyStoredSize(note, ta, noteData, scale);
+        if (noteData.lockRatio) {
+          ta.style.overflowY = 'hidden';
+          ta.style.overflowX = 'hidden';
+          if (ta.scrollHeight > ta.clientHeight + 1 && noteData.fontSize > 6) {
+            const adjustedFont = Math.max(6, noteData.fontSize - 1);
+            noteData.fontSize = adjustedFont;
+            note.style.fontSize = (adjustedFont * scale) + 'px';
+            ta.style.fontSize = (adjustedFont * scale) + 'px';
+            _inlineFontMap.forEach(({ el, basePx }) => {
+              el.style.fontSize = Math.max(4, Math.round(basePx * (adjustedFont / _sFont) * scale)) + 'px';
+            });
+          }
+        }
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
 
@@ -481,7 +560,8 @@
             height: nextH,
             baseWidth: nextW,
             baseHeight: nextH,
-            manualSize: true
+            manualSize: true,
+            fontSize: noteData.fontSize
           };
           if (!_noteResizeRaf) {
             _noteResizeRaf = requestAnimationFrame(function () {
@@ -503,6 +583,13 @@
           }
           noteData.liveBaseWidth = Number(noteData.width);
           noteData.liveBaseHeight = Number(noteData.height);
+          if (noteData.lockRatio) {
+            ta.style.overflowY = 'hidden';
+            ta.style.overflowX = 'hidden';
+            if (_inlineFontMap.length > 0) {
+              wnSyncNoteDataFromEditor(noteData, ta);
+            }
+          }
           if (window._conMirrorSend) {
             window._conMirrorSend({
               type: 'note-resize',
@@ -511,7 +598,8 @@
               height: Number(noteData.height),
               baseWidth: Number(noteData.width),
               baseHeight: Number(noteData.height),
-              manualSize: true
+              manualSize: true,
+              fontSize: noteData.fontSize
             });
             _pendingNoteResizeMsg = null;
           }
@@ -1357,9 +1445,11 @@
         color: String(p.color || '#111111'),
         borderColor: String(p.borderColor || '#111111'),
         borderWidth: Number(p.borderWidth || 0),
+        borderWidthUnit: String(p.borderWidthUnit || 'px'),
         borderStyle: String(p.borderStyle || 'solid'),
         fontFamily: String(p.fontFamily || ''),
         fontSize: (p.fontSize != null && p.fontSize !== '') ? Number(p.fontSize) : null,
+        fontSizeUnit: String(p.fontSizeUnit || 'px'),
         fmt: p.fmt && typeof p.fmt === 'object' ? {
           bold: !!p.fmt.bold, italic: !!p.fmt.italic, underline: !!p.fmt.underline, strike: !!p.fmt.strike
         } : { bold: false, italic: false, underline: false, strike: false }
@@ -1427,6 +1517,8 @@
         const row = document.createElement('div');
         row.className = 'con-preset-editor-row';
         row.draggable = true;
+        const bwVal = p.borderWidth != null ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.borderWidth, p.borderWidthUnit || 'px') : p.borderWidth) : 0;
+        const fsVal = p.fontSize != null && p.fontSize !== '' ? (typeof conPxToFontUnit === 'function' ? conPxToFontUnit(p.fontSize, p.fontSizeUnit || 'px') : p.fontSize) : '';
         row.innerHTML = `
           <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
           <input type="text" class="pe-key" value="${_wnEsc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
@@ -1434,7 +1526,14 @@
           <input type="color" class="pe-bg"    value="${_wnSafeHex(p.bg)}"          title="${t('conPresetBgColorTitle')}">
           <input type="color" class="pe-color" value="${_wnSafeHex(p.color)}"       title="${t('conPresetTextColorTitle')}">
           <input type="color" class="pe-bdr"   value="${_wnSafeHex(p.borderColor)}" title="${t('conPresetBorderColorTitle')}">
-          <input type="number" class="pe-bw" min="0" max="10" value="${p.borderWidth || 0}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+          <div class="pe-unit-input-wrap">
+            <input type="number" class="pe-bw" min="0" max="30" step="any" value="${_wnEsc(bwVal)}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
+            <select class="pe-bw-unit" title="Unit (px, pt, mm)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:38px;">
+              <option value="px" ${(p.borderWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+              <option value="pt" ${p.borderWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
+              <option value="mm" ${p.borderWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
+            </select>
+          </div>
           <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
             <option value="solid"  ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
             <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
@@ -1442,7 +1541,13 @@
             <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
           </select>
           <div class="pe-font-wrap"></div>
-          <input type="number" class="pe-fs" min="6" max="96" value="${p.fontSize != null ? p.fontSize : ''}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.78rem;border:1.5px solid #ccc;border-radius:3px;padding:3px 4px;outline:none;min-width:0;width:100%;">
+          <div class="pe-unit-input-wrap">
+            <input type="number" class="pe-fs" min="1" max="144" step="any" value="${_wnEsc(fsVal)}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
+            <select class="pe-fs-unit" title="Unit (px or pt)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:34px;">
+              <option value="px" ${(p.fontSizeUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+              <option value="pt" ${p.fontSizeUnit === 'pt' ? 'selected' : ''}>pt</option>
+            </select>
+          </div>
           <div class="pe-fmt-btns">
             <button class="pe-fmt-btn${p.fmt.bold ? ' active' : ''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="${t('conPresetBoldTitle')}"><b>B</b></button>
             <button class="pe-fmt-btn${p.fmt.italic ? ' active' : ''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="${t('conPresetItalicTitle')}"><i>I</i></button>
@@ -1451,6 +1556,40 @@
           </div>
           <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="notePresetEditorDeleteRow(${i})">🗑</button>
         `;
+
+        // Bind unit conversion listeners
+        const bwInput = row.querySelector('.pe-bw');
+        const bwUnitSel = row.querySelector('.pe-bw-unit');
+        if (bwInput && bwUnitSel) {
+          bwUnitSel.dataset.lastUnit = bwUnitSel.value;
+          bwUnitSel.addEventListener('change', () => {
+            const prevUnit = bwUnitSel.dataset.lastUnit || 'px';
+            const newUnit = bwUnitSel.value;
+            const val = parseFloat(bwInput.value);
+            if (!isNaN(val)) {
+              const px = conThicknessUnitToPx(val, prevUnit);
+              bwInput.value = String(conPxToThicknessUnit(px, newUnit));
+            }
+            bwUnitSel.dataset.lastUnit = newUnit;
+          });
+        }
+
+        const fsInput = row.querySelector('.pe-fs');
+        const fsUnitSel = row.querySelector('.pe-fs-unit');
+        if (fsInput && fsUnitSel) {
+          fsUnitSel.dataset.lastUnit = fsUnitSel.value;
+          fsUnitSel.addEventListener('change', () => {
+            const prevUnit = fsUnitSel.dataset.lastUnit || 'px';
+            const newUnit = fsUnitSel.value;
+            const val = parseFloat(fsInput.value);
+            if (!isNaN(val)) {
+              const px = conFontUnitToPx(val, prevUnit);
+              fsInput.value = String(conPxToFontUnit(px, newUnit));
+            }
+            fsUnitSel.dataset.lastUnit = newUnit;
+          });
+        }
+
         const fontWrap = row.querySelector('.pe-font-wrap');
         if (fontWrap && typeof _bcBuildFontSelect === 'function') {
           const fsel = _bcBuildFontSelect('', p.fontFamily || '', '');
@@ -1477,7 +1616,12 @@
         const bg = row.querySelector('.pe-bg').value || '#ffffff';
         const color = row.querySelector('.pe-color').value || '#111111';
         const borderColor = row.querySelector('.pe-bdr').value || '#111111';
-        const borderWidth = Math.max(0, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 0));
+        const bwInput = row.querySelector('.pe-bw');
+        const bwUnit = row.querySelector('.pe-bw-unit')?.value || 'px';
+        const rawBw = parseFloat(bwInput ? bwInput.value : 0);
+        const borderWidth = !isNaN(rawBw) && rawBw >= 0 ? ((typeof conThicknessUnitToPx === 'function') ? conThicknessUnitToPx(rawBw, bwUnit) : rawBw) : 0;
+        const borderWidthUnit = bwUnit;
+
         const borderStyle = row.querySelector('.pe-bs').value || 'solid';
         const fmtBtns = row.querySelector('.pe-fmt-btns');
         const fmt = {
@@ -1489,8 +1633,12 @@
         const fontSel = row.querySelector('.pe-font');
         const fontFamily = fontSel ? (fontSel.value || '') : '';
         const fsInput = row.querySelector('.pe-fs');
-        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
-        flushed.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
+        const fsUnit = row.querySelector('.pe-fs-unit')?.value || 'px';
+        const rawFs = parseFloat(fsInput ? fsInput.value : '');
+        const fontSize = !isNaN(rawFs) && rawFs > 0 ? ((typeof conFontUnitToPx === 'function') ? conFontUnitToPx(rawFs, fsUnit) : rawFs) : null;
+        const fontSizeUnit = fsUnit;
+
+        flushed.push({ key, label, bg, color, borderColor, borderWidth, borderWidthUnit, borderStyle, fontFamily, fontSize, fontSizeUnit, fmt });
       });
       if (flushed.length > 0) _notePresetEditorDraft = flushed;
     }
@@ -1530,7 +1678,7 @@
     window.notePresetEditorAddRow = function () {
       if (_notePresetEditorDraft.length >= 15) return;
       _notePresetEditorFlushDOM();
-      _notePresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 0, borderStyle: 'solid', fontFamily: '', fontSize: null, fmt: { bold: false, italic: false, underline: false, strike: false } });
+      _notePresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 0, borderWidthUnit: 'px', borderStyle: 'solid', fontFamily: '', fontSize: null, fontSizeUnit: 'px', fmt: { bold: false, italic: false, underline: false, strike: false } });
       _notePresetEditorRender();
       const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
       const last = rows[rows.length - 1];
@@ -1538,30 +1686,8 @@
     };
 
     window.notePresetEditorSave = async function () {
-      const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
-      const result = [];
-      rows.forEach(row => {
-        const key = (row.querySelector('.pe-key').value || '').trim();
-        const label = (row.querySelector('.pe-label').value || key).trim();
-        const bg = row.querySelector('.pe-bg').value || '#ffffff';
-        const color = row.querySelector('.pe-color').value || '#111111';
-        const borderColor = row.querySelector('.pe-bdr').value || '#111111';
-        const borderWidth = Math.max(0, Math.min(10, parseInt(row.querySelector('.pe-bw').value) || 0));
-        const borderStyle = row.querySelector('.pe-bs').value || 'solid';
-        const fmtBtns = row.querySelector('.pe-fmt-btns');
-        const fmt = {
-          bold: fmtBtns ? fmtBtns.querySelector('[data-fmt="bold"]').classList.contains('active') : false,
-          italic: fmtBtns ? fmtBtns.querySelector('[data-fmt="italic"]').classList.contains('active') : false,
-          underline: fmtBtns ? fmtBtns.querySelector('[data-fmt="under"]').classList.contains('active') : false,
-          strike: fmtBtns ? fmtBtns.querySelector('[data-fmt="strike"]').classList.contains('active') : false
-        };
-        if (!key) return;
-        const fontSel = row.querySelector('.pe-font');
-        const fontFamily = fontSel ? (fontSel.value || '') : '';
-        const fsInput = row.querySelector('.pe-fs');
-        const fontSize = fsInput && fsInput.value.trim() !== '' ? Math.max(6, Math.min(96, parseInt(fsInput.value))) : null;
-        result.push({ key, label, bg, color, borderColor, borderWidth, borderStyle, fontFamily, fontSize, fmt });
-      });
+      _notePresetEditorFlushDOM();
+      const result = _notePresetEditorDraft.filter(p => !!p.key);
       const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
       bc.notePresets = result;
       window.BOARD_CONFIG = bc;
@@ -2411,6 +2537,54 @@
         });
       }
       wnStyleRefresh();
+    }
+
+    function conNoteFitHeight(targetData) {
+      const nd = targetData || _wnActiveNote;
+      if (!nd) return;
+      const noteEl = wnGetNoteElementById(nd.id);
+      if (!noteEl) return;
+      const ta = noteEl.querySelector('.wn-note-editor, textarea');
+      if (!ta) return;
+      const zoom = (nd.id && nd.id.startsWith('cn') && window.conGetZoom) ? window.conGetZoom() : 1;
+      const z = Math.max(0.5, Math.min(3, Number(zoom) || 1));
+
+      // Temporarily set height to auto to measure actual scrollHeight
+      ta.style.height = 'auto';
+      ta.style.overflowY = 'hidden';
+
+      const editorScrollH = ta.scrollHeight;
+      const unzoomedScrollH = editorScrollH / z;
+      const neededH = Math.max(28, Math.round(unzoomedScrollH + 12));
+
+      nd.manualSize = true;
+      nd.height = neededH;
+      nd.liveBaseHeight = neededH;
+      if (!nd.width) {
+        nd.width = Math.max(80, Math.round(noteEl.offsetWidth / z));
+        nd.liveBaseWidth = nd.width;
+      }
+
+      noteEl.style.height = (neededH * z) + 'px';
+      ta.style.height = Math.max(16, (neededH - 12) * z) + 'px';
+      ta.style.overflowY = 'hidden';
+
+      if (typeof conRedrawEdges === 'function') conRedrawEdges();
+      if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-resize',
+          id: String(nd.id),
+          width: nd.width,
+          height: neededH,
+          baseWidth: nd.liveBaseWidth,
+          baseHeight: neededH,
+          manualSize: true,
+          fontSize: nd.fontSize
+        });
+      }
     }
 
     function wnStripCheckboxesFromLi(li) {
@@ -4408,6 +4582,12 @@
         lockQuickBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />';
         lockQuickBtn.classList.toggle('active', !!noteData.locked);
         lockQuickBtn.title = noteData.locked ? 'Unlock note' : 'Lock note';
+        if (typeof updateLockRatioBtnUI === 'function') updateLockRatioBtnUI();
+        if (noteData.lockRatio) {
+          note.classList.add('wn-lock-ratio');
+          ta.style.overflowY = 'hidden';
+          ta.style.overflowX = 'hidden';
+        }
         conNoteAutosize(ta, noteData);
         // Re-apply sticker zoom
         note.querySelectorAll('.wn-emoji-sticker').forEach(el => {
@@ -4792,7 +4972,7 @@
       // Fit-text button
       const fitQuickBtn = document.createElement('button');
       fitQuickBtn.className = 'wn-note-mini-btn';
-      fitQuickBtn.title = 'Fit text to box';
+      fitQuickBtn.title = (window.i18n && typeof i18n.t === 'function' ? i18n.t('conNoteFitTextTitle') : 'Fit text to box (scale font size)');
       fitQuickBtn.innerHTML = '<img src="../assets/icons/fit-text.svg" class="btn-icon" alt="" />';
       fitQuickBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
       fitQuickBtn.addEventListener('click', e => {
@@ -4805,6 +4985,54 @@
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
       });
       miniActions.appendChild(fitQuickBtn);
+
+      // Fit-height button (shrink/expand height to fit text)
+      const fitHeightQuickBtn = document.createElement('button');
+      fitHeightQuickBtn.className = 'wn-note-mini-btn';
+      fitHeightQuickBtn.setAttribute('data-action', 'fit-height');
+      fitHeightQuickBtn.title = (window.i18n && typeof i18n.t === 'function' ? i18n.t('conNoteFitHeightTitle') : 'Fit note height to text');
+      fitHeightQuickBtn.innerHTML = '<img src="../assets/icons/fit-height.svg" class="btn-icon" alt="" />';
+      fitHeightQuickBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+      fitHeightQuickBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        conNoteFitHeight(noteData);
+      });
+      miniActions.appendChild(fitHeightQuickBtn);
+
+      // Lock aspect ratio & font scaling button
+      noteData.lockRatio = !!noteData.lockRatio;
+      if (noteData.lockRatio) {
+        note.classList.add('wn-lock-ratio');
+        ta.style.overflowY = 'hidden';
+        ta.style.overflowX = 'hidden';
+      }
+      const lockRatioQuickBtn = document.createElement('button');
+      lockRatioQuickBtn.className = 'wn-note-mini-btn';
+      lockRatioQuickBtn.setAttribute('data-action', 'lock-ratio');
+      function updateLockRatioBtnUI() {
+        const isLocked = !!noteData.lockRatio;
+        lockRatioQuickBtn.classList.toggle('active', isLocked);
+        note.classList.toggle('wn-lock-ratio', isLocked);
+        if (isLocked) {
+          ta.style.overflowY = 'hidden';
+          ta.style.overflowX = 'hidden';
+        }
+        const tipKey = isLocked ? 'conNoteUnlockRatioTitle' : 'conNoteLockRatioTitle';
+        const fallbackTip = isLocked ? 'Unlock aspect ratio & font scaling' : 'Lock aspect ratio & font scaling';
+        lockRatioQuickBtn.title = (window.i18n && typeof i18n.t === 'function' ? i18n.t(tipKey) : fallbackTip);
+      }
+      updateLockRatioBtnUI();
+      lockRatioQuickBtn.innerHTML = '<img src="../assets/icons/aspect-ratio.svg" class="btn-icon" alt="" />';
+      lockRatioQuickBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+      lockRatioQuickBtn.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        noteData.lockRatio = !noteData.lockRatio;
+        updateLockRatioBtnUI();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      });
+      miniActions.appendChild(lockRatioQuickBtn);
 
       // Lock button
       const lockQuickBtn = document.createElement('button');
@@ -6263,6 +6491,7 @@
   window.wnStyleToggleLock = global.wnStyleToggleLock = wnStyleToggleLock;
   window.wnStyleToggleHide = global.wnStyleToggleHide = wnStyleToggleHide;
   window.wnStyleFitText = global.wnStyleFitText = wnStyleFitText;
+  window.conNoteFitHeight = global.conNoteFitHeight = conNoteFitHeight;
   window.wnInsertList = global.wnInsertList = wnInsertList;
   window.wnInsertCheckboxList = global.wnInsertCheckboxList = wnInsertCheckboxList;
   window.wnOutdentList = global.wnOutdentList = wnOutdentList;
