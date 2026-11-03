@@ -3011,6 +3011,22 @@
               <span data-i18n="tcPrintRubricOnSheet">Print Rubric on Exam Sheet</span>
             </label>
           </div>
+
+          <!-- Level Column Subtitles Section -->
+          <div id="tcModalRubricLevelSubsSection" style="grid-column: 1 / -1; padding-top:10px; border-top:1.5px dashed #cbd5e1;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:6px;">
+              <div>
+                <strong style="font-size:0.78rem; color:#065f46;" data-i18n="tcCritLevelSubsTitle">Level Column Subtitles (Optional):</strong>
+                <div style="font-size:0.72rem; color:#64748b; margin-top:2px;" data-i18n="tcCritLevelSubsDesc">Custom sub-labels displayed beneath each level header in the rubric matrix (e.g. Mastery, Developing, or letter grades). Leave blank to omit.</div>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button type="button" class="neo-btn sm" style="font-size:0.7rem; padding:2px 8px;" onclick="tcAddCustomRubricLevelSub()" data-i18n="tcAddLevelSubBtn">+ Add Level</button>
+                <button type="button" class="neo-btn sm" style="font-size:0.7rem; padding:2px 8px; color:#b91c1c; border-color:#ef4444;" onclick="tcClearRubricLevelSubs()" data-i18n="tcClearAllSubs">Clear All</button>
+              </div>
+            </div>
+            <div id="tcRubricLevelSubsContainer" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; min-height:36px; padding:6px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:6px;">
+            </div>
+          </div>
         </div>
 
         <!-- Live Preview Box -->
@@ -8850,6 +8866,10 @@
             o.rubricSeparatePage = true;
             if (ex && (ex.type === 'section_criteria' || ex.type === 'section_competences')) ex.forcePageBreak = true;
           }
+        } else if (key === 'levelSubs') {
+          o.rubricLevelSubs = value;
+        } else if (key === 'rubricLevelSubs') {
+          o.levelSubs = value;
         }
       }
 
@@ -10461,7 +10481,8 @@
                 background: exOpts.background || exOpts.rubricBg || 'default',
                 padding: exOpts.padding || exOpts.rubricPadding || 'standard',
                 border: exOpts.border || exOpts.rubricBorder || 'solid',
-                title: exOpts.rubricTitle || targetEx.title || 'Rubric Matrix'
+                title: exOpts.rubricTitle || targetEx.title || 'Rubric Matrix',
+                levelSubs: exOpts.levelSubs || exOpts.rubricLevelSubs
               });
             } else {
               html = TestCreatorService.renderCriteriaHtml({ criteria: crits, exercises: [] }, {
@@ -10471,6 +10492,7 @@
                 padding: exOpts.padding || exOpts.rubricPadding || 'standard',
                 border: exOpts.border || exOpts.rubricBorder || 'solid',
                 title: exOpts.rubricTitle || targetEx.title || 'Rubric Matrix',
+                levelSubs: exOpts.levelSubs || exOpts.rubricLevelSubs,
                 includeExerciseCriteria: false
               });
             }
@@ -10485,6 +10507,7 @@
             displayMode: 'matrix',
             showDescriptions: true,
             title: i18n.t('tcCriteriaBlockTitle') || 'Assessment Criteria & Rubric Matrix',
+            levelSubs: (currentTest.headerConfig && currentTest.headerConfig.criteriaStyle && currentTest.headerConfig.criteriaStyle.levelSubs) || {},
             exercises: currentTest.exercises || []
           });
         }
@@ -10595,10 +10618,168 @@
           printChk.checked = isExamLevel ? !!hc.showCriteria : (o.showRubric !== false);
         }
 
+        var lvlSec = document.getElementById('tcModalRubricLevelSubsSection');
+        if (lvlSec) lvlSec.style.display = (o.showLevelsCol !== false) ? 'block' : 'none';
+
+        var rawCrits = [];
+        if (isExamLevel) {
+          rawCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+            ? currentTest.criteria
+            : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+          (currentTest.exercises || []).forEach(function (e) {
+            var ec = (Array.isArray(e.criteria) && e.criteria.length) ? e.criteria : (Array.isArray(e.markingRubric) ? e.markingRubric : []);
+            ec.forEach(function (c) { if (c) rawCrits.push(c); });
+          });
+        } else {
+          rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+            ? ex.criteria
+            : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : (Array.isArray(ex.linkedCriteria) ? ex.linkedCriteria : []));
+          if (rawCrits.length === 0 && ex.type === 'section_criteria' && currentTest) {
+            rawCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+              ? currentTest.criteria
+              : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+          }
+        }
+        var levels = TestCreatorService.getCriteriaLevels(rawCrits);
+        var levelSubs = isExamLevel ? (crSt.levelSubs || {}) : (o.levelSubs || o.rubricLevelSubs || {});
+        tcRenderRubricLevelSubsUI(levels, levelSubs);
+
         tcRenderRubricLayoutPreview(isExamLevel ? '__exam__' : ex);
         modal.classList.add('open');
         modal.style.display = 'flex';
       };
+
+      window.tcRenderRubricLevelSubsUI = function (levels, levelSubs) {
+        var container = document.getElementById('tcRubricLevelSubsContainer');
+        if (!container) return;
+        levelSubs = levelSubs || {};
+        var allLevels = Array.isArray(levels) ? levels.slice() : [];
+        Object.keys(levelSubs).forEach(function (k) {
+          var kNum = parseFloat(k);
+          var exists = allLevels.some(function (l) { return String(l) === String(k) || (kNum === l && !isNaN(kNum)); });
+          if (!exists) {
+            allLevels.push(isNaN(kNum) ? k : kNum);
+          }
+        });
+        allLevels.sort(function (a, b) {
+          var aNum = parseFloat(a);
+          var bNum = parseFloat(b);
+          if (!isNaN(aNum) && !isNaN(bNum)) return bNum - aNum;
+          return String(b).localeCompare(String(a));
+        });
+
+        if (allLevels.length === 0) {
+          allLevels = [6, 5, 4, 3, 2, 1];
+        }
+
+        var ph = i18n.t('tcCritSubPlaceholder') || 'Sub-label...';
+        var html = allLevels.map(function (lvl) {
+          var val = levelSubs[String(lvl)] !== undefined ? String(levelSubs[String(lvl)]) : '';
+          return '<div class="tc-level-sub-item" style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;border:1.5px solid #059669;border-radius:6px;padding:3px 8px;box-shadow:1px 1px 0 #059669;">' +
+            '<span style="font-size:0.75rem;font-weight:800;color:#065f46;min-width:22px;text-align:center;">' + escapeHtml(String(lvl)) + '</span>' +
+            '<input type="text" class="meta-input tc-level-sub-input" data-level="' + escapeHtml(String(lvl)) + '" style="font-size:0.75rem;padding:2px 6px;width:105px;border:1.5px solid #059669;border-radius:4px;background:#fff;" placeholder="' + escapeHtml(ph) + '" value="' + escapeHtml(val) + '" oninput="tcUpdateModalRubricLevelSub(\'' + escapeHtml(String(lvl)) + '\', this.value)">' +
+            '</div>';
+        }).join('');
+
+        container.innerHTML = html;
+      };
+
+      window.tcUpdateModalRubricLevelSub = function (lvl, value) {
+        if (!window._currentEditingRubricExId) return;
+        var isExamLevel = (window._currentEditingRubricExId === '__exam__');
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var crSt = hc.criteriaStyle || (hc.criteriaStyle = {});
+        var ex = isExamLevel ? null : (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
+        var o = isExamLevel ? crSt : (ex ? TestCreatorService.ensureExerciseOptions(ex) : null);
+        if (!o) return;
+
+        if (!o.levelSubs || typeof o.levelSubs !== 'object') o.levelSubs = {};
+        if (value && value.trim()) {
+          o.levelSubs[String(lvl)] = value.trim();
+        } else {
+          delete o.levelSubs[String(lvl)];
+        }
+
+        if (!isExamLevel && ex) {
+          syncRubricOptionKeys(o, 'levelSubs', o.levelSubs, ex);
+          if (ex.autoSaveToDb) {
+            TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
+          }
+        }
+
+        tcOnDirty();
+        tcRenderRubricLayoutPreview(isExamLevel ? '__exam__' : ex);
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+      };
+
+      window.tcClearRubricLevelSubs = function () {
+        if (!window._currentEditingRubricExId) return;
+        var isExamLevel = (window._currentEditingRubricExId === '__exam__');
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var crSt = hc.criteriaStyle || (hc.criteriaStyle = {});
+        var ex = isExamLevel ? null : (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
+        var o = isExamLevel ? crSt : (ex ? TestCreatorService.ensureExerciseOptions(ex) : null);
+        if (!o) return;
+
+        o.levelSubs = {};
+        if (!isExamLevel && ex) {
+          syncRubricOptionKeys(o, 'levelSubs', {}, ex);
+          if (ex.autoSaveToDb) {
+            TestCreatorService.saveExerciseToDatabase(ex, currentTest.subject);
+          }
+        }
+
+        var inputs = document.querySelectorAll('#tcRubricLevelSubsContainer .tc-level-sub-input');
+        inputs.forEach(function (inp) { inp.value = ''; });
+
+        tcOnDirty();
+        tcRenderRubricLayoutPreview(isExamLevel ? '__exam__' : ex);
+        if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
+      };
+
+      window.tcAddCustomRubricLevelSub = function () {
+        if (!window._currentEditingRubricExId) return;
+        var promptMsg = i18n.t('tcPromptAddLevelSub') || 'Enter level value to add a subtitle for (e.g. 5.5, 4, 3, etc.):';
+        var promptFn = window.showPrompt || window.prompt;
+        var res = promptFn(promptMsg, '');
+        if (res && typeof res.then === 'function') {
+          res.then(function (val) {
+            if (val && String(val).trim()) {
+              tcDoAddCustomRubricLevelSub(String(val).trim());
+            }
+          });
+        } else if (res && String(res).trim()) {
+          tcDoAddCustomRubricLevelSub(String(res).trim());
+        }
+      };
+
+      function tcDoAddCustomRubricLevelSub(val) {
+        var isExamLevel = (window._currentEditingRubricExId === '__exam__');
+        var hc = TestCreatorService.ensureHeaderConfig(currentTest);
+        var crSt = hc.criteriaStyle || (hc.criteriaStyle = {});
+        var ex = isExamLevel ? null : (currentTest.exercises || []).find(function (e) { return e.id === window._currentEditingRubricExId; });
+        var o = isExamLevel ? crSt : (ex ? TestCreatorService.ensureExerciseOptions(ex) : null);
+        if (!o) return;
+
+        if (!o.levelSubs || typeof o.levelSubs !== 'object') o.levelSubs = {};
+        if (o.levelSubs[val] === undefined) {
+          o.levelSubs[val] = '';
+        }
+
+        var rawCrits = [];
+        if (isExamLevel) {
+          rawCrits = (Array.isArray(currentTest.criteria) && currentTest.criteria.length)
+            ? currentTest.criteria
+            : ((Array.isArray(currentTest.linkedCriteria) && currentTest.linkedCriteria.length) ? currentTest.linkedCriteria : []);
+        } else if (ex) {
+          rawCrits = (Array.isArray(ex.criteria) && ex.criteria.length) ? ex.criteria : (Array.isArray(ex.markingRubric) ? ex.markingRubric : []);
+        }
+        var levels = TestCreatorService.getCriteriaLevels(rawCrits);
+        tcRenderRubricLevelSubsUI(levels, o.levelSubs);
+
+        var newInp = document.querySelector('#tcRubricLevelSubsContainer .tc-level-sub-input[data-level="' + val + '"]');
+        if (newInp) newInp.focus();
+      }
 
       window.tcCloseRubricLayoutModal = function () {
         var modal = document.getElementById('tcRubricLayoutModal');
@@ -10611,6 +10792,10 @@
 
       window.tcUpdateModalRubricOption = function (key, value) {
         if (!window._currentEditingRubricExId) return;
+        if (key === 'showLevelsCol') {
+          var lvlSec = document.getElementById('tcModalRubricLevelSubsSection');
+          if (lvlSec) lvlSec.style.display = value ? 'block' : 'none';
+        }
         if (window._currentEditingRubricExId === '__exam__') {
           var hc = TestCreatorService.ensureHeaderConfig(currentTest);
           var crSt = hc.criteriaStyle || (hc.criteriaStyle = {});
@@ -10761,11 +10946,13 @@
           showMaxCol: o.showMaxCol !== false,
           showScoreCol: o.showScoreCol !== false,
           showCommentsCol: o.showCommentsCol !== false,
+          levelSubs: isExamLevel ? (crSt.levelSubs || {}) : (o.levelSubs || o.rubricLevelSubs || {}),
           background: isExamLevel ? (crSt.background || 'default') : (o.rubricBg || o.background || 'default'),
           padding: isExamLevel ? (crSt.padding || 'standard') : (o.rubricPadding || o.padding || 'standard'),
           border: isExamLevel ? (crSt.border || 'solid') : (o.rubricBorder || o.border || 'solid'),
-          includeExerciseCriteria: includeExCrits,
-          applyPageLayout: false
+          separatePage: false,
+          applyPageLayout: false,
+          includeExerciseCriteria: false
         });
 
         previewBox.innerHTML = pageBadge + (html || '<div style="color:#64748b;font-style:italic;">No rubric criteria to preview</div>');
@@ -10777,7 +10964,7 @@
           var hc = TestCreatorService.ensureHeaderConfig(currentTest);
           hc.criteriaLabel = 'Assessment Criteria & Evaluation Rubric:';
           hc.showCriteriaDescriptions = true;
-          hc.criteriaStyle = Object.assign({}, TestCreatorService.DEFAULT_HEADER_CONFIG.criteriaStyle);
+          hc.criteriaStyle = Object.assign({}, TestCreatorService.DEFAULT_HEADER_CONFIG.criteriaStyle, { levelSubs: {} });
           tcOpenRubricLayoutModal('__exam__');
           tcOnDirty();
           if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
@@ -10802,6 +10989,8 @@
         o.showMaxCol = true;
         o.showScoreCol = true;
         o.showCommentsCol = true;
+        o.levelSubs = {};
+        o.rubricLevelSubs = {};
         o.separatePage = false;
         o.rubricSeparatePage = false;
         o.pageOrientation = 'portrait';

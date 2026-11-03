@@ -129,7 +129,8 @@
       showScoreCol: true,
       showCommentsCol: true,
       separatePage: false,
-      pageOrientation: 'portrait'
+      pageOrientation: 'portrait',
+      levelSubs: {}
     },
     showInstructions: false,
     instructionsText: 'Answer all questions clearly. Write legibly and respect time constraints.',
@@ -1879,6 +1880,8 @@
         if (o.showMaxCol === undefined) o.showMaxCol = true;
         if (o.showScoreCol === undefined) o.showScoreCol = true;
         if (o.showCommentsCol === undefined) o.showCommentsCol = true;
+        if (o.levelSubs === undefined) o.levelSubs = o.rubricLevelSubs || {};
+        if (o.rubricLevelSubs === undefined) o.rubricLevelSubs = o.levelSubs || {};
         if (o.background === undefined) o.background = o.rubricBg || 'default';
         if (o.rubricBg === undefined) o.rubricBg = o.background || 'default';
         if (o.border === undefined) o.border = o.rubricBorder || 'solid';
@@ -3493,6 +3496,46 @@
     }
     return '';
   };
+  TestCreatorService.getCriteriaLevels = function (rawCriteria) {
+    if (!Array.isArray(rawCriteria)) rawCriteria = [];
+    var levelSet = {};
+    rawCriteria.forEach(function (c) {
+      if (!c) return;
+      if (Array.isArray(c.grades) && c.grades.length) {
+        c.grades.forEach(function (g) {
+          var gVal = parseFloat(g);
+          if (!isNaN(gVal)) {
+            if (gVal % 1 === 0 || (c.comments && c.comments[g])) {
+              levelSet[String(gVal)] = true;
+            }
+          }
+        });
+      }
+      if (c.comments && typeof c.comments === 'object') {
+        Object.keys(c.comments).forEach(function (k) {
+          var kVal = parseFloat(k);
+          if (!isNaN(kVal) && c.comments[k] && String(c.comments[k]).trim()) {
+            levelSet[String(kVal)] = true;
+          }
+        });
+      }
+    });
+    var levels = Object.keys(levelSet).map(Number).sort(function (a, b) { return b - a; });
+    if (!levels.length) {
+      var maxM = 6;
+      rawCriteria.forEach(function (c) {
+        if (!c) return;
+        var m = Number(c.maxPoints);
+        if (!isNaN(m) && m > maxM) maxM = m;
+      });
+      levels = (maxM <= 4) ? [4, 3, 2, 1] : [6, 5, 4, 3, 2, 1];
+    }
+    if (levels.length > 7) {
+      var filteredLevels = levels.filter(function (l) { return l % 1 === 0; });
+      if (filteredLevels.length >= 4) levels = filteredLevels;
+    }
+    return levels;
+  };
 
   TestCreatorService.renderCriteriaHtml = function (test, options) {
     if (!test) return '';
@@ -3764,54 +3807,10 @@
     }
 
     // Default: 'matrix' (Full Rubric Matrix Grid with level-by-level descriptors e.g. 6, 5, 4, 3, 2, 1)
-    var levelSet = {};
-    rawCriteria.forEach(function (c) {
-      if (Array.isArray(c.grades) && c.grades.length) {
-        c.grades.forEach(function (g) {
-          var gVal = parseFloat(g);
-          if (!isNaN(gVal)) {
-            if (gVal % 1 === 0 || (c.comments && c.comments[g])) {
-              levelSet[String(gVal)] = true;
-            }
-          }
-        });
-      }
-      if (c.comments && typeof c.comments === 'object') {
-        Object.keys(c.comments).forEach(function (k) {
-          var kVal = parseFloat(k);
-          if (!isNaN(kVal) && c.comments[k] && String(c.comments[k]).trim()) {
-            levelSet[String(kVal)] = true;
-          }
-        });
-      }
-    });
-    var levels = Object.keys(levelSet).map(Number).sort(function (a, b) { return b - a; });
-    if (!levels.length) {
-      var maxM = 6;
-      rawCriteria.forEach(function (c) {
-        var m = Number(c.maxPoints);
-        if (!isNaN(m) && m > maxM) maxM = m;
-      });
-      levels = (maxM <= 4) ? [4, 3, 2, 1] : [6, 5, 4, 3, 2, 1];
-    }
-    if (levels.length > 7) {
-      var filteredLevels = levels.filter(function (l) { return l % 1 === 0; });
-      if (filteredLevels.length >= 4) levels = filteredLevels;
-    }
-
-    var gradeSubs = {
-      '6': 'Excellent',
-      '5.5': 'Very Good',
-      '5': 'Good',
-      '4.5': 'Satisfactory+',
-      '4': 'Satisfactory',
-      '3.5': 'Developing',
-      '3': 'Insufficient',
-      '2.5': 'Weak',
-      '2': 'Very Weak',
-      '1.5': 'Minimal',
-      '1': 'Inadequate'
-    };
+    var levels = TestCreatorService.getCriteriaLevels(rawCriteria);
+    var levelSubs = (opts.levelSubs !== undefined)
+      ? opts.levelSubs
+      : ((test && test.options && (test.options.levelSubs || test.options.rubricLevelSubs)) || crSt.levelSubs || {});
 
     var out = [];
     out.push('      <div class="exam-criteria-wrap exam-criteria-matrix-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
@@ -3821,8 +3820,9 @@
     if (showCriterionCol) out.push('            <th class="col-crit-name">Assessment Criterion</th>');
     if (showLevelsCol) {
       levels.forEach(function (lvl) {
-        var sub = gradeSubs[String(lvl)] || ('Level ' + lvl);
-        out.push('            <th class="col-crit-level"><div class="crit-level-hdr-val">' + lvl + '</div><div class="crit-level-hdr-sub">' + sub + '</div></th>');
+        var sub = (levelSubs && typeof levelSubs === 'object' && levelSubs[String(lvl)]) ? String(levelSubs[String(lvl)]).trim() : '';
+        var subHtml = sub ? ('<div class="crit-level-hdr-sub">' + escapeHtml(sub) + '</div>') : '';
+        out.push('            <th class="col-crit-level"><div class="crit-level-hdr-val">' + lvl + '</div>' + subHtml + '</th>');
       });
     } else if (showDesc) {
       out.push('            <th>Performance Descriptors &amp; Evaluation Notes</th>');
@@ -4025,6 +4025,7 @@
         showMaxCol: crOpts.showMaxCol !== false,
         showScoreCol: crOpts.showScoreCol !== false,
         showCommentsCol: crOpts.showCommentsCol !== false,
+        levelSubs: crOpts.levelSubs || crOpts.rubricLevelSubs || (testContext && testContext.headerConfig && testContext.headerConfig.criteriaStyle && testContext.headerConfig.criteriaStyle.levelSubs),
         background: resolvedBg,
         border: resolvedBorder,
         padding: resolvedPadding,
@@ -4471,6 +4472,7 @@
             showMaxCol: exOpts.showMaxCol !== false,
             showScoreCol: exOpts.showScoreCol !== false,
             showCommentsCol: exOpts.showCommentsCol !== false,
+            levelSubs: exOpts.levelSubs || exOpts.rubricLevelSubs,
             background: exOpts.rubricBg || 'default',
             padding: exOpts.rubricPadding || 'standard',
             border: exOpts.rubricBorder || 'solid',
@@ -4835,6 +4837,7 @@
           showMaxCol: exOpts.showMaxCol !== false,
           showScoreCol: exOpts.showScoreCol !== false,
           showCommentsCol: exOpts.showCommentsCol !== false,
+          levelSubs: exOpts.levelSubs || exOpts.rubricLevelSubs,
           background: exOpts.rubricBg || 'default',
           padding: exOpts.rubricPadding || 'standard',
           border: exOpts.rubricBorder || 'solid',

@@ -484,6 +484,10 @@ function getSaveTargets() {
   };
 }
 
+function getWritablePaths() {
+  return getSaveTargets();
+}
+
 function getBundledDataRoot() {
   return path.join(ROOT_DIR, 'user', 'custom-data');
 }
@@ -9602,10 +9606,11 @@ ipcMain.handle('app:export-docx', async (event, request = {}) => {
       ? request.defaultName.trim().replace(/\.md$/, '')
       : 'document';
     let finalPath;
-    if (request.target === 'toPrint') {
-      const toPrintDir = getWritablePaths().toPrint;
-      await fs.ensureDir(toPrintDir);
-      finalPath = path.join(toPrintDir, baseName + '.docx');
+    const saveTargets = getSaveTargets();
+    if (request.target && saveTargets[request.target]) {
+      const targetDir = saveTargets[request.target];
+      await fs.ensureDir(targetDir);
+      finalPath = path.join(targetDir, baseName + '.docx');
     } else {
       const { canceled, filePath } = await dialog.showSaveDialog({
         title: 'Save as DOCX',
@@ -9633,14 +9638,11 @@ ipcMain.handle('app:export-odt', async (event, request = {}) => {
     const baseName = rawName.replace(/\.(md|odt)$/i, '');
     let finalPath = request.targetPath || null;
     if (!finalPath) {
-      if (request.target === 'toPrint') {
-        const toPrintDir = getWritablePaths().toPrint;
-        await fs.ensureDir(toPrintDir);
-        finalPath = path.join(toPrintDir, baseName + '.odt');
-      } else if (request.target === 'docEditorDocs') {
-        const docsDir = getWritablePaths().docEditorDocs;
-        await fs.ensureDir(docsDir);
-        finalPath = path.join(docsDir, baseName + '.odt');
+      const saveTargets = getSaveTargets();
+      if (request.target && saveTargets[request.target]) {
+        const targetDir = saveTargets[request.target];
+        await fs.ensureDir(targetDir);
+        finalPath = path.join(targetDir, baseName + '.odt');
       } else {
         const { canceled, filePath } = await dialog.showSaveDialog({
           title: 'Save as LibreOffice Writer Document',
