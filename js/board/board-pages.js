@@ -9390,84 +9390,14 @@
     }
 
     function conBuildCompetenceNoteHtml(c, options = {}) {
-      if (!c) return '';
-      const code = String(c.code || c.id || '').trim();
-      const title = String(c.title || code).trim();
-      const cat = String(c.category || c.domain || c.strand || '').trim();
-      const level = [c.level, c.yearLevel].filter(Boolean).map(s => String(s).trim()).filter(Boolean).join(' • ');
-      const desc = String(c.description || c.statement || '').trim();
-      const tasks = String(c.sampleTasks || c.examples || '').trim();
-      const rawTags = Array.isArray(c.tags) ? c.tags : (c.tags ? String(c.tags).split(',') : []);
-      const tagsStr = rawTags.map(t => String(t).trim()).filter(Boolean).map(t => t.startsWith('#') ? t : ('#' + t)).join(' ');
-
-      const parts = [];
-
-      // Header: Code Badge and Title
-      const headerParts = [];
-      if (options.code && code) {
-        headerParts.push(`<span class="con-comp-note-code" style="display:inline-block;background:#1d4ed8;color:#ffffff;font-size:0.8em;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:0.3px;margin-right:6px;vertical-align:middle;">${boardEscapeHtml(code)}</span>`);
-      }
-      if (options.title && title) {
-        headerParts.push(`<strong class="con-comp-note-title" style="font-size:1.02em;color:#111111;vertical-align:middle;">${boardEscapeHtml(title)}</strong>`);
-      }
-      if (headerParts.length) {
-        parts.push(`<div class="con-comp-note-hdr" style="margin-bottom:6px;border-bottom:1.5px solid #333333;padding-bottom:4px;line-height:1.35;">${headerParts.join(' ')}</div>`);
-      }
-
-      // Metadata line: Category and/or Level
-      const metaParts = [];
-      if (options.category && cat) {
-        metaParts.push(`<span><strong>${(typeof t === 'function' ? t('compNoteElCategory') : 'Domain')}:</strong> ${boardEscapeHtml(cat)}</span>`);
-      }
-      if (options.level && level) {
-        metaParts.push(`<span><strong>${(typeof t === 'function' ? t('compNoteElLevel') : 'Level')}:</strong> ${boardEscapeHtml(level)}</span>`);
-      }
-      if (metaParts.length) {
-        parts.push(`<div class="con-comp-note-meta" style="font-size:0.78em;color:#4b5563;margin-bottom:6px;line-height:1.35;">${metaParts.join(' &nbsp;•&nbsp; ')}</div>`);
-      }
-
-      // Description
-      if (options.desc && desc) {
-        parts.push(`<div class="con-comp-note-desc" style="font-size:0.86em;color:#222222;line-height:1.45;margin-bottom:6px;">${boardEscapeHtml(desc)}</div>`);
-      }
-
-      // Detailed Description lines
-      const detailedLines = Array.isArray(c.detailedDescription)
-        ? c.detailedDescription.map(s => String(s).trim()).filter(Boolean)
-        : (c.detailedDescription ? String(c.detailedDescription).split(/\r?\n/).map(s => s.trim()).filter(Boolean) : []);
-
-      let activeDetailedLines = detailedLines;
-      if (options.selectedDetailedLines && Array.isArray(options.selectedDetailedLines)) {
-        activeDetailedLines = detailedLines.filter(l => options.selectedDetailedLines.includes(l));
-      } else if (options.selectedDetailedLines && typeof options.selectedDetailedLines === 'object') {
-        const cKey = String(c.id || c.code || c.title || '');
-        const specificLines = options.selectedDetailedLines[cKey] || options.selectedDetailedLines[c.id] || options.selectedDetailedLines[c.code];
-        if (Array.isArray(specificLines)) {
-          activeDetailedLines = detailedLines.filter(l => specificLines.includes(l));
-        }
-      }
-
-      if (options.detailedDesc && activeDetailedLines.length > 0) {
-        const label = (typeof t === 'function' ? t('compNoteElDetailedDesc') : 'Detailed Description');
-        const itemsHtml = activeDetailedLines.map(l => `<li style="margin-bottom:3px;">${boardEscapeHtml(l)}</li>`).join('');
-        parts.push(`<div class="con-comp-note-detailed" style="font-size:0.83em;color:#222222;line-height:1.45;margin-bottom:6px;"><strong style="color:#111;">${boardEscapeHtml(label)}:</strong><ul style="margin:4px 0 0;padding-left:18px;">${itemsHtml}</ul></div>`);
-      }
-
-      // Sample tasks
-      if (options.tasks && tasks) {
-        parts.push(`<div class="con-comp-note-tasks" style="font-size:0.8em;color:#1f2937;background:#f3f4f6;border-left:3px solid #1d4ed8;padding:4px 8px;border-radius:3px;margin-bottom:6px;line-height:1.4;"><strong>${(typeof t === 'function' ? t('compNoteElTasks') : 'Tasks')}:</strong> ${boardEscapeHtml(tasks)}</div>`);
-      }
-
-      // Tags
-      if (options.tags && tagsStr) {
-        parts.push(`<div class="con-comp-note-tags" style="font-size:0.75em;color:#6b7280;font-weight:600;margin-top:2px;">${boardEscapeHtml(tagsStr)}</div>`);
-      }
-
-      return `<div class="con-comp-card-content" style="font-family:inherit;line-height:1.4;">${parts.join('')}</div>`;
+      const text = conBuildCompetenceNoteText(c, options);
+      if (!text) return '';
+      return `<div class="con-comp-card-content" style="font-family:inherit;line-height:1.45;white-space:pre-wrap;font-weight:400;color:#111111;">${boardEscapeHtml(text)}</div>`;
     }
 
     function conBuildCompetenceNoteText(c, options = {}) {
       if (!c) return '';
+      const t_ = (k, fb) => (typeof t === 'function' ? t(k) : fb);
       const code = String(c.code || c.id || '').trim();
       const title = String(c.title || code).trim();
       const cat = String(c.category || c.domain || c.strand || '').trim();
@@ -9484,8 +9414,8 @@
       if (head.length) lines.push(head.join(' '));
 
       const meta = [];
-      if (options.category && cat) meta.push(`Domain: ${cat}`);
-      if (options.level && level) meta.push(`Level: ${level}`);
+      if (options.category && cat) meta.push(`${t_('compDomain', 'Domain')}: ${cat}`);
+      if (options.level && level) meta.push(`${t_('compLevel', 'Level')}: ${level}`);
       if (meta.length) lines.push(meta.join(' • '));
 
       if (options.desc && desc) lines.push(desc);
@@ -9506,24 +9436,25 @@
       }
 
       if (options.detailedDesc && activeDetailedLines.length > 0) {
-        lines.push('Detailed Description:\n' + activeDetailedLines.map(l => `- ${l}`).join('\n'));
+        lines.push(`${t_('compNoteElDetailedDesc', 'Detailed Description')}:\n` + activeDetailedLines.map(l => `- ${l}`).join('\n'));
       }
 
-      if (options.tasks && tasks) lines.push(`Tasks: ${tasks}`);
+      if (options.tasks && tasks) lines.push(`${t_('compNoteElTasks', 'Tasks')}: ${tasks}`);
       if (options.tags && tagsStr) lines.push(tagsStr);
 
       return lines.join('\n\n');
     }
 
     function conBuildCombinedCompetenceNoteHtml(compsList, options = {}) {
-      const title = (typeof t === 'function' ? t('compPopupTitle') : 'Board Competences');
-      const titleHtml = `<div style="display:flex;align-items:center;gap:6px;font-size:1.02em;font-weight:900;color:#111;margin-bottom:8px;border-bottom:2px solid #333;padding-bottom:4px;"><img src="../assets/icons/award.svg" style="width:16px;height:16px;vertical-align:middle;" alt="" /> <span>${boardEscapeHtml(title)} (${compsList.length})</span></div>`;
-      const itemsHtml = compsList.map(c => conBuildCompetenceNoteHtml(c, options)).join('<div style="height:1px;background:#e5e7eb;margin:8px 0;"></div>');
-      return `<div class="con-comp-combined-card">${titleHtml}${itemsHtml}</div>`;
+      const text = conBuildCombinedCompetenceNoteText(compsList, options);
+      if (!text) return '';
+      return `<div class="con-comp-combined-card" style="font-family:inherit;line-height:1.45;white-space:pre-wrap;font-weight:400;color:#111111;">${boardEscapeHtml(text)}</div>`;
     }
 
     function conBuildCombinedCompetenceNoteText(compsList, options = {}) {
-      return `# Competences (${compsList.length})\n\n` + compsList.map(c => conBuildCompetenceNoteText(c, options)).join('\n\n---\n\n');
+      const t_ = (k, fb) => (typeof t === 'function' ? t(k) : fb);
+      const title = t_('compPopupTitle', 'Board Competences');
+      return `${title} (${compsList.length})\n\n` + compsList.map(c => conBuildCompetenceNoteText(c, options)).join('\n\n\n');
     }
 
     function conCloseCompetenceNotePopover() {
@@ -10147,20 +10078,19 @@
       const isCombined = options.mode === 'combined' && resolvedList.length > 1;
 
       if (isCombined) {
-        const html = conBuildCombinedCompetenceNoteHtml(resolvedList, options);
         const text = conBuildCombinedCompetenceNoteText(resolvedList, options);
         const noteData = {
           id: null,
           nodeId: null,
           text: text,
-          html: html,
+          html: '',
           x: Math.max(40, centerX - 180),
           y: Math.max(40, centerY - 120),
           color: '#111111',
           bg: options.bg || '#ffffff',
-          borderWidth: 2,
-          borderColor: '#333333',
-          borderStyle: 'solid',
+          borderWidth: 0,
+          borderColor: '',
+          borderStyle: '',
           fontSize: 16,
           bold: false, italic: false, underline: false, strike: false,
           hidden: false, locked: false, manualSize: false,
@@ -10175,7 +10105,6 @@
       } else {
         const cols = Math.min(3, Math.max(1, Math.floor(bW / (340 * zoom))));
         resolvedList.forEach((comp, idx) => {
-          const html = conBuildCompetenceNoteHtml(comp, options);
           const text = conBuildCompetenceNoteText(comp, options);
           const col = idx % cols;
           const row = Math.floor(idx / cols);
@@ -10187,14 +10116,14 @@
             id: null,
             nodeId: null,
             text: text,
-            html: html,
+            html: '',
             x: noteX,
             y: noteY,
             color: '#111111',
             bg: options.bg || '#ffffff',
-            borderWidth: 2,
-            borderColor: '#333333',
-            borderStyle: 'solid',
+            borderWidth: 0,
+            borderColor: '',
+            borderStyle: '',
             fontSize: 16,
             bold: false, italic: false, underline: false, strike: false,
             hidden: false, locked: false, manualSize: false,
