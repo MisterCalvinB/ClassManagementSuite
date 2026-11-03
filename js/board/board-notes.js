@@ -1223,16 +1223,22 @@
     function wnStyleOpen(noteData, anchorEl, triggerEvent, wordMeta) {
       if (window._wnClearOutsideClickSuppression) window._wnClearOutsideClickSuppression();
       let prevEditor = null;
+      let hasSel = false;
       {
         const prevNoteEl = document.querySelector(
           `.ta-word-note[data-id="${noteData.id}"], .con-word-note[data-id="${noteData.id}"]`
         );
         if (prevNoteEl) {
           prevEditor = prevNoteEl.querySelector('.wn-note-editor, textarea');
-          if (prevEditor) wnRememberSelection(prevEditor);
+          if (prevEditor) {
+            wnRememberSelection(prevEditor);
+            hasSel = !!(wnSelectionInside(prevEditor) || (typeof _wnSavedSelectionRange !== 'undefined' && _wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed && (prevEditor === _wnSavedSelectionRange.commonAncestorContainer || prevEditor.contains(_wnSavedSelectionRange.commonAncestorContainer))));
+          }
         }
       }
       _wnActiveNote = noteData;
+      window._wnActiveNote = noteData;
+      window._wnStylePopupTargetMode = hasSel ? 'selection' : 'note';
       _wnPopupWordMeta = wordMeta || null;
       _wnOverlayOpenTime = Date.now();
       const overlay = document.getElementById('wn-style-overlay');
@@ -1421,6 +1427,13 @@
           : ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conSaveToPremadeLibrary') : null) || 'Save to Premade Library');
         libBtn.title = titleStr;
         libBtn.setAttribute('title', titleStr);
+      }
+      const mergeBtn = document.getElementById('wn-sp-merge-btn');
+      if (mergeBtn) {
+        const isMultiNotes = typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1;
+        const mergeTitleStr = (typeof i18n !== 'undefined' && i18n.t ? i18n.t('wnMergeNotesTitle') : null) || 'Merge notes into one';
+        mergeBtn.title = mergeTitleStr;
+        mergeBtn.setAttribute('title', mergeTitleStr);
       }
       const openInputBtn = document.getElementById('wn-sp-open-input-btn');
       const stopInputBtn = document.getElementById('wn-sp-stop-input-btn');
@@ -2451,6 +2464,322 @@
       if (newEditor) setTimeout(() => newEditor.focus(), 0);
     }
 
+    let _wnMergePickingSource = null;
+    let _wnMergeKeyHandler = null;
+    let _wnMergeClickHandler = null;
+
+    function wnCancelMergePicking(notify = false) {
+      if (!_wnMergePickingSource) return;
+      const srcEl = wnGetNoteElementById(_wnMergePickingSource.id);
+      if (srcEl) srcEl.classList.remove('wn-merge-source-active');
+      document.body.classList.remove('wn-merging-cursor');
+      _wnMergePickingSource = null;
+      if (_wnMergeKeyHandler) {
+        document.removeEventListener('keydown', _wnMergeKeyHandler, true);
+        _wnMergeKeyHandler = null;
+      }
+      if (_wnMergeClickHandler) {
+        document.removeEventListener('pointerdown', _wnMergeClickHandler, true);
+        _wnMergeClickHandler = null;
+      }
+      if (notify && typeof showToast === 'function') {
+        const msg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesCancelled') : 'Merge cancelled';
+        showToast(msg);
+      }
+    }
+
+    function wnStyleMergeNotes() {
+      // 1. Collect candidate selected notes
+      const selNotes = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0)
+        ? [...conNoteSelected].map(id => conNotes.find(n => n.id === id)).filter(Boolean)
+        : [];
+
+      if (_wnActiveNote && !selNotes.some(n => n.id === _wnActiveNote.id)) {
+        selNotes.push(_wnActiveNote);
+      }
+
+      // If at least 2 notes are selected, merge immediately!
+      if (selNotes.length >= 2) {
+        wnStyleDismiss();
+        wnMergeNotesList(selNotes, _wnActiveNote ? _wnActiveNote.id : null);
+        return;
+      }
+
+      // If only 1 note is active / selected:
+      const active = _wnActiveNote || selNotes[0];
+      if (!active) {
+        if (typeof showToast === 'function') {
+          showToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesSelectAtLeastTwo') : 'Select at least two notes to merge (hold Shift to select multiple)', true);
+        }
+        return;
+      }
+
+      // Check if there are other notes on the board to merge with
+      const otherNotes = conNotes.filter(n => n.id !== active.id);
+      if (!otherNotes.length) {
+        if (typeof showToast === 'function') {
+          showToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesNoOtherNotes') : 'No other notes on the board to merge with', true);
+        }
+        return;
+      }
+
+      // Enter interactive pick mode!
+      wnStyleDismiss();
+      wnCancelMergePicking(false);
+      _wnMergePickingSource = active;
+
+      const srcEl = wnGetNoteElementById(active.id);
+      if (srcEl) srcEl.classList.add('wn-merge-source-active');
+      document.body.classList.add('wn-merging-cursor');
+
+      if (typeof showToast === 'function') {
+        showToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesClickTarget') : 'Click another note to merge with this note (Esc to cancel)');
+      }
+
+      _wnMergeKeyHandler = function (e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          wnCancelMergePicking(true);
+        }
+      };
+      document.addEventListener('keydown', _wnMergeKeyHandler, true);
+
+      _wnMergeClickHandler = function (e) {
+        const clickedNoteEl = e.target.closest ? e.target.closest('.con-word-note, .ta-word-note') : null;
+        if (!clickedNoteEl) {
+          if (e.target.closest && e.target.closest('.con-top-toolbar, .toast, .board-overlay, .modal')) return;
+          wnCancelMergePicking(true);
+          return;
+        }
+
+        const clickedId = clickedNoteEl.dataset.id;
+        if (!clickedId || clickedId === _wnMergePickingSource.id) {
+          wnCancelMergePicking(true);
+          return;
+        }
+
+        const targetNote = conNotes.find(n => n.id === clickedId);
+        if (!targetNote) {
+          wnCancelMergePicking(true);
+          return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const src = _wnMergePickingSource;
+        wnCancelMergePicking(false);
+        wnMergeNotesList([src, targetNote], src.id);
+      };
+
+      setTimeout(() => {
+        if (_wnMergePickingSource) {
+          document.addEventListener('pointerdown', _wnMergeClickHandler, true);
+        }
+      }, 50);
+    }
+
+    function wnMergeNotesList(notesToMerge, preferredTargetId) {
+      if (!Array.isArray(notesToMerge) || notesToMerge.length < 2) return;
+
+      const validNotes = notesToMerge.filter(n => n && n.id && conNotes.some(cn => cn.id === n.id));
+      if (validNotes.length < 2) return;
+
+      if (validNotes.some(n => n.locked)) {
+        if (typeof showToast === 'function') {
+          showToast((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesLocked') : 'Cannot merge locked notes', true);
+        }
+        return;
+      }
+
+      if (window.conPushUndo) window.conPushUndo();
+
+      let targetNote = null;
+      if (preferredTargetId) {
+        targetNote = validNotes.find(n => n.id === preferredTargetId) || null;
+      }
+
+      const sortedByPos = [...validNotes].sort((a, b) => {
+        const dy = (a.y || 0) - (b.y || 0);
+        if (Math.abs(dy) > 15) return dy;
+        return (a.x || 0) - (b.x || 0);
+      });
+
+      if (!targetNote) {
+        targetNote = sortedByPos[0];
+      }
+
+      const secondaryNotes = validNotes.filter(n => n.id !== targetNote.id);
+      secondaryNotes.sort((a, b) => {
+        const dy = (a.y || 0) - (b.y || 0);
+        if (Math.abs(dy) > 15) return dy;
+        return (a.x || 0) - (b.x || 0);
+      });
+
+      const extractNoteHtml = (nd) => {
+        const el = wnGetNoteElementById(nd.id);
+        const ed = el ? el.querySelector('.wn-note-editor, textarea') : null;
+        if (ed && ed.tagName !== 'TEXTAREA') {
+          return ed.innerHTML;
+        }
+        if (nd.html) return String(nd.html);
+        if (nd.text) return (typeof boardEscapeHtml === 'function' ? boardEscapeHtml(nd.text) : nd.text).replace(/\n/g, '<br>');
+        return '';
+      };
+
+      const trimOuterBr = h => String(h || '').replace(/^(\s*<br\s*\/?>\s*)+|(\s*<br\s*\/?>\s*)+$/gi, '').trim();
+
+      let targetHtml = trimOuterBr(extractNoteHtml(targetNote));
+      const secHtmls = secondaryNotes.map(n => trimOuterBr(extractNoteHtml(n))).filter(Boolean);
+
+      secHtmls.forEach(secH => {
+        if (!targetHtml) {
+          targetHtml = secH;
+          return;
+        }
+        const endsWithBlock = /(<\/div>|<\/p>|<\/li>|<\/ul>|<\/ol>|<\/h[1-6]>)$/i.test(targetHtml.trim());
+        const startsWithBlock = /^(\s*<div|\s*<p|\s*<ul|\s*<ol|\s*<h[1-6])/i.test(secH.trim());
+        const endsWithBr = /<br\s*\/?>$/i.test(targetHtml.trim());
+        const startsWithBr = /^\s*<br\s*\/?>/i.test(secH.trim());
+
+        if (endsWithBlock || startsWithBlock) {
+          targetHtml += (endsWithBr || startsWithBr ? '' : '<br>') + secH;
+        } else if (endsWithBr || startsWithBr) {
+          targetHtml += secH;
+        } else {
+          targetHtml += '<br>' + secH;
+        }
+      });
+
+      if (!targetNote.nodeId) {
+        const linkedSec = secondaryNotes.find(n => n.nodeId);
+        if (linkedSec) targetNote.nodeId = linkedSec.nodeId;
+      }
+
+      if (!targetNote.emojiStickers) targetNote.emojiStickers = [];
+      secondaryNotes.forEach(sec => {
+        if (Array.isArray(sec.emojiStickers) && sec.emojiStickers.length) {
+          const dy = (sec.y || 0) - (targetNote.y || 0);
+          sec.emojiStickers.forEach(stk => {
+            targetNote.emojiStickers.push(Object.assign({}, stk, {
+              y: (stk.y || 0) + dy
+            }));
+          });
+        }
+      });
+
+      const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
+      if (Array.isArray(edgesArr)) {
+        secondaryNotes.forEach(sec => {
+          edgesArr.forEach(e => {
+            if (!e) return;
+            if (e.a === sec.id) e.a = targetNote.id;
+            if (e.b === sec.id) e.b = targetNote.id;
+          });
+        });
+        for (let i = edgesArr.length - 1; i >= 0; i--) {
+          const e = edgesArr[i];
+          if (!e || e.a === e.b) {
+            if (e && e.g && e.g.remove) e.g.remove();
+            edgesArr.splice(i, 1);
+            continue;
+          }
+          const duplicate = edgesArr.findIndex((o, idx) => idx < i && o && ((o.a === e.a && o.b === e.b) || (o.a === e.b && o.b === e.a)));
+          if (duplicate !== -1) {
+            if (e.g && e.g.remove) e.g.remove();
+            edgesArr.splice(i, 1);
+          }
+        }
+      }
+
+      secondaryNotes.forEach(sec => {
+        wnDeleteNoteData(sec);
+      });
+
+      const targetNoteEl = wnGetNoteElementById(targetNote.id);
+      const targetEditor = targetNoteEl ? targetNoteEl.querySelector('.wn-note-editor, textarea') : null;
+      const zoom = window.conGetZoom ? window.conGetZoom() : 1;
+
+      const renderedTarget = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(targetHtml) : targetHtml;
+      if (targetEditor) {
+        targetEditor.innerHTML = renderedTarget;
+        wnSyncNoteDataFromEditor(targetNote, targetEditor);
+      } else {
+        targetNote.html = renderedTarget;
+        targetNote.text = wnNormalizeNoteText(renderedTarget.replace(/<[^>]+>/g, ' '));
+      }
+
+      if (targetNoteEl && Array.isArray(targetNote.emojiStickers) && typeof conNoteBuildSticker === 'function') {
+        targetNoteEl.querySelectorAll('.wn-emoji-sticker').forEach(el => el.remove());
+        targetNote.emojiStickers.forEach(sd => {
+          conNoteBuildSticker(sd, targetNote, targetNoteEl);
+        });
+      }
+
+      if (targetNoteEl && targetEditor) {
+        targetNoteEl.style.height = '';
+        targetEditor.style.height = 'auto';
+        targetEditor.style.overflowY = 'hidden';
+        const naturalH = Math.max(40, Math.round(targetNoteEl.offsetHeight / Math.max(0.5, zoom)));
+        targetNote.height = Math.max(Number(targetNote.height) || 0, naturalH);
+        targetNote.liveBaseHeight = targetNote.height;
+        if (targetNote.manualSize) {
+          wnApplyStoredSize(targetNoteEl, targetEditor, targetNote, zoom);
+        } else {
+          targetNoteEl.style.height = (targetNote.height * zoom) + 'px';
+          targetEditor.style.height = Math.max(16, (targetNote.height - 12) * zoom) + 'px';
+          if (typeof conNoteAutosize === 'function') conNoteAutosize(targetEditor, targetNote);
+        }
+      }
+      if (targetNote._applyStyle) targetNote._applyStyle();
+
+      if (typeof conNoteSelected !== 'undefined' && conNoteSelected) {
+        conNoteSelected.clear();
+        conNoteSelected.add(targetNote.id);
+      }
+      if (typeof window.conSelectNote === 'function') {
+        window.conSelectNote(targetNote.id);
+      }
+
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-text',
+          id: String(targetNote.id),
+          html: targetNote.html,
+          text: targetNote.text,
+          baseWidth: targetNote.liveBaseWidth,
+          baseHeight: targetNote.liveBaseHeight,
+          width: targetNote.width || targetNote.liveBaseWidth,
+          height: targetNote.height || targetNote.liveBaseHeight,
+          manualSize: !!targetNote.manualSize
+        });
+        window._conMirrorSend({
+          type: 'note-resize',
+          id: String(targetNote.id),
+          width: Number(targetNote.width) || (targetNoteEl ? Math.round(targetNoteEl.offsetWidth / Math.max(0.5, zoom)) : 160),
+          height: targetNote.height || targetNote.liveBaseHeight,
+          baseWidth: targetNote.liveBaseWidth,
+          baseHeight: targetNote.height || targetNote.liveBaseHeight,
+          manualSize: !!targetNote.manualSize
+        });
+      }
+      if (typeof window._conMirrorBroadcast === 'function') {
+        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+      }
+
+      if (typeof conRedrawEdges === 'function') conRedrawEdges();
+      if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+
+      if (typeof showToast === 'function') {
+        const msg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('wnMergeNotesSuccess') : 'Notes merged successfully';
+        showToast(msg);
+      }
+
+      if (targetEditor) setTimeout(() => wnFocusNoteData(targetNote), 0);
+    }
+
     function wnCountWordsInText(text) {
       if (!text) return { words: 0, characters: 0, charactersNoSpaces: 0, lines: 0 };
       let raw = String(text).replace(/\r/g, '');
@@ -3245,29 +3574,65 @@
       }
     }
 
+    function wnHasNoteTextSelection() {
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const r = sel.getRangeAt(0);
+        const anc = r.commonAncestorContainer;
+        const el = anc && anc.nodeType === 1 ? anc : (anc ? anc.parentElement : null);
+        if (el && el.closest('.wn-note-editor')) return true;
+      }
+      if (typeof _wnSavedSelectionRange !== 'undefined' && _wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed) {
+        const anc = _wnSavedSelectionRange.commonAncestorContainer;
+        const el = anc && anc.nodeType === 1 ? anc : (anc ? anc.parentElement : null);
+        if (el && el.closest('.wn-note-editor')) return true;
+      }
+      return false;
+    }
+
     function wnGetActiveNoteTextSelection() {
       let sel = window.getSelection && window.getSelection();
-      let editor = (typeof wnGetActiveEditor === 'function') ? wnGetActiveEditor() : null;
-      if ((!sel || sel.rangeCount === 0 || sel.isCollapsed) && editor) {
-        if (typeof wnRestoreSelection === 'function') {
-          wnRestoreSelection(editor);
-          sel = window.getSelection && window.getSelection();
+      let editor = null;
+      let range = null;
+
+      // 1. First priority: Check if live non-collapsed selection is inside any note editor
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        const r = sel.getRangeAt(0);
+        const anc = r.commonAncestorContainer;
+        const el = (anc && anc.nodeType === 1) ? anc : (anc ? (anc.parentElement || anc.parentNode) : null);
+        const ed = el ? (el.classList && el.classList.contains('wn-note-editor') ? el : (el.closest && el.closest('.wn-note-editor'))) : null;
+        if (ed && ed.tagName !== 'TEXTAREA') {
+          editor = ed;
+          range = r;
         }
       }
-      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return null;
-      const range = sel.getRangeAt(0);
-      const anc = range.commonAncestorContainer;
-      const el = (anc && anc.nodeType === 1) ? anc : (anc ? (anc.parentElement || anc.parentNode) : null);
-      if (!editor) {
-        editor = el ? (el.classList && el.classList.contains('wn-note-editor') ? el : (el.closest && el.closest('.wn-note-editor'))) : null;
+
+      // 2. Second priority: If no live non-collapsed selection, try restoring saved selection
+      if (!editor || !range) {
+        const targetEditor = (typeof wnGetActiveEditor === 'function' ? wnGetActiveEditor() : null) ||
+          (document.activeElement && document.activeElement.closest && document.activeElement.closest('.wn-note-editor'));
+        if (targetEditor && targetEditor.tagName !== 'TEXTAREA') {
+          if (typeof wnRestoreSelection === 'function' && wnRestoreSelection(targetEditor)) {
+            sel = window.getSelection && window.getSelection();
+            if (sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(targetEditor)) {
+              editor = targetEditor;
+              range = sel.getRangeAt(0);
+            }
+          }
+        }
       }
-      if (!editor || editor.tagName === 'TEXTAREA') return null;
+
+      if (!editor || !range || range.collapsed) return null;
       const noteEl = editor.closest('.con-word-note, .ta-word-note');
       if (!noteEl || !noteEl.dataset || !noteEl.dataset.id) return null;
       const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
       const noteData = allNotes.find(n => n && String(n.id) === String(noteEl.dataset.id)) || (typeof _wnActiveNote !== 'undefined' ? _wnActiveNote : null);
       if (!noteData) return null;
-      return { sel, range, editor, noteEl, noteData };
+
+      _wnActiveNote = noteData;
+      if (typeof window !== 'undefined') window._wnActiveNote = noteData;
+
+      return { sel: sel || window.getSelection(), range, editor, noteEl, noteData };
     }
 
     function wnGetActualFontSizeOfSelection(editor, noteData, triggerEvent) {
@@ -3460,9 +3825,10 @@
       if (ancEl && ancEl !== editor) {
         const candidate = ancEl.classList && ancEl.classList.contains('wn-text-fs') ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
         if (candidate && editor.contains(candidate)) {
-          const candText = (candidate.textContent || '').trim();
-          const selText = range.toString().trim();
-          if (candText === selText || (candidate.contains(range.startContainer) && candidate.contains(range.endContainer))) {
+          const candText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
+          const selText = range.toString().replace(/\s+/g, ' ').trim();
+          // Only reuse candidate as targetSpan if selection actually covers the entire candidate
+          if (candText && selText && candText === selText) {
             targetSpan = candidate;
           }
         }
@@ -3541,12 +3907,20 @@
             node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
             span = node;
           });
+          editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
+            node.style.fontSize = targetPx;
+            node.className = 'wn-text-fs';
+            node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+            span = node;
+          });
         }
 
-        const newRange = document.createRange();
-        newRange.selectNodeContents(span);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
+        if (span && span.parentNode) {
+          const newRange = document.createRange();
+          newRange.selectNodeContents(span);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        }
       }
 
       editor.focus();
@@ -3591,100 +3965,116 @@
       const zoom = (window.conGetZoom && _wnActiveNote.id && String(_wnActiveNote.id).startsWith('cn')) ? window.conGetZoom() : 1;
       const targetPx = Math.round(value * zoom) + 'px';
 
-      let textSelInfo = (typeof wnGetActiveNoteTextSelection === 'function') ? wnGetActiveNoteTextSelection() : null;
-      if (!textSelInfo && _wnActiveNote) {
-        const editor = wnGetActiveEditor();
-        if (editor) {
-          if (typeof wnRestoreSelection === 'function') wnRestoreSelection(editor);
-          const sel = window.getSelection && window.getSelection();
-          if (sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(editor)) {
-            textSelInfo = { sel, range: sel.getRangeAt(0), editor, noteEl: wnGetNoteElementById(_wnActiveNote.id), noteData: _wnActiveNote };
-          }
-        }
-      }
+      const isSliderDragging = document.activeElement && document.activeElement.id === 'wn-sp-size-slider';
 
-      if (textSelInfo) {
-        const { sel, range, editor } = textSelInfo;
-        let targetSpan = null;
-        const anc = range.commonAncestorContainer;
-        const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
-        if (ancEl && ancEl !== editor) {
-          const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
-          if (candidate && editor.contains(candidate)) {
-            const candText = (candidate.textContent || '').trim();
-            const selText = range.toString().trim();
-            if (candText === selText || (candidate.contains(range.startContainer) && candidate.contains(range.endContainer))) {
-              targetSpan = candidate;
+      // If popup was explicitly opened for whole note, skip selection logic
+      if (window._wnStylePopupTargetMode !== 'note') {
+        let textSelInfo = (typeof wnGetActiveNoteTextSelection === 'function') ? wnGetActiveNoteTextSelection() : null;
+        if (!textSelInfo && _wnActiveNote) {
+          const editor = wnGetActiveEditor();
+          if (editor) {
+            if (typeof wnRestoreSelection === 'function') wnRestoreSelection(editor);
+            const sel = window.getSelection && window.getSelection();
+            if (sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(editor)) {
+              textSelInfo = { sel, range: sel.getRangeAt(0), editor, noteEl: wnGetNoteElementById(_wnActiveNote.id), noteData: _wnActiveNote };
             }
           }
         }
 
-        if (targetSpan) {
-          targetSpan.style.fontSize = targetPx;
-          targetSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
-          const newRange = document.createRange();
-          newRange.selectNodeContents(targetSpan);
-          sel.removeAllRanges();
-          sel.addRange(newRange);
-        } else {
-          let span = document.createElement('span');
-          span.className = 'wn-text-fs';
-          span.style.fontSize = targetPx;
-          let wrapped = false;
-          try {
-            span.appendChild(range.extractContents());
-            span.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-            range.insertNode(span);
-            wrapped = true;
-          } catch (_) {
-            wrapped = false;
-          }
-
-          if (!wrapped) {
-            if (wnApplySelectionCommand('fontSize', '7')) {
-              editor.querySelectorAll('font[size="7"]').forEach(node => {
-                node.removeAttribute('size');
-                node.style.fontSize = targetPx;
-                node.className = 'wn-text-fs';
-                node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-                span = node;
-              });
-              editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
-                node.style.fontSize = targetPx;
-                node.className = 'wn-text-fs';
-                node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-                span = node;
-              });
+        if (textSelInfo) {
+          const { sel, range, editor } = textSelInfo;
+          let targetSpan = null;
+          const anc = range.commonAncestorContainer;
+          const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
+          if (ancEl && ancEl !== editor) {
+            const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
+            if (candidate && editor.contains(candidate)) {
+              const candText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
+              const selText = range.toString().replace(/\s+/g, ' ').trim();
+              if (candText && selText && candText === selText) {
+                targetSpan = candidate;
+              }
             }
           }
 
-          const newRange = document.createRange();
-          newRange.selectNodeContents(span);
-          sel.removeAllRanges();
-          sel.addRange(newRange);
+          if (targetSpan) {
+            targetSpan.style.fontSize = targetPx;
+            targetSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
+            const newRange = document.createRange();
+            newRange.selectNodeContents(targetSpan);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+          } else {
+            let span = document.createElement('span');
+            span.className = 'wn-text-fs';
+            span.style.fontSize = targetPx;
+            let wrapped = false;
+            try {
+              span.appendChild(range.extractContents());
+              span.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+              range.insertNode(span);
+              wrapped = true;
+            } catch (_) {
+              wrapped = false;
+            }
+
+            if (!wrapped) {
+              if (wnApplySelectionCommand('fontSize', '7')) {
+                editor.querySelectorAll('font[size="7"]').forEach(node => {
+                  node.removeAttribute('size');
+                  node.style.fontSize = targetPx;
+                  node.className = 'wn-text-fs';
+                  node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+                  span = node;
+                });
+                editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
+                  node.style.fontSize = targetPx;
+                  node.className = 'wn-text-fs';
+                  node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
+                  span = node;
+                });
+              }
+            }
+
+            if (span && span.parentNode) {
+              const newRange = document.createRange();
+              newRange.selectNodeContents(span);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          }
+
+          if (!isSliderDragging) {
+            editor.focus();
+          }
+          wnRememberSelection(editor);
+          wnSyncNoteDataFromEditor(_wnActiveNote, editor);
+          conNoteAutosize(editor, _wnActiveNote);
+          if (typeof wnSyncAndBroadcastNoteSelection === 'function') wnSyncAndBroadcastNoteSelection(true);
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({
+              type: 'note-text',
+              id: String(_wnActiveNote.id),
+              html: _wnActiveNote.html,
+              text: _wnActiveNote.text,
+              baseWidth: _wnActiveNote.liveBaseWidth,
+              baseHeight: _wnActiveNote.liveBaseHeight,
+              width: _wnActiveNote.width || _wnActiveNote.liveBaseWidth,
+              height: _wnActiveNote.height || _wnActiveNote.liveBaseHeight,
+              manualSize: !!_wnActiveNote.manualSize
+            });
+          }
+          return;
         }
 
-        editor.focus();
-        wnRememberSelection(editor);
-        wnSyncNoteDataFromEditor(_wnActiveNote, editor);
-        conNoteAutosize(editor, _wnActiveNote);
-        if (typeof wnSyncAndBroadcastNoteSelection === 'function') wnSyncAndBroadcastNoteSelection(true);
-        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-        if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({
-            type: 'note-text',
-            id: String(_wnActiveNote.id),
-            html: _wnActiveNote.html,
-            text: _wnActiveNote.text,
-            baseWidth: _wnActiveNote.liveBaseWidth,
-            baseHeight: _wnActiveNote.liveBaseHeight,
-            width: _wnActiveNote.width || _wnActiveNote.liveBaseWidth,
-            height: _wnActiveNote.height || _wnActiveNote.liveBaseHeight,
-            manualSize: !!_wnActiveNote.manualSize
-          });
+        // If target mode was explicitly selection, DO NOT fall through to whole note!
+        if (window._wnStylePopupTargetMode === 'selection') {
+          return;
         }
-        return;
       }
+
+      // Whole note fallback:
       const oldBase = _wnActiveNote.fontSize || value;
       if (oldBase !== value) {
         const editor = wnGetActiveEditor();
@@ -4047,6 +4437,7 @@
       if (convertDd) convertDd.style.display = 'none';
       document.getElementById('wn-style-overlay').classList.remove('active');
       _wnPopupDragged = false; _wnPopupWordMeta = null; _wnActiveNote = null;
+      window._wnStylePopupTargetMode = null;
     }
 
     // ── Link dialog ───────────────────────────────────────────────────
@@ -4756,6 +5147,7 @@
       });
       ta.addEventListener('blur', () => {
         conCancelNoteMirrorUpdate();
+        wnRememberSelection(ta);
         const rendered = wnRenderMathHtml(ta.innerHTML);
         if (rendered !== ta.innerHTML) ta.innerHTML = rendered;
         wnSyncNoteDataFromEditor(noteData, ta);
@@ -6581,6 +6973,9 @@
   window.wnpClose = global.wnpClose = wnpClose;
   window.wnpSave = global.wnpSave = wnpSave;
   window.wnStyleSplitNote = global.wnStyleSplitNote = wnStyleSplitNote;
+  window.wnStyleMergeNotes = global.wnStyleMergeNotes = wnStyleMergeNotes;
+  window.wnCancelMergePicking = global.wnCancelMergePicking = wnCancelMergePicking;
+  window.wnMergeNotesList = global.wnMergeNotesList = wnMergeNotesList;
   window.wnStyleToggleLock = global.wnStyleToggleLock = wnStyleToggleLock;
   window.wnStyleToggleHide = global.wnStyleToggleHide = wnStyleToggleHide;
   window.wnStyleFitText = global.wnStyleFitText = wnStyleFitText;
@@ -6614,6 +7009,7 @@
 
   window.wnGetActiveEditor = global.wnGetActiveEditor = wnGetActiveEditor;
   window.wnGetActiveNoteTextSelection = global.wnGetActiveNoteTextSelection = wnGetActiveNoteTextSelection;
+  window.wnHasNoteTextSelection = global.wnHasNoteTextSelection = wnHasNoteTextSelection;
   window.wnAdjustSelectionOrNoteFontSize = global.wnAdjustSelectionOrNoteFontSize = wnAdjustSelectionOrNoteFontSize;
   window.wnGetActualFontSizeOfSelection = global.wnGetActualFontSizeOfSelection = wnGetActualFontSizeOfSelection;
   window._wnActiveNote = global._wnActiveNote = _wnActiveNote;

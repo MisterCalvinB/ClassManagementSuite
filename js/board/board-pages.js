@@ -3546,7 +3546,16 @@
       };
       window.conAdjustSelectedFontSize = function (delta) {
         if (!delta) return;
+
+        const hasTextSel = (typeof window.wnHasNoteTextSelection === 'function' && window.wnHasNoteTextSelection()) ||
+          (typeof window.wnGetActiveNoteTextSelection === 'function' && !!window.wnGetActiveNoteTextSelection());
+
         if (typeof window.wnAdjustSelectionOrNoteFontSize === 'function' && window.wnAdjustSelectionOrNoteFontSize(delta)) {
+          return;
+        }
+
+        // If user has text selected in a note, NEVER fall through to resizing the whole note!
+        if (hasTextSel) {
           return;
         }
 
