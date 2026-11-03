@@ -286,7 +286,7 @@
               <span class="tc-block-badge blue" id="blockCompCountBadge">0 linked</span>
             </div>
             <div class="tc-block-actions">
-              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="event.stopPropagation(); _targetAttachExId = '__exam__'; tcSwitchDrawerTab('competences'); tcToggleDrawer(); updateCompetenceTargetDropdown(); if (typeof tcFilterCompetences === 'function') tcFilterCompetences();">
+              <button type="button" class="neo-btn sm" style="background:#dbeafe;color:#1e40af;border-color:#2563eb;" onclick="event.stopPropagation(); tcBrowseCompetences('__exam__');">
                 + <span data-i18n="tcDrawerTabCompetences">Browse</span>
               </button>
               <span class="card-drag-handle" id="blockCompetencesChevron" style="font-size:0.9rem;">▾</span>
@@ -326,7 +326,7 @@
               <span class="tc-block-badge green" id="blockCritCountBadge">0 active</span>
             </div>
             <div class="tc-block-actions">
-              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="event.stopPropagation(); _targetAttachExId = '__exam__'; tcSwitchDrawerTab('criteriadb'); tcToggleDrawer(); updateCriteriaTargetDropdown(); if (typeof tcRenderCriteriaList === 'function' && Array.isArray(_cachedCriteria)) tcRenderCriteriaList(_cachedCriteria);">
+              <button type="button" class="neo-btn sm" style="background:#d1fae5;color:#065f46;border-color:#059669;" onclick="event.stopPropagation(); tcBrowseCriteria('__exam__');">
                 + <span data-i18n="tcDrawerTabCriteriaDb">Browse</span>
               </button>
               <span class="card-drag-handle" id="blockCriteriaChevron" style="font-size:0.9rem;">▾</span>
@@ -3519,10 +3519,13 @@
                   return;
                 } else if (payload.type === 'descriptor') {
                   _targetAttachExId = cardId;
-                  var desc = (_cachedCompetences || []).find(function (c) {
+                  if (typeof updateCompetenceTargetDropdown === 'function') updateCompetenceTargetDropdown();
+                  var desc = (_currentRenderedCompetences || []).find(function (c) {
+                    return c.id === payload.descriptorId || c.code === payload.code;
+                  }) || (_cachedCompetences || []).find(function (c) {
                     return c.id === payload.descriptorId || c.code === payload.code;
                   }) || { id: payload.descriptorId, code: payload.code, title: payload.title };
-                  tcAttachCompetenceByObject(desc);
+                  tcAttachCompetenceByObject(desc, cardId);
                 } else if (payload.type === 'criterion') {
                   _targetAttachExId = cardId;
                   tcPullCriteriaToActiveEx(payload.critId, payload, cardId);
@@ -4694,7 +4697,7 @@
         var targetEx = null;
         if (targetVal && targetVal !== '__exam__') {
           targetEx = currentTest.exercises.find(function (e) { return e.id === targetVal; });
-        } else if (_targetAttachExId) {
+        } else if (_targetAttachExId && _targetAttachExId !== '__exam__') {
           targetEx = currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; });
         }
 
@@ -9574,22 +9577,17 @@
         if (typeof tcScheduleLivePreviewUpdate === 'function') tcScheduleLivePreviewUpdate();
       };
 
-      window.tcOpenCompetenceDrawerForSection = function (exId) {
-        _targetAttachExId = exId;
+      window.tcBrowseCompetences = function (targetId) {
+        _targetAttachExId = targetId || '__exam__';
         var drawer = document.getElementById('testDrawer');
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('competences');
         updateCompetenceTargetDropdown();
         if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
-        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
-        var title = ex ? (ex.title || 'Competences Block') : 'Competences Block';
-        if (window.showToast) {
-          showToast((i18n.t('tcTargetingCompetenceBlock') || "Targeting block '{title}'. Competences added will belong to this block.").replace('{title}', title));
-        }
       };
 
-      window.tcOpenCriteriaDrawerForSection = function (exId) {
-        _targetAttachExId = exId;
+      window.tcBrowseCriteria = function (targetId) {
+        _targetAttachExId = targetId || '__exam__';
         var drawer = document.getElementById('testDrawer');
         if (drawer) drawer.style.display = 'flex';
         tcSwitchDrawerTab('criteriadb');
@@ -9597,20 +9595,37 @@
         if (typeof tcRenderCriteriaList === 'function' && Array.isArray(_cachedCriteria)) {
           tcRenderCriteriaList(_cachedCriteria);
         }
+      };
+
+      window.tcBrowseScales = function (targetId) {
+        _targetAttachExId = targetId || '__exam__';
+        var drawer = document.getElementById('testDrawer');
+        if (drawer) drawer.style.display = 'flex';
+        tcSwitchDrawerTab('scales');
+        if (typeof updateScaleTargetDropdown === 'function') updateScaleTargetDropdown();
+      };
+
+      window.tcOpenCompetenceDrawerForSection = function (exId) {
+        tcBrowseCompetences(exId);
         var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
-        var title = ex ? (ex.title || 'Criteria Block') : 'Criteria Block';
-        if (window.showToast) {
+        var title = ex ? (ex.title || 'Competences Block') : (exId === '__exam__' ? (i18n.t('tcExamWideHeader') || 'Exam-wide Competences') : 'Competences Block');
+        if (window.showToast && exId !== '__exam__') {
+          showToast((i18n.t('tcTargetingCompetenceBlock') || "Targeting block '{title}'. Competences added will belong to this block.").replace('{title}', title));
+        }
+      };
+
+      window.tcOpenCriteriaDrawerForSection = function (exId) {
+        tcBrowseCriteria(exId);
+        var ex = (currentTest && currentTest.exercises) ? currentTest.exercises.find(function (e) { return e.id === exId; }) : null;
+        var title = ex ? (ex.title || 'Criteria Block') : (exId === '__exam__' ? (i18n.t('tcExamWideHeader') || 'Exam-wide Rubric') : 'Criteria Block');
+        if (window.showToast && exId !== '__exam__') {
           showToast((i18n.t('tcTargetingCriteriaBlock') || "Targeting block '{title}'. Criteria added will belong to this block.").replace('{title}', title));
         }
       };
 
       window.tcOpenScalesDrawerForSection = function (exId) {
-        _targetAttachExId = exId;
-        var drawer = document.getElementById('testDrawer');
-        if (drawer) drawer.style.display = 'flex';
-        tcSwitchDrawerTab('scales');
-        if (typeof updateScaleTargetDropdown === 'function') updateScaleTargetDropdown();
-        if (window.showToast) {
+        tcBrowseScales(exId);
+        if (window.showToast && exId !== '__exam__') {
           showToast(i18n.t('tcManageInDrawer') || 'Open & Edit in Drawer…');
         }
       };
@@ -9662,8 +9677,38 @@
       var _allCriteriaBanks = [];
       var _cachedCriteria = [];
       var _cachedCompetences = [];
+      var _currentRenderedCompetences = [];
+      var _currentRenderedCriteria = [];
       var _cachedLearningItems = [];
       var _targetAttachExId = '__exam__';
+
+      try {
+        Object.defineProperty(window, '_targetAttachExId', {
+          get: function () { return _targetAttachExId; },
+          set: function (v) { _targetAttachExId = v; },
+          configurable: true
+        });
+        Object.defineProperty(window, '_cachedCriteria', {
+          get: function () { return _cachedCriteria; },
+          set: function (v) { _cachedCriteria = v; },
+          configurable: true
+        });
+        Object.defineProperty(window, '_cachedCompetences', {
+          get: function () { return _cachedCompetences; },
+          set: function (v) { _cachedCompetences = v; },
+          configurable: true
+        });
+        Object.defineProperty(window, '_currentRenderedCompetences', {
+          get: function () { return _currentRenderedCompetences; },
+          set: function (v) { _currentRenderedCompetences = v; },
+          configurable: true
+        });
+        Object.defineProperty(window, '_currentRenderedCriteria', {
+          get: function () { return _currentRenderedCriteria; },
+          set: function (v) { _currentRenderedCriteria = v; },
+          configurable: true
+        });
+      } catch (_) {}
 
       async function tcLoadDrawerContent() {
         if (!window.Desktop || !window.Desktop.isElectron) return;
@@ -10673,9 +10718,12 @@
         if (!el) return;
         updateCriteriaTargetDropdown();
         if (!list || !list.length) {
+          _currentRenderedCriteria = [];
           el.innerHTML = '<div style="text-align:center;padding:20px;color:#888;font-size:0.8rem;">' + escapeHtml(i18n.t('tcNoCriteriaFound')) + '</div>';
           return;
         }
+
+        _currentRenderedCriteria = list;
 
         var targetEx = (_targetAttachExId && _targetAttachExId !== '__exam__') ? currentTest.exercises.find(function (e) { return e.id === _targetAttachExId; }) : null;
         var targetLabel = targetEx
@@ -10715,7 +10763,7 @@
         cards.forEach(function (cEl) {
           cEl.addEventListener('dragstart', function (e) {
             var cIdx = parseInt(cEl.dataset.index, 10);
-            var item = list[cIdx];
+            var item = (_currentRenderedCriteria && _currentRenderedCriteria[cIdx]) || list[cIdx] || _cachedCriteria[cIdx];
             if (!item) return;
             var maxPts = item.maxPoints || (Array.isArray(item.grades) && item.grades[0] ? Number(item.grades[0]) : 6) || 3;
             e.dataTransfer.setData('application/json', JSON.stringify({
@@ -10744,7 +10792,7 @@
       };
 
       window.tcAttachCriteriaByIndex = function (idx, targetMode) {
-        var crit = _cachedCriteria[idx];
+        var crit = (_currentRenderedCriteria && _currentRenderedCriteria[idx]) || _cachedCriteria[idx];
         if (!crit) return;
         var sel = document.getElementById('criteriaTargetExSelect');
         var mode = targetMode;
@@ -10804,6 +10852,9 @@
           sel.value = '__exam__';
         }
       }
+
+      window.updateCriteriaTargetDropdown = updateCriteriaTargetDropdown;
+      window.tcRenderCriteriaList = tcRenderCriteriaList;
 
       window.tcOnCriteriaTargetChange = function () {
         var sel = document.getElementById('criteriaTargetExSelect');
@@ -12180,6 +12231,8 @@
         }
       }
 
+      window.updateCompetenceTargetDropdown = updateCompetenceTargetDropdown;
+
       window.tcOnCompetenceTargetChange = function () {
         var sel = document.getElementById('competenceTargetExSelect');
         var val = sel ? sel.value : '__exam__';
@@ -12478,6 +12531,7 @@
         updateCompetenceTargetDropdown();
 
         if (!list || !list.length) {
+          _currentRenderedCompetences = [];
           el.innerHTML = '<div style="text-align:center;padding:25px;color:#888;font-size:0.85rem;font-weight:700;">' + escapeHtml(i18n.t('tcNoCompetencesMatch')) + '</div>';
           return;
         }
@@ -12499,7 +12553,9 @@
         noteDiv.innerHTML = headerNote;
         fragment.appendChild(noteDiv.firstElementChild);
 
-        list.slice(0, 200).forEach(function (d, idx) {
+        _currentRenderedCompetences = list.slice(0, 200);
+
+        _currentRenderedCompetences.forEach(function (d, idx) {
           var card = document.createElement('div');
           var rawSub = String(d.subjectId || d.subject || 'general').toLowerCase();
           var subClass = 'subject-' + rawSub.replace(/[^a-z0-9_]/g, '_');
@@ -12527,7 +12583,8 @@
             card.classList.remove('dragging');
           });
 
-          card.addEventListener('click', function () {
+          card.addEventListener('click', function (e) {
+            if (e.target && e.target.closest && e.target.closest('button, input, select, label')) return;
             tcAttachCompetenceByObject(d);
           });
 
@@ -12558,7 +12615,7 @@
               var hiddenLines = (cfg.hiddenDetailLines && cfg.hiddenDetailLines[d.id]) || [];
               htmlParts.push('<div class="drawer-detail-list">' + dLines.map(function (line) {
                 var on = hiddenLines.indexOf(line) === -1;
-                return '<label class="drawer-detail-row' + (on ? '' : ' is-off') + '"><span class="neo-switch"><input type="checkbox" ' + (on ? 'checked ' : '') + 'data-comp-id="' + escapeHtml(String(d.id)) + '" data-line="' + escapeHtml(line) + '" onchange="tcToggleDetailLine(this)"><span class="neo-switch-slider"></span></span><span class="drawer-detail-text">' + tcHighlightMatchText(line, rawQuery) + '</span></label>';
+                return '<label class="drawer-detail-row' + (on ? '' : ' is-off') + '" onclick="event.stopPropagation();"><span class="neo-switch"><input type="checkbox" ' + (on ? 'checked ' : '') + 'data-comp-id="' + escapeHtml(String(d.id)) + '" data-line="' + escapeHtml(line) + '" onchange="tcToggleDetailLine(this)"><span class="neo-switch-slider"></span></span><span class="drawer-detail-text">' + tcHighlightMatchText(line, rawQuery) + '</span></label>';
               }).join('') + '</div>');
             }
           }
@@ -12578,7 +12635,7 @@
           // Footer: Category & Actions
           var catLabel = cfg.showCategory ? (d.subCategory || d.category || d.subjectId || d.subject || '') : '';
           var catHtml = catLabel ? ('<span style="font-size:0.72rem;font-weight:800;color:#666;">' + tcHighlightMatchText(catLabel, rawQuery) + '</span>') : '<span></span>';
-          var btnHtml = cfg.showActions ? ('<button type="button" class="neo-btn primary sm" style="padding:2px 8px;font-size:0.72rem;" onclick="event.stopPropagation(); tcAttachCompetenceByIndex(' + idx + ')">' + escapeHtml(i18n.t('lcTagPlaceholder') || '+ Tag') + '</button>') : '';
+          var btnHtml = cfg.showActions ? ('<button type="button" class="neo-btn primary sm tc-comp-tag-btn" style="padding:2px 8px;font-size:0.72rem;" data-comp-idx="' + idx + '" onclick="event.stopPropagation(); tcAttachCompetenceByIndex(' + idx + ')">' + escapeHtml(i18n.t('lcTagPlaceholder') || '+ Tag') + '</button>') : '';
 
           if (cfg.showCategory || cfg.showActions) {
             htmlParts.push('<div class="drawer-desc-actions">' + catHtml + btnHtml + '</div>');
@@ -12590,6 +12647,15 @@
           }
 
           card.innerHTML = htmlParts.join('');
+
+          var tagBtn = card.querySelector('.tc-comp-tag-btn');
+          if (tagBtn) {
+            tagBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              tcAttachCompetenceByObject(d);
+            });
+          }
+
           fragment.appendChild(card);
         });
 
@@ -12612,7 +12678,7 @@
         }
       };
 
-      window.tcAttachCompetenceByObject = function (comp) {
+      window.tcAttachCompetenceByObject = function (comp, targetId) {
         if (!comp || !currentTest) return;
         var codeDisplay = comp.code ? comp.code : (comp.id || 'Comp');
         var label = codeDisplay;
@@ -12624,7 +12690,11 @@
         }
 
         var targetSel = document.getElementById('competenceTargetExSelect');
-        var targetVal = targetSel ? targetSel.value : (_targetAttachExId || '__exam__');
+        var targetVal = targetId || (targetSel ? targetSel.value : (_targetAttachExId || '__exam__'));
+        if (targetId) {
+          _targetAttachExId = targetId;
+          if (targetSel) targetSel.value = targetId;
+        }
 
         var compObj = {
           id: comp.id || comp.code || ('comp_' + Date.now()),
@@ -12707,14 +12777,27 @@
       };
 
       window.tcAttachCompetenceByIndex = function (idx) {
-        var comp = _cachedCompetences[idx];
+        var comp = (_currentRenderedCompetences && _currentRenderedCompetences[idx]) || _cachedCompetences[idx];
+        if (comp) {
+          tcAttachCompetenceByObject(comp);
+        }
+      };
+
+      window.tcAttachCompetenceById = function (cId) {
+        var comp = (_currentRenderedCompetences || []).find(function (c) {
+          return c.id === cId || c.code === cId || (c.code || c.id) === cId;
+        }) || (_cachedCompetences || []).find(function (c) {
+          return c.id === cId || c.code === cId || (c.code || c.id) === cId;
+        });
         if (comp) {
           tcAttachCompetenceByObject(comp);
         }
       };
 
       window.tcAttachCompetenceToTest = function (cId) {
-        var comp = (_cachedCompetences || []).find(function (c) {
+        var comp = (_currentRenderedCompetences || []).find(function (c) {
+          return c.id === cId || c.code === cId || (c.code || c.id) === cId;
+        }) || (_cachedCompetences || []).find(function (c) {
           return c.id === cId || c.code === cId || (c.code || c.id) === cId;
         });
         if (comp) {
@@ -13100,6 +13183,9 @@
           _targetAttachScaleExId = null;
         }
       }
+
+      window.updateScaleTargetDropdown = updateScaleTargetDropdown;
+      window.tcRenderScalesList = tcRenderScalesList;
 
       window.tcOnScaleTargetChange = function () {
         var sel = document.getElementById('scaleTargetExSelect');
@@ -14282,7 +14368,15 @@
             if (el.type === 'checkbox') {
               el.checked = !!hc[k];
             } else {
-              el.value = hc[k] || '';
+              var val = hc[k];
+              if (k.endsWith('Label') && typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.resolveHeaderLabel === 'function') {
+                val = TestCreatorService.resolveHeaderLabel(currentTest, k.replace(/Label$/, ''));
+              } else if (k === 'instructionsText' && typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.resolveInstructionsText === 'function') {
+                val = TestCreatorService.resolveInstructionsText(currentTest);
+              } else if (val == null) {
+                val = '';
+              }
+              el.value = val;
               if (k === 'instructionsText' && window.tcUpdateLivePreview) {
                 tcUpdateLivePreview('hdrText_instructionsText', el.value);
               }
@@ -15139,93 +15233,111 @@
       function tcSyncQuickExportTogglesFromTest() {
         if (!currentTest || typeof TestCreatorService === 'undefined') return;
         var hc = TestCreatorService.ensureHeaderConfig(currentTest);
-        var setChk = function (id, val) {
-          var el = document.getElementById(id);
+        var setChk = function (id, altId, val) {
+          if (typeof altId === 'boolean' || altId === undefined) {
+            val = altId;
+            altId = null;
+          }
+          var el = document.getElementById(id) || (altId ? document.getElementById(altId) : null);
           if (el) el.checked = (val !== false);
         };
-        setChk('tcQuickExpHdr_studentName', hc.showStudentName);
-        setChk('tcQuickExpHdr_class', hc.showClass);
-        setChk('tcQuickExpHdr_date', hc.showDate);
-        setChk('tcQuickExpHdr_duration', hc.showDuration);
-        setChk('tcQuickExpHdr_points', hc.showTotalPoints);
-        setChk('tcQuickExpHdr_materials', hc.showMaterials);
-        setChk('tcQuickExpHdr_instructions', hc.showInstructions !== false);
-        setChk('tcQuickExpHdr_scale', hc.showGradingScale !== false);
+        var setSel = function (id, altId, val) {
+          var el = document.getElementById(id) || (altId ? document.getElementById(altId) : null);
+          if (el && val != null) el.value = val;
+        };
+
+        setChk('expHdrTitle', 'tcQuickExpHdr_title', hc.showTitle !== false);
+        setChk('expHdrStudent', 'tcQuickExpHdr_studentName', hc.showStudentName);
+        setChk('expHdrClass', 'tcQuickExpHdr_class', hc.showClass);
+        setChk('expHdrDate', 'tcQuickExpHdr_date', hc.showDate);
+        setChk('expHdrDuration', 'tcQuickExpHdr_duration', hc.showDuration);
+        setChk('expHdrScore', 'tcQuickExpHdr_points', hc.showTotalPoints);
+        setChk('expHdrMaterials', 'tcQuickExpHdr_materials', hc.showMaterials);
+        setChk('expHdrInstructions', 'tcQuickExpHdr_instructions', hc.showInstructions !== false);
+        setChk('expHdrGrade', 'tcQuickExpHdr_scale', hc.showGradingScale !== false);
 
         var cs = hc.competencesStyle || {};
-        var compModeSel = document.getElementById('tcQuickExpCompMode');
-        if (compModeSel) {
-          compModeSel.value = (hc.showCompetences === false) ? 'none' : (cs.displayMode || 'table');
-        }
-        setChk('tcQuickExpTc_code', cs.showCodeCol);
-        setChk('tcQuickExpTc_title', cs.showTitleCol);
-        setChk('tcQuickExpTc_desc', cs.showDescriptions);
-        setChk('tcQuickExpTc_level', cs.showLevelCol);
-        setChk('tcQuickExpTc_score', cs.showScoreCol);
-        setChk('tcQuickExpTc_comments', !!cs.showCommentsCol);
+        var compMode = (hc.showCompetences === false) ? 'none' : (cs.displayMode || 'table');
+        setSel('expCompDisplayMode', 'tcQuickExpCompMode', compMode);
+        setChk('expCompColCode', 'tcQuickExpTc_code', cs.showCodeCol);
+        setChk('expCompColTitle', 'tcQuickExpTc_title', cs.showTitleCol);
+        setChk('expCompColDesc', 'tcQuickExpTc_desc', cs.showDescriptions);
+        setChk('expCompColLevel', 'tcQuickExpTc_level', cs.showLevelCol);
+        setChk('expCompColMastery', 'tcQuickExpTc_score', cs.showScoreCol);
+        setChk('expCompColComments', 'tcQuickExpTc_comments', !!cs.showCommentsCol);
 
         var crs = hc.criteriaStyle || {};
-        var critModeSel = document.getElementById('tcQuickExpCritMode');
-        if (critModeSel) {
-          critModeSel.value = (hc.showCriteria === false) ? 'none' : (crs.displayMode || 'matrix');
-        }
-        setChk('tcQuickExpCr_criterion', crs.showCriterionCol);
-        setChk('tcQuickExpCr_levels', crs.showLevelsCol);
-        setChk('tcQuickExpCr_desc', crs.showDescriptions);
-        setChk('tcQuickExpCr_max', crs.showMaxCol);
-        setChk('tcQuickExpCr_score', crs.showScoreCol);
-        setChk('tcQuickExpCr_comments', !!crs.showCommentsCol);
+        var critMode = (hc.showCriteria === false) ? 'none' : (crs.displayMode || 'matrix');
+        setSel('expCritDisplayMode', 'tcQuickExpCritMode', critMode);
+        setChk('expCritColName', 'tcQuickExpCr_criterion', crs.showCriterionCol);
+        setChk('expCritColLevels', 'tcQuickExpCr_levels', crs.showLevelsCol);
+        setChk('expCritColDesc', 'tcQuickExpCr_desc', crs.showDescriptions);
+        setChk('expCritColMax', 'tcQuickExpCr_max', crs.showMaxCol);
+        setChk('expCritColScore', 'tcQuickExpCr_score', crs.showScoreCol);
+        setChk('expCritColComments', 'tcQuickExpCr_comments', !!crs.showCommentsCol);
       }
 
       window.tcOnQuickExportToggleChange = function () {
         if (!currentTest || typeof TestCreatorService === 'undefined') return;
         var hc = TestCreatorService.ensureHeaderConfig(currentTest);
-        var getChk = function (id, defVal) {
-          var el = document.getElementById(id);
+        var getChk = function (id, altId, defVal) {
+          if (typeof altId === 'boolean') {
+            defVal = altId;
+            altId = null;
+          }
+          var el = document.getElementById(id) || (altId ? document.getElementById(altId) : null);
           return el ? el.checked : defVal;
         };
-        hc.showStudentName = getChk('tcQuickExpHdr_studentName', true);
-        hc.showClass = getChk('tcQuickExpHdr_class', true);
-        hc.showDate = getChk('tcQuickExpHdr_date', true);
-        hc.showDuration = getChk('tcQuickExpHdr_duration', true);
-        hc.showTotalPoints = getChk('tcQuickExpHdr_points', true);
-        hc.showMaterials = getChk('tcQuickExpHdr_materials', true);
-        hc.showInstructions = getChk('tcQuickExpHdr_instructions', true);
-        hc.showGradingScale = getChk('tcQuickExpHdr_scale', true);
+        var getSel = function (id, altId) {
+          var el = document.getElementById(id) || (altId ? document.getElementById(altId) : null);
+          return el ? el.value : null;
+        };
+
+        if (document.getElementById('expHdrTitle') || document.getElementById('tcQuickExpHdr_title')) {
+          hc.showTitle = getChk('expHdrTitle', 'tcQuickExpHdr_title', true);
+        }
+        hc.showStudentName = getChk('expHdrStudent', 'tcQuickExpHdr_studentName', true);
+        hc.showClass = getChk('expHdrClass', 'tcQuickExpHdr_class', true);
+        hc.showDate = getChk('expHdrDate', 'tcQuickExpHdr_date', true);
+        hc.showDuration = getChk('expHdrDuration', 'tcQuickExpHdr_duration', true);
+        hc.showTotalPoints = getChk('expHdrScore', 'tcQuickExpHdr_points', true);
+        hc.showMaterials = getChk('expHdrMaterials', 'tcQuickExpHdr_materials', true);
+        hc.showInstructions = getChk('expHdrInstructions', 'tcQuickExpHdr_instructions', true);
+        hc.showGradingScale = getChk('expHdrGrade', 'tcQuickExpHdr_scale', true);
 
         if (!hc.competencesStyle) hc.competencesStyle = {};
-        var compModeSel = document.getElementById('tcQuickExpCompMode');
+        var compModeSel = getSel('expCompDisplayMode', 'tcQuickExpCompMode');
         if (compModeSel) {
-          if (compModeSel.value === 'none') {
+          if (compModeSel === 'none') {
             hc.showCompetences = false;
           } else {
             hc.showCompetences = true;
-            hc.competencesStyle.displayMode = compModeSel.value;
+            hc.competencesStyle.displayMode = compModeSel;
           }
         }
-        hc.competencesStyle.showCodeCol = getChk('tcQuickExpTc_code', true);
-        hc.competencesStyle.showTitleCol = getChk('tcQuickExpTc_title', true);
-        hc.competencesStyle.showDescriptions = getChk('tcQuickExpTc_desc', true);
-        hc.competencesStyle.showLevelCol = getChk('tcQuickExpTc_level', true);
-        hc.competencesStyle.showScoreCol = getChk('tcQuickExpTc_score', true);
-        hc.competencesStyle.showCommentsCol = getChk('tcQuickExpTc_comments', false);
+        hc.competencesStyle.showCodeCol = getChk('expCompColCode', 'tcQuickExpTc_code', true);
+        hc.competencesStyle.showTitleCol = getChk('expCompColTitle', 'tcQuickExpTc_title', true);
+        hc.competencesStyle.showDescriptions = getChk('expCompColDesc', 'tcQuickExpTc_desc', true);
+        hc.competencesStyle.showLevelCol = getChk('expCompColLevel', 'tcQuickExpTc_level', true);
+        hc.competencesStyle.showScoreCol = getChk('expCompColMastery', 'tcQuickExpTc_score', true);
+        hc.competencesStyle.showCommentsCol = getChk('expCompColComments', 'tcQuickExpTc_comments', false);
 
         if (!hc.criteriaStyle) hc.criteriaStyle = {};
-        var critModeSel = document.getElementById('tcQuickExpCritMode');
+        var critModeSel = getSel('expCritDisplayMode', 'tcQuickExpCritMode');
         if (critModeSel) {
-          if (critModeSel.value === 'none') {
+          if (critModeSel === 'none') {
             hc.showCriteria = false;
           } else {
             hc.showCriteria = true;
-            hc.criteriaStyle.displayMode = critModeSel.value;
+            hc.criteriaStyle.displayMode = critModeSel;
           }
         }
-        hc.criteriaStyle.showCriterionCol = getChk('tcQuickExpCr_criterion', true);
-        hc.criteriaStyle.showLevelsCol = getChk('tcQuickExpCr_levels', true);
-        hc.criteriaStyle.showDescriptions = getChk('tcQuickExpCr_desc', true);
-        hc.criteriaStyle.showMaxCol = getChk('tcQuickExpCr_max', true);
-        hc.criteriaStyle.showScoreCol = getChk('tcQuickExpCr_score', true);
-        hc.criteriaStyle.showCommentsCol = getChk('tcQuickExpCr_comments', false);
+        hc.criteriaStyle.showCriterionCol = getChk('expCritColName', 'tcQuickExpCr_criterion', true);
+        hc.criteriaStyle.showLevelsCol = getChk('expCritColLevels', 'tcQuickExpCr_levels', true);
+        hc.criteriaStyle.showDescriptions = getChk('expCritColDesc', 'tcQuickExpCr_desc', true);
+        hc.criteriaStyle.showMaxCol = getChk('expCritColMax', 'tcQuickExpCr_max', true);
+        hc.criteriaStyle.showScoreCol = getChk('expCritColScore', 'tcQuickExpCr_score', true);
+        hc.criteriaStyle.showCommentsCol = getChk('expCritColComments', 'tcQuickExpCr_comments', false);
 
         // Also sync any section_competences / section_criteria blocks in currentTest
         if (Array.isArray(currentTest.exercises)) {
@@ -18294,12 +18406,15 @@
         try {
           var _langChannel = new BroadcastChannel('cmt_lang_channel');
           _langChannel.onmessage = function (ev) {
-            if (ev && ev.data && ev.data.type === 'lang_changed') {
+            if (ev && ev.data && (ev.data.type === 'lang_changed' || ev.data.action === 'change_lang' || ev.data.type === 'language_change')) {
               if (typeof applyTranslations === 'function') applyTranslations();
               if (typeof tcPopulateThemeDropdowns === 'function') tcPopulateThemeDropdowns();
               if (typeof tcUpdateFreezePreviewUI === 'function') tcUpdateFreezePreviewUI();
               renderTestMeta();
               renderExerciseCards();
+              if (typeof tcUpdatePrintPreview === 'function') {
+                tcUpdatePrintPreview({ force: true });
+              }
             }
           };
         } catch (_) {}

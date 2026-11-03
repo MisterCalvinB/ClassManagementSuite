@@ -19,6 +19,204 @@
 
   var TestCreatorService = {};
 
+  // ── 0. i18n Resolution Helpers ─────────────────────────────────────────────
+  function _currentLang(options) {
+    if (options && typeof options.lang === 'string' && options.lang.trim()) {
+      return options.lang.trim().toLowerCase();
+    }
+    if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.getCurrentLanguage === 'function') {
+      try {
+        var lang = window.i18n.getCurrentLanguage();
+        if (lang) return String(lang).toLowerCase();
+      } catch (_) {}
+    }
+    return 'en';
+  }
+
+  function _t(key, fallback, lang) {
+    var targetLang = (lang && typeof lang === 'string') ? lang.toLowerCase() : _currentLang();
+    if (typeof window !== 'undefined') {
+      var dict = (window.i18n && window.i18n.STRINGS) || window.I18N;
+      if (dict) {
+        if (dict[targetLang] && dict[targetLang][key] !== undefined) {
+          return dict[targetLang][key];
+        }
+        if (dict.en && dict.en[key] !== undefined) {
+          return dict.en[key];
+        }
+      }
+      if (window.i18n && typeof window.i18n.t === 'function') {
+        try {
+          var res = window.i18n.t(key, fallback, targetLang);
+          if (res && res !== key) return res;
+        } catch (_) {}
+      }
+    }
+    return fallback != null ? fallback : key;
+  }
+
+  function _tFmt(key, fallback, lang) {
+    var str = _t(key, fallback, lang);
+    var args = Array.prototype.slice.call(arguments, 3);
+    if (!args.length) return str;
+    return str.replace(/\{(\d+)\}/g, function (match, index) {
+      var idx = parseInt(index, 10);
+      return (args[idx] !== undefined) ? args[idx] : match;
+    });
+  }
+
+  var DEFAULT_LABEL_LOOKUP = {
+    studentName: {
+      key: 'tcHdrStudentNameLabel',
+      defaults: ['student name:', 'nom de l\'élève :', 'nom de l’élève :', 'nom & prénom :', 'name des schülers:', 'nome dello studente:', 'student name', 'nom']
+    },
+    class: {
+      key: 'tcHdrClassLabel',
+      defaults: ['class / group:', 'classe / groupe :', 'classe:', 'klasse / gruppe:', 'classe / gruppo:', 'class:', 'group:']
+    },
+    date: {
+      key: 'tcHdrDateLabel',
+      defaults: ['date:', 'datum:', 'data:']
+    },
+    teacher: {
+      key: 'tcHdrTeacherLabel',
+      defaults: ['teacher:', 'enseignant :', 'enseignant(e) :', 'lehrer:', 'insegnante:']
+    },
+    duration: {
+      key: 'tcHdrDurationLabel',
+      defaults: ['duration:', 'durée :', 'dauer:', 'durata:']
+    },
+    materials: {
+      key: 'tcHdrMaterialsLabel',
+      defaults: ['materials allowed:', 'materials:', 'matériel autorisé :', 'matériel :', 'erlaubte materialien:', 'materiali ammessi:']
+    },
+    scope: {
+      key: 'tcHdrScopeLabel',
+      defaults: ['scope / topic:', 'programme / thème :', 'thema / stoff:', 'argomento / tema:']
+    },
+    points: {
+      key: 'tcHdrPointsLabel',
+      defaults: ['total points:', 'total des points :', 'gesamtpunkte:', 'punti totali:']
+    },
+    gradingScale: {
+      key: 'tcHdrGradingScaleLabel',
+      defaults: ['grading scale & score conversion:', 'grading scale:', 'barème de notation & conversion :', 'barème de notation :', 'notenskala & punkteumrechnung:', 'scala di valutazione & conversione punteggi:']
+    },
+    competences: {
+      key: 'tcHdrCompetencesLabel',
+      defaults: ['competences & curriculum objectives:', 'competences:', 'compétences & objectifs visés :', 'compétences :', 'kompetenzen & lehrplanziele:', 'competenze & obiettivi del curriculum:']
+    },
+    criteria: {
+      key: 'tcHdrCriteriaLabel',
+      defaults: ['assessment criteria & evaluation rubric:', 'criteria:', 'critères d\'évaluation & grille :', 'critères d’évaluation & grille :', 'bewertungskriterien & rubrik:', 'criteri di valutazione & rubrica:']
+    }
+  };
+
+  function resolveHeaderLabel(test, elemKey, options) {
+    var lang = _currentLang(options);
+    var cfg = (test && test.headerConfig) || {};
+    var propName = elemKey + 'Label';
+    var userVal = cfg[propName];
+
+    var meta = DEFAULT_LABEL_LOOKUP[elemKey];
+    if (!meta) {
+      return (userVal != null && String(userVal).trim() !== '') ? userVal : '';
+    }
+
+    var defaultTranslated = _t(meta.key, null, lang);
+
+    if (userVal == null || String(userVal).trim() === '') {
+      return defaultTranslated || (TestCreatorService.DEFAULT_HEADER_CONFIG[propName] || '');
+    }
+
+    var trimmed = String(userVal).trim().toLowerCase();
+    var isDefault = meta.defaults.some(function (d) {
+      return trimmed === d || trimmed === d.replace(':', '').trim();
+    });
+
+    if (isDefault) {
+      return defaultTranslated || userVal;
+    }
+    return userVal;
+  }
+
+  var DEFAULT_INSTRUCTIONS = [
+    'answer all questions clearly. write legibly and respect time constraints.',
+    'répondez clairement à toutes les questions. écrivez lisiblement et respectez le temps alloué.',
+    'beantworten sie alle fragen deutlich. schreiben sie leserlich und halten sie die zeitvorgaben ein.',
+    'rispondi chiaramente a tutte le domande. scrivi in modo leggibile e rispetta i limiti di tempo.'
+  ];
+
+  function resolveInstructionsText(test, options) {
+    var lang = _currentLang(options);
+    var cfg = (test && test.headerConfig) || {};
+    var val = cfg.instructionsText;
+    if (val == null || String(val).trim() === '') {
+      return _t('tcHdrInstructionsDefault', 'Answer all questions clearly. Write legibly and respect time constraints.', lang);
+    }
+    var trimmed = String(val).trim().toLowerCase();
+    var isDefault = DEFAULT_INSTRUCTIONS.some(function (d) { return trimmed === d; });
+    if (isDefault) {
+      return _t('tcHdrInstructionsDefault', val, lang);
+    }
+    return val;
+  }
+
+  var MATERIAL_I18N_MAP = {
+    'pen & pencil only': 'tcMatPenPencilOnly',
+    'bilingual dictionary allowed': 'tcMatBilingualDictAllowed',
+    'monolingual dictionary allowed': 'tcMatMonolingualDictAllowed',
+    'scientific calculator allowed': 'tcMatScientificCalcAllowed',
+    'basic calculator allowed': 'tcMatBasicCalcAllowed',
+    'formula sheet provided': 'tcMatFormulaSheetProvided',
+    'open book / course notes': 'tcMatOpenBookNotes',
+    'rough paper / draft provided': 'tcMatRoughPaperProvided',
+    'no electronic devices allowed': 'tcMatNoElectronicsAllowed'
+  };
+
+  function resolveMaterialText(mat, options) {
+    if (!mat) return '';
+    var lang = _currentLang(options);
+    var key = MATERIAL_I18N_MAP[String(mat).trim().toLowerCase()];
+    if (key) {
+      return _t(key, mat, lang);
+    }
+    return mat;
+  }
+
+  var SCALE_I18N_MAP = {
+    'pts_20': 'tcScaleFrench20',
+    'pts_100': 'tcScalePercentage100',
+    'pts_6': 'tcScaleSwissGerman6',
+    'letter_af': 'tcScaleLetterAF',
+    'pts_total': 'tcScaleExactPointsTotal'
+  };
+
+  function resolveScaleName(scale, options) {
+    if (!scale) return '';
+    var lang = _currentLang(options);
+    var id = (typeof scale === 'object') ? (scale.id || scale.key) : String(scale);
+    if (id && SCALE_I18N_MAP[id]) {
+      return _t(SCALE_I18N_MAP[id], (scale && (scale.name || scale.label)) || id, lang);
+    }
+    var rawName = String((scale && (scale.name || scale.label)) || scale || '').trim().toLowerCase();
+    for (var sid in SCALE_I18N_MAP) {
+      var d = TestCreatorService.DEFAULT_SCALES.find(function (s) { return s.id === sid; });
+      if (d && (rawName === d.name.toLowerCase() || rawName === d.label.toLowerCase())) {
+        return _t(SCALE_I18N_MAP[sid], (scale && (scale.name || scale.label)) || d.name, lang);
+      }
+    }
+    return (scale && (scale.name || scale.label)) || String(scale);
+  }
+
+  TestCreatorService._currentLang = _currentLang;
+  TestCreatorService._t = _t;
+  TestCreatorService._tFmt = _tFmt;
+  TestCreatorService.resolveHeaderLabel = resolveHeaderLabel;
+  TestCreatorService.resolveInstructionsText = resolveInstructionsText;
+  TestCreatorService.resolveMaterialText = resolveMaterialText;
+  TestCreatorService.resolveScaleName = resolveScaleName;
+
   // ── 1. Default Subjects & Options ──────────────────────────────────────────
   TestCreatorService.DEFAULT_SUBJECTS = [
     { id: 'English', name: 'English', icon: 'book.svg', color: '#2563eb' },
@@ -530,7 +728,7 @@
       case 'prefix_l':
         return 'L' + n;
       case 'prefix_line':
-        return 'Line ' + n;
+        return _t('tcLinePrefix', 'Line') + ' ' + n;
       case 'roman_lower':
         return TestCreatorService.toRoman(n).toLowerCase();
       case 'roman_upper':
@@ -3272,7 +3470,9 @@
   };
 
   // ── 3c. Modular Customizable Header Renderer ─────────────────────────────
-  TestCreatorService.renderHeaderHtml = function (test, isTeacherKey, variant, studentName, className, totalPts) {
+  TestCreatorService.renderHeaderHtml = function (test, isTeacherKey, variant, studentName, className, totalPts, options) {
+    var opts = options || {};
+    var lang = _currentLang(opts);
     var hc = TestCreatorService.ensureHeaderConfig(test);
     var v = variant || test.variant || 'A';
     var tPts = (totalPts !== undefined) ? totalPts : TestCreatorService.calculateTotalTestPoints(test);
@@ -3289,9 +3489,9 @@
     // Variant badge & key badge
     var variantBadgeHtml = '';
     if (hc.showVariantBadge) {
-      variantBadgeHtml = '<span class="exam-variant-badge">GROUP ' + escapeHtml(v) + '</span>';
+      variantBadgeHtml = '<span class="exam-variant-badge">' + escapeHtml(_tFmt('tcGroupBadge', 'GROUP {0}', lang, v)) + '</span>';
     }
-    var keyBadgeHtml = isTeacherKey ? ' <span class="teacher-key-badge">[TEACHER SOLUTION KEY]</span>' : '';
+    var keyBadgeHtml = isTeacherKey ? (' <span class="teacher-key-badge">' + escapeHtml(_t('tcTeacherSolutionKeyBadge', '[TEACHER SOLUTION KEY]', lang)) + '</span>') : '';
 
     // Helper for formatting an element item
     function formatItemHtml(lbl, val, styleObj, customCss) {
@@ -3328,7 +3528,7 @@
       }
       if (tSt.align) tCss.push('text-align: ' + tSt.align + ';');
 
-      var titleText = test.title || 'Class Examination';
+      var titleText = test.title || _t('tcDefaultExamTitle', 'Class Examination', lang);
       var tOut = [];
       tOut.push('      <div class="exam-title-row" style="' + tCss.join(' ') + '">');
       if (variantBadgeHtml && tSt.align !== 'center') {
@@ -3361,53 +3561,54 @@
       var metaItemsMap = {};
       if (hc.showStudentName) {
         var sVal = studentName ? escapeHtml(studentName) : (hc.studentNameStyle && hc.studentNameStyle.lineStyle === 'box' ? '<span class="name-box"></span>' : (hc.studentNameStyle && hc.studentNameStyle.lineStyle === 'dotted' ? '<span class="name-dotted"></span>' : '___________________________'));
-        metaItemsMap['studentName'] = formatItemHtml(hc.studentNameLabel || 'Student Name:', sVal, hc.studentNameStyle);
+        metaItemsMap['studentName'] = formatItemHtml(resolveHeaderLabel(test, 'studentName', opts), sVal, hc.studentNameStyle);
       }
       if (hc.showClass) {
-        metaItemsMap['class'] = formatItemHtml(hc.classLabel || 'Class / Group:', TestCreatorService.formatRichText(className || test.className || '__________'), hc.classStyle);
+        metaItemsMap['class'] = formatItemHtml(resolveHeaderLabel(test, 'class', opts), TestCreatorService.formatRichText(className || test.className || '__________'), hc.classStyle);
       }
       if (hc.showDate) {
-        metaItemsMap['date'] = formatItemHtml(hc.dateLabel || 'Date:', TestCreatorService.formatRichText(test.date || '__________'), hc.dateStyle);
+        metaItemsMap['date'] = formatItemHtml(resolveHeaderLabel(test, 'date', opts), TestCreatorService.formatRichText(test.date || '__________'), hc.dateStyle);
       }
       if (hc.showTeacher) {
-        metaItemsMap['teacher'] = formatItemHtml(hc.teacherLabel || 'Teacher:', TestCreatorService.formatRichText(test.teacher || '__________'), hc.teacherStyle);
+        metaItemsMap['teacher'] = formatItemHtml(resolveHeaderLabel(test, 'teacher', opts), TestCreatorService.formatRichText(test.teacher || '__________'), hc.teacherStyle);
       }
       if (hc.showDuration) {
-        metaItemsMap['duration'] = formatItemHtml(hc.durationLabel || 'Duration:', (test.durationMinutes || 45) + ' min', hc.durationStyle);
+        metaItemsMap['duration'] = formatItemHtml(resolveHeaderLabel(test, 'duration', opts), (test.durationMinutes || 45) + ' ' + _t('tcDurationMinutesShort', 'min', lang), hc.durationStyle);
       }
       if (hc.showMaterials) {
         var mMode = (hc.materialsStyle && hc.materialsStyle.displayMode) || 'inline';
         var matHtml = '';
+        var stdLabel = _t('tcMatStandard', 'Standard', lang);
         if (mMode === 'badges') {
-          matHtml = '<div class="materials-badges-wrap">' + (mats.length ? mats.map(function (m) { return '<span class="mat-badge">' + TestCreatorService.formatRichText(m) + '</span>'; }).join(' ') : '<span class="mat-badge">Standard</span>') + '</div>';
+          matHtml = '<div class="materials-badges-wrap">' + (mats.length ? mats.map(function (m) { return '<span class="mat-badge">' + TestCreatorService.formatRichText(resolveMaterialText(m, opts)) + '</span>'; }).join(' ') : '<span class="mat-badge">' + escapeHtml(stdLabel) + '</span>') + '</div>';
         } else {
-          matHtml = mats.length ? mats.map(function (m) { return TestCreatorService.formatRichText(m); }).join(', ') : 'Standard';
+          matHtml = mats.length ? mats.map(function (m) { return TestCreatorService.formatRichText(resolveMaterialText(m, opts)); }).join(', ') : escapeHtml(stdLabel);
         }
-        metaItemsMap['materials'] = formatItemHtml(hc.materialsLabel || 'Materials:', matHtml, hc.materialsStyle);
+        metaItemsMap['materials'] = formatItemHtml(resolveHeaderLabel(test, 'materials', opts), matHtml, hc.materialsStyle);
       }
       if (hc.showScope) {
-        metaItemsMap['scope'] = formatItemHtml(hc.scopeLabel || 'Scope / Topic:', TestCreatorService.formatRichText(test.scope || 'Curriculum Evaluation'), hc.scopeStyle);
+        metaItemsMap['scope'] = formatItemHtml(resolveHeaderLabel(test, 'scope', opts), TestCreatorService.formatRichText(test.scope || _t('tcScopeDefault', 'Curriculum Evaluation', lang)), hc.scopeStyle);
       }
       if (hc.showTotalPoints) {
-        metaItemsMap['points'] = formatItemHtml(hc.pointsLabel || 'Total Points:', '____ / ' + tPts + ' pts', hc.pointsStyle);
+        metaItemsMap['points'] = formatItemHtml(resolveHeaderLabel(test, 'points', opts), _tFmt('tcTotalPointsFormat', '____ / {0} pts', lang, tPts), hc.pointsStyle);
       }
       if (hc.showGradingScale) {
         var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
         if (scMode === 'inline') {
-          var scaleName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
-          metaItemsMap['gradingScale'] = formatItemHtml(hc.gradingScaleLabel || 'Grading Scale:', TestCreatorService.formatRichText(scaleName), hc.gradingScaleStyle);
+          var scaleName = resolveScaleName(test.scaleModel || test.scaleModelId, opts) || _t('tcScaleStandard', 'Standard Scale', lang);
+          metaItemsMap['gradingScale'] = formatItemHtml(resolveHeaderLabel(test, 'gradingScale', opts), TestCreatorService.formatRichText(scaleName), hc.gradingScaleStyle);
         } else if (scMode === 'inline_grades' && sectionOrder.indexOf('gradingScale') === -1) {
-          var inlineGradesHtml = TestCreatorService.formatInlineGradesString(test, { totalPoints: tPts, html: true });
-          metaItemsMap['gradingScale'] = formatItemHtml(hc.gradingScaleLabel || 'Grading Scale:', inlineGradesHtml, hc.gradingScaleStyle);
+          var inlineGradesHtml = TestCreatorService.formatInlineGradesString(test, { totalPoints: tPts, html: true, lang: lang });
+          metaItemsMap['gradingScale'] = formatItemHtml(resolveHeaderLabel(test, 'gradingScale', opts), inlineGradesHtml, hc.gradingScaleStyle);
         }
       }
       if (hc.showCompetences && hc.competencesStyle && hc.competencesStyle.displayMode === 'inline') {
         var cCount = (test.linkedCompetences && test.linkedCompetences.length) || (test.linkedCompetenceIds && test.linkedCompetenceIds.length) || 0;
-        metaItemsMap['competences'] = formatItemHtml(hc.competencesLabel || 'Competences:', cCount + ' assessed', hc.competencesStyle);
+        metaItemsMap['competences'] = formatItemHtml(resolveHeaderLabel(test, 'competences', opts), _tFmt('tcCompetencesAssessedCount', '{0} assessed', lang, cCount), hc.competencesStyle);
       }
       if (hc.showCriteria && hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline') {
         var crCount = (test.criteria && test.criteria.length) || (test.linkedCriteria && test.linkedCriteria.length) || 0;
-        metaItemsMap['criteria'] = formatItemHtml(hc.criteriaLabel || 'Criteria:', crCount + ' rubrics', hc.criteriaStyle);
+        metaItemsMap['criteria'] = formatItemHtml(resolveHeaderLabel(test, 'criteria', opts), _tFmt('tcCriteriaRubricsCount', '{0} rubrics', lang, crCount), hc.criteriaStyle);
       }
 
       var metaOrder = (Array.isArray(hc.metaOrder) && hc.metaOrder.length)
@@ -3452,7 +3653,8 @@
     }
 
     function buildInstructionsHtml() {
-      if (!hc.showInstructions || !hc.instructionsText) return '';
+      var instrText = resolveInstructionsText(test, opts);
+      if (!hc.showInstructions || !instrText) return '';
       var iSt = hc.instructionsStyle || {};
       var iBoxCss = [];
       if (iSt.bold) iBoxCss.push('font-weight: bold;');
@@ -3461,8 +3663,8 @@
       var iBoxCls = 'exam-instructions-box instructions-style-' + (iSt.border || 'box');
       var iOut = [];
       iOut.push('      <div class="' + iBoxCls + '" style="' + iBoxCss.join(' ') + '">');
-      iOut.push('        <div class="exam-instructions-title">Instructions &amp; Guidelines:</div>');
-      iOut.push('        <div>' + TestCreatorService.formatRichText(hc.instructionsText) + '</div>');
+      iOut.push('        <div class="exam-instructions-title">' + escapeHtml(_t('tcInstructionsTitle', 'Instructions & Guidelines:', lang)) + '</div>');
+      iOut.push('        <div>' + TestCreatorService.formatRichText(instrText) + '</div>');
       iOut.push('      </div>');
       return iOut.join('\n');
     }
@@ -3470,7 +3672,7 @@
     function buildGradingScaleSectionHtml() {
       if ((test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; })) return '';
       if (!hc.showGradingScale || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode === 'inline')) return '';
-      return TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts });
+      return TestCreatorService.renderGradingScaleHtml(test, { totalPoints: tPts, lang: lang });
     }
 
     function buildCompetencesSectionHtml() {
@@ -3478,7 +3680,7 @@
       if (!hc.showCompetences || (hc.competencesStyle && hc.competencesStyle.displayMode === 'inline')) return '';
       var cs = hc.competencesStyle || {};
       if (cs.separatePage || cs.pageOrientation === 'landscape') return '';
-      return TestCreatorService.renderCompetencesHtml(test, { totalPoints: tPts, applyPageLayout: false });
+      return TestCreatorService.renderCompetencesHtml(test, { totalPoints: tPts, applyPageLayout: false, lang: lang });
     }
 
     function buildCriteriaSectionHtml() {
@@ -3486,7 +3688,7 @@
       if (!hc.showCriteria || (hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline')) return '';
       var crs = hc.criteriaStyle || {};
       if (crs.separatePage || crs.pageOrientation === 'landscape') return '';
-      return TestCreatorService.renderCriteriaHtml(test, { totalPoints: tPts, applyPageLayout: false });
+      return TestCreatorService.renderCriteriaHtml(test, { totalPoints: tPts, applyPageLayout: false, lang: lang });
     }
 
     // Dynamic Section Ordering
@@ -3527,7 +3729,8 @@
             totalPoints: tPts,
             separatePage: true,
             pageOrientation: cs.pageOrientation || 'portrait',
-            pageBreakAfter: hasExercises
+            pageBreakAfter: hasExercises,
+            lang: lang
           });
           if (cDetached) out.push(cDetached);
         }
@@ -3540,7 +3743,8 @@
             totalPoints: tPts,
             separatePage: true,
             pageOrientation: crs.pageOrientation || 'portrait',
-            pageBreakAfter: hasExercises
+            pageBreakAfter: hasExercises,
+            lang: lang
           });
           if (crDetached) out.push(crDetached);
         }
@@ -3553,9 +3757,10 @@
   TestCreatorService.renderCompetencesHtml = function (test, options) {
     if (!test) return '';
     var opts = options || {};
+    var lang = _currentLang(opts);
     var hc = TestCreatorService.ensureHeaderConfig(test);
     var cSt = hc.competencesStyle || {};
-    var label = opts.title || opts.label || hc.competencesLabel || 'Competences & Curriculum Objectives:';
+    var label = opts.title || opts.label || resolveHeaderLabel(test, 'competences', opts);
     var displayMode = opts.displayMode || cSt.displayMode || 'table';
     var showCodeCol = (opts.showCodeCol !== undefined) ? !!opts.showCodeCol : (cSt.showCodeCol !== false);
     var showTitleCol = (opts.showTitleCol !== undefined) ? !!opts.showTitleCol : (cSt.showTitleCol !== false);
@@ -3647,7 +3852,7 @@
     if (displayMode === 'badges' || displayMode === 'compact') {
       var out = [];
       out.push('      <div class="exam-competences-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + comps.length + ' objectives)</span></div>');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(_tFmt('tcObjectivesCountBadge', '{0} objectives', lang, comps.length)) + ')</span></div>');
       out.push('        <div class="competences-badges-wrap">');
       comps.forEach(function (c) {
         var codePart = (showCodeCol && c.code) ? '<strong>' + escapeHtml(c.code) + '</strong>' : '';
@@ -3681,15 +3886,15 @@
     // Default: 'table'
     var out = [];
     out.push('      <div class="exam-competences-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + comps.length + ' evaluated)</span></div>');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(_tFmt('tcEvaluatedCountBadge', '{0} evaluated', lang, comps.length)) + ')</span></div>');
     out.push('        <table class="competences-table">');
     out.push('          <thead><tr>');
-    if (showCodeCol) out.push('            <th class="col-comp-code">Code / Ref</th>');
-    if (showTitleCol) out.push('            <th>Competence &amp; Learning Objective</th>');
-    if (showDesc) out.push('            <th>Descriptors &amp; Performance Criteria</th>');
-    if (showLevelCol) out.push('            <th class="col-comp-level">Level</th>');
-    if (showScoreCol) out.push('            <th class="col-comp-score">Mastery / Score</th>');
-    if (showCommentsCol) out.push('            <th class="col-comp-comments">Feedback &amp; Comments</th>');
+    if (showCodeCol) out.push('            <th class="col-comp-code">' + escapeHtml(_t('tcCompCodeHeader', 'Code / Ref', lang)) + '</th>');
+    if (showTitleCol) out.push('            <th>' + escapeHtml(_t('tcCompObjectiveHeader', 'Competence & Learning Objective', lang)) + '</th>');
+    if (showDesc) out.push('            <th>' + escapeHtml(_t('tcCompDescriptorsHeader', 'Descriptors & Performance Criteria', lang)) + '</th>');
+    if (showLevelCol) out.push('            <th class="col-comp-level">' + escapeHtml(_t('tcCompLevelHeader', 'Level', lang)) + '</th>');
+    if (showScoreCol) out.push('            <th class="col-comp-score">' + escapeHtml(_t('tcCompMasteryHeader', 'Mastery / Score', lang)) + '</th>');
+    if (showCommentsCol) out.push('            <th class="col-comp-comments">' + escapeHtml(_t('tcCompFeedbackHeader', 'Feedback & Comments', lang)) + '</th>');
     out.push('          </tr></thead>');
     out.push('          <tbody>');
     comps.forEach(function (c) {
@@ -3698,10 +3903,10 @@
         out.push('              <td class="col-comp-code"><strong>' + escapeHtml(c.code || 'COMP') + '</strong></td>');
       }
       if (showTitleCol) {
-        out.push('              <td><strong>' + escapeHtml(c.title || c.code) + '</strong>' + (c.domain ? '<div style="font-size:7.5pt;color:#64748b;">Domain: ' + escapeHtml(c.domain) + '</div>' : '') + '</td>');
+        out.push('              <td><strong>' + escapeHtml(c.title || c.code) + '</strong>' + (c.domain ? '<div style="font-size:7.5pt;color:#64748b;">' + escapeHtml(_t('tcDomainPrefix', 'Domain:', lang)) + ' ' + escapeHtml(c.domain) + '</div>' : '') + '</td>');
       }
       if (showDesc) {
-        out.push('              <td class="comp-desc-cell">' + escapeHtml(c.description || c.title || 'Demonstrates curriculum competence mastery.') + '</td>');
+        out.push('              <td class="comp-desc-cell">' + escapeHtml(c.description || c.title || _t('tcCompDefaultMastery', 'Demonstrates curriculum competence mastery.', lang)) + '</td>');
       }
       if (showLevelCol) {
         out.push('              <td class="col-comp-level">' + escapeHtml(c.level || '—') + '</td>');
@@ -3792,9 +3997,10 @@
   TestCreatorService.renderCriteriaHtml = function (test, options) {
     if (!test) return '';
     var opts = options || {};
+    var lang = _currentLang(opts);
     var hc = TestCreatorService.ensureHeaderConfig(test);
     var crSt = hc.criteriaStyle || {};
-    var label = opts.title || opts.label || hc.criteriaLabel || 'Assessment Criteria & Evaluation Rubric:';
+    var label = opts.title || opts.label || resolveHeaderLabel(test, 'criteria', opts);
     var displayMode = opts.displayMode || crSt.displayMode || 'matrix';
     var showCriterionCol = (opts.showCriterionCol !== undefined) ? !!opts.showCriterionCol : (crSt.showCriterionCol !== false);
     var showLevelsCol = (opts.showLevelsCol !== undefined) ? !!opts.showLevelsCol : (crSt.showLevelsCol !== false);
@@ -3906,7 +4112,7 @@
     if (displayMode === 'badges') {
       var out = [];
       out.push('      <div class="exam-criteria-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + rawCriteria.length + ' criteria)</span></div>');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(_tFmt('tcCriteriaCountBadge', '{0} criteria', lang, rawCriteria.length)) + ')</span></div>');
       out.push('        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">');
       rawCriteria.forEach(function (crit) {
         var cTitle = crit.title || crit.name || 'Criterion';
@@ -3991,15 +4197,15 @@
       // Standard summary table (Criterion, Descriptors, Max, Score, Feedback)
       var out = [];
       out.push('      <div class="exam-criteria-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + rawCriteria.length + ' criteria)</span></div>');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(_tFmt('tcCriteriaCountBadge', '{0} criteria', lang, rawCriteria.length)) + ')</span></div>');
       out.push('        <table class="criteria-table">');
       out.push('          <thead><tr>');
-      if (showCriterionCol) out.push('            <th>Assessment Criterion</th>');
-      if (showLevelsCol && !showDesc) out.push('            <th class="col-crit-levels-cell">Levels</th>');
-      if (showDesc) out.push('            <th>Performance Descriptors &amp; Evaluation Notes</th>');
-      if (showMaxCol) out.push('            <th class="col-crit-max">Max</th>');
-      if (showScoreCol) out.push('            <th class="col-crit-score">Score</th>');
-      if (showCommentsCol) out.push('            <th class="col-crit-comments">Feedback &amp; Comments</th>');
+      if (showCriterionCol) out.push('            <th>' + escapeHtml(_t('tcCritAssessmentHeader', 'Assessment Criterion', lang)) + '</th>');
+      if (showLevelsCol && !showDesc) out.push('            <th class="col-crit-levels-cell">' + escapeHtml(_t('tcCritLevelsHeader', 'Levels', lang)) + '</th>');
+      if (showDesc) out.push('            <th>' + escapeHtml(_t('tcCritDescriptorsHeader', 'Performance Descriptors & Evaluation Notes', lang)) + '</th>');
+      if (showMaxCol) out.push('            <th class="col-crit-max">' + escapeHtml(_t('tcCritMaxHeader', 'Max', lang)) + '</th>');
+      if (showScoreCol) out.push('            <th class="col-crit-score">' + escapeHtml(_t('tcCritScoreHeader', 'Score', lang)) + '</th>');
+      if (showCommentsCol) out.push('            <th class="col-crit-comments">' + escapeHtml(_t('tcCritFeedbackHeader', 'Feedback & Comments', lang)) + '</th>');
       out.push('          </tr></thead>');
       out.push('          <tbody>');
       rawCriteria.forEach(function (crit) {
@@ -4023,7 +4229,7 @@
             descParts.push('<div class="crit-table-comments-list">' + rowsHtml + '</div>');
           }
           if (!descParts.length) {
-            var fallbackText = crit.domain || (Array.isArray(crit.grades) ? 'Scale levels: ' + crit.grades.join(', ') : 'Graded according to mastery rubric.');
+            var fallbackText = crit.domain || (Array.isArray(crit.grades) ? (_t('tcCritScaleLevelsPrefix', 'Scale levels:', lang) + ' ' + crit.grades.join(', ')) : _t('tcCritDefaultMastery', 'Graded according to mastery rubric.', lang));
             descParts.push(escapeHtml(fallbackText));
           }
           descHtml = descParts.join('');
@@ -4066,10 +4272,10 @@
 
     var out = [];
     out.push('      <div class="exam-criteria-wrap exam-criteria-matrix-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + rawCriteria.length + ' criteria)</span></div>');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(_tFmt('tcCriteriaCountBadge', '{0} criteria', lang, rawCriteria.length)) + ')</span></div>');
     out.push('        <table class="criteria-matrix-table">');
     out.push('          <thead><tr>');
-    if (showCriterionCol) out.push('            <th class="col-crit-name">Assessment Criterion</th>');
+    if (showCriterionCol) out.push('            <th class="col-crit-name">' + escapeHtml(_t('tcCritAssessmentHeader', 'Assessment Criterion', lang)) + '</th>');
     if (showLevelsCol) {
       levels.forEach(function (lvl) {
         var sub = (levelSubs && typeof levelSubs === 'object' && levelSubs[String(lvl)]) ? String(levelSubs[String(lvl)]).trim() : '';
@@ -4077,11 +4283,11 @@
         out.push('            <th class="col-crit-level"><div class="crit-level-hdr-val">' + lvl + '</div>' + subHtml + '</th>');
       });
     } else if (showDesc) {
-      out.push('            <th>Performance Descriptors &amp; Evaluation Notes</th>');
+      out.push('            <th>' + escapeHtml(_t('tcCritDescriptorsHeader', 'Performance Descriptors & Evaluation Notes', lang)) + '</th>');
     }
-    if (showMaxCol) out.push('            <th class="col-crit-max">Max</th>');
-    if (showScoreCol) out.push('            <th class="col-crit-score">Score</th>');
-    if (showCommentsCol) out.push('            <th class="col-crit-feedback">Feedback &amp; Comments</th>');
+    if (showMaxCol) out.push('            <th class="col-crit-max">' + escapeHtml(_t('tcCritMaxHeader', 'Max', lang)) + '</th>');
+    if (showScoreCol) out.push('            <th class="col-crit-score">' + escapeHtml(_t('tcCritScoreHeader', 'Score', lang)) + '</th>');
+    if (showCommentsCol) out.push('            <th class="col-crit-feedback">' + escapeHtml(_t('tcCritFeedbackHeader', 'Feedback & Comments', lang)) + '</th>');
     out.push('          </tr></thead>');
     out.push('          <tbody>');
     rawCriteria.forEach(function (crit) {
@@ -4138,13 +4344,15 @@
   TestCreatorService.renderGradingScaleHtml = function (test, options) {
     if (!test) return '';
     var opts = options || {};
+    var lang = _currentLang(opts);
     var totalPts = (opts.totalPoints !== undefined) ? opts.totalPoints : TestCreatorService.calculateTotalTestPoints(test);
     var scaleModel = test.scaleModel || null;
     var scaleModelId = test.scaleModelId || 'pts_20';
     var hc = TestCreatorService.ensureHeaderConfig(test);
-    var label = opts.title || opts.label || hc.gradingScaleLabel || 'Grading Scale & Score Conversion:';
+    var label = opts.title || opts.label || resolveHeaderLabel(test, 'gradingScale', opts);
     var displayMode = opts.displayMode || (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
     var tableData = TestCreatorService.calculateGradeConversionTable(scaleModel || scaleModelId, totalPts);
+    var resolvedScaleName = resolveScaleName(scaleModel || tableData.scaleName || scaleModelId, opts) || (tableData.scaleName || scaleModelId);
 
     var gSt = hc.gradingScaleStyle || {};
     var titleClasses = ['exam-grading-scale-title'];
@@ -4181,6 +4389,8 @@
       showPointsCol = true;
     }
 
+    var subTitleText = ' <span class="scale-title-sub">(' + escapeHtml(resolvedScaleName) + ' — ' + escapeHtml(_tFmt('tcTotalPointsFormat', 'Total {0} pts', lang, totalPts)) + ')</span>';
+
     if (isInlineMode) {
       var inlineItems = TestCreatorService.buildInlineGradeItems(tableData, totalPts, true, {
         showGradeCol: showGradeCol,
@@ -4190,9 +4400,9 @@
       });
       var out = [];
       out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-inline' + bgCls + padCls + borderCls + pageClasses + '">');
-      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + subTitleText + '</div>');
       out.push('        <div class="grading-scale-inline-row">');
-      out.push('          ' + (inlineItems.length ? inlineItems.join('<span class="grading-scale-inline-sep"> · </span>') : escapeHtml(tableData.scaleName || scaleModelId)));
+      out.push('          ' + (inlineItems.length ? inlineItems.join('<span class="grading-scale-inline-sep"> · </span>') : escapeHtml(resolvedScaleName)));
       out.push('        </div>');
       out.push('      </div>');
       return out.join('\n');
@@ -4201,7 +4411,7 @@
     if (isCompactMode) {
       var out = [];
       out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-compact' + bgCls + padCls + borderCls + pageClasses + '">');
-      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + subTitleText + '</div>');
       out.push('        <div class="grading-scale-chips">');
       if (tableData.rows && tableData.rows.length) {
         tableData.rows.forEach(function (row) {
@@ -4215,7 +4425,7 @@
           out.push('          <div class="grading-scale-chip" style="' + colorBorder + '">' + parts.join(' · ') + '</div>');
         });
       } else {
-        out.push('          <div class="grading-scale-chip">' + escapeHtml(tableData.scaleName || scaleModelId) + '</div>');
+        out.push('          <div class="grading-scale-chip">' + escapeHtml(resolvedScaleName) + '</div>');
       }
       out.push('        </div>');
       out.push('      </div>');
@@ -4224,13 +4434,13 @@
 
     var out = [];
     out.push('      <div class="exam-grading-scale-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
-    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+    out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + subTitleText + '</div>');
     out.push('        <table class="grading-scale-table">');
     out.push('          <thead><tr>');
-    if (showGradeCol) out.push('            <th class="col-scale-grade">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleGrade')) || 'Grade / Mark') + '</th>');
-    if (showThresholdCol) out.push('            <th class="col-scale-threshold">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleThreshold')) || 'Threshold') + '</th>');
-    if (showPointsCol) out.push('            <th class="col-scale-points">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScalePoints')) || 'Required Score') + '</th>');
-    if (showNotesCol) out.push('            <th class="col-scale-notes">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleNotes')) || 'Evaluation / Notes') + '</th>');
+    if (showGradeCol) out.push('            <th class="col-scale-grade">' + escapeHtml(_t('tcColScaleGrade', 'Grade / Mark', lang)) + '</th>');
+    if (showThresholdCol) out.push('            <th class="col-scale-threshold">' + escapeHtml(_t('tcColScaleThreshold', 'Threshold', lang)) + '</th>');
+    if (showPointsCol) out.push('            <th class="col-scale-points">' + escapeHtml(_t('tcColScalePoints', 'Required Score', lang)) + '</th>');
+    if (showNotesCol) out.push('            <th class="col-scale-notes">' + escapeHtml(_t('tcColScaleNotes', 'Evaluation / Notes', lang)) + '</th>');
     out.push('          </tr></thead>');
     out.push('          <tbody>');
     if (tableData.rows && tableData.rows.length) {
@@ -4245,7 +4455,7 @@
       });
     } else {
       var colSpan = (showGradeCol ? 1 : 0) + (showThresholdCol ? 1 : 0) + (showPointsCol ? 1 : 0) + (showNotesCol ? 1 : 0);
-      out.push('            <tr><td colspan="' + (colSpan || 1) + '" class="scale-empty-cell">Standard scale: ' + escapeHtml(tableData.scaleName || scaleModelId) + '</td></tr>');
+      out.push('            <tr><td colspan="' + (colSpan || 1) + '" class="scale-empty-cell">' + escapeHtml(_t('tcStandardScalePrefix', 'Standard scale:', lang)) + ' ' + escapeHtml(resolvedScaleName) + '</td></tr>');
     }
     out.push('          </tbody>');
     out.push('        </table>');
@@ -4256,6 +4466,7 @@
   TestCreatorService.renderExerciseHtml = function (ex, index, isTeacherKey, options) {
     if (!ex) return '';
     var opts = options || {};
+    var lang = _currentLang(opts);
     var testContext = opts.test || null;
     var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
     var num = (opts.exerciseNumber !== undefined && opts.exerciseNumber > 0) ? opts.exerciseNumber : (index + 1);
@@ -4278,7 +4489,8 @@
       var compPageCls = compSepPage
         ? (' page-break-before ' + (compOrient === 'landscape' ? 'page-orientation-landscape' : 'page-orientation-portrait') + (opts.hasNextExercise ? ' page-break-after' : ''))
         : pageBreakClass;
-      var resolvedCompTitle = cOpts.compTitle || ex.title || 'Competences & Curriculum Objectives';
+      var defaultCompTitle = _t('tcCompetencesHeaderLabel', 'Competences & Curriculum Objectives:', lang).replace(/:$/, '');
+      var resolvedCompTitle = cOpts.compTitle || ex.title || defaultCompTitle;
       var compHtml = TestCreatorService.renderCompetencesHtml(tObj, {
         title: resolvedCompTitle,
         displayMode: cOpts.displayMode || 'table',
@@ -4291,7 +4503,8 @@
         background: cOpts.background || 'default',
         border: cOpts.border || 'solid',
         padding: cOpts.padding || 'standard',
-        applyPageLayout: false
+        applyPageLayout: false,
+        lang: lang
       });
       var compInstrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
       return '<div class="exercise-card section-block-card' + compPageCls + '" id="ex-' + ex.id + '">' +
@@ -4316,7 +4529,8 @@
       var resolvedBg = crOpts.background || crOpts.rubricBg || 'default';
       var resolvedBorder = crOpts.border || crOpts.rubricBorder || 'solid';
       var resolvedPadding = crOpts.padding || crOpts.rubricPadding || 'standard';
-      var resolvedTitle = crOpts.rubricTitle || ex.title || 'Assessment Criteria & Evaluation Rubric';
+      var defaultCritTitle = _t('tcCriteriaHeaderLabel', 'Assessment Criteria & Evaluation Rubric:', lang).replace(/:$/, '');
+      var resolvedTitle = crOpts.rubricTitle || ex.title || defaultCritTitle;
       var critSepPage = !!(ex.forcePageBreak || crOpts.separatePage || crOpts.rubricSeparatePage || crOpts.pageOrientation === 'landscape' || crOpts.rubricPageOrientation === 'landscape');
       var critOrient = crOpts.pageOrientation || crOpts.rubricPageOrientation || 'portrait';
       var critPageCls = critSepPage
@@ -4336,7 +4550,8 @@
         border: resolvedBorder,
         padding: resolvedPadding,
         includeExerciseCriteria: blockCrits.length === 0,
-        applyPageLayout: false
+        applyPageLayout: false,
+        lang: lang
       });
       var instrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
       return '<div class="exercise-card section-block-card' + critPageCls + '" id="ex-' + ex.id + '">' +
@@ -4354,8 +4569,10 @@
       var scalePageCls = scaleSepPage
         ? (' page-break-before ' + (scaleOrient === 'landscape' ? 'page-orientation-landscape' : 'page-orientation-portrait') + (opts.hasNextExercise ? ' page-break-after' : ''))
         : pageBreakClass;
+      var defaultScaleTitle = _t('tcGradingScaleHeaderLabel', 'Grading Scale & Score Conversion:', lang).replace(/:$/, '');
+      var resolvedScaleTitle = scOpts.scaleTitle || ex.title || defaultScaleTitle;
       var scaleHtml = TestCreatorService.renderGradingScaleHtml(tObj, {
-        title: scOpts.scaleTitle || ex.title || 'Grading Scale & Score Conversion',
+        title: resolvedScaleTitle,
         displayMode: scOpts.displayMode || 'table',
         totalPoints: tPts,
         background: scOpts.background || 'default',
@@ -4365,12 +4582,13 @@
         showThresholdCol: scOpts.showThresholdCol !== false,
         showPointsCol: scOpts.showPointsCol !== false,
         showNotesCol: scOpts.showNotesCol !== false,
-        applyPageLayout: false
+        applyPageLayout: false,
+        lang: lang
       });
       var scaleInstrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
       return '<div class="exercise-card section-block-card' + scalePageCls + '" id="ex-' + ex.id + '">' +
         scaleInstrBanner +
-        (scaleHtml || '<div class="exam-grading-scale-wrap"><div class="exam-grading-scale-title">' + TestCreatorService.formatRichText(ex.title || 'Grading Scale') + '</div></div>') +
+        (scaleHtml || '<div class="exam-grading-scale-wrap"><div class="exam-grading-scale-title">' + TestCreatorService.formatRichText(resolvedScaleTitle) + '</div></div>') +
         '</div>';
     }
 
@@ -4389,7 +4607,7 @@
       if (borderStyle && borderStyle !== 'solid') blockClasses.push('custom-border-' + borderStyle);
       if (paddingStyle && paddingStyle !== 'standard') blockClasses.push('custom-pad-' + paddingStyle);
 
-      var ptsBadge = (ex.points && Number(ex.points) > 0) ? ' <span class="custom-block-points">(' + ex.points + ' pts)</span>' : '';
+      var ptsBadge = (ex.points && Number(ex.points) > 0) ? ' <span class="custom-block-points">(' + ex.points + ' ' + _t('tcPtsUnit', 'pts', lang) + ')</span>' : '';
       var out = [];
       out.push('<div class="' + blockClasses.join(' ') + '" id="ex-' + ex.id + '">');
       out.push('  <div class="exam-custom-block-wrap">');
@@ -4449,7 +4667,7 @@
       out.push('    <div class="exam-pdf-pages-container">');
       if (!selectedPages.length || (!pdfContent.pdfPath && !pdfContent.pdfName && !Object.keys(cache).length)) {
         out.push('      <div class="exam-pdf-placeholder" style="padding:24px;text-align:center;color:#64748b;border:1.5px dashed #cbd5e1;border-radius:6px;font-style:italic;">');
-        out.push('        [PDF Document: ' + escapeHtml(pdfContent.pdfName || ex.title || 'No file selected') + ']');
+        out.push('        [' + escapeHtml(_t('tcPdfDocumentLabel', 'PDF Document', lang)) + ': ' + escapeHtml(pdfContent.pdfName || ex.title || 'No file selected') + ']');
         out.push('      </div>');
       } else {
         selectedPages.forEach(function (pNum, pIdx) {
@@ -4465,14 +4683,14 @@
           }
           out.push('      <div class="exam-pdf-page-item' + pageCls + '" data-page="' + pNum + '" style="text-align:center;margin-bottom:14px;break-inside:avoid;page-break-inside:avoid;">');
           if (pData) {
-            out.push('        <img src="' + pData + '" class="exam-pdf-page-image" style="' + scaleStyle + 'display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.12);" alt="Page ' + pNum + '" />');
+            out.push('        <img src="' + pData + '" class="exam-pdf-page-image" style="' + scaleStyle + 'display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.12);" alt="' + escapeHtml(_t('tcPictureWord', 'Picture', lang) + ' ' + pNum) + '" />');
           } else {
             out.push('        <div class="exam-pdf-page-pending" style="padding:30px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;border-radius:4px;">');
-            out.push('          PDF Page ' + pNum + ' (' + escapeHtml(pdfContent.pdfName || 'Document') + ')');
+            out.push('          ' + escapeHtml(_t('tcPdfDocumentLabel', 'PDF Document', lang) + ' ' + pNum + ' (' + (pdfContent.pdfName || 'Document') + ')'));
             out.push('        </div>');
           }
           if (showPageNums && selectedPages.length > 1) {
-            out.push('        <div class="exam-pdf-page-num" style="font-size:8pt;color:#64748b;margin-top:4px;">Page ' + (pIdx + 1) + ' / ' + selectedPages.length + '</div>');
+            out.push('        <div class="exam-pdf-page-num" style="font-size:8pt;color:#64748b;margin-top:4px;">' + escapeHtml(_t('tcPagesLabel', 'Pages', lang) + ' ' + (pIdx + 1) + ' / ' + selectedPages.length) + '</div>');
           }
           out.push('      </div>');
         });
@@ -4482,9 +4700,6 @@
       out.push('</div>');
       return out.join('\n');
     }
-    var html = [];
-    var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
-    var exOpts = TestCreatorService.ensureExerciseOptions(ex);
 
     function resolveLineNumberConfig(lineOpts) {
       var isNumbered = false;
@@ -4603,10 +4818,13 @@
       return out.join('\n');
     }
 
+    var exTitleFormatted = _tFmt('tcExerciseHeader', { num: num, title: TestCreatorService.formatRichText(ex.title) }, lang);
+    var exPtsFormatted = _tFmt('tcExercisePointsOutOf', { pts: (ex.points || 0) }, lang);
+
     html.push('<div class="exercise-card' + pageBreakClass + borderClass + spacingClass + '" id="ex-' + ex.id + '">');
     html.push('  <div class="exercise-header">');
-    html.push('    <span class="exercise-title">Exercise ' + num + ': ' + TestCreatorService.formatRichText(ex.title) + '</span>');
-    html.push('    <span class="exercise-points">/' + (ex.points || 0) + ' pts</span>');
+    html.push('    <span class="exercise-title">' + exTitleFormatted + '</span>');
+    html.push('    <span class="exercise-points">' + exPtsFormatted + '</span>');
     html.push('  </div>');
 
     if (ex.instructions) {
@@ -4629,7 +4847,7 @@
           var chips = (exOpts.wordBankOrder === 'alphabetical')
             ? allBlanks.slice().sort(function (a, b) { return a.localeCompare(b); })
             : shuffleArray(allBlanks);
-          html.push('  <div class="word-bank-pool"><strong>Word Bank:</strong> ');
+          html.push('  <div class="word-bank-pool"><strong>' + _t('tcWordBankLabel', 'Word Bank:', lang) + '</strong> ');
           chips.forEach(function (w) {
             html.push('    <span class="word-chip">' + TestCreatorService.formatRichText(w) + '</span>');
           });
@@ -4684,7 +4902,7 @@
           });
           if (corrects.length === 0 && ex.content.correctIndex !== undefined) corrects.push(ex.content.correctIndex);
           questions = [{
-            prompt: ex.content.prompt || ex.prompt || 'Choose the correct answer:',
+            prompt: ex.content.prompt || ex.prompt || _t('tcMcqChoosePrompt', 'Choose the correct answer:', lang),
             options: optsList,
             correctIndices: corrects,
             points: ex.points || 1
@@ -4692,8 +4910,9 @@
         }
         var mcqLayoutClass = 'mcq-layout-' + (exOpts.layout || '2-columns');
         questions.forEach(function (q, qIdx) {
+          var qPtUnit = ((q.points || 1) === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
           html.push('  <div class="mcq-item">');
-          html.push('    <div class="mcq-prompt">' + (qIdx + 1) + '. ' + TestCreatorService.formatRichText(q.prompt) + ' (' + (q.points || 1) + ' pt)</div>');
+          html.push('    <div class="mcq-prompt">' + (qIdx + 1) + '. ' + TestCreatorService.formatRichText(q.prompt) + ' (' + (q.points || 1) + ' ' + qPtUnit + ')</div>');
           html.push('    <div class="mcq-options ' + mcqLayoutClass + '">');
           var rawOpts = (q.options || []).map(function (optText, oIdx) {
             return {
@@ -4728,17 +4947,18 @@
         var oItems = (ex.content && ex.content.items) || [];
         oItems.forEach(function (it, itIdx) {
           var prefix = oItems.length > 1 ? (itIdx + 1) + '. ' : '';
-          var ptsLabel = it.points ? ' (' + it.points + ' pt' + (it.points === 1 ? '' : 's') + ')' : '';
+          var ptUnit = (it.points === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
+          var ptsLabel = it.points ? ' (' + it.points + ' ' + ptUnit + ')' : '';
           var guidance = it.lengthGuidance || exOpts.lengthGuidance;
           var guidanceLabel = guidance ? ' <span class="open-length-hint">(' + TestCreatorService.formatRichText(guidance) + ')</span>' : '';
           html.push('  <div class="open-question-item">');
           html.push('    <div class="open-prompt"><strong>' + prefix + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + guidanceLabel + ptsLabel + '</div>');
           var starter = it.answerPrefix || exOpts.answerPrefix;
           if (starter) {
-            html.push('    <div class="open-starter-prefix"><em>Starter: ' + TestCreatorService.formatRichText(starter) + '</em></div>');
+            html.push('    <div class="open-starter-prefix"><em>' + _t('tcStarterLabel', 'Starter:', lang) + ' ' + TestCreatorService.formatRichText(starter) + '</em></div>');
           }
           if (isTeacherKey && it.sampleAnswer) {
-            html.push('    <div class="teacher-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.sampleAnswer) + '</div>');
+            html.push('    <div class="teacher-sample-answer">' + _t('tcSampleAnswerLabel', 'Sample Answer:', lang) + ' ' + TestCreatorService.formatRichText(it.sampleAnswer) + '</div>');
           }
           var lCount = Number(it.lineCount) || 4;
           var lSt = it.lineStyle || exOpts.lineStyle || 'lines';
@@ -4756,7 +4976,8 @@
         TestCreatorService.normalizeExerciseItems(ex);
         var compItems = (ex.content && ex.content.items) || [];
 
-        var draftTitle = TestCreatorService.formatRichText(exOpts.draftTitle || 'Draft & Rough Work (Not graded)');
+        var defaultDraftTitle = _t('tcDraftWorkTitle', 'Draft & Rough Work (Not graded)', lang);
+        var draftTitle = TestCreatorService.formatRichText(exOpts.draftTitle || defaultDraftTitle);
         var draftNoteHtml = exOpts.draftNote ? '<div class="draft-note">' + TestCreatorService.formatRichText(exOpts.draftNote) + '</div>' : '';
         var draftStyle = exOpts.draftStyle || 'box';
         var draftLines = Number(exOpts.draftLines) || 6;
@@ -4783,21 +5004,24 @@
         // Sub-component builders for dynamic reordering
         function renderCompGenre() {
           if (exOpts.showGenreBadge === false || !exOpts.textGenre) return '';
-          return '  <div class="composition-genre-tag">Format / Genre: <strong>' + TestCreatorService.formatRichText(exOpts.textGenre) + '</strong></div>';
+          return '  <div class="composition-genre-tag">' + _t('tcFormatGenreLabel', 'Format / Genre:', lang) + ' <strong>' + TestCreatorService.formatRichText(exOpts.textGenre) + '</strong></div>';
         }
 
         function renderCompPrompts() {
           if (exOpts.showPrompts === false) return '';
           var pOut = [];
+          var optionPrefix = _t('tcOptionPrefix', 'Option', lang);
+          var wordsUnit = _t('tcWordsUnit', 'words', lang);
+          var targetWordCountLabel = _t('tcTargetWordCountLabel', 'Target word count:', lang);
           compItems.forEach(function (it, itIdx) {
-            var taskHeader = compItems.length > 1 ? (it.label || ('Option ' + String.fromCharCode(65 + itIdx))) + ': ' : '';
+            var taskHeader = compItems.length > 1 ? (it.label || (optionPrefix + ' ' + String.fromCharCode(65 + itIdx))) + ': ' : '';
             var wcStr = (exOpts.wordCountMin && exOpts.wordCountMax)
-              ? (exOpts.wordCountMin + ' – ' + exOpts.wordCountMax + ' words')
-              : (it.targetWordCount ? ('~' + it.targetWordCount + ' words') : (exOpts.wordCountMax ? ('~' + exOpts.wordCountMax + ' words') : ''));
+              ? (exOpts.wordCountMin + ' – ' + exOpts.wordCountMax + ' ' + wordsUnit)
+              : (it.targetWordCount ? ('~' + it.targetWordCount + ' ' + wordsUnit) : (exOpts.wordCountMax ? ('~' + exOpts.wordCountMax + ' ' + wordsUnit) : ''));
             pOut.push('  <div class="composition-task-block">');
             pOut.push('    <div class="composition-prompt"><strong>' + TestCreatorService.formatRichText(taskHeader) + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + '</div>');
             if (wcStr) {
-              pOut.push('    <div class="comp-wordcount-hint">Target word count: ' + wcStr + '</div>');
+              pOut.push('    <div class="comp-wordcount-hint">' + targetWordCountLabel + ' ' + wcStr + '</div>');
             }
             pOut.push('  </div>');
           });
@@ -4811,10 +5035,12 @@
         function renderCompLines() {
           if (exOpts.showWritingLines === false) return '';
           var lOut = [];
+          var taskPrefix = _t('tcTaskPrefix', 'Task', lang);
+          var respLinesLabel = _t('tcResponseLinesLabel', 'Response Lines:', lang).replace(/:$/, '');
           compItems.forEach(function (it, itIdx) {
             if (compItems.length > 1) {
-              var tLbl = it.label || ('Task ' + (itIdx + 1));
-              lOut.push('  <div class="comp-task-lines-label">' + TestCreatorService.formatRichText(tLbl) + ' — Response Lines:</div>');
+              var tLbl = it.label || (taskPrefix + ' ' + (itIdx + 1));
+              lOut.push('  <div class="comp-task-lines-label">' + TestCreatorService.formatRichText(tLbl) + ' — ' + respLinesLabel + ':</div>');
             }
             var cLines = Number(it.lineCount) || 14;
             var cStyle = it.lineStyle || exOpts.lineStyle || 'solid';
@@ -4833,10 +5059,16 @@
 
         function renderCompChecklist() {
           if (!exOpts.showChecklist) return '';
-          var clTitle = TestCreatorService.formatRichText(exOpts.checklistTitle || 'Student Proofreading Checklist:');
+          var defaultChecklistTitle = _t('tcProofreadingChecklistTitle', 'Student Proofreading Checklist:', lang);
+          var clTitle = TestCreatorService.formatRichText(exOpts.checklistTitle || defaultChecklistTitle);
           var clItems = (Array.isArray(exOpts.checklistItems) && exOpts.checklistItems.length)
             ? exOpts.checklistItems
-            : ['Structure & Paragraphs', 'Spelling & Verb Tenses', 'Punctuation & Capitalization', 'Word Count Verified'];
+            : [
+                _t('tcChecklistStructure', 'Structure & Paragraphs', lang),
+                _t('tcChecklistSpelling', 'Spelling & Verb Tenses', lang),
+                _t('tcChecklistPunctuation', 'Punctuation & Capitalization', lang),
+                _t('tcChecklistWordCount', 'Word Count Verified', lang)
+              ];
           var clLayout = exOpts.checklistLayout || 'inline';
           var layoutCls = clLayout === 'columns' ? ' checklist-columns' : (clLayout === 'stacked' ? ' checklist-stacked' : ' checklist-inline');
           var bgCls = ' checklist-bg-' + (exOpts.checklistBg || 'amber');
@@ -4859,8 +5091,10 @@
           if (!exCrits.length) return '';
           var rSep = !!(exOpts.rubricSeparatePage || exOpts.separatePage);
           var rOrient = exOpts.rubricPageOrientation || exOpts.pageOrientation || 'portrait';
+          var defaultRubricTitle = _t('tcRubricDefault', 'Evaluation Rubric', lang);
+          var rubricTitle = exOpts.rubricTitle || (ex.title ? (ex.title + ' — ' + defaultRubricTitle) : defaultRubricTitle);
           return TestCreatorService.renderCriteriaHtml({ criteria: exCrits, exercises: [] }, {
-            title: exOpts.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric'),
+            title: rubricTitle,
             displayMode: exOpts.rubricDisplayMode || 'matrix',
             showCriterionCol: exOpts.showCriterionCol !== false,
             showLevelsCol: exOpts.showLevelsCol !== false,
@@ -4875,7 +5109,8 @@
             separatePage: rSep,
             pageOrientation: rOrient,
             pageBreakAfter: !!opts.hasNextExercise && (rSep || rOrient === 'landscape'),
-            includeExerciseCriteria: false
+            includeExerciseCriteria: false,
+            lang: lang
           });
         }
 
@@ -4904,8 +5139,8 @@
           rights = rights.concat(distArr);
         }
         var shuffledRights = shuffleArray(rights);
-        var colA = TestCreatorService.formatRichText(exOpts.colALabel || 'Column A');
-        var colB = TestCreatorService.formatRichText(exOpts.colBLabel || 'Column B');
+        var colA = TestCreatorService.formatRichText(exOpts.colALabel || _t('tcColumnALabel', 'Column A', lang));
+        var colB = TestCreatorService.formatRichText(exOpts.colBLabel || _t('tcColumnBLabel', 'Column B', lang));
 
         html.push('  <div class="matching-container">');
         html.push('    <div><strong>' + colA + '</strong>');
@@ -4964,7 +5199,8 @@
           html.push('  <div class="trans-constraint"><em>' + TestCreatorService.formatRichText(exOpts.wordConstraint) + '</em></div>');
         }
         if (exOpts.allowContractionsNote) {
-          html.push('  <div class="trans-note">*(Contractions count as two words)*</div>');
+          var contractionsText = _t('tcContractionsNote', '*(Contractions count as two words)*', lang);
+          html.push('  <div class="trans-note">' + contractionsText + '</div>');
         }
         transItems.forEach(function (item, idx) {
           html.push('  <div class="transformation-item">');
@@ -4992,7 +5228,7 @@
           html.push('  <div class="translation-item">');
           html.push('    <div>' + (idx + 1) + '. ' + TestCreatorService.formatRichText(item.sourceText) + '</div>');
           if (exOpts.showHints && item.hint) {
-            html.push('    <div class="translation-hint"><em>Hint: ' + TestCreatorService.formatRichText(item.hint) + '</em></div>');
+            html.push('    <div class="translation-hint"><em>' + _t('tcHintPrefix', 'Hint:', lang) + ' ' + TestCreatorService.formatRichText(item.hint) + '</em></div>');
           }
           if (isTeacherKey && item.modelTranslation) {
             html.push('    <div class="translation-solution">&rarr; ' + TestCreatorService.formatRichText(item.modelTranslation) + '</div>');
@@ -5012,14 +5248,17 @@
         if (exOpts.targetVocab) {
           var vChips = String(exOpts.targetVocab).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
           if (vChips.length) {
-            html.push('  <div class="pic-vocab-pool"><strong>Target Vocabulary:</strong> ' + vChips.map(function (c) { return '<span class="word-chip">' + TestCreatorService.formatRichText(c) + '</span>'; }).join(' ') + '</div>');
+            html.push('  <div class="pic-vocab-pool"><strong>' + _t('tcTargetVocabLabel', 'Target Vocabulary:', lang) + '</strong> ' + vChips.map(function (c) { return '<span class="word-chip">' + TestCreatorService.formatRichText(c) + '</span>'; }).join(' ') + '</div>');
           }
         }
         var imgMaxH = (exOpts.imageSize === 'small') ? '120px' : (exOpts.imageSize === 'large' ? '250px' : '180px');
         var isSideBySide = (exOpts.layout === 'side_by_side');
+        var promptImgAlt = escapeHtml(_t('tcPromptImageAlt', 'Prompt Image', lang));
+        var defaultFigWord = _t('tcPictureWord', 'Picture', lang);
         pItems.forEach(function (it, itIdx) {
-          var figLabel = exOpts.figureLabel ? (TestCreatorService.formatRichText(exOpts.figureLabel) + (pItems.length > 1 ? ' (' + (itIdx + 1) + ')' : '') + ': ') : '';
-          var ptsLabel = it.points ? ' (' + it.points + ' pt' + (it.points === 1 ? '' : 's') + ')' : '';
+          var figLabel = exOpts.figureLabel ? (TestCreatorService.formatRichText(exOpts.figureLabel) + (pItems.length > 1 ? ' (' + (itIdx + 1) + ')' : '') + ': ') : (pItems.length > 1 ? (defaultFigWord + ' ' + (itIdx + 1) + ': ') : '');
+          var ptUnit = (it.points === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
+          var ptsLabel = it.points ? ' (' + it.points + ' ' + ptUnit + ')' : '';
           var itemWrapClass = isSideBySide ? 'pic-desc-item side-by-side' : 'pic-desc-item stacked';
           var imgSizeCls = ' pic-img-' + (exOpts.imageSize || 'medium');
           html.push('  <div class="' + itemWrapClass + '">');
@@ -5027,7 +5266,7 @@
             html.push('    <div class="pic-side-layout">');
             if (it.imagePath) {
               html.push('      <div class="pic-media-col">');
-              html.push('        <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="Prompt Image" />');
+              html.push('        <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="' + promptImgAlt + '" />');
               if (it.imageCaption) {
                 html.push('        <div class="pic-caption">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
               }
@@ -5036,7 +5275,7 @@
             html.push('      <div class="pic-content-col">');
             html.push('        <div class="pic-prompt-row"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
             if (isTeacherKey && it.modelAnswer) {
-              html.push('        <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
+              html.push('        <div class="pic-sample-answer">' + _t('tcSampleAnswerLabel', 'Sample Answer:', lang) + ' ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
@@ -5049,7 +5288,7 @@
             // Stacked
             if (it.imagePath) {
               html.push('    <div class="pic-stacked-media">');
-              html.push('      <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="Prompt Image" />');
+              html.push('      <img src="' + escapeHtml(it.imagePath) + '" class="pic-prompt-img' + imgSizeCls + '" alt="' + promptImgAlt + '" />');
               if (it.imageCaption) {
                 html.push('      <div class="pic-caption">' + figLabel + TestCreatorService.formatRichText(it.imageCaption) + '</div>');
               }
@@ -5057,7 +5296,7 @@
             }
             html.push('    <div class="pic-prompt-row"><strong>' + figLabel + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + ptsLabel + '</div>');
             if (isTeacherKey && it.modelAnswer) {
-              html.push('    <div class="pic-sample-answer">Sample Answer: ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
+              html.push('    <div class="pic-sample-answer">' + _t('tcSampleAnswerLabel', 'Sample Answer:', lang) + ' ' + TestCreatorService.formatRichText(it.modelAnswer) + '</div>');
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
@@ -5080,7 +5319,7 @@
             });
           });
           if (blankCells.length) {
-            html.push('  <div class="word-bank-pool"><strong>Word Bank:</strong> ' + shuffleArray(blankCells).map(function (w) { return '<span class="word-chip">' + TestCreatorService.formatRichText(w) + '</span>'; }).join(' ') + '</div>');
+            html.push('  <div class="word-bank-pool"><strong>' + _t('tcWordBankLabel', 'Word Bank:', lang) + '</strong> ' + shuffleArray(blankCells).map(function (w) { return '<span class="word-chip">' + TestCreatorService.formatRichText(w) + '</span>'; }).join(' ') + '</div>');
           }
         }
         var tblClass = 'table-exercise';
@@ -5133,16 +5372,16 @@
           var sep = isPill ? ' ' : ' &nbsp;|&nbsp; ';
           html.push('    <div><strong>' + (idx + 1) + '.</strong> ' + renderedWords.join(sep) + '</div>');
           if (isTeacherKey && item.justificationKey && !isCircleOnly) {
-            html.push('    <div class="odd-justification-key">&rarr; <strong>Justification:</strong> ' + TestCreatorService.formatRichText(item.justificationKey) + '</div>');
+            html.push('    <div class="odd-justification-key">&rarr; <strong>' + _t('tcJustificationLabel', 'Justification:', lang) + '</strong> ' + TestCreatorService.formatRichText(item.justificationKey) + '</div>');
           }
           if (isCrossOut) {
-            html.push('    <div class="odd-task-mode-hint">(Cross out the intruder with an X)</div>');
+            html.push('    <div class="odd-task-mode-hint">' + _t('tcCrossOutIntruderHint', '(Cross out the intruder with an X)', lang) + '</div>');
           } else if (isCircleOnly) {
-            html.push('    <div class="odd-task-mode-hint">(Circle the word that does not belong)</div>');
+            html.push('    <div class="odd-task-mode-hint">' + _t('tcCircleIntruderHint', '(Circle the word that does not belong)', lang) + '</div>');
           } else {
             html.push('    <div class="odd-intruder-response-row">');
-            html.push('      <span class="odd-intruder-label">Intruder:</span> <span class="odd-intruder-line"></span>');
-            html.push('      <span class="odd-why-label">Why?</span> <span class="odd-why-line"></span>');
+            html.push('      <span class="odd-intruder-label">' + _t('tcIntruderLabel', 'Intruder:', lang) + '</span> <span class="odd-intruder-line"></span>');
+            html.push('      <span class="odd-why-label">' + _t('tcWhyLabel', 'Why?', lang) + '</span> <span class="odd-why-line"></span>');
             html.push('    </div>');
           }
           html.push('  </div>');
@@ -5184,27 +5423,30 @@
           html.push('    <div>' + TestCreatorService.formatRichText(rcPassage).replace(/\n/g, '<br>') + '</div>');
         }
         if (exOpts.vocabularyFootnotes) {
-          html.push('    <div class="passage-footnotes"><strong>Glossary:</strong> ' + TestCreatorService.formatRichText(exOpts.vocabularyFootnotes).replace(/\n/g, '<br>') + '</div>');
+          html.push('    <div class="passage-footnotes"><strong>' + _t('tcGlossaryLabel', 'Glossary:', lang) + '</strong> ' + TestCreatorService.formatRichText(exOpts.vocabularyFootnotes).replace(/\n/g, '<br>') + '</div>');
         }
         html.push('  </div>');
 
         subQuestions.forEach(function (sq, sIdx) {
           var sqPts = (sq.points || 1);
+          var sqPtUnit = (sqPts === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
           var sqLines = Number(sq.lineCount) || Number(exOpts.defaultLineCount) || 1;
           var sqGuidance = sq.lengthGuidance ? ' <span class="open-length-hint">(' + TestCreatorService.formatRichText(sq.lengthGuidance) + ')</span>' : '';
           html.push('  <div class="rc-subquestion-block">');
-          html.push('    <div><strong>' + (sIdx + 1) + '.</strong> ' + TestCreatorService.formatRichText(sq.prompt) + sqGuidance + ' (' + sqPts + ' pt' + (sqPts === 1 ? '' : 's') + ')</div>');
+          html.push('    <div><strong>' + (sIdx + 1) + '.</strong> ' + TestCreatorService.formatRichText(sq.prompt) + sqGuidance + ' (' + sqPts + ' ' + sqPtUnit + ')</div>');
           if (sq.answerPrefix) {
-            html.push('    <div class="open-starter-prefix"><em>Starter: ' + TestCreatorService.formatRichText(sq.answerPrefix) + '</em></div>');
+            html.push('    <div class="open-starter-prefix"><em>' + _t('tcStarterLabel', 'Starter:', lang) + ' ' + TestCreatorService.formatRichText(sq.answerPrefix) + '</em></div>');
           }
           if (sq.answerType === 'true_false_justify') {
-            var tfKey = (isTeacherKey && sq.solution) ? (' &nbsp; (Key: ' + TestCreatorService.formatRichText(sq.solution) + ')') : '';
-            html.push('    <div class="rc-tf-choice-row">[ &nbsp; ] True &nbsp;&nbsp;&nbsp; [ &nbsp; ] False' + tfKey + '</div>');
-            html.push('    <div class="rc-quote-prompt">Quote line from text to justify:</div>');
+            var tfKey = (isTeacherKey && sq.solution) ? (' &nbsp; (' + _t('tcMatchingKey', 'Key', lang) + ': ' + TestCreatorService.formatRichText(sq.solution) + ')') : '';
+            var trueLabel = _t('tcTrueLabel', 'True', lang);
+            var falseLabel = _t('tcFalseLabel', 'False', lang);
+            html.push('    <div class="rc-tf-choice-row">[ &nbsp; ] ' + trueLabel + ' &nbsp;&nbsp;&nbsp; [ &nbsp; ] ' + falseLabel + tfKey + '</div>');
+            html.push('    <div class="rc-quote-prompt">' + _t('tcQuoteLinePrompt', 'Quote line from text to justify:', lang) + '</div>');
             html.push(buildWritingLinesHtml(sqLines, 'lines'));
           } else {
             if (isTeacherKey && sq.solution) {
-              html.push('    <div class="rc-answer-solution">&rarr; Answer: ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
+              html.push('    <div class="rc-answer-solution">&rarr; ' + _t('tcAnswerLabel', 'Answer:', lang) + ' ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
             }
             html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines', {
               numberedLines: sq.numberedLines !== undefined ? sq.numberedLines : exOpts.numberedLines,
@@ -5224,8 +5466,10 @@
       if (genCrits.length > 0 && exOpts.showRubric !== false) {
         var gSep = !!(exOpts.rubricSeparatePage || exOpts.separatePage);
         var gOrient = exOpts.rubricPageOrientation || exOpts.pageOrientation || 'portrait';
+        var defaultRubricTitle = _t('tcRubricDefault', 'Evaluation Rubric', lang);
+        var rubricTitle = exOpts.rubricTitle || (ex.title ? (ex.title + ' — ' + defaultRubricTitle) : defaultRubricTitle);
         var genRubricHtml = TestCreatorService.renderCriteriaHtml({ criteria: genCrits, exercises: [] }, {
-          title: exOpts.rubricTitle || (ex.title ? (ex.title + ' — Rubric') : 'Assessment Rubric'),
+          title: rubricTitle,
           displayMode: exOpts.rubricDisplayMode || 'matrix',
           showCriterionCol: exOpts.showCriterionCol !== false,
           showLevelsCol: exOpts.showLevelsCol !== false,
@@ -5240,7 +5484,8 @@
           separatePage: gSep,
           pageOrientation: gOrient,
           pageBreakAfter: !!opts.hasNextExercise && (gSep || gOrient === 'landscape'),
-          includeExerciseCriteria: false
+          includeExerciseCriteria: false,
+          lang: lang
         });
         if (genRubricHtml) {
           html.push(genRubricHtml);
@@ -5254,6 +5499,7 @@
 
   TestCreatorService.exportToHtml = function (test, options) {
     var opts = options || {};
+    var lang = _currentLang(opts);
     var isTeacherKey = !!opts.isTeacherKey;
     var variant = opts.variant || test.variant || 'A';
     var themeName = opts.stylesheetTheme || (test && test.exportStyle && (test.exportStyle.theme || test.exportStyle.stylesheetTheme)) || (test && test.stylesheetTheme) || 'academic';
@@ -5277,11 +5523,13 @@
     var mBottom = ((margins.bottom !== undefined && margins.bottom !== null) ? margins.bottom : 15) + mUnit;
     var mLeft = ((margins.left !== undefined && margins.left !== null) ? margins.left : 15) + mUnit;
 
+    var pageBreakLabel = _t('tcPageBreakLabel', 'Page Break', lang);
+
     customCssRules.push('@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@page portrait-page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@page landscape-page { size: A4 landscape; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@media print { body { margin: 0 !important; padding: 0 !important; background: transparent !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; box-shadow: none !important; border-radius: 0 !important; } }');
-    customCssRules.push('@media screen { body { background: #e2e8f0; padding: 24px 0; margin: 0; } .exam-sheet { width: 210mm; min-height: 297mm; margin: 0 auto 30px auto; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.18), 3px 3px 0 #555555; border-radius: 4px; box-sizing: border-box; } .page-break-before, .class-page-break { display: block; height: 24px; border-top: 2px dashed #94a3b8; margin: 32px 0 20px 0; position: relative; } .page-break-before::after, .class-page-break::after { content: "— Page Break —"; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: #e2e8f0; padding: 0 10px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; } }');
+    customCssRules.push('@media screen { body { background: #e2e8f0; padding: 24px 0; margin: 0; } .exam-sheet { width: 210mm; min-height: 297mm; margin: 0 auto 30px auto; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.18), 3px 3px 0 #555555; border-radius: 4px; box-sizing: border-box; } .page-break-before, .class-page-break { display: block; height: 24px; border-top: 2px dashed #94a3b8; margin: 32px 0 20px 0; position: relative; } .page-break-before::after, .class-page-break::after { content: "— ' + pageBreakLabel + ' —"; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: #e2e8f0; padding: 0 10px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; } }');
     customCssRules.push('.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }');
     customCssRules.push('.exam-header { break-after: avoid !important; page-break-after: avoid !important; }');
     customCssRules.push('.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }');
@@ -5349,10 +5597,11 @@
 
     var html = [];
     html.push('<!DOCTYPE html>');
-    html.push('<html lang="en">');
+    html.push('<html lang="' + lang + '">');
     html.push('<head>');
     html.push('  <meta charset="UTF-8">');
-    html.push('  <title>' + escapeHtml(test.title || 'Test') + (isTeacherKey ? ' (Teacher Solution Key)' : '') + '</title>');
+    var docTitle = (test.title || _t('tcDefaultExamTitleShort', 'Examination', lang)) + (isTeacherKey ? ' ' + _t('tcTeacherSolutionKeyShort', '(Teacher Solution Key)', lang) : '');
+    html.push('  <title>' + escapeHtml(docTitle) + '</title>');
     html.push('  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap">');
     html.push('  <style id="cmt-test-base-styles">');
     html.push(TestCreatorService.getThemeCss(themeName));
@@ -5369,7 +5618,7 @@
     html.push('  <div class="exam-sheet">');
 
     // Header section
-    html.push(TestCreatorService.renderHeaderHtml(test, isTeacherKey, variant, studentName, className, totalPts));
+    html.push(TestCreatorService.renderHeaderHtml(test, isTeacherKey, variant, studentName, className, totalPts, { lang: lang }));
 
     // Exercises
     var exNum = 1;
@@ -5384,7 +5633,8 @@
         test: test,
         totalPoints: totalPts,
         exerciseNumber: currentExNum,
-        hasNextExercise: hasNext
+        hasNextExercise: hasNext,
+        lang: lang
       });
       html.push(exHtml);
       if (!hasNext) {
@@ -5402,8 +5652,10 @@
 
     var footerOrientCls = lastIsLandscape ? ' page-orientation-landscape' : '';
     var teacherName = (test && test.teacher) || ((typeof window !== 'undefined' && typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '');
+    var examTitle = test.title || _t('tcDefaultExamTitleShort', 'Examination', lang);
+    var footerGroup = variant ? ' (' + _t('tcGroupBadge', 'GROUP {variant}', lang).replace('{variant}', variant) + ')' : '';
     html.push('    <footer class="exp-footer exam-footer' + footerOrientCls + '">');
-    html.push('      <span class="exp-footer-left">' + escapeHtml(test.title || 'Exam') + (variant ? ' (' + variant + ')' : '') + '</span>');
+    html.push('      <span class="exp-footer-left">' + escapeHtml(examTitle) + footerGroup + '</span>');
     if (teacherName) {
       html.push('      <span class="exp-footer-center">' + escapeHtml(teacherName) + '</span>');
     }
@@ -5418,6 +5670,7 @@
 
   TestCreatorService.exportToMarkdown = function (test, options) {
     var opts = options || {};
+    var lang = _currentLang(opts);
     var isTeacherKey = !!opts.isTeacherKey;
     var variant = opts.variant || test.variant || 'A';
     var totalPts = TestCreatorService.calculateTotalTestPoints(test);
@@ -5427,15 +5680,18 @@
 
     // Helper builders for header sections in Markdown
     function buildTitleMd() {
+      var defaultTitle = _t('tcDefaultExamTitle', 'Classroom Examination', lang);
+      var keyBadge = _t('tcTeacherSolutionKeyBadge', '[TEACHER SOLUTION KEY]', lang);
+      var groupBadge = _t('tcGroupBadge', 'GROUP {variant}', lang).replace('{variant}', variant);
       if (!hc.showTitle) {
         if (hc.showVariantBadge) {
-          return '### Group ' + variant + (isTeacherKey ? ' — [TEACHER SOLUTION KEY]' : '');
+          return '### ' + groupBadge + (isTeacherKey ? ' — ' + keyBadge : '');
         }
         return '';
       }
-      var tLine = '# ' + (test.title || 'Class Examination') + (isTeacherKey ? ' — [TEACHER SOLUTION KEY]' : '');
+      var tLine = '# ' + (test.title || defaultTitle) + (isTeacherKey ? ' — ' + keyBadge : '');
       if (hc.showVariantBadge) {
-        tLine += ' (Group ' + variant + ')';
+        tLine += ' (' + groupBadge + ')';
       }
       return tLine;
     }
@@ -5449,40 +5705,43 @@
       var metaItemsMap = {};
       if (hc.showStudentName) {
         var sVal = opts.studentName || '___________________________';
-        metaItemsMap['studentName'] = '**' + (hc.studentNameLabel || 'Student Name:') + '** ' + sVal;
+        metaItemsMap['studentName'] = '**' + resolveHeaderLabel(test, 'studentName', { lang: lang }) + '** ' + sVal;
       }
       if (hc.showClass) {
-        metaItemsMap['class'] = '**' + (hc.classLabel || 'Class / Group:') + '** ' + (opts.className || test.className || '__________');
+        metaItemsMap['class'] = '**' + resolveHeaderLabel(test, 'class', { lang: lang }) + '** ' + (opts.className || test.className || '__________');
       }
       if (hc.showDate) {
-        metaItemsMap['date'] = '**' + (hc.dateLabel || 'Date:') + '** ' + (test.date || '__________');
+        metaItemsMap['date'] = '**' + resolveHeaderLabel(test, 'date', { lang: lang }) + '** ' + (test.date || '__________');
       }
       if (hc.showTeacher) {
-        metaItemsMap['teacher'] = '**' + (hc.teacherLabel || 'Teacher:') + '** ' + (test.teacher || '__________');
+        metaItemsMap['teacher'] = '**' + resolveHeaderLabel(test, 'teacher', { lang: lang }) + '** ' + (test.teacher || '__________');
       }
       if (hc.showDuration) {
-        metaItemsMap['duration'] = '**' + (hc.durationLabel || 'Duration:') + '** ' + (test.durationMinutes || 45) + ' min';
+        var durStr = _tFmt('tcDurationMinutes', { min: (test.durationMinutes || 45) }, lang);
+        metaItemsMap['duration'] = '**' + resolveHeaderLabel(test, 'duration', { lang: lang }) + '** ' + durStr;
       }
       if (hc.showTotalPoints) {
-        metaItemsMap['points'] = '**' + (hc.pointsLabel || 'Total Points:') + '** ____ / ' + totalPts + ' pts';
+        var ptsStr = _tFmt('tcPointsOutOf', { total: totalPts }, lang);
+        metaItemsMap['points'] = '**' + resolveHeaderLabel(test, 'points', { lang: lang }) + '** ' + ptsStr;
       }
       if (hc.showMaterials && test.materialsAllowed && test.materialsAllowed.length) {
-        metaItemsMap['materials'] = '**' + (hc.materialsLabel || 'Materials Allowed:') + '** ' + test.materialsAllowed.join(', ');
+        var matList = test.materialsAllowed.map(function (m) { return resolveMaterialText(m, lang); }).join(', ');
+        metaItemsMap['materials'] = '**' + resolveHeaderLabel(test, 'materials', { lang: lang }) + '** ' + matList;
       }
       if (hc.showScope && test.scope) {
-        metaItemsMap['scope'] = '**' + (hc.scopeLabel || 'Scope / Topic:') + '** ' + test.scope;
+        metaItemsMap['scope'] = '**' + resolveHeaderLabel(test, 'scope', { lang: lang }) + '** ' + test.scope;
       }
       if (hc.showGradingScale && hc.gradingScaleStyle && (hc.gradingScaleStyle.displayMode === 'inline' || hc.gradingScaleStyle.displayMode === 'inline_meta')) {
-        var scaleName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
-        metaItemsMap['gradingScale'] = '**' + (hc.gradingScaleLabel || 'Grading Scale:') + '** ' + scaleName;
+        var scaleName = resolveScaleName(test, lang);
+        metaItemsMap['gradingScale'] = '**' + resolveHeaderLabel(test, 'gradingScale', { lang: lang }) + '** ' + scaleName;
       }
       if (hc.showCompetences && hc.competencesStyle && hc.competencesStyle.displayMode === 'inline') {
         var cCount = (test.linkedCompetences && test.linkedCompetences.length) || (test.linkedCompetenceIds && test.linkedCompetenceIds.length) || 0;
-        metaItemsMap['competences'] = '**' + (hc.competencesLabel || 'Competences:') + '** ' + cCount + ' assessed';
+        metaItemsMap['competences'] = '**' + resolveHeaderLabel(test, 'competences', { lang: lang }) + '** ' + _tFmt('tcAssessedCount', { count: cCount }, lang);
       }
       if (hc.showCriteria && hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline') {
         var crCount = (test.criteria && test.criteria.length) || (test.linkedCriteria && test.linkedCriteria.length) || 0;
-        metaItemsMap['criteria'] = '**' + (hc.criteriaLabel || 'Criteria:') + '** ' + crCount + ' rubrics';
+        metaItemsMap['criteria'] = '**' + resolveHeaderLabel(test, 'criteria', { lang: lang }) + '** ' + _tFmt('tcRubricsCount', { count: crCount }, lang);
       }
 
       var metaOrder = (Array.isArray(hc.metaOrder) && hc.metaOrder.length)
@@ -5518,8 +5777,11 @@
     }
 
     function buildInstructionsMd() {
-      if (!hc.showInstructions || !hc.instructionsText) return '';
-      return '> **Instructions & Guidelines:**  \n> ' + hc.instructionsText.replace(/\n/g, '\n> ');
+      if (!hc.showInstructions) return '';
+      var instrText = resolveInstructionsText(test, { lang: lang });
+      if (!instrText) return '';
+      var instrTitle = resolveHeaderLabel(test, 'instructions', { lang: lang }) || _t('tcInstructionsGuidelinesTitle', 'Instructions & Guidelines:', lang);
+      return '> **' + instrTitle + '**  \n> ' + instrText.replace(/\n/g, '\n> ');
     }
 
     var hasScaleSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
@@ -5539,6 +5801,7 @@
       if (!showG && !showT && !showP && !showN) { showG = true; showP = true; }
 
       var gLines = [];
+      var scaleHeaderLabel = resolveHeaderLabel(test, 'gradingScale', { lang: lang });
       if (scMode === 'inline_grades') {
         var inlineStr = TestCreatorService.formatInlineGradesString(test, {
           totalPoints: totalPts,
@@ -5546,12 +5809,13 @@
           showGradeCol: showG,
           showThresholdCol: showT,
           showPointsCol: showP,
-          showNotesCol: showN
+          showNotesCol: showN,
+          lang: lang
         });
-        gLines.push('**' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion:') + '** ' + inlineStr);
+        gLines.push('**' + scaleHeaderLabel + '** ' + inlineStr);
       } else if (scMode === 'compact') {
         var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
-        gLines.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
+        gLines.push('### ' + scaleHeaderLabel.replace(/:$/, ''));
         var compItems = tableData.rows.map(function (r) {
           var p = [];
           if (showG) p.push('**' + r.grade + '**');
@@ -5563,12 +5827,12 @@
         gLines.push(compItems.join('  \n'));
       } else {
         var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
-        gLines.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
+        gLines.push('### ' + scaleHeaderLabel.replace(/:$/, ''));
         var ths = [];
-        if (showG) ths.push('Grade / Mark');
-        if (showT) ths.push('Threshold');
-        if (showP) ths.push('Required Points');
-        if (showN) ths.push('Assessment');
+        if (showG) ths.push(_t('tcColGradeMark', 'Grade / Mark', lang));
+        if (showT) ths.push(_t('tcColThreshold', 'Threshold', lang));
+        if (showP) ths.push(_t('tcColRequiredPoints', 'Required Points', lang));
+        if (showN) ths.push(_t('tcColAssessmentNotes', 'Assessment', lang));
         gLines.push('| ' + ths.join(' | ') + ' |');
         gLines.push('|' + ths.map(function () { return '---'; }).join('|') + '|');
         tableData.rows.forEach(function (r) {
@@ -5591,9 +5855,10 @@
         : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
       if (!rawComps.length) return '';
 
+      var compHeaderLabel = resolveHeaderLabel(test, 'competences', { lang: lang }).replace(/:$/, '');
       var cLines = [];
-      cLines.push('### ' + (hc.competencesLabel || 'Competences & Curriculum Objectives'));
-      cLines.push('| Code / Ref | Competence & Objective | Description |');
+      cLines.push('### ' + compHeaderLabel);
+      cLines.push('| ' + _t('tcColCompRef', 'Code / Ref', lang) + ' | ' + _t('tcColCompObjectiveFull', 'Competence & Curriculum Objective', lang) + ' | ' + _t('tcColCompDescCriteria', 'Descriptors & Performance Criteria', lang) + ' |');
       cLines.push('|---|---|---|');
       var sortedComps = rawComps.map(function (c) {
         var cCode = (c && (c.code || c.id)) || String(c || '');
@@ -5635,12 +5900,13 @@
         : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
       if (!rawCrits.length) return '';
 
+      var critHeaderLabel = resolveHeaderLabel(test, 'criteria', { lang: lang }).replace(/:$/, '');
       var crLines = [];
-      crLines.push('### ' + (hc.criteriaLabel || 'Assessment Criteria & Rubric'));
-      crLines.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
+      crLines.push('### ' + critHeaderLabel);
+      crLines.push('| ' + _t('tcColCritNameFull', 'Evaluation Criterion', lang) + ' | ' + _t('tcColCritDescFull', 'Performance Descriptors & Marking Notes', lang) + ' | ' + _t('tcColMax', 'Max Points', lang) + ' | ' + _t('tcColScore', 'Score', lang) + ' | ' + _t('tcColComments', 'Comments', lang) + ' |');
       crLines.push('|---|---|---|---|---|');
       rawCrits.forEach(function (crit) {
-        var crTitle = crit.title || crit.name || 'Criterion';
+        var crTitle = crit.title || crit.name || _t('tcCriterionFallback', 'Criterion', lang);
         var crDesc = formatCritMarkdownDesc(crit);
         var crMax = crit.maxPoints || 6;
         crLines.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
@@ -5685,7 +5951,8 @@
 
       if (!isSection) {
         var num = exCounter++;
-        md.push('## Exercise ' + num + ': ' + (ex.title || 'Question') + ' (' + (ex.points || 0) + ' pts)');
+        var exTitle = ex.title || _t('tcExerciseFallbackTitle', 'Question', lang);
+        md.push('## ' + _t('tcExercisePrefix', 'Exercise', lang) + ' ' + num + ': ' + exTitle + ' (' + (ex.points || 0) + ' ' + _t('tcPtsUnit', 'pts', lang) + ')');
         if (ex.instructions) md.push('*' + ex.instructions + '*\n');
       }
 
@@ -5694,9 +5961,10 @@
           var secComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
             ? test.linkedCompetences
             : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
-          md.push('### ' + (ex.title || 'Competences & Curriculum Objectives'));
+          var compSectionTitle = ex.title || resolveHeaderLabel(test, 'competences', { lang: lang }).replace(/:$/, '');
+          md.push('### ' + compSectionTitle);
           if (secComps.length) {
-            md.push('| Code / Ref | Competence & Objective | Description |');
+            md.push('| ' + _t('tcColCompRef', 'Code / Ref', lang) + ' | ' + _t('tcColCompObjectiveFull', 'Competence & Curriculum Objective', lang) + ' | ' + _t('tcColCompDescCriteria', 'Descriptors & Performance Criteria', lang) + ' |');
             md.push('|---|---|---|');
             var sortedSecComps = secComps.map(function (c) {
               var cCode = (c && (c.code || c.id)) || String(c || '');
@@ -5710,7 +5978,7 @@
               md.push('| **' + c.code + '** | ' + c.title + ' | ' + c.description + ' |');
             });
           } else {
-            md.push('*No competences linked to exam.*');
+            md.push(_t('tcNoCompetencesLinked', '*No competences linked to test.*', lang));
           }
           md.push('');
           break;
@@ -5722,19 +5990,20 @@
           var secCrits = blockSecCrits.length
             ? blockSecCrits
             : ((Array.isArray(test.criteria) && test.criteria.length) ? test.criteria : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []));
-          md.push('### ' + ((ex.options && ex.options.rubricTitle) || ex.title || 'Assessment Criteria & Evaluation Rubric'));
+          var critSectionTitle = (ex.options && ex.options.rubricTitle) || ex.title || resolveHeaderLabel(test, 'criteria', { lang: lang }).replace(/:$/, '');
+          md.push('### ' + critSectionTitle);
           if (ex.instructions) md.push('*' + ex.instructions + '*\n');
           if (secCrits.length) {
-            md.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
+            md.push('| ' + _t('tcColCritNameFull', 'Evaluation Criterion', lang) + ' | ' + _t('tcColCritDescFull', 'Performance Descriptors & Marking Notes', lang) + ' | ' + _t('tcColMax', 'Max Points', lang) + ' | ' + _t('tcColScore', 'Score', lang) + ' | ' + _t('tcColComments', 'Comments', lang) + ' |');
             md.push('|---|---|---|---|---|');
             secCrits.forEach(function (crit) {
-              var crTitle = crit.title || crit.name || 'Criterion';
+              var crTitle = crit.title || crit.name || _t('tcCriterionFallback', 'Criterion', lang);
               var crDesc = formatCritMarkdownDesc(crit);
               var crMax = crit.maxPoints || 6;
               md.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
             });
           } else {
-            md.push('*No criteria linked to exam.*');
+            md.push(_t('tcNoCriteriaLinked', '*No criteria linked to test.*', lang));
           }
           md.push('');
           break;
@@ -5749,13 +6018,15 @@
           var showN = sOpts.showNotesCol !== false;
           if (!showG && !showT && !showP && !showN) { showG = true; showP = true; }
 
-          md.push('### ' + (sOpts.scaleTitle || ex.title || 'Grading Scale & Score Conversion'));
+          var scaleSectionTitle = sOpts.scaleTitle || ex.title || resolveHeaderLabel(test, 'gradingScale', { lang: lang }).replace(/:$/, '');
+          md.push('### ' + scaleSectionTitle);
           if (sMode === 'inline' || sMode === 'inline_grades') {
             var items = TestCreatorService.buildInlineGradeItems(tableData, totalPts, false, {
               showGradeCol: showG,
               showThresholdCol: showT,
               showPointsCol: showP,
-              showNotesCol: showN
+              showNotesCol: showN,
+              lang: lang
             });
             md.push(items.join(' · '));
           } else if (sMode === 'compact') {
@@ -5770,10 +6041,10 @@
             md.push(compItems.join('  \n'));
           } else {
             var ths = [];
-            if (showG) ths.push('Grade / Mark');
-            if (showT) ths.push('Threshold');
-            if (showP) ths.push('Required Points');
-            if (showN) ths.push('Assessment');
+            if (showG) ths.push(_t('tcColGradeMark', 'Grade / Mark', lang));
+            if (showT) ths.push(_t('tcColThreshold', 'Threshold', lang));
+            if (showP) ths.push(_t('tcColRequiredPoints', 'Required Points', lang));
+            if (showN) ths.push(_t('tcColAssessmentNotes', 'Assessment', lang));
             md.push('| ' + ths.join(' | ') + ' |');
             md.push('|' + ths.map(function () { return '---'; }).join('|') + '|');
             tableData.rows.forEach(function (r) {
@@ -5791,7 +6062,7 @@
         case 'section_custom':
         case 'custom_block':
           if (ex.options && ex.options.showTitle !== false && ex.title) {
-            var ptsStr = (ex.points && Number(ex.points) > 0) ? ' (' + ex.points + ' pts)' : '';
+            var ptsStr = (ex.points && Number(ex.points) > 0) ? ' (' + ex.points + ' ' + _t('tcPtsUnit', 'pts', lang) + ')' : '';
             md.push('### ' + ex.title + ptsStr);
           }
           if (ex.instructions) {
@@ -5809,9 +6080,9 @@
           if (ex.instructions) {
             md.push('*' + ex.instructions + '*\n');
           }
-          var pdfDocName = (ex.content && ex.content.pdfName) || 'Document.pdf';
+          var pdfDocName = (ex.content && ex.content.pdfName) || (_t('tcPdfDocumentLabel', 'PDF Document', lang) + '.pdf');
           var docPages = (ex.content && ex.content.selectedPageNumbers) || [];
-          md.push('> **[PDF Document: ' + pdfDocName + ' (Pages: ' + (docPages.join(', ') || 'All') + ')]**\n');
+          md.push('> **[' + _t('tcPdfDocumentLabel', 'PDF Document', lang) + ': ' + pdfDocName + ' (' + _t('tcPagesLabel', 'Pages', lang) + ': ' + (docPages.join(', ') || _t('tcAllLabel', 'All', lang)) + ')]**\n');
           md.push('');
           break;
 
@@ -5831,7 +6102,7 @@
               ? allBlanks.slice().sort(function (a, b) { return a.localeCompare(b); })
               : shuffleArray(allBlanks);
             if (chips.length) {
-              md.push('> **Word Bank:** ' + chips.join(' | '));
+              md.push('> **' + _t('tcWordBankLabel', 'Word Bank:', lang) + '** ' + chips.join(' | '));
               md.push('');
             }
           }
@@ -5850,11 +6121,13 @@
         case 'mcq':
           var qs = (ex.content && ex.content.questions) || [];
           qs.forEach(function (q, qIdx) {
-            md.push('**' + (qIdx + 1) + '. ' + q.prompt + '** (' + (q.points || 1) + ' pt)');
+            var promptText = q.prompt || _t('tcMcqChoosePrompt', 'Choose the correct answer:', lang);
+            var qPtUnit = ((q.points || 1) === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
+            md.push('**' + (qIdx + 1) + '. ' + promptText + '** (' + (q.points || 1) + ' ' + qPtUnit + ')');
             (q.options || []).forEach(function (opt, oIdx) {
               var isCorrect = (q.correctIndices || []).indexOf(oIdx) !== -1;
               if (isTeacherKey && isCorrect) {
-                md.push('- [x] **' + opt + '** *(Correct)*');
+                md.push('- [x] **' + opt + '** *' + _t('tcMcqCorrectLabel', '(Correct)', lang) + '*');
               } else {
                 md.push('- [ ] ' + opt);
               }
@@ -5869,13 +6142,14 @@
           oItems.forEach(function (it, itIdx) {
             var guidance = it.lengthGuidance || exOpts.lengthGuidance;
             var gStr = guidance ? ' *(' + guidance + ')*' : '';
-            md.push('**' + (itIdx + 1) + '. ' + (it.prompt || 'Question') + '**' + gStr + ' (' + (it.points || 1) + ' pts)');
+            var ptUnit = ((it.points || 1) === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
+            md.push('**' + (itIdx + 1) + '. ' + (it.prompt || _t('tcExerciseFallbackTitle', 'Question', lang)) + '**' + gStr + ' (' + (it.points || 1) + ' ' + ptUnit + ')');
             var starter = it.answerPrefix || exOpts.answerPrefix;
             if (starter) {
-              md.push('> *Starter: ' + starter + '*');
+              md.push('> *' + _t('tcStarterLabel', 'Starter:', lang) + ' ' + starter + '*');
             }
             if (isTeacherKey && it.sampleAnswer) {
-              md.push('> *Sample Answer:* ' + it.sampleAnswer);
+              md.push('> *' + _t('tcSampleAnswerLabel', 'Sample Answer:', lang) + '* ' + it.sampleAnswer);
             } else if (!isTeacherKey) {
               var qLines = it.lines || exOpts.lines || 3;
               for (var ql = 0; ql < qLines; ql++) {
@@ -5890,13 +6164,14 @@
           TestCreatorService.normalizeExerciseItems(ex);
           var compItems = (ex.content && ex.content.items) || [];
           if (exOpts.showGenreBadge !== false && exOpts.textGenre) {
-            md.push('*Format / Genre: ' + exOpts.textGenre + '*\n');
+            md.push('*' + _t('tcFormatGenreLabel', 'Format / Genre:', lang) + ' ' + exOpts.textGenre + '*\n');
           }
           if (exOpts.showPrompts !== false) {
+            var taskPrefix = _t('tcTaskPrefix', 'Task', lang);
             compItems.forEach(function (it, itIdx) {
-              var label = compItems.length > 1 ? (it.label || ('Task ' + (itIdx + 1))) + ': ' : '';
+              var label = compItems.length > 1 ? (it.label || (taskPrefix + ' ' + (itIdx + 1))) + ': ' : '';
               md.push('**' + label + '** ' + (it.prompt || ''));
-              md.push('*Target word count: ~' + (it.targetWordCount || 150) + ' words*');
+              md.push('*' + _t('tcTargetWordCountLabel', 'Target word count:', lang) + ' ~' + (it.targetWordCount || 150) + ' ' + _t('tcWordsUnit', 'words', lang) + '*');
               md.push('');
             });
           }
@@ -5908,15 +6183,22 @@
             md.push('');
           }
           if (exOpts.showDraftBox) {
-            md.push('> **' + (exOpts.draftTitle || 'Draft & Rough Work (Not graded)') + '**');
+            var draftWorkTitle = exOpts.draftTitle || _t('tcDraftWorkTitle', 'Draft & Rough Work (Not graded)', lang);
+            md.push('> **' + draftWorkTitle + '**');
             if (exOpts.draftNote) md.push('> *' + exOpts.draftNote + '*');
             md.push('');
           }
           if (exOpts.showChecklist) {
-            md.push('**' + (exOpts.checklistTitle || 'Student Proofreading Checklist:') + '**');
+            var checklistTitle = exOpts.checklistTitle || _t('tcProofreadingChecklistTitle', 'Student Proofreading Checklist:', lang);
+            md.push('**' + checklistTitle + '**');
             var cItems = (Array.isArray(exOpts.checklistItems) && exOpts.checklistItems.length)
               ? exOpts.checklistItems
-              : ['Structure & Paragraphs', 'Spelling & Verb Tenses', 'Punctuation & Capitalization', 'Word Count Verified'];
+              : [
+                  _t('tcChecklistStructure', 'Structure & Paragraphs', lang),
+                  _t('tcChecklistSpelling', 'Spelling & Verb Tenses', lang),
+                  _t('tcChecklistPunctuation', 'Punctuation & Capitalization', lang),
+                  _t('tcChecklistWordCount', 'Word Count Verified', lang)
+                ];
             cItems.forEach(function (ci) {
               md.push('- [ ] ' + ci);
             });
@@ -5926,10 +6208,11 @@
             ? ex.criteria
             : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
           if (exOpts.showRubric !== false && compCrits.length) {
-            md.push('| ' + (exOpts.rubricTitle || 'Criteria') + ' | Max Points | Score |');
+            var rubricTitle = exOpts.rubricTitle || _t('tcCriterionFallback', 'Criteria', lang);
+            md.push('| ' + rubricTitle + ' | ' + _t('tcColMax', 'Max Points', lang) + ' | ' + _t('tcColScore', 'Score', lang) + ' |');
             md.push('|---|---|---|');
             compCrits.forEach(function (r) {
-              md.push('| ' + (r.title || r.name || 'Criterion') + ' | /' + (r.maxPoints || 0) + ' | |');
+              md.push('| ' + (r.title || r.name || _t('tcCriterionFallback', 'Criterion', lang)) + ' | /' + (r.maxPoints || 0) + ' | |');
             });
             md.push('');
           }
@@ -5941,18 +6224,19 @@
           if (exOpts.targetVocab) {
             var vChips = String(exOpts.targetVocab).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
             if (vChips.length) {
-              md.push('> **Target Vocabulary:** ' + vChips.join(', '));
+              md.push('> **' + _t('tcTargetVocabLabel', 'Target Vocabulary:', lang) + '** ' + vChips.join(', '));
               md.push('');
             }
           }
+          var picWord = _t('tcPictureWord', 'Picture', lang);
           pItems.forEach(function (it, itIdx) {
-            md.push('**Picture ' + (itIdx + 1) + ':** ' + (it.prompt || ''));
+            md.push('**' + picWord + ' ' + (itIdx + 1) + ':** ' + (it.prompt || ''));
             if (it.imagePath) {
-              md.push('![' + (it.imageCaption || it.prompt || ('Picture ' + (itIdx + 1))) + '](' + it.imagePath + ')\n');
+              md.push('![' + (it.imageCaption || it.prompt || (picWord + ' ' + (itIdx + 1))) + '](' + it.imagePath + ')\n');
             }
             if (it.imageCaption) md.push('*' + it.imageCaption + '*');
             if (isTeacherKey && it.modelAnswer) {
-              md.push('> *Sample Answer:* ' + it.modelAnswer);
+              md.push('> *' + _t('tcSampleAnswerLabel', 'Sample Answer:', lang) + '* ' + it.modelAnswer);
             } else if (!isTeacherKey) {
               var pLines = it.lines || exOpts.lines || 4;
               for (var pl = 0; pl < pLines; pl++) {
@@ -5972,9 +6256,10 @@
             rights = rights.concat(distArr);
           }
           var shuffledRights = shuffleArray(rights);
-          var colA = exOpts.colALabel || 'Column A';
-          var colB = exOpts.colBLabel || 'Column B';
-          md.push('| ' + colA + ' | ' + colB + (isTeacherKey ? ' | Key' : '') + ' |');
+          var colA = exOpts.colALabel || _t('tcColumnALabel', 'Column A', lang);
+          var colB = exOpts.colBLabel || _t('tcColumnBLabel', 'Column B', lang);
+          var keyCol = isTeacherKey ? (' | ' + _t('tcMatchingKey', 'Key', lang)) : '';
+          md.push('| ' + colA + ' | ' + colB + keyCol + ' |');
           md.push('|---|---|' + (isTeacherKey ? '---|' : ''));
           var maxLen = Math.max(lefts.length, shuffledRights.length);
           for (var mIdx = 0; mIdx < maxLen; mIdx++) {
@@ -6006,6 +6291,9 @@
           if (exOpts.wordConstraint) {
             md.push('*' + exOpts.wordConstraint + '*\n');
           }
+          if (exOpts.allowContractionsNote) {
+            md.push('*' + _t('tcContractionsNote', '*(Contractions count as two words)*', lang) + '*\n');
+          }
           transItems.forEach(function (item, itIdx) {
             md.push('**' + (itIdx + 1) + '. ' + (item.original || '') + '**');
             if (item.keyword) {
@@ -6023,15 +6311,15 @@
         case 'translation':
           var trItems = (ex.content && ex.content.items) || [];
           if (exOpts.direction) {
-            md.push('*Direction: ' + exOpts.direction + '*\n');
+            md.push('*' + _t('tcDirectionLabel', 'Direction:', lang) + ' ' + exOpts.direction + '*\n');
           }
           trItems.forEach(function (item, itIdx) {
             md.push('**' + (itIdx + 1) + '. ' + (item.sourceText || '') + '**');
             if (exOpts.showHints && item.hint) {
-              md.push('> *Hint: ' + item.hint + '*');
+              md.push('> *' + _t('tcHintPrefix', 'Hint:', lang) + ' ' + item.hint + '*');
             }
             if (isTeacherKey && item.modelTranslation) {
-              md.push('> *Translation:* ' + item.modelTranslation);
+              md.push('> *' + _t('tcTranslationLabel', 'Translation:', lang) + '* ' + item.modelTranslation);
             } else if (!isTeacherKey) {
               var trLines = item.lines || exOpts.lines || 2;
               for (var tl = 0; tl < trLines; tl++) {
@@ -6063,17 +6351,18 @@
 
         case 'odd_one_out':
           var oddItems = (ex.content && ex.content.items) || [];
+          var intruderParenthesis = _t('tcIntruderParenthesis', '(Intruder)', lang);
           oddItems.forEach(function (item, itIdx) {
             var renderedWords = (item.words || []).map(function (w) {
               var isIntruder = (item.intruder || '').trim().toLowerCase() === w.trim().toLowerCase();
               if (isTeacherKey && isIntruder) {
-                return '**[' + w + ']** *(Intruder)*';
+                return '**[' + w + ']** *' + intruderParenthesis + '*';
               }
               return w;
             });
             md.push('**' + (itIdx + 1) + '.** ' + renderedWords.join('  |  '));
             if (isTeacherKey && item.justificationKey) {
-              md.push('> *Justification:* ' + item.justificationKey);
+              md.push('> *' + _t('tcJustificationLabel', 'Justification:', lang) + '* ' + item.justificationKey);
             }
             md.push('');
           });
@@ -6095,25 +6384,29 @@
             md.push('');
           }
           if (exOpts.vocabularyFootnotes) {
-            md.push('*Glossary: ' + exOpts.vocabularyFootnotes + '*\n');
+            md.push('*' + _t('tcGlossaryLabel', 'Glossary:', lang) + ' ' + exOpts.vocabularyFootnotes + '*\n');
           }
           subQuestions.forEach(function (sq, sIdx) {
             var sqPts = sq.points || 1;
+            var sqPtUnit = (sqPts === 1 ? _t('tcPtUnit', 'pt', lang) : _t('tcPtsUnit', 'pts', lang));
             var sqGuidance = sq.lengthGuidance ? ' *(' + sq.lengthGuidance + ')*' : '';
-            md.push('**' + (sIdx + 1) + '. ' + (sq.prompt || '') + '**' + sqGuidance + ' (' + sqPts + ' pt' + (sqPts === 1 ? '' : 's') + ')');
+            md.push('**' + (sIdx + 1) + '. ' + (sq.prompt || '') + '**' + sqGuidance + ' (' + sqPts + ' ' + sqPtUnit + ')');
             if (sq.answerPrefix) {
-              md.push('> *Starter: ' + sq.answerPrefix + '*');
+              md.push('> *' + _t('tcStarterLabel', 'Starter:', lang) + ' ' + sq.answerPrefix + '*');
             }
             if (sq.answerType === 'true_false_justify') {
+              var trueLabel = _t('tcTrueLabel', 'True', lang);
+              var falseLabel = _t('tcFalseLabel', 'False', lang);
+              var keyLabel = _t('tcMatchingKey', 'Key', lang);
               if (isTeacherKey && sq.solution) {
-                md.push('- [ ] True / [ ] False — *Key: ' + sq.solution + '*');
+                md.push('- [ ] ' + trueLabel + ' / [ ] ' + falseLabel + ' — *' + keyLabel + ': ' + sq.solution + '*');
               } else {
-                md.push('- [ ] True    - [ ] False');
-                md.push('> *Quote line from text to justify:* ________________________');
+                md.push('- [ ] ' + trueLabel + '    - [ ] ' + falseLabel);
+                md.push('> *' + _t('tcQuoteLinePrompt', 'Quote line from text to justify:', lang) + '* ________________________');
               }
             } else {
               if (isTeacherKey && sq.solution) {
-                md.push('> *Answer:* ' + sq.solution);
+                md.push('> *' + _t('tcAnswerLabel', 'Answer:', lang) + '* ' + sq.solution);
               } else if (!isTeacherKey) {
                 var rcLines = sq.lines || 2;
                 for (var rcl = 0; rcl < rcLines; rcl++) {
@@ -6135,10 +6428,11 @@
           ? ex.criteria
           : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length) ? ex.markingRubric : []);
         if (exOpts.showRubric !== false && exCrits.length) {
-          md.push('| ' + (exOpts.rubricTitle || 'Criteria') + ' | Max Points | Score |');
+          var rubricTitle = exOpts.rubricTitle || _t('tcCriterionFallback', 'Criteria', lang);
+          md.push('| ' + rubricTitle + ' | ' + _t('tcColMax', 'Max Points', lang) + ' | ' + _t('tcColScore', 'Score', lang) + ' |');
           md.push('|---|---|---|');
           exCrits.forEach(function (r) {
-            md.push('| ' + (r.title || r.name || 'Criterion') + ' | /' + (r.maxPoints || 0) + ' | |');
+            md.push('| ' + (r.title || r.name || _t('tcCriterionFallback', 'Criterion', lang)) + ' | /' + (r.maxPoints || 0) + ' | |');
           });
           md.push('');
         }
@@ -6256,11 +6550,12 @@
     // Wrap exam sheet with Section1
     inner = inner.replace('<div class="exam-sheet">', '<div class="Section1 exam-sheet">');
 
-    return inner.replace('<!DOCTYPE html>\n<html lang="en">', wordHeader);
+    return inner.replace(/<!DOCTYPE html>\s*<html[^>]*>/i, wordHeader);
   };
 
   TestCreatorService.exportClassBatch = function (test, students, variantAssignments, options) {
     var opts = options || {};
+    var lang = _currentLang(opts);
     var themeName = opts.stylesheetTheme || (test && test.exportStyle && (test.exportStyle.theme || test.exportStyle.stylesheetTheme)) || (test && test.stylesheetTheme) || 'academic';
     var isTeacherKey = !!opts.isTeacherKey;
     var globalStyle = Object.assign(
@@ -6286,7 +6581,8 @@
         variant: assignedVariant,
         isTeacherKey: isTeacherKey,
         stylesheetTheme: themeName,
-        exportStyle: globalStyle
+        exportStyle: globalStyle,
+        lang: lang
       });
 
       var sheetHtml = TestCreatorService.exportToHtml(variantTest, sheetOpts);
@@ -6298,10 +6594,11 @@
       }
     });
 
+    var batchTitle = test.title || _t('tcDefaultExamTitle', 'Classroom Examination', lang);
     return [
       '<!DOCTYPE html>',
-      '<html lang="en">',
-      '<head><meta charset="UTF-8"><title>' + escapeHtml(test.title || 'Class Exam Set') + '</title>',
+      '<html lang="' + lang + '">',
+      '<head><meta charset="UTF-8"><title>' + escapeHtml(batchTitle) + '</title>',
       '<style>',
       TestCreatorService.getThemeCss(themeName),
       '@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }',
