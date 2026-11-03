@@ -3192,8 +3192,29 @@
         }
 
         function groupDisplayName(groupId) {
-            const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META[groupId] : null;
-            return (meta && meta.name) ? meta.name : groupId;
+            if (!groupId) return '';
+            const cgdMeta = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && CLASS_GROUPS_DATA.classGroupsMeta)
+                ? CLASS_GROUPS_DATA.classGroupsMeta[groupId] : null;
+            if (cgdMeta && cgdMeta.name) return cgdMeta.name;
+
+            const meta = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META)
+                ? CLASS_GROUPS_META[groupId] : null;
+            if (meta && meta.name) return meta.name;
+
+            if (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA && Array.isArray(CLASS_GROUPS_DATA.classes)) {
+                const found = CLASS_GROUPS_DATA.classes.find(c => c && (c.id === groupId || c.uuid === groupId));
+                if (found && found.name) return found.name;
+            }
+
+            if (typeof CLASS_GROUPS !== 'undefined') {
+                if (Array.isArray(CLASS_GROUPS)) {
+                    const found = CLASS_GROUPS.find(g => g && (g.id === groupId || g.uuid === groupId));
+                    if (found && found.name) return found.name;
+                } else if (typeof CLASS_GROUPS === 'object' && CLASS_GROUPS && CLASS_GROUPS[groupId]) {
+                    return groupId;
+                }
+            }
+            return groupId;
         }
 
         function populateGroups() {
@@ -4515,16 +4536,76 @@
                 ? String(session.id).slice(0, 10)
                 : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
 
-            return rawHistory.map((item, idx) => {
-                let ts = item.timestamp ? new Date(item.timestamp).getTime() : NaN;
-                if (Number.isNaN(ts) && item.time) {
-                    ts = new Date(`${baseDate}T${item.time}`).getTime();
-                }
-                if (Number.isNaN(ts)) {
-                    const fallbackStart = session ? new Date(session.id || session.date || Date.now()).getTime() : Date.now();
-                    ts = (Number.isNaN(fallbackStart) ? Date.now() : fallbackStart) + (idx * 30000);
-                }
+            const activeGid = (currentGroupId && session?.groups && session.groups[currentGroupId])
+                ? currentGroupId
+                : (session?.activeGroup || (session?.groups && Object.keys(session.groups)[0]) || currentGroupId || '');
+            const activeTitle = (session?.activeGroupTitle || groupDisplayName(activeGid) || '').trim().toLowerCase();
+            const activeStudents = new Set();
+            if (session && session.groups && activeGid && Array.isArray(session.groups[activeGid])) {
+                session.groups[activeGid].forEach(s => {
+                    if (s && s.name) activeStudents.add(String(s.name).trim().toLowerCase());
+                });
+            }
 
+            const fallbackStartMs = (function() {
+                if (session) {
+                    if (session.time) {
+                        const parts = String(session.time).trim().split(':');
+                        if (parts.length >= 2) {
+                            const h = parts[0].padStart(2, '0');
+                            const m = parts[1].padStart(2, '0');
+                            const dt = new Date(`${baseDate}T${h}:${m}:00`);
+                            if (!Number.isNaN(dt.getTime())) return dt.getTime();
+                        }
+                    }
+                    if (session.id) {
+                        const dt = new Date(session.id);
+                        if (!Number.isNaN(dt.getTime())) return dt.getTime();
+                    }
+                }
+                return Date.now();
+            })();
+
+            function parseIsoOrLocalTime(timestamp, timeStr, baseDateStr, fallbackMs, index) {
+                if (typeof timestamp === 'number' && !Number.isNaN(timestamp) && timestamp > 0) {
+                    return timestamp;
+                }
+                if (typeof timestamp === 'string' && timestamp.trim()) {
+                    const parsed = Date.parse(timestamp.trim());
+                    if (!Number.isNaN(parsed)) return parsed;
+                }
+                if (typeof timeStr === 'string' && timeStr.trim()) {
+                    const parts = timeStr.trim().split(':');
+                    if (parts.length >= 2) {
+                        const h = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        const s = (parts[2] || '00').padStart(2, '0').slice(0, 2);
+                        const parsed = Date.parse(`${baseDateStr}T${h}:${m}:${s}`);
+                        if (!Number.isNaN(parsed)) return parsed;
+                    }
+                }
+                return fallbackMs + (index * 15000);
+            }
+
+            const filteredHistory = rawHistory.filter(item => {
+                if (!item) return false;
+                const type = String(item.type || '').toLowerCase();
+                const isSessionWide = type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle';
+                if (isSessionWide) return true;
+
+                if (item.group) {
+                    const grp = String(item.group).trim().toLowerCase();
+                    if (grp === activeGid.toLowerCase() || grp === activeTitle) return true;
+                }
+                if (item.studentName) {
+                    const sName = String(item.studentName).trim().toLowerCase();
+                    if (activeStudents.size > 0 && activeStudents.has(sName)) return true;
+                }
+                return !item.group;
+            });
+
+            return filteredHistory.map((item, idx) => {
+                const ts = parseIsoOrLocalTime(item.timestamp, item.time, baseDate, fallbackStartMs, idx);
                 const type = String(item.type || '').toLowerCase();
                 let category = 'points';
                 let iconKey = 'plus';
@@ -4569,15 +4650,17 @@
                 } else if (type === 'badge') {
                     category = 'badges';
                     iconKey = 'badge';
-                    badgeColor = '#e2c96e';
-                } else if (type === 'comment') {
+                    const tone = item.meta?.tone || (String(item.detail || '').includes('-') ? 'negative' : 'positive');
+                    badgeColor = tone === 'negative' ? '#c96b6b' : '#e2c96e';
+                } else if (type === 'comment' || type === 'note') {
                     category = 'badges';
                     iconKey = 'comment';
                     badgeColor = '#e59a5a';
                 } else if (type === 'attendance') {
                     category = 'attendance';
                     iconKey = 'attendance';
-                    badgeColor = '#94a3b8';
+                    const isAbsent = item.meta?.isAbsent ?? String(item.detail || '').toLowerCase().includes('absent');
+                    badgeColor = isAbsent ? '#c96b6b' : '#6abf8e';
                 } else if (type === 'exam-toggle') {
                     category = 'timers';
                     iconKey = 'exam';
@@ -4586,6 +4669,24 @@
                     category = 'points';
                     iconKey = 'minus';
                     badgeColor = '#c96b6b';
+                } else {
+                    if (type.includes('minus') || type.includes('neg') || type.includes('penalty')) {
+                        category = 'points';
+                        iconKey = 'minus';
+                        badgeColor = '#c96b6b';
+                    } else if (type.includes('pick')) {
+                        category = 'picks';
+                        iconKey = 'pick';
+                        badgeColor = '#8b7cc2';
+                    } else if (type.includes('team')) {
+                        category = 'teams';
+                        iconKey = 'team';
+                        badgeColor = '#5b8fcc';
+                    } else {
+                        category = 'points';
+                        iconKey = 'plus';
+                        badgeColor = '#6abf8e';
+                    }
                 }
 
                 return {
@@ -4599,19 +4700,28 @@
                     meta: item.meta || {},
                     category,
                     iconKey,
-                    badgeColor
+                    badgeColor,
+                    rawIndex: idx
                 };
-            }).sort((a, b) => a.timestampMs - b.timestampMs);
+            }).sort((a, b) => a.timestampMs - b.timestampMs || a.rawIndex - b.rawIndex);
         }
 
         function getSessionTimeBounds(session, slotDuration, events) {
             const defaultDurationMinutes = 55;
             let startMs = NaN;
+            const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
+                ? String(session.id).slice(0, 10)
+                : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
 
             if (session) {
-                if (session.time && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)) {
-                    const dt = new Date(`${String(session.id).slice(0, 10)}T${session.time}`);
-                    if (!Number.isNaN(dt.getTime())) startMs = dt.getTime();
+                if (session.time) {
+                    const parts = String(session.time).trim().split(':');
+                    if (parts.length >= 2) {
+                        const h = parts[0].padStart(2, '0');
+                        const m = parts[1].padStart(2, '0');
+                        const dt = new Date(`${baseDate}T${h}:${m}:00`);
+                        if (!Number.isNaN(dt.getTime())) startMs = dt.getTime();
+                    }
                 }
                 if (Number.isNaN(startMs) && session.id) {
                     const dt = new Date(session.id);
@@ -4621,28 +4731,33 @@
 
             if (events && events.length > 0) {
                 const firstEventMs = events[0].timestampMs;
+                const lastEventMs = events[events.length - 1].timestampMs;
+
+                // Ensure at least 1 minute padding before first event
                 if (Number.isNaN(startMs) || Math.abs(startMs - firstEventMs) > 12 * 3600 * 1000) {
-                    startMs = firstEventMs;
-                } else {
-                    startMs = Math.min(startMs, firstEventMs);
+                    startMs = firstEventMs - 60000;
+                } else if (firstEventMs < startMs) {
+                    startMs = firstEventMs - 60000;
+                } else if (firstEventMs - startMs < 60000) {
+                    startMs = firstEventMs - 60000;
                 }
+
+                if (slotDuration && slotDuration !== 'auto') {
+                    const mins = Math.max(5, parseInt(slotDuration, 10) || defaultDurationMinutes);
+                    const requestedDurationMs = mins * 60 * 1000;
+                    // Ensure timeline comfortably accommodates all events without squeezing at the right margin
+                    const neededMs = (lastEventMs - startMs) + 2 * 60 * 1000;
+                    const durationMs = Math.max(requestedDurationMs, neededMs);
+                    return { startMs, endMs: startMs + durationMs, durationMs };
+                }
+
+                // Auto fit: span of events + 3 min padding
+                const span = Math.max(10 * 60 * 1000, (lastEventMs - startMs) + 3 * 60 * 1000);
+                return { startMs, endMs: startMs + span, durationMs: span };
             }
 
             if (Number.isNaN(startMs)) {
                 startMs = Date.now();
-            }
-
-            if (slotDuration && slotDuration !== 'auto') {
-                const mins = Math.max(5, parseInt(slotDuration, 10) || defaultDurationMinutes);
-                const durationMs = mins * 60 * 1000;
-                return { startMs, endMs: startMs + durationMs, durationMs };
-            }
-
-            // Auto fit: span of events + 3 min padding
-            if (events && events.length > 0) {
-                const lastEventMs = events[events.length - 1].timestampMs;
-                const span = Math.max(10 * 60 * 1000, (lastEventMs - startMs) + 3 * 60 * 1000);
-                return { startMs, endMs: startMs + span, durationMs: span };
             }
 
             const durationMs = defaultDurationMinutes * 60 * 1000;
@@ -4726,10 +4841,13 @@
                 const d = new Date(ms);
                 return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
             }
-            const elapsedSec = Math.max(0, Math.floor((ms - startMs) / 1000));
+            const diffMs = ms - startMs;
+            const isNegative = diffMs < 0;
+            const elapsedSec = Math.floor(Math.abs(diffMs) / 1000);
             const mins = Math.floor(elapsedSec / 60);
             const secs = elapsedSec % 60;
-            return `+${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            const prefix = isNegative ? '-' : '+';
+            return `${prefix}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         }
 
         function formatTimelineDuration(ms) {
@@ -4760,10 +4878,13 @@
                 groupWorkMs = Math.max(groupWorkMs, ti.endMs - ti.startMs);
             });
 
-            // Calculate uncalled students in current group
+            // Calculate uncalled students in active group
             let uncalledCount = 0;
-            if (session && session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
-                const groupStudents = session.groups[currentGroupId];
+            const activeGid = (currentGroupId && session?.groups && session.groups[currentGroupId])
+                ? currentGroupId
+                : (session?.activeGroup || (session?.groups && Object.keys(session.groups)[0]) || '');
+            if (session && session.groups && activeGid && Array.isArray(session.groups[activeGid])) {
+                const groupStudents = session.groups[activeGid];
                 const activeNames = new Set(events.map(e => String(e.studentName || '').trim().toLowerCase()));
                 const uncalled = groupStudents.filter(s => {
                     const name = String(s.name || '').trim().toLowerCase();
@@ -4820,7 +4941,7 @@
             // Layout dimensions
             const padLeft = 60;
             const padRight = 30;
-            const padTop = 24;
+            const padTop = 22;
             const padBottom = 34;
             const plotW = Math.max(100, width - padLeft - padRight);
 
@@ -4828,10 +4949,10 @@
             const track1Top = padTop;
             const track1Height = 85;
             const track2Top = track1Top + track1Height + 10;
-            const track2Height = 115;
+            const track2Height = 110;
             const track3Top = track2Top + track2Height + 10;
             const track3Bottom = height - padBottom;
-            const track3Height = Math.max(60, track3Bottom - track3Top);
+            const stemBaselineY = track3Bottom - 26;
 
             function getX(timeMs) {
                 if (bounds.durationMs <= 0) return padLeft;
@@ -4860,7 +4981,6 @@
             // ── TRACK 1: Duration & State Bands ──
             const { timerIntervals, modeIntervals, teamIntervals } = _timelineState;
 
-            // Helper to draw Light Neobrutalist rounded rectangle
             function drawNeoBand(x1, x2, y, h, fill, border, label, iconKey) {
                 const bandW = Math.max(18, x2 - x1);
                 const r = 5;
@@ -4899,31 +5019,38 @@
                 ctx.restore();
             }
 
-            // Timers: row 1 (y: track1Top + 18, h: 18)
-            timerIntervals.forEach(ti => {
-                const x1 = getX(ti.startMs);
-                const x2 = getX(ti.endMs);
-                drawNeoBand(x1, x2, track1Top + 20, 18, '#fef3c7', '#333333', `${ti.title} (${formatTimelineDuration(ti.endMs - ti.startMs)})`, 'timer');
-            });
+            // Timers & Modes (respects 'timers' filter chip)
+            if (_timelineState.activeFilters.has('timers')) {
+                timerIntervals.forEach(ti => {
+                    const x1 = getX(ti.startMs);
+                    const x2 = getX(ti.endMs);
+                    drawNeoBand(x1, x2, track1Top + 20, 18, '#fef3c7', '#333333', `${ti.title} (${formatTimelineDuration(ti.endMs - ti.startMs)})`, 'timer');
+                });
 
-            // Modes: row 2 (y: track1Top + 42, h: 18)
-            modeIntervals.forEach(mi => {
-                const x1 = getX(mi.startMs);
-                const x2 = getX(mi.endMs);
-                drawNeoBand(x1, x2, track1Top + 42, 18, '#ede9fe', '#333333', `${mi.title} (${formatTimelineDuration(mi.endMs - mi.startMs)})`, 'team');
-            });
+                modeIntervals.forEach(mi => {
+                    const x1 = getX(mi.startMs);
+                    const x2 = getX(mi.endMs);
+                    drawNeoBand(x1, x2, track1Top + 42, 18, '#ede9fe', '#333333', `${mi.title} (${formatTimelineDuration(mi.endMs - mi.startMs)})`, 'team');
+                });
+            }
 
-            // Teams: row 3 (y: track1Top + 64, h: 16)
-            teamIntervals.forEach(ti => {
-                const x1 = getX(ti.startMs);
-                const x2 = getX(ti.endMs);
-                drawNeoBand(x1, x2, track1Top + 64, 16, '#dbeafe', '#333333', `${ti.title}`, 'team');
-            });
+            // Teams (respects 'teams' filter chip)
+            if (_timelineState.activeFilters.has('teams')) {
+                teamIntervals.forEach(ti => {
+                    const x1 = getX(ti.startMs);
+                    const x2 = getX(ti.endMs);
+                    drawNeoBand(x1, x2, track1Top + 64, 16, '#dbeafe', '#333333', `${ti.title}`, 'team');
+                });
+            }
 
-            // ── TRACK 2: Cumulative Engagement Area/Step Curve ──
+            // ── TRACK 2: Cumulative Engagement Area & Stepped Curve ──
+            const targetStudentClean = (_timelineState.selectedStudentName || '').trim().toLowerCase();
             const curveEvents = filteredEvents.filter(e => {
-                if (!_timelineState.selectedStudentName) return true;
-                return String(e.studentName || '').toLowerCase() === _timelineState.selectedStudentName.toLowerCase();
+                const type = e.type || '';
+                // Exclude system intervals from cumulative student interactions curve
+                if (type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle') return false;
+                if (!targetStudentClean) return true;
+                return String(e.studentName || '').trim().toLowerCase() === targetStudentClean;
             });
 
             // Grid lines for Track 2
@@ -4952,20 +5079,28 @@
                 p.y = (track2Top + track2Height) - ((p.count / maxCount) * (track2Height - 16));
             });
 
-            // Draw shaded area
+            // Draw clean stepped area & line
             if (points.length > 1) {
+                // Stepped filled area
                 ctx.beginPath();
                 ctx.moveTo(points[0].x, track2Top + track2Height);
-                points.forEach(p => ctx.lineTo(p.x, p.y));
+                ctx.lineTo(points[0].x, points[0].y);
+                for (let p = 1; p < points.length; p++) {
+                    ctx.lineTo(points[p].x, points[p - 1].y);
+                    ctx.lineTo(points[p].x, points[p].y);
+                }
                 ctx.lineTo(padLeft + plotW, track2Top + track2Height);
                 ctx.closePath();
                 ctx.fillStyle = 'rgba(106, 191, 142, 0.22)';
                 ctx.fill();
 
-                // Draw curve line
+                // Stepped curve line
                 ctx.beginPath();
                 ctx.moveTo(points[0].x, points[0].y);
-                points.forEach(p => ctx.lineTo(p.x, p.y));
+                for (let p = 1; p < points.length; p++) {
+                    ctx.lineTo(points[p].x, points[p - 1].y);
+                    ctx.lineTo(points[p].x, points[p].y);
+                }
                 ctx.strokeStyle = '#2e7d32';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -4975,13 +5110,16 @@
             ctx.fillStyle = '#666666';
             ctx.font = '600 9px Lexend, sans-serif';
             ctx.textAlign = 'right';
-            ctx.fillText(String(maxCount), padLeft - 6, track2Top + 14);
-            ctx.fillText(String(Math.round(maxCount / 2)), padLeft - 6, track2Top + (track2Height / 2) + 3);
+            if (cumulative > 0) {
+                ctx.fillText(String(maxCount), padLeft - 6, track2Top + 14);
+                ctx.fillText(String(Math.round(maxCount / 2)), padLeft - 6, track2Top + (track2Height / 2) + 3);
+            } else {
+                ctx.fillText('0', padLeft - 6, track2Top + 14);
+            }
             ctx.fillText('0', padLeft - 6, track2Top + track2Height + 2);
             ctx.restore();
 
             // ── TRACK 3: Event Stems & Node Scatter ──
-            const stemBaselineY = track3Bottom - 18;
             ctx.save();
             ctx.strokeStyle = '#dddddd';
             ctx.lineWidth = 1;
@@ -4990,85 +5128,107 @@
             ctx.lineTo(padLeft + plotW, stemBaselineY);
             ctx.stroke();
 
-            // Sort & cluster close events to stagger stems vertically
             const nodeRadius = 10;
             const hitTargets = [];
 
+            // Multi-tier vertical staggering algorithm
+            const assignedTiers = [];
             filteredEvents.forEach((ev, idx) => {
                 const ex = getX(ev.timestampMs);
-                let clusterIdx = 0;
-                for (let j = Math.max(0, idx - 5); j < idx; j++) {
+                const usedTiers = new Set();
+                let clusterCount = 0;
+
+                for (let j = Math.max(0, idx - 12); j < idx; j++) {
                     const prevX = getX(filteredEvents[j].timestampMs);
-                    if (Math.abs(ex - prevX) < 14) {
-                        clusterIdx++;
+                    if (Math.abs(ex - prevX) < 18) {
+                        usedTiers.add(assignedTiers[j]);
+                        clusterCount++;
                     }
                 }
 
-                const staggerY = (clusterIdx % 3) * 16;
-                const nodeCenterY = stemBaselineY - 14 - staggerY;
+                let tier = 0;
+                while (usedTiers.has(tier) && tier < 6) {
+                    tier++;
+                }
+                assignedTiers[idx] = tier;
 
-                const isTargetStudent = !_timelineState.selectedStudentName ||
-                    String(ev.studentName || '').toLowerCase() === _timelineState.selectedStudentName.toLowerCase();
+                // Micro jitter if more than 6 events share this cluster
+                const jitterX = clusterCount >= 6 ? ((idx % 3) - 1) * 3 : 0;
+                const nodeCenterX = ex + jitterX;
+                const nodeCenterY = stemBaselineY - 16 - (tier * 18);
+
+                const isTargetStudent = !targetStudentClean ||
+                    String(ev.studentName || '').trim().toLowerCase() === targetStudentClean;
                 const nodeAlpha = isTargetStudent ? 1.0 : 0.16;
 
                 ctx.save();
                 ctx.globalAlpha = nodeAlpha;
 
-                // Vertical stem line
+                // Vertical stem line from baseline to node
                 ctx.strokeStyle = '#444444';
                 ctx.lineWidth = 1.2;
                 ctx.beginPath();
-                ctx.moveTo(ex, stemBaselineY);
-                ctx.lineTo(ex, nodeCenterY + nodeRadius);
+                ctx.moveTo(nodeCenterX, stemBaselineY);
+                ctx.lineTo(nodeCenterX, nodeCenterY + nodeRadius);
                 ctx.stroke();
 
-                // Drop shadow for node circle
+                // Drop shadow
                 ctx.fillStyle = '#555555';
                 ctx.beginPath();
-                ctx.arc(ex + 1.5, nodeCenterY + 1.5, nodeRadius, 0, Math.PI * 2);
+                ctx.arc(nodeCenterX + 1.5, nodeCenterY + 1.5, nodeRadius, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Node circle
+                // Circle node
                 ctx.fillStyle = ev.badgeColor || '#6abf8e';
                 ctx.beginPath();
-                ctx.arc(ex, nodeCenterY, nodeRadius, 0, Math.PI * 2);
+                ctx.arc(nodeCenterX, nodeCenterY, nodeRadius, 0, Math.PI * 2);
                 ctx.fill();
 
-                ctx.strokeStyle = isTargetStudent && _timelineState.selectedStudentName ? '#111111' : '#333333';
-                ctx.lineWidth = isTargetStudent && _timelineState.selectedStudentName ? 2.5 : 1.5;
+                ctx.strokeStyle = isTargetStudent && targetStudentClean ? '#111111' : '#333333';
+                ctx.lineWidth = isTargetStudent && targetStudentClean ? 2.5 : 1.5;
                 ctx.stroke();
 
-                // Icon centered inside node
+                // Centered icon
                 const icon = _timelineIcons[ev.iconKey];
                 if (icon && icon.complete && icon.naturalWidth > 0) {
-                    ctx.drawImage(icon, ex - 6, nodeCenterY - 6, 12, 12);
+                    ctx.drawImage(icon, nodeCenterX - 6, nodeCenterY - 6, 12, 12);
                 } else {
-                    // Crisp fallback glyph
                     ctx.fillStyle = '#111111';
                     ctx.font = '700 9px Lexend, sans-serif';
                     ctx.textAlign = 'center';
                     const symbol = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
-                    ctx.fillText(symbol, ex, nodeCenterY + 3);
-                }
-
-                // Student name below baseline
-                if (isTargetStudent && (idx % 2 === 0 || filteredEvents.length <= 25)) {
-                    ctx.fillStyle = '#333333';
-                    ctx.font = '600 8.5px Lexend, sans-serif';
-                    ctx.textAlign = 'center';
-                    let shortName = ev.studentName || '';
-                    if (shortName.length > 10) shortName = shortName.slice(0, 9) + '…';
-                    ctx.fillText(shortName, ex, stemBaselineY + 11);
+                    ctx.fillText(symbol, nodeCenterX, nodeCenterY + 3);
                 }
 
                 ctx.restore();
 
                 hitTargets.push({
                     event: ev,
-                    x: ex,
+                    x: nodeCenterX,
                     y: nodeCenterY,
                     radius: nodeRadius + 3
                 });
+            });
+
+            // Student labels below baseline without overlapping collisions
+            let lastLabelX = -999;
+            filteredEvents.forEach((ev, idx) => {
+                const ex = getX(ev.timestampMs);
+                const isTargetStudent = !targetStudentClean ||
+                    String(ev.studentName || '').trim().toLowerCase() === targetStudentClean;
+
+                const shouldDraw = isTargetStudent && (targetStudentClean || Math.abs(ex - lastLabelX) >= 36);
+                if (shouldDraw) {
+                    lastLabelX = ex;
+                    ctx.save();
+                    ctx.fillStyle = isTargetStudent && targetStudentClean ? '#111111' : '#444444';
+                    ctx.font = isTargetStudent && targetStudentClean ? '700 9px Lexend, sans-serif' : '600 8.5px Lexend, sans-serif';
+                    ctx.textAlign = 'center';
+                    let shortName = ev.studentName || '';
+                    if (shortName.length > 10) shortName = shortName.slice(0, 9) + '…';
+                    ctx.fillText(shortName, ex, stemBaselineY + 12);
+                    ctx.restore();
+                }
             });
             ctx.restore();
 
@@ -5081,7 +5241,6 @@
             ctx.lineTo(padLeft + plotW, stemBaselineY + 18);
             ctx.stroke();
 
-            // Determine tick interval: every 5 or 10 min
             const durationMins = bounds.durationMs / 60000;
             const tickMins = durationMins > 65 ? 10 : (durationMins > 30 ? 5 : 2);
             const totalTicks = Math.floor(durationMins / tickMins);
@@ -5095,7 +5254,7 @@
                 if (tickMs > bounds.endMs) break;
                 const tx = getX(tickMs);
 
-                // Tick line
+                // Tick mark
                 ctx.strokeStyle = '#333333';
                 ctx.lineWidth = 1.5;
                 ctx.beginPath();
@@ -5103,7 +5262,7 @@
                 ctx.lineTo(tx, stemBaselineY + 23);
                 ctx.stroke();
 
-                // Vertical dotted grid line up through the chart
+                // Vertical grid guideline
                 ctx.strokeStyle = '#eaeae4';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
@@ -5111,7 +5270,7 @@
                 ctx.lineTo(tx, stemBaselineY + 18);
                 ctx.stroke();
 
-                // Label
+                // Time label
                 const label = formatTimelineTimeLabel(tickMs, bounds.startMs, _timelineState.timeDisplay);
                 ctx.fillText(label, tx, stemBaselineY + 33);
             }
@@ -5121,7 +5280,6 @@
             if (_timelineState.hoverX !== null && _timelineState.hoverX >= padLeft && _timelineState.hoverX <= padLeft + plotW) {
                 const hx = _timelineState.hoverX;
 
-                // Vertical dashed cursor line
                 ctx.save();
                 ctx.strokeStyle = '#333333';
                 ctx.lineWidth = 1.5;
@@ -5132,7 +5290,6 @@
                 ctx.stroke();
                 ctx.restore();
 
-                // Time badge on hover line
                 const hoverMs = bounds.startMs + ((hx - padLeft) / plotW) * bounds.durationMs;
                 const hoverLabel = formatTimelineTimeLabel(hoverMs, bounds.startMs, _timelineState.timeDisplay);
                 ctx.save();
@@ -5173,32 +5330,58 @@
 
                 _timelineState.hoverX = mouseX;
 
-                // Hit test for nodes
+                // Hit test for Track 3 nodes
                 const targets = canvas._timelineHitTargets || [];
                 let closest = null;
                 let minDist = 18;
+                const nearbyTargets = [];
 
                 for (let i = 0; i < targets.length; i++) {
                     const t = targets[i];
                     const dist = Math.hypot(t.x - mouseX, t.y - mouseY);
                     if (dist < minDist) {
-                        minDist = dist;
-                        closest = t.event;
+                        if (dist < minDist) {
+                            closest = t.event;
+                        }
+                        nearbyTargets.push(t.event);
                     }
                 }
 
-                // Hit test for Track 1 intervals
+                // Row-specific hit test for Track 1 intervals
                 let hoveredInterval = null;
-                if (!closest && mouseY >= 24 && mouseY <= 110) {
-                    const hoverMs = _timelineState.timeBounds.startMs + ((mouseX - 60) / Math.max(1, rect.width - 90)) * _timelineState.timeBounds.durationMs;
-                    hoveredInterval = _timelineState.timerIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs)
-                        || _timelineState.modeIntervals.find(mi => hoverMs >= mi.startMs && hoverMs <= mi.endMs)
-                        || _timelineState.teamIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs);
+                if (!closest && mouseY >= 22 && mouseY <= 108) {
+                    const padLeft = 60;
+                    const plotW = Math.max(100, rect.width - 90);
+                    const hoverMs = _timelineState.timeBounds.startMs + ((mouseX - padLeft) / plotW) * _timelineState.timeBounds.durationMs;
+
+                    if (mouseY >= 42 && mouseY <= 64 && _timelineState.activeFilters.has('timers')) {
+                        hoveredInterval = _timelineState.timerIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs);
+                    } else if (mouseY >= 64 && mouseY <= 86 && _timelineState.activeFilters.has('timers')) {
+                        hoveredInterval = _timelineState.modeIntervals.find(mi => hoverMs >= mi.startMs && hoverMs <= mi.endMs);
+                    } else if (mouseY >= 86 && mouseY <= 106 && _timelineState.activeFilters.has('teams')) {
+                        hoveredInterval = _timelineState.teamIntervals.find(ti => hoverMs >= ti.startMs && hoverMs <= ti.endMs);
+                    }
                 }
 
                 if (closest) {
                     const timeClock = new Date(closest.timestampMs).toLocaleTimeString('en-GB');
                     const timeElapsed = formatTimelineTimeLabel(closest.timestampMs, _timelineState.timeBounds.startMs, 'elapsed');
+                    
+                    let extraHtml = '';
+                    if (nearbyTargets.length > 1) {
+                        const others = nearbyTargets.filter(ev => ev !== closest);
+                        if (others.length > 0) {
+                            const clusterText = t('ptTimelineNearbyEvents') || 'events in this cluster';
+                            extraHtml = `<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #666; font-size:10px; color:#555;"><strong>${others.length + 1}</strong> ${escapeHtml(clusterText)}:</div>`;
+                            others.slice(0, 3).forEach(o => {
+                                extraHtml += `<div style="font-size:9.5px; margin-top:2px; color:#444;">• ${escapeHtml(o.studentName)}: ${escapeHtml(o.detail || o.type)}</div>`;
+                            });
+                            if (others.length > 3) {
+                                extraHtml += `<div style="font-size:9px; color:#888;">+ ${others.length - 3} more...</div>`;
+                            }
+                        }
+                    }
+
                     tooltip.innerHTML = `
                         <div class="pt-tooltip-time">
                             <span>${timeElapsed}</span>
@@ -5207,10 +5390,11 @@
                         <span class="pt-tooltip-badge" style="background:${closest.badgeColor}; color:#111;">${closest.type.toUpperCase()}</span>
                         <div class="pt-tooltip-title">${escapeHtml(closest.studentName)}</div>
                         <div class="pt-tooltip-detail">${escapeHtml(closest.detail || '')}</div>
+                        ${extraHtml}
                     `;
                     tooltip.style.display = 'block';
                     const tipX = Math.min(rect.width - 240, Math.max(10, mouseX + 14));
-                    const tipY = Math.min(rect.height - 110, Math.max(10, mouseY - 40));
+                    const tipY = Math.min(rect.height - 120, Math.max(10, mouseY - 40));
                     tooltip.style.left = tipX + 'px';
                     tooltip.style.top = tipY + 'px';
                 } else if (hoveredInterval) {
@@ -5258,8 +5442,12 @@
             select.innerHTML = `<option value="">${t('ptTimelineAllStudents') || 'All Students'}</option>`;
 
             const studentNames = new Set();
-            if (session && session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
-                session.groups[currentGroupId].forEach(st => {
+            const activeGid = (currentGroupId && session?.groups && session.groups[currentGroupId])
+                ? currentGroupId
+                : (session?.activeGroup || (session?.groups && Object.keys(session.groups)[0]) || '');
+
+            if (session && session.groups && activeGid && Array.isArray(session.groups[activeGid])) {
+                session.groups[activeGid].forEach(st => {
                     if (st && st.name) studentNames.add(st.name);
                 });
             } else if (session && session.groups) {
@@ -5297,7 +5485,10 @@
             _timelineState.session = session;
             _timelineState.sessionId = session.id || session.date;
 
-            const groupName = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || '';
+            const rawGroupId = (currentGroupId && session.groups && session.groups[currentGroupId])
+                ? currentGroupId
+                : (session.activeGroup || (session.groups && Object.keys(session.groups)[0]) || currentGroupId || '');
+            const groupName = session.activeGroupTitle || groupDisplayName(rawGroupId) || rawGroupId;
             const sessionDate = session.id ? session.id.slice(0, 10) : (session.date || '');
             const subtitleText = `${groupName ? groupName + ' — ' : ''}${sessionDate}${session.time ? ' ' + session.time : ''}`;
 
@@ -5327,8 +5518,8 @@
             // If empty legacy session, populate empty state details
             if (_timelineState.events.length === 0) {
                 let statsSummary = '';
-                if (session.groups && currentGroupId && Array.isArray(session.groups[currentGroupId])) {
-                    const stList = session.groups[currentGroupId];
+                if (session.groups && rawGroupId && Array.isArray(session.groups[rawGroupId])) {
+                    const stList = session.groups[rawGroupId];
                     const plusSum = stList.reduce((acc, s) => acc + (s.pluses || 0), 0);
                     const minusSum = stList.reduce((acc, s) => acc + (s.minuses || 0), 0);
                     const pickSum = stList.reduce((acc, s) => acc + (s.picks || 0), 0);
@@ -5367,10 +5558,24 @@
             modal.classList.add('active');
             _timelineState.isModalOpen = true;
 
+            // Sync controls into modal toolbar
+            syncSlotDurationInputs(_timelineState.slotDuration);
+            const timeSel = document.getElementById('modalTimeDisplaySelect');
+            if (timeSel) timeSel.value = _timelineState.timeDisplay;
+            const studSel = document.getElementById('modalStudentFilterSelect');
+            if (studSel) studSel.value = _timelineState.selectedStudentName;
+
+            document.querySelectorAll('#sessionTimelineModal button.pt-filter-chip').forEach(btn => {
+                btn.classList.toggle('active', _timelineState.activeFilters.has(btn.dataset.filter));
+            });
+
             initTimelineCanvasEvents('modalTimelineCanvas', true);
             requestAnimationFrame(() => {
                 const canvas = document.getElementById('modalTimelineCanvas');
                 if (canvas) drawSessionTimeline(canvas, true);
+                setTimeout(() => {
+                    if (canvas && _timelineState.isModalOpen) drawSessionTimeline(canvas, true);
+                }, 80);
             });
         }
 
@@ -5394,7 +5599,7 @@
                 _timelineState.activeFilters.add(filterKey);
             }
 
-            // Sync all filter buttons with this data-filter
+            // Sync all filter buttons with this data-filter across inline & modal toolbars
             document.querySelectorAll(`button.pt-filter-chip[data-filter="${filterKey}"]`).forEach(btn => {
                 btn.classList.toggle('active', _timelineState.activeFilters.has(filterKey));
             });
@@ -5462,8 +5667,10 @@
         }
 
         async function saveTimelineFile(filename, data, format) {
-            const groupName = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || 'Class';
-            const safeName = filename || `Session_Timeline_${groupName}_${_timelineState.session?.id || 'session'}.${format}`;
+            const rawGid = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || '';
+            const groupName = _timelineState.session?.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
+            const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : (_timelineState.session?.date || 'session');
+            const safeName = filename || `Session_Timeline_${groupName}_${dateStr}.${format}`;
 
             if (window.Desktop && Desktop.isElectron()) {
                 try {
@@ -5508,8 +5715,9 @@
 
             activeCanvas.toBlob(blob => {
                 if (!blob) return;
-                const groupName = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || 'Class';
-                const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : 'session';
+                const rawGid = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || '';
+                const groupName = _timelineState.session?.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
+                const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : (_timelineState.session?.date || 'session');
                 const filename = `Session_Timeline_${groupName}_${dateStr}.png`;
                 saveTimelineFile(filename, blob, 'png');
             }, 'image/png');
@@ -5519,8 +5727,9 @@
             const session = _timelineState.session;
             if (!session) return;
 
-            const groupName = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || 'Class';
-            const dateStr = session.id ? session.id.slice(0, 10) : 'session';
+            const rawGid = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || '';
+            const groupName = session.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
+            const dateStr = session.id ? session.id.slice(0, 10) : (session.date || 'session');
             const filename = `Session_Timeline_${groupName}_${dateStr}.svg`;
 
             const bounds = _timelineState.timeBounds;
@@ -5542,8 +5751,8 @@
             const track1Top = padTop;
             const track1Height = 85;
             const track2Top = track1Top + track1Height + 12;
-            const track2Height = 125;
-            const stemBaselineY = height - padBottom - 18;
+            const track2Height = 120;
+            const stemBaselineY = height - padBottom - 26;
 
             let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
             svg += `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">\n`;
@@ -5567,38 +5776,50 @@
             svg += `<text x="${padLeft + 8}" y="${track1Top + 14}" class="track-title">INTERVALS &amp; MODES</text>\n`;
 
             // Track 1 bands
-            _timelineState.timerIntervals.forEach(ti => {
-                const x1 = getSvgX(ti.startMs);
-                const x2 = getSvgX(ti.endMs);
-                const bw = Math.max(20, x2 - x1);
-                svg += `<rect x="${x1 + 2}" y="${track1Top + 22}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
-                svg += `<rect x="${x1}" y="${track1Top + 20}" width="${bw}" height="18" fill="#fef3c7" class="band-rect" />\n`;
-                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 33}" class="band-text">${escapeHtml(ti.title)} (${formatTimelineDuration(ti.endMs - ti.startMs)})</text>\n`;
-            });
+            if (_timelineState.activeFilters.has('timers')) {
+                _timelineState.timerIntervals.forEach(ti => {
+                    const x1 = getSvgX(ti.startMs);
+                    const x2 = getSvgX(ti.endMs);
+                    const bw = Math.max(20, x2 - x1);
+                    svg += `<rect x="${x1 + 2}" y="${track1Top + 22}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
+                    svg += `<rect x="${x1}" y="${track1Top + 20}" width="${bw}" height="18" fill="#fef3c7" class="band-rect" />\n`;
+                    if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 33}" class="band-text">${escapeHtml(ti.title)} (${formatTimelineDuration(ti.endMs - ti.startMs)})</text>\n`;
+                });
 
-            _timelineState.modeIntervals.forEach(mi => {
-                const x1 = getSvgX(mi.startMs);
-                const x2 = getSvgX(mi.endMs);
-                const bw = Math.max(20, x2 - x1);
-                svg += `<rect x="${x1 + 2}" y="${track1Top + 44}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
-                svg += `<rect x="${x1}" y="${track1Top + 42}" width="${bw}" height="18" fill="#ede9fe" class="band-rect" />\n`;
-                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 55}" class="band-text">${escapeHtml(mi.title)}</text>\n`;
-            });
+                _timelineState.modeIntervals.forEach(mi => {
+                    const x1 = getSvgX(mi.startMs);
+                    const x2 = getSvgX(mi.endMs);
+                    const bw = Math.max(20, x2 - x1);
+                    svg += `<rect x="${x1 + 2}" y="${track1Top + 44}" width="${bw}" height="18" fill="#555555" rx="5" />\n`;
+                    svg += `<rect x="${x1}" y="${track1Top + 42}" width="${bw}" height="18" fill="#ede9fe" class="band-rect" />\n`;
+                    if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 55}" class="band-text">${escapeHtml(mi.title)}</text>\n`;
+                });
+            }
 
-            _timelineState.teamIntervals.forEach(ti => {
-                const x1 = getSvgX(ti.startMs);
-                const x2 = getSvgX(ti.endMs);
-                const bw = Math.max(20, x2 - x1);
-                svg += `<rect x="${x1 + 2}" y="${track1Top + 66}" width="${bw}" height="16" fill="#555555" rx="5" />\n`;
-                svg += `<rect x="${x1}" y="${track1Top + 64}" width="${bw}" height="16" fill="#dbeafe" class="band-rect" />\n`;
-                if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 76}" class="band-text">${escapeHtml(ti.title)}</text>\n`;
-            });
+            if (_timelineState.activeFilters.has('teams')) {
+                _timelineState.teamIntervals.forEach(ti => {
+                    const x1 = getSvgX(ti.startMs);
+                    const x2 = getSvgX(ti.endMs);
+                    const bw = Math.max(20, x2 - x1);
+                    svg += `<rect x="${x1 + 2}" y="${track1Top + 66}" width="${bw}" height="16" fill="#555555" rx="5" />\n`;
+                    svg += `<rect x="${x1}" y="${track1Top + 64}" width="${bw}" height="16" fill="#dbeafe" class="band-rect" />\n`;
+                    if (bw > 35) svg += `<text x="${x1 + 6}" y="${track1Top + 76}" class="band-text">${escapeHtml(ti.title)}</text>\n`;
+                });
+            }
 
-            // Track 2: Cumulative curve
+            // Track 2: Cumulative stepped curve
             svg += `<text x="${padLeft + 8}" y="${track2Top + 14}" class="track-title">INTERACTIVE PACING (CUMULATIVE)</text>\n`;
+            const targetStudentCleanSvg = (_timelineState.selectedStudentName || '').trim().toLowerCase();
+            const curveEventsSvg = filteredEvents.filter(e => {
+                const type = e.type || '';
+                if (type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle') return false;
+                if (!targetStudentCleanSvg) return true;
+                return String(e.studentName || '').trim().toLowerCase() === targetStudentCleanSvg;
+            });
+
             let cum = 0;
             const pts = [{ x: padLeft, y: track2Top + track2Height, count: 0 }];
-            filteredEvents.forEach(e => {
+            curveEventsSvg.forEach(e => {
                 cum += 1;
                 pts.push({ x: getSvgX(e.timestampMs), count: cum });
             });
@@ -5610,40 +5831,67 @@
             });
 
             if (pts.length > 1) {
-                let areaD = `M ${pts[0].x} ${track2Top + track2Height}`;
-                pts.forEach(p => { areaD += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; });
+                let areaD = `M ${pts[0].x} ${track2Top + track2Height} L ${pts[0].x} ${pts[0].y.toFixed(1)}`;
+                for (let p = 1; p < pts.length; p++) {
+                    areaD += ` L ${pts[p].x.toFixed(1)} ${pts[p - 1].y.toFixed(1)} L ${pts[p].x.toFixed(1)} ${pts[p].y.toFixed(1)}`;
+                }
                 areaD += ` L ${padLeft + plotW} ${track2Top + track2Height} Z`;
                 svg += `<path d="${areaD}" fill="#6abf8e" fill-opacity="0.22" />\n`;
 
                 let lineD = `M ${pts[0].x} ${pts[0].y.toFixed(1)}`;
-                pts.forEach(p => { lineD += ` L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`; });
+                for (let p = 1; p < pts.length; p++) {
+                    lineD += ` L ${pts[p].x.toFixed(1)} ${pts[p - 1].y.toFixed(1)} L ${pts[p].x.toFixed(1)} ${pts[p].y.toFixed(1)}`;
+                }
                 svg += `<path d="${lineD}" fill="none" stroke="#2e7d32" stroke-width="2" />\n`;
             }
 
             // Track 3: Event Stems & Scatter Nodes
             svg += `<line x1="${padLeft}" y1="${stemBaselineY}" x2="${padLeft + plotW}" y2="${stemBaselineY}" stroke="#dddddd" stroke-width="1" />\n`;
 
+            const svgAssignedTiers = [];
             filteredEvents.forEach((ev, idx) => {
                 const ex = getSvgX(ev.timestampMs);
-                let clusterIdx = 0;
-                for (let j = Math.max(0, idx - 5); j < idx; j++) {
-                    const prevX = getSvgX(filteredEvents[j].timestampMs);
-                    if (Math.abs(ex - prevX) < 14) clusterIdx++;
-                }
-                const staggerY = (clusterIdx % 3) * 16;
-                const nodeCenterY = stemBaselineY - 14 - staggerY;
+                const usedTiers = new Set();
+                let clusterCount = 0;
 
-                svg += `<line x1="${ex.toFixed(1)}" y1="${stemBaselineY}" x2="${ex.toFixed(1)}" y2="${(nodeCenterY + 10).toFixed(1)}" class="stem-line" />\n`;
-                svg += `<circle cx="${(ex + 1.5).toFixed(1)}" cy="${(nodeCenterY + 1.5).toFixed(1)}" r="10" fill="#555555" />\n`;
-                svg += `<circle cx="${ex.toFixed(1)}" cy="${nodeCenterY.toFixed(1)}" r="10" fill="${ev.badgeColor || '#6abf8e'}" stroke="#333333" stroke-width="1.5" />\n`;
+                for (let j = Math.max(0, idx - 12); j < idx; j++) {
+                    const prevX = getSvgX(filteredEvents[j].timestampMs);
+                    if (Math.abs(ex - prevX) < 18) {
+                        usedTiers.add(svgAssignedTiers[j]);
+                        clusterCount++;
+                    }
+                }
+
+                let tier = 0;
+                while (usedTiers.has(tier) && tier < 6) {
+                    tier++;
+                }
+                svgAssignedTiers[idx] = tier;
+
+                const jitterX = clusterCount >= 6 ? ((idx % 3) - 1) * 3 : 0;
+                const nodeCenterX = ex + jitterX;
+                const nodeCenterY = stemBaselineY - 16 - (tier * 18);
+
+                svg += `<line x1="${nodeCenterX.toFixed(1)}" y1="${stemBaselineY}" x2="${nodeCenterX.toFixed(1)}" y2="${(nodeCenterY + 10).toFixed(1)}" class="stem-line" />\n`;
+                svg += `<circle cx="${(nodeCenterX + 1.5).toFixed(1)}" cy="${(nodeCenterY + 1.5).toFixed(1)}" r="10" fill="#555555" />\n`;
+                svg += `<circle cx="${nodeCenterX.toFixed(1)}" cy="${nodeCenterY.toFixed(1)}" r="10" fill="${ev.badgeColor || '#6abf8e'}" stroke="#333333" stroke-width="1.5" />\n`;
 
                 const sym = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
-                svg += `<text x="${ex.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="800" font-size="9" fill="#111111" text-anchor="middle">${sym}</text>\n`;
+                svg += `<text x="${nodeCenterX.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="800" font-size="9" fill="#111111" text-anchor="middle">${sym}</text>\n`;
+            });
 
-                if (idx % 2 === 0 || filteredEvents.length <= 25) {
+            // Student labels below baseline without overlapping collisions
+            let lastSvgLabelX = -999;
+            filteredEvents.forEach(ev => {
+                const ex = getSvgX(ev.timestampMs);
+                const isTargetStudent = !targetStudentCleanSvg ||
+                    String(ev.studentName || '').trim().toLowerCase() === targetStudentCleanSvg;
+
+                if (isTargetStudent && (targetStudentCleanSvg || Math.abs(ex - lastSvgLabelX) >= 36)) {
+                    lastSvgLabelX = ex;
                     let sName = ev.studentName || '';
                     if (sName.length > 9) sName = sName.slice(0, 8) + '…';
-                    svg += `<text x="${ex.toFixed(1)}" y="${stemBaselineY + 11}" class="student-label">${escapeHtml(sName)}</text>\n`;
+                    svg += `<text x="${ex.toFixed(1)}" y="${stemBaselineY + 12}" class="student-label">${escapeHtml(sName)}</text>\n`;
                 }
             });
 
@@ -5672,6 +5920,18 @@
                 redrawActiveTimeline();
             }
         });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            const _ptTimelineResizeObserver = new ResizeObserver(() => {
+                if (_timelineState.session) {
+                    redrawActiveTimeline();
+                }
+            });
+            const wrapInline = document.getElementById('ptTimelineCanvasWrap');
+            if (wrapInline) _ptTimelineResizeObserver.observe(wrapInline);
+            const wrapModal = document.getElementById('modalTimelineCanvasWrap');
+            if (wrapModal) _ptTimelineResizeObserver.observe(wrapModal);
+        }
 
         function updateStats(sessions) {
             const metrics = aggregateMetrics(sessions);
@@ -5806,7 +6066,7 @@
                     timelineBtn.innerHTML = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> <span>${t('ptTimelineBtn') || 'Timeline'}</span>`;
                     timelineBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        openSessionTimeline(session ? session.id : metric.date, { openModal: true });
+                        openSessionTimeline(session || metric.date, { openModal: true });
                     });
                     actionsWrap.appendChild(timelineBtn);
 

@@ -9278,8 +9278,18 @@ function _getDocxExporter() {
         }
         case 'image': {
           const src = String(tok.href || '');
-          const imgData = ctx.images && ctx.images[src];
-          if (imgData && imgData.data && imgData.width && imgData.height) {
+          let imgData = ctx.images && ctx.images[src];
+          if (typeof imgData === 'string') {
+            let b64 = imgData;
+            if (b64.startsWith('data:')) {
+              const comma = b64.indexOf(',');
+              if (comma !== -1) b64 = b64.slice(comma + 1);
+            }
+            imgData = { data: b64, width: 600, height: 400 };
+          }
+          if (imgData && imgData.data) {
+            const imgW = imgData.width || 600;
+            const imgH = imgData.height || 400;
             const textPx = ctx.textWidthPx || 600;
             const mode = ctx.imageWidthMode || 'auto';
             let targetW;
@@ -9288,14 +9298,14 @@ function _getDocxExporter() {
             } else if (mode.endsWith('%')) {
               targetW = textPx * (parseFloat(mode) / 100);
             } else {
-              targetW = Math.min(imgData.width, textPx);
+              targetW = Math.min(imgW, textPx);
             }
-            const scale = targetW / imgData.width;
-            const w = Math.max(1, Math.round(imgData.width * scale));
-            const h = Math.max(1, Math.round(imgData.height * scale));
+            const scale = targetW / imgW;
+            const w = Math.max(1, Math.round(imgW * scale));
+            const h = Math.max(1, Math.round(imgH * scale));
             try {
               out.push(new ImageRun({
-                data: Buffer.from(String(imgData.data), 'base64'),
+                data: Buffer.isBuffer(imgData.data) ? imgData.data : Buffer.from(String(imgData.data), 'base64'),
                 transformation: { width: w, height: h }
               }));
             } catch(imgErr) {
@@ -9602,24 +9612,28 @@ ipcMain.handle('app:export-docx', async (event, request = {}) => {
     });
 
     const buffer = await Packer.toBuffer(doc);
-    const baseName = (typeof request.defaultName === 'string' && request.defaultName.trim())
-      ? request.defaultName.trim().replace(/\.md$/, '')
-      : 'document';
-    let finalPath;
-    const saveTargets = getSaveTargets();
-    if (request.target && saveTargets[request.target]) {
-      const targetDir = saveTargets[request.target];
-      await fs.ensureDir(targetDir);
-      finalPath = path.join(targetDir, baseName + '.docx');
-    } else {
-      const { canceled, filePath } = await dialog.showSaveDialog({
-        title: 'Save as DOCX',
-        defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
-        filters: [{ name: 'Word Document', extensions: ['docx'] }]
-      });
-      if (canceled || !filePath) return { ok: false, canceled: true };
-      finalPath = filePath;
+    const rawName = (typeof request.filename === 'string' && request.filename.trim())
+      ? request.filename.trim()
+      : ((typeof request.defaultName === 'string' && request.defaultName.trim()) ? request.defaultName.trim() : 'document');
+    const baseName = rawName.replace(/\.(md|docx)$/i, '');
+    let finalPath = request.targetPath || null;
+    if (!finalPath) {
+      const saveTargets = getSaveTargets();
+      if (request.target && saveTargets[request.target]) {
+        const targetDir = saveTargets[request.target];
+        await fs.mkdir(targetDir, { recursive: true });
+        finalPath = path.join(targetDir, baseName + '.docx');
+      } else {
+        const { canceled, filePath } = await dialog.showSaveDialog({
+          title: 'Save as DOCX',
+          defaultPath: path.join(app.getPath('downloads'), baseName + '.docx'),
+          filters: [{ name: 'Word Document', extensions: ['docx'] }]
+        });
+        if (canceled || !filePath) return { ok: false, canceled: true };
+        finalPath = filePath;
+      }
     }
+    await fs.mkdir(path.dirname(finalPath), { recursive: true });
     await fs.writeFile(finalPath, buffer);
     return { ok: true, path: finalPath, name: path.basename(finalPath) };
   } catch (err) {
@@ -9641,7 +9655,7 @@ ipcMain.handle('app:export-odt', async (event, request = {}) => {
       const saveTargets = getSaveTargets();
       if (request.target && saveTargets[request.target]) {
         const targetDir = saveTargets[request.target];
-        await fs.ensureDir(targetDir);
+        await fs.mkdir(targetDir, { recursive: true });
         finalPath = path.join(targetDir, baseName + '.odt');
       } else {
         const { canceled, filePath } = await dialog.showSaveDialog({
@@ -9653,6 +9667,7 @@ ipcMain.handle('app:export-odt', async (event, request = {}) => {
         finalPath = filePath;
       }
     }
+    await fs.mkdir(path.dirname(finalPath), { recursive: true });
     await fs.writeFile(finalPath, buffer);
     return { ok: true, path: finalPath, name: path.basename(finalPath) };
   } catch (err) {

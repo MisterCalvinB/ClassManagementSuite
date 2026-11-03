@@ -39,7 +39,7 @@
   // MARKDOWN TO ODT CONVERSION
   // ───────────────────────────────────────────────────────────────────────────
 
-  function renderInlineTokens(tokens) {
+  function renderInlineTokens(tokens, imgContext) {
     if (!tokens || !tokens.length) return '';
     let xml = '';
     for (const t of tokens) {
@@ -51,28 +51,35 @@
           xml += escapeXml(t.text);
           break;
         case 'strong':
-          xml += `<text:span text:style-name="Bold">${renderInlineTokens(t.tokens)}</text:span>`;
+          xml += `<text:span text:style-name="Bold">${renderInlineTokens(t.tokens, imgContext)}</text:span>`;
           break;
         case 'em':
-          xml += `<text:span text:style-name="Italic">${renderInlineTokens(t.tokens)}</text:span>`;
+          xml += `<text:span text:style-name="Italic">${renderInlineTokens(t.tokens, imgContext)}</text:span>`;
           break;
         case 'codespan':
           xml += `<text:span text:style-name="Source_Text">${escapeXml(t.text)}</text:span>`;
           break;
         case 'del':
-          xml += `<text:span text:style-name="Strikethrough">${renderInlineTokens(t.tokens)}</text:span>`;
+          xml += `<text:span text:style-name="Strikethrough">${renderInlineTokens(t.tokens, imgContext)}</text:span>`;
           break;
         case 'link':
-          xml += `<text:a xlink:type="simple" xlink:href="${escapeXml(t.href)}">${renderInlineTokens(t.tokens || [{ type: 'text', text: t.text }])}</text:a>`;
+          xml += `<text:a xlink:type="simple" xlink:href="${escapeXml(t.href)}">${renderInlineTokens(t.tokens || [{ type: 'text', text: t.text }], imgContext)}</text:a>`;
           break;
         case 'image':
+          if (imgContext && typeof imgContext.addImage === 'function') {
+            const frameXml = imgContext.addImage(t.href, t.text);
+            if (frameXml) {
+              xml += frameXml;
+              break;
+            }
+          }
           xml += `<text:span text:style-name="Italic">[Image: ${escapeXml(t.text || t.href)}]</text:span>`;
           break;
         case 'br':
           xml += '<text:line-break/>';
           break;
         default:
-          if (t.tokens) xml += renderInlineTokens(t.tokens);
+          if (t.tokens) xml += renderInlineTokens(t.tokens, imgContext);
           else if (t.text) xml += escapeXml(t.text);
           break;
       }
@@ -80,18 +87,18 @@
     return xml;
   }
 
-  function renderBlockTokens(tokens) {
+  function renderBlockTokens(tokens, imgContext) {
     if (!tokens || !tokens.length) return '';
     let xml = '';
     for (const t of tokens) {
       switch (t.type) {
         case 'heading': {
           const lvl = Math.min(6, Math.max(1, t.depth || 1));
-          xml += `<text:h text:outline-level="${lvl}" text:style-name="Heading_${lvl}">${renderInlineTokens(t.tokens)}</text:h>`;
+          xml += `<text:h text:outline-level="${lvl}" text:style-name="Heading_${lvl}">${renderInlineTokens(t.tokens, imgContext)}</text:h>`;
           break;
         }
         case 'paragraph': {
-          xml += `<text:p text:style-name="Standard">${renderInlineTokens(t.tokens)}</text:p>`;
+          xml += `<text:p text:style-name="Standard">${renderInlineTokens(t.tokens, imgContext)}</text:p>`;
           break;
         }
         case 'list': {
@@ -102,11 +109,11 @@
             if (item.tokens && item.tokens.length) {
               for (const it of item.tokens) {
                 if (it.type === 'text') {
-                  xml += `<text:p text:style-name="Standard">${renderInlineTokens(it.tokens || [{ type: 'text', text: it.text }])}</text:p>`;
+                  xml += `<text:p text:style-name="Standard">${renderInlineTokens(it.tokens || [{ type: 'text', text: it.text }], imgContext)}</text:p>`;
                 } else if (it.type === 'list') {
-                  xml += renderBlockTokens([it]);
+                  xml += renderBlockTokens([it], imgContext);
                 } else {
-                  xml += renderBlockTokens([it]);
+                  xml += renderBlockTokens([it], imgContext);
                 }
               }
             } else {
@@ -118,26 +125,28 @@
           break;
         }
         case 'table': {
-          xml += '<table:table table:name="Table">';
+          if (!imgContext.tableCounter) imgContext.tableCounter = 0;
+          imgContext.tableCounter++;
+          const tableName = `Table_${imgContext.tableCounter}`;
+          xml += `<table:table table:name="${tableName}" table:style-name="Table_Style">`;
           const colCount = (t.header || []).length || 1;
           xml += `<table:table-column table:number-columns-repeated="${colCount}"/>`;
-          if (t.header && t.header.length) {
+          const hasRealHeader = t.header && t.header.length && t.header.some(c => (c.text && c.text.trim()) || (c.tokens && c.tokens.length));
+          if (hasRealHeader) {
             xml += '<table:table-header-rows><table:table-row>';
             for (const cell of t.header) {
-              xml += `<table:table-cell table:style-name="TableHeader" office:value-type="string"><text:p text:style-name="Table_Header_Text">${renderInlineTokens(cell.tokens)}</text:p></table:table-cell>`;
+              xml += `<table:table-cell table:style-name="TableHeader" office:value-type="string"><text:p text:style-name="Table_Header_Text">${renderInlineTokens(cell.tokens, imgContext)}</text:p></table:table-cell>`;
             }
             xml += '</table:table-row></table:table-header-rows>';
           }
           if (t.rows && t.rows.length) {
-            xml += '<table:table-rows>';
             for (const row of t.rows) {
               xml += '<table:table-row>';
               for (const cell of row) {
-                xml += `<table:table-cell table:style-name="TableCell" office:value-type="string"><text:p text:style-name="Standard">${renderInlineTokens(cell.tokens)}</text:p></table:table-cell>`;
+                xml += `<table:table-cell table:style-name="TableCell" office:value-type="string"><text:p text:style-name="Standard">${renderInlineTokens(cell.tokens, imgContext)}</text:p></table:table-cell>`;
               }
               xml += '</table:table-row>';
             }
-            xml += '</table:table-rows>';
           }
           xml += '</table:table>';
           break;
@@ -150,17 +159,33 @@
           break;
         }
         case 'blockquote': {
-          xml += `<text:p text:style-name="Blockquote">${renderBlockTokens(t.tokens)}</text:p>`;
+          if (Array.isArray(t.tokens) && t.tokens.length) {
+            for (const sub of t.tokens) {
+              if (sub.type === 'paragraph') {
+                xml += `<text:p text:style-name="Blockquote">${renderInlineTokens(sub.tokens, imgContext)}</text:p>`;
+              } else {
+                xml += renderBlockTokens([sub], imgContext);
+              }
+            }
+          } else {
+            xml += `<text:p text:style-name="Blockquote">${escapeXml(t.text || '')}</text:p>`;
+          }
           break;
         }
         case 'hr': {
-          xml += '<text:p text:style-name="Horizontal_Line">________________________________________</text:p>';
+          xml += '<text:p text:style-name="Horizontal_Line"/>';
+          break;
+        }
+        case 'html': {
+          if (t.text && (t.text.includes('page-break') || t.text.includes('pagebreak') || t.text.includes('class-page-break'))) {
+            xml += '<text:p text:style-name="PageBreak"/>';
+          }
           break;
         }
         case 'space':
           break;
         default:
-          if (t.tokens) xml += renderBlockTokens(t.tokens);
+          if (t.tokens) xml += renderBlockTokens(t.tokens, imgContext);
           break;
       }
     }
@@ -179,13 +204,68 @@
     const pageH = orientation === 'landscape' ? pmm.w : pmm.h;
 
     const margins = options.margins || {};
-    const mt = parseMm(margins.top, 25.4);
-    const mr = parseMm(margins.right, 25.4);
-    const mb = parseMm(margins.bottom, 25.4);
-    const ml = parseMm(margins.left, 25.4);
+    const mt = parseMm(margins.top, 15);
+    const mr = parseMm(margins.right, 15);
+    const mb = parseMm(margins.bottom, 15);
+    const ml = parseMm(margins.left, 15);
 
-    const rawFont = String(options.fontFamily || 'Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Segoe UI';
+    const rawFont = String(options.fontFamily || 'Lexend, Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Lexend';
     const fontSizePt = parseFloat(options.fontSize) || 11;
+    const tableThBg = options.tableThBg || '#f5f5f0';
+    const borderColor = options.borderColor || '#333333';
+
+    // 1. mimetype (MUST be first and uncompressed)
+    const zip = new JSZip();
+    zip.file('mimetype', 'application/vnd.oasis.opendocument.text', { compression: 'STORE' });
+
+    // Track embedded pictures
+    const manifestEntries = [];
+    let imgCounter = 0;
+    const imgContext = {
+      addImage: function (href, alt) {
+        if (!href) return null;
+        let imgData = null;
+        let mime = 'image/png';
+        let ext = 'png';
+
+        if (typeof href === 'string' && href.startsWith('data:image/')) {
+          const semiIdx = href.indexOf(';');
+          const commaIdx = href.indexOf(',');
+          if (semiIdx !== -1 && commaIdx !== -1) {
+            mime = href.slice(5, semiIdx);
+            ext = mime.split('/')[1] || 'png';
+            if (ext === 'jpeg') ext = 'jpg';
+            imgData = href.slice(commaIdx + 1);
+          }
+        } else if (options.images && options.images[href]) {
+          const mapped = options.images[href];
+          if (typeof mapped === 'string' && mapped.startsWith('data:image/')) {
+            const semiIdx = mapped.indexOf(';');
+            const commaIdx = mapped.indexOf(',');
+            if (semiIdx !== -1 && commaIdx !== -1) {
+              mime = mapped.slice(5, semiIdx);
+              ext = mime.split('/')[1] || 'png';
+              if (ext === 'jpeg') ext = 'jpg';
+              imgData = mapped.slice(commaIdx + 1);
+            }
+          } else {
+            imgData = mapped;
+            if (href.match(/\.jpe?g$/i)) { mime = 'image/jpeg'; ext = 'jpg'; }
+            else if (href.match(/\.webp$/i)) { mime = 'image/webp'; ext = 'webp'; }
+            else if (href.match(/\.gif$/i)) { mime = 'image/gif'; ext = 'gif'; }
+          }
+        }
+
+        if (imgData) {
+          imgCounter++;
+          const imgName = `image_${imgCounter}.${ext}`;
+          zip.folder('Pictures').file(imgName, imgData, { base64: typeof imgData === 'string' });
+          manifestEntries.push(`<manifest:file-entry manifest:full-path="Pictures/${imgName}" manifest:media-type="${mime}"/>`);
+          return `<draw:frame draw:style-name="Graphics" draw:name="Graphic_${imgCounter}" text:anchor-type="as-char" svg:width="140mm" svg:height="90mm" draw:z-index="0"><draw:image xlink:href="Pictures/${imgName}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame>`;
+        }
+        return null;
+      }
+    };
 
     // Tokenize Markdown
     let tokens = [];
@@ -195,18 +275,13 @@
     } else if (typeof marked !== 'undefined' && marked.lexer) {
       tokens = marked.lexer(markdown);
     } else {
-      // Basic fallback line splitter
       tokens = markdown.split(/\n\n+/).map(block => ({
         type: 'paragraph',
         tokens: [{ type: 'text', text: block.trim() }]
       }));
     }
 
-    const bodyContentXml = renderBlockTokens(tokens);
-
-    // 1. mimetype (MUST be first and uncompressed)
-    const zip = new JSZip();
-    zip.file('mimetype', 'application/vnd.oasis.opendocument.text', { compression: 'STORE' });
+    const bodyContentXml = renderBlockTokens(tokens, imgContext);
 
     // 2. META-INF/manifest.xml
     const manifestXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -215,6 +290,7 @@
   <manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>
   <manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>
   <manifest:file-entry manifest:full-path="meta.xml" manifest:media-type="text/xml"/>
+  ${manifestEntries.join('\n  ')}
 </manifest:manifest>`;
     zip.folder('META-INF').file('manifest.xml', manifestXml);
 
@@ -237,6 +313,9 @@
       <style:paragraph-properties fo:line-height="125%" fo:margin-bottom="6pt"/>
       <style:text-properties fo:font-size="${fontSizePt}pt" style:font-name="${escapeXml(rawFont)}" fo:color="#222222"/>
     </style:default-style>
+    <style:style style:name="PageBreak" style:family="paragraph">
+      <style:paragraph-properties fo:break-before="page"/>
+    </style:style>
   </office:styles>
   <office:automatic-styles>
     <style:page-layout style:name="PM1">
@@ -251,12 +330,14 @@
 
     // 5. content.xml
     const contentXml = `<?xml version="1.0" encoding="UTF-8"?>
-<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.2">
+<office:document-content xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" office:version="1.2">
   <office:automatic-styles>
     <style:style style:name="Bold" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>
     <style:style style:name="Italic" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>
     <style:style style:name="Strikethrough" style:family="text"><style:text-properties style:text-line-through-style="solid"/></style:style>
     <style:style style:name="Source_Text" style:family="text"><style:text-properties fo:font-family="monospace" fo:background-color="#f5f5f0"/></style:style>
+    <style:style style:name="PageBreak" style:family="paragraph"><style:paragraph-properties fo:break-before="page"/></style:style>
+    <style:style style:name="Graphics" style:family="graphic"><style:graphic-properties svg:stroke-color="${borderColor}" draw:fill="none"/></style:style>
     <style:style style:name="Heading_1" style:family="paragraph"><style:text-properties fo:font-size="20pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="12pt" fo:margin-bottom="6pt"/></style:style>
     <style:style style:name="Heading_2" style:family="paragraph"><style:text-properties fo:font-size="16pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="10pt" fo:margin-bottom="4pt"/></style:style>
     <style:style style:name="Heading_3" style:family="paragraph"><style:text-properties fo:font-size="13pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="8pt" fo:margin-bottom="3pt"/></style:style>
@@ -264,9 +345,11 @@
     <style:style style:name="Heading_5" style:family="paragraph"><style:text-properties fo:font-size="10pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="4pt" fo:margin-bottom="2pt"/></style:style>
     <style:style style:name="Heading_6" style:family="paragraph"><style:text-properties fo:font-size="9pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="4pt" fo:margin-bottom="2pt"/></style:style>
     <style:style style:name="Preformatted_Text" style:family="paragraph"><style:text-properties fo:font-family="monospace" fo:font-size="9.5pt"/><style:paragraph-properties fo:margin-top="2pt" fo:margin-bottom="2pt" fo:background-color="#f9f9f6"/></style:style>
-    <style:style style:name="Blockquote" style:family="paragraph"><style:paragraph-properties fo:margin-left="12pt" fo:border-left="2pt solid #666666" fo:padding-left="6pt"/><style:text-properties fo:font-style="italic"/></style:style>
-    <style:style style:name="TableHeader" style:family="table-cell"><style:table-cell-properties fo:border="1pt solid #333333" fo:background-color="#f5f5f0" fo:padding="5pt"/></style:style>
-    <style:style style:name="TableCell" style:family="table-cell"><style:table-cell-properties fo:border="0.5pt solid #cccccc" fo:padding="5pt"/></style:style>
+    <style:style style:name="Horizontal_Line" style:family="paragraph"><style:paragraph-properties fo:border-bottom="1.5pt solid ${borderColor}" fo:margin-top="8pt" fo:margin-bottom="12pt"/></style:style>
+    <style:style style:name="Blockquote" style:family="paragraph"><style:paragraph-properties fo:margin-left="6pt" fo:margin-right="6pt" fo:margin-top="4pt" fo:margin-bottom="6pt" fo:border-left="3pt solid ${borderColor}" fo:padding-left="8pt" fo:background-color="#fdfdf9"/><style:text-properties fo:font-style="italic"/></style:style>
+    <style:style style:name="Table_Style" style:family="table"><style:table-properties style:width="100%" table:align="margins" fo:margin-top="4pt" fo:margin-bottom="8pt"/></style:style>
+    <style:style style:name="TableHeader" style:family="table-cell"><style:table-cell-properties fo:border="1pt solid ${borderColor}" fo:background-color="${tableThBg}" fo:padding="5pt"/></style:style>
+    <style:style style:name="TableCell" style:family="table-cell"><style:table-cell-properties fo:border="0.5pt solid ${borderColor}" fo:padding="5pt"/></style:style>
     <style:style style:name="Table_Header_Text" style:family="paragraph"><style:text-properties fo:font-weight="bold"/></style:style>
   </office:automatic-styles>
   <office:body>

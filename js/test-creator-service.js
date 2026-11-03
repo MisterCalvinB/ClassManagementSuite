@@ -70,7 +70,8 @@
     { id: 'section_competences', name: 'Competences Block', icon: 'award.svg', desc: 'Curriculum objectives & competence table block', isSection: true },
     { id: 'section_criteria', name: 'Criteria Rubric Block', icon: 'check-circle.svg', desc: 'Assessment criteria & evaluation rubric block', isSection: true },
     { id: 'section_grading_scale', name: 'Grading Scale Block', icon: 'table.svg', desc: 'Score conversion & grade threshold table block', isSection: true },
-    { id: 'section_custom', name: 'Custom Block', icon: 'document-editor.svg', desc: 'Custom HTML or WYSIWYG rich text block', isSection: true }
+    { id: 'section_custom', name: 'Custom Block', icon: 'document-editor.svg', desc: 'Custom HTML or WYSIWYG rich text block', isSection: true },
+    { id: 'section_pdf', name: 'PDF Document', icon: 'file-text.svg', desc: 'External PDF document or reading passage', isSection: true }
   ];
 
   // ── 2b. Default Header Configuration & Typography ─────────────────────────
@@ -90,7 +91,7 @@
     showVariantBadge: true,
     showGradingScale: false,
     gradingScaleLabel: 'Grading Scale & Score Conversion:',
-    gradingScaleStyle: { bold: true, italic: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid' }, // 'table' | 'inline' | 'inline_grades'
+    gradingScaleStyle: { bold: true, italic: false, displayMode: 'table', background: 'default', padding: 'standard', border: 'solid', showGradeCol: true, showThresholdCol: true, showPointsCol: true, showNotesCol: true }, // 'table' | 'inline' | 'compact' | 'inline_grades'
     showCompetences: false,
     showCompetenceDescriptions: true,
     competencesLabel: 'Competences & Curriculum Objectives:',
@@ -354,9 +355,19 @@
     };
   };
 
-  TestCreatorService.buildInlineGradeItems = function (tableData, totalPts, isHtml) {
+  TestCreatorService.buildInlineGradeItems = function (tableData, totalPts, isHtml, colOpts) {
     if (!tableData || !tableData.rows || !tableData.rows.length) return [];
     var tPts = Number(totalPts) || 0;
+    var cols = colOpts || {};
+    var showGrade = cols.showGradeCol !== false;
+    var showThreshold = cols.showThresholdCol !== false;
+    var showPoints = cols.showPointsCol !== false;
+    var showNotes = !!cols.showNotesCol;
+    if (!showGrade && !showThreshold && !showPoints && !showNotes) {
+      showGrade = true;
+      showPoints = true;
+    }
+
     return tableData.rows.map(function (row) {
       var g = String(row.grade !== undefined && row.grade !== null ? row.grade : '');
       var pts = (row.minPoints !== undefined) ? row.minPoints : (row.points !== undefined ? row.points : (parseFloat(row.pointsStr) || 0));
@@ -374,10 +385,20 @@
       var pctStr = pctNum + '%';
 
       if (isHtml) {
-        var colorBorder = row.color ? ' style="border-left: 3px solid ' + row.color + '; padding-left: 4px;"' : '';
-        return '<span class="grading-scale-inline-item"' + colorBorder + '><strong class="scale-inline-grade">' + escapeHtml(g) + '</strong> = ' + ptsNum + ' <span class="scale-inline-pct">(' + pctStr + ')</span></span>';
+        var colorBorder = (row.color && showGrade) ? ' style="border-left: 3px solid ' + row.color + '; padding-left: 4px;"' : '';
+        var parts = [];
+        if (showGrade) parts.push('<strong class="scale-inline-grade">' + escapeHtml(g) + '</strong>');
+        if (showPoints) parts.push((showGrade ? '= ' : '') + ptsNum + (showGrade ? '' : ' pts'));
+        if (showThreshold) parts.push('<span class="scale-inline-pct">(' + pctStr + ')</span>');
+        if (showNotes && row.desc) parts.push('<span class="scale-inline-desc">[' + escapeHtml(row.desc) + ']</span>');
+        return '<span class="grading-scale-inline-item"' + colorBorder + '>' + parts.join(' ') + '</span>';
       } else {
-        return g + ' = ' + ptsNum + ' (' + pctStr + ')';
+        var parts = [];
+        if (showGrade) parts.push(g);
+        if (showPoints) parts.push((showGrade ? '= ' : '') + ptsNum + (showGrade ? '' : ' pts'));
+        if (showThreshold) parts.push('(' + pctStr + ')');
+        if (showNotes && row.desc) parts.push('[' + row.desc + ']');
+        return parts.join(' ');
       }
     });
   };
@@ -390,7 +411,12 @@
     var scaleModelId = test.scaleModelId || 'pts_20';
     var tableData = TestCreatorService.calculateGradeConversionTable(scaleModel || scaleModelId, totalPts);
     var isHtml = !!opts.html;
-    var items = TestCreatorService.buildInlineGradeItems(tableData, totalPts, isHtml);
+    var items = TestCreatorService.buildInlineGradeItems(tableData, totalPts, isHtml, {
+      showGradeCol: opts.showGradeCol,
+      showThresholdCol: opts.showThresholdCol,
+      showPointsCol: opts.showPointsCol,
+      showNotesCol: opts.showNotesCol
+    });
     if (!items.length) {
       var sName = (scaleModel && (scaleModel.label || scaleModel.name)) || scaleModelId;
       return isHtml ? escapeHtml(sName) : sName;
@@ -1819,7 +1845,13 @@
           displayMode: 'table',
           background: 'default',
           border: 'solid',
-          padding: 'standard'
+          padding: 'standard',
+          showGradeCol: true,
+          showThresholdCol: true,
+          showPointsCol: true,
+          showNotesCol: true,
+          separatePage: false,
+          pageOrientation: 'portrait'
         };
         break;
 
@@ -1840,10 +1872,72 @@
           padding: 'standard'
         };
         break;
+
+      case 'section_pdf':
+        ex.title = 'Document: Reading Passage';
+        ex.instructions = '';
+        ex.points = 0;
+        ex.forcePageBreak = true;
+        ex.content = {
+          pdfPath: '',
+          pdfName: '',
+          pdfSize: 0,
+          totalPdfPages: 0,
+          pageSelectionMode: 'all',
+          pageRangeString: 'all',
+          selectedPageNumbers: [],
+          renderedPagesCache: {}
+        };
+        ex.options = {
+          displayMode: 'full_page',
+          separatePage: true,
+          pageOrientation: 'portrait',
+          fitMode: 'fit_page',
+          customScalePercent: 100,
+          showTitle: true,
+          showInstructions: true,
+          showPageNumbers: true,
+          headerStyle: 'standard',
+          includeInStudentTest: true,
+          includeInTeacherKey: true
+        };
+        break;
     }
 
     TestCreatorService.ensureExerciseOptions(ex);
     return ex;
+  };
+
+  TestCreatorService.parsePageRange = function (rangeStr, totalPages) {
+    if (!totalPages || totalPages < 1) totalPages = 1;
+    if (!rangeStr || typeof rangeStr !== 'string' || rangeStr.trim().toLowerCase() === 'all') {
+      var allPages = [];
+      for (var i = 1; i <= totalPages; i++) allPages.push(i);
+      return allPages;
+    }
+    var cleaned = rangeStr.trim();
+    var parts = cleaned.split(/[,;\s]+/);
+    var resultSet = new Set();
+    parts.forEach(function (part) {
+      if (!part) return;
+      var rangeMatch = part.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
+      if (rangeMatch) {
+        var start = parseInt(rangeMatch[1], 10);
+        var end = parseInt(rangeMatch[2], 10);
+        if (!isNaN(start) && !isNaN(end)) {
+          var minP = Math.max(1, Math.min(start, end));
+          var maxP = Math.min(totalPages, Math.max(start, end));
+          for (var p = minP; p <= maxP; p++) resultSet.add(p);
+        }
+      } else {
+        var single = parseInt(part, 10);
+        if (!isNaN(single) && single >= 1 && single <= totalPages) {
+          resultSet.add(single);
+        }
+      }
+    });
+    var arr = Array.from(resultSet).sort(function (a, b) { return a - b; });
+    return arr.length > 0 ? arr : [1];
   };
 
   // ── 3a. Exercise Customisation Options Initializer ───────────────────────
@@ -1899,6 +1993,12 @@
         if (o.background === undefined) o.background = 'default';
         if (o.border === undefined) o.border = 'solid';
         if (o.padding === undefined) o.padding = 'standard';
+        if (o.showGradeCol === undefined) o.showGradeCol = true;
+        if (o.showThresholdCol === undefined) o.showThresholdCol = true;
+        if (o.showPointsCol === undefined) o.showPointsCol = true;
+        if (o.showNotesCol === undefined) o.showNotesCol = true;
+        if (o.separatePage === undefined) o.separatePage = false;
+        if (o.pageOrientation === undefined) o.pageOrientation = 'portrait';
         break;
 
       case 'section_custom':
@@ -1908,6 +2008,19 @@
         if (o.background === undefined) o.background = 'default';
         if (o.border === undefined) o.border = 'solid';
         if (o.padding === undefined) o.padding = 'standard';
+        break;
+
+      case 'section_pdf':
+        if (o.displayMode === undefined) o.displayMode = 'full_page';
+        if (o.separatePage === undefined) o.separatePage = true;
+        if (o.pageOrientation === undefined) o.pageOrientation = 'portrait';
+        if (o.fitMode === undefined) o.fitMode = 'fit_page';
+        if (o.customScalePercent === undefined) o.customScalePercent = 100;
+        if (o.showTitle === undefined) o.showTitle = true;
+        if (o.showInstructions === undefined) o.showInstructions = true;
+        if (o.showPageNumbers === undefined) o.showPageNumbers = true;
+        if (o.includeInStudentTest === undefined) o.includeInStudentTest = true;
+        if (o.includeInTeacherKey === undefined) o.includeInTeacherKey = true;
         break;
 
       case 'cloze':
@@ -2155,10 +2268,11 @@
     return blanks;
   };
 
-  TestCreatorService.calculateExercisePoints = function (ex) {
+  TestCreatorService.calculateExercisePoints = function (ex, testContext) {
     if (!ex) return 0;
     var pts = 0;
     var ppi = Number(ex.pointsPerItem) || 1;
+    var ctx = testContext || (typeof currentTest !== 'undefined' ? currentTest : (typeof window !== 'undefined' ? window.currentTest : null));
 
     switch (ex.type) {
       case 'cloze':
@@ -2267,9 +2381,43 @@
         break;
 
       case 'section_competences':
-      case 'section_criteria':
       case 'section_grading_scale':
         pts = 0;
+        break;
+
+      case 'section_criteria':
+        var sCrits = (Array.isArray(ex.criteria) && ex.criteria.length)
+          ? ex.criteria
+          : ((Array.isArray(ex.markingRubric) && ex.markingRubric.length)
+            ? ex.markingRubric
+            : ((Array.isArray(ex.linkedCriteria) && ex.linkedCriteria.length) ? ex.linkedCriteria : []));
+        if (sCrits.length > 0) {
+          pts = sCrits.reduce(function (sum, c) {
+            var w = Number(c.weight || c.pointCoefficient) || 1;
+            var cp = (c.maxPoints != null && c.maxPoints !== '')
+              ? Number(c.maxPoints)
+              : ((Array.isArray(c.grades) && c.grades.length && !isNaN(Number(c.grades[0])))
+                ? Number(c.grades[0])
+                : ((c.points != null && c.points !== '') ? Number(c.points) : 0));
+            if (isNaN(cp)) cp = 0;
+            return sum + (cp * w);
+          }, 0);
+        } else if (ctx && Array.isArray(ctx.criteria) && ctx.criteria.length > 0) {
+          pts = ctx.criteria.reduce(function (sum, c) {
+            var w = Number(c.weight || c.pointCoefficient) || 1;
+            var cp = (c.maxPoints != null && c.maxPoints !== '')
+              ? Number(c.maxPoints)
+              : ((Array.isArray(c.grades) && c.grades.length && !isNaN(Number(c.grades[0])))
+                ? Number(c.grades[0])
+                : ((c.points != null && c.points !== '') ? Number(c.points) : 0));
+            if (isNaN(cp)) cp = 0;
+            return sum + (cp * w);
+          }, 0);
+        } else if (ex.points != null && !isNaN(Number(ex.points))) {
+          pts = Number(ex.points);
+        } else {
+          pts = 0;
+        }
         break;
 
       case 'section_custom':
@@ -2287,11 +2435,35 @@
   };
 
   TestCreatorService.calculateTotalTestPoints = function (test) {
-    if (!test || !Array.isArray(test.exercises)) return 0;
+    if (!test) return 0;
     var total = 0;
-    test.exercises.forEach(function (ex) {
-      total += TestCreatorService.calculateExercisePoints(ex);
-    });
+    var hasCritSection = false;
+
+    if (Array.isArray(test.exercises)) {
+      test.exercises.forEach(function (ex) {
+        if (ex && ex.type === 'section_criteria') {
+          hasCritSection = true;
+        }
+        total += TestCreatorService.calculateExercisePoints(ex, test);
+      });
+    }
+
+    if (!hasCritSection) {
+      var examCrits = (Array.isArray(test.criteria) && test.criteria.length)
+        ? test.criteria
+        : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
+      examCrits.forEach(function (c) {
+        var w = Number(c.weight || c.pointCoefficient) || 1;
+        var cp = (c.maxPoints != null && c.maxPoints !== '')
+          ? Number(c.maxPoints)
+          : ((Array.isArray(c.grades) && c.grades.length && !isNaN(Number(c.grades[0])))
+            ? Number(c.grades[0])
+            : ((c.points != null && c.points !== '') ? Number(c.points) : 0));
+        if (isNaN(cp)) cp = 0;
+        total += (cp * w);
+      });
+    }
+
     return Math.round(total * 10) / 10;
   };
 
@@ -2812,6 +2984,7 @@
       '.scale-empty-cell { color: #888; }',
       '.grading-scale-table td.scale-grade-cell { font-weight: 800; font-size: 9pt; }',
       '.grading-scale-inline-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 9pt; }',
+      '.grading-scale-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; }',
       '.grading-scale-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border: 1.5px solid #333333; border-radius: 4px; font-weight: 700; font-size: 8pt; background: #ffffff; box-shadow: 1px 1px 0 #555555; }',
       '/* Exam Competences & Curriculum Objectives Component */',
       '.exam-competences-wrap { margin-top: 12px; padding: 10px 14px; border: 2px solid #2563eb; border-radius: 4px; background: #f0f7ff; break-inside: auto; page-break-inside: auto; }',
@@ -3017,6 +3190,85 @@
     ].join('\n');
 
     return css + '\n' + commonNumberedLineCss + '\n' + commonHeaderAndQuestionCss;
+  };
+
+  TestCreatorService.resolveActiveStyleTokens = function (test, themeName) {
+    var rawTheme = String(themeName || (test && test.exportStyle && (test.exportStyle.theme || test.exportStyle.stylesheetTheme)) || (test && test.stylesheetTheme) || 'academic').trim();
+    var tStyle = (test && test.exportStyle) || {};
+    var margins = tStyle.margins || { top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
+
+    var tokens = {
+      themeName: rawTheme,
+      fontFamily: 'Lexend, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      fontSize: tStyle.fontSize || '11pt',
+      lineHeight: tStyle.lineHeight || '1.45',
+      padding: tStyle.padding || '14px',
+      borderColor: '#333333',
+      borderWidth: '2px',
+      borderWidthPt: 1.5,
+      bgSurface: '#ffffff',
+      bgPage: '#f5f5f0',
+      shadowColor: '#555555',
+      textColor: '#1e293b',
+      tableThBg: '#f0f0eb',
+      tableRowEven: '#fafaf7',
+      accentColor: '#333333',
+      accentAmber: '#e2c96e',
+      accentTeal: '#6abf8e',
+      accentRed: '#c96b6b',
+      margins: margins,
+      numberedLines: !!tStyle.numberedLines,
+      lineNumbering: tStyle.lineNumbering || {}
+    };
+
+    if (rawTheme.indexOf('modern') !== -1) {
+      tokens.fontFamily = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      tokens.borderColor = '#e2e8f0';
+      tokens.borderWidthPt = 1.0;
+      tokens.bgPage = '#ffffff';
+      tokens.tableThBg = '#f8fafc';
+    } else if (rawTheme.indexOf('dys') !== -1) {
+      tokens.fontFamily = 'OpenDyslexic, Lexend, Arial, sans-serif';
+      tokens.lineHeight = '1.8';
+      tokens.fontSize = '12pt';
+      tokens.bgPage = '#fdfbf7';
+      tokens.bgSurface = '#fdfdfb';
+      tokens.borderColor = '#555555';
+    } else if (rawTheme.indexOf('plain') !== -1 || rawTheme.indexOf('eco') !== -1) {
+      tokens.fontFamily = 'Times New Roman, serif';
+      tokens.bgPage = '#ffffff';
+      tokens.bgSurface = '#ffffff';
+      tokens.borderColor = '#000000';
+      tokens.borderWidthPt = 1.0;
+      tokens.shadowColor = '#000000';
+      tokens.tableThBg = '#f5f5f5';
+    } else if (rawTheme.indexOf('classic') !== -1 || rawTheme.indexOf('academic') !== -1) {
+      tokens.fontFamily = 'Georgia, Times New Roman, serif';
+      tokens.borderColor = '#111827';
+      tokens.borderWidthPt = 1.0;
+      tokens.bgPage = '#ffffff';
+      tokens.tableThBg = '#f3f4f6';
+    }
+
+    if (typeof window !== 'undefined' && window.ExportStylesService) {
+      try {
+        var rawCss = ExportStylesService.getStyleContent ? ExportStylesService.getStyleContent(rawTheme) : '';
+        if (typeof rawCss === 'string' && rawCss) {
+          var matchColor = rawCss.match(/--exp-border-color\s*:\s*([^;]+);/i);
+          if (matchColor && matchColor[1]) tokens.borderColor = matchColor[1].trim();
+          var matchBg = rawCss.match(/--exp-bg-surface\s*:\s*([^;]+);/i);
+          if (matchBg && matchBg[1]) tokens.bgSurface = matchBg[1].trim();
+          var matchPage = rawCss.match(/--exp-bg-page\s*:\s*([^;]+);/i);
+          if (matchPage && matchPage[1]) tokens.bgPage = matchPage[1].trim();
+          var matchFont = rawCss.match(/--exp-font-family\s*:\s*([^;]+);/i);
+          if (matchFont && matchFont[1]) tokens.fontFamily = matchFont[1].trim();
+          var matchTh = rawCss.match(/--exp-table-th-bg\s*:\s*([^;]+);/i);
+          if (matchTh && matchTh[1]) tokens.tableThBg = matchTh[1].trim();
+        }
+      } catch (_) {}
+    }
+
+    return tokens;
   };
 
   // ── 3c. Modular Customizable Header Renderer ─────────────────────────────
@@ -3901,14 +4153,43 @@
     if (gSt.underline) titleClasses.push('title-underline');
     var titleClsAttr = ' class="' + titleClasses.join(' ') + '"';
 
-    var bgCls = ' scale-bg-' + (opts.background || gSt.background || (displayMode === 'inline_grades' ? 'amber' : 'default'));
+    var isInlineMode = (displayMode === 'inline' || displayMode === 'inline_grades');
+    var isCompactMode = (displayMode === 'compact');
+
+    var bgCls = ' scale-bg-' + (opts.background || gSt.background || (isInlineMode ? 'amber' : 'default'));
     var padCls = ' scale-pad-' + (opts.padding || gSt.padding || 'standard');
     var borderCls = ' scale-border-' + (opts.border || gSt.border || 'solid');
 
-    if (displayMode === 'inline_grades') {
-      var inlineItems = TestCreatorService.buildInlineGradeItems(tableData, totalPts, true);
+    var pageClasses = '';
+    if (opts.applyPageLayout !== false) {
+      var sepPage = (opts.separatePage !== undefined) ? opts.separatePage : (gSt.separatePage || gSt.pageOrientation === 'landscape');
+      var pageOrient = opts.pageOrientation || gSt.pageOrientation || 'portrait';
+      if (sepPage) {
+        pageClasses += ' page-break-before';
+        pageClasses += (pageOrient === 'landscape') ? ' page-orientation-landscape' : ' page-orientation-portrait';
+        if (opts.pageBreakAfter) pageClasses += ' page-break-after';
+      }
+    }
+
+    var showGradeCol = (opts.showGradeCol !== undefined) ? !!opts.showGradeCol : (gSt.showGradeCol !== false);
+    var showThresholdCol = (opts.showThresholdCol !== undefined) ? !!opts.showThresholdCol : (gSt.showThresholdCol !== false);
+    var showPointsCol = (opts.showPointsCol !== undefined) ? !!opts.showPointsCol : (gSt.showPointsCol !== false);
+    var showNotesCol = (opts.showNotesCol !== undefined) ? !!opts.showNotesCol : ((opts.showDescCol !== undefined) ? !!opts.showDescCol : (gSt.showNotesCol !== false));
+
+    if (!showGradeCol && !showThresholdCol && !showPointsCol && !showNotesCol) {
+      showGradeCol = true;
+      showPointsCol = true;
+    }
+
+    if (isInlineMode) {
+      var inlineItems = TestCreatorService.buildInlineGradeItems(tableData, totalPts, true, {
+        showGradeCol: showGradeCol,
+        showThresholdCol: showThresholdCol,
+        showPointsCol: showPointsCol,
+        showNotesCol: showNotesCol
+      });
       var out = [];
-      out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-inline' + bgCls + padCls + borderCls + '">');
+      out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-inline' + bgCls + padCls + borderCls + pageClasses + '">');
       out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
       out.push('        <div class="grading-scale-inline-row">');
       out.push('          ' + (inlineItems.length ? inlineItems.join('<span class="grading-scale-inline-sep"> · </span>') : escapeHtml(tableData.scaleName || scaleModelId)));
@@ -3917,29 +4198,54 @@
       return out.join('\n');
     }
 
+    if (isCompactMode) {
+      var out = [];
+      out.push('      <div class="exam-grading-scale-wrap exam-grading-scale-compact' + bgCls + padCls + borderCls + pageClasses + '">');
+      out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
+      out.push('        <div class="grading-scale-chips">');
+      if (tableData.rows && tableData.rows.length) {
+        tableData.rows.forEach(function (row) {
+          var colorBorder = row.color ? ' border-left: 4px solid ' + row.color + ';' : '';
+          var parts = [];
+          if (showGradeCol) parts.push('<strong class="scale-inline-grade">' + escapeHtml(row.grade) + '</strong>');
+          if (showPointsCol) parts.push('<span>' + escapeHtml(row.pointsStr) + '</span>');
+          if (showThresholdCol) parts.push('<span class="grading-scale-inline-pct">(' + escapeHtml(row.thresholdStr) + ')</span>');
+          if (showNotesCol && row.desc) parts.push('<span class="scale-desc-cell" style="font-size:0.68rem;opacity:0.85;">[' + escapeHtml(row.desc) + ']</span>');
+          if (!parts.length) parts.push('<strong>' + escapeHtml(row.grade) + '</strong>: ' + escapeHtml(row.pointsStr));
+          out.push('          <div class="grading-scale-chip" style="' + colorBorder + '">' + parts.join(' · ') + '</div>');
+        });
+      } else {
+        out.push('          <div class="grading-scale-chip">' + escapeHtml(tableData.scaleName || scaleModelId) + '</div>');
+      }
+      out.push('        </div>');
+      out.push('      </div>');
+      return out.join('\n');
+    }
+
     var out = [];
-    out.push('      <div class="exam-grading-scale-wrap' + bgCls + padCls + borderCls + '">');
+    out.push('      <div class="exam-grading-scale-wrap' + bgCls + padCls + borderCls + pageClasses + '">');
     out.push('        <div' + titleClsAttr + '>' + TestCreatorService.formatRichText(label) + ' <span class="scale-title-sub">(' + escapeHtml(tableData.scaleName || scaleModelId) + ' — Total ' + totalPts + ' pts)</span></div>');
     out.push('        <table class="grading-scale-table">');
     out.push('          <thead><tr>');
-    out.push('            <th class="col-scale-grade">Grade / Mark</th>');
-    out.push('            <th class="col-scale-threshold">Threshold</th>');
-    out.push('            <th class="col-scale-points">Required Score</th>');
-    out.push('            <th class="col-scale-notes">Evaluation / Notes</th>');
+    if (showGradeCol) out.push('            <th class="col-scale-grade">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleGrade')) || 'Grade / Mark') + '</th>');
+    if (showThresholdCol) out.push('            <th class="col-scale-threshold">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleThreshold')) || 'Threshold') + '</th>');
+    if (showPointsCol) out.push('            <th class="col-scale-points">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScalePoints')) || 'Required Score') + '</th>');
+    if (showNotesCol) out.push('            <th class="col-scale-notes">' + escapeHtml((typeof i18n !== 'undefined' && i18n.t && i18n.t('tcColScaleNotes')) || 'Evaluation / Notes') + '</th>');
     out.push('          </tr></thead>');
     out.push('          <tbody>');
     if (tableData.rows && tableData.rows.length) {
       tableData.rows.forEach(function (row) {
-        var colorBorder = row.color ? ' style="border-left: 4px solid ' + row.color + ';"' : '';
+        var colorBorder = (row.color && showGradeCol) ? ' style="border-left: 4px solid ' + row.color + ';"' : '';
         out.push('            <tr>');
-        out.push('              <td class="scale-grade-cell"' + colorBorder + '><strong>' + escapeHtml(row.grade) + '</strong></td>');
-        out.push('              <td>' + escapeHtml(row.thresholdStr) + '</td>');
-        out.push('              <td><strong>' + escapeHtml(row.pointsStr) + '</strong></td>');
-        out.push('              <td class="scale-desc-cell">' + escapeHtml(row.desc || '') + '</td>');
+        if (showGradeCol) out.push('              <td class="scale-grade-cell"' + colorBorder + '><strong>' + escapeHtml(row.grade) + '</strong></td>');
+        if (showThresholdCol) out.push('              <td>' + escapeHtml(row.thresholdStr) + '</td>');
+        if (showPointsCol) out.push('              <td><strong>' + escapeHtml(row.pointsStr) + '</strong></td>');
+        if (showNotesCol) out.push('              <td class="scale-desc-cell">' + escapeHtml(row.desc || '') + '</td>');
         out.push('            </tr>');
       });
     } else {
-      out.push('            <tr><td colspan="4" class="scale-empty-cell">Standard scale: ' + escapeHtml(tableData.scaleName || scaleModelId) + '</td></tr>');
+      var colSpan = (showGradeCol ? 1 : 0) + (showThresholdCol ? 1 : 0) + (showPointsCol ? 1 : 0) + (showNotesCol ? 1 : 0);
+      out.push('            <tr><td colspan="' + (colSpan || 1) + '" class="scale-empty-cell">Standard scale: ' + escapeHtml(tableData.scaleName || scaleModelId) + '</td></tr>');
     }
     out.push('          </tbody>');
     out.push('        </table>');
@@ -3951,7 +4257,7 @@
     if (!ex) return '';
     var opts = options || {};
     var testContext = opts.test || null;
-    var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block');
+    var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
     var num = (opts.exerciseNumber !== undefined && opts.exerciseNumber > 0) ? opts.exerciseNumber : (index + 1);
     var html = [];
     var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
@@ -4043,15 +4349,27 @@
       var scOpts = Object.assign({}, ex.options || {});
       var tPts = (opts.totalPoints !== undefined) ? opts.totalPoints : (testContext ? TestCreatorService.calculateTotalTestPoints(testContext) : (ex.totalPoints || 20));
       var tObj = testContext || { scaleModel: ex.scaleModel || null, scaleModelId: ex.scaleModelId || 'pts_20' };
+      var scaleSepPage = !!(ex.forcePageBreak || scOpts.separatePage || scOpts.pageOrientation === 'landscape');
+      var scaleOrient = scOpts.pageOrientation || 'portrait';
+      var scalePageCls = scaleSepPage
+        ? (' page-break-before ' + (scaleOrient === 'landscape' ? 'page-orientation-landscape' : 'page-orientation-portrait') + (opts.hasNextExercise ? ' page-break-after' : ''))
+        : pageBreakClass;
       var scaleHtml = TestCreatorService.renderGradingScaleHtml(tObj, {
-        title: ex.title || 'Grading Scale & Score Conversion',
+        title: scOpts.scaleTitle || ex.title || 'Grading Scale & Score Conversion',
         displayMode: scOpts.displayMode || 'table',
         totalPoints: tPts,
         background: scOpts.background || 'default',
         border: scOpts.border || 'solid',
-        padding: scOpts.padding || 'standard'
+        padding: scOpts.padding || 'standard',
+        showGradeCol: scOpts.showGradeCol !== false,
+        showThresholdCol: scOpts.showThresholdCol !== false,
+        showPointsCol: scOpts.showPointsCol !== false,
+        showNotesCol: scOpts.showNotesCol !== false,
+        applyPageLayout: false
       });
-      return '<div class="exercise-card section-block-card' + pageBreakClass + '" id="ex-' + ex.id + '">' +
+      var scaleInstrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
+      return '<div class="exercise-card section-block-card' + scalePageCls + '" id="ex-' + ex.id + '">' +
+        scaleInstrBanner +
         (scaleHtml || '<div class="exam-grading-scale-wrap"><div class="exam-grading-scale-title">' + TestCreatorService.formatRichText(ex.title || 'Grading Scale') + '</div></div>') +
         '</div>';
     }
@@ -4083,6 +4401,82 @@
       }
       out.push('    <div class="exam-custom-block-body">');
       out.push('      ' + customBody);
+      out.push('    </div>');
+      out.push('  </div>');
+      out.push('</div>');
+      return out.join('\n');
+    }
+
+    if (ex.type === 'section_pdf') {
+      var pdfOpts = Object.assign({}, ex.options || {});
+      var pdfContent = ex.content || {};
+      if (isTeacherKey && pdfOpts.includeInTeacherKey === false) return '';
+      if (!isTeacherKey && pdfOpts.includeInStudentTest === false) return '';
+
+      var showTitle = pdfOpts.showTitle !== false && !!ex.title;
+      var showInstr = pdfOpts.showInstructions !== false && !!ex.instructions;
+      var sepPage = !!(ex.forcePageBreak || pdfOpts.separatePage);
+      var orient = pdfOpts.pageOrientation || 'portrait';
+      var fitMode = pdfOpts.fitMode || 'fit_page';
+      var customScale = Number(pdfOpts.customScalePercent) || 100;
+      var showPageNums = pdfOpts.showPageNumbers !== false;
+
+      var blockClasses = ['exercise-card', 'section-block-card', 'section-pdf-card'];
+      if (sepPage) {
+        blockClasses.push('page-break-before');
+        if (opts.hasNextExercise) blockClasses.push('page-break-after');
+      } else if (pageBreakClass) {
+        blockClasses.push(pageBreakClass.trim());
+      }
+      if (orient === 'landscape') blockClasses.push('page-orientation-landscape');
+
+      var totalPagesCount = pdfContent.totalPdfPages || 1;
+      var selectedPages = Array.isArray(pdfContent.selectedPageNumbers) && pdfContent.selectedPageNumbers.length > 0
+        ? pdfContent.selectedPageNumbers
+        : TestCreatorService.parsePageRange(pdfContent.pageRangeString, totalPagesCount);
+
+      var cache = pdfContent.renderedPagesCache || {};
+
+      var out = [];
+      out.push('<div class="' + blockClasses.join(' ') + '" id="ex-' + ex.id + '">');
+      out.push('  <div class="exam-pdf-section-wrap">');
+      if (showTitle) {
+        out.push('    <div class="exam-pdf-section-title" style="font-size:13pt;font-weight:800;margin-bottom:6px;color:#1e293b;">' + TestCreatorService.formatRichText(ex.title) + '</div>');
+      }
+      if (showInstr) {
+        out.push('    <div class="exam-pdf-section-instr" style="font-size:10pt;color:#475569;margin-bottom:10px;font-style:italic;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>');
+      }
+      out.push('    <div class="exam-pdf-pages-container">');
+      if (!selectedPages.length || (!pdfContent.pdfPath && !pdfContent.pdfName && !Object.keys(cache).length)) {
+        out.push('      <div class="exam-pdf-placeholder" style="padding:24px;text-align:center;color:#64748b;border:1.5px dashed #cbd5e1;border-radius:6px;font-style:italic;">');
+        out.push('        [PDF Document: ' + escapeHtml(pdfContent.pdfName || ex.title || 'No file selected') + ']');
+        out.push('      </div>');
+      } else {
+        selectedPages.forEach(function (pNum, pIdx) {
+          var pData = cache[String(pNum)] || cache[pNum] || '';
+          var pageCls = (pIdx < selectedPages.length - 1 && sepPage) ? ' page-break-after' : '';
+          var scaleStyle = '';
+          if (fitMode === 'fit_width') {
+            scaleStyle = 'width:100%;max-width:100%;height:auto;';
+          } else if (fitMode === 'custom_scale') {
+            scaleStyle = 'width:' + customScale + '%;max-width:100%;height:auto;';
+          } else {
+            scaleStyle = 'max-width:100%;max-height:calc(100vh - 40mm);height:auto;object-fit:contain;';
+          }
+          out.push('      <div class="exam-pdf-page-item' + pageCls + '" data-page="' + pNum + '" style="text-align:center;margin-bottom:14px;break-inside:avoid;page-break-inside:avoid;">');
+          if (pData) {
+            out.push('        <img src="' + pData + '" class="exam-pdf-page-image" style="' + scaleStyle + 'display:inline-block;box-shadow:0 1px 4px rgba(0,0,0,0.12);" alt="Page ' + pNum + '" />');
+          } else {
+            out.push('        <div class="exam-pdf-page-pending" style="padding:30px;border:1px solid #e2e8f0;background:#f8fafc;color:#64748b;border-radius:4px;">');
+            out.push('          PDF Page ' + pNum + ' (' + escapeHtml(pdfContent.pdfName || 'Document') + ')');
+            out.push('        </div>');
+          }
+          if (showPageNums && selectedPages.length > 1) {
+            out.push('        <div class="exam-pdf-page-num" style="font-size:8pt;color:#64748b;margin-top:4px;">Page ' + (pIdx + 1) + ' / ' + selectedPages.length + '</div>');
+          }
+          out.push('      </div>');
+        });
+      }
       out.push('    </div>');
       out.push('  </div>');
       out.push('</div>');
@@ -4399,10 +4793,12 @@
             var taskHeader = compItems.length > 1 ? (it.label || ('Option ' + String.fromCharCode(65 + itIdx))) + ': ' : '';
             var wcStr = (exOpts.wordCountMin && exOpts.wordCountMax)
               ? (exOpts.wordCountMin + ' – ' + exOpts.wordCountMax + ' words')
-              : ('~' + (it.targetWordCount || exOpts.wordCountMax || 150) + ' words');
+              : (it.targetWordCount ? ('~' + it.targetWordCount + ' words') : (exOpts.wordCountMax ? ('~' + exOpts.wordCountMax + ' words') : ''));
             pOut.push('  <div class="composition-task-block">');
             pOut.push('    <div class="composition-prompt"><strong>' + TestCreatorService.formatRichText(taskHeader) + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + '</div>');
-            pOut.push('    <div class="comp-wordcount-hint">Target word count: ' + wcStr + '</div>');
+            if (wcStr) {
+              pOut.push('    <div class="comp-wordcount-hint">Target word count: ' + wcStr + '</div>');
+            }
             pOut.push('  </div>');
           });
           return pOut.join('\n');
@@ -4884,7 +5280,8 @@
     customCssRules.push('@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@page portrait-page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@page landscape-page { size: A4 landscape; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
-    customCssRules.push('@media print { body { margin: 0 !important; padding: 0 !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; } }');
+    customCssRules.push('@media print { body { margin: 0 !important; padding: 0 !important; background: transparent !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; box-shadow: none !important; border-radius: 0 !important; } }');
+    customCssRules.push('@media screen { body { background: #e2e8f0; padding: 24px 0; margin: 0; } .exam-sheet { width: 210mm; min-height: 297mm; margin: 0 auto 30px auto; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.18), 3px 3px 0 #555555; border-radius: 4px; box-sizing: border-box; } .page-break-before, .class-page-break { display: block; height: 24px; border-top: 2px dashed #94a3b8; margin: 32px 0 20px 0; position: relative; } .page-break-before::after, .class-page-break::after { content: "— Page Break —"; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: #e2e8f0; padding: 0 10px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; } }');
     customCssRules.push('.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }');
     customCssRules.push('.exam-header { break-after: avoid !important; page-break-after: avoid !important; }');
     customCssRules.push('.exercise-header { break-after: avoid !important; page-break-after: avoid !important; }');
@@ -4897,6 +5294,8 @@
     customCssRules.push('.page-orientation-landscape { page: landscape-page; width: 100% !important; max-width: 100% !important; }');
     customCssRules.push('.criteria-table, .criteria-matrix-table, .competences-table { table-layout: auto !important; }');
     customCssRules.push('.mcq-item, .matching-row, .open-question-item, .rc-subquestion-block, .pic-prompt-row, .odd-item-block, .composition-task-block, .draft-work-box, .composition-checklist, .table-exercise tr, .rubric-table tr, .grading-scale-table tr, .cloze-text, .writing-box, .writing-grid { break-inside: avoid; page-break-inside: avoid; }');
+    customCssRules.push('.exp-footer { margin-top: 24px; padding-top: 8px; border-top: 1.5px solid #333333; display: flex; align-items: center; justify-content: space-between; font-size: 10px; font-weight: 600; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; break-inside: avoid; page-break-inside: avoid; }');
+    customCssRules.push('.exp-footer-center { font-weight: 700; color: #222222; }');
 
     if (globalStyle.fontSize) {
       customCssRules.push('.exam-sheet { font-size: ' + globalStyle.fontSize + '; }');
@@ -4954,6 +5353,7 @@
     html.push('<head>');
     html.push('  <meta charset="UTF-8">');
     html.push('  <title>' + escapeHtml(test.title || 'Test') + (isTeacherKey ? ' (Teacher Solution Key)' : '') + '</title>');
+    html.push('  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap">');
     html.push('  <style id="cmt-test-base-styles">');
     html.push(TestCreatorService.getThemeCss(themeName));
     html.push('  </style>');
@@ -4976,7 +5376,7 @@
     var exList = test.exercises || [];
     var lastIsLandscape = false;
     exList.forEach(function (ex, idx) {
-      var isSec = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block');
+      var isSec = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
       var currentExNum = isSec ? 0 : exNum++;
       var hasNext = idx < (exList.length - 1);
       var exHtml = TestCreatorService.renderExerciseHtml(ex, idx, isTeacherKey, {
@@ -5002,10 +5402,10 @@
 
     var footerOrientCls = lastIsLandscape ? ' page-orientation-landscape' : '';
     var teacherName = (test && test.teacher) || ((typeof window !== 'undefined' && typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '');
-    html.push('    <footer class="exp-footer exam-footer' + footerOrientCls + '" style="margin-top:24px;padding-top:8px;border-top:1.5px solid #333333;display:flex;align-items:center;justify-content:space-between;font-size:10px;font-weight:600;color:#475569;text-transform:uppercase;letter-spacing:0.04em;break-inside:avoid;page-break-inside:avoid;">');
+    html.push('    <footer class="exp-footer exam-footer' + footerOrientCls + '">');
     html.push('      <span class="exp-footer-left">' + escapeHtml(test.title || 'Exam') + (variant ? ' (' + variant + ')' : '') + '</span>');
     if (teacherName) {
-      html.push('      <span class="exp-footer-center" style="font-weight:700;color:#222;">' + escapeHtml(teacherName) + '</span>');
+      html.push('      <span class="exp-footer-center">' + escapeHtml(teacherName) + '</span>');
     }
     html.push('      <span class="exp-footer-right">' + (test.date || new Date().toLocaleDateString()) + '</span>');
     html.push('    </footer>');
@@ -5024,85 +5424,191 @@
     var hc = TestCreatorService.ensureHeaderConfig(test);
 
     var md = [];
-    var titleLine = '# ' + (test.title || 'Exam') + (isTeacherKey ? ' — [TEACHER SOLUTION KEY]' : '');
-    if (hc.showVariantBadge) {
-      titleLine += ' (Group ' + variant + ')';
-    }
-    md.push(titleLine);
-    if (hc.showSubtitle && hc.subtitleText) {
-      md.push('### ' + hc.subtitleText);
-    }
-    md.push('');
 
-    var metaBits = [];
-    if (hc.showStudentName) {
-      metaBits.push('**' + (hc.studentLabel || 'Student:') + '** ' + (opts.studentName || '______________________'));
+    // Helper builders for header sections in Markdown
+    function buildTitleMd() {
+      if (!hc.showTitle) {
+        if (hc.showVariantBadge) {
+          return '### Group ' + variant + (isTeacherKey ? ' — [TEACHER SOLUTION KEY]' : '');
+        }
+        return '';
+      }
+      var tLine = '# ' + (test.title || 'Class Examination') + (isTeacherKey ? ' — [TEACHER SOLUTION KEY]' : '');
+      if (hc.showVariantBadge) {
+        tLine += ' (Group ' + variant + ')';
+      }
+      return tLine;
     }
-    if (hc.showClass) metaBits.push('**' + (hc.classLabel || 'Class:') + '** ' + (test.className || '______'));
-    if (hc.showDate) metaBits.push('**' + (hc.dateLabel || 'Date:') + '** ' + (test.date || '______'));
-    if (hc.showTeacher) metaBits.push('**' + (hc.teacherLabel || 'Teacher:') + '** ' + (test.teacher || '______'));
-    if (hc.showDuration) metaBits.push('**' + (hc.durationLabel || 'Duration:') + '** ' + (test.durationMinutes || 45) + ' min');
-    if (hc.showTotalPoints) metaBits.push('**' + (hc.pointsLabel || 'Total:') + '** ' + totalPts + ' pts');
-    if (metaBits.length > 0) {
-      md.push('> ' + metaBits.join(' | '));
+
+    function buildSubtitleMd() {
+      if (!hc.showSubtitle || !hc.subtitleText) return '';
+      return '### ' + hc.subtitleText;
     }
-    if (hc.showMaterials && test.materialsAllowed && test.materialsAllowed.length) {
-      md.push('> **' + (hc.materialsLabel || 'Materials Allowed:') + '** ' + test.materialsAllowed.join(', '));
+
+    function buildMetadataMd() {
+      var metaItemsMap = {};
+      if (hc.showStudentName) {
+        var sVal = opts.studentName || '___________________________';
+        metaItemsMap['studentName'] = '**' + (hc.studentNameLabel || 'Student Name:') + '** ' + sVal;
+      }
+      if (hc.showClass) {
+        metaItemsMap['class'] = '**' + (hc.classLabel || 'Class / Group:') + '** ' + (opts.className || test.className || '__________');
+      }
+      if (hc.showDate) {
+        metaItemsMap['date'] = '**' + (hc.dateLabel || 'Date:') + '** ' + (test.date || '__________');
+      }
+      if (hc.showTeacher) {
+        metaItemsMap['teacher'] = '**' + (hc.teacherLabel || 'Teacher:') + '** ' + (test.teacher || '__________');
+      }
+      if (hc.showDuration) {
+        metaItemsMap['duration'] = '**' + (hc.durationLabel || 'Duration:') + '** ' + (test.durationMinutes || 45) + ' min';
+      }
+      if (hc.showTotalPoints) {
+        metaItemsMap['points'] = '**' + (hc.pointsLabel || 'Total Points:') + '** ____ / ' + totalPts + ' pts';
+      }
+      if (hc.showMaterials && test.materialsAllowed && test.materialsAllowed.length) {
+        metaItemsMap['materials'] = '**' + (hc.materialsLabel || 'Materials Allowed:') + '** ' + test.materialsAllowed.join(', ');
+      }
+      if (hc.showScope && test.scope) {
+        metaItemsMap['scope'] = '**' + (hc.scopeLabel || 'Scope / Topic:') + '** ' + test.scope;
+      }
+      if (hc.showGradingScale && hc.gradingScaleStyle && (hc.gradingScaleStyle.displayMode === 'inline' || hc.gradingScaleStyle.displayMode === 'inline_meta')) {
+        var scaleName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
+        metaItemsMap['gradingScale'] = '**' + (hc.gradingScaleLabel || 'Grading Scale:') + '** ' + scaleName;
+      }
+      if (hc.showCompetences && hc.competencesStyle && hc.competencesStyle.displayMode === 'inline') {
+        var cCount = (test.linkedCompetences && test.linkedCompetences.length) || (test.linkedCompetenceIds && test.linkedCompetenceIds.length) || 0;
+        metaItemsMap['competences'] = '**' + (hc.competencesLabel || 'Competences:') + '** ' + cCount + ' assessed';
+      }
+      if (hc.showCriteria && hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline') {
+        var crCount = (test.criteria && test.criteria.length) || (test.linkedCriteria && test.linkedCriteria.length) || 0;
+        metaItemsMap['criteria'] = '**' + (hc.criteriaLabel || 'Criteria:') + '** ' + crCount + ' rubrics';
+      }
+
+      var metaOrder = (Array.isArray(hc.metaOrder) && hc.metaOrder.length)
+        ? hc.metaOrder
+        : ['studentName', 'class', 'date', 'teacher', 'duration', 'materials', 'scope', 'points', 'gradingScale', 'competences', 'criteria'];
+
+      var orderedItems = [];
+      metaOrder.forEach(function (k) {
+        if (metaItemsMap[k]) orderedItems.push(metaItemsMap[k]);
+      });
+
+      if (!orderedItems.length) return '';
+
+      var cols = (hc.layout === '3-columns') ? 3 : 2;
+      var outLines = [];
+      var headerRow = [];
+      var sepRow = [];
+      for (var c = 0; c < cols; c++) {
+        headerRow.push(' ');
+        sepRow.push('---');
+      }
+      outLines.push('| ' + headerRow.join(' | ') + ' |');
+      outLines.push('| ' + sepRow.join(' | ') + ' |');
+
+      for (var i = 0; i < orderedItems.length; i += cols) {
+        var rowCells = [];
+        for (var j = 0; j < cols; j++) {
+          rowCells.push(orderedItems[i + j] || '');
+        }
+        outLines.push('| ' + rowCells.join(' | ') + ' |');
+      }
+      return outLines.join('\n');
     }
-    if (hc.showScope && test.scope) {
-      md.push('> **' + (hc.scopeLabel || 'Scope / Topic:') + '** ' + test.scope);
-    }
-    if (hc.showInstructions && hc.instructionsText) {
-      md.push('');
-      md.push('> *Instructions:* ' + hc.instructionsText);
+
+    function buildInstructionsMd() {
+      if (!hc.showInstructions || !hc.instructionsText) return '';
+      return '> **Instructions & Guidelines:**  \n> ' + hc.instructionsText.replace(/\n/g, '\n> ');
     }
 
     var hasScaleSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_grading_scale'; });
     var hasCompSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_competences'; });
     var hasCritSection = (test.exercises || []).some(function (e) { return e && e.type === 'section_criteria'; });
 
-    if (hc.showGradingScale && !hasScaleSection) {
-      var scMode = (hc.gradingScaleStyle && hc.gradingScaleStyle.displayMode) || 'table';
-      if (scMode === 'inline') {
-        var sName = (test.scaleModel && (test.scaleModel.label || test.scaleModel.name)) || test.scaleModelId || 'Standard Scale';
-        md.push('> **' + (hc.gradingScaleLabel || 'Grading Scale:') + '** ' + sName);
-      } else if (scMode === 'inline_grades') {
-        var inlineStr = TestCreatorService.formatInlineGradesString(test, { totalPoints: totalPts, html: false });
-        md.push('');
-        md.push('**' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion:') + '** ' + inlineStr);
+    function buildGradingScaleMd() {
+      if (!hc.showGradingScale || hasScaleSection) return '';
+      var scSt = hc.gradingScaleStyle || {};
+      var scMode = scSt.displayMode || 'table';
+      if (scMode === 'inline' || scMode === 'inline_meta') return '';
+
+      var showG = scSt.showGradeCol !== false;
+      var showT = scSt.showThresholdCol !== false;
+      var showP = scSt.showPointsCol !== false;
+      var showN = scSt.showNotesCol !== false;
+      if (!showG && !showT && !showP && !showN) { showG = true; showP = true; }
+
+      var gLines = [];
+      if (scMode === 'inline_grades') {
+        var inlineStr = TestCreatorService.formatInlineGradesString(test, {
+          totalPoints: totalPts,
+          html: false,
+          showGradeCol: showG,
+          showThresholdCol: showT,
+          showPointsCol: showP,
+          showNotesCol: showN
+        });
+        gLines.push('**' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion:') + '** ' + inlineStr);
+      } else if (scMode === 'compact') {
+        var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
+        gLines.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
+        var compItems = tableData.rows.map(function (r) {
+          var p = [];
+          if (showG) p.push('**' + r.grade + '**');
+          if (showP) p.push(r.pointsStr);
+          if (showT) p.push('(' + r.thresholdStr + ')');
+          if (showN && r.desc) p.push('[' + r.desc + ']');
+          return p.join(' · ');
+        });
+        gLines.push(compItems.join('  \n'));
       } else {
         var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
-        md.push('');
-        md.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
-        md.push('| Grade / Mark | Threshold | Required Points | Assessment |');
-        md.push('|---|---|---|---|');
+        gLines.push('### ' + (hc.gradingScaleLabel || 'Grading Scale & Score Conversion'));
+        var ths = [];
+        if (showG) ths.push('Grade / Mark');
+        if (showT) ths.push('Threshold');
+        if (showP) ths.push('Required Points');
+        if (showN) ths.push('Assessment');
+        gLines.push('| ' + ths.join(' | ') + ' |');
+        gLines.push('|' + ths.map(function () { return '---'; }).join('|') + '|');
         tableData.rows.forEach(function (r) {
-          md.push('| **' + r.grade + '** | ' + r.thresholdStr + ' | **' + r.pointsStr + '** | ' + (r.desc || '') + ' |');
+          var tds = [];
+          if (showG) tds.push('**' + r.grade + '**');
+          if (showT) tds.push(r.thresholdStr);
+          if (showP) tds.push('**' + r.pointsStr + '**');
+          if (showN) tds.push(r.desc || '');
+          gLines.push('| ' + tds.join(' | ') + ' |');
         });
       }
+      return gLines.join('\n');
     }
-    if (hc.showCompetences && !hasCompSection) {
+
+    function buildCompetencesMd() {
+      if (!hc.showCompetences || hasCompSection) return '';
+      if (hc.competencesStyle && hc.competencesStyle.displayMode === 'inline') return '';
       var rawComps = (Array.isArray(test.linkedCompetences) && test.linkedCompetences.length)
         ? test.linkedCompetences
         : (Array.isArray(test.linkedCompetenceIds) ? test.linkedCompetenceIds : []);
-      if (rawComps.length) {
-        md.push('');
-        md.push('### ' + (hc.competencesLabel || 'Competences & Curriculum Objectives'));
-        md.push('| Code / Ref | Competence & Objective | Description |');
-        md.push('|---|---|---|');
-        var sortedComps = rawComps.map(function (c) {
-          var cCode = (c && (c.code || c.id)) || String(c || '');
-          var cTitle = (c && (c.title || c.name)) || cCode;
-          var cDesc = (c && (c.description || c.descriptors || c.desc)) || '';
-          return { code: cCode, title: cTitle, description: cDesc };
-        }).sort(function (a, b) {
-          return (a.code || a.title).localeCompare(b.code || b.title, undefined, { numeric: true, sensitivity: 'base' });
-        });
-        sortedComps.forEach(function (c) {
-          md.push('| **' + c.code + '** | ' + c.title + ' | ' + c.description + ' |');
-        });
-      }
+      if (!rawComps.length) return '';
+
+      var cLines = [];
+      cLines.push('### ' + (hc.competencesLabel || 'Competences & Curriculum Objectives'));
+      cLines.push('| Code / Ref | Competence & Objective | Description |');
+      cLines.push('|---|---|---|');
+      var sortedComps = rawComps.map(function (c) {
+        var cCode = (c && (c.code || c.id)) || String(c || '');
+        var cTitle = (c && (c.title || c.name)) || cCode;
+        var cDesc = (c && (c.description || c.descriptors || c.desc)) || '';
+        return { code: cCode, title: cTitle, description: cDesc };
+      }).sort(function (a, b) {
+        return (a.code || a.title).localeCompare(b.code || b.title, undefined, { numeric: true, sensitivity: 'base' });
+      });
+      sortedComps.forEach(function (c) {
+        cLines.push('| **' + c.code + '** | ' + c.title + ' | ' + c.description + ' |');
+      });
+      return cLines.join('\n');
     }
+
     function formatCritMarkdownDesc(crit) {
       if (!crit) return '';
       var parts = [];
@@ -5121,30 +5627,60 @@
       return parts.join(' — ');
     }
 
-    if (hc.showCriteria && !hasCritSection) {
+    function buildCriteriaMd() {
+      if (!hc.showCriteria || hasCritSection) return '';
+      if (hc.criteriaStyle && hc.criteriaStyle.displayMode === 'inline') return '';
       var rawCrits = (Array.isArray(test.criteria) && test.criteria.length)
         ? test.criteria
         : ((Array.isArray(test.linkedCriteria) && test.linkedCriteria.length) ? test.linkedCriteria : []);
-      if (rawCrits.length) {
-        md.push('');
-        md.push('### ' + (hc.criteriaLabel || 'Assessment Criteria & Rubric'));
-        md.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
-        md.push('|---|---|---|---|---|');
-        rawCrits.forEach(function (crit) {
-          var crTitle = crit.title || crit.name || 'Criterion';
-          var crDesc = formatCritMarkdownDesc(crit);
-          var crMax = crit.maxPoints || 6;
-          md.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
-        });
-      }
+      if (!rawCrits.length) return '';
+
+      var crLines = [];
+      crLines.push('### ' + (hc.criteriaLabel || 'Assessment Criteria & Rubric'));
+      crLines.push('| Criterion | Performance Descriptors | Max Points | Score | Comments |');
+      crLines.push('|---|---|---|---|---|');
+      rawCrits.forEach(function (crit) {
+        var crTitle = crit.title || crit.name || 'Criterion';
+        var crDesc = formatCritMarkdownDesc(crit);
+        var crMax = crit.maxPoints || 6;
+        crLines.push('| **' + crTitle + '** | ' + crDesc + ' | /' + crMax + ' | | |');
+      });
+      return crLines.join('\n');
     }
-    md.push('');
+
+    // Dynamic Section Ordering matching renderHeaderHtml
+    var sectionOrder = (Array.isArray(hc.sectionOrder) && hc.sectionOrder.length)
+      ? hc.sectionOrder.slice()
+      : ['title', 'subtitle', 'metadata', 'instructions', 'gradingScale', 'competences', 'criteria'];
+
+    if (hc.showCompetences && sectionOrder.indexOf('competences') === -1) {
+      sectionOrder.push('competences');
+    }
+    if (hc.showCriteria && sectionOrder.indexOf('criteria') === -1) {
+      sectionOrder.push('criteria');
+    }
+
+    sectionOrder.forEach(function (secKey) {
+      var sMd = '';
+      if (secKey === 'title') sMd = buildTitleMd();
+      else if (secKey === 'subtitle') sMd = buildSubtitleMd();
+      else if (secKey === 'metadata') sMd = buildMetadataMd();
+      else if (secKey === 'instructions') sMd = buildInstructionsMd();
+      else if (secKey === 'gradingScale') sMd = buildGradingScaleMd();
+      else if (secKey === 'competences') sMd = buildCompetencesMd();
+      else if (secKey === 'criteria') sMd = buildCriteriaMd();
+      if (sMd) {
+        md.push(sMd);
+        md.push('');
+      }
+    });
+
     md.push('---');
     md.push('');
 
     var exCounter = 1;
     (test.exercises || []).forEach(function (ex, idx) {
-      var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block');
+      var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
       var exOpts = TestCreatorService.ensureExerciseOptions(ex);
 
       if (!isSection) {
@@ -5205,12 +5741,50 @@
 
         case 'section_grading_scale':
           var tableData = TestCreatorService.calculateGradeConversionTable(test.scaleModel || test.scaleModelId, totalPts);
-          md.push('### ' + (ex.title || 'Grading Scale & Score Conversion'));
-          md.push('| Grade / Mark | Threshold | Required Points | Assessment |');
-          md.push('|---|---|---|---|');
-          tableData.rows.forEach(function (r) {
-            md.push('| **' + r.grade + '** | ' + r.thresholdStr + ' | **' + r.pointsStr + '** | ' + (r.desc || '') + ' |');
-          });
+          var sOpts = ex.options || {};
+          var sMode = sOpts.displayMode || 'table';
+          var showG = sOpts.showGradeCol !== false;
+          var showT = sOpts.showThresholdCol !== false;
+          var showP = sOpts.showPointsCol !== false;
+          var showN = sOpts.showNotesCol !== false;
+          if (!showG && !showT && !showP && !showN) { showG = true; showP = true; }
+
+          md.push('### ' + (sOpts.scaleTitle || ex.title || 'Grading Scale & Score Conversion'));
+          if (sMode === 'inline' || sMode === 'inline_grades') {
+            var items = TestCreatorService.buildInlineGradeItems(tableData, totalPts, false, {
+              showGradeCol: showG,
+              showThresholdCol: showT,
+              showPointsCol: showP,
+              showNotesCol: showN
+            });
+            md.push(items.join(' · '));
+          } else if (sMode === 'compact') {
+            var compItems = tableData.rows.map(function (r) {
+              var p = [];
+              if (showG) p.push('**' + r.grade + '**');
+              if (showP) p.push(r.pointsStr);
+              if (showT) p.push('(' + r.thresholdStr + ')');
+              if (showN && r.desc) p.push('[' + r.desc + ']');
+              return p.join(' · ');
+            });
+            md.push(compItems.join('  \n'));
+          } else {
+            var ths = [];
+            if (showG) ths.push('Grade / Mark');
+            if (showT) ths.push('Threshold');
+            if (showP) ths.push('Required Points');
+            if (showN) ths.push('Assessment');
+            md.push('| ' + ths.join(' | ') + ' |');
+            md.push('|' + ths.map(function () { return '---'; }).join('|') + '|');
+            tableData.rows.forEach(function (r) {
+              var tds = [];
+              if (showG) tds.push('**' + r.grade + '**');
+              if (showT) tds.push(r.thresholdStr);
+              if (showP) tds.push('**' + r.pointsStr + '**');
+              if (showN) tds.push(r.desc || '');
+              md.push('| ' + tds.join(' | ') + ' |');
+            });
+          }
           md.push('');
           break;
 
@@ -5225,6 +5799,19 @@
           }
           var rawContent = (ex.content && (ex.content.html || ex.content.text)) || '';
           md.push(rawContent);
+          md.push('');
+          break;
+
+        case 'section_pdf':
+          if (ex.options && ex.options.showTitle !== false && ex.title) {
+            md.push('### ' + ex.title);
+          }
+          if (ex.instructions) {
+            md.push('*' + ex.instructions + '*\n');
+          }
+          var pdfDocName = (ex.content && ex.content.pdfName) || 'Document.pdf';
+          var docPages = (ex.content && ex.content.selectedPageNumbers) || [];
+          md.push('> **[PDF Document: ' + pdfDocName + ' (Pages: ' + (docPages.join(', ') || 'All') + ')]**\n');
           md.push('');
           break;
 
@@ -5289,6 +5876,11 @@
             }
             if (isTeacherKey && it.sampleAnswer) {
               md.push('> *Sample Answer:* ' + it.sampleAnswer);
+            } else if (!isTeacherKey) {
+              var qLines = it.lines || exOpts.lines || 3;
+              for (var ql = 0; ql < qLines; ql++) {
+                md.push('....................................................................................................');
+              }
             }
             md.push('');
           });
@@ -5307,6 +5899,13 @@
               md.push('*Target word count: ~' + (it.targetWordCount || 150) + ' words*');
               md.push('');
             });
+          }
+          if (!isTeacherKey) {
+            var compLines = exOpts.lines || 12;
+            for (var cl = 0; cl < compLines; cl++) {
+              md.push('....................................................................................................');
+            }
+            md.push('');
           }
           if (exOpts.showDraftBox) {
             md.push('> **' + (exOpts.draftTitle || 'Draft & Rough Work (Not graded)') + '**');
@@ -5348,9 +5947,17 @@
           }
           pItems.forEach(function (it, itIdx) {
             md.push('**Picture ' + (itIdx + 1) + ':** ' + (it.prompt || ''));
+            if (it.imagePath) {
+              md.push('![' + (it.imageCaption || it.prompt || ('Picture ' + (itIdx + 1))) + '](' + it.imagePath + ')\n');
+            }
             if (it.imageCaption) md.push('*' + it.imageCaption + '*');
             if (isTeacherKey && it.modelAnswer) {
               md.push('> *Sample Answer:* ' + it.modelAnswer);
+            } else if (!isTeacherKey) {
+              var pLines = it.lines || exOpts.lines || 4;
+              for (var pl = 0; pl < pLines; pl++) {
+                md.push('....................................................................................................');
+              }
             }
             md.push('');
           });
@@ -5425,6 +6032,11 @@
             }
             if (isTeacherKey && item.modelTranslation) {
               md.push('> *Translation:* ' + item.modelTranslation);
+            } else if (!isTeacherKey) {
+              var trLines = item.lines || exOpts.lines || 2;
+              for (var tl = 0; tl < trLines; tl++) {
+                md.push('....................................................................................................');
+              }
             }
             md.push('');
           });
@@ -5502,6 +6114,11 @@
             } else {
               if (isTeacherKey && sq.solution) {
                 md.push('> *Answer:* ' + sq.solution);
+              } else if (!isTeacherKey) {
+                var rcLines = sq.lines || 2;
+                for (var rcl = 0; rcl < rcLines; rcl++) {
+                  md.push('....................................................................................................');
+                }
               }
             }
             md.push('');
@@ -5536,10 +6153,19 @@
   };
 
   TestCreatorService.exportToDocxHtml = function (test, options) {
-    var inner = TestCreatorService.exportToHtml(test, options);
+    var opts = options || {};
+    var inner = opts.rawHtml || TestCreatorService.exportToHtml(test, opts);
+    var tokens = TestCreatorService.resolveActiveStyleTokens(test, opts.stylesheetTheme);
+    var margins = tokens.margins || { top: 15, right: 15, bottom: 15, left: 15, unit: 'mm' };
+    var factor = margins.unit === 'cm' ? 28.3465 : (margins.unit === 'in' ? 72 : 2.83465);
+    var mTopPt = Math.round((Number(margins.top) || 15) * factor);
+    var mRightPt = Math.round((Number(margins.right) || 15) * factor);
+    var mBottomPt = Math.round((Number(margins.bottom) || 15) * factor);
+    var mLeftPt = Math.round((Number(margins.left) || 15) * factor);
+
     var wordHeader = [
-      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">',
-      '<head><meta charset="utf-8"><title>' + escapeHtml(test.title) + '</title>',
+      '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns:v="urn:schemas-microsoft-com:vml" xmlns="http://www.w3.org/TR/REC-html40">',
+      '<head><meta charset="utf-8"><title>' + escapeHtml(test.title || 'Exam') + '</title>',
       '<!--[if gte mso 9]>',
       '<xml>',
       ' <w:WordDocument>',
@@ -5548,8 +6174,87 @@
       '  <w:DoNotOptimizeForBrowser/>',
       ' </w:WordDocument>',
       '</xml>',
-      '<![endif]-->'
+      '<![endif]-->',
+      '<style>',
+      '@page Section1 {',
+      '  size: 595.3pt 841.9pt;',
+      '  margin: ' + mTopPt + 'pt ' + mRightPt + 'pt ' + mBottomPt + 'pt ' + mLeftPt + 'pt;',
+      '  mso-header-margin: 35.4pt;',
+      '  mso-footer-margin: 35.4pt;',
+      '  mso-paper-source: 0;',
+      '}',
+      'div.Section1 { page: Section1; }',
+      '@page SectionLandscape {',
+      '  size: 841.9pt 595.3pt;',
+      '  mso-page-orientation: landscape;',
+      '  margin: ' + mTopPt + 'pt ' + mRightPt + 'pt ' + mBottomPt + 'pt ' + mLeftPt + 'pt;',
+      '  mso-header-margin: 35.4pt;',
+      '  mso-footer-margin: 35.4pt;',
+      '}',
+      'div.SectionLandscape { page: SectionLandscape; }',
+      'body { font-family: ' + tokens.fontFamily + '; font-size: ' + tokens.fontSize + '; line-height: ' + tokens.lineHeight + '; color: ' + tokens.textColor + '; background-color: #ffffff; }',
+      'table { border-collapse: collapse; mso-table-lspace: 0pt; mso-table-rspace: 0pt; }',
+      '.exercise-card { border: ' + tokens.borderWidth + ' solid ' + tokens.borderColor + ' !important; background-color: ' + tokens.bgSurface + ' !important; margin-bottom: 14pt !important; padding: ' + tokens.padding + ' !important; page-break-inside: auto; }',
+      '.exercise-subitem-card { border: 1pt solid #cbd5e1 !important; background-color: #f8fafc !important; margin-bottom: 8pt !important; padding: 6pt 10pt !important; }',
+      '.exercise-header-table { width: 100%; border-collapse: collapse; margin-bottom: 8pt; }',
+      '.points-badge-cell { text-align: right; vertical-align: top; width: 90pt; }',
+      '.points-badge-mso { display: inline-block; background-color: ' + tokens.accentAmber + '; border: 1.5pt solid #333333; color: #111111; font-weight: bold; font-size: 9pt; padding: 2pt 6pt; }',
+      'table.writing-lines-table { width: 100%; border-collapse: collapse; margin-top: 3pt; margin-bottom: 3pt; }',
+      'td.writing-line-cell { border-bottom: 1pt solid #94a3b8; height: 24pt; font-size: 1pt; line-height: 1pt; }',
+      'td.writing-line-cell.dotted { border-bottom: 1pt dotted #94a3b8; }',
+      'td.writing-line-cell.dashed { border-bottom: 1pt dashed #94a3b8; }',
+      'td.writing-num-cell { width: 24pt; vertical-align: bottom; padding-bottom: 2pt; font-size: 8.5pt; color: #64748b; text-align: right; padding-right: 6pt; border: none; }',
+      'th { background-color: ' + tokens.tableThBg + ' !important; border: 1pt solid ' + tokens.borderColor + ' !important; font-weight: bold; padding: 4pt 6pt; }',
+      'td { border: 1pt solid #cbd5e1; padding: 4pt 6pt; }',
+      '</style>'
     ].join('\n');
+
+    // Replace :root CSS variables with concrete resolved tokens
+    inner = inner.replace(/var\(--exp-([a-zA-Z0-9_-]+)(?:,\s*([^)]+))?\)/g, function (match, prop, fallback) {
+      if (prop === 'border-color') return tokens.borderColor;
+      if (prop === 'bg-surface') return tokens.bgSurface;
+      if (prop === 'bg-page') return tokens.bgPage;
+      if (prop === 'font-family') return tokens.fontFamily;
+      if (prop === 'table-th-bg') return tokens.tableThBg;
+      if (prop === 'text-color' || prop === 'text-primary') return tokens.textColor;
+      if (prop === 'accent-amber') return tokens.accentAmber;
+      if (prop === 'accent-teal') return tokens.accentTeal;
+      if (prop === 'accent-red') return tokens.accentRed;
+      return fallback || match;
+    });
+
+    // Replace flex exercise header with Word-safe table layout
+    inner = inner.replace(/<div class="exercise-header">([\s\S]*?)<div class="exercise-title-group">([\s\S]*?)<\/div>\s*<div class="exercise-points-badge">([\s\S]*?)<\/div>\s*<\/div>/g, function (m, pre, titleGroup, badge) {
+      return '<table class="exercise-header-table" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-bottom:8pt;"><tr><td style="vertical-align:top;border:none;">' + titleGroup + '</td><td class="points-badge-cell" style="vertical-align:top;text-align:right;width:90pt;border:none;"><span class="points-badge-mso">' + badge + '</span></td></tr></table>';
+    });
+
+    // Replace empty writing line divs with Word-safe table rows
+    inner = inner.replace(/<div class="writing-lines([^"]*)">([\s\S]*?)<\/div>/g, function (match, cls, innerLines) {
+      var isDotted = cls.indexOf('dotted') !== -1;
+      var isDashed = cls.indexOf('dashed') !== -1;
+      var borderStyle = isDotted ? '1pt dotted #94a3b8' : (isDashed ? '1pt dashed #94a3b8' : '1pt solid #94a3b8');
+      var rows = [];
+      var lineRegex = /<div class="writing-line-numbered[^"]*"[^>]*>\s*<span class="writing-line-num"[^>]*>([\s\S]*?)<\/span>\s*<div class="writing-line[^"]*"[^>]*><\/div>\s*<\/div>|<div class="writing-line[^"]*"[^>]*><\/div>/g;
+      var lineMatch;
+      while ((lineMatch = lineRegex.exec(innerLines)) !== null) {
+        var numText = lineMatch[1];
+        if (numText !== undefined && numText !== null) {
+          rows.push('<tr><td class="writing-num-cell">' + numText + '</td><td class="writing-line-cell" style="border:none;border-bottom:' + borderStyle + ';height:24pt;font-size:1pt;line-height:1pt;">&nbsp;</td></tr>');
+        } else {
+          rows.push('<tr><td class="writing-line-cell" style="border:none;border-bottom:' + borderStyle + ';height:24pt;font-size:1pt;line-height:1pt;">&nbsp;</td></tr>');
+        }
+      }
+      if (!rows.length) return match;
+      return '<table class="writing-lines-table" width="100%" cellpadding="0" cellspacing="0" border="0">' + rows.join('') + '</table>';
+    });
+
+    // Replace footer with Word-safe table layout
+    inner = inner.replace(/<footer class="exp-footer exam-footer[^"]*">([\s\S]*?)<span class="exp-footer-left">([\s\S]*?)<\/span>([\s\S]*?)(?:<span class="exp-footer-center">([\s\S]*?)<\/span>)?([\s\S]*?)<span class="exp-footer-right">([\s\S]*?)<\/span>([\s\S]*?)<\/footer>/g, function (m, p1, left, p2, center, p3, right) {
+      return '<table width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-top:20pt;border-top:1.5pt solid #333333;font-size:9pt;color:#475569;"><tr><td style="border:none;text-align:left;padding-top:6pt;">' + left + '</td><td style="border:none;text-align:center;font-weight:bold;padding-top:6pt;">' + (center || '') + '</td><td style="border:none;text-align:right;padding-top:6pt;">' + right + '</td></tr></table>';
+    });
+
+    // Wrap exam sheet with Section1
+    inner = inner.replace('<div class="exam-sheet">', '<div class="Section1 exam-sheet">');
 
     return inner.replace('<!DOCTYPE html>\n<html lang="en">', wordHeader);
   };
@@ -5627,7 +6332,7 @@
       var sheetMd = TestCreatorService.exportToMarkdown(variantTest, sheetOpts);
       compiled.push(sheetMd);
     });
-    return compiled.join('\n\n---\n\n');
+    return compiled.join('\n\n<div class="class-page-break" style="page-break-before: always; break-before: page;"></div>\n\n<!-- pagebreak -->\n\n---\n\n');
   };
 
   return TestCreatorService;

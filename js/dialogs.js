@@ -957,6 +957,12 @@
         }
         return { ok: false, error: 'ODT export requires Electron' };
       }
+      if (config.docxRequest && (!window.Desktop || !Desktop.isElectron())) {
+        if (typeof showToast === 'function') {
+          showToast('DOCX export requires the Electron desktop app.', true);
+        }
+        return { ok: false, error: 'DOCX export requires Electron' };
+      }
       try {
         var blob = content instanceof Blob
           ? content
@@ -984,6 +990,9 @@
         if (config.odtRequest) {
           var reqOdtDoc = Object.assign({}, config.odtRequest, { target: 'docEditorDocs', defaultName: filename.replace(/\.odt$/i, '') });
           docRes = await Desktop.exportOdt(reqOdtDoc);
+        } else if (config.docxRequest) {
+          var reqDocxDoc = Object.assign({}, config.docxRequest, { target: 'docEditorDocs', defaultName: filename.replace(/\.docx$/i, '') });
+          docRes = await Desktop.exportDocx(reqDocxDoc);
         } else if (typeof content === 'string') {
           docRes = await Desktop.saveText('docEditorDocs', filename, content);
         } else if (content instanceof Blob) {
