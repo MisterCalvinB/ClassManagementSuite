@@ -1820,8 +1820,14 @@
           ? await window.conGetPremadeLibraryItems(forceReload)
           : [];
 
+        const pinnedList = (typeof window.getBoardQuickActionsList === 'function')
+          ? window.getBoardQuickActionsList()
+          : [];
+
         const filtered = items.filter(item => {
-          if (_conActiveLibCategory !== 'all' && item.category !== _conActiveLibCategory) {
+          if (_conActiveLibCategory === 'pinned') {
+            if (!pinnedList.includes('lib:' + item.id)) return false;
+          } else if (_conActiveLibCategory !== 'all' && item.category !== _conActiveLibCategory) {
             return false;
           }
           if (query) {
@@ -1839,6 +1845,14 @@
 
         listEl.innerHTML = filtered.map(item => {
           const isCustom = !!item.isCustom;
+          const isPinned = pinnedList.includes('lib:' + item.id);
+          const pinTitle = isPinned
+            ? ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conUnpinFromMenu') : null) || 'Unpin from Menu Bar')
+            : ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conPinToMenu') : null) || 'Pin to Menu Bar');
+          const pinLabel = isPinned
+            ? ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conPinnedToMenu') : null) || 'Pinned')
+            : ((typeof i18n !== 'undefined' && i18n.t ? i18n.t('conPinToMenu') : null) || 'Pin');
+
           return `
             <div class="con-lib-card" data-id="${item.id}">
               <div class="con-lib-card-header">
@@ -1849,6 +1863,10 @@
               <div class="con-lib-card-actions">
                 <button class="con-lib-insert-btn" onclick="conInsertItemFromLibrary('${item.id}')">
                   <span>Insert</span>
+                </button>
+                <button type="button" class="con-lib-pin-btn ${isPinned ? 'pinned active' : ''}" onclick="conToggleLibraryPin('${item.id}', event)" title="${pinTitle}">
+                  <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
+                  <span>${pinLabel}</span>
                 </button>
                 ${isCustom ? `<button class="con-lib-del-btn" onclick="conDeleteCustomPremadePrompt('${item.id}', event)" title="Delete custom item">Delete</button>` : ''}
               </div>

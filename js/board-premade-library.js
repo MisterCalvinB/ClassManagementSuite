@@ -497,6 +497,10 @@
     return [...STOCK_PREMADE_ITEMS, ..._customLibraryItems];
   };
 
+  window.conGetPremadeLibraryItemsSync = function () {
+    return [...STOCK_PREMADE_ITEMS, ...(_customLibraryItems || [])];
+  };
+
   window.conSaveCustomPremadeItem = async function (name, category, description, snippetData) {
     await loadPremadeLibraryData(true);
     const newItem = {
@@ -517,6 +521,20 @@
     await loadPremadeLibraryData(true);
     _customLibraryItems = _customLibraryItems.filter(item => item.id !== id);
     await savePremadeLibraryData();
+
+    // Clean up any pinned quick action for this deleted library item
+    const actionId = 'lib:' + id;
+    if (typeof window.getBoardQuickActionsList === 'function' && typeof window.saveBoardQuickActionsList === 'function') {
+      try {
+        const pins = window.getBoardQuickActionsList();
+        if (pins && pins.includes(actionId)) {
+          window.saveBoardQuickActionsList(pins.filter(p => p !== actionId));
+          if (typeof window.renderQuickActionsToolbar === 'function') {
+            window.renderQuickActionsToolbar();
+          }
+        }
+      } catch (_) {}
+    }
   };
 
   if (typeof Desktop !== 'undefined' && typeof Desktop.onDataChanged === 'function') {

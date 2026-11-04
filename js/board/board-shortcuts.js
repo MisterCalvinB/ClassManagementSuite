@@ -700,6 +700,55 @@
         if (!window.BOARD_CONFIG || typeof window.BOARD_CONFIG !== 'object') window.BOARD_CONFIG = {};
         window.BOARD_CONFIG.quickActions = [...list];
       }
+      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveText === 'function' && window.BOARD_CONFIG) {
+        try {
+          const lines = 'const BOARD_CONFIG = ' + JSON.stringify(window.BOARD_CONFIG, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
+          window.Desktop.saveText('user', 'board-config.js', lines).catch(() => {});
+        } catch (_) {}
+      }
+    }
+
+    async function resolveBoardActionDef(id, libItems = null) {
+      if (!id) return null;
+      let def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
+      if (def) return def;
+      if (id.startsWith('lib:')) {
+        const libItemId = id.slice(4);
+        let items = libItems;
+        if (!items) {
+          if (typeof window.conGetPremadeLibraryItemsSync === 'function') {
+            items = window.conGetPremadeLibraryItemsSync();
+          }
+          if ((!items || !items.length) && typeof window.conGetPremadeLibraryItems === 'function') {
+            items = await window.conGetPremadeLibraryItems();
+          }
+        }
+        const item = (items || []).find(it => it && String(it.id) === String(libItemId));
+        if (item) {
+          return {
+            id: id,
+            name: item.name || 'Library Item',
+            desc: item.description || ('Insert ' + (item.name || 'item') + ' onto board'),
+            category: 'library',
+            categoryName: (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conPremadeLibraryCat') : 'Premade Library') || 'Premade Library',
+            icon: '../assets/icons/sparkles.svg',
+            isLibraryItem: true,
+            libraryItem: item,
+            defaultShortcut: null,
+            fn: (coords) => {
+              if (typeof window.conInsertPremadeItem === 'function') {
+                const x = coords && coords.x !== undefined ? coords.x : undefined;
+                const y = coords && coords.y !== undefined ? coords.y : undefined;
+                window.conInsertPremadeItem(item, x, y);
+                if (typeof mdbToast === 'function') {
+                  mdbToast('✨ ' + (item.name || 'Library item'));
+                }
+              }
+            }
+          };
+        }
+      }
+      return null;
     }
 
     function getActiveShortcutForDef(def, customMap = null) {
@@ -741,9 +790,10 @@
              String(scA.key).toLowerCase() === String(scB.key).toLowerCase();
     }
 
-    function findShortcutConflict(defId, sc, customMap) {
+    function findShortcutConflict(defId, sc, customMap, allDefsList = null) {
       if (!sc || !sc.key) return null;
-      for (const other of BOARD_ACTION_DEFINITIONS) {
+      const list = allDefsList || BOARD_ACTION_DEFINITIONS;
+      for (const other of list) {
         if (other.id === defId) continue;
         const otherSc = getActiveShortcutForDef(other, customMap);
         if (shortcutKeysMatch(sc, otherSc)) {
@@ -753,7 +803,7 @@
       return null;
     }
 
-    function renderQuickActionsToolbar() {
+    async function renderQuickActionsToolbar() {
       const group = document.getElementById('con-tb-quick-actions');
       const barWrap = document.getElementById('con-quick-actions-bar-wrap');
       const bar = document.getElementById('con-quick-actions-bar');
@@ -772,6 +822,35 @@
         return;
       }
 
+      let libItems = [];
+      const hasLibPins = pinnedIds.some(id => id && id.startsWith('lib:'));
+      if (hasLibPins) {
+        if (typeof window.conGetPremadeLibraryItemsSync === 'function') {
+          libItems = window.conGetPremadeLibraryItemsSync();
+        }
+        if ((!libItems || !libItems.length) && typeof window.conGetPremadeLibraryItems === 'function') {
+          try {
+            libItems = await window.conGetPremadeLibraryItems();
+          } catch (_) {}
+        }
+      }
+
+      const resolvedDefs = [];
+      for (const id of pinnedIds) {
+        const d = await resolveBoardActionDef(id, libItems);
+        if (d) resolvedDefs.push(d);
+      }
+
+      if (!resolvedDefs.length) {
+        if (group) group.style.display = 'none';
+        if (barWrap) barWrap.style.display = 'none';
+        if (bar) bar.innerHTML = '';
+        if (menuList) menuList.innerHTML = '';
+        if (ctxPinnedSec) ctxPinnedSec.style.display = 'none';
+        if (ctxPinnedList) ctxPinnedList.innerHTML = '';
+        return;
+      }
+
       if (group) group.style.display = '';
       if (barWrap) barWrap.style.display = 'inline-flex';
       if (ctxPinnedSec) ctxPinnedSec.style.display = '';
@@ -781,16 +860,14 @@
       // 1. Populate compact toolbar buttons
       if (bar) {
         bar.innerHTML = '';
-        pinnedIds.forEach(id => {
-          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
-          if (!def) return;
+        resolvedDefs.forEach(def => {
           const sc = getActiveShortcutForDef(def, customMap);
           const scText = sc && sc.key ? ' (' + formatShortcutKeysList(sc).join('+') + ')' : '';
           const btn = document.createElement('button');
           btn.type = 'button';
-          btn.className = 'action-btn btn-grey con-quick-action-btn';
+          btn.className = 'action-btn btn-grey con-quick-action-btn' + (def.isLibraryItem ? ' con-quick-lib-btn' : '');
           btn.dataset.action = def.id;
-          btn.title = def.name + ' — ' + def.desc + scText;
+          btn.title = (def.isLibraryItem ? '✨ [Library] ' : '') + def.name + ' — ' + def.desc + scText;
           if (def.id === 'mouse_pointer' && (window._mirrorPointerOn || (typeof _mirrorPointerOn !== 'undefined' && _mirrorPointerOn))) {
             btn.classList.add('laser-btn-active', 'con-quick-active');
           }
@@ -824,11 +901,12 @@
       // 2. Populate toolbar dropdown menu list
       if (menuList) {
         menuList.innerHTML = '';
-        pinnedIds.forEach(id => {
-          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
-          if (!def) return;
+        resolvedDefs.forEach(def => {
           const sc = getActiveShortcutForDef(def, customMap);
-          const scBadge = sc && sc.key ? `<span class="con-tb-shortcut-badge">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          let scBadge = sc && sc.key ? `<span class="con-tb-shortcut-badge">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          if (!scBadge && def.isLibraryItem) {
+            scBadge = `<span class="con-tb-shortcut-badge" style="background:#fef08a; color:#854d0e; font-weight:700;">Library</span>`;
+          }
           const btn = document.createElement('button');
           btn.type = 'button';
           btn.className = 'action-btn btn-grey con-menu-action-item';
@@ -868,11 +946,12 @@
       // 3. Populate board right-click context menu pinned list
       if (ctxPinnedList) {
         ctxPinnedList.innerHTML = '';
-        pinnedIds.forEach(id => {
-          const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === id);
-          if (!def) return;
+        resolvedDefs.forEach(def => {
           const sc = getActiveShortcutForDef(def, customMap);
-          const scBadge = sc && sc.key ? `<span class="con-ctx-shortcut-badge" style="margin-left:auto; font-size:0.65rem; color:#888; font-weight:600; padding:1px 4px; background:#e5e5e0; border-radius:3px;">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          let scBadge = sc && sc.key ? `<span class="con-ctx-shortcut-badge" style="margin-left:auto; font-size:0.65rem; color:#888; font-weight:600; padding:1px 4px; background:#e5e5e0; border-radius:3px;">${formatShortcutKeysList(sc).join('+')}</span>` : '';
+          if (!scBadge && def.isLibraryItem) {
+            scBadge = `<span class="con-ctx-shortcut-badge" style="margin-left:auto; font-size:0.65rem; color:#854d0e; font-weight:700; padding:1px 5px; background:#fef08a; border-radius:3px;">Library</span>`;
+          }
           const item = document.createElement('div');
           item.className = 'con-ctx-item con-ctx-pinned-item';
           item.dataset.action = def.id;
@@ -894,8 +973,11 @@
           `;
           item.onclick = (e) => {
             e.stopPropagation();
+            const coords = (def.isLibraryItem && window.conBoardCtxX !== undefined && window.conBoardCtxY !== undefined)
+              ? { x: window.conBoardCtxX, y: window.conBoardCtxY }
+              : null;
             if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
-            if (typeof def.fn === 'function') def.fn();
+            if (typeof def.fn === 'function') def.fn(coords);
           };
           ctxPinnedList.appendChild(item);
         });
@@ -911,10 +993,11 @@
     }
 
     window.renderQuickActionsToolbar = renderQuickActionsToolbar;
-    window.boardExecuteActionById = function (actionId) {
-      const def = BOARD_ACTION_DEFINITIONS.find(a => a.id === actionId);
-      if (def && typeof def.fn === 'function') def.fn();
-    };
+    async function boardExecuteActionById(actionId, coords) {
+      const def = await resolveBoardActionDef(actionId);
+      if (def && typeof def.fn === 'function') def.fn(coords);
+    }
+    window.boardExecuteActionById = boardExecuteActionById;
 
     function _cancelRecording() {
       if (_bcRecordingKeydownHandler) {
@@ -972,6 +1055,68 @@
       renderBoardShortcutsTable();
     }
 
+    async function conToggleLibraryPin(itemId, event) {
+      if (event && event.stopPropagation) event.stopPropagation();
+      if (!itemId) return false;
+      const actionId = 'lib:' + itemId;
+      const list = getBoardQuickActionsList();
+      const isPinned = list.includes(actionId);
+      let nextList;
+      if (isPinned) {
+        nextList = list.filter(id => id !== actionId);
+      } else {
+        nextList = [...list, actionId];
+      }
+      saveBoardQuickActionsList(nextList);
+
+      // Keep draft list in sync if customise modal is open
+      _bcQuickActionsDraftList = [...nextList];
+
+      // Re-render toolbar
+      renderQuickActionsToolbar();
+
+      // Refresh shortcuts table if customise modal is active
+      const scModal = document.getElementById('board-customise-overlay');
+      if (scModal && scModal.classList.contains('active')) {
+        renderBoardShortcutsTable();
+      }
+
+      // Refresh premade library cards if modal is active
+      if (typeof window.conRenderPremadeLibraryList === 'function') {
+        const libModal = document.getElementById('con-premade-library-overlay');
+        if (libModal && libModal.classList.contains('active')) {
+          window.conRenderPremadeLibraryList();
+        }
+      }
+
+      // Show toast
+      try {
+        let itemName = 'Library item';
+        if (typeof window.conGetPremadeLibraryItemsSync === 'function') {
+          const items = window.conGetPremadeLibraryItemsSync();
+          const it = (items || []).find(x => x && String(x.id) === String(itemId));
+          if (it && it.name) itemName = it.name;
+        } else if (typeof window.conGetPremadeLibraryItems === 'function') {
+          const items = await window.conGetPremadeLibraryItems();
+          const it = (items || []).find(x => x && String(x.id) === String(itemId));
+          if (it && it.name) itemName = it.name;
+        }
+        if (typeof mdbToast === 'function') {
+          if (!isPinned) {
+            const raw = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastPinnedLib') : null;
+            const msg = raw ? raw.replace('{name}', itemName) : ('📌 Pinned "' + itemName + '" to menu bar');
+            mdbToast(msg);
+          } else {
+            const raw = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastUnpinnedLib') : null;
+            const msg = raw ? raw.replace('{name}', itemName) : ('Unpinned "' + itemName + '" from menu bar');
+            mdbToast(msg);
+          }
+        }
+      } catch (_) {}
+
+      return !isPinned;
+    }
+
     function boardFilterShortcutsTable() {
       renderBoardShortcutsTable();
     }
@@ -995,7 +1140,25 @@
       let hasAnyConflict = false;
       let rowsHtml = '';
 
-      const filtered = BOARD_ACTION_DEFINITIONS.filter(def => {
+      let allActionDefs = [...BOARD_ACTION_DEFINITIONS];
+      if (typeof window.conGetPremadeLibraryItemsSync === 'function') {
+        const libItems = window.conGetPremadeLibraryItemsSync();
+        (libItems || []).forEach(item => {
+          allActionDefs.push({
+            id: 'lib:' + item.id,
+            name: item.name || 'Library Item',
+            desc: item.description || ('Insert ' + (item.name || 'item') + ' onto board'),
+            category: 'library',
+            categoryName: (typeof i18n !== 'undefined' && i18n.t ? i18n.t('conPremadeLibraryCat') : 'Premade Library') || 'Premade Library',
+            icon: '../assets/icons/sparkles.svg',
+            isLibraryItem: true,
+            libraryItem: item,
+            defaultShortcut: null
+          });
+        });
+      }
+
+      const filtered = allActionDefs.filter(def => {
         if (cat !== 'all' && def.category !== cat) return false;
         if (!search) return true;
         const sc = getActiveShortcutForDef(def, _bcShortcutsDraftMap);
@@ -1010,7 +1173,7 @@
         const sc = getActiveShortcutForDef(def, _bcShortcutsDraftMap);
         const isRec = _bcActiveRecordingActionId === def.id;
         const isPinned = _bcQuickActionsDraftList.includes(def.id);
-        const conflict = findShortcutConflict(def.id, sc, _bcShortcutsDraftMap);
+        const conflict = findShortcutConflict(def.id, sc, _bcShortcutsDraftMap, allActionDefs);
         if (conflict) hasAnyConflict = true;
 
         const catClass = 'skm-cat-' + def.category;
@@ -1180,6 +1343,25 @@
         }
         e.preventDefault();
         return true;
+      }
+
+      // Check custom assigned shortcuts for library items (e.g. 'lib:...')
+      if (typeof window.conGetPremadeLibraryItemsSync === 'function') {
+        const libItems = window.conGetPremadeLibraryItemsSync();
+        for (const it of (libItems || [])) {
+          const actId = 'lib:' + it.id;
+          const sc = customMap[actId];
+          if (!sc) continue;
+          const def = { id: actId, name: it.name, defaultShortcut: null };
+          if (matchShortcutDef(def, sc, e)) {
+            if (typeof window.conInsertPremadeItem === 'function') {
+              window.conInsertPremadeItem(it);
+              if (typeof mdbToast === 'function') mdbToast('✨ ' + (it.name || 'Library item'));
+            }
+            e.preventDefault();
+            return true;
+          }
+        }
       }
 
       // Check if this key matches the default shortcut of an action that was overridden or cleared
@@ -2860,6 +3042,9 @@
   Board.shortcuts.saveBoardCustomShortcutsMap = saveBoardCustomShortcutsMap;
   Board.shortcuts.getBoardQuickActionsList = getBoardQuickActionsList;
   Board.shortcuts.saveBoardQuickActionsList = saveBoardQuickActionsList;
+  Board.shortcuts.resolveBoardActionDef = resolveBoardActionDef;
+  Board.shortcuts.boardExecuteActionById = boardExecuteActionById;
+  Board.shortcuts.conToggleLibraryPin = conToggleLibraryPin;
   Board.shortcuts.getActiveShortcutForDef = getActiveShortcutForDef;
   Board.shortcuts.boardDispatchCustomShortcut = boardDispatchCustomShortcut;
   Board.shortcuts._boardNudgeSelected = _boardNudgeSelected;
@@ -2891,6 +3076,9 @@
   window.renderQuickActionsToolbar = global.renderQuickActionsToolbar = renderQuickActionsToolbar;
   window.saveBoardCustomShortcutsMap = global.saveBoardCustomShortcutsMap = saveBoardCustomShortcutsMap;
   window.saveBoardQuickActionsList = global.saveBoardQuickActionsList = saveBoardQuickActionsList;
+  window.resolveBoardActionDef = global.resolveBoardActionDef = resolveBoardActionDef;
+  window.boardExecuteActionById = global.boardExecuteActionById = boardExecuteActionById;
+  window.conToggleLibraryPin = global.conToggleLibraryPin = conToggleLibraryPin;
   window.formatShortcutKeysList = global.formatShortcutKeysList = formatShortcutKeysList;
   window.formatShortcutKeyHtml = global.formatShortcutKeyHtml = formatShortcutKeyHtml;
   window._cancelRecording = global._cancelRecording = _cancelRecording;
