@@ -134,15 +134,15 @@
     var cfg = (typeof window.CLASS_MANAGEMENT_CONFIG !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG) ? window.CLASS_MANAGEMENT_CONFIG : {};
     var exp = cfg.export || {};
 
-    var margin = options.margin || '16mm 14mm';
+    var margin = options.margin || '4mm';
     if (!options.margin && exp.pdfMargin) {
       if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
       else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
       else if (typeof exp.pdfMargin === 'object') {
-        var t = exp.pdfMargin.top || '16mm';
-        var r = exp.pdfMargin.right || '14mm';
-        var b = exp.pdfMargin.bottom || '16mm';
-        var l = exp.pdfMargin.left || '14mm';
+        var t = exp.pdfMargin.top || '4mm';
+        var r = exp.pdfMargin.right || '4mm';
+        var b = exp.pdfMargin.bottom || '4mm';
+        var l = exp.pdfMargin.left || '4mm';
         margin = t + ' ' + r + ' ' + b + ' ' + l;
       }
     }
@@ -881,11 +881,12 @@
     var emptyLayout = (data && data.boardLayout) || opts.boardLayout || (typeof window !== 'undefined' ? window._bcBoardLayoutConfig : null);
     var emptyW = (emptyLayout && emptyLayout.dims) ? emptyLayout.dims.w : 1000;
     var emptyH = (emptyLayout && emptyLayout.dims) ? emptyLayout.dims.h : 650;
+    var customMargin = opts.margin != null ? opts.margin : (opts.isPdfBooklet ? '0' : '8px 0');
     if (!hasContent) {
       if (opts.standalone) {
         return '<div class="pdf-mindmap-empty" style="padding:16px;text-align:center;font-size:9pt;color:#777;font-style:italic;border:1.5px dashed #ccc;border-radius:6px;background:#fafaf9;">Empty board session</div>';
       }
-      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + emptyW + ' ' + emptyH + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
+      return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + emptyW + ' ' + emptyH + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:' + customMargin + ';page-break-inside:avoid;break-inside:avoid;">\n' +
         '  <rect x="0" y="0" width="' + emptyW + '" height="' + emptyH + '" fill="' + (data.boardBgColor || '#ffffff') + '" />\n' +
         '</svg>\n';
     }
@@ -1188,7 +1189,8 @@
 
     var markerId = 'bes-arrow-' + Math.random().toString(36).substring(2, 8);
     var customMaxH = opts.maxHeight ? ('max-height:' + opts.maxHeight + ';') : 'max-height:500px;';
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:8px 0;page-break-inside:avoid;break-inside:avoid;">\n' +
+    var customMargin = opts.margin != null ? opts.margin : (opts.isPdfBooklet ? '0' : '8px 0');
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="' + minX + ' ' + minY + ' ' + width + ' ' + height + '" class="bes-mindmap-svg" style="width:100%;height:auto;' + customMaxH + 'background:' + (data.boardBgColor || '#ffffff') + ';border:2px solid #333333;border-radius:8px;display:block;margin:' + customMargin + ';page-break-inside:avoid;break-inside:avoid;">\n' +
       '<defs>\n' +
       '  <style>\n' +
       '    .con-node-word-row { display: inline-flex; align-items: center; gap: 4px; line-height: inherit; }\n' +
@@ -2917,25 +2919,19 @@
     var pagesHtml = '';
     for (var i = 0; i < pages.length; i++) {
       var p = pages[i];
-      var badgeText = pages.length > 1 ? ('[PAGE ' + (i + 1) + ' OF ' + pages.length + ']') : '[BOARD]';
+      var pageNumText = pages.length > 1 ? ((i + 1) + ' / ' + pages.length) : String(i + 1);
       var snapUrl = (snapshotImages && snapshotImages[i]) || p.snapshotDataUrl || p._snapshotUrl || p.snapshotImage || null;
 
       if (isSnapshotMode && snapUrl) {
         pagesHtml += '<div class="pg">\n' +
-          '  <div class="pg-hdr">\n' +
-          '    <span class="pg-title">' + escapeHtml(title) + '</span>\n' +
-          '    <span class="pg-badge">' + badgeText + '</span>\n' +
-          '  </div>\n' +
-          '  <img src="' + snapUrl + '" class="bes-mindmap-img" alt="Page ' + (i + 1) + '" style="flex:1;width:100%;max-height:calc(100vh - 46px);object-fit:contain;border:2px solid #333333;border-radius:8px;background:' + (p.boardBgColor || '#ffffff') + ';" />\n' +
+          '  <img src="' + snapUrl + '" class="bes-mindmap-img" alt="Page ' + (i + 1) + '" style="flex:1 1 auto;width:100%;height:calc(100vh - 16px);max-height:calc(100vh - 16px);object-fit:contain;border:2px solid #333333;border-radius:8px;background:' + (p.boardBgColor || '#ffffff') + ';" />\n' +
+          '  <div class="pg-footer"><span class="pg-num">' + pageNumText + '</span></div>\n' +
           '</div>\n';
       } else {
-        var svgStr = renderSessionToSvg(p, { maxHeight: 'calc(100vh - 46px)', padding: 40, renderMode: options.renderMode || 'vector' });
+        var svgStr = renderSessionToSvg(p, { maxHeight: 'calc(100vh - 16px)', padding: 14, margin: '0', isPdfBooklet: true, renderMode: options.renderMode || 'vector' });
         pagesHtml += '<div class="pg">\n' +
-          '  <div class="pg-hdr">\n' +
-          '    <span class="pg-title">' + escapeHtml(title) + '</span>\n' +
-          '    <span class="pg-badge">' + badgeText + '</span>\n' +
-          '  </div>\n' +
           svgStr + '\n' +
+          '  <div class="pg-footer"><span class="pg-num">' + pageNumText + '</span></div>\n' +
           '</div>\n';
       }
     }
@@ -2948,13 +2944,12 @@
       '@page { size: ' + pdfSettings.pageSize + ' ' + pdfSettings.orientation + '; margin: ' + pdfSettings.margin + '; }\n' +
       '@media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } button { display: none; } }\n' +
       '* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
-      'body { font-family: "Lexend", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; }\n' +
-      '.pg { page-break-after: always; break-after: page; display: flex; flex-direction: column; justify-content: flex-start; height: 100vh; max-height: 100vh; overflow: hidden; padding: 10px 0; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }\n' +
+      'body { font-family: "Lexend", "Segoe UI", Arial, sans-serif; background: #fff; color: #111; margin: 0; padding: 0; width: 100%; height: 100%; }\n' +
+      '.pg { page-break-after: always; break-after: page; display: flex; flex-direction: column; justify-content: space-between; align-items: center; width: 100%; height: 100vh; max-height: 100vh; overflow: hidden; padding: 0; margin: 0; box-sizing: border-box; page-break-inside: avoid; break-inside: avoid; }\n' +
       '.pg:last-child { page-break-after: avoid; break-after: avoid; }\n' +
-      '.pg-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #333; padding-bottom: 6px; margin-bottom: 10px; flex-shrink: 0; }\n' +
-      '.pg-title { font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #111; }\n' +
-      '.pg-badge { font-size: 8pt; font-weight: 800; background: #3b82f6; color: #fff; padding: 2px 8px; border: 1.5px solid #333; border-radius: 4px; }\n' +
-      '.bes-mindmap-svg, .bes-mindmap-img { flex: 1; width: 100%; max-height: calc(100vh - 46px); object-fit: contain; }\n' +
+      '.bes-mindmap-svg, .bes-mindmap-img { flex: 1 1 auto; width: 100%; height: calc(100vh - 16px); max-height: calc(100vh - 16px) !important; object-fit: contain; display: block; margin: 0 !important; }\n' +
+      '.pg-footer { display: flex; justify-content: flex-end; align-items: center; width: 100%; height: 14px; line-height: 14px; margin-top: 2px; padding: 0 4px; box-sizing: border-box; flex-shrink: 0; }\n' +
+      '.pg-num { font-size: 7.5pt; font-weight: 600; color: #777777; font-family: "Lexend", "Segoe UI", Arial, sans-serif; letter-spacing: 0.4px; }\n' +
       '.con-node-word-row { display: inline-flex; align-items: center; gap: 4px; line-height: inherit; }\n' +
       '.con-node-rel-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 22px; height: 16px; padding: 0 6px; border-radius: 999px; font-size: 0.52em; font-weight: 800; letter-spacing: 0.6px; line-height: 1; flex-shrink: 0; border: 1px solid transparent; text-transform: uppercase; vertical-align: middle; margin-left: 4px; }\n' +
       '.con-node-rel-badge-fr { background: #ecfdf3; border-color: #34d399; color: #065f46; }\n' +

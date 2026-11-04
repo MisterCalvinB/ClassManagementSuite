@@ -5013,8 +5013,8 @@
             '  <span class="drawer-act-duration">' + (Number(sec.duration) || 10) + 'm</span>',
             '</div>',
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' + actPill + modePill + '</div>',
-            sec.objective ? ('<div style="font-size:0.78rem;color:#475569;margin-bottom:4px;"><strong>Target:</strong> ' + escapeHtml(sec.objective) + '</div>') : '',
-            sec.teacherAction ? ('<div style="font-size:0.75rem;color:#64748b;"><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction) + '</div>') : ''
+            sec.objective ? ('<div style="font-size:0.78rem;color:#475569;margin-bottom:4px;white-space:pre-wrap;"><strong>Target:</strong> ' + escapeHtml(sec.objective) + '</div>') : '',
+            sec.teacherAction ? ('<div style="font-size:0.75rem;color:#64748b;white-space:pre-wrap;"><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction) + '</div>') : ''
           ].join('');
         }
 
@@ -9150,6 +9150,11 @@
       }
 
       // ── Clean & Readable HTML Document Generator ──────────────────────────
+      function formatExportMultiline(val) {
+        if (val === null || val === undefined || val === '') return '';
+        return escapeHtml(String(val)).replace(/\r\n/g, '<br>').replace(/[\r\n]/g, '<br>');
+      }
+
       window.lcGenerateExportHtml = function (options) {
         options = options || {};
         var toggles = options.toggles || lcGetExportToggles();
@@ -9348,7 +9353,8 @@
           '      font-size: 0.88rem;\n' +
           '      line-height: 1.55;\n' +
           '      color: var(--neo-dark);\n' +
-          '      white-space: pre-line;\n' +
+          '      white-space: pre-wrap;\n' +
+          '      word-break: break-word;\n' +
           '    }\n' +
           '    .objective-box {\n' +
           '      background: #fffdf5;\n' +
@@ -9360,6 +9366,8 @@
           '      font-weight: 600;\n' +
           '      color: var(--neo-dark);\n' +
           '      line-height: 1.5;\n' +
+          '      white-space: pre-wrap;\n' +
+          '      word-break: break-word;\n' +
           '    }\n' +
           '    .actions-grid {\n' +
           '      display: grid;\n' +
@@ -9399,6 +9407,8 @@
           '      font-size: 0.88rem;\n' +
           '      line-height: 1.55;\n' +
           '      color: var(--neo-dark);\n' +
+          '      white-space: normal;\n' +
+          '      word-break: break-word;\n' +
           '    }\n' +
           '    .custom-field-content p { margin: 0 0 6px 0; }\n' +
           '    .custom-field-content p:last-child { margin-bottom: 0; }\n' +
@@ -9467,6 +9477,8 @@
           '      color: var(--neo-dark);\n' +
           '      border-top: 1px dashed var(--neo-border-color);\n' +
           '      padding-top: 4px;\n' +
+          '      white-space: pre-wrap;\n' +
+          '      word-break: break-word;\n' +
           '    }\n' +
           '    .plan-footer {\n' +
           '      margin-top: 20px;\n' +
@@ -9513,6 +9525,7 @@
           '      border-right: 1px solid #e2e8f0;\n' +
           '      vertical-align: top;\n' +
           '      white-space: pre-wrap;\n' +
+          '      word-break: break-word;\n' +
           '      line-height: 1.45;\n' +
           '    }\n' +
           '    .lesson-horiz-table td:last-child { border-right: none; }\n' +
@@ -9620,10 +9633,10 @@
               if (modeLabel) amParts.push(modeLabel);
               html += '            <td>' + escapeHtml(amParts.join(' • ') || '—') + '</td>\n';
             }
-            if (toggles.phaseObjective) html += '            <td>' + escapeHtml(sec.objective || '—') + '</td>\n';
-            if (toggles.phaseTeacher) html += '            <td>' + escapeHtml(sec.teacherAction || '—') + '</td>\n';
-            if (toggles.phaseStudent) html += '            <td>' + escapeHtml(sec.studentAction || '—') + '</td>\n';
-            if (toggles.phaseResources) html += '            <td>' + escapeHtml(sec.resources || '—') + '</td>\n';
+            if (toggles.phaseObjective) html += '            <td>' + (sec.objective ? formatExportMultiline(sec.objective) : '—') + '</td>\n';
+            if (toggles.phaseTeacher) html += '            <td>' + (sec.teacherAction ? formatExportMultiline(sec.teacherAction) : '—') + '</td>\n';
+            if (toggles.phaseStudent) html += '            <td>' + (sec.studentAction ? formatExportMultiline(sec.studentAction) : '—') + '</td>\n';
+            if (toggles.phaseResources) html += '            <td>' + (sec.resources ? formatExportMultiline(sec.resources) : '—') + '</td>\n';
             if (toggles.phaseDescriptors) {
               var descHtml = '—';
               if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
@@ -9637,15 +9650,15 @@
                   var text = d ? lcDescText(d, sec) : '';
                   var s = '<span class="comp-chip">' + escapeHtml(code + (title && title !== code ? (' - ' + title) : '')) + '</span>';
                   if (toggles.phaseDescText && text) {
-                    s += '<div style="font-size:0.74rem;color:#475569;margin-top:2px;">' + escapeHtml(text) + '</div>';
+                    s += '<div style="font-size:0.74rem;color:#475569;margin-top:2px;">' + formatExportMultiline(text) + '</div>';
                   }
                   return s;
                 }).join(' ');
               }
               html += '            <td>' + descHtml + '</td>\n';
             }
-            if (toggles.phaseDiff) html += '            <td>' + escapeHtml(sec.differentiation || '—') + '</td>\n';
-            if (toggles.phaseAssess) html += '            <td>' + escapeHtml(sec.assessmentStrategy || '—') + '</td>\n';
+            if (toggles.phaseDiff) html += '            <td>' + (sec.differentiation ? formatExportMultiline(sec.differentiation) : '—') + '</td>\n';
+            if (toggles.phaseAssess) html += '            <td>' + (sec.assessmentStrategy ? formatExportMultiline(sec.assessmentStrategy) : '—') + '</td>\n';
             customTableTitles.forEach(function (ct) {
               var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
                 return (f.title || '').trim().toLowerCase() === ct.toLowerCase();
@@ -9694,7 +9707,7 @@
             var objTag = i18n.t('lcExportObjective') || 'Learning Objective';
             html += '        <div class="sec-box objective-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(objTag) + '</span>\n';
-            html += '          <div class="objective-text">' + escapeHtml(sec.objective) + '</div>\n';
+            html += '          <div class="objective-text">' + formatExportMultiline(sec.objective) + '</div>\n';
             html += '        </div>\n';
           }
 
@@ -9707,7 +9720,7 @@
               var tTag = i18n.t('lcExportTeacherActions') || 'Teacher Actions';
               html += '          <div class="sec-box teacher-box">\n';
               html += '            <span class="box-tag">' + escapeHtml(tTag) + '</span>\n';
-              html += '            <div class="box-text">' + escapeHtml(sec.teacherAction) + '</div>\n';
+              html += '            <div class="box-text">' + formatExportMultiline(sec.teacherAction) + '</div>\n';
               html += '          </div>\n';
             } else if (hasStudent) {
               html += '          <div></div>\n';
@@ -9716,7 +9729,7 @@
               var sTag = i18n.t('lcExportStudentTasks') || 'Student Tasks';
               html += '          <div class="sec-box student-box">\n';
               html += '            <span class="box-tag">' + escapeHtml(sTag) + '</span>\n';
-              html += '            <div class="box-text">' + escapeHtml(sec.studentAction) + '</div>\n';
+              html += '            <div class="box-text">' + formatExportMultiline(sec.studentAction) + '</div>\n';
               html += '          </div>\n';
             }
             html += '        </div>\n';
@@ -9727,7 +9740,7 @@
             var resTag = i18n.t('lcExportResources') || 'Resources & Materials';
             html += '        <div class="sec-box resources-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(resTag) + '</span>\n';
-            html += '          <div class="box-text">' + escapeHtml(sec.resources) + '</div>\n';
+            html += '          <div class="box-text">' + formatExportMultiline(sec.resources) + '</div>\n';
             html += '        </div>\n';
           }
 
@@ -9761,7 +9774,7 @@
                 if (title && title !== code) html += ' <span class="comp-item-title">' + escapeHtml(title) + '</span>';
                 html += '</div>\n';
                 if (text) {
-                  html += '              <div class="comp-item-text">' + escapeHtml(text) + '</div>\n';
+                  html += '              <div class="comp-item-text">' + formatExportMultiline(text) + '</div>\n';
                 }
                 html += '            </div>\n';
               });
@@ -9786,7 +9799,7 @@
             var diffTag = i18n.t('lcExportDifferentiation') || 'Differentiation & Support';
             html += '        <div class="sec-box diff-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(diffTag) + '</span>\n';
-            html += '          <div class="box-text">' + escapeHtml(sec.differentiation) + '</div>\n';
+            html += '          <div class="box-text">' + formatExportMultiline(sec.differentiation) + '</div>\n';
             html += '        </div>\n';
           }
 
@@ -9795,7 +9808,7 @@
             var assessTag = i18n.t('lcExportAssessmentStrategy') || 'Formative Assessment';
             html += '        <div class="sec-box assess-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(assessTag) + '</span>\n';
-            html += '          <div class="box-text">' + escapeHtml(sec.assessmentStrategy) + '</div>\n';
+            html += '          <div class="box-text">' + formatExportMultiline(sec.assessmentStrategy) + '</div>\n';
             html += '        </div>\n';
           }
 
@@ -10887,7 +10900,13 @@
 
         function formatField(label, val) {
           if (!val) return '';
-          return isMd ? ('- **' + label + '**: ' + val) : ('* ' + label + ': ' + val);
+          var sVal = String(val);
+          if (sVal.indexOf('\n') !== -1) {
+            var indent = isMd ? '    ' : '  ';
+            var formatted = sVal.split(/\r?\n/).join('\n' + indent);
+            return isMd ? ('- **' + label + '**:\n' + indent + formatted) : ('* ' + label + ':\n' + indent + formatted);
+          }
+          return isMd ? ('- **' + label + '**: ' + sVal) : ('* ' + label + ': ' + sVal);
         }
 
         // 1. Metadata Block

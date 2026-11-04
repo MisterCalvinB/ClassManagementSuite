@@ -8006,7 +8006,8 @@
           const res = await window.BoardExportService.exportPagesPdf(pagesToProcess, {
             title: titleVal,
             orientation: resolvedOrientation,
-            renderMode: 'vector'
+            renderMode: 'vector',
+            margin: '4mm'
           });
           if (res && (res.ok || res.canceled)) {
             return res;

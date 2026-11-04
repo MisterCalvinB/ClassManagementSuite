@@ -47,22 +47,68 @@
       }
       if (window.i18n && typeof window.i18n.t === 'function') {
         try {
-          var res = window.i18n.t(key, fallback, targetLang);
+          var res = window.i18n.t(key, (typeof fallback === 'string' ? fallback : undefined), targetLang);
           if (res && res !== key) return res;
         } catch (_) {}
       }
     }
-    return fallback != null ? fallback : key;
+    return (typeof fallback === 'string') ? fallback : key;
   }
 
-  function _tFmt(key, fallback, lang) {
+  function _tFmt(key, fallbackOrParams, langOrArg0) {
+    var fallback = null;
+    var params = {};
+    var lang = null;
+    var positionalArgs = [];
+
+    if (fallbackOrParams && typeof fallbackOrParams === 'object' && !Array.isArray(fallbackOrParams)) {
+      params = Object.assign({}, fallbackOrParams);
+      lang = (typeof langOrArg0 === 'string') ? langOrArg0 : null;
+    } else {
+      fallback = (typeof fallbackOrParams === 'string') ? fallbackOrParams : null;
+      lang = (typeof langOrArg0 === 'string') ? langOrArg0 : null;
+      positionalArgs = Array.prototype.slice.call(arguments, 3);
+    }
+
     var str = _t(key, fallback, lang);
-    var args = Array.prototype.slice.call(arguments, 3);
-    if (!args.length) return str;
-    return str.replace(/\{(\d+)\}/g, function (match, index) {
-      var idx = parseInt(index, 10);
-      return (args[idx] !== undefined) ? args[idx] : match;
+    if (!str && str !== '') str = fallback != null ? fallback : key;
+    if (typeof str !== 'string') str = String(str);
+
+    // Replace named parameter tokens from params object
+    Object.keys(params).forEach(function (k) {
+      var val = (params[k] !== undefined && params[k] !== null) ? params[k] : '';
+      if (val === '' && k === 'title') {
+        str = str.replace(new RegExp('\\s*:\\s*\\{' + k + '\\}', 'g'), '');
+      }
+      str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), val);
     });
+
+    // Replace positional arguments {0}, {1}, etc. or named objects passed as positional args
+    if (positionalArgs.length) {
+      positionalArgs.forEach(function (arg, idx) {
+        if (arg && typeof arg === 'object' && !Array.isArray(arg)) {
+          Object.keys(arg).forEach(function (k) {
+            var v = (arg[k] !== undefined && arg[k] !== null) ? arg[k] : '';
+            if (v === '' && k === 'title') {
+              str = str.replace(new RegExp('\\s*:\\s*\\{' + k + '\\}', 'g'), '');
+            }
+            str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), v);
+          });
+        } else {
+          var val = (arg !== undefined && arg !== null) ? arg : '';
+          str = str.replace(new RegExp('\\{' + idx + '\\}', 'g'), val);
+        }
+      });
+      if (positionalArgs.length === 1 && (typeof positionalArgs[0] !== 'object' || positionalArgs[0] === null)) {
+        var singleVal = (positionalArgs[0] !== undefined && positionalArgs[0] !== null) ? positionalArgs[0] : '';
+        str = str.replace(/\{(variant|total|pts|count|min|scale|n|num)\}/g, singleVal);
+      } else if (positionalArgs.length === 2 && typeof positionalArgs[0] !== 'object' && typeof positionalArgs[1] !== 'object') {
+        str = str.replace(/\{num\}/g, positionalArgs[0] !== undefined ? positionalArgs[0] : '')
+                 .replace(/\{title\}/g, positionalArgs[1] !== undefined ? positionalArgs[1] : '');
+      }
+    }
+
+    return str;
   }
 
   var DEFAULT_LABEL_LOOKUP = {
@@ -209,9 +255,19 @@
     return (scale && (scale.name || scale.label)) || String(scale);
   }
 
+  function sanitizeFilename(rawName, fallback) {
+    var str = String(rawName || fallback || 'Exam').trim();
+    // Remove illegal filesystem characters on Windows and POSIX: \ / : * ? " < > | and control characters
+    str = str.replace(/[\x00-\x1f\x7f\\/:*?"<>|]/g, '');
+    // Normalize whitespace to underscores, collapse consecutive underscores, and trim leading/trailing underscores and dots
+    str = str.replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^[\._]+|[\._]+$/g, '');
+    return str || fallback || 'Exam';
+  }
+
   TestCreatorService._currentLang = _currentLang;
   TestCreatorService._t = _t;
   TestCreatorService._tFmt = _tFmt;
+  TestCreatorService.sanitizeFilename = sanitizeFilename;
   TestCreatorService.resolveHeaderLabel = resolveHeaderLabel;
   TestCreatorService.resolveInstructionsText = resolveInstructionsText;
   TestCreatorService.resolveMaterialText = resolveMaterialText;
@@ -4818,8 +4874,9 @@
       return out.join('\n');
     }
 
-    var exTitleFormatted = _tFmt('tcExerciseHeader', { num: num, title: TestCreatorService.formatRichText(ex.title) }, lang);
-    var exPtsFormatted = _tFmt('tcExercisePointsOutOf', { pts: (ex.points || 0) }, lang);
+    var rawTitle = (ex.title && String(ex.title).trim()) ? TestCreatorService.formatRichText(ex.title) : _t('tcExerciseFallbackTitle', 'Question', lang);
+    var exTitleFormatted = _tFmt('tcExerciseHeader', { num: num, title: rawTitle }, lang);
+    var exPtsFormatted = _tFmt('tcExercisePointsOutOf', { pts: (ex.points !== undefined && ex.points !== null ? ex.points : 0) }, lang);
 
     html.push('<div class="exercise-card' + pageBreakClass + borderClass + spacingClass + '" id="ex-' + ex.id + '">');
     html.push('  <div class="exercise-header">');
@@ -4858,12 +4915,12 @@
           var raw = it.text || '';
           var blanks = [];
           var placeholderText = raw.replace(/\[([^\]]+)\]/g, function (match, word) {
-            var bId = '___CLOZE_BLANK_' + blanks.length + '___';
+            var bId = '\uE000TC_CLOZE_BLANK_' + blanks.length + '\uE001';
             blanks.push(word);
             return bId;
           });
           var formattedSegment = TestCreatorService.formatRichText(placeholderText);
-          var renderedText = formattedSegment.replace(/___CLOZE_BLANK_(\d+)___/g, function (_, bIdxStr) {
+          var renderedText = formattedSegment.replace(/(?:\uE000TC_CLOZE_BLANK_|(?:___|<strong>_?)CLOZE_BLANK_)(\d+)(?:\uE001|___|<\/strong>_?)/gi, function (_, bIdxStr) {
             var word = blanks[Number(bIdxStr)] || '';
             if (isTeacherKey) {
               return '<span class="cloze-blank teacher-key">' + escapeHtml(word) + '</span>';
@@ -6518,8 +6575,8 @@
     });
 
     // Replace flex exercise header with Word-safe table layout
-    inner = inner.replace(/<div class="exercise-header">([\s\S]*?)<div class="exercise-title-group">([\s\S]*?)<\/div>\s*<div class="exercise-points-badge">([\s\S]*?)<\/div>\s*<\/div>/g, function (m, pre, titleGroup, badge) {
-      return '<table class="exercise-header-table" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-bottom:8pt;"><tr><td style="vertical-align:top;border:none;">' + titleGroup + '</td><td class="points-badge-cell" style="vertical-align:top;text-align:right;width:90pt;border:none;"><span class="points-badge-mso">' + badge + '</span></td></tr></table>';
+    inner = inner.replace(/<div class="exercise-header">([\s\S]*?)(?:<div class="exercise-title-group">|<span class="exercise-title">)([\s\S]*?)(?:<\/div>|<\/span>)\s*(?:<div class="exercise-points-badge">|<span class="exercise-points">)([\s\S]*?)(?:<\/div>|<\/span>)\s*<\/div>/g, function (m, pre, titleGroup, badge) {
+      return '<table class="exercise-header-table" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse;margin-bottom:8pt;"><tr><td style="vertical-align:top;border:none;"><span class="exercise-title">' + titleGroup + '</span></td><td class="points-badge-cell" style="vertical-align:top;text-align:right;width:90pt;border:none;"><span class="points-badge-mso">' + badge + '</span></td></tr></table>';
     });
 
     // Replace empty writing line divs with Word-safe table rows

@@ -3330,6 +3330,17 @@
         };
       }
 
+      function tcSanitizeFilename(rawName, fallback) {
+        if (typeof TestCreatorService !== 'undefined' && typeof TestCreatorService.sanitizeFilename === 'function') {
+          return TestCreatorService.sanitizeFilename(rawName, fallback);
+        }
+        var str = String(rawName || fallback || 'Exam').trim();
+        str = str.replace(/[\x00-\x1f\x7f\\/:*?"<>|]/g, '');
+        str = str.replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^[\._]+|[\._]+$/g, '');
+        return str || fallback || 'Exam';
+      }
+      window.tcSanitizeFilename = tcSanitizeFilename;
+
       var currentTest = TestCreatorService.createEmptyTest();
 
       var DEFAULT_COMPETENCE_CONFIG = {
@@ -3421,34 +3432,78 @@
       });
 
       var _draggedExerciseIdx = null;
+      var _activeCardDragSource = null;
 
       function setupExerciseDragAndDrop() {
         var exList = document.getElementById('exerciseCardsList');
         if (!exList) return;
 
-        exList.addEventListener('dragstart', function (e) {
-          var card = e.target.closest('.exercise-card-item');
-          if (card) {
-            var handle = e.target.closest('.card-drag-handle, .exercise-card-header');
-            if (handle || e.target === card) {
-              var idx = parseInt(card.dataset.index, 10);
-              if (!isNaN(idx)) {
-                _draggedExerciseIdx = idx;
-                card.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('application/json', JSON.stringify({
-                  type: 'exercise-card-reorder',
-                  index: idx,
-                  id: card.dataset.id || card.id.replace(/^card-/, '')
-                }));
-                e.dataTransfer.setData('text/plain', 'card:' + idx);
-              }
+        function clearCardDragAttrs() {
+          _activeCardDragSource = null;
+          var cards = exList.querySelectorAll('.exercise-card-item[draggable="true"]');
+          cards.forEach(function (c) {
+            c.removeAttribute('draggable');
+          });
+        }
+
+        // On mousedown: only enable draggable if mouse is on the drag handle or empty header space (NEVER inside any field or action)
+        exList.addEventListener('mousedown', function (e) {
+          // Exclude any interactive inputs, textareas, contenteditable editors, toolbars, buttons, or links
+          var isInteractiveField = e.target.closest('input, textarea, select, button, a, [contenteditable="true"], .tc-mini-fmt-toolbar, .tc-subitem-wysiwyg-editor, .tc-subitem-wysiwyg-toolbar, .card-actions, .card-points-wrap, .card-header-title-wrap');
+          if (isInteractiveField) {
+            clearCardDragAttrs();
+            return;
+          }
+
+          var handle = e.target.closest('.card-drag-handle');
+          var header = e.target.closest('.exercise-card-header');
+          if (handle || header) {
+            var card = e.target.closest('.exercise-card-item');
+            if (card) {
+              _activeCardDragSource = card;
+              card.setAttribute('draggable', 'true');
             }
           }
         });
 
+        document.addEventListener('mouseup', function () {
+          clearCardDragAttrs();
+        });
+
+        exList.addEventListener('dragstart', function (e) {
+          // If drag gesture originated on an interactive field, abort immediately to protect native text selection
+          var isInteractiveField = e.target.closest('input, textarea, select, [contenteditable="true"], .tc-mini-fmt-toolbar, .tc-subitem-wysiwyg-editor, .tc-subitem-wysiwyg-toolbar, .card-title-input, .card-points-input, .instructions-input');
+          if (isInteractiveField) {
+            e.preventDefault();
+            clearCardDragAttrs();
+            return;
+          }
+
+          var card = e.target.closest('.exercise-card-item');
+          if (card && card === _activeCardDragSource && card.getAttribute('draggable') === 'true') {
+            var idx = parseInt(card.dataset.index, 10);
+            if (!isNaN(idx)) {
+              _draggedExerciseIdx = idx;
+              card.classList.add('dragging');
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('application/json', JSON.stringify({
+                type: 'exercise-card-reorder',
+                index: idx,
+                id: card.dataset.id || card.id.replace(/^card-/, '')
+              }));
+              e.dataTransfer.setData('text/plain', 'card:' + idx);
+              return;
+            }
+          }
+
+          // Otherwise, cancel any unintended drag
+          e.preventDefault();
+          clearCardDragAttrs();
+        });
+
         exList.addEventListener('dragend', function () {
           _draggedExerciseIdx = null;
+          clearCardDragAttrs();
           var allCards = exList.querySelectorAll('.exercise-card-item');
           allCards.forEach(function (c) {
             c.classList.remove('dragging', 'drag-over-top', 'drag-over-bottom', 'drag-over');
@@ -4875,7 +4930,7 @@
             '</div>';
         }
 
-        return '<div class="exercise-card-item section-card-blue" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item section-card-blue" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
           '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
@@ -5054,7 +5109,7 @@
             '</div>';
         }
 
-        return '<div class="exercise-card-item section-card-green" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item section-card-green" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
           '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
@@ -5282,7 +5337,7 @@
           }
         }
 
-        return '<div class="exercise-card-item section-card-amber" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item section-card-amber" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
           '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
@@ -5416,7 +5471,7 @@
         var htmlContent = content.html || '';
         var isWysiwyg = (mode === 'wysiwyg');
 
-        return '<div class="exercise-card-item section-card-purple" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item section-card-purple" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
           '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
@@ -5835,7 +5890,7 @@
           ? (i18n.tFmt ? i18n.tFmt('tcPdfRangeValid', { 0: selectedPages.length, 1: selectedPages.join(', ') }) : (selectedPages.length + ' page(s) selected: ' + selectedPages.join(', ')))
           : (i18n.t('tcPdfRangeInvalid') || 'Invalid page range');
 
-        return '<div class="exercise-card-item section-card-red" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item section-card-red" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <input type="file" id="pdfFileInput_' + ex.id + '" accept="application/pdf" style="display:none;" onchange="tcHandlePdfFileSelected(\'' + ex.id + '\', this)">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
@@ -6144,7 +6199,7 @@
         var typeObj = TestCreatorService.EXERCISE_TYPES.find(function (t) { return t.id === ex.type; }) || { name: ex.type };
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
 
-        return '<div class="exercise-card-item" id="card-' + ex.id + '" draggable="true" data-index="' + idx + '" data-id="' + ex.id + '">' +
+        return '<div class="exercise-card-item" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
           '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
@@ -15201,7 +15256,7 @@
           exportHtml = await ExportStylesService.injectStyleIntoHtml(exportHtml, theme, 'testCreator');
         }
 
-        var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+        var fileNameBase = tcSanitizeFilename(currentTest.title, 'Exam');
         var defaultName = fileNameBase + (isTeacher ? '_Solution_Key' : '') + '.pdf';
 
         if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
@@ -15439,7 +15494,7 @@
         var vMode = document.querySelector('input[name="batchVariantMode"]:checked').value;
         tcCloseExportModal();
 
-        var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+        var fileNameBase = tcSanitizeFilename(currentTest.title, 'Exam');
         var outContent = '';
         var ext = currentExportFormat;
         var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
@@ -15756,13 +15811,13 @@
           if (typeof LessonCreatorService !== 'undefined') {
             html = LessonCreatorService.exportSequenceToHtml(seq, fullLessons, fullTests, opts);
           }
-          fileNameBase = (seq.title || 'Unit_Sequence').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+          fileNameBase = tcSanitizeFilename(seq.title, 'Unit_Sequence');
         } else {
           if (!currentTest) return;
           var isTeacher = document.querySelector('input[name="expCopyType"]:checked') ? (document.querySelector('input[name="expCopyType"]:checked').value === 'teacher') : false;
           var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
           html = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
-          fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+          fileNameBase = tcSanitizeFilename(currentTest.title, 'Exam');
         }
 
         if (!html) return;
@@ -16567,7 +16622,7 @@
         }
 
         var opts = tcGetSequenceExportModalOptions();
-        var safeSeqName = (seq.title || 'unit_sequence').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'unit_sequence';
+        var safeSeqName = tcSanitizeFilename(seq.title, 'unit_sequence');
 
         if (typeof LessonCreatorService === 'undefined') {
           if (window.showToast) showToast(i18n.t('tcLessonServiceNotLoaded'), true);
@@ -17164,7 +17219,7 @@
         var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
         var htmlContent = TestCreatorService.exportToHtml(currentTest, { isTeacherKey: isTeacher, stylesheetTheme: activeTheme });
 
-        var fileNameBase = (currentTest.title || 'Exam').replace(/[^a-zA-Z0-9_\-]+/g, '_');
+        var fileNameBase = tcSanitizeFilename(currentTest.title, 'Exam');
         var filename = fileNameBase + '.html';
 
         var isElec = window.Desktop && (typeof Desktop.isElectron === 'function' ? Desktop.isElectron() : !!Desktop.isElectron);
@@ -17210,7 +17265,7 @@
       window.tcGenerateRevisionMindmap = async function () {
         var title = currentTest.title || 'Exam';
         var mindmapTitle = 'Revision: ' + title;
-        var slug = title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30).replace(/^_+|_+$/g, '') || 'exam';
+        var slug = tcSanitizeFilename(title, 'exam').slice(0, 40);
         var filename = 'revision_mindmap_' + slug + '_' + (currentTest.id || Date.now()) + '.json';
 
         var nodes = [];
@@ -17461,7 +17516,7 @@
         }
 
         currentTest.title = titleVal;
-        var slug = titleVal.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30).replace(/^_+|_+$/g, '') || 'test';
+        var slug = tcSanitizeFilename(titleVal, 'test').slice(0, 40);
         var filename = 'test_' + (currentTest.classId || 'general') + '_' + slug + '_' + currentTest.id + '.json';
 
         if (!window.Desktop || !window.Desktop.isElectron) {
@@ -18113,7 +18168,7 @@
           exercises: tmpl.exercises || []
         };
 
-        var slug = (tmpl.title || 'template').toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30) || 'template';
+        var slug = tcSanitizeFilename(tmpl.title, 'template').slice(0, 40);
         var filename = 'template_' + slug + '.json';
         var jsonContent = JSON.stringify(exportObj, null, 2);
 
