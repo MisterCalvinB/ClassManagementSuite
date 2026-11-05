@@ -1207,9 +1207,9 @@
         <button class="con-fmt-btn-wide con-mini-action" onclick="conToggleMaskSelected()"
           title="Hide/Reveal selected words">👁</button>
         <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-align-toggle"
-          onclick="conCtxToggleArrangeMenu('align', event)" title="Align selected words">Align</button>
+          onclick="conCtxToggleArrangeMenu('align', event)" title="Align selected words" style="display:none;">Align</button>
         <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-distribute-toggle"
-          onclick="conCtxToggleArrangeMenu('distribute', event)" title="Distribute selected words">Distribute</button>
+          onclick="conCtxToggleArrangeMenu('distribute', event)" title="Distribute selected words" style="display:none;">Distribute</button>
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxConnectSelected('none')"
           title="Connect with plain link">──</button>
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxConnectSelected('forward')"
@@ -1229,7 +1229,31 @@
         <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-multi-lib-btn" onclick="conSaveSelectionToLibraryPrompt()"
           title="Save selection to Premade Library" data-i18n-title="conSaveSelectionToLibrary">✨ Library</button>
       </div>
-      <div id="con-ctx-align-menu" class="con-ctx-submenu">
+
+      <!-- Direct Align buttons layout -->
+      <div style="padding:4px 10px 2px; font-size:0.55rem; font-weight:900; text-transform:uppercase; letter-spacing:0.8px; color:#555; display:flex; align-items:center; gap:4px;">
+        <span data-i18n="conAlignLabel">Align</span>
+      </div>
+      <div class="con-mini-action-row" style="margin-bottom:3px;">
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('vertical','left')" title="Align left edges" data-i18n-title="conAlignLeft"><img src="../assets/icons/align-left.svg" class="btn-icon" alt="" /></button>
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('vertical','middle')" title="Align centres vertically" data-i18n-title="conAlignCenter"><img src="../assets/icons/align-center-h.svg" class="btn-icon" alt="" /></button>
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('vertical','right')" title="Align right edges" data-i18n-title="conAlignRight"><img src="../assets/icons/align-right.svg" class="btn-icon" alt="" /></button>
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('horizontal','top')" title="Align top edges" data-i18n-title="conAlignTop"><img src="../assets/icons/align-top.svg" class="btn-icon" alt="" /></button>
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('horizontal','centre')" title="Align centres horizontally" data-i18n-title="conAlignMiddle"><img src="../assets/icons/align-middle-v.svg" class="btn-icon" alt="" /></button>
+        <button class="con-fmt-btn con-mini-action" onclick="conCtxAlignSelected('horizontal','bottom')" title="Align bottom edges" data-i18n-title="conAlignBottom"><img src="../assets/icons/align-bottom.svg" class="btn-icon" alt="" /></button>
+      </div>
+
+      <!-- Direct Distribute buttons layout -->
+      <div style="padding:4px 10px 2px; font-size:0.55rem; font-weight:900; text-transform:uppercase; letter-spacing:0.8px; color:#555; display:flex; align-items:center; gap:4px;">
+        <span data-i18n="conDistributeLabel">Distribute</span>
+      </div>
+      <div class="con-mini-action-row" style="margin-bottom:3px;">
+        <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxDistributeSelected('horizontal')" title="Distribute across row" data-i18n-title="conDistributeHoriz"><img src="../assets/icons/distribute-horizontal.svg" class="btn-icon" alt="" /> <span data-i18n="conDistributeHoriz">Horiz.</span></button>
+        <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxDistributeSelected('vertical')" title="Distribute down column" data-i18n-title="conDistributeVert"><img src="../assets/icons/distribute-vertical.svg" class="btn-icon" alt="" /> <span data-i18n="conDistributeVert">Vert.</span></button>
+        <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxGridSelected()" title="Organise in a grid" data-i18n-title="conDistributeGrid"><img src="../assets/icons/grid.svg" class="btn-icon" alt="" /> <span data-i18n="conDistributeGrid">Grid</span></button>
+      </div>
+
+      <div id="con-ctx-align-menu" class="con-ctx-submenu" style="display:none;">
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxAlignSelected('vertical','left')"
           title="Align left edges">Left</button>
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxAlignSelected('vertical','middle')"
@@ -1243,7 +1267,7 @@
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxAlignSelected('horizontal','bottom')"
           title="Align bottom edges">Bottom</button>
       </div>
-      <div id="con-ctx-distribute-menu" class="con-ctx-submenu">
+      <div id="con-ctx-distribute-menu" class="con-ctx-submenu" style="display:none;">
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxDistributeSelected('horizontal')"
           title="Distribute across the row">Horiz.</button>
         <button class="con-fmt-btn-wide con-mini-action" onclick="conCtxDistributeSelected('vertical')"
@@ -3247,6 +3271,24 @@
               onclick="wnStyleSetAlign('right')" title="Align right">→</button>
             <button class="wn-sp-style-toggle" id="wn-sp-align-justify" onmousedown="event.preventDefault()"
               onclick="wnStyleSetAlign('justify')" title="Justify">⇔</button>
+          </div>
+        </div>
+        <div class="wn-sp-row" id="wn-sp-arrange-row" style="display:none; align-items:flex-start;">
+          <span class="wn-sp-label" data-i18n="conArrangeLabel" style="padding-top:3px;">Arrange</span>
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1;">
+            <div style="display:flex; align-items:center; gap:3px; flex-wrap:wrap;">
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('vertical','left')" title="Align left edges" data-i18n-title="conAlignLeft"><img src="../assets/icons/align-left.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('vertical','middle')" title="Align centres vertically" data-i18n-title="conAlignCenter"><img src="../assets/icons/align-center-h.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('vertical','right')" title="Align right edges" data-i18n-title="conAlignRight"><img src="../assets/icons/align-right.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('horizontal','top')" title="Align top edges" data-i18n-title="conAlignTop"><img src="../assets/icons/align-top.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('horizontal','centre')" title="Align centres horizontally" data-i18n-title="conAlignMiddle"><img src="../assets/icons/align-middle-v.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxAlignSelected('horizontal','bottom')" title="Align bottom edges" data-i18n-title="conAlignBottom"><img src="../assets/icons/align-bottom.svg" class="btn-icon" alt="" /></button>
+            </div>
+            <div style="display:flex; align-items:center; gap:3px; flex-wrap:wrap;">
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxDistributeSelected('horizontal')" title="Distribute across row" data-i18n-title="conDistributeHoriz"><img src="../assets/icons/distribute-horizontal.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxDistributeSelected('vertical')" title="Distribute down column" data-i18n-title="conDistributeVert"><img src="../assets/icons/distribute-vertical.svg" class="btn-icon" alt="" /></button>
+              <button type="button" class="wn-sp-style-toggle" onmousedown="event.preventDefault()" onclick="conCtxGridSelected()" title="Organise in a grid" data-i18n-title="conDistributeGrid"><img src="../assets/icons/grid.svg" class="btn-icon" alt="" /></button>
+            </div>
           </div>
         </div>
         <div id="wn-sp-wordcount-row" class="wn-sp-row" onclick="wnStyleCountWords()" title="Count words" data-i18n-title="conCountWords" style="display:flex; justify-content:space-between; align-items:center; background:#f8fafc; border:1.5px solid #111; border-radius:4px; padding:3px 8px; font-size:0.75rem; margin-top:6px; cursor:pointer; user-select:none;">

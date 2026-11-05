@@ -10897,7 +10897,8 @@
           event.preventDefault();
           event.stopPropagation();
         }
-        if (conMultiSelected.size < 2) return;
+        const targets = (typeof conGetMultiSelectedTargets === 'function') ? conGetMultiSelectedTargets() : [];
+        if (targets.length < 2) return;
         const menu = document.getElementById('con-ctx-' + kind + '-menu');
         const toggle = document.getElementById('con-ctx-' + kind + '-toggle');
         if (!menu || !toggle) return;
@@ -14040,6 +14041,76 @@
         return conNodes.filter(n => conMultiSelected.has(n.id));
       }
 
+      function conGetMultiSelectedTargets() {
+        const targets = [];
+        const seenIds = new Set();
+
+        // 1. Nodes
+        const nodesList = (typeof window.conGetNodes === 'function')
+          ? window.conGetNodes()
+          : (window.conNodes || conNodes || []);
+        const multiNodes = (typeof window.conGetMultiSelected === 'function')
+          ? window.conGetMultiSelected()
+          : (window.conMultiSelected || conMultiSelected);
+
+        if (multiNodes && multiNodes.size > 0) {
+          multiNodes.forEach(nid => {
+            const n = nodesList.find(x => x && (x.id === nid || String(x.id) === String(nid)));
+            if (n && !conIsNodeLocked(n) && !seenIds.has('node:' + n.id)) {
+              seenIds.add('node:' + n.id);
+              const el = n.el || document.querySelector(`.con-node[data-id="${n.id}"]`);
+              const w = (el && el.offsetWidth) ? el.offsetWidth : 80;
+              const h = (el && el.offsetHeight) ? el.offsetHeight : 32;
+              targets.push({
+                type: 'node',
+                id: n.id,
+                item: n,
+                el: el,
+                x: typeof n.x === 'number' ? n.x : 0,
+                y: typeof n.y === 'number' ? n.y : 0,
+                width: w,
+                height: h
+              });
+            }
+          });
+        }
+
+        // 2. Notes
+        const notesList = (typeof window.conGetNotes === 'function')
+          ? window.conGetNotes()
+          : (window.conNotes || conNotes || []);
+        const noteSel = (typeof window.conGetNoteSelected === 'function')
+          ? window.conGetNoteSelected()
+          : ((typeof window.conNoteSelected !== 'undefined' && window.conNoteSelected) ? window.conNoteSelected : conNoteSelected);
+
+        if (noteSel && noteSel.size > 0) {
+          noteSel.forEach(nid => {
+            const nd = notesList.find(x => x && (x.id === nid || String(x.id) === String(nid)));
+            if (nd && !nd.locked && !seenIds.has('note:' + nd.id)) {
+              seenIds.add('note:' + nd.id);
+              const el = (typeof window.wnGetNoteElementById === 'function')
+                ? window.wnGetNoteElementById(nd.id)
+                : document.querySelector(`.con-word-note[data-id="${nd.id}"], .ta-word-note[data-id="${nd.id}"]`);
+              const w = (el && el.offsetWidth) ? el.offsetWidth : (Number(nd.width) || 120);
+              const h = (el && el.offsetHeight) ? el.offsetHeight : (Number(nd.height) || 60);
+              targets.push({
+                type: 'note',
+                id: nd.id,
+                item: nd,
+                el: el,
+                x: typeof nd.x === 'number' ? nd.x : 0,
+                y: typeof nd.y === 'number' ? nd.y : 0,
+                width: w,
+                height: h
+              });
+            }
+          });
+        }
+
+        return targets;
+      }
+      window.conGetMultiSelectedTargets = conGetMultiSelectedTargets;
+
       function conClampNodePosition(node, x, y) {
         const brd = board();
         const maxX = Math.max(0, brd.clientWidth - (node.el.offsetWidth || 80));
@@ -14058,25 +14129,92 @@
         node.baseY = centerY + (node.y - centerY) / conCurrentZoom;
       }
 
-      function conCommitNodeLayout(nodes) {
-        nodes.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          const pos = conClampNodePosition(node, node.x, node.y);
-          node.x = pos.x;
-          node.y = pos.y;
-          node.el.style.left = node.x + 'px';
-          node.el.style.top = node.y + 'px';
-          conSyncNodeBasePosition(node);
+      function conCommitSelectedLayout(targets) {
+        if (!targets || !targets.length) return;
+        const brd = board();
+        const movedNodes = [];
+        const movedNotes = [];
+        const brdCenterX = brd.clientWidth / 2;
+        const brdCenterY = brd.clientHeight / 2;
+        const z = (window.conGetZoom ? window.conGetZoom() : (typeof window.conCurrentZoom === 'number' ? window.conCurrentZoom : 1)) || 1;
+
+        targets.forEach(t => {
+          if (t.type === 'node') {
+            const node = t.item;
+            if (conIsNodeLocked(node)) return;
+            const maxX = Math.max(0, brd.clientWidth - (t.width || 80));
+            const maxY = Math.max(0, brd.clientHeight - (t.height || 32));
+            node.x = Math.max(0, Math.min(maxX, t.x));
+            node.y = Math.max(0, Math.min(maxY, t.y));
+            if (node.el) {
+              node.el.style.left = node.x + 'px';
+              node.el.style.top = node.y + 'px';
+            }
+            conSyncNodeBasePosition(node);
+            movedNodes.push(node);
+          } else if (t.type === 'note') {
+            const nd = t.item;
+            if (nd.locked) return;
+            const maxX = Math.max(0, brd.clientWidth - (t.width || 120));
+            const maxY = Math.max(0, brd.clientHeight - (t.height || 60));
+            nd.x = Math.max(0, Math.min(maxX, t.x));
+            nd.y = Math.max(0, Math.min(maxY, t.y));
+            if (t.el) {
+              t.el.style.left = nd.x + 'px';
+              t.el.style.top = nd.y + 'px';
+            }
+            nd.baseX = brdCenterX + (nd.x - brdCenterX) / z;
+            nd.baseY = brdCenterY + (nd.y - brdCenterY) / z;
+            movedNotes.push(nd);
+          }
         });
-        conGroupRefitAll();
-        conRedrawEdges();
+
+        if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+
+        // Mirror synchronization for multi-display / presentation
+        if (window._conMirrorSend) {
+          if (movedNodes.length > 0) {
+            window._conMirrorSend({
+              type: 'node-move',
+              positions: movedNodes.map(n => ({ id: n.id, x: n.x, y: n.y }))
+            });
+          }
+          if (movedNotes.length > 0) {
+            window._conMirrorSend({
+              type: 'note-move',
+              positions: movedNotes.map(nd => ({ id: nd.id, x: nd.x, y: nd.y }))
+            });
+          }
+        }
+        if (window._conMirrorBroadcast) {
+          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        }
+      }
+      window.conCommitSelectedLayout = conCommitSelectedLayout;
+
+      function conCommitNodeLayout(nodes) {
+        if (!nodes) return;
+        const targets = nodes.map(n => ({
+          type: 'node',
+          id: n.id,
+          item: n,
+          el: n.el,
+          x: n.x,
+          y: n.y,
+          width: (n.el && n.el.offsetWidth) || 80,
+          height: (n.el && n.el.offsetHeight) || 32
+        }));
+        conCommitSelectedLayout(targets);
       }
 
-      function conGetSelectionBounds(nodes) {
-        const left = Math.min(...nodes.map(node => node.x));
-        const top = Math.min(...nodes.map(node => node.y));
-        const right = Math.max(...nodes.map(node => node.x + (node.el.offsetWidth || 80)));
-        const bottom = Math.max(...nodes.map(node => node.y + (node.el.offsetHeight || 32)));
+      function conGetSelectionBounds(targets) {
+        if (!targets || !targets.length) return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, centerX: 0, centerY: 0 };
+        const left = Math.min(...targets.map(t => t.x));
+        const top = Math.min(...targets.map(t => t.y));
+        const right = Math.max(...targets.map(t => t.x + (t.width || 80)));
+        const bottom = Math.max(...targets.map(t => t.y + (t.height || 32)));
         return {
           left,
           top,
@@ -14090,38 +14228,41 @@
       }
 
       window.conCtxAlignSelected = function (direction, mode) {
-        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        const targets = conGetMultiSelectedTargets();
         if (targets.length < 2) return;
 
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
         const bounds = conGetSelectionBounds(targets);
-        targets.forEach(node => {
-          const width = node.el.offsetWidth || 80;
-          const height = node.el.offsetHeight || 32;
+        targets.forEach(t => {
           if (direction === 'vertical') {
-            if (mode === 'left') node.x = bounds.left;
-            else if (mode === 'middle') node.x = bounds.centerX - width / 2;
-            else if (mode === 'right') node.x = bounds.right - width;
+            if (mode === 'left') t.x = bounds.left;
+            else if (mode === 'middle' || mode === 'center') t.x = bounds.centerX - t.width / 2;
+            else if (mode === 'right') t.x = bounds.right - t.width;
           } else {
-            if (mode === 'top') node.y = bounds.top;
-            else if (mode === 'centre') node.y = bounds.centerY - height / 2;
-            else if (mode === 'bottom') node.y = bounds.bottom - height;
+            if (mode === 'top') t.y = bounds.top;
+            else if (mode === 'centre' || mode === 'middle') t.y = bounds.centerY - t.height / 2;
+            else if (mode === 'bottom') t.y = bounds.bottom - t.height;
           }
         });
 
-        conCommitNodeLayout(targets);
+        conCommitSelectedLayout(targets);
         conCtxClose();
+        if (typeof window.wnStyleRefreshPosition === 'function') window.wnStyleRefreshPosition();
       };
 
       window.conCtxDistributeSelected = function (direction) {
-        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        const targets = conGetMultiSelectedTargets();
         if (targets.length < 3) return;
+
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
 
         const brd = board();
         const isHorizontal = direction === 'horizontal';
         const sorted = [...targets].sort((a, b) => isHorizontal ? a.x - b.x : a.y - b.y);
         const bounds = conGetSelectionBounds(sorted);
-        const totalSize = sorted.reduce((sum, node) => {
-          return sum + (isHorizontal ? (node.el.offsetWidth || 80) : (node.el.offsetHeight || 32));
+        const totalSize = sorted.reduce((sum, t) => {
+          return sum + (isHorizontal ? t.width : t.height);
         }, 0);
         const available = isHorizontal ? brd.clientWidth : brd.clientHeight;
         const currentSpan = isHorizontal ? bounds.width : bounds.height;
@@ -14131,25 +14272,28 @@
         const center = isHorizontal ? bounds.centerX : bounds.centerY;
         let cursor = Math.max(0, Math.min(available - span, center - span / 2));
 
-        sorted.forEach(node => {
-          if (isHorizontal) node.x = cursor;
-          else node.y = cursor;
-          cursor += (isHorizontal ? (node.el.offsetWidth || 80) : (node.el.offsetHeight || 32)) + gap;
+        sorted.forEach(t => {
+          if (isHorizontal) t.x = cursor;
+          else t.y = cursor;
+          cursor += (isHorizontal ? t.width : t.height) + gap;
         });
 
-        conCommitNodeLayout(sorted);
+        conCommitSelectedLayout(sorted);
         conCtxClose();
+        if (typeof window.wnStyleRefreshPosition === 'function') window.wnStyleRefreshPosition();
       };
 
       window.conCtxGridSelected = function () {
-        const targets = conGetMultiSelectedNodes().filter(node => !conIsNodeLocked(node));
+        const targets = conGetMultiSelectedTargets();
         if (targets.length < 2) return;
+
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
 
         const brd = board();
         const ordered = [...targets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
         const bounds = conGetSelectionBounds(ordered);
-        const maxWidth = Math.max(...ordered.map(node => node.el.offsetWidth || 80));
-        const maxHeight = Math.max(...ordered.map(node => node.el.offsetHeight || 32));
+        const maxWidth = Math.max(...ordered.map(t => t.width || 80));
+        const maxHeight = Math.max(...ordered.map(t => t.height || 32));
         const ratio = bounds.height > 0 ? bounds.width / bounds.height : 1;
         let columns = Math.round(Math.sqrt(ordered.length * Math.max(ratio, 0.5)));
         columns = Math.max(1, Math.min(ordered.length, columns || 1));
@@ -14161,17 +14305,16 @@
         const startX = Math.max(0, bounds.centerX - gridWidth / 2);
         const startY = Math.max(0, bounds.centerY - gridHeight / 2);
 
-        ordered.forEach((node, index) => {
+        ordered.forEach((t, index) => {
           const column = index % columns;
           const row = Math.floor(index / columns);
-          const width = node.el.offsetWidth || 80;
-          const height = node.el.offsetHeight || 32;
-          node.x = startX + column * (maxWidth + gapX) + (maxWidth - width) / 2;
-          node.y = startY + row * (maxHeight + gapY) + (maxHeight - height) / 2;
+          t.x = startX + column * (maxWidth + gapX) + (maxWidth - t.width) / 2;
+          t.y = startY + row * (maxHeight + gapY) + (maxHeight - t.height) / 2;
         });
 
-        conCommitNodeLayout(ordered);
+        conCommitSelectedLayout(ordered);
         conCtxClose();
+        if (typeof window.wnStyleRefreshPosition === 'function') window.wnStyleRefreshPosition();
       };
 
       function conSpreadNodeSet(ids) {
@@ -17734,7 +17877,9 @@
           if (document.activeElement && document.activeElement.isContentEditable) return;
           const sec = document.getElementById('constellation-section');
           if (!sec || sec.classList.contains('hidden')) return;
-          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) ||
+            (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) ||
+            (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0);
           if (!hasSelection) return;
           e.preventDefault();
           if (typeof window.conCtxAlignSelected === 'function') {
@@ -17757,7 +17902,9 @@
             e.preventDefault();
             return;
           }
-          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+          const hasSelection = (typeof conSelected !== 'undefined' && conSelected) ||
+            (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) ||
+            (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 0);
           if (!hasSelection) return;
           e.preventDefault();
           const targets = (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0)

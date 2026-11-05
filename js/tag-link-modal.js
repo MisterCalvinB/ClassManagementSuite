@@ -3971,18 +3971,21 @@
       var fS2 = filteredEvals.filter(function(e) { return e.semester === 'sem2'; });
       var fS1Avg = calcExportSemAvg(fS1);
       var fS2Avg = calcExportSemAvg(fS2);
+      if (fS1Avg != null) fS1Avg = Math.round(fS1Avg * 10) / 10;
+      if (fS2Avg != null) fS2Avg = Math.round(fS2Avg * 10) / 10;
       var fValid = [fS1Avg, fS2Avg].filter(function(v) { return v != null; });
       var fYearAvg = fValid.length ? (fValid.reduce(function(a, b) { return a + b; }, 0) / fValid.length) : null;
+      if (fYearAvg != null) fYearAvg = Math.round(fYearAvg * 10) / 10;
       var fGraded = filteredEvals.filter(function(e) {
         if (e.score == null) return false;
         var n = typeof e.score === 'number' ? e.score : parseFloat(String(e.score).replace(',', '.'));
         return !isNaN(n);
       }).length;
       gs = Object.assign({}, gs, {
-        sem1Average: fS1Avg != null ? Number(fS1Avg.toFixed(2)) : null,
-        sem2Average: fS2Avg != null ? Number(fS2Avg.toFixed(2)) : null,
-        yearAverage: fYearAvg != null ? Number(fYearAvg.toFixed(2)) : null,
-        roundedAverage: fYearAvg != null ? Number((Math.round(fYearAvg * 2) / 2).toFixed(1)) : null,
+        sem1Average: fS1Avg != null ? Number(fS1Avg.toFixed(1)) : null,
+        sem2Average: fS2Avg != null ? Number(fS2Avg.toFixed(1)) : null,
+        yearAverage: fYearAvg != null ? Number(fYearAvg.toFixed(1)) : null,
+        roundedAverage: fYearAvg != null ? Number(fYearAvg.toFixed(1)) : null,
         gradedCount: fGraded,
         totalTests: filteredEvals.length
       });

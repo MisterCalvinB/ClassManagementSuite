@@ -4431,6 +4431,8 @@
 
       var sem1Avg = calcSemAvg(sem1Tests);
       var sem2Avg = calcSemAvg(sem2Tests);
+      if (sem1Avg != null) sem1Avg = Math.round(sem1Avg * 10) / 10;
+      if (sem2Avg != null) sem2Avg = Math.round(sem2Avg * 10) / 10;
       var validAvgs = [sem1Avg, sem2Avg].filter(function(v) { return v != null; });
       var yearAvg = validAvgs.length ? (validAvgs.reduce(function(a, b) { return a + b; }, 0) / validAvgs.length) : null;
       var scoredTests = tests.filter(function(t) { return _parseScoreNumber(t.score) != null; });
@@ -4452,9 +4454,10 @@
           yearAvg = totalWScore / totalW;
         }
       }
+      if (yearAvg != null) yearAvg = Math.round(yearAvg * 10) / 10;
 
-      // Swiss standard 0.5 rounding (e.g. 4.75 -> 5.0, 4.6 -> 4.5, 4.2 -> 4.0)
-      var roundedAvg = yearAvg != null ? Number((Math.round(yearAvg * 2) / 2).toFixed(1)) : null;
+      // 1-decimal rounded average (e.g. 4.75 -> 4.8, 4.6 -> 4.6)
+      var roundedAvg = yearAvg != null ? Number(yearAvg.toFixed(1)) : null;
 
       // Group tests and calculate per-class averages
       var byClass = {};
@@ -4467,16 +4470,19 @@
         var cS2 = cTests.filter(function(t) { return t.semester === 'sem2'; });
         var cS1Avg = calcSemAvg(cS1);
         var cS2Avg = calcSemAvg(cS2);
+        if (cS1Avg != null) cS1Avg = Math.round(cS1Avg * 10) / 10;
+        if (cS2Avg != null) cS2Avg = Math.round(cS2Avg * 10) / 10;
         var cValid = [cS1Avg, cS2Avg].filter(function(v) { return v != null; });
         var cYearAvg = cValid.length ? (cValid.reduce(function(a, b) { return a + b; }, 0) / cValid.length) : null;
+        if (cYearAvg != null) cYearAvg = Math.round(cYearAvg * 10) / 10;
         byClass[cid] = {
           classId: cid,
           className: cName,
           tests: cTests,
-          sem1Average: cS1Avg != null ? Number(cS1Avg.toFixed(2)) : null,
-          sem2Average: cS2Avg != null ? Number(cS2Avg.toFixed(2)) : null,
-          yearAverage: cYearAvg != null ? Number(cYearAvg.toFixed(2)) : null,
-          roundedAverage: cYearAvg != null ? Number((Math.round(cYearAvg * 2) / 2).toFixed(1)) : null
+          sem1Average: cS1Avg != null ? Number(cS1Avg.toFixed(1)) : null,
+          sem2Average: cS2Avg != null ? Number(cS2Avg.toFixed(1)) : null,
+          yearAverage: cYearAvg != null ? Number(cYearAvg.toFixed(1)) : null,
+          roundedAverage: cYearAvg != null ? Number(cYearAvg.toFixed(1)) : null
         };
       });
 
@@ -4489,9 +4495,9 @@
         classIds: matchedSubdirs,
         tests: tests,
         byClass: byClass,
-        sem1Average: sem1Avg != null ? Number(sem1Avg.toFixed(2)) : null,
-        sem2Average: sem2Avg != null ? Number(sem2Avg.toFixed(2)) : null,
-        yearAverage: yearAvg != null ? Number(yearAvg.toFixed(2)) : null,
+        sem1Average: sem1Avg != null ? Number(sem1Avg.toFixed(1)) : null,
+        sem2Average: sem2Avg != null ? Number(sem2Avg.toFixed(1)) : null,
+        yearAverage: yearAvg != null ? Number(yearAvg.toFixed(1)) : null,
         roundedAverage: roundedAvg,
         gradedCount: gradedCount,
         totalTests: tests.length
@@ -5669,9 +5675,9 @@
           totalW += w;
         });
         if (totalW > 0) {
-          var compAvg = Number((sumW / totalW).toFixed(2));
+          var compAvg = Number((sumW / totalW).toFixed(1));
           dossier.gradesSummary.yearAverage = compAvg;
-          dossier.gradesSummary.roundedAverage = Number((Math.round(compAvg * 2) / 2).toFixed(1));
+          dossier.gradesSummary.roundedAverage = compAvg;
           if (!dossier.gradesSummary.gradedCount) {
             dossier.gradesSummary.gradedCount = scoredEvals.length;
           }
@@ -5681,7 +5687,7 @@
         }
       }
     } else if (dossier.gradesSummary.yearAverage != null && dossier.gradesSummary.roundedAverage == null) {
-      dossier.gradesSummary.roundedAverage = Number((Math.round(dossier.gradesSummary.yearAverage * 2) / 2).toFixed(1));
+      dossier.gradesSummary.roundedAverage = Number(dossier.gradesSummary.yearAverage.toFixed(1));
     }
 
     return dossier;

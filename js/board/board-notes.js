@@ -1472,6 +1472,12 @@
         mergeBtn.title = mergeTitleStr;
         mergeBtn.setAttribute('title', mergeTitleStr);
       }
+      const arrangeRow = document.getElementById('wn-sp-arrange-row');
+      if (arrangeRow) {
+        const totalTargetsCount = (typeof conNoteSelected !== 'undefined' && conNoteSelected ? conNoteSelected.size : 0) +
+          (typeof conMultiSelected !== 'undefined' && conMultiSelected ? conMultiSelected.size : 0);
+        arrangeRow.style.display = totalTargetsCount >= 2 ? 'flex' : 'none';
+      }
       const openInputBtn = document.getElementById('wn-sp-open-input-btn');
       const stopInputBtn = document.getElementById('wn-sp-stop-input-btn');
       if (stopInputBtn) {
@@ -1920,6 +1926,29 @@
       const noteEl = wnGetNoteElementById(_wnActiveNote.id);
       wnStyleOpen(_wnActiveNote, noteEl || document.body, undefined, _wnPopupWordMeta);
     }
+
+    function wnStyleRefreshPosition() {
+      const overlay = document.getElementById('wn-style-overlay');
+      const popup = document.getElementById('wn-style-popup');
+      if (!overlay || !overlay.classList.contains('active') || !popup || _wnPopupDragged || !_wnActiveNote) return;
+      const noteEl = (typeof wnGetNoteElementById === 'function')
+        ? wnGetNoteElementById(_wnActiveNote.id)
+        : document.querySelector(`.ta-word-note[data-id="${_wnActiveNote.id}"], .con-word-note[data-id="${_wnActiveNote.id}"]`);
+      if (!noteEl) return;
+      const MARGIN = 12;
+      const pw = popup.offsetWidth || 260;
+      const ph = popup.offsetHeight || 340;
+      const rect = noteEl.getBoundingClientRect();
+      let left = rect.right + 10;
+      let top = rect.top;
+      if (left + pw > window.innerWidth - MARGIN) left = rect.left - pw - 10;
+      if (left < MARGIN) left = Math.min(rect.right + 10, window.innerWidth - pw - MARGIN);
+      if (top + ph > window.innerHeight - MARGIN) top = window.innerHeight - ph - MARGIN;
+      if (top < MARGIN) top = MARGIN;
+      popup.style.left = left + 'px';
+      popup.style.top = top + 'px';
+    }
+    window.wnStyleRefreshPosition = wnStyleRefreshPosition;
 
     let _wnCtxNoteData = null;
 

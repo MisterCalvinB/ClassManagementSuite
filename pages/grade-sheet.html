@@ -3764,9 +3764,13 @@
       return "id-" + Math.random().toString(36).slice(2, 11);
     }
 
+    function roundToOneDecimal(num) {
+      if (num == null || Number.isNaN(Number(num))) return null;
+      return Math.round(Number(num) * 10) / 10;
+    }
+
     function roundToHalf(num) {
-      if (num == null || Number.isNaN(num)) return null;
-      return Math.round(num * 2) / 2;
+      return roundToOneDecimal(num);
     }
 
     function asGrade(value) {
@@ -3827,6 +3831,12 @@
     function fmtN(value) {
       if (value == null || Number.isNaN(value)) return "-";
       return String(parseFloat(Number(value).toFixed(2)));
+    }
+
+    // Formats averages rounded to 1 decimal place (e.g. 4.7, 5.0)
+    function fmtAvg(value) {
+      if (value == null || Number.isNaN(Number(value))) return "-";
+      return Number(value).toFixed(1);
     }
 
     function formatCorrectionTime(value) {
@@ -10242,18 +10252,22 @@
         return fixedSum + (normalAvg != null ? normalProportion * normalAvg : 0);
       }
 
-      const sem1Avg = calcSemAvg(student.sem1Tests, "sem1");
-      const sem2Avg = calcSemAvg(student.sem2Tests, "sem2");
+      const rawSem1Avg = calcSemAvg(student.sem1Tests, "sem1");
+      const rawSem2Avg = calcSemAvg(student.sem2Tests, "sem2");
+      const sem1Avg = rawSem1Avg == null ? null : roundToOneDecimal(rawSem1Avg);
+      const sem2Avg = rawSem2Avg == null ? null : roundToOneDecimal(rawSem2Avg);
       const yearCore = [sem1Avg, sem2Avg].filter(v => v != null);
-      const yearAvg = yearCore.length ? yearCore.reduce((a, b) => a + b, 0) / yearCore.length : null;
-      const roundedFinal = yearAvg == null ? null : roundToHalf(yearAvg);
+      const rawYearAvg = yearCore.length ? yearCore.reduce((a, b) => a + b, 0) / yearCore.length : null;
+      const yearAvg = rawYearAvg == null ? null : roundToOneDecimal(rawYearAvg);
+      const roundedFinal = yearAvg;
       return { sem1Avg, sem2Avg, yearAvg, roundedFinal };
     }
 
     function rankStudents(classObj) {
       const entries = classObj.students.map(s => {
         const c = computeStudent(s, classObj);
-        return { id: s.id, score: c.roundedFinal == null ? -Infinity : c.roundedFinal };
+        const score = c.yearAvg != null ? c.yearAvg : (c.roundedFinal != null ? c.roundedFinal : -Infinity);
+        return { id: s.id, score: score == null ? -Infinity : score };
       });
 
       entries.sort((a, b) => b.score - a.score);
@@ -11998,7 +12012,7 @@
         tFmt('gsStudentsCount', { n: classObj.students.length }),
         ...(showSem1 ? [tFmt('gsSem1TestsCount', { n: classObj.testCounts.sem1 })] : []),
         ...(showSem2 ? [tFmt('gsSem2TestsCount', { n: classObj.testCounts.sem2 })] : []),
-        tFmt('gsAverageLabel', { avg: fmt(globalAvg) })
+        tFmt('gsAverageLabel', { avg: fmtAvg(globalAvg) })
       ].forEach(label => {
         const el = document.createElement("span");
         el.className = "chip";
@@ -12099,11 +12113,11 @@
           fnDisplay,
           lnDisplay,
           ...Array.from({ length: n1 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem1", i))),
-          ...(showSem1 ? [fmt(c.sem1Avg)] : []),
+          ...(showSem1 ? [fmtAvg(c.sem1Avg)] : []),
           ...Array.from({ length: n2 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem2", i))),
-          ...(showSem2 ? [fmt(c.sem2Avg)] : []),
-          ...(showSem1 && showSem2 ? [fmt(c.yearAvg)] : []),
-          fmt(c.roundedFinal),
+          ...(showSem2 ? [fmtAvg(c.sem2Avg)] : []),
+          ...(showSem1 && showSem2 ? [fmtAvg(c.yearAvg)] : []),
+          fmtAvg(c.roundedFinal),
           rankMap.get(student.id) ?? "-",
           student.comments || ""
         ];
@@ -12217,13 +12231,13 @@
             const td = document.createElement("td");
             td.classList.add("num");
             const v = s ? s[key] : null;
-            td.textContent = v != null ? fmt(v) : "—";
             // colour test-grade columns (not averages)
             const sem1TestRange = showSem1 ? [0, n1] : [0, 0];
             const sem2StatStart = showSem1 ? n1 + 1 : 0;
             const sem2TestRange = showSem2 ? [sem2StatStart, sem2StatStart + n2] : [sem2StatStart, sem2StatStart];
             const isTestCol = (ci >= sem1TestRange[0] && ci < sem1TestRange[1]) ||
                               (ci >= sem2TestRange[0] && ci < sem2TestRange[1]);
+            td.textContent = v != null ? (isTestCol ? fmt(v) : fmtAvg(v)) : "—";
             if (v != null && isTestCol) {
               let testCfg = null;
               if (ci >= sem1TestRange[0] && ci < sem1TestRange[1]) {
@@ -15825,7 +15839,7 @@
           <td class="left">${esc(String(student.index))}</td>
           <td class="left">${esc((student.firstName + " " + student.lastName).trim())}</td>
           ${gradeCells}
-          <td class="center" style="font-weight:700;${avgStyle}">${semAvg != null ? fmt(semAvg) : "-"}</td>
+          <td class="center" style="font-weight:700;${avgStyle}">${semAvg != null ? fmtAvg(semAvg) : "-"}</td>
         </tr>`;
       }).join("");
 
@@ -15835,7 +15849,7 @@
         return `<tr class="stats-row">
           <td colspan="2" class="left stats-label">${label}</td>
           ${cells}
-          <td>${sv != null ? fmt(sv) : "-"}</td>
+          <td>${sv != null ? fmtAvg(sv) : "-"}</td>
         </tr>`;
       }
 
@@ -16361,14 +16375,14 @@
           String(student.index == null ? "" : student.index),
           (student.firstName + " " + student.lastName).trim(),
           ...grades.map(g => g != null ? fmtN(g) : "-"),
-          semAvg != null ? fmt(semAvg) : "-"
+          semAvg != null ? fmtAvg(semAvg) : "-"
         ];
         lines.push(`| ${row.map(mdEsc).join(" | ")} |`);
       });
 
       function statsRow(label, fn) {
         const values = report.testStats.map(s => s[fn] != null ? fmtN(s[fn]) : "-");
-        const semValue = report.semAvgStats[fn] != null ? fmt(report.semAvgStats[fn]) : "-";
+        const semValue = report.semAvgStats[fn] != null ? fmtAvg(report.semAvgStats[fn]) : "-";
         return [label, "", ...values, semValue];
       }
 
@@ -17622,10 +17636,10 @@
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${s1Cells}
-          <td class="center" style="font-weight:700;${gradeColor(r.sem1Avg)}">${r.sem1Avg != null ? fmt(r.sem1Avg) : '-'}</td>
+          <td class="center" style="font-weight:700;${gradeColor(r.sem1Avg)}">${r.sem1Avg != null ? fmtAvg(r.sem1Avg) : '-'}</td>
           ${s2Cells}
-          <td class="center" style="font-weight:700;${gradeColor(r.sem2Avg)}">${r.sem2Avg != null ? fmt(r.sem2Avg) : '-'}</td>
-          <td class="center" style="font-weight:800;${gradeColor(r.yearAvg)}">${r.yearAvg != null ? fmt(r.yearAvg) : '-'}</td>
+          <td class="center" style="font-weight:700;${gradeColor(r.sem2Avg)}">${r.sem2Avg != null ? fmtAvg(r.sem2Avg) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(r.yearAvg)}">${r.yearAvg != null ? fmtAvg(r.yearAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -17780,7 +17794,7 @@
           <td class="center" style="font-weight:700;">${idx + 1}</td>
           <td style="font-weight:700;">${escapeHtml(fullName)}</td>
           ${testCells}
-          <td class="center" style="font-weight:800;${gradeColor(r.semAvg)}">${r.semAvg != null ? fmt(r.semAvg) : '-'}</td>
+          <td class="center" style="font-weight:800;${gradeColor(r.semAvg)}">${r.semAvg != null ? fmtAvg(r.semAvg) : '-'}</td>
         </tr>`;
       }).join('');
 
@@ -18210,23 +18224,23 @@
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">Annual Grade Avg</div>
-              <div class="kpi-value" style="${gradeColor(c.yearAvg)}">${c.yearAvg != null ? fmt(c.yearAvg) : '-'}</div>
+              <div class="kpi-value" style="${gradeColor(c.yearAvg)}">${c.yearAvg != null ? fmtAvg(c.yearAvg) : '-'}</div>
               <div class="kpi-sub">Class Mean: ${classYearStats.mean != null ? classYearStats.mean.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Semester 1 Avg</div>
-              <div class="kpi-value">${c.sem1Avg != null ? fmt(c.sem1Avg) : '-'}</div>
+              <div class="kpi-value">${c.sem1Avg != null ? fmtAvg(c.sem1Avg) : '-'}</div>
               <div class="kpi-sub">Rank: #${c.rank || '-'}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Semester 2 Avg</div>
-              <div class="kpi-value">${c.sem2Avg != null ? fmt(c.sem2Avg) : '-'}</div>
-              <div class="kpi-sub">Rounded Final: ${c.roundedFinal != null ? fmt(c.roundedFinal) : '-'}</div>
+              <div class="kpi-value">${c.sem2Avg != null ? fmtAvg(c.sem2Avg) : '-'}</div>
+              <div class="kpi-sub">Rounded Final: ${c.roundedFinal != null ? fmtAvg(c.roundedFinal) : '-'}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Progression (S1 → S2)</div>
               <div class="kpi-value" style="color:${(c.sem2Avg && c.sem1Avg && c.sem2Avg >= c.sem1Avg) ? '#2e7d32' : '#c62828'};">
-                ${(c.sem2Avg != null && c.sem1Avg != null) ? ((c.sem2Avg - c.sem1Avg >= 0 ? '+' : '') + (c.sem2Avg - c.sem1Avg).toFixed(2)) : '—'}
+                ${(c.sem2Avg != null && c.sem1Avg != null) ? ((c.sem2Avg - c.sem1Avg >= 0 ? '+' : '') + (c.sem2Avg - c.sem1Avg).toFixed(1)) : '—'}
               </div>
               <div class="kpi-sub">${(c.sem2Avg && c.sem1Avg && c.sem2Avg >= c.sem1Avg) ? 'Improved ▲' : 'Declined ▼'}</div>
             </div>
@@ -18338,7 +18352,7 @@
           <div class="kpi-grid">
             <div class="kpi-card">
               <div class="kpi-label">${semLabel} Avg</div>
-              <div class="kpi-value" style="${gradeColor(studentAvg)}">${studentAvg != null ? fmt(studentAvg) : '-'}</div>
+              <div class="kpi-value" style="${gradeColor(studentAvg)}">${studentAvg != null ? fmtAvg(studentAvg) : '-'}</div>
               <div class="kpi-sub">Class Mean: ${classSemStats.mean != null ? classSemStats.mean.toFixed(2) : '-'}</div>
             </div>
             <div class="kpi-card">
@@ -26803,9 +26817,9 @@ ${blocks}
             st.index || "-",
             st.firstName || "",
             st.lastName || "",
-            comp.sem1Avg != null ? Number(comp.sem1Avg.toFixed(2)) : "-",
-            comp.sem2Avg != null ? Number(comp.sem2Avg.toFixed(2)) : "-",
-            comp.yearAvg != null ? Number(comp.yearAvg.toFixed(2)) : "-",
+            comp.sem1Avg != null ? Number(comp.sem1Avg.toFixed(1)) : "-",
+            comp.sem2Avg != null ? Number(comp.sem2Avg.toFixed(1)) : "-",
+            comp.yearAvg != null ? Number(comp.yearAvg.toFixed(1)) : "-",
             comp.roundedFinal != null ? Number(comp.roundedFinal.toFixed(1)) : "-"
           ]);
         });
