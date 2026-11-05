@@ -1165,11 +1165,11 @@
           '.unit-lesson-card { background: #ffffff; border: 2px solid #222; box-shadow: 3px 3px 0 #333; border-radius: 6px; margin-bottom: 16px; padding: 14px; }\n' +
           '.unit-card-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #222; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }\n' +
           '.unit-card-title { font-size: 1.15rem; font-weight: 900; margin: 0; }\n' +
-          '.landscape-lesson-table { width: 100%; min-width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; table-layout: fixed; }\n' +
-          '.landscape-lesson-table th, .landscape-lesson-table td { border: 1.5px solid #222; padding: 6px 8px; vertical-align: top; }\n' +
-          '.landscape-lesson-table th { background: #e2e8f0; font-weight: 900; font-size: 0.76rem; text-transform: uppercase; position: relative; user-select: none; }\n' +
-          '.landscape-lesson-table th .th-wrap { position: relative; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; }\n' +
-          '.landscape-lesson-table th .th-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; hyphens: none; }\n' +
+          '.landscape-lesson-table { width: 100% !important; max-width: 100% !important; min-width: 0 !important; border-collapse: collapse; font-size: 0.78rem; margin-top: 6px; table-layout: fixed; }\n' +
+          '.landscape-lesson-table th, .landscape-lesson-table td { border: 1.5px solid #222; padding: 5px 6px; vertical-align: top; }\n' +
+          '.landscape-lesson-table th { background: #e2e8f0; font-weight: 900; font-size: 0.72rem; text-transform: uppercase; position: relative; user-select: none; vertical-align: middle; }\n' +
+          '.landscape-lesson-table th .th-wrap { position: relative; display: flex; align-items: center; justify-content: flex-start; width: 100%; box-sizing: border-box; }\n' +
+          '.landscape-lesson-table th .th-text { display: block; width: 100%; overflow: visible !important; text-overflow: clip !important; white-space: normal !important; word-break: normal !important; overflow-wrap: break-word !important; line-height: 1.2 !important; hyphens: none; }\n' +
           '.landscape-lesson-table .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 2; }\n' +
           '.landscape-lesson-table .col-resizer::after { content: ""; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1.5px; background: #333333; opacity: 0.4; }\n' +
           '.landscape-lesson-table .col-resizer:hover::after, .landscape-lesson-table .col-resizer.resizing::after { opacity: 1; background: #000; width: 2px; }\n' +
@@ -2002,31 +2002,37 @@
           }
 
           var colDefs = [];
-          if (lessonToggles.phaseDuration !== false) colDefs.push({ id: 'pacing', name: 'Pacing', width: 75, align: 'center' });
-          if (lessonToggles.phaseTitle !== false || lessonToggles.phaseActivity !== false) colDefs.push({ id: 'phase', name: 'Phase & Activity', width: 160 });
-          if (lessonToggles.phaseObjective !== false) colDefs.push({ id: 'obj', name: 'Objectives', width: 190 });
-          if (lessonToggles.phaseTeacher !== false) colDefs.push({ id: 'teacher', name: 'Teacher Actions', width: 190 });
-          if (lessonToggles.phaseStudent !== false) colDefs.push({ id: 'student', name: 'Student Tasks', width: 190 });
-          if (lessonToggles.phaseResources !== false) colDefs.push({ id: 'res', name: 'Resources & Materials', width: 150 });
-          if (lessonToggles.phaseDescriptors !== false) colDefs.push({ id: 'comp', name: 'Competences', width: 170 });
-          if (lessonToggles.phaseDiff !== false) colDefs.push({ id: 'diff', name: 'Differentiation', width: 160 });
-          if (lessonToggles.phaseAssess !== false) colDefs.push({ id: 'assess', name: 'Assessment', width: 150 });
+          if (lessonToggles.phaseDuration !== false) colDefs.push({ id: 'pacing', name: 'Pacing', weight: 6, align: 'center' });
+          if (lessonToggles.phaseTitle !== false || lessonToggles.phaseActivity !== false) colDefs.push({ id: 'phase', name: 'Phase & Activity', weight: 13 });
+          if (lessonToggles.phaseObjective !== false) colDefs.push({ id: 'obj', name: 'Objectives', weight: 14 });
+          if (lessonToggles.phaseTeacher !== false) colDefs.push({ id: 'teacher', name: 'Teacher Actions', weight: 17 });
+          if (lessonToggles.phaseStudent !== false) colDefs.push({ id: 'student', name: 'Student Tasks', weight: 17 });
+          if (lessonToggles.phaseResources !== false) colDefs.push({ id: 'res', name: 'Resources & Materials', weight: 10 });
+          if (lessonToggles.phaseDescriptors !== false) colDefs.push({ id: 'comp', name: 'Competences', weight: 12 });
+          if (lessonToggles.phaseDiff !== false) colDefs.push({ id: 'diff', name: 'Differentiation', weight: 11 });
+          if (lessonToggles.phaseAssess !== false) colDefs.push({ id: 'assess', name: 'Assessment', weight: 10 });
           customColTitles.forEach(function (ct, ctIdx) {
-            colDefs.push({ id: 'custom_' + ctIdx, name: ct, width: 150 });
+            colDefs.push({ id: 'custom_' + ctIdx, name: ct, weight: 10 });
+          });
+
+          var totalWeight = colDefs.reduce(function (sum, c) { return sum + (c.weight || 10); }, 0) || 100;
+          colDefs.forEach(function (c) {
+            c.pct = ((c.weight || 10) / totalWeight * 100).toFixed(2);
           });
 
           html +=
             '      <table class="landscape-lesson-table resizable-table">\n' +
             '        <colgroup>\n' +
             colDefs.map(function (c, cIdx) {
-              return '          <col data-col="' + cIdx + '" style="width:' + c.width + 'px;">\n';
+              return '          <col data-col="' + cIdx + '" style="width:' + c.pct + '%;">\n';
             }).join('') +
             '        </colgroup>\n' +
             '        <thead>\n' +
             '          <tr>\n' +
             colDefs.map(function (c, cIdx) {
               var alignStyle = c.align ? ' style="text-align:' + c.align + ';"' : '';
-              return '            <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span><span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span></span></th>\n';
+              var resizerHtml = (cIdx < colDefs.length - 1) ? '<span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span>' : '';
+              return '            <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span>' + resizerHtml + '</span></th>\n';
             }).join('') +
             '          </tr>\n' +
             '        </thead>\n' +
@@ -2708,20 +2714,18 @@
         '        tables.forEach(function(table) {\n' +
         '          if (table._resizerInitialized) return;\n' +
         '          table._resizerInitialized = true;\n' +
-        '          var minW = 36;\n' +
-        '          var active = null, startX = 0, startW = 0, startTableW = 0;\n' +
+        '          var minPct = 4;\n' +
+        '          var active = null, startX = 0;\n' +
         '          function onMove(e) {\n' +
-        '            if (!active) return;\n' +
+        '            if (!active || !active.col || !active.nextCol) return;\n' +
         '            var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
-        '            var delta = clientX - startX;\n' +
-        '            var newW = Math.max(minW, startW + delta);\n' +
-        '            if (active.col) active.col.style.width = newW + "px";\n' +
-        '            if (active.th) active.th.style.width = newW + "px";\n' +
-        '            if (active.table) {\n' +
-        '              var newTableW = Math.max(active.initialTableW, startTableW + (newW - startW));\n' +
-        '              active.table.style.width = newTableW + "px";\n' +
-        '              active.table.style.minWidth = newTableW + "px";\n' +
-        '            }\n' +
+        '            var deltaPx = clientX - startX;\n' +
+        '            var deltaPct = (deltaPx / active.tableW) * 100;\n' +
+        '            var combinedPct = active.startPct + active.nextStartPct;\n' +
+        '            var newPct = Math.max(minPct, Math.min(combinedPct - minPct, active.startPct + deltaPct));\n' +
+        '            var newNextPct = combinedPct - newPct;\n' +
+        '            active.col.style.width = newPct.toFixed(2) + "%";\n' +
+        '            active.nextCol.style.width = newNextPct.toFixed(2) + "%";\n' +
         '          }\n' +
         '          function onUp() {\n' +
         '            if (!active) return;\n' +
@@ -2737,20 +2741,24 @@
         '            function onStart(e) {\n' +
         '              e.preventDefault();\n' +
         '              e.stopPropagation();\n' +
-        '              var idx = handle.getAttribute("data-col");\n' +
+        '              var idx = parseInt(handle.getAttribute("data-col"), 10);\n' +
         '              var col = table.querySelector("col[data-col=\'" + idx + "\']");\n' +
-        '              var th = handle.closest("th");\n' +
+        '              var nextCol = table.querySelector("col[data-col=\'" + (idx + 1) + "\']");\n' +
+        '              if (!col || !nextCol) return;\n' +
+        '              var tableW = table.getBoundingClientRect().width || 800;\n' +
+        '              var th = table.querySelector("th[data-col=\'" + idx + "\']");\n' +
+        '              var nextTh = table.querySelector("th[data-col=\'" + (idx + 1) + "\']");\n' +
+        '              var startPct = parseFloat(col.style.width) || ((th ? th.getBoundingClientRect().width : 80) / tableW * 100);\n' +
+        '              var nextStartPct = parseFloat(nextCol.style.width) || ((nextTh ? nextTh.getBoundingClientRect().width : 80) / tableW * 100);\n' +
         '              active = {\n' +
         '                handle: handle,\n' +
         '                col: col,\n' +
-        '                th: th,\n' +
-        '                table: table,\n' +
-        '                initialTableW: table.parentElement ? table.parentElement.clientWidth : 800\n' +
+        '                nextCol: nextCol,\n' +
+        '                tableW: tableW,\n' +
+        '                startPct: startPct,\n' +
+        '                nextStartPct: nextStartPct\n' +
         '              };\n' +
-        '              var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
-        '              startX = clientX;\n' +
-        '              startW = th ? th.getBoundingClientRect().width : (col ? col.getBoundingClientRect().width : 80);\n' +
-        '              startTableW = table.getBoundingClientRect().width;\n' +
+        '              startX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
         '              handle.classList.add("resizing");\n' +
         '              document.body.style.cursor = "col-resize";\n' +
         '              window.addEventListener("mousemove", onMove);\n' +

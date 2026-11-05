@@ -1028,13 +1028,6 @@
                   <span class="neo-switch-slider"></span>
                 </label>
               </div>
-              <div class="customize-toggle-item" id="exportTgl_phaseDescText_wrap" style="padding-left:14px;">
-                <span data-i18n="lcExportCompetenceText">Full Competence Description Text</span>
-                <label class="neo-switch">
-                  <input type="checkbox" id="exportTgl_phaseDescText" onchange="lcOnExportToggleChange()">
-                  <span class="neo-switch-slider"></span>
-                </label>
-              </div>
               <div class="customize-toggle-item">
                 <span data-i18n="lcExportPhaseDifferentiation">Differentiation & Support</span>
                 <label class="neo-switch">
@@ -1056,6 +1049,81 @@
                   <span class="neo-switch-slider"></span>
                 </label>
               </div>
+            </div>
+
+            <!-- Competence Details To Include Sub-panel -->
+            <div id="exportCompFieldsPanel" style="margin-top:10px; background:var(--neo-card-bg-subtle, #fafaf7); border:1.5px solid var(--neo-dark); border-radius:var(--neo-radius-sm); padding:10px 12px; box-shadow:1px 1px 0 var(--neo-dark); transition:opacity 0.15s ease;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size:0.75rem; font-weight:800; color:var(--neo-dark); text-transform:uppercase; letter-spacing:0.5px;" data-i18n="lcExportSecCompFields">Competence Details to Include</span>
+                  <span class="neo-badge" style="font-size:0.68rem; padding:1px 6px; background:var(--neo-purple); color:#fff;" data-i18n="lcExportCompBadge">Tagged</span>
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <button type="button" class="neo-btn" style="padding:2px 8px; font-size:0.7rem;" onclick="lcSetExportCompFieldsPreset('all')" data-i18n="lcCompPresetAll">All Fields</button>
+                  <button type="button" class="neo-btn" style="padding:2px 8px; font-size:0.7rem;" onclick="lcSetExportCompFieldsPreset('standard')" data-i18n="lcCompPresetStandard">Standard</button>
+                  <button type="button" class="neo-btn" style="padding:2px 8px; font-size:0.7rem;" onclick="lcSetExportCompFieldsPreset('minimal')" data-i18n="lcCompPresetMinimal">Code &amp; Title</button>
+                </div>
+              </div>
+              <div class="customize-field-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:6px; padding:0;">
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowCode">Competence Code</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compCode" checked onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowTitle">Title &amp; Name</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compTitle" checked onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowDescription">Base Description</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compDesc" checked onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowDetailedDescription">Detailed Description Lines</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compDetailed" onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowLevel">Level / Tier Badge</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compLevel" onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowCategory">Category Tags</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compCategory" onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowTags">Keywords &amp; Tag Pills</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compTags" onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+                <div class="customize-toggle-item" style="padding:6px 10px; font-size:0.8rem;">
+                  <span data-i18n="lcShowComments">Notes &amp; Sample Tasks</span>
+                  <label class="neo-switch sm">
+                    <input type="checkbox" id="exportTgl_compComments" onchange="lcOnExportToggleChange()">
+                    <span class="neo-switch-slider"></span>
+                  </label>
+                </div>
+              </div>
+              <!-- Hidden input for backward compatibility with exportTgl_phaseDescText -->
+              <input type="checkbox" id="exportTgl_phaseDescText" style="display:none;" onchange="lcOnExportToggleChange()">
             </div>
           </div>
         </div>
@@ -8869,7 +8937,15 @@
         phaseDescriptors: true,
         phaseDescText: false,
         phaseDiff: true,
-        phaseAssess: true
+        phaseAssess: true,
+        compCode: true,
+        compTitle: true,
+        compDesc: true,
+        compDetailed: false,
+        compLevel: false,
+        compCategory: false,
+        compTags: false,
+        compComments: false
       };
 
       var activeExportFormat = 'html';
@@ -8927,6 +9003,22 @@
           var el = document.getElementById('exportTgl_' + k);
           if (el) el.checked = (cfg[k] === true);
           if (el && k !== 'phaseDescText') el.checked = (cfg[k] !== false);
+        });
+
+        var compKeys = ['compCode', 'compTitle', 'compDesc', 'compDetailed', 'compLevel', 'compCategory', 'compTags', 'compComments'];
+        compKeys.forEach(function (ck) {
+          var el = document.getElementById('exportTgl_' + ck);
+          if (el) {
+            if (cfg[ck] !== undefined) {
+              el.checked = !!cfg[ck];
+            } else if (saved && saved.phaseDescText !== undefined) {
+              if (ck === 'compCode' || ck === 'compTitle' || ck === 'compDesc') el.checked = true;
+              else if (ck === 'compDetailed') el.checked = !!saved.phaseDescText;
+              else el.checked = false;
+            } else {
+              el.checked = !!DEFAULT_EXPORT_CONFIG[ck];
+            }
+          }
         });
 
         // Initialize selected phases (all phases selected by default)
@@ -9001,6 +9093,7 @@
           });
           var descTextEl = document.getElementById('exportTgl_phaseDescText');
           if (descTextEl) descTextEl.checked = true;
+          lcSetExportCompFieldsPreset('all');
         } else if (preset === 'teacher') {
           var teacherKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
@@ -9009,7 +9102,8 @@
             if (el) el.checked = teacherKeys.includes(k);
           });
           var descTextEl = document.getElementById('exportTgl_phaseDescText');
-          if (descTextEl) descTextEl.checked = false;
+          if (descTextEl) descTextEl.checked = true;
+          lcSetExportCompFieldsPreset('teacher');
         } else if (preset === 'student') {
           var studentKeys = ['metaHeader', 'metaDate', 'metaDuration',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources'];
@@ -9019,6 +9113,7 @@
           });
           var descTextEl = document.getElementById('exportTgl_phaseDescText');
           if (descTextEl) descTextEl.checked = false;
+          lcSetExportCompFieldsPreset('standard');
         } else if (preset === 'outline') {
           var outlineKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
                              'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
@@ -9028,20 +9123,77 @@
           });
           var descTextEl = document.getElementById('exportTgl_phaseDescText');
           if (descTextEl) descTextEl.checked = false;
+          lcSetExportCompFieldsPreset('minimal');
         }
 
         lcOnExportToggleChange();
       };
 
+      window.lcSetExportCompFieldsPreset = function (mode) {
+        var elCode = document.getElementById('exportTgl_compCode');
+        var elTitle = document.getElementById('exportTgl_compTitle');
+        var elDesc = document.getElementById('exportTgl_compDesc');
+        var elDetailed = document.getElementById('exportTgl_compDetailed');
+        var elLevel = document.getElementById('exportTgl_compLevel');
+        var elCat = document.getElementById('exportTgl_compCategory');
+        var elTags = document.getElementById('exportTgl_compTags');
+        var elComments = document.getElementById('exportTgl_compComments');
+
+        if (mode === 'all') {
+          if (elCode) elCode.checked = true;
+          if (elTitle) elTitle.checked = true;
+          if (elDesc) elDesc.checked = true;
+          if (elDetailed) elDetailed.checked = true;
+          if (elLevel) elLevel.checked = true;
+          if (elCat) elCat.checked = true;
+          if (elTags) elTags.checked = true;
+          if (elComments) elComments.checked = true;
+        } else if (mode === 'teacher') {
+          if (elCode) elCode.checked = true;
+          if (elTitle) elTitle.checked = true;
+          if (elDesc) elDesc.checked = true;
+          if (elDetailed) elDetailed.checked = true;
+          if (elLevel) elLevel.checked = true;
+          if (elCat) elCat.checked = true;
+          if (elTags) elTags.checked = false;
+          if (elComments) elComments.checked = false;
+        } else if (mode === 'standard') {
+          if (elCode) elCode.checked = true;
+          if (elTitle) elTitle.checked = true;
+          if (elDesc) elDesc.checked = true;
+          if (elDetailed) elDetailed.checked = false;
+          if (elLevel) elLevel.checked = true;
+          if (elCat) elCat.checked = false;
+          if (elTags) elTags.checked = false;
+          if (elComments) elComments.checked = false;
+        } else if (mode === 'minimal') {
+          if (elCode) elCode.checked = true;
+          if (elTitle) elTitle.checked = true;
+          if (elDesc) elDesc.checked = false;
+          if (elDetailed) elDetailed.checked = false;
+          if (elLevel) elLevel.checked = false;
+          if (elCat) elCat.checked = false;
+          if (elTags) elTags.checked = false;
+          if (elComments) elComments.checked = false;
+        }
+        lcOnExportToggleChange();
+      };
+
       window.lcOnExportToggleChange = function () {
         var parentEl = document.getElementById('exportTgl_phaseDescriptors');
-        var childEl = document.getElementById('exportTgl_phaseDescText');
-        var childWrap = document.getElementById('exportTgl_phaseDescText_wrap');
-        if (parentEl && childEl && childWrap) {
-          childEl.disabled = !parentEl.checked;
-          childWrap.style.opacity = parentEl.checked ? '1' : '0.45';
-          childWrap.style.pointerEvents = parentEl.checked ? 'auto' : 'none';
+        var panelEl = document.getElementById('exportCompFieldsPanel');
+        var isParentOn = parentEl ? parentEl.checked : true;
+        if (panelEl) {
+          panelEl.style.opacity = isParentOn ? '1' : '0.45';
+          panelEl.style.pointerEvents = isParentOn ? 'auto' : 'none';
         }
+        var descTextEl = document.getElementById('exportTgl_phaseDescText');
+        var elDesc = document.getElementById('exportTgl_compDesc');
+        var elDetailed = document.getElementById('exportTgl_compDetailed');
+        if (descTextEl) {
+          descTextEl.checked = !!((elDesc && elDesc.checked) || (elDetailed && elDetailed.checked));
+        }
+
         var toggles = lcGetExportToggles();
         try {
           localStorage.setItem('cmt_lc_export_config', JSON.stringify(toggles));
@@ -9051,13 +9203,88 @@
 
       function lcGetExportToggles() {
         var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
-                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+                    'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields',
+                    'compCode', 'compTitle', 'compDesc', 'compDetailed', 'compLevel', 'compCategory', 'compTags', 'compComments'];
         var res = {};
         keys.forEach(function (k) {
           var el = document.getElementById('exportTgl_' + k);
-          res[k] = el ? el.checked : (k !== 'phaseDescText');
+          if (el) {
+            res[k] = el.checked;
+          } else {
+            if (k === 'compCode' || k === 'compTitle' || k === 'compDesc') res[k] = true;
+            else if (k.startsWith('comp')) res[k] = false;
+            else res[k] = (k !== 'phaseDescText');
+          }
         });
+        res.phaseDescText = !!(res.compDesc || res.compDetailed);
         return res;
+      }
+
+      function lcFormatExportCompetence(id, sec, toggles) {
+        toggles = toggles || {};
+        var targetIdStr = String(id || '').toLowerCase().trim();
+        var d = (allDescriptors || []).find(function (item) {
+          return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+        });
+
+        var showCode = toggles.compCode !== false;
+        var showTitle = toggles.compTitle !== false;
+        var showDesc = !!toggles.compDesc;
+        var showDetailed = !!toggles.compDetailed;
+        var showLevel = !!toggles.compLevel;
+        var showCategory = !!toggles.compCategory;
+        var showTags = !!toggles.compTags;
+        var showComments = !!toggles.compComments;
+
+        // Defensive fallback: if all fields disabled, fallback to title or code
+        if (!showCode && !showTitle && !showDesc && !showDetailed && !showLevel && !showCategory && !showTags && !showComments) {
+          showTitle = true;
+        }
+
+        var code = showCode ? (d ? (d.code || d.id || '') : id) : '';
+        var rawTitle = d ? (d.title || '') : '';
+        var title = showTitle ? (rawTitle || (!showCode ? (d ? (d.code || d.id) : id) : '')) : '';
+        var level = showLevel && d ? (d.level || d.yearLevel || '') : '';
+        var category = showCategory && d ? (d.subCategory || d.category || getSubjectLabel(d.subjectId || d.subject) || '') : '';
+        var baseDesc = showDesc && d ? (d.description || d.statement || '') : '';
+
+        var detailedLines = [];
+        if (showDetailed && d) {
+          if (window.CompetenceAggregatorService && typeof window.CompetenceAggregatorService.getVisibleDetailedLines === 'function') {
+            var hiddenMap = competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines;
+            if (sec && sec.detailHiddenLines && sec.detailHiddenLines[d.id]) {
+              hiddenMap = {};
+              hiddenMap[d.id] = sec.detailHiddenLines[d.id];
+            }
+            detailedLines = window.CompetenceAggregatorService.getVisibleDetailedLines(d, hiddenMap) || [];
+          } else if (Array.isArray(d.detailedDescription)) {
+            detailedLines = d.detailedDescription;
+          } else if (d.detailedDescription) {
+            detailedLines = String(d.detailedDescription).split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+          }
+        }
+
+        var tags = [];
+        if (showTags && d) {
+          if (Array.isArray(d.tags)) tags = d.tags;
+          else if (d.tags) tags = String(d.tags).split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+        }
+
+        var comments = showComments && d ? (d.comments || d.sampleTasks || d.notes || '') : '';
+        var hasBody = !!(baseDesc || detailedLines.length > 0 || tags.length > 0 || comments);
+
+        return {
+          descriptor: d,
+          code: code,
+          title: title,
+          level: level,
+          category: category,
+          baseDesc: baseDesc,
+          detailedLines: detailedLines,
+          tags: tags,
+          comments: comments,
+          hasBody: hasBody
+        };
       }
 
       function renderExportPhasesList() {
@@ -9155,10 +9382,17 @@
         return escapeHtml(String(val)).replace(/\r\n/g, '<br>').replace(/[\r\n]/g, '<br>');
       }
 
+      function tExport(key, fallback) {
+        var val = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t(key) : '';
+        return (val && val !== key) ? val : fallback;
+      }
+
       window.lcGenerateExportHtml = function (options) {
         options = options || {};
         var toggles = options.toggles || lcGetExportToggles();
         var isForPrint = !!options.forPrint;
+        var layoutModeEl = document.querySelector('input[name="exportPlanLayoutMode"]:checked');
+        var isHorizTable = !!(layoutModeEl && layoutModeEl.value === 'horizontal_table');
 
         var phases = (currentPlan.sections || []).filter(function (_, i) {
           return activeSelectedPhaseIndices.has(i);
@@ -9480,6 +9714,46 @@
           '      white-space: pre-wrap;\n' +
           '      word-break: break-word;\n' +
           '    }\n' +
+          '    .comp-badge {\n' +
+          '      display: inline-block;\n' +
+          '      font-size: 0.7rem;\n' +
+          '      font-weight: 700;\n' +
+          '      padding: 1px 5px;\n' +
+          '      border-radius: 3px;\n' +
+          '      line-height: 1.2;\n' +
+          '      border: 1px solid var(--neo-border-color);\n' +
+          '    }\n' +
+          '    .comp-level-badge { background: #fef3c7; color: #78350f; border-color: #b45309; }\n' +
+          '    .comp-cat-badge { background: #e0e7ff; color: #3730a3; border-color: #4338ca; }\n' +
+          '    .comp-detailed-list {\n' +
+          '      margin-top: 4px;\n' +
+          '      padding-left: 18px;\n' +
+          '      font-size: 0.8rem;\n' +
+          '      line-height: 1.4;\n' +
+          '      color: var(--neo-dark);\n' +
+          '    }\n' +
+          '    .comp-detailed-list li { margin-bottom: 2px; }\n' +
+          '    .comp-tags-wrap {\n' +
+          '      display: flex;\n' +
+          '      flex-wrap: wrap;\n' +
+          '      gap: 4px;\n' +
+          '      margin-top: 4px;\n' +
+          '    }\n' +
+          '    .comp-tag-pill {\n' +
+          '      background: #f1f5f9;\n' +
+          '      border: 1px solid #cbd5e1;\n' +
+          '      border-radius: 3px;\n' +
+          '      font-size: 0.7rem;\n' +
+          '      font-weight: 600;\n' +
+          '      padding: 1px 5px;\n' +
+          '      color: #334155;\n' +
+          '    }\n' +
+          '    .comp-comments-text {\n' +
+          '      margin-top: 4px;\n' +
+          '      font-size: 0.78rem;\n' +
+          '      color: #64748b;\n' +
+          '      font-style: italic;\n' +
+          '    }\n' +
           '    .plan-footer {\n' +
           '      margin-top: 20px;\n' +
           '      padding: 8px 0;\n' +
@@ -9498,15 +9772,19 @@
           '      border: var(--neo-border-width) solid var(--neo-border-color);\n' +
           '      border-radius: 6px;\n' +
           '      box-shadow: 3px 3px 0 #888888;\n' +
-          '      overflow-x: auto;\n' +
-          '      margin-bottom: 18px;\n' +
+          '      overflow-x: hidden;\n' +
+          '      width: 100%;\n' +
+          '      max-width: 100%;\n' +
+          '      box-sizing: border-box;\n' +
+          '      margin-bottom: 12px;\n' +
           '    }\n' +
           '    .lesson-horiz-table {\n' +
-          '      width: 100%;\n' +
-          '      min-width: 100%;\n' +
+          '      width: 100% !important;\n' +
+          '      max-width: 100% !important;\n' +
+          '      min-width: 0 !important;\n' +
           '      border-collapse: collapse;\n' +
           '      table-layout: fixed;\n' +
-          '      font-size: 0.84rem;\n' +
+          '      font-size: 0.78rem;\n' +
           '      text-align: left;\n' +
           '    }\n' +
           '    .lesson-horiz-table th {\n' +
@@ -9514,30 +9792,35 @@
           '      color: #333333;\n' +
           '      padding: 0;\n' +
           '      font-weight: 800;\n' +
-          '      font-size: 0.75rem;\n' +
+          '      font-size: 0.72rem;\n' +
           '      text-transform: uppercase;\n' +
-          '      letter-spacing: 0.4px;\n' +
+          '      letter-spacing: 0.25px;\n' +
           '      border-bottom: 2px solid #333333;\n' +
           '      border-right: 1px solid #cbd5e1;\n' +
           '      position: relative;\n' +
           '      user-select: none;\n' +
+          '      vertical-align: middle;\n' +
           '    }\n' +
           '    .lesson-horiz-table th:last-child { border-right: none; }\n' +
           '    .lesson-horiz-table th .th-wrap {\n' +
           '      position: relative;\n' +
           '      display: flex;\n' +
           '      align-items: center;\n' +
-          '      justify-content: space-between;\n' +
-          '      padding: 8px 10px;\n' +
-          '      min-height: 34px;\n' +
+          '      justify-content: flex-start;\n' +
+          '      padding: 5px 6px;\n' +
+          '      min-height: 28px;\n' +
           '      box-sizing: border-box;\n' +
           '      width: 100%;\n' +
           '    }\n' +
           '    .lesson-horiz-table th .th-text {\n' +
-          '      overflow: hidden;\n' +
-          '      text-overflow: ellipsis;\n' +
-          '      white-space: nowrap;\n' +
-          '      word-break: normal;\n' +
+          '      display: block;\n' +
+          '      width: 100%;\n' +
+          '      overflow: visible !important;\n' +
+          '      text-overflow: clip !important;\n' +
+          '      white-space: normal !important;\n' +
+          '      word-break: normal !important;\n' +
+          '      overflow-wrap: break-word !important;\n' +
+          '      line-height: 1.2 !important;\n' +
           '      hyphens: none;\n' +
           '    }\n' +
           '    .lesson-horiz-table .col-resizer {\n' +
@@ -9571,7 +9854,7 @@
           '      background: rgba(0, 0, 0, 0.05);\n' +
           '    }\n' +
           '    .lesson-horiz-table td {\n' +
-          '      padding: 8px 10px;\n' +
+          '      padding: 5px 6px;\n' +
           '      border-bottom: 1px solid #cbd5e1;\n' +
           '      border-right: 1px solid #e2e8f0;\n' +
           '      vertical-align: top;\n' +
@@ -9580,31 +9863,82 @@
           '      overflow-wrap: break-word;\n' +
           '      word-wrap: break-word;\n' +
           '      hyphens: none;\n' +
-          '      line-height: 1.45;\n' +
+          '      line-height: 1.32;\n' +
           '    }\n' +
           '    .lesson-horiz-table td:last-child { border-right: none; }\n' +
           '    .lesson-horiz-table tr:nth-child(even) td { background: #fafaf7; }\n' +
+          '    .lesson-horiz-table .horiz-phase-cell-header {\n' +
+          '      display: flex;\n' +
+          '      align-items: flex-start;\n' +
+          '      gap: 5px;\n' +
+          '      margin-bottom: 3px;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table .horiz-phase-num {\n' +
+          '      display: inline-flex;\n' +
+          '      align-items: center;\n' +
+          '      justify-content: center;\n' +
+          '      min-width: 19px;\n' +
+          '      height: 19px;\n' +
+          '      padding: 0 4px;\n' +
+          '      background: #e2c96e;\n' +
+          '      color: #333333;\n' +
+          '      border: 1.5px solid #333333;\n' +
+          '      border-radius: 4px;\n' +
+          '      font-size: 0.7rem;\n' +
+          '      font-weight: 900;\n' +
+          '      line-height: 1;\n' +
+          '      flex-shrink: 0;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table .horiz-phase-title {\n' +
+          '      font-weight: 800;\n' +
+          '      color: #1e293b;\n' +
+          '      line-height: 1.25;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table .horiz-phase-dur {\n' +
+          '      display: inline-block;\n' +
+          '      background: #eef2ff;\n' +
+          '      color: #1e3a8a;\n' +
+          '      border: 1px solid #94a3b8;\n' +
+          '      border-radius: 4px;\n' +
+          '      padding: 1px 5px;\n' +
+          '      font-size: 0.68rem;\n' +
+          '      font-weight: 800;\n' +
+          '      line-height: 1.2;\n' +
+          '      margin-top: 2px;\n' +
+          '    }\n' +
+          '    .lesson-horiz-table .horiz-act-pill {\n' +
+          '      display: inline-block;\n' +
+          '      background: #f1f5f9;\n' +
+          '      color: #334155;\n' +
+          '      border: 1px solid #cbd5e1;\n' +
+          '      border-radius: 4px;\n' +
+          '      padding: 1px 5px;\n' +
+          '      font-size: 0.7rem;\n' +
+          '      font-weight: 700;\n' +
+          '      line-height: 1.25;\n' +
+          '      margin: 1px 2px 1px 0;\n' +
+          '    }\n' +
           '    .lesson-horiz-table .comp-chip {\n' +
           '      background: #f1f5f9;\n' +
           '      border: 1px solid #cbd5e1;\n' +
           '      border-radius: 4px;\n' +
           '      box-shadow: none !important;\n' +
-          '      padding: 2px 6px;\n' +
-          '      font-size: 0.72rem;\n' +
+          '      padding: 1px 5px;\n' +
+          '      font-size: 0.68rem;\n' +
           '      font-weight: 600;\n' +
           '      color: #334155;\n' +
           '      display: inline-block;\n' +
           '      margin: 1px 2px 1px 0;\n' +
-          '      line-height: 1.35;\n' +
+          '      line-height: 1.25;\n' +
           '      word-break: normal;\n' +
           '      overflow-wrap: break-word;\n' +
           '      hyphens: none;\n' +
           '    }\n' +
           '    .lesson-horiz-table .comp-desc-text {\n' +
-          '      font-size: 0.72rem;\n' +
+          '      font-size: 0.68rem;\n' +
           '      color: #475569;\n' +
-          '      margin-top: 3px;\n' +
-          '      line-height: 1.35;\n' +
+          '      margin-top: 2px;\n' +
+          '      line-height: 1.25;\n' +
           '      word-break: normal;\n' +
           '      overflow-wrap: break-word;\n' +
           '      hyphens: none;\n' +
@@ -9614,19 +9948,46 @@
           '      .export-container { max-width: 100% !important; margin: 0 !important; }\n' +
           '      .plan-hero { box-shadow: none !important; border: 1.5px solid #333333 !important; margin-bottom: 12px !important; }\n' +
           '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; border: 1.5px solid #333333 !important; box-shadow: none !important; margin-bottom: 10px !important; }\n' +
-          '      .lesson-horiz-table-wrap { box-shadow: none !important; border: 1.5px solid #333333 !important; }\n' +
+          '      .lesson-horiz-table-wrap { box-shadow: none !important; border: 1.5px solid #333333 !important; overflow: hidden !important; }\n' +
           '      .phase-header { background: #f8fafc !important; border-bottom: 1.5px solid #333333 !important; }\n' +
           '      .sec-box { border: 1px solid #333333 !important; }\n' +
           '      .plan-footer { border-top: 1.5px solid #333333 !important; }\n' +
           '      .col-resizer { display: none !important; }\n' +
-          '      .lesson-horiz-table th .th-text { white-space: normal !important; }\n' +
-          '      @page { margin: 12mm 10mm; size: A4 ' + ((document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table') ? 'landscape' : 'portrait') + '; }\n' +
+          '      .lesson-horiz-table th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }\n' +
+          '      @page { margin: ' + (isHorizTable ? '6mm 8mm' : '12mm 10mm') + '; size: A4 ' + (isHorizTable ? 'landscape' : 'portrait') + '; }\n' +
           '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
           '    }\n' +
           '  </style>\n' +
           '</head>\n' +
-          '<body>\n' +
-          '  <div class="export-container"' + ((document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table') ? ' style="max-width:1180px;"' : '') + '>\n';
+          '<body' + (isHorizTable ? ' class="horiz-table-mode"' : '') + '>\n' +
+          (isHorizTable ? (
+            '  <style id="cmt-horiz-table-overrides">\n' +
+            '    body.horiz-table-mode { padding: 12px 14px !important; overflow-x: hidden !important; }\n' +
+            '    body.horiz-table-mode .export-container { max-width: 100% !important; width: 100% !important; margin: 0 auto !important; box-sizing: border-box !important; }\n' +
+            '    body.horiz-table-mode .plan-hero { padding: 10px 14px !important; margin-bottom: 10px !important; }\n' +
+            '    body.horiz-table-mode .plan-hero-title { font-size: 1.15rem !important; margin-bottom: 6px !important; }\n' +
+            '    body.horiz-table-mode .meta-tag { padding: 2px 7px !important; font-size: 0.72rem !important; }\n' +
+            '    body.horiz-table-mode .lesson-horiz-table-wrap { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; margin-bottom: 8px !important; }\n' +
+            '    body.horiz-table-mode #lessonPlanHorizTable { width: 100% !important; max-width: 100% !important; min-width: 0 !important; table-layout: fixed !important; margin: 0 !important; }\n' +
+            '    body.horiz-table-mode #lessonPlanHorizTable th { padding: 0 !important; font-size: 0.68rem !important; }\n' +
+            '    body.horiz-table-mode #lessonPlanHorizTable th .th-wrap { padding: 4px 5px !important; min-height: 26px !important; }\n' +
+            '    body.horiz-table-mode #lessonPlanHorizTable th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: break-word !important; line-height: 1.18 !important; }\n' +
+            '    body.horiz-table-mode #lessonPlanHorizTable td { padding: 4px 5px !important; font-size: 0.74rem !important; line-height: 1.28 !important; overflow-wrap: break-word !important; word-break: normal !important; }\n' +
+            '    body.horiz-table-mode .plan-footer { margin-top: 8px !important; padding-top: 6px !important; font-size: 0.68rem !important; }\n' +
+            '    @page { size: A4 landscape !important; margin: 6mm 8mm !important; }\n' +
+            '    @media print {\n' +
+            '      html, body.horiz-table-mode { width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }\n' +
+            '      body.horiz-table-mode .plan-hero { padding: 6px 10px !important; margin-bottom: 6px !important; page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
+            '      body.horiz-table-mode .plan-hero-title { font-size: 1rem !important; margin-bottom: 4px !important; }\n' +
+            '      body.horiz-table-mode .meta-tag { padding: 1px 5px !important; font-size: 0.65rem !important; }\n' +
+            '      body.horiz-table-mode #lessonPlanHorizTable th .th-wrap { padding: 3px 4px !important; min-height: 22px !important; }\n' +
+            '      body.horiz-table-mode #lessonPlanHorizTable th { font-size: 0.62rem !important; }\n' +
+            '      body.horiz-table-mode #lessonPlanHorizTable td { padding: 3px 4px !important; font-size: 0.66rem !important; line-height: 1.22 !important; }\n' +
+            '      body.horiz-table-mode .plan-footer { margin-top: 4px !important; padding-top: 4px !important; font-size: 0.62rem !important; }\n' +
+            '    }\n' +
+            '  </style>\n'
+          ) : '') +
+          '  <div class="export-container">\n';
 
         // 1. Hero Block
         if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration || toggles.metaSequence || toggles.metaTags || toggles.metaTeams) {
@@ -9637,37 +9998,34 @@
           html += '      <div class="plan-badges-row">\n';
           if (toggles.metaHeader) {
             if (subName) html += '        <span class="meta-tag meta-tag-highlight">' + escapeHtml(subName) + '</span>\n';
-            if (clsName) html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lblClass') || i18n.t('tcElemClassGroup') || 'Class') + ':</strong> ' + escapeHtml(clsName) + '</span>\n';
+            if (clsName) html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblClass', tExport('tcElemClassGroup', 'Class'))) + ':</strong> ' + escapeHtml(clsName) + '</span>\n';
           }
           if (toggles.metaDate) {
-            if (currentPlan.date) html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lblDate') || i18n.t('tcElemDate') || 'Date') + ':</strong> ' + escapeHtml(currentPlan.date) + '</span>\n';
-            if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lblYear') || i18n.t('compYear') || 'Year') + ':</strong> ' + escapeHtml(yrName) + '</span>\n';
-            if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lblSemester') || i18n.t('smLabelSemester') || 'Semester') + ':</strong> ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
+            if (currentPlan.date) html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblDate', tExport('tcElemDate', 'Date'))) + ':</strong> ' + escapeHtml(currentPlan.date) + '</span>\n';
+            if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblYear', tExport('compYear', 'Year'))) + ':</strong> ' + escapeHtml(yrName) + '</span>\n';
+            if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblSemester', tExport('smLabelSemester', 'Semester'))) + ':</strong> ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
           }
           if (toggles.metaDuration) {
-            html += '        <span class="meta-tag meta-tag-highlight"><strong>' + escapeHtml(i18n.t('lblDuration') || i18n.t('tcElemDuration') || 'Duration') + ':</strong> ' + totalDur + ' min / ' + targetDur + ' min</span>\n';
+            html += '        <span class="meta-tag meta-tag-highlight"><strong>' + escapeHtml(tExport('lblDuration', tExport('tcElemDuration', 'Duration'))) + ':</strong> ' + totalDur + ' min / ' + targetDur + ' min</span>\n';
           }
           if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
             var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
-            html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lcSequenceLabel') || 'Unit') + ':</strong> ' + escapeHtml(seqStr) + '</span>\n';
+            html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lcSequenceLabel', 'Unit')) + ':</strong> ' + escapeHtml(seqStr) + '</span>\n';
           }
           if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
             var rList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
-            var teamsWord = i18n.t('lcExportMetaTeams') || 'Teams';
-            var studWord = i18n.t('lcExportMetaStudents') || 'students';
+            var teamsWord = tExport('lcExportMetaTeams', 'Teams');
+            var studWord = tExport('lcExportMetaStudents', 'students');
             html += '        <span class="meta-tag"><strong>' + escapeHtml(teamsWord) + ':</strong> ' + currentPlan.teamConfig.teamSize + ' ' + escapeHtml(studWord) + (rList ? (' (' + escapeHtml(rList) + ')') : '') + '</span>\n';
           }
           if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
-            html += '        <span class="meta-tag"><strong>' + escapeHtml(i18n.t('lcTagsLabel') || 'Tags:') + '</strong> ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
+            html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lcTagsLabel', 'Tags:')) + '</strong> ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
           }
           html += '      </div>\n';
           html += '    </div>\n';
         }
 
         // 2. Phases Block
-        var layoutModeEl = document.querySelector('input[name="exportPlanLayoutMode"]:checked');
-        var isHorizTable = (layoutModeEl && layoutModeEl.value === 'horizontal_table');
-
         if (isHorizTable) {
           var customTableTitles = [];
           if (toggles.phaseCustomFields !== false) {
@@ -9680,34 +10038,71 @@
               }
             });
           }
-          var colDefs = [
-            { id: 'num', name: '#', width: 44, align: 'center' }
-          ];
-          if (toggles.phaseTitle) colDefs.push({ id: 'title', name: i18n.t('lcExportPhaseTitle') || 'Phase Title', width: 150 });
-          if (toggles.phaseDuration) colDefs.push({ id: 'dur', name: i18n.t('lblDuration') || 'Min', width: 68, align: 'center' });
-          if (toggles.phaseActivity) colDefs.push({ id: 'act', name: i18n.t('lcExportActivityMode') || 'Activity & Mode', width: 140 });
-          if (toggles.phaseObjective) colDefs.push({ id: 'obj', name: i18n.t('lcExportObjective') || 'Learning Objective', width: 190 });
-          if (toggles.phaseTeacher) colDefs.push({ id: 'teacher', name: i18n.t('lcExportTeacherActions') || 'Teacher Actions', width: 190 });
-          if (toggles.phaseStudent) colDefs.push({ id: 'student', name: i18n.t('lcExportStudentTasks') || 'Student Tasks', width: 190 });
-          if (toggles.phaseResources) colDefs.push({ id: 'res', name: i18n.t('lcExportResources') || 'Resources', width: 140 });
-          if (toggles.phaseDescriptors) colDefs.push({ id: 'comp', name: i18n.t('lcExportTaggedCompetences') || 'Competences', width: 170 });
-          if (toggles.phaseDiff) colDefs.push({ id: 'diff', name: i18n.t('lcExportDifferentiation') || 'Differentiation', width: 160 });
-          if (toggles.phaseAssess) colDefs.push({ id: 'assess', name: i18n.t('lcExportAssessmentStrategy') || 'Assessment', width: 150 });
+
+          var hasAnyContent = function (checkFn) {
+            return phases.some(checkFn);
+          };
+
+          var colDefs = [];
+          // Consolidate Phase #, Phase Title, and Duration into a single compact Phase column to save horizontal space
+          colDefs.push({
+            id: 'phase',
+            name: tExport('lcExportPhaseTitle', 'Phase'),
+            weight: (toggles.phaseTitle !== false) ? 11 : 6
+          });
+          if (toggles.phaseActivity) {
+            var hasAct = hasAnyContent(function (s) { return !!(getActivityLabel(s.activityTypeId, false) || getInteractionLabel(s.interactionTypeId, false)); });
+            colDefs.push({ id: 'act', name: tExport('lcExportActivityMode', 'Activity & Mode'), weight: hasAct ? 9 : 6 });
+          }
+          if (toggles.phaseObjective) {
+            var hasObj = hasAnyContent(function (s) { return !!(s.objective && String(s.objective).trim()); });
+            colDefs.push({ id: 'obj', name: tExport('lcExportObjective', 'Learning Objective'), weight: hasObj ? 14 : 7 });
+          }
+          if (toggles.phaseTeacher) {
+            var hasT = hasAnyContent(function (s) { return !!(s.teacherAction && String(s.teacherAction).trim()); });
+            colDefs.push({ id: 'teacher', name: tExport('lcExportTeacherActions', 'Teacher Actions'), weight: hasT ? 17 : 8 });
+          }
+          if (toggles.phaseStudent) {
+            var hasS = hasAnyContent(function (s) { return !!(s.studentAction && String(s.studentAction).trim()); });
+            colDefs.push({ id: 'student', name: tExport('lcExportStudentTasks', 'Student Tasks'), weight: hasS ? 17 : 8 });
+          }
+          if (toggles.phaseResources) {
+            var hasRes = hasAnyContent(function (s) { return !!(s.resources && String(s.resources).trim()); });
+            colDefs.push({ id: 'res', name: tExport('lcExportResources', 'Resources'), weight: hasRes ? 10 : 6 });
+          }
+          if (toggles.phaseDescriptors) {
+            var hasComp = hasAnyContent(function (s) { return Array.isArray(s.descriptorIds) && s.descriptorIds.length > 0; });
+            colDefs.push({ id: 'comp', name: tExport('lcExportTaggedCompetences', 'Competences'), weight: hasComp ? 13 : 6 });
+          }
+          if (toggles.phaseDiff) {
+            var hasDiff = hasAnyContent(function (s) { return !!(s.differentiation && String(s.differentiation).trim()); });
+            colDefs.push({ id: 'diff', name: tExport('lcExportDifferentiation', 'Differentiation'), weight: hasDiff ? 11 : 6 });
+          }
+          if (toggles.phaseAssess) {
+            var hasAss = hasAnyContent(function (s) { return !!(s.assessmentStrategy && String(s.assessmentStrategy).trim()); });
+            colDefs.push({ id: 'assess', name: tExport('lcExportAssessmentStrategy', 'Assessment'), weight: hasAss ? 11 : 6 });
+          }
           customTableTitles.forEach(function (ct, ctIdx) {
-            colDefs.push({ id: 'custom_' + ctIdx, name: ct, width: 150 });
+            colDefs.push({ id: 'custom_' + ctIdx, name: ct, weight: 10 });
+          });
+
+          var totalWeight = colDefs.reduce(function (sum, c) { return sum + (c.weight || 10); }, 0) || 100;
+          colDefs.forEach(function (c) {
+            c.pct = ((c.weight || 10) / totalWeight * 100).toFixed(2);
           });
 
           html += '    <div class="lesson-horiz-table-wrap">\n';
           html += '      <table class="lesson-horiz-table resizable-table" id="lessonPlanHorizTable">\n';
           html += '        <colgroup>\n';
           colDefs.forEach(function (c, cIdx) {
-            html += '          <col data-col="' + cIdx + '" style="width:' + c.width + 'px;">\n';
+            html += '          <col data-col="' + cIdx + '" style="width:' + c.pct + '%;">\n';
           });
           html += '        </colgroup>\n';
           html += '        <thead><tr>\n';
           colDefs.forEach(function (c, cIdx) {
             var alignStyle = c.align ? ' style="text-align:' + c.align + ';"' : '';
-            html += '          <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span><span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span></span></th>\n';
+            var resizerHtml = (cIdx < colDefs.length - 1) ? '<span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span>' : '';
+            html += '          <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span>' + resizerHtml + '</span></th>\n';
           });
           html += '        </tr></thead>\n';
           html += '        <tbody>\n';
@@ -9717,14 +10112,20 @@
             var pDur = Number(sec.duration) || 0;
             var pTitle = sec.title || ('Phase ' + (idx + 1));
             html += '          <tr>\n';
-            html += '            <td style="text-align:center;font-weight:800;">' + (idx + 1) + '</td>\n';
-            if (toggles.phaseTitle) html += '            <td style="font-weight:800;">' + escapeHtml(pTitle) + '</td>\n';
-            if (toggles.phaseDuration) html += '            <td style="text-align:center;font-weight:700;">' + pDur + 'm</td>\n';
+            var phaseCellHtml = '<div class="horiz-phase-cell-header"><span class="horiz-phase-num">' + (idx + 1) + '</span>';
+            if (toggles.phaseTitle !== false) {
+              phaseCellHtml += '<span class="horiz-phase-title">' + escapeHtml(pTitle) + '</span>';
+            }
+            phaseCellHtml += '</div>';
+            if (toggles.phaseDuration !== false) {
+              phaseCellHtml += '<span class="horiz-phase-dur">' + pDur + ' min</span>';
+            }
+            html += '            <td>' + phaseCellHtml + '</td>\n';
             if (toggles.phaseActivity) {
-              var amParts = [];
-              if (actLabel) amParts.push(actLabel);
-              if (modeLabel) amParts.push(modeLabel);
-              html += '            <td>' + escapeHtml(amParts.join(' • ') || '—') + '</td>\n';
+              var amPills = [];
+              if (actLabel) amPills.push('<span class="horiz-act-pill">' + escapeHtml(actLabel) + '</span>');
+              if (modeLabel) amPills.push('<span class="horiz-act-pill">' + escapeHtml(modeLabel) + '</span>');
+              html += '            <td>' + (amPills.length > 0 ? amPills.join(' ') : '—') + '</td>\n';
             }
             if (toggles.phaseObjective) html += '            <td>' + (sec.objective ? formatExportMultiline(sec.objective) : '—') + '</td>\n';
             if (toggles.phaseTeacher) html += '            <td>' + (sec.teacherAction ? formatExportMultiline(sec.teacherAction) : '—') + '</td>\n';
@@ -9734,19 +10135,32 @@
               var descHtml = '—';
               if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
                 descHtml = sec.descriptorIds.map(function (id) {
-                  var targetIdStr = String(id || '').toLowerCase().trim();
-                  var d = (allDescriptors || []).find(function (item) {
-                    return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-                  });
-                  var code = d ? (d.code || d.id) : id;
-                  var title = d ? (d.title || '') : '';
-                  var text = d ? lcDescText(d, sec) : '';
-                  var s = '<span class="comp-chip">' + escapeHtml(code + (title && title !== code ? (' - ' + title) : '')) + '</span>';
-                  if (toggles.phaseDescText && text) {
-                    s += '<div class="comp-desc-text">' + formatExportMultiline(text) + '</div>';
+                  var c = lcFormatExportCompetence(id, sec, toggles);
+                  var chipParts = [];
+                  if (c.code) chipParts.push(escapeHtml(c.code));
+                  if (c.title && c.title !== c.code) chipParts.push(escapeHtml(c.title));
+                  var s = '<div style="margin-bottom:3px;">';
+                  if (chipParts.length > 0 || c.level || c.category) {
+                    s += '<span class="comp-chip">' + (chipParts.join(' - ') || 'Competence');
+                    if (c.level) s += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+                    if (c.category) s += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
+                    s += '</span>';
                   }
+                  if (c.baseDesc) {
+                    s += '<div class="comp-desc-text">' + formatExportMultiline(c.baseDesc) + '</div>';
+                  }
+                  if (c.detailedLines.length > 0) {
+                    s += '<ul class="comp-detailed-list">' + c.detailedLines.map(function (l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>';
+                  }
+                  if (c.tags.length > 0) {
+                    s += '<div class="comp-tags-wrap">' + c.tags.map(function (t) { return '<span class="comp-tag-pill">' + escapeHtml(t) + '</span>'; }).join('') + '</div>';
+                  }
+                  if (c.comments) {
+                    s += '<div class="comp-comments-text"><em>' + formatExportMultiline(c.comments) + '</em></div>';
+                  }
+                  s += '</div>';
                   return s;
-                }).join(' ');
+                }).join('');
               }
               html += '            <td>' + descHtml + '</td>\n';
             }
@@ -9797,7 +10211,7 @@
 
           // Objective
           if (toggles.phaseObjective && sec.objective) {
-            var objTag = i18n.t('lcExportObjective') || 'Learning Objective';
+            var objTag = tExport('lcExportObjective', 'Learning Objective');
             html += '        <div class="sec-box objective-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(objTag) + '</span>\n';
             html += '          <div class="objective-text">' + formatExportMultiline(sec.objective) + '</div>\n';
@@ -9810,7 +10224,7 @@
           if (hasTeacher || hasStudent) {
             html += '        <div class="actions-grid">\n';
             if (hasTeacher) {
-              var tTag = i18n.t('lcExportTeacherActions') || 'Teacher Actions';
+              var tTag = tExport('lcExportTeacherActions', 'Teacher Actions');
               html += '          <div class="sec-box teacher-box">\n';
               html += '            <span class="box-tag">' + escapeHtml(tTag) + '</span>\n';
               html += '            <div class="box-text">' + formatExportMultiline(sec.teacherAction) + '</div>\n';
@@ -9819,7 +10233,7 @@
               html += '          <div></div>\n';
             }
             if (hasStudent) {
-              var sTag = i18n.t('lcExportStudentTasks') || 'Student Tasks';
+              var sTag = tExport('lcExportStudentTasks', 'Student Tasks');
               html += '          <div class="sec-box student-box">\n';
               html += '            <span class="box-tag">' + escapeHtml(sTag) + '</span>\n';
               html += '            <div class="box-text">' + formatExportMultiline(sec.studentAction) + '</div>\n';
@@ -9830,7 +10244,7 @@
 
           // Resources
           if (toggles.phaseResources && sec.resources) {
-            var resTag = i18n.t('lcExportResources') || 'Resources & Materials';
+            var resTag = tExport('lcExportResources', 'Resources & Materials');
             html += '        <div class="sec-box resources-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(resTag) + '</span>\n';
             html += '          <div class="box-text">' + formatExportMultiline(sec.resources) + '</div>\n';
@@ -9839,7 +10253,7 @@
 
           // Tagged Competences
           if (toggles.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
-            var compTag = i18n.t('lcExportTaggedCompetences') || 'Tagged Competences';
+            var compTag = tExport('lcExportTaggedCompetences', 'Tagged Competences');
             html += '        <div class="sec-box descriptors-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(compTag) + '</span>\n';
             var sortedDescIds = sec.descriptorIds.slice().sort(function (a, b) {
@@ -9851,23 +10265,33 @@
               var codeB = db ? (db.code || db.id || b) : b;
               return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
             });
-            if (toggles.phaseDescText) {
+
+            var anyHasBody = sortedDescIds.some(function (id) {
+              return lcFormatExportCompetence(id, sec, toggles).hasBody;
+            });
+
+            if (anyHasBody) {
               html += '          <div class="comp-list">\n';
               sortedDescIds.forEach(function (id) {
-                var targetIdStr = String(id || '').toLowerCase().trim();
-                var d = (allDescriptors || []).find(function (item) {
-                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-                });
-                var code = d ? (d.code || d.id) : id;
-                var title = d ? (d.title || '') : '';
-                var text = d ? lcDescText(d, sec) : '';
+                var c = lcFormatExportCompetence(id, sec, toggles);
                 html += '            <div class="comp-item">\n';
                 html += '              <div class="comp-item-header">';
-                if (code) html += '<span class="comp-item-code">' + escapeHtml(code) + '</span>';
-                if (title && title !== code) html += ' <span class="comp-item-title">' + escapeHtml(title) + '</span>';
+                if (c.code) html += '<span class="comp-item-code">' + escapeHtml(c.code) + '</span>';
+                if (c.title && c.title !== c.code) html += ' <span class="comp-item-title">' + escapeHtml(c.title) + '</span>';
+                if (c.level) html += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+                if (c.category) html += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
                 html += '</div>\n';
-                if (text) {
-                  html += '              <div class="comp-item-text">' + formatExportMultiline(text) + '</div>\n';
+                if (c.baseDesc) {
+                  html += '              <div class="comp-item-text">' + formatExportMultiline(c.baseDesc) + '</div>\n';
+                }
+                if (c.detailedLines.length > 0) {
+                  html += '              <ul class="comp-detailed-list">' + c.detailedLines.map(function (l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>\n';
+                }
+                if (c.tags.length > 0) {
+                  html += '              <div class="comp-tags-wrap">' + c.tags.map(function (t) { return '<span class="comp-tag-pill">' + escapeHtml(t) + '</span>'; }).join('') + '</div>\n';
+                }
+                if (c.comments) {
+                  html += '              <div class="comp-comments-text"><em>' + formatExportMultiline(c.comments) + '</em></div>\n';
                 }
                 html += '            </div>\n';
               });
@@ -9875,12 +10299,14 @@
             } else {
               html += '          <div class="comp-chips">\n';
               sortedDescIds.forEach(function (id) {
-                var targetIdStr = String(id || '').toLowerCase().trim();
-                var d = (allDescriptors || []).find(function (item) {
-                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-                });
-                var displayStr = d ? ((d.code ? (d.code + ' - ') : '') + (d.title || d.id)) : id;
-                html += '            <span class="comp-chip">' + escapeHtml(displayStr) + '</span>\n';
+                var c = lcFormatExportCompetence(id, sec, toggles);
+                var chipParts = [];
+                if (c.code) chipParts.push(escapeHtml(c.code));
+                if (c.title && c.title !== c.code) chipParts.push(escapeHtml(c.title));
+                html += '            <span class="comp-chip">' + (chipParts.join(' - ') || 'Competence');
+                if (c.level) html += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+                if (c.category) html += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
+                html += '</span>\n';
               });
               html += '          </div>\n';
             }
@@ -9889,7 +10315,7 @@
 
           // Differentiation
           if (toggles.phaseDiff && sec.differentiation) {
-            var diffTag = i18n.t('lcExportDifferentiation') || 'Differentiation & Support';
+            var diffTag = tExport('lcExportDifferentiation', 'Differentiation & Support');
             html += '        <div class="sec-box diff-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(diffTag) + '</span>\n';
             html += '          <div class="box-text">' + formatExportMultiline(sec.differentiation) + '</div>\n';
@@ -9898,7 +10324,7 @@
 
           // Formative Assessment
           if (toggles.phaseAssess && sec.assessmentStrategy) {
-            var assessTag = i18n.t('lcExportAssessmentStrategy') || 'Formative Assessment';
+            var assessTag = tExport('lcExportAssessmentStrategy', 'Formative Assessment');
             html += '        <div class="sec-box assess-box">\n';
             html += '          <span class="box-tag">' + escapeHtml(assessTag) + '</span>\n';
             html += '          <div class="box-text">' + formatExportMultiline(sec.assessmentStrategy) + '</div>\n';
@@ -9909,7 +10335,7 @@
           if (toggles.phaseCustomFields !== false && Array.isArray(sec.customFields) && sec.customFields.length > 0) {
             sec.customFields.forEach(function (cf) {
               if (cf && (cf.content || cf.title)) {
-                var cfTitle = cf.title || i18n.t('lcCustomField') || 'Custom Field';
+                var cfTitle = cf.title || tExport('lcCustomField', 'Custom Field');
                 var renderedContent = renderMarkdownOrHtml(cf.content || '', cf.format);
                 html += '        <div class="sec-box custom-field-box">\n';
                 html += '          <span class="box-tag">' + escapeHtml(cfTitle) + '</span>\n';
@@ -9945,20 +10371,18 @@
             '        tables.forEach(function(table) {\n' +
             '          if (table._resizerInitialized) return;\n' +
             '          table._resizerInitialized = true;\n' +
-            '          var minW = 36;\n' +
-            '          var active = null, startX = 0, startW = 0, startTableW = 0;\n' +
+            '          var minPct = 4;\n' +
+            '          var active = null, startX = 0;\n' +
             '          function onMove(e) {\n' +
-            '            if (!active) return;\n' +
+            '            if (!active || !active.col || !active.nextCol) return;\n' +
             '            var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
-            '            var delta = clientX - startX;\n' +
-            '            var newW = Math.max(minW, startW + delta);\n' +
-            '            if (active.col) active.col.style.width = newW + "px";\n' +
-            '            if (active.th) active.th.style.width = newW + "px";\n' +
-            '            if (active.table) {\n' +
-            '              var newTableW = Math.max(active.initialTableW, startTableW + (newW - startW));\n' +
-            '              active.table.style.width = newTableW + "px";\n' +
-            '              active.table.style.minWidth = newTableW + "px";\n' +
-            '            }\n' +
+            '            var deltaPx = clientX - startX;\n' +
+            '            var deltaPct = (deltaPx / active.tableW) * 100;\n' +
+            '            var combinedPct = active.startPct + active.nextStartPct;\n' +
+            '            var newPct = Math.max(minPct, Math.min(combinedPct - minPct, active.startPct + deltaPct));\n' +
+            '            var newNextPct = combinedPct - newPct;\n' +
+            '            active.col.style.width = newPct.toFixed(2) + "%";\n' +
+            '            active.nextCol.style.width = newNextPct.toFixed(2) + "%";\n' +
             '          }\n' +
             '          function onUp() {\n' +
             '            if (!active) return;\n' +
@@ -9974,20 +10398,24 @@
             '            function onStart(e) {\n' +
             '              e.preventDefault();\n' +
             '              e.stopPropagation();\n' +
-            '              var idx = handle.getAttribute("data-col");\n' +
+            '              var idx = parseInt(handle.getAttribute("data-col"), 10);\n' +
             '              var col = table.querySelector("col[data-col=\'" + idx + "\']");\n' +
-            '              var th = handle.closest("th");\n' +
+            '              var nextCol = table.querySelector("col[data-col=\'" + (idx + 1) + "\']");\n' +
+            '              if (!col || !nextCol) return;\n' +
+            '              var tableW = table.getBoundingClientRect().width || 800;\n' +
+            '              var th = table.querySelector("th[data-col=\'" + idx + "\']");\n' +
+            '              var nextTh = table.querySelector("th[data-col=\'" + (idx + 1) + "\']");\n' +
+            '              var startPct = parseFloat(col.style.width) || ((th ? th.getBoundingClientRect().width : 80) / tableW * 100);\n' +
+            '              var nextStartPct = parseFloat(nextCol.style.width) || ((nextTh ? nextTh.getBoundingClientRect().width : 80) / tableW * 100);\n' +
             '              active = {\n' +
             '                handle: handle,\n' +
             '                col: col,\n' +
-            '                th: th,\n' +
-            '                table: table,\n' +
-            '                initialTableW: table.parentElement ? table.parentElement.clientWidth : 800\n' +
+            '                nextCol: nextCol,\n' +
+            '                tableW: tableW,\n' +
+            '                startPct: startPct,\n' +
+            '                nextStartPct: nextStartPct\n' +
             '              };\n' +
-            '              var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
-            '              startX = clientX;\n' +
-            '              startW = th ? th.getBoundingClientRect().width : (col ? col.getBoundingClientRect().width : 80);\n' +
-            '              startTableW = table.getBoundingClientRect().width;\n' +
+            '              startX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
             '              handle.classList.add("resizing");\n' +
             '              document.body.style.cursor = "col-resize";\n' +
             '              window.addEventListener("mousemove", onMove);\n' +
@@ -10000,6 +10428,22 @@
             '          });\n' +
             '        });\n' +
             '      }\n' +
+            '      function fitHorizTableToOnePage() {\n' +
+            '        var container = document.querySelector(".export-container");\n' +
+            '        if (!container) return;\n' +
+            '        container.style.zoom = "";\n' +
+            '        var maxPageHeightPx = 710;\n' +
+            '        var actualH = container.scrollHeight;\n' +
+            '        if (actualH > maxPageHeightPx) {\n' +
+            '          var ratio = Math.max(0.62, Math.min(1, maxPageHeightPx / actualH));\n' +
+            '          container.style.zoom = ratio.toFixed(3);\n' +
+            '        }\n' +
+            '      }\n' +
+            '      window.addEventListener("beforeprint", fitHorizTableToOnePage);\n' +
+            '      window.addEventListener("afterprint", function() {\n' +
+            '        var container = document.querySelector(".export-container");\n' +
+            '        if (container) container.style.zoom = "";\n' +
+            '      });\n' +
             '      if (document.readyState === "loading") {\n' +
             '        document.addEventListener("DOMContentLoaded", initColResizers);\n' +
             '      } else {\n' +
@@ -10353,16 +10797,17 @@
                 return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
               });
               descStr = sortedXlsxDescIds.map(function (id) {
-                var targetIdStr = String(id || '').toLowerCase().trim();
-                var d = (allDescriptors || []).find(function (item) {
-                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-                });
-                if (!d) return id;
-                var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
-                if (toggles.phaseDescText && lcDescText(d, sec)) {
-                  s += ' — ' + lcDescText(d, sec);
-                }
-                return s;
+                var c = lcFormatExportCompetence(id, sec, toggles);
+                var parts = [];
+                var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || '');
+                if (c.level) head += ' (' + c.level + ')';
+                if (c.category) head += ' {' + c.category + '}';
+                if (head.trim()) parts.push(head.trim());
+                if (c.baseDesc) parts.push(c.baseDesc);
+                if (c.detailedLines.length > 0) parts.push('• ' + c.detailedLines.join('; '));
+                if (c.tags.length > 0) parts.push('Tags: ' + c.tags.join(', '));
+                if (c.comments) parts.push('Note: ' + c.comments);
+                return parts.join(' — ') || id;
               }).join(';\n');
             }
             row.push(descStr);
@@ -10395,22 +10840,37 @@
 
         // Sheet 2: Competences Matrix
         if (toggles.phaseDescriptors) {
-          var compRows = [['Code', 'Standard / Competence Title', 'Description / Text', 'Category', 'Subject', 'Phases Tagged In']];
+          var matrixHeaders = [];
+          if (toggles.compCode !== false) matrixHeaders.push('Code');
+          if (toggles.compTitle !== false) matrixHeaders.push('Standard / Competence Title');
+          if (toggles.compLevel) matrixHeaders.push('Level');
+          if (toggles.compCategory) matrixHeaders.push('Category');
+          if (toggles.compDesc) matrixHeaders.push('Base Description');
+          if (toggles.compDetailed) matrixHeaders.push('Detailed Description');
+          if (toggles.compTags) matrixHeaders.push('Keywords / Tags');
+          if (toggles.compComments) matrixHeaders.push('Notes / Sample Tasks');
+          if (matrixHeaders.length === 0) matrixHeaders.push('Competence');
+          matrixHeaders.push('Subject');
+          matrixHeaders.push('Phases Tagged In');
+
+          var compRows = [matrixHeaders];
           var usedDescMap = new Map();
 
           phases.forEach(function (sec, pIdx) {
             (sec.descriptorIds || []).forEach(function (id) {
-              var targetIdStr = String(id || '').toLowerCase().trim();
-              var d = (allDescriptors || []).find(function (item) {
-                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-              });
+              var c = lcFormatExportCompetence(id, sec, toggles);
+              var d = c.descriptor;
               var key = d ? (d.code || d.id) : id;
               if (!usedDescMap.has(key)) {
                 usedDescMap.set(key, {
-                  code: d ? (d.code || '') : key,
-                  title: d ? (d.title || d.id) : id,
-                  description: d ? lcDescText(d) : '',
-                  category: d ? (d.category || d.subCategory || '') : '',
+                  code: c.code || (d ? (d.code || d.id) : key),
+                  title: c.title || (d ? (d.title || d.id) : key),
+                  level: c.level,
+                  category: c.category || (d ? (d.category || d.subCategory || '') : ''),
+                  baseDesc: c.baseDesc || (d ? (d.description || d.statement || '') : ''),
+                  detailedDesc: c.detailedLines.join('; '),
+                  tags: c.tags.join(', '),
+                  comments: c.comments,
                   subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
                   phases: []
                 });
@@ -10423,10 +10883,21 @@
             Array.from(usedDescMap.values()).sort(function (a, b) {
               return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
             }).forEach(function (val) {
-              compRows.push([val.code, val.title, val.description, val.category, val.subject, val.phases.join(', ')]);
+              var rowData = [];
+              if (toggles.compCode !== false) rowData.push(val.code);
+              if (toggles.compTitle !== false) rowData.push(val.title);
+              if (toggles.compLevel) rowData.push(val.level);
+              if (toggles.compCategory) rowData.push(val.category);
+              if (toggles.compDesc) rowData.push(val.baseDesc);
+              if (toggles.compDetailed) rowData.push(val.detailedDesc);
+              if (toggles.compTags) rowData.push(val.tags);
+              if (toggles.compComments) rowData.push(val.comments);
+              if (rowData.length === 0) rowData.push(val.code || val.title);
+              rowData.push(val.subject);
+              rowData.push(val.phases.join(', '));
+              compRows.push(rowData);
             });
             var ws2 = XLSX.utils.aoa_to_sheet(compRows);
-            ws2['!cols'] = [{ wch: 14 }, { wch: 32 }, { wch: 50 }, { wch: 20 }, { wch: 18 }, { wch: 24 }];
             XLSX.utils.book_append_sheet(wb, ws2, 'Competences Matrix');
           }
         }
@@ -10564,16 +11035,17 @@
               return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
             });
             var descStr = sortedCsvDescIds.map(function (id) {
-              var targetIdStr = String(id || '').toLowerCase().trim();
-              var d = (allDescriptors || []).find(function (item) {
-                return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-              });
-              if (!d) return id;
-              var s = (d.code ? (d.code + ': ') : '') + (d.title || d.id);
-              if (toggles.phaseDescText && lcDescText(d, sec)) {
-                s += ' — ' + lcDescText(d, sec);
-              }
-              return s;
+              var c = lcFormatExportCompetence(id, sec, toggles);
+              var parts = [];
+              var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || '');
+              if (c.level) head += ' (' + c.level + ')';
+              if (c.category) head += ' {' + c.category + '}';
+              if (head.trim()) parts.push(head.trim());
+              if (c.baseDesc) parts.push(c.baseDesc);
+              if (c.detailedLines.length > 0) parts.push('• ' + c.detailedLines.join('; '));
+              if (c.tags.length > 0) parts.push('Tags: ' + c.tags.join(', '));
+              if (c.comments) parts.push('Note: ' + c.comments);
+              return parts.join(' — ') || id;
             }).join('; ');
             r.push(descStr);
           }
@@ -11196,19 +11668,37 @@
                 var codeB = db ? (db.code || db.id || b) : b;
                 return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
               });
-              var descNames = sortedTxtDescIds.map(function (id) {
-                var targetIdStr = String(id || '').toLowerCase().trim();
-                var d = (allDescriptors || []).find(function (item) {
-                  return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
-                });
-                if (!d) return id;
-                var s = (d.code ? (d.code + ' - ') : '') + (d.title || d.id);
-                if (cfg.phaseDescText && lcDescText(d, sec)) {
-                  s += ': ' + lcDescText(d, sec);
-                }
-                return s;
-              }).join(cfg.phaseDescText ? '\n  • ' : '; ');
-              pLines.push(formatField('Competences', (cfg.phaseDescText ? ('\n  • ' + descNames) : descNames)));
+
+              var anyHasBody = sortedTxtDescIds.some(function (id) {
+                return lcFormatExportCompetence(id, sec, cfg).hasBody;
+              });
+
+              if (anyHasBody) {
+                var descBlock = sortedTxtDescIds.map(function (id) {
+                  var c = lcFormatExportCompetence(id, sec, cfg);
+                  var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || id);
+                  if (c.level) head += ' (' + c.level + ')';
+                  if (c.category) head += ' {' + c.category + '}';
+                  var subLines = [head];
+                  if (c.baseDesc) subLines.push('  ' + (isMd ? '*' : '') + c.baseDesc + (isMd ? '*' : ''));
+                  if (c.detailedLines.length > 0) {
+                    c.detailedLines.forEach(function (l) { subLines.push('  - ' + l); });
+                  }
+                  if (c.tags.length > 0) subLines.push('  Tags: ' + c.tags.join(', '));
+                  if (c.comments) subLines.push('  Note: ' + c.comments);
+                  return subLines.join('\n');
+                }).join('\n\n  • ');
+                pLines.push(formatField('Competences', '\n  • ' + descBlock));
+              } else {
+                var descNames = sortedTxtDescIds.map(function (id) {
+                  var c = lcFormatExportCompetence(id, sec, cfg);
+                  var s = (c.code ? (c.code + ' - ') : '') + (c.title || id);
+                  if (c.level) s += ' (' + c.level + ')';
+                  if (c.category) s += ' {' + c.category + '}';
+                  return s;
+                }).join('; ');
+                pLines.push(formatField('Competences', descNames));
+              }
             }
 
             // Custom Fields
