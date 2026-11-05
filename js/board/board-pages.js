@@ -3880,7 +3880,7 @@
 
     let _conOffscreenMeasureNote = null;
     function conMeasureNoteDimensions(note) {
-      if (!note) return { w: 120, h: 40 };
+      if (!note) return { w: 40, h: 40 };
       if (typeof note.w === 'number' && note.w > 0 && typeof note.h === 'number' && note.h > 0 && note.manualSize) {
         return { w: note.w, h: note.h };
       }
@@ -3910,7 +3910,7 @@
         measurer.className = 'con-word-note';
         measurer.style.width = '';
         measurer.style.height = '';
-        measurer.style.minWidth = '120px';
+        measurer.style.minWidth = '40px';
         measurer.style.maxWidth = '460px';
         measurer.style.minHeight = '40px';
         measurer.style.padding = '6px 12px 10px 8px';
@@ -3929,7 +3929,7 @@
         const rawContent = note.html ? String(note.html) : (note.text ? (typeof boardEscapeHtml === 'function' ? boardEscapeHtml(note.text).replace(/\n/g, '<br>') : String(note.text).replace(/\n/g, '<br>')) : '');
         editor.innerHTML = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(rawContent) : rawContent;
 
-        const minBaseW = 120, maxBaseW = 460, minBaseH = 40;
+        const minBaseW = 40, maxBaseW = 460, minBaseH = 40;
         let baseW = (typeof note.width === 'number' && note.width > 0 && note.manualSize)
           ? note.width
           : Math.min(maxBaseW, Math.max(minBaseW, Math.round(editor.scrollWidth + 33)));
@@ -10708,6 +10708,7 @@
         _conCompSelectedObjects.delete(id);
       }
 
+  
       const row = document.querySelector(`.con-comp-picker-item[data-comp-id="${id}"]`);
       if (row) {
         row.classList.toggle('selected', shouldSelect);

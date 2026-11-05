@@ -226,7 +226,7 @@
         window.innerHeight || document.documentElement.clientHeight || 720
       );
       const maxBaseH = Math.max(40, containerH / zoom);
-      const baseW = Math.max(80, Math.min(1560, Number(noteData.width) || note.offsetWidth || 80));
+      const baseW = Math.max(40, Math.min(1560, Number(noteData.width) || note.offsetWidth || 40));
       const baseH = Math.max(28, Math.min(maxBaseH, Number(noteData.height) || note.offsetHeight || 28));
       noteData.width = baseW;
       noteData.height = baseH;
@@ -370,7 +370,7 @@
     window.wnComputeResizeSnap = wnComputeResizeSnap;
 
     function wnAttachResizeHandle(note, ta, noteData, opts) {
-      const cfg = Object.assign({ minW: 80, maxW: 540, minH: 28, maxH: 360 }, opts || {});
+      const cfg = Object.assign({ minW: 40, maxW: 540, minH: 28, maxH: 360 }, opts || {});
       const getScale = typeof cfg.scaleGetter === 'function' ? cfg.scaleGetter : (() => 1);
       const resolveMax = (val, fallback) => {
         if (typeof val === 'function') {
@@ -1654,7 +1654,24 @@
 
     function _notePresetEditorRender() {
       function _wnEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-      function _wnSafeHex(s) { return /^#[0-9a-fA-F]{6}$/.test(s || '') ? s : '#ffffff'; }
+      function _wnSafeHex(s, fallback = '#ffffff') {
+        const v = (s || '').trim();
+        if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
+        if (/^#[0-9a-fA-F]{3}$/.test(v)) return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
+        try {
+          const tmp = document.createElement('div');
+          tmp.style.color = v;
+          document.body.appendChild(tmp);
+          const comp = getComputedStyle(tmp).color;
+          document.body.removeChild(tmp);
+          const m = comp.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+          if (m) {
+            const h = n => parseInt(n).toString(16).padStart(2, '0');
+            return '#' + h(m[1]) + h(m[2]) + h(m[3]);
+          }
+        } catch (e) { }
+        return fallback;
+      }
       const list = document.getElementById('note-preset-editor-list');
       if (!list) return;
       list.innerHTML = '';
@@ -1672,9 +1689,18 @@
           <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
           <input type="text" class="pe-key" value="${_wnEsc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
           <input type="text" class="pe-label" value="${_wnEsc(p.label)}" maxlength="24" placeholder="Label" title="${t('conPresetTooltipTitle')}">
-          <input type="color" class="pe-bg"    value="${_wnSafeHex(p.bg)}"          title="${t('conPresetBgColorTitle')}">
-          <input type="color" class="pe-color" value="${_wnSafeHex(p.color)}"       title="${t('conPresetTextColorTitle')}">
-          <input type="color" class="pe-bdr"   value="${_wnSafeHex(p.borderColor)}" title="${t('conPresetBorderColorTitle')}">
+          <div class="pe-color-cell">
+            <input type="color" class="pe-color-btn pe-bg-btn" value="${_wnSafeHex(p.bg, '#ffffff')}" title="${t('conPresetBgColorTitle')}">
+            <input type="text" class="pe-color-input pe-bg" value="${_wnEsc(p.bg)}" placeholder="#fff / rgba(...)" title="${t('conPresetBgColorTitle')}">
+          </div>
+          <div class="pe-color-cell">
+            <input type="color" class="pe-color-btn pe-color-btn-tx" value="${_wnSafeHex(p.color, '#111111')}" title="${t('conPresetTextColorTitle')}">
+            <input type="text" class="pe-color-input pe-color" value="${_wnEsc(p.color)}" placeholder="#111 / rgba(...)" title="${t('conPresetTextColorTitle')}">
+          </div>
+          <div class="pe-color-cell">
+            <input type="color" class="pe-color-btn pe-bdr-btn" value="${_wnSafeHex(p.borderColor, '#111111')}" title="${t('conPresetBorderColorTitle')}">
+            <input type="text" class="pe-color-input pe-bdr" value="${_wnEsc(p.borderColor)}" placeholder="#111 / rgba(...)" title="${t('conPresetBorderColorTitle')}">
+          </div>
           <div class="pe-unit-input-wrap">
             <input type="number" class="pe-bw" min="0" max="30" step="any" value="${_wnEsc(bwVal)}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
             <select class="pe-bw-unit" title="Unit (px, pt, mm)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:38px;">
@@ -1705,6 +1731,35 @@
           </div>
           <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="notePresetEditorDeleteRow(${i})">🗑</button>
         `;
+
+        function _bindColorPair(btnEl, inputEl) {
+          if (!btnEl || !inputEl) return;
+          inputEl.addEventListener('input', () => {
+            if (typeof _bcSyncPickerFromText === 'function') {
+              _bcSyncPickerFromText(btnEl, inputEl.value.trim());
+            } else if (typeof window._bcSyncPickerFromText === 'function') {
+              window._bcSyncPickerFromText(btnEl, inputEl.value.trim());
+            }
+          });
+          btnEl.addEventListener('input', () => {
+            const hex = btnEl.value;
+            const curText = inputEl.value.trim();
+            const rgbaMatch = curText.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i);
+            if (rgbaMatch) {
+              const r = parseInt(hex.slice(1, 3), 16);
+              const g = parseInt(hex.slice(3, 5), 16);
+              const b = parseInt(hex.slice(5, 7), 16);
+              const alpha = rgbaMatch[4];
+              inputEl.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            } else {
+              inputEl.value = hex;
+            }
+          });
+        }
+
+        _bindColorPair(row.querySelector('.pe-bg-btn'), row.querySelector('.pe-bg'));
+        _bindColorPair(row.querySelector('.pe-color-btn-tx'), row.querySelector('.pe-color'));
+        _bindColorPair(row.querySelector('.pe-bdr-btn'), row.querySelector('.pe-bdr'));
 
         // Bind unit conversion listeners
         const bwInput = row.querySelector('.pe-bw');
@@ -1762,9 +1817,12 @@
         const key = (row.querySelector('.pe-key').value || '').trim();
         const label = (row.querySelector('.pe-label').value || key).trim();
         if (!key) return;
-        const bg = row.querySelector('.pe-bg').value || '#ffffff';
-        const color = row.querySelector('.pe-color').value || '#111111';
-        const borderColor = row.querySelector('.pe-bdr').value || '#111111';
+        const bgInput = row.querySelector('.pe-bg');
+        const bg = (bgInput ? bgInput.value : '#ffffff').trim() || '#ffffff';
+        const colorInput = row.querySelector('.pe-color');
+        const color = (colorInput ? colorInput.value : '#111111').trim() || '#111111';
+        const bdrInput = row.querySelector('.pe-bdr');
+        const borderColor = (bdrInput ? bdrInput.value : '#111111').trim() || '#111111';
         const bwInput = row.querySelector('.pe-bw');
         const bwUnit = row.querySelector('.pe-bw-unit')?.value || 'px';
         const rawBw = parseFloat(bwInput ? bwInput.value : 0);
@@ -2436,7 +2494,7 @@
       const belowY = Math.round(nd.y + noteEl.offsetHeight / Math.max(0.5, zoom) + 8);
       const origW = (nd.manualSize && Number.isFinite(Number(nd.width)))
         ? Number(nd.width)
-        : Math.max(80, Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)));
+        : Math.max(40, Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)));
       const newId = conGetNextNoteId();
       const clone = Object.assign({}, nd, {
         id: newId,
@@ -2991,7 +3049,7 @@
       const ta = noteEl.querySelector('.wn-note-editor, textarea');
       if (!ta) return;
       const zoom = (nd.id && nd.id.startsWith('cn') && window.conGetZoom) ? window.conGetZoom() : 1;
-      const boxW = Math.max(80, Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)));
+      const boxW = Math.max(40, Math.round(noteEl.offsetWidth / Math.max(0.5, zoom)));
       const boxH = Math.max(40, Math.round(noteEl.offsetHeight / Math.max(0.5, zoom)));
       nd.manualSize = true; nd.width = boxW; nd.height = boxH;
       wnApplyStoredSize(noteEl, ta, nd, zoom);
@@ -3047,7 +3105,7 @@
       nd.height = neededH;
       nd.liveBaseHeight = neededH;
       if (!nd.width) {
-        nd.width = Math.max(80, Math.round(noteEl.offsetWidth / z));
+        nd.width = Math.max(40, Math.round(noteEl.offsetWidth / z));
         nd.liveBaseWidth = nd.width;
       }
 
@@ -4991,7 +5049,7 @@
           window.innerHeight || document.documentElement.clientHeight || 720
         );
         const maxBaseH = Math.max(40, containerH / zoom);
-        const baseW = Math.max(80, Math.min(1560, Number(noteData.width) || note.offsetWidth || 80));
+        const baseW = Math.max(40, Math.min(1560, Number(noteData.width) || note.offsetWidth || 40));
         note.style.width = (baseW * zoom) + 'px';
         ta.style.width = '100%';
         ta.style.height = 'auto';
@@ -5020,7 +5078,7 @@
         return;
       }
 
-      const minBaseW = 120;
+      const minBaseW = 40;
       const maxBaseW = 460;
       const minBaseH = 40;
       const padding = 33; // 24px container padding + 9px inner spacing
@@ -5753,7 +5811,7 @@
 
       board.appendChild(note);
       wnAttachResizeHandle(note, ta, noteData, {
-        minW: 120,
+        minW: 40,
         maxW: 1400,
         minH: 40,
         maxH: () => {
