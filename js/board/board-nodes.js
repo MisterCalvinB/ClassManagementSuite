@@ -9976,9 +9976,9 @@
         e.stopPropagation();
         conCtxNodeId = id;
         window.conCtxNodeId = global.conCtxNodeId = id;
-        // If this node is part of multi-selection, keep multi-selection active
+        // If this node is part of multi-selection or already selected, keep selection active
         // Otherwise select normally
-        if (!conMultiSelected.has(id)) {
+        if (!conMultiSelected.has(id) && conSelected !== id && window.conSelected !== id) {
           conSelect(id);
         }
         const node = conNodes.find(n => n.id === id);

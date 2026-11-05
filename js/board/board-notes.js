@@ -406,6 +406,7 @@
       let _inlineFontMap = [];
 
       handle.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
         if (noteData.locked) {
           e.preventDefault();
           e.stopPropagation();
@@ -5532,6 +5533,12 @@
       });
       ta.addEventListener('mousedown', e => {
         if (document.body.classList.contains('laser-active')) { e.preventDefault(); return; }
+        if (e.button !== 0) {
+          // Prevent right-click from focusing editor and deselecting nodes/other elements
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         e.stopPropagation();
       });
       ta.addEventListener('click', e => {
@@ -5901,6 +5908,7 @@
       let _preDragSnap = null;
       let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
+        if (e.button !== 0) return; // Left button only; right-click is handled by contextmenu
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
         // Blur active editor so Delete key or movement shortcuts immediately act on the selected note container
         if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
@@ -6284,6 +6292,7 @@
       });
       document.addEventListener('mouseup', e => {
         if (!dragging) return;
+        if (e.button !== 0) return;
         if (_conNoteMoveRaf) {
           cancelAnimationFrame(_conNoteMoveRaf);
           _conNoteMoveRaf = null;
