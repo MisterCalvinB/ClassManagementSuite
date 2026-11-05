@@ -1165,13 +1165,20 @@
           '.unit-lesson-card { background: #ffffff; border: 2px solid #222; box-shadow: 3px 3px 0 #333; border-radius: 6px; margin-bottom: 16px; padding: 14px; }\n' +
           '.unit-card-hdr { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #222; padding-bottom: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }\n' +
           '.unit-card-title { font-size: 1.15rem; font-weight: 900; margin: 0; }\n' +
-          '.landscape-lesson-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; }\n' +
+          '.landscape-lesson-table { width: 100%; min-width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 6px; table-layout: fixed; }\n' +
           '.landscape-lesson-table th, .landscape-lesson-table td { border: 1.5px solid #222; padding: 6px 8px; vertical-align: top; }\n' +
-          '.landscape-lesson-table th { background: #e2e8f0; font-weight: 900; font-size: 0.76rem; text-transform: uppercase; }\n' +
+          '.landscape-lesson-table th { background: #e2e8f0; font-weight: 900; font-size: 0.76rem; text-transform: uppercase; position: relative; user-select: none; }\n' +
+          '.landscape-lesson-table th .th-wrap { position: relative; display: flex; align-items: center; justify-content: space-between; width: 100%; box-sizing: border-box; }\n' +
+          '.landscape-lesson-table th .th-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; hyphens: none; }\n' +
+          '.landscape-lesson-table .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; touch-action: none; z-index: 2; }\n' +
+          '.landscape-lesson-table .col-resizer::after { content: ""; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1.5px; background: #333333; opacity: 0.4; }\n' +
+          '.landscape-lesson-table .col-resizer:hover::after, .landscape-lesson-table .col-resizer.resizing::after { opacity: 1; background: #000; width: 2px; }\n' +
+          '.landscape-lesson-table .col-resizer:hover { background: rgba(0, 0, 0, 0.05); }\n' +
+          '.landscape-lesson-table td { white-space: pre-wrap; word-break: normal; overflow-wrap: break-word; word-wrap: break-word; hyphens: none; line-height: 1.45; }\n' +
           '.landscape-pacing { font-weight: 800; font-size: 0.8rem; text-align: center; background: #f8fafc; }\n' +
-          '.landscape-phase-title { font-weight: 900; font-size: 0.82rem; color: #000; margin-bottom: 4px; }\n' +
-          '.comp-tag-chip { background: #fef08a; border: 1.5px solid #222; padding: 1px 5px; font-size: 0.68rem; font-weight: 800; display: inline-block; margin: 1px 2px 1px 0; border-radius: 3px; }\n' +
-          '.comp-tag-chip.test { background: #fce7f3; color: #9d174d; }\n' +
+          '.landscape-phase-title { font-weight: 900; font-size: 0.82rem; color: #000; margin-bottom: 4px; word-break: normal; overflow-wrap: break-word; hyphens: none; }\n' +
+          '.comp-tag-chip { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 1px 5px; font-size: 0.7rem; font-weight: 600; color: #334155; display: inline-block; margin: 1px 2px 1px 0; border-radius: 3px; box-shadow: none !important; word-break: normal; overflow-wrap: break-word; hyphens: none; }\n' +
+          '.comp-tag-chip.test { background: #fce7f3; color: #9d174d; border-color: #f472b6; }\n' +
           '.toc-comp-pills { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }\n' +
           '.unit-comp-matrix { margin-top: 14px; background: #f8fafc; border: 1.5px solid #222; padding: 10px 12px; border-radius: 4px; }\n' +
           '.unit-comp-matrix-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1.5px dashed #222; }\n' +
@@ -1994,26 +2001,33 @@
             });
           }
 
+          var colDefs = [];
+          if (lessonToggles.phaseDuration !== false) colDefs.push({ id: 'pacing', name: 'Pacing', width: 75, align: 'center' });
+          if (lessonToggles.phaseTitle !== false || lessonToggles.phaseActivity !== false) colDefs.push({ id: 'phase', name: 'Phase & Activity', width: 160 });
+          if (lessonToggles.phaseObjective !== false) colDefs.push({ id: 'obj', name: 'Objectives', width: 190 });
+          if (lessonToggles.phaseTeacher !== false) colDefs.push({ id: 'teacher', name: 'Teacher Actions', width: 190 });
+          if (lessonToggles.phaseStudent !== false) colDefs.push({ id: 'student', name: 'Student Tasks', width: 190 });
+          if (lessonToggles.phaseResources !== false) colDefs.push({ id: 'res', name: 'Resources & Materials', width: 150 });
+          if (lessonToggles.phaseDescriptors !== false) colDefs.push({ id: 'comp', name: 'Competences', width: 170 });
+          if (lessonToggles.phaseDiff !== false) colDefs.push({ id: 'diff', name: 'Differentiation', width: 160 });
+          if (lessonToggles.phaseAssess !== false) colDefs.push({ id: 'assess', name: 'Assessment', width: 150 });
+          customColTitles.forEach(function (ct, ctIdx) {
+            colDefs.push({ id: 'custom_' + ctIdx, name: ct, width: 150 });
+          });
+
           html +=
-            '      <table class="landscape-lesson-table">\n' +
+            '      <table class="landscape-lesson-table resizable-table">\n' +
+            '        <colgroup>\n' +
+            colDefs.map(function (c, cIdx) {
+              return '          <col data-col="' + cIdx + '" style="width:' + c.width + 'px;">\n';
+            }).join('') +
+            '        </colgroup>\n' +
             '        <thead>\n' +
             '          <tr>\n' +
-            '            <th style="width:75px;text-align:center;">Pacing</th>\n' +
-            '            <th style="width:160px;">Phase &amp; Activity</th>\n' +
-            '            <th style="width:20%;">Objectives</th>\n' +
-            '            <th style="width:22%;">Teacher Actions</th>\n' +
-            '            <th style="width:22%;">Student Actions</th>\n' +
-            '            <th style="min-width:130px;">Competences &amp; Materials</th>\n' +
-            (lessonToggles.phaseDuration !== false ? '            <th style="width:70px;text-align:center;">Pacing</th>\n' : '') +
-            ((lessonToggles.phaseTitle !== false || lessonToggles.phaseActivity !== false) ? '            <th style="min-width:140px;">Phase &amp; Activity</th>\n' : '') +
-            (lessonToggles.phaseObjective !== false ? '            <th>Objectives</th>\n' : '') +
-            (lessonToggles.phaseTeacher !== false ? '            <th>Teacher Actions</th>\n' : '') +
-            (lessonToggles.phaseStudent !== false ? '            <th>Student Tasks</th>\n' : '') +
-            (lessonToggles.phaseResources !== false ? '            <th>Resources &amp; Materials</th>\n' : '') +
-            (lessonToggles.phaseDescriptors !== false ? '            <th>Competences</th>\n' : '') +
-            (lessonToggles.phaseDiff !== false ? '            <th>Differentiation</th>\n' : '') +
-            (lessonToggles.phaseAssess !== false ? '            <th>Assessment</th>\n' : '') +
-            customColTitles.map(function (ct) { return '            <th>' + escapeHtml(ct) + '</th>\n'; }).join('') +
+            colDefs.map(function (c, cIdx) {
+              var alignStyle = c.align ? ' style="text-align:' + c.align + ';"' : '';
+              return '            <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span><span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span></span></th>\n';
+            }).join('') +
             '          </tr>\n' +
             '        </thead>\n' +
             '        <tbody>\n';
@@ -2022,8 +2036,6 @@
             var secDur = (Number(sec.duration) || 10);
             var hasTeacher = !!(sec.teacherAction && String(sec.teacherAction).trim());
             var hasStudent = !!(sec.studentAction && String(sec.studentAction).trim());
-            var secComps = getPhaseCompetences(sec);
-
             var secComps = [];
             var sSet = new Set();
             if (Array.isArray(sec.descriptorIds)) sec.descriptorIds.forEach(function (id) { if (id) sSet.add(String(id).trim()); });
@@ -2035,40 +2047,22 @@
             }
             sSet.forEach(function (cid) {
               var info = compLookup[cid] || {};
-              secComps.push({ code: cid, title: info.title || info.name || cid });
+              secComps.push({ code: cid, title: info.title || info.name || cid, description: info.description || '' });
             });
 
             var compChips = secComps.map(function (c) {
-              return '<span class="comp-tag-chip" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + '</span>';
               var chipHtml = '<span class="comp-tag-chip" title="' + escapeHtml(c.title ? (c.code + ': ' + c.title) : c.code) + '">' + escapeHtml(c.code) + (c.title && c.title !== c.code ? (' — ' + escapeHtml(c.title)) : '') + '</span>';
               if (lessonToggles.phaseDescText && c.description) {
-                chipHtml += '<div style="font-size:0.7rem;color:#334155;margin:2px 0 4px 2px;">' + escapeHtml(c.description) + '</div>';
+                chipHtml += '<div style="font-size:0.7rem;color:#475569;margin:2px 0 4px 2px;word-break:normal;overflow-wrap:break-word;hyphens:none;">' + escapeHtml(c.description) + '</div>';
               }
               return chipHtml;
             }).join('');
 
-            var actBadge = sec.activityType ? ('<span class="unit-item-badge lesson" style="font-size:0.68rem;margin-top:2px;">' + escapeHtml(sec.activityType) + '</span>') : '';
-            var modeBadge = sec.interactionMode ? ('<span class="unit-item-badge" style="font-size:0.68rem;background:#f1f5f9;margin-top:2px;">' + escapeHtml(sec.interactionMode) + '</span>') : '';
             var actName = sec.activityType || resolveActivityLabel(sec.activityTypeId);
             var modeName = sec.interactionMode || resolveInteractionLabel(sec.interactionTypeId);
             var actBadge = (lessonToggles.phaseActivity !== false && actName) ? ('<span class="unit-item-badge lesson" style="font-size:0.68rem;margin-top:2px;">' + escapeHtml(actName) + '</span>') : '';
             var modeBadge = (lessonToggles.phaseActivity !== false && modeName) ? ('<span class="unit-item-badge" style="font-size:0.68rem;background:#f1f5f9;margin-top:2px;">' + escapeHtml(modeName) + '</span>') : '';
 
-            html +=
-              '          <tr>\n' +
-              '            <td class="landscape-pacing">' + secDur + ' min</td>\n' +
-              '            <td>\n' +
-              '              <div class="landscape-phase-title">Phase ' + (pIdx + 1) + ': ' + escapeHtml(sec.title || 'Activity') + '</div>\n' +
-              '              <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:2px;">' + actBadge + (actBadge && modeBadge ? ' ' : '') + modeBadge + '</div>\n' +
-              '            </td>\n' +
-              '            <td>' + (sec.objective ? escapeHtml(sec.objective) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
-              '            <td>' + (hasTeacher ? escapeHtml(sec.teacherAction) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
-              '            <td>' + (hasStudent ? escapeHtml(sec.studentAction) : '<span style="color:#94a3b8;">—</span>') + '</td>\n' +
-              '            <td>\n' +
-              (compChips ? ('              <div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:3px;">' + compChips + '</div>\n') : '') +
-              (sec.resources ? ('              <div style="font-size:0.72rem;color:#475569;"><strong>Mat:</strong> ' + escapeHtml(sec.resources) + '</div>\n') : (!compChips ? '<span style="color:#94a3b8;">—</span>\n' : '')) +
-              '            </td>\n' +
-              '          </tr>\n';
             html += '          <tr>\n';
             if (lessonToggles.phaseDuration !== false) {
               html += '            <td class="landscape-pacing">' + secDur + ' min</td>\n';
@@ -2704,6 +2698,78 @@
           html += '    </div>\n';
         });
       });
+    }
+
+    if (lessonLayout === 'horizontal_table' || cssTheme === 'horizontal_table') {
+      html += '  <script>\n' +
+        '    (function() {\n' +
+        '      function initColResizers() {\n' +
+        '        var tables = document.querySelectorAll("table.resizable-table, table.landscape-lesson-table");\n' +
+        '        tables.forEach(function(table) {\n' +
+        '          if (table._resizerInitialized) return;\n' +
+        '          table._resizerInitialized = true;\n' +
+        '          var minW = 36;\n' +
+        '          var active = null, startX = 0, startW = 0, startTableW = 0;\n' +
+        '          function onMove(e) {\n' +
+        '            if (!active) return;\n' +
+        '            var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
+        '            var delta = clientX - startX;\n' +
+        '            var newW = Math.max(minW, startW + delta);\n' +
+        '            if (active.col) active.col.style.width = newW + "px";\n' +
+        '            if (active.th) active.th.style.width = newW + "px";\n' +
+        '            if (active.table) {\n' +
+        '              var newTableW = Math.max(active.initialTableW, startTableW + (newW - startW));\n' +
+        '              active.table.style.width = newTableW + "px";\n' +
+        '              active.table.style.minWidth = newTableW + "px";\n' +
+        '            }\n' +
+        '          }\n' +
+        '          function onUp() {\n' +
+        '            if (!active) return;\n' +
+        '            if (active.handle) active.handle.classList.remove("resizing");\n' +
+        '            active = null;\n' +
+        '            document.body.style.cursor = "";\n' +
+        '            window.removeEventListener("mousemove", onMove);\n' +
+        '            window.removeEventListener("mouseup", onUp);\n' +
+        '            window.removeEventListener("touchmove", onMove);\n' +
+        '            window.removeEventListener("touchend", onUp);\n' +
+        '          }\n' +
+        '          table.querySelectorAll(".col-resizer").forEach(function(handle) {\n' +
+        '            function onStart(e) {\n' +
+        '              e.preventDefault();\n' +
+        '              e.stopPropagation();\n' +
+        '              var idx = handle.getAttribute("data-col");\n' +
+        '              var col = table.querySelector("col[data-col=\'" + idx + "\']");\n' +
+        '              var th = handle.closest("th");\n' +
+        '              active = {\n' +
+        '                handle: handle,\n' +
+        '                col: col,\n' +
+        '                th: th,\n' +
+        '                table: table,\n' +
+        '                initialTableW: table.parentElement ? table.parentElement.clientWidth : 800\n' +
+        '              };\n' +
+        '              var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
+        '              startX = clientX;\n' +
+        '              startW = th ? th.getBoundingClientRect().width : (col ? col.getBoundingClientRect().width : 80);\n' +
+        '              startTableW = table.getBoundingClientRect().width;\n' +
+        '              handle.classList.add("resizing");\n' +
+        '              document.body.style.cursor = "col-resize";\n' +
+        '              window.addEventListener("mousemove", onMove);\n' +
+        '              window.addEventListener("mouseup", onUp);\n' +
+        '              window.addEventListener("touchmove", onMove, { passive: false });\n' +
+        '              window.addEventListener("touchend", onUp);\n' +
+        '            }\n' +
+        '            handle.addEventListener("mousedown", onStart);\n' +
+        '            handle.addEventListener("touchstart", onStart, { passive: false });\n' +
+        '          });\n' +
+        '        });\n' +
+        '      }\n' +
+        '      if (document.readyState === "loading") {\n' +
+        '        document.addEventListener("DOMContentLoaded", initColResizers);\n' +
+        '      } else {\n' +
+        '        initColResizers();\n' +
+        '      }\n' +
+        '    })();\n' +
+        '  <\/script>\n';
     }
 
     html +=
