@@ -735,6 +735,7 @@
             <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="detailModalTitle" style="margin:0;"></h3>
+                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" onclick="openStudentSessionTimelineFromModal()" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
                     <button type="button" class="btn btn-xs" id="pt-btn-student-dossier" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>
                     <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
@@ -4530,8 +4531,31 @@
             });
         }
 
+        function isTimelineEventActive(ev, activeFilters) {
+            if (!ev || !activeFilters) return false;
+            if (activeFilters.has(ev.category)) return true;
+            // Built-in badges (+ / -) can be viewed under either 'points' or 'badges'
+            if ((ev.badgeIcon === '+' || ev.badgeIcon === '-' || ev.badgeIcon === '−') && (activeFilters.has('points') || activeFilters.has('badges'))) {
+                return true;
+            }
+            // Team points can be viewed under 'points' or 'teams'
+            if ((ev.type === 'team-plus' || ev.type === 'team-minus') && (activeFilters.has('points') || activeFilters.has('teams'))) {
+                return true;
+            }
+            return false;
+        }
+
+        function eventMatchesTimelineStudent(ev, targetStudentClean) {
+            if (!targetStudentClean) return true;
+            const sName = String(ev.studentName || '').trim().toLowerCase();
+            if (sName === targetStudentClean) return true;
+            if (Array.isArray(ev.teamStudentNames) && ev.teamStudentNames.some(n => String(n).trim().toLowerCase() === targetStudentClean)) {
+                return true;
+            }
+            return false;
+        }
+
         function normalizeTimelineEvents(rawHistory, session) {
-            if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
             const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
                 ? String(session.id).slice(0, 10)
                 : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
@@ -4540,12 +4564,29 @@
                 ? currentGroupId
                 : (session?.activeGroup || (session?.groups && Object.keys(session.groups)[0]) || currentGroupId || '');
             const activeTitle = (session?.activeGroupTitle || groupDisplayName(activeGid) || '').trim().toLowerCase();
+            const groupStudents = (session && session.groups && activeGid && Array.isArray(session.groups[activeGid]))
+                ? session.groups[activeGid]
+                : [];
+
             const activeStudents = new Set();
-            if (session && session.groups && activeGid && Array.isArray(session.groups[activeGid])) {
-                session.groups[activeGid].forEach(s => {
-                    if (s && s.name) activeStudents.add(String(s.name).trim().toLowerCase());
-                });
-            }
+            const studentByName = new Map();
+            const studentById = new Map();
+            const teamMembersMap = new Map(); // teamId -> Array of student names
+
+            groupStudents.forEach(s => {
+                if (!s) return;
+                const clean = String(s.name || '').trim().toLowerCase();
+                if (clean) {
+                    activeStudents.add(clean);
+                    studentByName.set(clean, s);
+                }
+                if (s.id != null) studentById.set(s.id, s);
+                if (s.uuid != null) studentById.set(s.uuid, s);
+                if (s.teamId != null) {
+                    if (!teamMembersMap.has(s.teamId)) teamMembersMap.set(s.teamId, []);
+                    teamMembersMap.get(s.teamId).push(s.name);
+                }
+            });
 
             const fallbackStartMs = (function() {
                 if (session) {
@@ -4587,7 +4628,9 @@
                 return fallbackMs + (index * 15000);
             }
 
-            const filteredHistory = rawHistory.filter(item => {
+            // 1. Gather filtered raw events
+            const rawEvents = Array.isArray(rawHistory) ? rawHistory.slice() : [];
+            const filteredHistory = rawEvents.filter(item => {
                 if (!item) return false;
                 const type = String(item.type || '').toLowerCase();
                 const isSessionWide = type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle';
@@ -4595,71 +4638,229 @@
 
                 if (item.group) {
                     const grp = String(item.group).trim().toLowerCase();
-                    if (grp === activeGid.toLowerCase() || grp === activeTitle) return true;
+                    if (grp === activeGid.toLowerCase() || grp === activeTitle || grp.includes(activeTitle) || activeTitle.includes(grp)) return true;
                 }
                 if (item.studentName) {
                     const sName = String(item.studentName).trim().toLowerCase();
                     if (activeStudents.size > 0 && activeStudents.has(sName)) return true;
+                    if (sName.startsWith('team ') || sName.startsWith('équipe ')) return true;
                 }
+                if (item.meta?.studentId && studentById.has(item.meta.studentId)) return true;
+                if (item.meta?.targetId != null && teamMembersMap.has(item.meta.targetId)) return true;
+                if (item.meta?.teamId != null && teamMembersMap.has(item.meta.teamId)) return true;
                 return !item.group;
             });
 
+            // 2. Synthesize badges from student.badges if not already in filteredHistory
+            groupStudents.forEach(student => {
+                const sBadges = Array.isArray(student.badges) ? student.badges : [];
+                sBadges.forEach(b => {
+                    const resolved = (typeof resolveBadgeData === 'function') ? resolveBadgeData(b) : {};
+                    const bIcon = resolved.icon || (typeof b === 'object' ? b.icon : '') || '';
+                    const bLabel = resolved.label || (typeof b === 'object' ? b.label : (typeof b === 'string' ? b : 'Badge')) || 'Badge';
+                    const bTone = resolved.tone || (typeof b === 'object' ? b.tone : 'positive');
+                    const bMeaning = resolved.meaning || (typeof b === 'object' ? b.meaning : '');
+                    const bTime = (typeof b === 'object' && b.time) ? b.time : '';
+                    const bTimestamp = (typeof b === 'object' && b.timestamp) ? b.timestamp : '';
+
+                    const exists = filteredHistory.some(existing => {
+                        if (!existing) return false;
+                        const exType = String(existing.type || '').toLowerCase();
+                        if (exType !== 'badge' && exType !== 'plus' && exType !== 'minus') return false;
+                        const exStudent = String(existing.studentName || '').trim().toLowerCase();
+                        if (exStudent !== String(student.name).trim().toLowerCase()) return false;
+                        const exIcon = existing.meta?.badgeIcon || (typeof existing.detail === 'string' ? existing.detail.split(/\s+/)[0] : '');
+                        const exLabel = existing.meta?.badgeLabel || existing.detail || '';
+                        if (bIcon && exIcon === bIcon) {
+                            if (bTime && existing.time) return bTime === existing.time;
+                            return true;
+                        }
+                        if (bLabel && exLabel && String(exLabel).toLowerCase().includes(String(bLabel).toLowerCase())) {
+                            return true;
+                        }
+                        return false;
+                    });
+
+                    if (!exists) {
+                        filteredHistory.push({
+                            type: (bIcon === '+' ? 'plus' : (bIcon === '-' || bIcon === '−' ? 'minus' : 'badge')),
+                            studentName: student.name,
+                            detail: (bIcon && !bLabel.includes(bIcon)) ? `${bIcon} ${bLabel}` : bLabel,
+                            time: bTime,
+                            timestamp: bTimestamp,
+                            group: activeGid,
+                            meta: {
+                                badgeIcon: bIcon,
+                                badgeLabel: bLabel,
+                                tone: bTone,
+                                meaning: bMeaning,
+                                fromStudentData: true
+                            }
+                        });
+                    }
+                });
+            });
+
+            // 3. Fallback for legacy or imported sessions with 0 raw history events
+            if (filteredHistory.length === 0 && groupStudents.length > 0) {
+                groupStudents.forEach((student, sIdx) => {
+                    const pCount = student.pluses || 0;
+                    const mCount = student.minuses || 0;
+                    const isP = !!student.isPicked;
+
+                    for (let pi = 0; pi < pCount; pi++) {
+                        filteredHistory.push({
+                            type: 'plus',
+                            studentName: student.name,
+                            detail: '+1 point',
+                            time: '',
+                            group: activeGid,
+                            meta: { studentId: student.id, value: 1, fallbackIndex: sIdx * 10 + pi }
+                        });
+                    }
+                    for (let mi = 0; mi < mCount; mi++) {
+                        filteredHistory.push({
+                            type: 'minus',
+                            studentName: student.name,
+                            detail: '-1 point',
+                            time: '',
+                            group: activeGid,
+                            meta: { studentId: student.id, value: -1, fallbackIndex: sIdx * 10 + 5 + mi }
+                        });
+                    }
+                    if (isP) {
+                        filteredHistory.push({
+                            type: 'pick',
+                            studentName: student.name,
+                            detail: 'Picked in session',
+                            time: '',
+                            group: activeGid,
+                            meta: { studentId: student.id, fallbackIndex: sIdx * 10 }
+                        });
+                    }
+                });
+            }
+
             return filteredHistory.map((item, idx) => {
-                const ts = parseIsoOrLocalTime(item.timestamp, item.time, baseDate, fallbackStartMs, idx);
+                const ts = parseIsoOrLocalTime(item.timestamp, item.time, baseDate, fallbackStartMs, item.meta?.fallbackIndex ?? idx);
                 const type = String(item.type || '').toLowerCase();
                 let category = 'points';
                 let iconKey = 'plus';
                 let badgeColor = '#6abf8e';
+                let badgeIcon = '';
+                let badgeLabel = '';
+                let badgeTone = 'positive';
+
+                // Team students resolution
+                let teamStudentNames = [];
+                const targetTeamId = item.meta?.targetId ?? item.meta?.teamId;
+                if (targetTeamId != null && teamMembersMap.has(targetTeamId)) {
+                    teamStudentNames = teamMembersMap.get(targetTeamId);
+                } else if (item.studentName) {
+                    const m = String(item.studentName).match(/(?:team|équipe)\s*(\d+)/i);
+                    if (m && teamMembersMap.has(parseInt(m[1], 10))) {
+                        teamStudentNames = teamMembersMap.get(parseInt(m[1], 10));
+                    }
+                }
 
                 if (type === 'plus') {
                     category = 'points';
                     iconKey = 'plus';
+                    badgeIcon = '+';
+                    badgeLabel = item.meta?.badgeLabel || 'Plus';
+                    badgeTone = 'positive';
                     badgeColor = '#6abf8e';
                 } else if (type === 'minus') {
                     category = 'points';
                     iconKey = 'minus';
+                    badgeIcon = '−';
+                    badgeLabel = item.meta?.badgeLabel || 'Minus';
+                    badgeTone = 'negative';
                     badgeColor = '#c96b6b';
                 } else if (type === 'team-plus') {
                     category = 'points';
                     iconKey = 'team';
+                    badgeIcon = '+';
+                    badgeLabel = item.meta?.badgeLabel || 'Team Plus';
+                    badgeTone = 'positive';
                     badgeColor = '#5b8fcc';
                 } else if (type === 'team-minus') {
                     category = 'points';
                     iconKey = 'minus';
+                    badgeIcon = '−';
+                    badgeLabel = item.meta?.badgeLabel || 'Team Minus';
+                    badgeTone = 'negative';
                     badgeColor = '#c96b6b';
                 } else if (type === 'pick') {
                     category = 'picks';
                     iconKey = 'pick';
+                    badgeIcon = '🎲';
+                    badgeLabel = 'Pick';
+                    badgeTone = 'neutral';
                     badgeColor = '#8b7cc2';
                 } else if (type === 'team-pick') {
                     category = 'picks';
                     iconKey = 'pick';
+                    badgeIcon = '🎲';
+                    badgeLabel = 'Team Pick';
+                    badgeTone = 'neutral';
                     badgeColor = '#8b7cc2';
                 } else if (type.startsWith('timer-')) {
                     category = 'timers';
                     iconKey = 'timer';
+                    badgeIcon = '⏱️';
                     badgeColor = '#e2c96e';
                 } else if (type.startsWith('mode-')) {
                     category = 'timers';
                     iconKey = 'timer';
+                    badgeIcon = '👥';
                     badgeColor = '#b8a6e8';
                 } else if (type === 'teams' || type === 'role' || type === 'rank' || type === 'role-change') {
                     category = 'teams';
                     iconKey = 'team';
+                    badgeIcon = '👥';
+                    badgeLabel = item.detail || 'Team Change';
                     badgeColor = '#5b8fcc';
                 } else if (type === 'badge') {
                     category = 'badges';
-                    iconKey = 'badge';
-                    const tone = item.meta?.tone || (String(item.detail || '').includes('-') ? 'negative' : 'positive');
-                    badgeColor = tone === 'negative' ? '#c96b6b' : '#e2c96e';
+                    const rawIcon = item.meta?.badgeIcon || (typeof item.detail === 'string' ? item.detail.split(/\s+/)[0] : '') || '';
+                    const rawLabel = item.meta?.badgeLabel || (typeof item.detail === 'string' ? item.detail.split(/\s+/).slice(1).join(' ') : '') || item.detail || 'Badge';
+                    const res = (typeof resolveBadgeData === 'function') ? resolveBadgeData({ icon: rawIcon, label: rawLabel, tone: item.meta?.tone }) : {};
+
+                    badgeIcon = res.icon || rawIcon || '🏅';
+                    badgeLabel = res.label || rawLabel || 'Badge';
+                    badgeTone = res.tone || item.meta?.tone || (String(item.detail || '').includes('-') ? 'negative' : 'positive');
+
+                    if (badgeIcon === '+') {
+                        badgeColor = '#6abf8e';
+                        iconKey = 'plus';
+                    } else if (badgeIcon === '-' || badgeIcon === '−') {
+                        badgeColor = '#c96b6b';
+                        iconKey = 'minus';
+                    } else if (badgeTone === 'negative') {
+                        badgeColor = '#c96b6b';
+                        iconKey = 'badge';
+                    } else if (badgeTone === 'positive') {
+                        badgeColor = '#e2c96e';
+                        iconKey = 'badge';
+                    } else {
+                        badgeColor = '#5b8fcc';
+                        iconKey = 'badge';
+                    }
                 } else if (type === 'comment' || type === 'note') {
                     category = 'badges';
                     iconKey = 'comment';
+                    badgeIcon = '💬';
+                    badgeLabel = 'Note';
+                    badgeTone = 'neutral';
                     badgeColor = '#e59a5a';
                 } else if (type === 'attendance') {
                     category = 'attendance';
                     iconKey = 'attendance';
                     const isAbsent = item.meta?.isAbsent ?? String(item.detail || '').toLowerCase().includes('absent');
+                    badgeIcon = isAbsent ? '✗' : '✓';
+                    badgeLabel = isAbsent ? 'Absent' : 'Present';
+                    badgeTone = isAbsent ? 'negative' : 'positive';
                     badgeColor = isAbsent ? '#c96b6b' : '#6abf8e';
                 } else if (type === 'exam-toggle') {
                     category = 'timers';
@@ -4668,23 +4869,32 @@
                 } else if (type === 'remove') {
                     category = 'points';
                     iconKey = 'minus';
+                    badgeIcon = '−';
+                    badgeLabel = item.detail || 'Correction';
+                    badgeTone = 'negative';
                     badgeColor = '#c96b6b';
                 } else {
                     if (type.includes('minus') || type.includes('neg') || type.includes('penalty')) {
                         category = 'points';
                         iconKey = 'minus';
+                        badgeIcon = '−';
+                        badgeTone = 'negative';
                         badgeColor = '#c96b6b';
                     } else if (type.includes('pick')) {
                         category = 'picks';
                         iconKey = 'pick';
+                        badgeIcon = '🎲';
                         badgeColor = '#8b7cc2';
                     } else if (type.includes('team')) {
                         category = 'teams';
                         iconKey = 'team';
+                        badgeIcon = '👥';
                         badgeColor = '#5b8fcc';
                     } else {
                         category = 'points';
                         iconKey = 'plus';
+                        badgeIcon = '+';
+                        badgeTone = 'positive';
                         badgeColor = '#6abf8e';
                     }
                 }
@@ -4701,6 +4911,10 @@
                     category,
                     iconKey,
                     badgeColor,
+                    badgeIcon,
+                    badgeLabel,
+                    badgeTone,
+                    teamStudentNames,
                     rawIndex: idx
                 };
             }).sort((a, b) => a.timestampMs - b.timestampMs || a.rawIndex - b.rawIndex);
@@ -4936,7 +5150,7 @@
             }
             if (emptyStateEl) emptyStateEl.classList.add('hidden');
 
-            const filteredEvents = _timelineState.events.filter(e => _timelineState.activeFilters.has(e.category));
+            const filteredEvents = _timelineState.events.filter(e => isTimelineEventActive(e, _timelineState.activeFilters));
 
             // Layout dimensions
             const padLeft = 60;
@@ -5050,7 +5264,7 @@
                 // Exclude system intervals from cumulative student interactions curve
                 if (type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle') return false;
                 if (!targetStudentClean) return true;
-                return String(e.studentName || '').trim().toLowerCase() === targetStudentClean;
+                return eventMatchesTimelineStudent(e, targetStudentClean);
             });
 
             // Grid lines for Track 2
@@ -5128,7 +5342,7 @@
             ctx.lineTo(padLeft + plotW, stemBaselineY);
             ctx.stroke();
 
-            const nodeRadius = 10;
+            const nodeRadius = 11;
             const hitTargets = [];
 
             // Multi-tier vertical staggering algorithm
@@ -5140,7 +5354,7 @@
 
                 for (let j = Math.max(0, idx - 12); j < idx; j++) {
                     const prevX = getX(filteredEvents[j].timestampMs);
-                    if (Math.abs(ex - prevX) < 18) {
+                    if (Math.abs(ex - prevX) < 22) {
                         usedTiers.add(assignedTiers[j]);
                         clusterCount++;
                     }
@@ -5155,18 +5369,17 @@
                 // Micro jitter if more than 6 events share this cluster
                 const jitterX = clusterCount >= 6 ? ((idx % 3) - 1) * 3 : 0;
                 const nodeCenterX = ex + jitterX;
-                const nodeCenterY = stemBaselineY - 16 - (tier * 18);
+                const nodeCenterY = stemBaselineY - 16 - (tier * 20);
 
-                const isTargetStudent = !targetStudentClean ||
-                    String(ev.studentName || '').trim().toLowerCase() === targetStudentClean;
-                const nodeAlpha = isTargetStudent ? 1.0 : 0.16;
+                const isTargetStudent = eventMatchesTimelineStudent(ev, targetStudentClean);
+                const nodeAlpha = isTargetStudent ? 1.0 : 0.18;
 
                 ctx.save();
                 ctx.globalAlpha = nodeAlpha;
 
                 // Vertical stem line from baseline to node
-                ctx.strokeStyle = '#444444';
-                ctx.lineWidth = 1.2;
+                ctx.strokeStyle = isTargetStudent && targetStudentClean ? '#111111' : '#666666';
+                ctx.lineWidth = isTargetStudent && targetStudentClean ? 1.8 : 1.0;
                 ctx.beginPath();
                 ctx.moveTo(nodeCenterX, stemBaselineY);
                 ctx.lineTo(nodeCenterX, nodeCenterY + nodeRadius);
@@ -5188,17 +5401,38 @@
                 ctx.lineWidth = isTargetStudent && targetStudentClean ? 2.5 : 1.5;
                 ctx.stroke();
 
-                // Centered icon
-                const icon = _timelineIcons[ev.iconKey];
-                if (icon && icon.complete && icon.naturalWidth > 0) {
-                    ctx.drawImage(icon, nodeCenterX - 6, nodeCenterY - 6, 12, 12);
+                // Centered icon / badge symbol
+                const bIcon = ev.badgeIcon;
+                ctx.save();
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                if (bIcon === '+' || ev.type === 'plus' || ev.type === 'team-plus') {
+                    ctx.fillStyle = '#111111';
+                    ctx.font = '800 13px Lexend, sans-serif';
+                    ctx.fillText('+', nodeCenterX, nodeCenterY + 0.5);
+                } else if (bIcon === '−' || bIcon === '-' || ev.type === 'minus' || ev.type === 'team-minus') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = '800 14px Lexend, sans-serif';
+                    ctx.fillText('−', nodeCenterX, nodeCenterY);
+                } else if (bIcon && (bIcon.length > 1 && !/\p{Extended_Pictographic}/u.test(bIcon))) {
+                    // Multi-character text badge (e.g. RV, DNF, OM, AT)
+                    ctx.fillStyle = '#ffffff';
+                    ctx.font = bIcon.length > 2 ? '800 7.5px Lexend, sans-serif' : '800 8.5px Lexend, sans-serif';
+                    ctx.fillText(bIcon, nodeCenterX, nodeCenterY);
+                } else if (bIcon && /\p{Extended_Pictographic}/u.test(bIcon)) {
+                    // Emoji badge: 💎, 👍, 👏, ⭐, 1️⃣, etc.
+                    ctx.font = '11px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+                    ctx.fillText(bIcon, nodeCenterX, nodeCenterY + 1);
+                } else if (ev.iconKey && _timelineIcons[ev.iconKey] && _timelineIcons[ev.iconKey].complete && _timelineIcons[ev.iconKey].naturalWidth > 0) {
+                    ctx.drawImage(_timelineIcons[ev.iconKey], nodeCenterX - 6, nodeCenterY - 6, 12, 12);
                 } else {
                     ctx.fillStyle = '#111111';
                     ctx.font = '700 9px Lexend, sans-serif';
-                    ctx.textAlign = 'center';
-                    const symbol = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
-                    ctx.fillText(symbol, nodeCenterX, nodeCenterY + 3);
+                    const sym = ev.type === 'pick' ? '🎲' : (ev.type === 'comment' ? '💬' : '★');
+                    ctx.fillText(sym, nodeCenterX, nodeCenterY);
                 }
+                ctx.restore();
 
                 ctx.restore();
 
@@ -5214,10 +5448,9 @@
             let lastLabelX = -999;
             filteredEvents.forEach((ev, idx) => {
                 const ex = getX(ev.timestampMs);
-                const isTargetStudent = !targetStudentClean ||
-                    String(ev.studentName || '').trim().toLowerCase() === targetStudentClean;
+                const isTargetStudent = eventMatchesTimelineStudent(ev, targetStudentClean);
 
-                const shouldDraw = isTargetStudent && (targetStudentClean || Math.abs(ex - lastLabelX) >= 36);
+                const shouldDraw = isTargetStudent && (targetStudentClean || Math.abs(ex - lastLabelX) >= 42);
                 if (shouldDraw) {
                     lastLabelX = ex;
                     ctx.save();
@@ -5225,7 +5458,7 @@
                     ctx.font = isTargetStudent && targetStudentClean ? '700 9px Lexend, sans-serif' : '600 8.5px Lexend, sans-serif';
                     ctx.textAlign = 'center';
                     let shortName = ev.studentName || '';
-                    if (shortName.length > 10) shortName = shortName.slice(0, 9) + '…';
+                    if (shortName.length > 11) shortName = shortName.slice(0, 10) + '…';
                     ctx.fillText(shortName, ex, stemBaselineY + 12);
                     ctx.restore();
                 }
@@ -5340,9 +5573,10 @@
                     const t = targets[i];
                     const dist = Math.hypot(t.x - mouseX, t.y - mouseY);
                     if (dist < minDist) {
-                        if (dist < minDist) {
-                            closest = t.event;
-                        }
+                        minDist = dist;
+                        closest = t.event;
+                    }
+                    if (dist < 22) {
                         nearbyTargets.push(t.event);
                     }
                 }
@@ -5366,7 +5600,18 @@
                 if (closest) {
                     const timeClock = new Date(closest.timestampMs).toLocaleTimeString('en-GB');
                     const timeElapsed = formatTimelineTimeLabel(closest.timestampMs, _timelineState.timeBounds.startMs, 'elapsed');
-                    
+
+                    const bIcon = closest.badgeIcon || (closest.type === 'plus' ? '+' : (closest.type === 'minus' ? '−' : '🏅'));
+                    const bLabel = closest.badgeLabel || closest.detail || closest.type;
+                    const toneColor = closest.badgeTone === 'negative' ? '#fee2e2' : (closest.badgeTone === 'positive' ? '#dcfce7' : '#f1f5f9');
+                    const toneBorder = closest.badgeTone === 'negative' ? '#b91c1c' : (closest.badgeTone === 'positive' ? '#15803d' : '#475569');
+                    const toneText = closest.badgeTone === 'negative' ? '#991b1b' : (closest.badgeTone === 'positive' ? '#166534' : '#1e293b');
+
+                    let teamExtra = '';
+                    if (closest.teamStudentNames && closest.teamStudentNames.length) {
+                        teamExtra = `<div style="font-size:9.5px; color:#475569; margin-top:4px;"><strong>Team:</strong> ${escapeHtml(closest.teamStudentNames.join(', '))}</div>`;
+                    }
+
                     let extraHtml = '';
                     if (nearbyTargets.length > 1) {
                         const others = nearbyTargets.filter(ev => ev !== closest);
@@ -5374,7 +5619,8 @@
                             const clusterText = t('ptTimelineNearbyEvents') || 'events in this cluster';
                             extraHtml = `<div style="margin-top:6px; padding-top:4px; border-top:1px dashed #666; font-size:10px; color:#555;"><strong>${others.length + 1}</strong> ${escapeHtml(clusterText)}:</div>`;
                             others.slice(0, 3).forEach(o => {
-                                extraHtml += `<div style="font-size:9.5px; margin-top:2px; color:#444;">• ${escapeHtml(o.studentName)}: ${escapeHtml(o.detail || o.type)}</div>`;
+                                const oIcon = o.badgeIcon || (o.type === 'plus' ? '+' : (o.type === 'minus' ? '−' : '•'));
+                                extraHtml += `<div style="font-size:9.5px; margin-top:2px; color:#444;">• ${escapeHtml(o.studentName)}: ${escapeHtml(oIcon)} ${escapeHtml(o.badgeLabel || o.detail || o.type)}</div>`;
                             });
                             if (others.length > 3) {
                                 extraHtml += `<div style="font-size:9px; color:#888;">+ ${others.length - 3} more...</div>`;
@@ -5387,14 +5633,21 @@
                             <span>${timeElapsed}</span>
                             <span>${timeClock}</span>
                         </div>
-                        <span class="pt-tooltip-badge" style="background:${closest.badgeColor}; color:#111;">${closest.type.toUpperCase()}</span>
+                        <div style="display:flex; align-items:center; gap:6px; margin:4px 0;">
+                            <span class="pt-tooltip-badge" style="background:${toneColor}; color:${toneText}; border:1.5px solid ${toneBorder}; font-weight:800; font-size:11px; padding:2px 7px; border-radius:4px;">
+                                ${escapeHtml(bIcon)} ${escapeHtml(bLabel)}
+                            </span>
+                            <span style="font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase;">${escapeHtml(closest.category)}</span>
+                        </div>
                         <div class="pt-tooltip-title">${escapeHtml(closest.studentName)}</div>
-                        <div class="pt-tooltip-detail">${escapeHtml(closest.detail || '')}</div>
+                        ${closest.detail && closest.detail !== bLabel ? `<div class="pt-tooltip-detail">${escapeHtml(closest.detail)}</div>` : ''}
+                        ${closest.meta?.meaning ? `<div style="font-size:9.5px; color:#64748b; font-style:italic; margin-top:2px;">${escapeHtml(closest.meta.meaning)}</div>` : ''}
+                        ${teamExtra}
                         ${extraHtml}
                     `;
                     tooltip.style.display = 'block';
                     const tipX = Math.min(rect.width - 240, Math.max(10, mouseX + 14));
-                    const tipY = Math.min(rect.height - 120, Math.max(10, mouseY - 40));
+                    const tipY = Math.min(rect.height - 130, Math.max(10, mouseY - 40));
                     tooltip.style.left = tipX + 'px';
                     tooltip.style.top = tipY + 'px';
                 } else if (hoveredInterval) {
@@ -5430,15 +5683,39 @@
                 drawSessionTimeline(canvas, isModal);
             }
 
+            function handleClick(e) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const targets = canvas._timelineHitTargets || [];
+                let closest = null;
+                let minDist = 18;
+                for (let i = 0; i < targets.length; i++) {
+                    const t = targets[i];
+                    const dist = Math.hypot(t.x - mouseX, t.y - mouseY);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = t.event;
+                    }
+                }
+                if (closest && closest.studentName) {
+                    const currentClean = (_timelineState.selectedStudentName || '').trim().toLowerCase();
+                    const clickedClean = String(closest.studentName).trim().toLowerCase();
+                    const newStudent = currentClean === clickedClean ? '' : closest.studentName;
+                    onTimelineStudentFilterChange(newStudent, isModal);
+                }
+            }
+
             canvas.addEventListener('mousemove', handleMouseMove);
             canvas.addEventListener('mouseleave', handleMouseLeave);
+            canvas.addEventListener('click', handleClick);
         }
 
         function populateTimelineStudentSelect(selectId, session) {
             const select = document.getElementById(selectId);
             if (!select) return;
 
-            const currentVal = select.value;
+            const currentVal = _timelineState.selectedStudentName || select.value;
             select.innerHTML = `<option value="">${t('ptTimelineAllStudents') || 'All Students'}</option>`;
 
             const studentNames = new Set();
@@ -5460,11 +5737,16 @@
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = name;
+                if (currentVal && String(name).trim().toLowerCase() === String(currentVal).trim().toLowerCase()) {
+                    opt.selected = true;
+                }
                 select.appendChild(opt);
             });
 
-            if (studentNames.has(currentVal)) {
+            if (currentVal && Array.from(studentNames).some(n => String(n).trim().toLowerCase() === String(currentVal).trim().toLowerCase())) {
                 select.value = currentVal;
+            } else if (!currentVal) {
+                select.value = '';
             }
         }
 
@@ -5484,6 +5766,12 @@
             preloadTimelineIcons();
             _timelineState.session = session;
             _timelineState.sessionId = session.id || session.date;
+
+            if (options.selectedStudent) {
+                _timelineState.selectedStudentName = options.selectedStudent;
+            } else if (!_timelineState.selectedStudentName && currentStudentName) {
+                _timelineState.selectedStudentName = currentStudentName;
+            }
 
             const rawGroupId = (currentGroupId && session.groups && session.groups[currentGroupId])
                 ? currentGroupId
@@ -5733,7 +6021,7 @@
             const filename = `Session_Timeline_${groupName}_${dateStr}.svg`;
 
             const bounds = _timelineState.timeBounds;
-            const filteredEvents = _timelineState.events.filter(e => _timelineState.activeFilters.has(e.category));
+            const filteredEvents = _timelineState.events.filter(e => isTimelineEventActive(e, _timelineState.activeFilters));
             const width = 1100;
             const height = 480;
             const padLeft = 65;
@@ -5814,7 +6102,7 @@
                 const type = e.type || '';
                 if (type.startsWith('timer-') || type.startsWith('mode-') || type === 'exam-toggle') return false;
                 if (!targetStudentCleanSvg) return true;
-                return String(e.studentName || '').trim().toLowerCase() === targetStudentCleanSvg;
+                return eventMatchesTimelineStudent(e, targetStudentCleanSvg);
             });
 
             let cum = 0;
@@ -5856,7 +6144,7 @@
 
                 for (let j = Math.max(0, idx - 12); j < idx; j++) {
                     const prevX = getSvgX(filteredEvents[j].timestampMs);
-                    if (Math.abs(ex - prevX) < 18) {
+                    if (Math.abs(ex - prevX) < 22) {
                         usedTiers.add(svgAssignedTiers[j]);
                         clusterCount++;
                     }
@@ -5870,27 +6158,55 @@
 
                 const jitterX = clusterCount >= 6 ? ((idx % 3) - 1) * 3 : 0;
                 const nodeCenterX = ex + jitterX;
-                const nodeCenterY = stemBaselineY - 16 - (tier * 18);
+                const nodeCenterY = stemBaselineY - 16 - (tier * 20);
 
-                svg += `<line x1="${nodeCenterX.toFixed(1)}" y1="${stemBaselineY}" x2="${nodeCenterX.toFixed(1)}" y2="${(nodeCenterY + 10).toFixed(1)}" class="stem-line" />\n`;
-                svg += `<circle cx="${(nodeCenterX + 1.5).toFixed(1)}" cy="${(nodeCenterY + 1.5).toFixed(1)}" r="10" fill="#555555" />\n`;
-                svg += `<circle cx="${nodeCenterX.toFixed(1)}" cy="${nodeCenterY.toFixed(1)}" r="10" fill="${ev.badgeColor || '#6abf8e'}" stroke="#333333" stroke-width="1.5" />\n`;
+                const isTargetSvg = eventMatchesTimelineStudent(ev, targetStudentCleanSvg);
+                const nodeAlpha = isTargetSvg ? '1.0' : '0.18';
+                const strokeW = isTargetSvg && targetStudentCleanSvg ? '2.5' : '1.5';
+                const strokeCol = isTargetSvg && targetStudentCleanSvg ? '#111111' : '#333333';
 
-                const sym = ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? 'P' : '★'));
-                svg += `<text x="${nodeCenterX.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="800" font-size="9" fill="#111111" text-anchor="middle">${sym}</text>\n`;
+                svg += `<g opacity="${nodeAlpha}">\n`;
+                svg += `<line x1="${nodeCenterX.toFixed(1)}" y1="${stemBaselineY}" x2="${nodeCenterX.toFixed(1)}" y2="${(nodeCenterY + 11).toFixed(1)}" stroke="${isTargetSvg && targetStudentCleanSvg ? '#111111' : '#666666'}" stroke-width="${isTargetSvg && targetStudentCleanSvg ? '1.8' : '1.0'}" />\n`;
+                svg += `<circle cx="${(nodeCenterX + 1.5).toFixed(1)}" cy="${(nodeCenterY + 1.5).toFixed(1)}" r="11" fill="#555555" />\n`;
+                svg += `<circle cx="${nodeCenterX.toFixed(1)}" cy="${nodeCenterY.toFixed(1)}" r="11" fill="${ev.badgeColor || '#6abf8e'}" stroke="${strokeCol}" stroke-width="${strokeW}" />\n`;
+
+                const bIcon = ev.badgeIcon;
+                let sym = bIcon || (ev.type === 'plus' ? '+' : (ev.type === 'minus' ? '−' : (ev.type === 'pick' ? '🎲' : '🏅')));
+                let fSize = 11;
+                let fill = '#111111';
+                let fWeight = '800';
+
+                if (bIcon === '+' || ev.type === 'plus' || ev.type === 'team-plus') {
+                    sym = '+';
+                    fSize = 13;
+                    fill = '#111111';
+                } else if (bIcon === '−' || bIcon === '-' || ev.type === 'minus' || ev.type === 'team-minus') {
+                    sym = '−';
+                    fSize = 14;
+                    fill = '#ffffff';
+                } else if (bIcon && bIcon.length > 1 && !/\p{Extended_Pictographic}/u.test(bIcon)) {
+                    sym = bIcon;
+                    fSize = bIcon.length > 2 ? 7.5 : 8.5;
+                    fill = '#ffffff';
+                } else if (bIcon && /\p{Extended_Pictographic}/u.test(bIcon)) {
+                    sym = bIcon;
+                    fSize = 11;
+                }
+
+                svg += `<text x="${nodeCenterX.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="${fWeight}" font-size="${fSize}" fill="${fill}" text-anchor="middle">${escapeHtml(sym)}</text>\n`;
+                svg += `</g>\n`;
             });
 
             // Student labels below baseline without overlapping collisions
             let lastSvgLabelX = -999;
             filteredEvents.forEach(ev => {
                 const ex = getSvgX(ev.timestampMs);
-                const isTargetStudent = !targetStudentCleanSvg ||
-                    String(ev.studentName || '').trim().toLowerCase() === targetStudentCleanSvg;
+                const isTargetStudent = eventMatchesTimelineStudent(ev, targetStudentCleanSvg);
 
-                if (isTargetStudent && (targetStudentCleanSvg || Math.abs(ex - lastSvgLabelX) >= 36)) {
+                if (isTargetStudent && (targetStudentCleanSvg || Math.abs(ex - lastSvgLabelX) >= 42)) {
                     lastSvgLabelX = ex;
                     let sName = ev.studentName || '';
-                    if (sName.length > 9) sName = sName.slice(0, 8) + '…';
+                    if (sName.length > 11) sName = sName.slice(0, 10) + '…';
                     svg += `<text x="${ex.toFixed(1)}" y="${stemBaselineY + 12}" class="student-label">${escapeHtml(sName)}</text>\n`;
                 }
             });
@@ -6976,10 +7292,24 @@
                     <td style="text-align:center;"><input type="checkbox" class="past-abs-in" ${st.isAbsent ? 'checked' : ''} onchange="updateStudentEditField('${sessionId}', 'isAbsent', this.checked)"></td>
                     <td>${formatBadgesEditable(sessionId, st.badges || [])}</td>
                     <td><input type="text" class="past-input-text past-note-in" value="${escHtml(st.notes || '')}" placeholder="Notes..." onchange="updateStudentEditField('${sessionId}', 'notes', this.value)"></td>
-                    <td><button type="button" class="btn-mini-danger" onclick="deleteStudentPastEntry('${sessionId}')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button></td>
+                    <td>
+                        <div style="display:flex; gap:4px; align-items:center;">
+                            <button type="button" class="btn-mini" onclick="openStudentSessionTimelineFromModal('${sessionId}')" title="View Session Timeline"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /></button>
+                            <button type="button" class="btn-mini-danger" onclick="deleteStudentPastEntry('${sessionId}')"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
+                        </div>
+                    </td>
                 `;
                 tbody.appendChild(row);
             });
+        }
+
+        function openStudentSessionTimelineFromModal(sessionId) {
+            if (!editingStudentModalData) return;
+            const targetSessionId = sessionId || editingStudentModalData.currentSessionId || (editingStudentModalData.studentSessions[0]?.sessionId);
+            const studentName = editingStudentModalData.name;
+            if (!targetSessionId) return;
+            closeDetailModal();
+            openSessionTimeline(targetSessionId, { openModal: true, selectedStudent: studentName });
         }
 
         function formatBadgesEditable(sessionId, badges) {
@@ -7060,6 +7390,10 @@
 
             if (!newBadge) return;
 
+            const now = new Date();
+            newBadge.time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            newBadge.timestamp = now.toISOString();
+
             if (!Array.isArray(item.studentData.badges)) {
                 item.studentData.badges = [];
             }
@@ -7080,10 +7414,22 @@
             let val = String(input).trim();
             if (!val) return;
 
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const tsStr = now.toISOString();
+
+            let badgeObj;
+            const parts = val.split(/\s+/);
+            if (parts.length > 1 && (parts[0].length <= 4 || /\p{Extended_Pictographic}/u.test(parts[0]))) {
+                badgeObj = { icon: parts[0], label: parts.slice(1).join(' '), tone: 'positive', time: timeStr, timestamp: tsStr };
+            } else {
+                badgeObj = { icon: '⭐', label: val, tone: 'positive', time: timeStr, timestamp: tsStr };
+            }
+
             if (!Array.isArray(item.studentData.badges)) {
                 item.studentData.badges = [];
             }
-            item.studentData.badges.push(val);
+            item.studentData.badges.push(badgeObj);
             renderStudentDetailBodyContent();
         }
 
@@ -7433,6 +7779,41 @@
                         ...item.studentData
                     });
                 }
+
+                // Sync newly added badges to session.sessionHistory
+                if (Array.isArray(item.studentData.badges)) {
+                    if (!Array.isArray(session.sessionHistory)) {
+                        session.sessionHistory = [];
+                    }
+                    item.studentData.badges.forEach(b => {
+                        const bIcon = (typeof b === 'object' ? b.icon : (typeof b === 'string' ? b.split(/\s+/)[0] : '')) || '';
+                        const bLabel = (typeof b === 'object' ? b.label : (typeof b === 'string' ? b.split(/\s+/).slice(1).join(' ') : '')) || 'Badge';
+                        const bTime = (typeof b === 'object' && b.time) ? b.time : (session.time || '');
+                        const bTs = (typeof b === 'object' && b.timestamp) ? b.timestamp : (session.id && session.id.includes('T') ? session.id : new Date().toISOString());
+                        const bTone = (typeof b === 'object' ? b.tone : 'positive');
+                        const existsInHistory = session.sessionHistory.some(h => {
+                            if (!h || (h.type !== 'badge' && h.type !== 'plus' && h.type !== 'minus')) return false;
+                            if (String(h.studentName || '').trim().toLowerCase() !== String(name).trim().toLowerCase()) return false;
+                            const hIcon = h.meta?.badgeIcon || (typeof h.detail === 'string' ? h.detail.split(/\s+/)[0] : '');
+                            return bIcon && hIcon === bIcon;
+                        });
+                        if (!existsInHistory) {
+                            session.sessionHistory.push({
+                                type: (bIcon === '+' ? 'plus' : (bIcon === '-' || bIcon === '−' ? 'minus' : 'badge')),
+                                studentName: name,
+                                detail: (bIcon && !bLabel.includes(bIcon)) ? `${bIcon} ${bLabel}` : bLabel,
+                                time: bTime,
+                                timestamp: bTs,
+                                group: groupId,
+                                meta: {
+                                    badgeIcon: bIcon,
+                                    badgeLabel: bLabel,
+                                    tone: bTone
+                                }
+                            });
+                        }
+                    });
+                }
             });
 
             DB_EXPORT.forEach(s => {
@@ -7444,6 +7825,11 @@
 
             syncGlobalDbExport();
             await persistEditedGroupSessionsToDisk(groupId);
+
+            if (_timelineState.session && _timelineState.sessionId) {
+                const refreshed = DB_EXPORT.find(s => s && (s.id === _timelineState.sessionId || s.date === _timelineState.sessionId));
+                if (refreshed) renderSessionTimeline(refreshed, { openModal: _timelineState.isModalOpen });
+            }
 
             closeDetailModal();
 
