@@ -15,6 +15,7 @@
   <script src="../modules/wavesurfer/wavesurfer.min.js"></script>
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
   <script src="../js/media-audio-encoder.js"></script>
+  <script src="../js/media-converter-service.js"></script>
   <script src="../js/media-converter.js"></script>
 </head>
 <body>
@@ -29,6 +30,17 @@
         <span id="engineBadgeText" data-i18n="engineDetecting">Detecting engine...</span>
       </span>
     </div>
+    <!-- Mode Switcher Tabs -->
+    <div class="view-mode-tabs">
+      <button type="button" class="mode-tab-btn active" id="tabConverterMode" data-mode="converter">
+        <img src="../assets/icons/refresh.svg" alt="" />
+        <span data-i18n="modeConverter">Batch Converter</span>
+      </button>
+      <button type="button" class="mode-tab-btn" id="tabEditorMode" data-mode="editor">
+        <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
+        <span data-i18n="modeTimelineEditor">Timeline Studio</span>
+      </button>
+    </div>
     <div class="header-actions">
       <button class="btn btn-sm" id="mediaTourBtn" onclick="if(window.startMediaConverterTour)window.startMediaConverterTour();" data-i18n-title="btnTour" title="Interactive Tour">
         <img src="../assets/icons/how-to.svg" alt="" /> <span data-i18n="tour">Tour</span>
@@ -40,6 +52,107 @@
   </header>
 
   <main class="main-container">
+
+    <!-- Timeline Studio Panel (Split, Merge, Fade) -->
+    <section class="card-panel" id="timelineEditorPanel" style="display: none;">
+      <div class="panel-header">
+        <div class="panel-title">
+          <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
+          <span data-i18n="timelineStudioTitle">Multi-Clip Timeline &amp; Sequence Editor</span>
+        </div>
+        <div class="header-actions">
+          <input type="file" id="timelineFileInput" multiple hidden accept="audio/*,video/*,.mkv,.avi,.mov,.flv,.wmv,.webp">
+          <button type="button" class="btn btn-sm" id="timelineAddClipBtn">
+            <img src="../assets/icons/folder.svg" alt="" />
+            <span data-i18n="btnAddClip">Add Clip</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-primary" id="timelineSplitBtn" title="Split current clip at playhead">
+            <img src="../assets/icons/scissors.svg" alt="" />
+            <span data-i18n="btnSplitAtPlayhead">Split at Playhead</span>
+          </button>
+          <button type="button" class="btn btn-sm btn-success" id="timelineExportMergedBtn">
+            <img src="../assets/icons/check.svg" alt="" />
+            <span data-i18n="btnExportMerged">Export Merged Sequence</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Synchronized Preview Monitor -->
+      <div class="timeline-monitor">
+        <div class="video-preview-box" id="timelineVideoBox" style="display: none;">
+          <video id="timelineVideoPlayer" controls></video>
+        </div>
+        <div class="waveform-box" id="timelineWaveformContainer"></div>
+        <div class="timeline-monitor-toolbar">
+          <div class="timeline-btn-row">
+            <button type="button" class="btn btn-sm btn-primary" id="timelinePlayBtn">
+              <img src="../assets/icons/play.svg" alt="" /> <span data-i18n="playSelection">Play Selection</span>
+            </button>
+            <button type="button" class="btn btn-sm" id="timelinePauseBtn">
+              <img src="../assets/icons/pause.svg" alt="" /> <span data-i18n="pause">Pause</span>
+            </button>
+            <button type="button" class="btn btn-sm" id="timelineResetBtn">
+              <img src="../assets/icons/rewind.svg" alt="" /> <span data-i18n="resetSelection">Reset Range</span>
+            </button>
+          </div>
+          <div class="timeline-time-ruler">
+            <span class="ruler-current" id="timelineCurrentTime">00:00.00</span>
+            <span class="ruler-total" id="timelineTotalDuration">/ 00:00.00</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Target Export Settings for Timeline Studio -->
+      <div class="timeline-settings-strip">
+        <div class="timeline-setting-item">
+          <label for="timelineTargetFormat" data-i18n="outputFormatLabel">Output Format</label>
+          <select id="timelineTargetFormat" class="form-select form-select-sm">
+            <option value="mp4" selected>MP4 (H.264 Video)</option>
+            <option value="webm">WebM (VP9 / Web)</option>
+            <option value="mp3">MP3 (Universal Audio)</option>
+            <option value="wav">WAV (Lossless Audio)</option>
+            <option value="m4a">M4A (AAC Audio)</option>
+          </select>
+        </div>
+        <div class="timeline-setting-item" id="timelineResGroup">
+          <label for="timelineResolution" data-i18n="videoResolutionLabel">Video Resolution</label>
+          <select id="timelineResolution" class="form-select form-select-sm">
+            <option value="1080p">1080p Full HD (1920×1080)</option>
+            <option value="720p" selected>720p HD (1280×720)</option>
+            <option value="480p">480p SD (854×480)</option>
+            <option value="360p">360p Compact (640×360)</option>
+          </select>
+        </div>
+        <div class="timeline-setting-item" id="timelineQualityGroup">
+          <label for="timelineQuality" data-i18n="videoQualityLabel">Video Quality</label>
+          <select id="timelineQuality" class="form-select form-select-sm">
+            <option value="high" data-i18n="qualityHigh">High Quality</option>
+            <option value="medium" selected data-i18n="qualityMedium">Medium</option>
+            <option value="low" data-i18n="qualityLow">Low (Compressed)</option>
+          </select>
+        </div>
+        <div class="timeline-setting-item">
+          <label for="timelineAudioBitrate" data-i18n="audioBitrateLabel">Audio Bitrate</label>
+          <select id="timelineAudioBitrate" class="form-select form-select-sm">
+            <option value="320k">320 kbps</option>
+            <option value="192k" selected>192 kbps</option>
+            <option value="128k">128 kbps</option>
+            <option value="96k">96 kbps</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Visual Clip Sequence Strip (Light Neobrutalist Cards) -->
+      <div class="timeline-track-container">
+        <div class="timeline-track-header">
+          <span class="track-label" data-i18n="trackClipsOrder">Sequence Order (Drag or use arrows to reorder)</span>
+          <span class="track-stats" id="timelineClipCount">0 clips</span>
+        </div>
+        <div class="timeline-clips-strip" id="timelineClipsStrip">
+          <!-- Dynamic Clip Cards injected here -->
+        </div>
+      </div>
+    </section>
 
     <!-- Dropzone Panel -->
     <section class="card-panel" id="dropzonePanel">

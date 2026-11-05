@@ -96,6 +96,7 @@
     setupProgressEvents();
     setupEngineModal();
     setupBroadcastListener();
+    setupTimelineStudio();
     renderQueue();
     await checkUrlInputParam();
   });
@@ -1206,6 +1207,833 @@
       .replace(/'/g, '&#039;');
   }
 
+  // ── Timeline Studio Controller (Split, Merge, Fade) ───────────────────────
+  var _timelineClips = [];
+  var _timelineActiveClipId = null;
+  var _timelineWaveSurfer = null;
+  var _timelineRegionsPlugin = null;
+  var _timelineActiveRegion = null;
+  var _timelineIsSyncingWS = false;
+  var _timelineIsSyncingVideo = false;
+
+  function setupTimelineStudio() {
+    var tabConverter = document.getElementById('tabConverterMode');
+    var tabEditor = document.getElementById('tabEditorMode');
+    var timelinePanel = document.getElementById('timelineEditorPanel');
+    var dropzonePanel = document.getElementById('dropzonePanel');
+    var presetsPanel = document.getElementById('presetsPanel');
+    var settingsGrid = document.querySelector('.settings-grid');
+    var queuePanel = document.getElementById('queuePanel');
+    var trimmerPanel = document.getElementById('trimmerPanel');
+
+    function setMode(mode) {
+      if (mode === 'editor') {
+        if (tabEditor) tabEditor.classList.add('active');
+        if (tabConverter) tabConverter.classList.remove('active');
+        if (timelinePanel) timelinePanel.style.display = 'flex';
+        if (dropzonePanel) dropzonePanel.style.display = 'none';
+        if (presetsPanel) presetsPanel.style.display = 'none';
+        if (settingsGrid) settingsGrid.style.display = 'none';
+        if (queuePanel) queuePanel.style.display = 'none';
+        if (trimmerPanel) trimmerPanel.style.display = 'none';
+
+        setupTimelineWaveSurfer();
+        renderTimelineClips();
+      } else {
+        if (tabConverter) tabConverter.classList.add('active');
+        if (tabEditor) tabEditor.classList.remove('active');
+        if (timelinePanel) timelinePanel.style.display = 'none';
+        if (dropzonePanel) dropzonePanel.style.display = 'block';
+        if (presetsPanel) presetsPanel.style.display = 'block';
+        if (settingsGrid) settingsGrid.style.display = 'grid';
+        if (queuePanel) queuePanel.style.display = 'block';
+        if (_activeFile && trimmerPanel) trimmerPanel.style.display = 'block';
+      }
+    }
+
+    if (tabConverter) {
+      tabConverter.addEventListener('click', function () { setMode('converter'); });
+    }
+    if (tabEditor) {
+      tabEditor.addEventListener('click', function () { setMode('editor'); });
+    }
+
+    // Add clip button & file input
+    var addClipBtn = document.getElementById('timelineAddClipBtn');
+    var timelineFileInput = document.getElementById('timelineFileInput');
+
+    if (addClipBtn) {
+      addClipBtn.addEventListener('click', async function () {
+        if (window.Desktop && typeof window.Desktop.mediaSelectInputFiles === 'function') {
+          var res = await window.Desktop.mediaSelectInputFiles();
+          if (res && res.ok && res.files && res.files.length) {
+            for (var i = 0; i < res.files.length; i++) {
+              await addClipToTimeline(res.files[i]);
+            }
+          }
+        } else if (timelineFileInput) {
+          timelineFileInput.click();
+        }
+      });
+    }
+
+    if (timelineFileInput) {
+      timelineFileInput.addEventListener('change', async function () {
+        if (timelineFileInput.files && timelineFileInput.files.length) {
+          for (var i = 0; i < timelineFileInput.files.length; i++) {
+            await addClipToTimeline(timelineFileInput.files[i]);
+          }
+          timelineFileInput.value = '';
+        }
+      });
+    }
+
+    // Split button
+    var splitBtn = document.getElementById('timelineSplitBtn');
+    if (splitBtn) {
+      splitBtn.addEventListener('click', function () {
+        splitClipAtPlayhead();
+      });
+    }
+
+    // Export button
+    var exportMergedBtn = document.getElementById('timelineExportMergedBtn');
+    if (exportMergedBtn) {
+      exportMergedBtn.addEventListener('click', function () {
+        exportMergedSequence();
+      });
+    }
+
+    // Monitor playback buttons
+    var playBtn = document.getElementById('timelinePlayBtn');
+    var pauseBtn = document.getElementById('timelinePauseBtn');
+    var resetBtn = document.getElementById('timelineResetBtn');
+    var videoEl = document.getElementById('timelineVideoPlayer');
+
+    if (playBtn) {
+      playBtn.addEventListener('click', function () {
+        if (_timelineWaveSurfer) {
+          if (videoEl && videoEl.src) {
+            var videoBox = document.getElementById('timelineVideoBox');
+            if (videoBox && videoBox.style.display !== 'none') {
+              videoEl.muted = true;
+              if (_timelineActiveRegion) {
+                videoEl.currentTime = _timelineActiveRegion.start;
+              }
+              videoEl.play().catch(function () {});
+            }
+          }
+          if (_timelineActiveRegion) _timelineWaveSurfer.play(_timelineActiveRegion.start, _timelineActiveRegion.end);
+          else _timelineWaveSurfer.play();
+        }
+      });
+    }
+
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', function () {
+        if (_timelineWaveSurfer) _timelineWaveSurfer.pause();
+        if (videoEl && !videoEl.paused) videoEl.pause();
+      });
+    }
+
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        if (_timelineWaveSurfer && _timelineRegionsPlugin) {
+          var dur = _timelineWaveSurfer.getDuration();
+          _timelineRegionsPlugin.clearRegions();
+          _timelineActiveRegion = _timelineRegionsPlugin.addRegion({
+            start: 0,
+            end: dur,
+            color: 'rgba(91, 143, 204, 0.3)',
+            drag: true,
+            resize: true
+          });
+          var activeClip = _timelineClips.find(function (c) { return c.id === _timelineActiveClipId; });
+          if (activeClip) {
+            activeClip.trimStart = 0;
+            activeClip.trimEnd = dur;
+            activeClip.duration = dur;
+            var card = document.querySelector('.timeline-clip-card[data-clip-id="' + activeClip.id + '"]');
+            if (card) {
+              var badge = card.querySelector('.clip-duration-badge');
+              if (badge) badge.textContent = 'Duration: ' + dur.toFixed(1) + 's';
+            }
+          }
+          updateTimelineRuler(0, dur, dur);
+          _timelineWaveSurfer.seekTo(0);
+          if (videoEl && videoEl.src) {
+            videoEl.currentTime = 0;
+          }
+        }
+      });
+    }
+
+    // Format change listener for resolution and quality toggling
+    var targetFmtSelect = document.getElementById('timelineTargetFormat');
+    if (targetFmtSelect) {
+      targetFmtSelect.addEventListener('change', function () {
+        var isAudio = ['mp3', 'wav', 'm4a'].includes(targetFmtSelect.value);
+        var resG = document.getElementById('timelineResGroup');
+        var qualG = document.getElementById('timelineQualityGroup');
+        if (resG) resG.style.display = isAudio ? 'none' : 'flex';
+        if (qualG) qualG.style.display = isAudio ? 'none' : 'flex';
+      });
+    }
+
+    // Drag and drop onto timelinePanel
+    if (timelinePanel) {
+      timelinePanel.addEventListener('dragover', function (e) {
+        e.preventDefault();
+      });
+      timelinePanel.addEventListener('drop', async function (e) {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          e.preventDefault();
+          e.stopPropagation();
+          for (var i = 0; i < e.dataTransfer.files.length; i++) {
+            await addClipToTimeline(e.dataTransfer.files[i]);
+          }
+        }
+      });
+    }
+  }
+
+  function setupTimelineWaveSurfer() {
+    var container = document.getElementById('timelineWaveformContainer');
+    var videoEl = document.getElementById('timelineVideoPlayer');
+    if (!container || !window.WaveSurfer || _timelineWaveSurfer) return;
+
+    try {
+      _timelineRegionsPlugin = window.WaveSurfer.Regions ? window.WaveSurfer.Regions.create() : null;
+      var plugins = _timelineRegionsPlugin ? [_timelineRegionsPlugin] : [];
+
+      _timelineWaveSurfer = window.WaveSurfer.create({
+        container: container,
+        waveColor: '#5b8fcc',
+        progressColor: '#e2c96e',
+        cursorColor: '#333333',
+        barWidth: 2,
+        barGap: 2,
+        barRadius: 2,
+        height: 70,
+        normalize: true,
+        plugins: plugins
+      });
+
+      _timelineWaveSurfer.on('ready', function () {
+        var duration = _timelineWaveSurfer.getDuration();
+        var activeClip = _timelineClips.find(function (c) { return c.id === _timelineActiveClipId; });
+        var start = (activeClip && typeof activeClip.trimStart === 'number') ? activeClip.trimStart : 0;
+        var end = (activeClip && typeof activeClip.trimEnd === 'number' && activeClip.trimEnd > start) ? activeClip.trimEnd : duration;
+
+        if (_timelineRegionsPlugin) {
+          _timelineRegionsPlugin.clearRegions();
+          _timelineActiveRegion = _timelineRegionsPlugin.addRegion({
+            start: start,
+            end: end,
+            color: 'rgba(91, 143, 204, 0.3)',
+            drag: true,
+            resize: true
+          });
+        }
+        updateTimelineRuler(start, end, duration);
+        if (videoEl && videoEl.src) {
+          try { videoEl.currentTime = start; } catch (_) {}
+        }
+      });
+
+      function syncTimelineVideo(targetTime) {
+        if (!videoEl || _timelineIsSyncingVideo || !videoEl.src) return;
+        _timelineIsSyncingWS = true;
+        try {
+          if (isFinite(targetTime) && targetTime >= 0) {
+            videoEl.currentTime = targetTime;
+          }
+        } catch (_) {}
+        setTimeout(function () { _timelineIsSyncingWS = false; }, 40);
+      }
+
+      _timelineWaveSurfer.on('seek', function (progress) {
+        if (_timelineIsSyncingVideo) return;
+        var dur = (videoEl && isFinite(videoEl.duration) && videoEl.duration > 0)
+          ? videoEl.duration
+          : _timelineWaveSurfer.getDuration();
+        if (dur && isFinite(dur)) {
+          syncTimelineVideo(progress * dur);
+          updateTimelineRulerCurrent(progress * dur);
+        }
+      });
+
+      _timelineWaveSurfer.on('audioprocess', function (currTime) {
+        if (_timelineIsSyncingVideo) return;
+        updateTimelineRulerCurrent(currTime);
+        if (_timelineActiveRegion && currTime >= _timelineActiveRegion.end) {
+          _timelineWaveSurfer.pause();
+          if (videoEl && !videoEl.paused) videoEl.pause();
+          return;
+        }
+        if (videoEl && !videoEl.paused && isFinite(videoEl.currentTime)) {
+          if (Math.abs(videoEl.currentTime - currTime) > 0.2) {
+            syncTimelineVideo(currTime);
+          }
+        }
+      });
+
+      _timelineWaveSurfer.on('play', function () {
+        if (_timelineIsSyncingVideo) return;
+        _timelineIsSyncingWS = true;
+        if (videoEl && videoEl.src && videoEl.paused) {
+          var videoBox = document.getElementById('timelineVideoBox');
+          if (videoBox && videoBox.style.display !== 'none') {
+            if (_timelineActiveRegion && (videoEl.currentTime < _timelineActiveRegion.start || videoEl.currentTime >= _timelineActiveRegion.end)) {
+              videoEl.currentTime = _timelineActiveRegion.start;
+            }
+            videoEl.muted = true;
+            videoEl.play().catch(function () {});
+          }
+        }
+        setTimeout(function () { _timelineIsSyncingWS = false; }, 40);
+      });
+
+      _timelineWaveSurfer.on('pause', function () {
+        if (_timelineIsSyncingVideo) return;
+        _timelineIsSyncingWS = true;
+        if (videoEl && !videoEl.paused) {
+          videoEl.pause();
+        }
+        setTimeout(function () { _timelineIsSyncingWS = false; }, 40);
+      });
+
+      if (_timelineRegionsPlugin) {
+        _timelineRegionsPlugin.on('region-updated', function (region) {
+          _timelineActiveRegion = region;
+          var activeClip = _timelineClips.find(function (c) { return c.id === _timelineActiveClipId; });
+          if (activeClip) {
+            activeClip.trimStart = region.start;
+            activeClip.trimEnd = region.end;
+            activeClip.duration = Math.max(0.1, region.end - region.start);
+            // Update duration badge in-place (smooth-dom-sync)
+            var card = document.querySelector('.timeline-clip-card[data-clip-id="' + activeClip.id + '"]');
+            if (card) {
+              var badge = card.querySelector('.clip-duration-badge');
+              if (badge) badge.textContent = 'Duration: ' + activeClip.duration.toFixed(1) + 's';
+            }
+          }
+          updateTimelineRuler(region.start, region.end, _timelineWaveSurfer.getDuration());
+          if (videoEl && videoEl.paused) {
+            syncTimelineVideo(region.start);
+          }
+        });
+      }
+
+      if (videoEl) {
+        videoEl.addEventListener('timeupdate', function () {
+          if (_timelineIsSyncingWS) return;
+          if (videoEl.paused) {
+            var dur = _timelineWaveSurfer.getDuration() || videoEl.duration;
+            if (dur > 0) {
+              _timelineIsSyncingVideo = true;
+              _timelineWaveSurfer.seekTo(videoEl.currentTime / dur);
+              updateTimelineRulerCurrent(videoEl.currentTime);
+              setTimeout(function () { _timelineIsSyncingVideo = false; }, 40);
+            }
+          } else {
+            updateTimelineRulerCurrent(videoEl.currentTime);
+            if (_timelineActiveRegion && videoEl.currentTime >= _timelineActiveRegion.end) {
+              videoEl.pause();
+              if (_timelineWaveSurfer.isPlaying()) _timelineWaveSurfer.pause();
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Timeline WaveSurfer init error:', e);
+    }
+  }
+
+  function updateTimelineRulerCurrent(currTime) {
+    var curEl = document.getElementById('timelineCurrentTime');
+    if (curEl) curEl.textContent = formatTime(currTime);
+  }
+
+  function updateTimelineRuler(start, end, totalDuration) {
+    var curEl = document.getElementById('timelineCurrentTime');
+    var totEl = document.getElementById('timelineTotalDuration');
+    if (curEl) curEl.textContent = formatTime(start);
+    if (totEl) totEl.textContent = '/ ' + formatTime(totalDuration);
+  }
+
+  async function addClipToTimeline(fileOrPath) {
+    var sourcePath = '';
+    var fileObj = null;
+    var fileName = '';
+    var ext = '';
+
+    if (typeof fileOrPath === 'string') {
+      sourcePath = fileOrPath;
+      var parts = sourcePath.replace(/\\/g, '/').split('/');
+      fileName = parts.pop() || 'media_file';
+      ext = (fileName.split('.').pop() || '').toLowerCase();
+    } else if (fileOrPath && typeof fileOrPath === 'object') {
+      fileObj = fileOrPath;
+      sourcePath = resolveFilePath(fileOrPath);
+      fileName = fileOrPath.name || 'media_file';
+      ext = (fileName.split('.').pop() || '').toLowerCase();
+    }
+
+    if (!fileName) return;
+
+    var isVideo = ['mp4', 'mkv', 'avi', 'mov', 'webm', 'wmv'].includes(ext);
+    var duration = 0;
+
+    // Probe duration
+    if (sourcePath && window.MediaConverterService && typeof window.MediaConverterService.probe === 'function') {
+      try {
+        var probeRes = await window.MediaConverterService.probe(sourcePath);
+        if (probeRes && probeRes.ok && probeRes.meta) {
+          duration = probeRes.meta.duration || 0;
+          if (typeof probeRes.meta.hasVideo === 'boolean') {
+            isVideo = probeRes.meta.hasVideo;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!duration || duration <= 0) {
+      // Fallback via HTML5 Audio / Video tag
+      duration = await new Promise(function (resolve) {
+        var el = document.createElement(isVideo ? 'video' : 'audio');
+        el.preload = 'metadata';
+        var url = sourcePath ? toFileUrl(sourcePath) : (fileObj ? URL.createObjectURL(fileObj) : '');
+        el.src = url;
+        el.onloadedmetadata = function () {
+          var d = el.duration;
+          if (fileObj) URL.revokeObjectURL(url);
+          resolve(isFinite(d) && d > 0 ? d : 10);
+        };
+        el.onerror = function () {
+          if (fileObj) URL.revokeObjectURL(url);
+          resolve(10);
+        };
+      });
+    }
+
+    var clip = {
+      id: 'clip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      sourcePath: sourcePath,
+      fileObj: fileObj,
+      name: fileName,
+      mediaType: isVideo ? 'video' : 'audio',
+      extension: ext,
+      originalDuration: duration,
+      trimStart: 0,
+      trimEnd: duration,
+      duration: duration,
+      fadeIn: 0,
+      fadeOut: 0,
+      volume: 1.0,
+      speed: 1.0,
+      order: _timelineClips.length
+    };
+
+    _timelineClips.push(clip);
+    renderTimelineClips();
+    selectTimelineClip(clip.id);
+  }
+
+  function selectTimelineClip(clipId) {
+    var clip = _timelineClips.find(function (c) { return c.id === clipId; });
+    if (!clip) return;
+    _timelineActiveClipId = clipId;
+
+    // Update active class on cards
+    var strip = document.getElementById('timelineClipsStrip');
+    if (strip) {
+      var cards = strip.querySelectorAll('.timeline-clip-card');
+      cards.forEach(function (card) {
+        if (card.dataset.clipId === clipId) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+    }
+
+    var videoBox = document.getElementById('timelineVideoBox');
+    var videoEl = document.getElementById('timelineVideoPlayer');
+
+    if (videoBox && videoEl) {
+      if (clip.mediaType === 'video') {
+        videoBox.style.display = 'flex';
+        var src = clip.sourcePath ? toFileUrl(clip.sourcePath) : (clip.fileObj ? URL.createObjectURL(clip.fileObj) : '');
+        videoEl.src = src;
+        videoEl.currentTime = clip.trimStart || 0;
+        videoEl.muted = true;
+      } else {
+        videoBox.style.display = 'none';
+        videoEl.src = '';
+      }
+    }
+
+    if (_timelineWaveSurfer) {
+      if (clip.sourcePath) {
+        _timelineWaveSurfer.load(toFileUrl(clip.sourcePath));
+      } else if (clip.fileObj) {
+        _timelineWaveSurfer.loadBlob(clip.fileObj);
+      }
+    }
+  }
+
+  function renderTimelineClips() {
+    var strip = document.getElementById('timelineClipsStrip');
+    var countEl = document.getElementById('timelineClipCount');
+    if (countEl) {
+      countEl.textContent = _timelineClips.length + (_timelineClips.length === 1 ? ' clip' : ' clips');
+    }
+    if (!strip) return;
+
+    if (_timelineClips.length === 0) {
+      strip.innerHTML = '<div class="empty-clips-placeholder">' +
+        '<img src="../assets/icons/media.svg" style="width:32px;height:32px;opacity:0.6;" alt=""/>' +
+        '<span>' + t('noClipsToMergeError', 'No clips added yet. Click "Add Clip" or drag media files here.') + '</span>' +
+        '</div>';
+      return;
+    }
+
+    strip.innerHTML = '';
+    _timelineClips.forEach(function (clip, idx) {
+      var isActive = clip.id === _timelineActiveClipId;
+      var card = document.createElement('div');
+      card.className = 'timeline-clip-card' + (isActive ? ' active' : '');
+      card.dataset.clipId = clip.id;
+      card.draggable = true;
+
+      card.innerHTML =
+        '<div class="clip-card-header">' +
+          '<div class="clip-drag-handle" title="Drag to reorder">⋮⋮</div>' +
+          '<span class="clip-card-index">#' + (idx + 1) + '</span>' +
+          '<span class="clip-card-name" title="' + escapeHtml(clip.name) + '">' + escapeHtml(clip.name) + '</span>' +
+          '<button class="clip-remove-btn" title="Remove Clip" data-action="remove">✕</button>' +
+        '</div>' +
+        '<div class="clip-card-body">' +
+          '<div class="clip-duration-badge">Duration: ' + (clip.duration || clip.originalDuration || 0).toFixed(1) + 's</div>' +
+          '<div class="clip-controls-grid">' +
+            '<label class="control-badge">' +
+              '<span>' + t('fadeShort', 'Fade In') + ':</span>' +
+              '<select class="clip-fade-select" data-fade-type="fadeIn">' +
+                renderFadeOptions(clip.fadeIn) +
+              '</select>' +
+            '</label>' +
+            '<label class="control-badge">' +
+              '<span>' + t('fadeOutShort', 'Fade Out') + ':</span>' +
+              '<select class="clip-fade-select" data-fade-type="fadeOut">' +
+                renderFadeOptions(clip.fadeOut) +
+              '</select>' +
+            '</label>' +
+          '</div>' +
+        '</div>' +
+        '<div class="clip-card-footer">' +
+          '<button class="btn btn-xs" data-action="move-left" ' + (idx === 0 ? 'disabled' : '') + ' title="Move Left">◀</button>' +
+          '<button class="btn btn-xs btn-primary" data-action="trim" title="Adjust Trim Range">✂ Trim</button>' +
+          '<button class="btn btn-xs" data-action="move-right" ' + (idx === _timelineClips.length - 1 ? 'disabled' : '') + ' title="Move Right">▶</button>' +
+        '</div>';
+
+      // Event listeners on card
+      card.addEventListener('click', function (e) {
+        var actionBtn = e.target.closest('[data-action]');
+        if (actionBtn) {
+          var action = actionBtn.dataset.action;
+          if (action === 'remove') {
+            e.stopPropagation();
+            removeTimelineClip(clip.id);
+            return;
+          } else if (action === 'move-left') {
+            e.stopPropagation();
+            moveTimelineClip(idx, idx - 1);
+            return;
+          } else if (action === 'move-right') {
+            e.stopPropagation();
+            moveTimelineClip(idx, idx + 1);
+            return;
+          } else if (action === 'trim') {
+            e.stopPropagation();
+            selectTimelineClip(clip.id);
+            return;
+          }
+        }
+        if (e.target.closest('.clip-fade-select')) {
+          return;
+        }
+        selectTimelineClip(clip.id);
+      });
+
+      // Fade selectors change
+      var fadeSelects = card.querySelectorAll('.clip-fade-select');
+      fadeSelects.forEach(function (sel) {
+        sel.addEventListener('change', function () {
+          var fType = sel.dataset.fadeType;
+          var val = parseFloat(sel.value) || 0;
+          if (fType === 'fadeIn') clip.fadeIn = val;
+          else if (fType === 'fadeOut') clip.fadeOut = val;
+        });
+      });
+
+      // Drag and drop reordering
+      card.addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', String(idx));
+        card.classList.add('dragging');
+      });
+
+      card.addEventListener('dragend', function () {
+        card.classList.remove('dragging');
+      });
+
+      card.addEventListener('dragover', function (e) {
+        e.preventDefault();
+      });
+
+      card.addEventListener('drop', function (e) {
+        e.preventDefault();
+        var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if (!isNaN(fromIdx) && fromIdx !== idx) {
+          moveTimelineClip(fromIdx, idx);
+        }
+      });
+
+      strip.appendChild(card);
+    });
+  }
+
+  function renderFadeOptions(currentVal) {
+    var options = [0, 0.5, 1.0, 1.5, 2.0, 3.0];
+    return options.map(function (val) {
+      var isSel = (Math.abs(val - (currentVal || 0)) < 0.01);
+      return '<option value="' + val + '" ' + (isSel ? 'selected' : '') + '>' + (val === 0 ? 'None' : val + 's') + '</option>';
+    }).join('');
+  }
+
+  function moveTimelineClip(fromIdx, toIdx) {
+    if (fromIdx < 0 || fromIdx >= _timelineClips.length || toIdx < 0 || toIdx >= _timelineClips.length) return;
+    var moved = _timelineClips.splice(fromIdx, 1)[0];
+    _timelineClips.splice(toIdx, 0, moved);
+    _timelineClips.forEach(function (c, i) { c.order = i; });
+    renderTimelineClips();
+  }
+
+  function removeTimelineClip(clipId) {
+    _timelineClips = _timelineClips.filter(function (c) { return c.id !== clipId; });
+    _timelineClips.forEach(function (c, i) { c.order = i; });
+    if (_timelineActiveClipId === clipId) {
+      _timelineActiveClipId = _timelineClips.length ? _timelineClips[0].id : null;
+      if (_timelineActiveClipId) selectTimelineClip(_timelineActiveClipId);
+      else {
+        var videoBox = document.getElementById('timelineVideoBox');
+        var videoEl = document.getElementById('timelineVideoPlayer');
+        if (videoBox) videoBox.style.display = 'none';
+        if (videoEl) videoEl.src = '';
+        if (_timelineWaveSurfer && _timelineRegionsPlugin) {
+          _timelineRegionsPlugin.clearRegions();
+          _timelineWaveSurfer.empty();
+        }
+      }
+    }
+    renderTimelineClips();
+  }
+
+  function splitClipAtPlayhead() {
+    if (!_timelineClips || _timelineClips.length === 0) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(t('noClipsToMergeError', 'Please add at least one clip first.'), true);
+      }
+      return;
+    }
+
+    var clip = _timelineClips.find(function (c) { return c.id === _timelineActiveClipId; });
+    if (!clip) {
+      clip = _timelineClips[0];
+      _timelineActiveClipId = clip.id;
+    }
+
+    var videoEl = document.getElementById('timelineVideoPlayer');
+    var playheadTime = 0;
+    if (clip.mediaType === 'video' && videoEl && isFinite(videoEl.currentTime) && videoEl.currentTime > 0) {
+      playheadTime = videoEl.currentTime;
+    } else if (_timelineWaveSurfer) {
+      playheadTime = _timelineWaveSurfer.getCurrentTime();
+    }
+
+    var minMargin = 0.2;
+    var start = clip.trimStart || 0;
+    var end = (clip.trimEnd && clip.trimEnd > start) ? clip.trimEnd : (clip.originalDuration || 10);
+
+    if (playheadTime <= start + minMargin || playheadTime >= end - minMargin) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(t('splitMarginErrorToast', 'Cannot split too close to the start or end of a clip'), true);
+      }
+      return;
+    }
+
+    var oldTrimEnd = end;
+    var oldFadeOut = clip.fadeOut || 0;
+
+    clip.trimEnd = playheadTime;
+    clip.duration = Math.max(0.1, playheadTime - start);
+    clip.fadeOut = 0; // Cut boundary has 0s fade
+
+    var newClip = {
+      id: 'clip_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      sourcePath: clip.sourcePath,
+      fileObj: clip.fileObj,
+      name: clip.name + ' (Part 2)',
+      mediaType: clip.mediaType,
+      extension: clip.extension,
+      originalDuration: clip.originalDuration,
+      trimStart: playheadTime,
+      trimEnd: oldTrimEnd,
+      duration: Math.max(0.1, oldTrimEnd - playheadTime),
+      fadeIn: 0,
+      fadeOut: oldFadeOut,
+      volume: clip.volume || 1.0,
+      speed: clip.speed || 1.0,
+      order: clip.order + 1
+    };
+
+    var clipIdx = _timelineClips.indexOf(clip);
+    _timelineClips.splice(clipIdx + 1, 0, newClip);
+    _timelineClips.forEach(function (c, idx) { c.order = idx; });
+
+    renderTimelineClips();
+    selectTimelineClip(newClip.id);
+
+    if (typeof window.showToast === 'function') {
+      window.showToast(t('splitSuccessToast', 'Clip split successfully at current playhead'));
+    }
+  }
+
+  async function exportMergedSequence() {
+    if (!_timelineClips || _timelineClips.length === 0) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(t('noClipsToMergeError', 'Please add at least one clip to export a sequence.'), true);
+      }
+      return;
+    }
+
+    var targetFormat = document.getElementById('timelineTargetFormat') ? document.getElementById('timelineTargetFormat').value : 'mp4';
+    var resolution = document.getElementById('timelineResolution') ? document.getElementById('timelineResolution').value : '720p';
+    var videoQuality = document.getElementById('timelineQuality') ? document.getElementById('timelineQuality').value : 'medium';
+    var audioBitrate = document.getElementById('timelineAudioBitrate') ? document.getElementById('timelineAudioBitrate').value : '192k';
+
+    var defaultFileName = 'merged_sequence_' + Date.now() + '.' + targetFormat.toLowerCase();
+
+    var firstClip = _timelineClips[0];
+    var inputDir = '';
+    if (firstClip && firstClip.sourcePath) {
+      var parts = firstClip.sourcePath.replace(/\\/g, '/').split('/');
+      parts.pop();
+      inputDir = parts.join('/');
+    }
+
+    var outDir = '';
+    var outFileName = defaultFileName;
+
+    if (typeof window.promptExportDestination === 'function' && window.Desktop && window.Desktop.isElectron()) {
+      var destRes = await window.promptExportDestination({
+        filename: defaultFileName,
+        allowSameFolder: !!inputDir,
+        sameFolderPath: inputDir,
+        allowDocEditor: false,
+        title: t('timelineStudioTitle', 'Multi-Clip Timeline & Sequence Editor'),
+        prompt: t('mediaExportDestPrompt', 'Where would you like to save the merged media sequence?')
+      });
+
+      if (!destRes) return; // User cancelled
+
+      outFileName = destRes.filename || defaultFileName;
+      if (destRes.destination === 'same-folder') {
+        outDir = inputDir;
+      } else if (destRes.destination === 'to-print') {
+        var toPrintResolved = '';
+        if (typeof window.Desktop.resolvePath === 'function') {
+          var resP = await window.Desktop.resolvePath('toPrint', '');
+          if (resP && typeof resP === 'string') toPrintResolved = resP;
+          else if (resP && resP.path) toPrintResolved = resP.path;
+        }
+        outDir = toPrintResolved || 'user/to-print';
+      } else if (destRes.destination === 'custom') {
+        if (typeof window.Desktop.mediaSelectOutputFolder === 'function') {
+          var pickRes = await window.Desktop.mediaSelectOutputFolder();
+          if (pickRes && pickRes.ok && pickRes.folderPath) {
+            outDir = pickRes.folderPath;
+          } else {
+            return;
+          }
+        } else if (typeof window.Desktop.pickFolder === 'function') {
+          var pickRes2 = await window.Desktop.pickFolder();
+          if (pickRes2 && pickRes2.ok && pickRes2.path) {
+            outDir = pickRes2.path;
+          } else {
+            return;
+          }
+        }
+      }
+    }
+
+    var fullOutputPath = (outDir ? (outDir.replace(/\\/g, '/').replace(/\/$/, '') + '/' + outFileName) : outFileName);
+
+    var exportBtn = document.getElementById('timelineExportMergedBtn');
+    var origHtml = exportBtn ? exportBtn.innerHTML : '';
+    if (exportBtn) {
+      exportBtn.disabled = true;
+      exportBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #333;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span> Rendering...';
+    }
+
+    try {
+      var renderOptions = {
+        clips: _timelineClips,
+        outputPath: fullOutputPath,
+        targetFormat: targetFormat,
+        resolution: resolution,
+        videoQuality: videoQuality,
+        audioBitrate: audioBitrate
+      };
+
+      var res;
+      if (window.MediaConverterService && typeof window.MediaConverterService.renderTimeline === 'function') {
+        res = await window.MediaConverterService.renderTimeline(renderOptions, function (prog) {
+          if (exportBtn && prog && typeof prog.percent === 'number') {
+            exportBtn.innerHTML = '<span class="spinner" style="display:inline-block;width:12px;height:12px;border:2px solid #333;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:6px;"></span> ' + Math.round(prog.percent) + '%';
+          }
+        });
+      } else if (window.Desktop && typeof window.Desktop.mediaEditorRender === 'function') {
+        res = await window.Desktop.mediaEditorRender(renderOptions);
+      } else {
+        res = { ok: false, error: 'Rendering engine unavailable' };
+      }
+
+      if (res && res.ok) {
+        if (typeof window.showToast === 'function') {
+          window.showToast(t('mergeSuccessToast', 'Media sequence merged and exported successfully!'));
+        }
+        if (typeof window.showExportSuccessPopup === 'function' && fullOutputPath) {
+          window.showExportSuccessPopup(fullOutputPath);
+        }
+      } else {
+        var err = (res && res.error) ? res.error : 'Unknown rendering failure';
+        if (typeof window.showToast === 'function') {
+          window.showToast('Merge error: ' + err, true);
+        }
+      }
+    } catch (ex) {
+      if (typeof window.showToast === 'function') {
+        window.showToast('Merge error: ' + ex.message, true);
+      }
+    } finally {
+      if (exportBtn) {
+        exportBtn.disabled = false;
+        exportBtn.innerHTML = origHtml;
+      }
+    }
+  }
+
   // ── Global Interface ────────────────────────────────────────────────────────
   window.mediaConverter = {
     convertSingle: function (id) {
@@ -1230,6 +2058,15 @@
     previewSingle: function (id) {
       var item = _queue.find(function (i) { return i.id === id; });
       if (item) selectFileForPreview(item);
+    },
+    addTimelineClip: function (fileOrPath) {
+      return addClipToTimeline(fileOrPath);
+    },
+    splitTimelineClip: function () {
+      return splitClipAtPlayhead();
+    },
+    exportTimeline: function () {
+      return exportMergedSequence();
     }
   };
 
@@ -1237,6 +2074,11 @@
   window.startMediaConverterTour = function () {
     if (!window.Tutorial || typeof window.Tutorial.start !== 'function') return;
     var steps = [
+      {
+        selector: '.view-mode-tabs',
+        title: t('modeTimelineEditor', 'Timeline Studio'),
+        text: t('tourMediaTimelineModeDesc', 'Switch between Batch Converter and Timeline Studio to split, merge, and apply fade transitions across clips.')
+      },
       {
         selector: '#dropzonePanel',
         title: t('tourMediaDropTitle', 'Drag & Drop Media Files'),

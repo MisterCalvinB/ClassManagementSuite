@@ -157,6 +157,82 @@
   };
 
   /**
+   * Concatenates an array of AudioBuffers sequentially.
+   * @param {AudioContext} audioCtx
+   * @param {AudioBuffer[]} bufferArray
+   * @returns {AudioBuffer|null}
+   */
+  MediaAudioEncoder.concatBuffers = function (audioCtx, bufferArray) {
+    if (!bufferArray || bufferArray.length === 0) return null;
+    if (bufferArray.length === 1) return bufferArray[0];
+
+    var numChannels = bufferArray[0].numberOfChannels;
+    var sampleRate = bufferArray[0].sampleRate;
+    var totalLength = 0;
+
+    for (var i = 0; i < bufferArray.length; i++) {
+      totalLength += bufferArray[i].length;
+    }
+
+    var mergedBuffer = audioCtx.createBuffer(numChannels, totalLength, sampleRate);
+
+    for (var ch = 0; ch < numChannels; ch++) {
+      var dstData = mergedBuffer.getChannelData(ch);
+      var offset = 0;
+      for (var b = 0; b < bufferArray.length; b++) {
+        var srcData = bufferArray[b].getChannelData(Math.min(ch, bufferArray[b].numberOfChannels - 1));
+        dstData.set(srcData, offset);
+        offset += bufferArray[b].length;
+      }
+    }
+
+    return mergedBuffer;
+  };
+
+  /**
+   * Applies linear fade-in and fade-out to an AudioBuffer.
+   * @param {AudioBuffer} audioBuffer
+   * @param {number} fadeInSec
+   * @param {number} fadeOutSec
+   * @returns {AudioBuffer}
+   */
+  MediaAudioEncoder.applyFade = function (audioBuffer, fadeInSec, fadeOutSec) {
+    fadeInSec = Math.max(0, fadeInSec || 0);
+    fadeOutSec = Math.max(0, fadeOutSec || 0);
+    if (fadeInSec === 0 && fadeOutSec === 0) return audioBuffer;
+
+    var rate = audioBuffer.sampleRate;
+    var totalFrames = audioBuffer.length;
+    var fadeInFrames = Math.min(totalFrames, Math.floor(fadeInSec * rate));
+    var fadeOutFrames = Math.min(totalFrames, Math.floor(fadeOutSec * rate));
+    var fadeOutStartFrame = Math.max(0, totalFrames - fadeOutFrames);
+    var numChannels = audioBuffer.numberOfChannels;
+
+    for (var c = 0; c < numChannels; c++) {
+      var channel = audioBuffer.getChannelData(c);
+
+      // Apply linear fade-in
+      if (fadeInFrames > 0) {
+        for (var i = 0; i < fadeInFrames; i++) {
+          channel[i] *= (i / fadeInFrames);
+        }
+      }
+
+      // Apply linear fade-out
+      if (fadeOutFrames > 0) {
+        for (var j = 0; j < fadeOutFrames; j++) {
+          var idx = fadeOutStartFrame + j;
+          if (idx < totalFrames) {
+            channel[idx] *= (1.0 - (j / fadeOutFrames));
+          }
+        }
+      }
+    }
+
+    return audioBuffer;
+  };
+
+  /**
    * Decodes an ArrayBuffer or File into an AudioBuffer using AudioContext.
    * @param {ArrayBuffer} arrayBuffer
    * @returns {Promise<AudioBuffer>}

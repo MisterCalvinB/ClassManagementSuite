@@ -10682,6 +10682,188 @@ ipcMain.handle('media:cancel', async (_event, request = {}) => {
   }
 });
 
+ipcMain.handle('media:editor-render', async (event, request = {}) => {
+  const ffmpegInfo = _findFfmpegExecutable();
+  if (!ffmpegInfo) {
+    return { ok: false, error: 'no-native-engine' };
+  }
+
+  const {
+    jobId = 'editor_' + Date.now(),
+    clips = [],
+    outputPath,
+    targetFormat = 'mp4',
+    resolution = '720p',
+    videoQuality = 'medium',
+    audioBitrate = '192k'
+  } = request;
+
+  if (!clips || clips.length === 0) {
+    return { ok: false, error: 'No clips provided for rendering' };
+  }
+  if (!outputPath) {
+    return { ok: false, error: 'No output path specified' };
+  }
+
+  const outDir = path.dirname(outputPath);
+  if (!fsSync.existsSync(outDir)) {
+    await fs.mkdir(outDir, { recursive: true }).catch(() => {});
+  }
+
+  const isAudioTarget = ['mp3', 'wav', 'ogg', 'm4a', 'flac'].includes(targetFormat.toLowerCase());
+  const args = ['-hide_banner'];
+
+  // 1. Add inputs with initial seek/trim if applicable
+  clips.forEach(clip => {
+    if (clip.trimStart > 0) args.push('-ss', String(clip.trimStart));
+    args.push('-i', clip.sourcePath);
+    if (clip.trimEnd > 0 && clip.trimEnd > clip.trimStart) {
+      args.push('-to', String(clip.trimEnd - (clip.trimStart > 0 ? clip.trimStart : 0)));
+    }
+  });
+
+  // 2. Build filter_complex string
+  const filterParts = [];
+  const concatVideoLabels = [];
+  const concatAudioLabels = [];
+
+  const resMap = {
+    '1080p': '1920:1080',
+    '720p': '1280:720',
+    '480p': '854:480',
+    '360p': '640:360'
+  };
+  const targetDim = resMap[resolution] || '1280:720';
+  const [targetW, targetH] = targetDim.split(':');
+
+  clips.forEach((clip, idx) => {
+    const vLabel = `v${idx}`;
+    const aLabel = `a${idx}`;
+    const effDur = Math.max(0.1, (clip.trimEnd > clip.trimStart ? clip.trimEnd - clip.trimStart : (clip.originalDuration || clip.duration || 10)));
+
+    if (!isAudioTarget) {
+      const vFilters = [
+        `scale=${targetW}:${targetH}:force_original_aspect_ratio=decrease`,
+        `pad=${targetW}:${targetH}:(ow-iw)/2:(oh-ih)/2`,
+        `setsar=1`
+      ];
+      if (clip.fadeIn > 0) {
+        vFilters.push(`fade=t=in:st=0:d=${clip.fadeIn}`);
+      }
+      if (clip.fadeOut > 0) {
+        const fadeStart = Math.max(0, effDur - clip.fadeOut);
+        vFilters.push(`fade=t=out:st=${fadeStart.toFixed(2)}:d=${clip.fadeOut}`);
+      }
+      filterParts.push(`[${idx}:v]${vFilters.join(',')}[${vLabel}]`);
+      concatVideoLabels.push(`[${vLabel}]`);
+    }
+
+    const aFilters = [];
+    if (clip.fadeIn > 0) {
+      aFilters.push(`afade=t=in:ss=0:d=${clip.fadeIn}`);
+    }
+    if (clip.fadeOut > 0) {
+      const fadeStart = Math.max(0, effDur - clip.fadeOut);
+      aFilters.push(`afade=t=out:st=${fadeStart.toFixed(2)}:d=${clip.fadeOut}`);
+    }
+    if (clip.volume && clip.volume !== 1.0) {
+      aFilters.push(`volume=${clip.volume}`);
+    }
+    if (clip.speed && clip.speed !== 1.0) {
+      aFilters.push(`atempo=${clip.speed}`);
+    }
+
+    if (aFilters.length > 0) {
+      filterParts.push(`[${idx}:a]${aFilters.join(',')}[${aLabel}]`);
+      concatAudioLabels.push(`[${aLabel}]`);
+    } else {
+      concatAudioLabels.push(`[${idx}:a]`);
+    }
+  });
+
+  // Concat filter
+  if (!isAudioTarget) {
+    filterParts.push(
+      `${concatVideoLabels.join('')}${concatAudioLabels.join('')}concat=n=${clips.length}:v=1:a=1[outv][outa]`
+    );
+    args.push('-filter_complex', filterParts.join('; '));
+    args.push('-map', '[outv]', '-map', '[outa]');
+    args.push('-c:v', 'libx264', '-pix_fmt', 'yuv420p');
+    if (videoQuality === 'high') args.push('-crf', '18', '-preset', 'slow');
+    else if (videoQuality === 'low') args.push('-crf', '28', '-preset', 'fast');
+    else args.push('-crf', '23', '-preset', 'medium');
+    args.push('-c:a', 'aac', '-b:a', String(audioBitrate || '192k'));
+  } else {
+    filterParts.push(`${concatAudioLabels.join('')}concat=n=${clips.length}:v=0:a=1[outa]`);
+    args.push('-filter_complex', filterParts.join('; '));
+    args.push('-map', '[outa]');
+    const fmt = targetFormat.toLowerCase();
+    if (fmt === 'mp3') {
+      args.push('-c:a', 'libmp3lame', '-b:a', String(audioBitrate || '192k'));
+    } else if (fmt === 'wav') {
+      args.push('-c:a', 'pcm_s16le');
+    } else if (fmt === 'ogg') {
+      args.push('-c:a', 'libvorbis');
+    } else if (fmt === 'm4a') {
+      args.push('-c:a', 'aac', '-b:a', String(audioBitrate || '192k'));
+    } else if (fmt === 'flac') {
+      args.push('-c:a', 'flac');
+    }
+  }
+
+  args.push('-y', outputPath);
+
+  return new Promise((resolve) => {
+    try {
+      const proc = spawn(ffmpegInfo.path, args);
+      _activeMediaJobs.set(jobId, { process: proc, outputPath });
+
+      let stderrText = '';
+      const totalDurationSec = clips.reduce((acc, c) => {
+        const d = (c.trimEnd > c.trimStart) ? (c.trimEnd - c.trimStart) : (c.originalDuration || c.duration || 10);
+        return acc + d;
+      }, 0);
+
+      proc.stderr.on('data', (chunk) => {
+        const text = chunk.toString();
+        stderrText += text;
+        const timeMatch = text.match(/time=(\d+):(\d+):(\d+\.\d+)/);
+        if (timeMatch && totalDurationSec > 0) {
+          const currentSec = parseInt(timeMatch[1], 10) * 3600 + parseInt(timeMatch[2], 10) * 60 + parseFloat(timeMatch[3]);
+          const percent = Math.min(99.5, Math.round((currentSec / totalDurationSec) * 1000) / 10);
+          if (event.sender && !event.sender.isDestroyed()) {
+            try {
+              event.sender.send('media:progress', { jobId, percent, currentSec, totalSec: totalDurationSec });
+            } catch (_) {}
+          }
+        }
+      });
+
+      proc.on('close', (code) => {
+        _activeMediaJobs.delete(jobId);
+        if (code === 0) {
+          if (event.sender && !event.sender.isDestroyed()) {
+            try {
+              event.sender.send('media:progress', { jobId, percent: 100, currentSec: totalDurationSec, totalSec: totalDurationSec });
+            } catch (_) {}
+          }
+          resolve({ ok: true, outputPath, outputName: path.basename(outputPath) });
+        } else {
+          resolve({ ok: false, error: 'FFmpeg editor process exited with code ' + code, stderr: stderrText.slice(-500) });
+        }
+      });
+
+      proc.on('error', (err) => {
+        _activeMediaJobs.delete(jobId);
+        resolve({ ok: false, error: err.message });
+      });
+    } catch (e) {
+      _activeMediaJobs.delete(jobId);
+      resolve({ ok: false, error: e.message });
+    }
+  });
+});
+
 // ── Whisper Speech Recognition Models Manager ────────────────────────────────
 const WHISPER_MODEL_FILES = [
   'config.json',

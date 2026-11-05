@@ -466,6 +466,9 @@ const exposedApi = {
   mediaCancel(request) {
     return invoke('media:cancel', request);
   },
+  mediaEditorRender(request) {
+    return invoke('media:editor-render', request);
+  },
   mediaDownloadEngine() {
     return invoke('media:download-engine');
   },

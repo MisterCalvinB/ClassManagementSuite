@@ -333,6 +333,114 @@
     }
   };
 
+  /**
+   * Renders a timeline of clips (split, merge, fade) via Native FFmpeg or client-side fallback.
+   * @param {Object} options - { clips, outputPath, targetFormat, resolution, videoQuality, audioBitrate }
+   * @param {Function} [onProgress] - (data) => void
+   * @returns {Promise<Object>}
+   */
+  MediaConverterService.renderTimeline = async function (options, onProgress) {
+    options = options || {};
+    var hasNative = (await MediaConverterService.checkEngine()).hasNative;
+
+    // Desktop Native FFmpeg Path
+    if (hasNative && window.Desktop && typeof window.Desktop.mediaEditorRender === 'function' && options.outputPath) {
+      var unregProgress = null;
+      var jobId = options.jobId || ('editor_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+      if (typeof onProgress === 'function' && typeof window.Desktop.onMediaProgress === 'function') {
+        unregProgress = window.Desktop.onMediaProgress(function (data) {
+          if (!data || data.jobId === jobId) {
+            onProgress(data);
+          }
+        });
+      }
+
+      try {
+        var req = Object.assign({}, options, { jobId: jobId });
+        var result = await window.Desktop.mediaEditorRender(req);
+        if (unregProgress) unregProgress();
+        return result;
+      } catch (err) {
+        if (unregProgress) unregProgress();
+        throw err;
+      }
+    }
+
+    // Web Fallback (Audio clips merge)
+    return await MediaConverterService._renderTimelineClientSide(options, onProgress);
+  };
+
+  /**
+   * Client-side fallback for rendering timeline audio sequences using Web Audio API.
+   */
+  MediaConverterService._renderTimelineClientSide = async function (options, onProgress) {
+    var clips = options.clips || [];
+    if (clips.length === 0) return { ok: false, error: 'No clips provided' };
+
+    var audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    try {
+      var processedBuffers = [];
+      for (var i = 0; i < clips.length; i++) {
+        var clip = clips[i];
+        if (typeof onProgress === 'function') {
+          onProgress({ percent: Math.round((i / clips.length) * 80) });
+        }
+
+        var arrayBuffer = null;
+        if (clip.fileObj) {
+          arrayBuffer = await clip.fileObj.arrayBuffer();
+        } else if (clip.sourcePath && window.Desktop && typeof window.Desktop.readBinary === 'function') {
+          var bin = await window.Desktop.readBinary('', clip.sourcePath);
+          if (bin && bin.data) arrayBuffer = bin.data.buffer || bin.data;
+        }
+
+        if (!arrayBuffer) {
+          throw new Error('Could not read clip audio data: ' + (clip.name || i));
+        }
+
+        var audioBuf = await audioCtx.decodeAudioData(arrayBuffer);
+
+        // Trim
+        var start = clip.trimStart || 0;
+        var end = (clip.trimEnd && clip.trimEnd > start) ? clip.trimEnd : audioBuf.duration;
+        if (start > 0 || end < audioBuf.duration) {
+          audioBuf = window.MediaAudioEncoder.sliceBuffer(audioCtx, audioBuf, start, end);
+        }
+
+        // Fades
+        if (clip.fadeIn > 0 || clip.fadeOut > 0) {
+          window.MediaAudioEncoder.applyFade(audioBuf, clip.fadeIn || 0, clip.fadeOut || 0);
+        }
+
+        // Speed
+        if (clip.speed && clip.speed !== 1.0) {
+          audioBuf = await window.MediaAudioEncoder.changeSpeed(audioBuf, clip.speed);
+        }
+
+        processedBuffers.push(audioBuf);
+      }
+
+      if (typeof onProgress === 'function') onProgress({ percent: 85 });
+
+      var mergedBuffer = window.MediaAudioEncoder.concatBuffers(audioCtx, processedBuffers);
+      if (!mergedBuffer) throw new Error('Failed to merge audio buffers');
+
+      if (typeof onProgress === 'function') onProgress({ percent: 95 });
+
+      var wavBlob = window.MediaAudioEncoder.encodeWav(mergedBuffer);
+      if (typeof onProgress === 'function') onProgress({ percent: 100 });
+
+      return {
+        ok: true,
+        blob: wavBlob,
+        format: 'wav',
+        outputName: 'merged_sequence.wav'
+      };
+    } finally {
+      if (typeof audioCtx.close === 'function') audioCtx.close().catch(function () {});
+    }
+  };
+
   global.MediaConverterService = MediaConverterService;
 
 })(typeof window !== 'undefined' ? window : this);

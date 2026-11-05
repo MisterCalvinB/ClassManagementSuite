@@ -667,6 +667,12 @@ Offline-first **Video & Sound Converter** with visual waveform trimming, audio e
 - **Visual WaveSurfer Timeline & Trimming**:
   - Interactive dual-handle waveform region scrubber for millisecond-accurate clip trimming.
   - Lossless stream copy (`-c copy`) for instant sub-second cutting.
+- **Timeline Studio (Multi-Clip Sequence Editor)**:
+  - *Dual-Mode Architecture*: Seamless toggle between **Batch Converter** and **Timeline Studio** in the header.
+  - *Split at Playhead*: Frame-accurate cutting of video or audio tracks at the active playhead with safety margin validation.
+  - *Multi-Clip Merge / Concatenate*: Drag-and-drop or button-stepped clip reordering, with automatic resolution harmonization and letterboxing (`scale=W:H:force_original_aspect_ratio=decrease,pad=W:H:...`) to prevent concatenation errors across mixed aspect ratios.
+  - *Fade In & Fade Out*: Configurable volume ramps (0s to 3.0s) and video opacity transitions from/to black at clip boundaries.
+  - *Hybrid Dual-Execution*: Hardware-accelerated filter graph (`filter_complex`) concatenation in Desktop Electron, with client-side Web Audio API (`concatBuffers` & `applyFade`) fallback in browser environments.
 - **Destination Selection Dialog & Output Routing**:
   - Prompts before conversion (single files and batch queues) to select the output destination:
     - *Same Folder as Original Media*: Saves alongside the input file in its source directory.

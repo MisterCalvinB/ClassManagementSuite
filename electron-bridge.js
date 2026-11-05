@@ -1320,6 +1320,11 @@
       var api = getDesktopApi();
       return (api && typeof api.mediaCancel === 'function') ? api.mediaCancel(request) : { ok: false };
     },
+    async mediaEditorRender(request) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.mediaEditorRender === 'function') ? api.mediaEditorRender(request) : { ok: false, error: 'unavailable' };
+    },
     async mediaDownloadEngine() {
       if (!isElectron()) return { ok: false, error: 'web-fallback' };
       var api = getDesktopApi();
