@@ -39,6 +39,8 @@
   <script src="../modules/wavesurfer/wavesurfer.regions.min.js"></script>
   <script src="../js/speech-transcriber.js"></script>
   <script src="../js/whisper-model-modal.js"></script>
+  <script src="../js/slm-service.js"></script>
+  <script src="../js/slm-model-modal.js"></script>
   <script src="../js/board/board-state.js"></script>
   <script src="../js/board/board-bootstrap.js"></script>
   <script src="../js/board/board-nodes.js"></script>
@@ -55,6 +57,7 @@
   <script src="../js/board/board-search-wfa.js"></script>
   <script src="../js/board/board-learning-tabs.js"></script>
   <script src="../js/board/board-db-tools.js"></script>
+  <script src="../js/board/board-ai.js"></script>
 </head>
 <body>
   <nav id="app-nav">
@@ -1043,6 +1046,10 @@
         title="Add IPA node(s)">IPA</button>
       <button class="con-ctx-icon-btn" id="con-ctx-network-btn" onclick="conCtxOpenNetworkModal()"
         title="Word Network — spawn related words radially">NET</button>
+      <button class="con-ctx-icon-btn" id="con-ctx-ai-expand-btn" onclick="boardAiOpenPopover({ tab: 'expand', preset: 'related' }, this)"
+        title="AI Expand — spawn related concepts or lexical field" data-i18n-title="boardAiCtxExpandTitle"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI+</button>
+      <button class="con-ctx-icon-btn" id="con-ctx-ai-write-btn" onclick="boardAiOpenPopover({ tab: 'write', preset: 'sentences' }, this)"
+        title="AI Write — generate sentences or analysis note" data-i18n-title="boardAiCtxWriteTitle"><img src="../assets/icons/brain.svg" class="btn-icon" alt="" /> AI✍</button>
       <button class="con-ctx-icon-btn" id="con-ctx-comp-btn" onclick="conCtxOpenCompetenceModal()"
         title="Attach competence tags to this element"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-links-btn" onclick="conCtxOpenLinksModal()"
@@ -1228,6 +1235,10 @@
           title="Merge selected words into a phrase group or single node">Merge</button>
         <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-multi-lib-btn" onclick="conSaveSelectionToLibraryPrompt()"
           title="Save selection to Premade Library" data-i18n-title="conSaveSelectionToLibrary">✨ Library</button>
+        <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-multi-ai-bridge-btn" onclick="boardAiOpenPopover({ tab: 'expand', preset: 'bridge' }, this)"
+          title="AI Bridge / Expand Selected" data-i18n-title="boardAiMultiExpandTitle"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="boardAiBtnExpandShort">AI Nodes</span></button>
+        <button class="con-fmt-btn-wide con-mini-action" id="con-ctx-multi-ai-write-btn" onclick="boardAiOpenPopover({ tab: 'write', preset: 'paragraph' }, this)"
+          title="AI Synthesize Sentences / Analysis from Selection" data-i18n-title="boardAiMultiWriteTitle"><img src="../assets/icons/brain.svg" class="btn-icon" alt="" /> <span data-i18n="boardAiBtnWriteShort">AI Write</span></button>
       </div>
 
       <!-- Direct Align buttons layout -->
@@ -1528,6 +1539,10 @@
           <button type="button" class="con-board-ctx-action-btn" onclick="conBoardCtxImportText()">
             <img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" />
             <span data-i18n="conCtxImportText">Import Text</span>
+          </button>
+          <button type="button" class="con-board-ctx-action-btn" onclick="boardAiOpenPopover({ tab: 'expand', preset: 'related' }, this)">
+            <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+            <span data-i18n="boardAiStudioTitle">AI Studio</span>
           </button>
           <button type="button" class="con-board-ctx-action-btn" id="con-ctx-student-note-dev" onclick="conBoardCtxOpenStudentNote()" style="display:none;">
             <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" />
@@ -2721,6 +2736,12 @@
             <button class="action-btn btn-grey" id="con-tb-character-network-btn" onclick="characterNetworkOpenModal()"
               title="Generate Character Network from books" data-i18n-title="btnCharacterNetwork"><img src="../assets/icons/links.svg" class="btn-icon" alt="" />
               <span data-i18n="btnCharacterNetwork">Character Network</span></button>
+            <button class="action-btn btn-yellow" id="con-tb-ai-studio-btn" onclick="boardAiOpenPopover(null, this)"
+              title="Open AI Studio — expand mind map nodes & generate sentences/analysis" data-i18n-title="boardAiStudioBtnTitle"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
+              <span data-i18n="boardAiStudioTitle">AI Studio</span></button>
+            <button class="action-btn btn-grey" id="con-tb-ai-models-btn" onclick="openSlmModelManager()"
+              title="Manage Offline AI Language Models" data-i18n-title="slmManageModelsTitle"><img src="../assets/icons/brain.svg" class="btn-icon" alt="" />
+              <span data-i18n="boardAiModelsBtn">AI Models</span></button>
           </div>
         </div>
 
@@ -3318,6 +3339,8 @@
           <button class="wn-sp-action-btn" id="wn-sp-ipa-btn" onmousedown="event.preventDefault()" onclick="wnOpenIpaKeyboard()" title="IPA Phonetic Keyboard" data-i18n-title="conIpaKbdTitle"><img src="../assets/icons/ipa.svg" class="btn-icon" alt="" /> IPA</button>
           <button class="wn-sp-action-btn" id="wn-sp-dict-btn" onclick="wnOpenDictionaryForNote()" title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-convert-btn" onclick="wnStyleConvertToNode(event)" title="Convert note to word" data-i18n-title="wnConvertToNodeTitle"><img src="../assets/icons/text.svg" class="btn-icon" alt=""></button>
+          <button class="wn-sp-action-btn" id="wn-sp-ai-extract-btn" onclick="boardAiOpenPopover({ tab: 'expand', preset: 'extract' }, this)" title="AI Extract Key Terms as Nodes" data-i18n-title="boardAiNoteExtractTitle"><img src="../assets/icons/nodes.svg" class="btn-icon" alt=""> AI+</button>
+          <button class="wn-sp-action-btn" id="wn-sp-ai-elaborate-btn" onclick="boardAiOpenPopover({ tab: 'write', preset: 'analysis' }, this)" title="AI Elaborate / Analyze Note" data-i18n-title="boardAiNoteElaborateTitle"><img src="../assets/icons/brain.svg" class="btn-icon" alt=""> AI✍</button>
           <button class="wn-sp-action-btn" onclick="wnStyleEditNote()"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt=""></button>
           <button class="wn-sp-action-btn" id="wn-sp-open-input-btn" onclick="wnStyleOpenStudentInput()"
             style="display:none;">▶ Open input</button>

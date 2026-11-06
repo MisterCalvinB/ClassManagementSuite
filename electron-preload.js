@@ -533,6 +533,32 @@ const exposedApi = {
       try { ipcRenderer.removeListener('whisper:download-progress', listener); } catch (_) {}
     };
   },
+  // ── Offline Small Language Models (SLM) ────────────────────────────────────
+  slmListModels() {
+    return invoke('slm:list-models');
+  },
+  slmGetConfig() {
+    return invoke('slm:get-config');
+  },
+  slmSetActiveModel(request) {
+    return invoke('slm:set-active-model', request);
+  },
+  slmDeleteModel(request) {
+    return invoke('slm:delete-model', request);
+  },
+  slmDownloadModel(request) {
+    return invoke('slm:download-model', request);
+  },
+  onSlmDownloadProgress(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, data) => {
+      try { callback(data); } catch (e) { console.error('SLM download progress listener error:', e); }
+    };
+    ipcRenderer.on('slm:download-progress', listener);
+    return () => {
+      try { ipcRenderer.removeListener('slm:download-progress', listener); } catch (_) {}
+    };
+  },
   getPathForFile(file) {
     if (webUtils && typeof webUtils.getPathForFile === 'function' && file) {
       try {

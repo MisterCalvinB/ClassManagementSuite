@@ -6501,6 +6501,19 @@
             matches = [{ entry: legacy, matchType: 'direct', matchedWord: legacy.word }];
           }
         }
+        if ((!matches || !matches.length) && (node.aiDef || node.aiPos)) {
+          matches = [{
+            entry: {
+              word: nodeWord,
+              pos: node.aiPos || '',
+              partOfSpeech: node.aiPos || '',
+              definition: node.aiDef || '',
+              _source: 'AI Studio'
+            },
+            matchType: 'direct',
+            matchedWord: nodeWord
+          }];
+        }
 
         if (!matches || !matches.length) {
           if (typeof mdbToast === 'function') {
@@ -7002,6 +7015,12 @@
         if (!word) return;
         const existing = conGetNodeDbEntry(node) || conFindDbEntry(word);
         cwdbOpen(word, existing || null);
+        if (!existing && (node.aiDef || node.aiPos)) {
+          const defEl = document.getElementById('cwdb-definition');
+          const posEl = document.getElementById('cwdb-pos');
+          if (defEl && !defEl.value && node.aiDef) defEl.value = node.aiDef;
+          if (posEl && !posEl.value && node.aiPos) posEl.value = String(node.aiPos).toLowerCase();
+        }
       };
 
       // ================================================================
@@ -20573,6 +20592,8 @@
       window.conEnsureSvgDefs = global.conEnsureSvgDefs = conEnsureSvgDefs;
       window.conUpdateEdge = global.conUpdateEdge = conUpdateEdge;
       window.conRedrawEdges = global.conRedrawEdges = conRedrawEdges;
+      window.conApplyEdgeLabelStyle = global.conApplyEdgeLabelStyle = conApplyEdgeLabelStyle;
+      window.conFindFreePosition = global.conFindFreePosition = conFindFreePosition;
       window.conRenderNodeLabel = global.conRenderNodeLabel = conRenderNodeLabel;
       window.conIsNodeLocked = global.conIsNodeLocked = conIsNodeLocked;
       window.conSyncNodeLockState = global.conSyncNodeLockState = conSyncNodeLockState;

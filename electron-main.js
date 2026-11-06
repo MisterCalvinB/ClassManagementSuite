@@ -11274,6 +11274,392 @@ ipcMain.handle('whisper:download-model', async (event, request = {}) => {
   }
 });
 
+// ── Small Language Models (SLM) Manager ──────────────────────────────────────
+const SLM_TEXT_FILES = [
+  { name: 'config.json', required: true },
+  { name: 'generation_config.json', required: false },
+  { name: 'tokenizer.json', required: true },
+  { name: 'tokenizer_config.json', required: true },
+  { name: 'special_tokens_map.json', required: false },
+  { name: 'added_tokens.json', required: false },
+  { name: 'vocab.json', required: false },
+  { name: 'merges.txt', required: false }
+];
+
+const SLM_MODEL_SPECS = {
+  'slm-fast': {
+    id: 'slm-fast',
+    name: 'Qwen 2.5 — 0.5B Instruct (Fast)',
+    tier: 'fast',
+    isBundled: false,
+    speedRating: '3/3',
+    relativeSpeed: '1.0×',
+    ramEstimate: '~700 MB',
+    diskSize: '~495 MB',
+    sizeBytes: 523585050,
+    downloadSizeBytes: 523585050,
+    huggingFaceRepo: 'onnx-community/Qwen2.5-0.5B-Instruct',
+    onnxRemoteFile: 'onnx/model_quantized.onnx',
+    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    descriptionKey: 'slmFastDesc'
+  },
+  'slm-balanced': {
+    id: 'slm-balanced',
+    name: 'Qwen 2.5 — 1.5B Instruct (Balanced)',
+    tier: 'balanced',
+    isBundled: false,
+    speedRating: '2/3',
+    relativeSpeed: '~2.2×',
+    ramEstimate: '~1.8 GB',
+    diskSize: '~1.48 GB',
+    sizeBytes: 1590442786,
+    downloadSizeBytes: 1590442786,
+    huggingFaceRepo: 'onnx-community/Qwen2.5-1.5B-Instruct',
+    onnxRemoteFile: 'onnx/model_quantized.onnx',
+    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    descriptionKey: 'slmBalancedDesc'
+  },
+  'slm-deep': {
+    id: 'slm-deep',
+    name: 'Qwen 1.8B Deep Instruct (Quality)',
+    tier: 'deep',
+    isBundled: false,
+    speedRating: '1/3',
+    relativeSpeed: '~3.2×',
+    ramEstimate: '~2.2 GB',
+    diskSize: '~1.75 GB',
+    sizeBytes: 1879360000,
+    downloadSizeBytes: 1879360000,
+    huggingFaceRepo: 'Xenova/Qwen1.5-1.8B-Chat',
+    onnxRemoteFile: 'onnx/decoder_model_merged_quantized.onnx',
+    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    descriptionKey: 'slmDeepDesc'
+  }
+};
+
+function getSlmConfigPath() {
+  return path.join(getWritableRootDir(), 'user', 'slm-config.json');
+}
+
+async function loadSlmConfig() {
+  try {
+    const raw = await fs.readFile(getSlmConfigPath(), 'utf8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      return {
+        activeModel: parsed.activeModel || '',
+        device: parsed.device || 'auto'
+      };
+    }
+  } catch (_) {}
+  return { activeModel: '', device: 'auto' };
+}
+
+async function saveSlmConfig(cfg) {
+  try {
+    const cfgPath = getSlmConfigPath();
+    await fs.mkdir(path.dirname(cfgPath), { recursive: true });
+    await fs.writeFile(cfgPath, JSON.stringify(cfg, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[SlmModel] Failed to save slm-config.json:', err);
+    return false;
+  }
+}
+
+function getUserSlmModelsDir() {
+  return path.join(getWritableRootDir(), 'user', 'models', 'slm');
+}
+
+/**
+ * Ensures ONNX model files are compatible with the bundled onnxruntime-web WASM
+ * by clamping the protobuf ir_version to <= 8 if it was exported with IR version 9 or 10.
+ */
+function patchOnnxIrVersionSync(filePath) {
+  try {
+    if (!fsSync.existsSync(filePath)) return false;
+    const fd = fsSync.openSync(filePath, 'r+');
+    const buf = Buffer.alloc(4);
+    fsSync.readSync(fd, buf, 0, 4, 0);
+    // Protobuf field 1 is ir_version (varint, tag 0x08).
+    // If greater than 8, clamp to 8 for onnxruntime-web session creation compatibility.
+    if (buf[0] === 0x08 && buf[1] > 0x08 && buf[1] <= 0x10) {
+      console.log(`[SlmModel] Clamping ONNX IR version from ${buf[1]} to 8 in ${path.basename(filePath)}`);
+      buf[1] = 0x08;
+      fsSync.writeSync(fd, buf, 0, 2, 0);
+      fsSync.closeSync(fd);
+      return true;
+    }
+    fsSync.closeSync(fd);
+  } catch (err) {
+    console.warn('[SlmModel] Could not inspect/patch ONNX IR version:', err?.message || err);
+  }
+  return false;
+}
+
+async function isSlmModelInstalled(modelId) {
+  const spec = SLM_MODEL_SPECS[modelId];
+  if (!spec) return { installed: false, dir: '', basePath: '' };
+  const userModelsDir = getUserSlmModelsDir();
+  const userModelDir = path.join(userModelsDir, modelId);
+  const cfgPath = path.join(userModelDir, 'config.json');
+  const tokPath = path.join(userModelDir, 'tokenizer.json');
+  const onnxPath = path.join(userModelDir, spec.onnxLocalFile);
+  if (fsSync.existsSync(cfgPath) && fsSync.existsSync(tokPath) && fsSync.existsSync(onnxPath)) {
+    patchOnnxIrVersionSync(onnxPath);
+    return { installed: true, dir: userModelDir, basePath: userModelsDir };
+  }
+  return { installed: false, dir: '', basePath: '' };
+}
+
+ipcMain.handle('slm:list-models', async () => {
+  try {
+    const config = await loadSlmConfig();
+    let activeModel = config.activeModel || '';
+    const modelsList = [];
+
+    for (const [modelId, spec] of Object.entries(SLM_MODEL_SPECS)) {
+      const status = await isSlmModelInstalled(modelId);
+      let sizeBytes = spec.sizeBytes;
+      if (status.installed && status.dir) {
+        const calculatedSize = await _getDirSizeBytes(status.dir);
+        if (calculatedSize > 0) sizeBytes = calculatedSize;
+      }
+
+      modelsList.push({
+        id: spec.id,
+        name: spec.name,
+        tier: spec.tier,
+        isBundled: false,
+        isInstalled: status.installed,
+        isActive: activeModel === spec.id && status.installed,
+        speedRating: spec.speedRating,
+        relativeSpeed: spec.relativeSpeed,
+        ramEstimate: spec.ramEstimate,
+        diskSize: spec.diskSize,
+        downloadSizeBytes: spec.downloadSizeBytes,
+        sizeBytes: sizeBytes,
+        modelDir: status.dir,
+        basePath: status.basePath,
+        descriptionKey: spec.descriptionKey
+      });
+    }
+
+    const activeModelObj = modelsList.find(m => m.id === activeModel && m.isInstalled);
+    if (!activeModelObj) {
+      const firstInstalled = modelsList.find(m => m.isInstalled);
+      activeModel = firstInstalled ? firstInstalled.id : '';
+      await saveSlmConfig({ ...config, activeModel });
+      for (const m of modelsList) {
+        m.isActive = Boolean(activeModel && m.id === activeModel);
+      }
+    }
+
+    return {
+      ok: true,
+      activeModel: activeModel,
+      device: config.device || 'auto',
+      models: modelsList,
+      userModelsDir: getUserSlmModelsDir()
+    };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('slm:get-config', async () => {
+  try {
+    const config = await loadSlmConfig();
+    return { ok: true, config, userModelsDir: getUserSlmModelsDir() };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('slm:set-active-model', async (_event, request = {}) => {
+  try {
+    const modelId = request.modelId;
+    if (!modelId || !SLM_MODEL_SPECS[modelId]) {
+      return { ok: false, error: 'Invalid SLM model ID' };
+    }
+    const status = await isSlmModelInstalled(modelId);
+    if (!status.installed) {
+      return { ok: false, error: 'Model is not installed on this system' };
+    }
+    const existing = await loadSlmConfig();
+    const nextCfg = {
+      ...existing,
+      activeModel: modelId,
+      device: request.device || existing.device || 'auto'
+    };
+    await saveSlmConfig(nextCfg);
+    return { ok: true, activeModel: modelId, basePath: status.basePath, modelDir: status.dir };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('slm:delete-model', async (_event, request = {}) => {
+  try {
+    const modelId = request.modelId;
+    if (!modelId || !SLM_MODEL_SPECS[modelId]) {
+      return { ok: false, error: 'Invalid SLM model ID' };
+    }
+
+    const modelDir = path.join(getUserSlmModelsDir(), modelId);
+    if (fsSync.existsSync(modelDir)) {
+      await fs.rm(modelDir, { recursive: true, force: true });
+    }
+
+    const config = await loadSlmConfig();
+    if (config.activeModel === modelId) {
+      let nextActive = '';
+      for (const candidateId of Object.keys(SLM_MODEL_SPECS)) {
+        if (candidateId === modelId) continue;
+        const st = await isSlmModelInstalled(candidateId);
+        if (st.installed) {
+          nextActive = candidateId;
+          break;
+        }
+      }
+      await saveSlmConfig({ ...config, activeModel: nextActive });
+      return { ok: true, modelId, activeModel: nextActive };
+    }
+
+    return { ok: true, modelId, activeModel: config.activeModel };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
+ipcMain.handle('slm:download-model', async (event, request = {}) => {
+  const modelId = request.modelId;
+  if (!modelId || !SLM_MODEL_SPECS[modelId]) {
+    return { ok: false, error: 'Invalid SLM model specified' };
+  }
+  const spec = SLM_MODEL_SPECS[modelId];
+  const userModelsDir = getUserSlmModelsDir();
+  const destDir = path.join(userModelsDir, modelId);
+  const stageDir = path.join(userModelsDir, `.tmp-${modelId}-${Date.now()}`);
+
+  const notifyProgress = (data) => {
+    if (event.sender && !event.sender.isDestroyed()) {
+      try {
+        event.sender.send('slm:download-progress', {
+          modelId,
+          ...data
+        });
+      } catch (_) {}
+    }
+  };
+
+  try {
+    await fs.mkdir(userModelsDir, { recursive: true });
+    await fs.mkdir(stageDir, { recursive: true });
+
+    const repo = spec.huggingFaceRepo;
+    const totalExpectedBytes = spec.downloadSizeBytes || 523585050;
+    let overallLoaded = 0;
+
+    notifyProgress({ phase: 'downloading', loadedBytes: 0, totalBytes: totalExpectedBytes, percent: 0 });
+
+    const filesToDownload = [
+      ...SLM_TEXT_FILES.map(f => ({ remote: f.name, local: f.name, required: f.required })),
+      { remote: spec.onnxRemoteFile, local: spec.onnxLocalFile, required: true }
+    ];
+
+    for (const fileSpec of filesToDownload) {
+      if (event.sender && event.sender.isDestroyed()) {
+        throw new Error('Download aborted: window closed');
+      }
+
+      const targetFilePath = path.join(stageDir, fileSpec.local);
+      const primaryUrl = `https://huggingface.co/${repo}/resolve/main/${fileSpec.remote}`;
+      const fallbackUrl = `https://hf-mirror.com/${repo}/resolve/main/${fileSpec.remote}`;
+
+      let downloaded = false;
+      let lastErr = null;
+      let bytesBeforeFile = overallLoaded;
+
+      try {
+        await _downloadFileWithRedirect(primaryUrl, targetFilePath, (chunkBytes) => {
+          overallLoaded += chunkBytes;
+          const pct = Math.min(99.9, Math.round((overallLoaded / totalExpectedBytes) * 1000) / 10);
+          notifyProgress({
+            phase: 'downloading',
+            loadedBytes: overallLoaded,
+            totalBytes: totalExpectedBytes,
+            percent: pct,
+            currentFile: fileSpec.remote
+          });
+        });
+        downloaded = true;
+      } catch (pErr) {
+        lastErr = pErr;
+        overallLoaded = bytesBeforeFile;
+      }
+
+      if (!downloaded) {
+        try {
+          await _downloadFileWithRedirect(fallbackUrl, targetFilePath, (chunkBytes) => {
+            overallLoaded += chunkBytes;
+            const pct = Math.min(99.9, Math.round((overallLoaded / totalExpectedBytes) * 1000) / 10);
+            notifyProgress({
+              phase: 'downloading',
+              loadedBytes: overallLoaded,
+              totalBytes: totalExpectedBytes,
+              percent: pct,
+              currentFile: fileSpec.remote
+            });
+          });
+          downloaded = true;
+        } catch (fErr) {
+          lastErr = fErr;
+          overallLoaded = bytesBeforeFile;
+        }
+      }
+
+      if (!downloaded) {
+        if (!fileSpec.required) {
+          console.warn(`[SlmModel] Optional file ${fileSpec.remote} skipped:`, lastErr?.message);
+        } else {
+          throw new Error(`Failed to download ${fileSpec.remote}: ${lastErr?.message || 'Network error'}`);
+        }
+      }
+    }
+
+    notifyProgress({ phase: 'extracting', loadedBytes: overallLoaded, totalBytes: totalExpectedBytes, percent: 100 });
+
+    const checkCfg = path.join(stageDir, 'config.json');
+    const checkTok = path.join(stageDir, 'tokenizer.json');
+    const checkOnnx = path.join(stageDir, spec.onnxLocalFile);
+
+    if (!fsSync.existsSync(checkCfg) || !fsSync.existsSync(checkTok) || !fsSync.existsSync(checkOnnx)) {
+      throw new Error('Downloaded SLM model is incomplete: missing required config, tokenizer, or ONNX files');
+    }
+
+    patchOnnxIrVersionSync(checkOnnx);
+
+    if (fsSync.existsSync(destDir)) {
+      await fs.rm(destDir, { recursive: true, force: true });
+    }
+    await fs.rename(stageDir, destDir);
+
+    const existingCfg = await loadSlmConfig();
+    await saveSlmConfig({ ...existingCfg, activeModel: modelId });
+
+    notifyProgress({ phase: 'complete', percent: 100 });
+    return { ok: true, modelId, destDir, basePath: userModelsDir };
+  } catch (err) {
+    try {
+      if (fsSync.existsSync(stageDir)) {
+        await fs.rm(stageDir, { recursive: true, force: true });
+      }
+    } catch (_) {}
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
+
 app.whenReady().then(async () => {
   startMemoryHeartbeat();
   startLauncherBackgroundCleanup();

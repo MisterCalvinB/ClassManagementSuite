@@ -19,6 +19,9 @@
   <script src="../js/badge-sets-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <script src="../js/slm-service.js"></script>
+  <script src="../js/slm-model-modal.js"></script>
+  <script src="../js/mdb-ai-service.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -225,6 +228,25 @@
         <button class="modal-x" onclick="closeBatchAutofillModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="batch-autofill-body">
+        <!-- Autofill Source Engine -->
+        <div class="form-field" style="margin-bottom:12px;background:#f5f5f0;border:1.5px solid #333;border-radius:6px;padding:8px 10px;box-shadow:2px 2px 0 #555;">
+          <label class="form-lbl" style="font-weight:800;margin-bottom:6px;" data-i18n="mdbBatchAutofillSourceEngine">Autofill Source Engine</label>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
+              <input type="radio" name="baf-engine" id="baf-engine-hybrid" value="hybrid" checked onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <span data-i18n="mdbBatchEngineHybrid">Local DB + ✨ AI Fallback (Recommended)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
+              <input type="radio" name="baf-engine" id="baf-engine-local" value="local" onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <span data-i18n="mdbBatchEngineLocal">Local DB Only</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
+              <input type="radio" name="baf-engine" id="baf-engine-ai" value="ai_only" onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <span data-i18n="mdbBatchEngineAi">✨ AI Generate All Missing</span>
+            </label>
+          </div>
+        </div>
+
         <!-- Target Scope -->
         <div class="form-field" style="margin-bottom:12px;">
           <label class="form-lbl" data-i18n="mdbBatchAutofillScopeLabel">Target Records</label>
@@ -4091,11 +4113,12 @@
         ? `<div class="form-hint" style="color:#4b5563;margin-top:3px;font-size:0.75rem;line-height:1.35;">${escHtml(helpText)}</div>`
         : '';
 
-      const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word));
+      const isWordField = field.key === 'word' || (field.key === 'english' && (S.typeKey === 'wordbanks' || !rec.word))
+        || (typeof MdbAi !== 'undefined' && field.key === MdbAi.getPrimaryFieldKey(S.typeKey));
       const isCompCriteriaField = S.typeKey === 'criteria' && field.key === 'competenceIds';
       const isCompLinkedField = (S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds';
       const actionBtn = isWordField
-        ? `<button type="button" class="btn btn-secondary btn-sm" onclick="triggerWordAutofill()" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Autofill</button>`
+        ? `<button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof mdbTriggerFormAiAutofill==='function'){mdbTriggerFormAiAutofill();}else{triggerWordAutofill();}" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>`
         : (isCompCriteriaField
           ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('competenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
           : (isCompLinkedField
@@ -4189,6 +4212,29 @@
       return Array.from(map.values());
     }
 
+    function buildAiAutofillBannerHtml() {
+      return `<div class="mdb-ai-autofill-banner" style="background:#f5f5f0;border:2px solid #333;border-radius:8px;box-shadow:3px 3px 0 #555;padding:8px 12px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#e2c96e;border:1.5px solid #333;border-radius:4px;box-shadow:1.5px 1.5px 0 #333;">
+            <img src="../assets/icons/sparkles.svg" style="width:14px;height:14px;" alt="" />
+          </span>
+          <div>
+            <div style="font-weight:800;font-size:0.82rem;color:#1e1e1e;">${t('mdbAiAutofillBannerTitle', 'AI Autofill Empty Fields')}</div>
+            <div style="font-size:0.7rem;color:#555;font-weight:600;">${t('mdbAiAutofillBannerSub', 'Use local SLM AI to complete definitions, CEFR, examples, and translations')}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button type="button" class="btn btn-secondary" style="font-size:0.74rem;padding:4px 8px;" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" title="${t('slmManageModelsTitle', 'Offline Language Models')}">
+            <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
+          </button>
+          <button type="button" class="btn btn-primary" id="mdb-ai-autofill-btn" style="font-size:0.76rem;padding:5px 10px;background:#e2c96e;font-weight:800;" onclick="if(typeof mdbTriggerFormAiAutofill==='function')mdbTriggerFormAiAutofill();">
+            <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>${t('mdbBtnAutofill', 'Autofill')}</span>
+          </button>
+        </div>
+      </div>`;
+    }
+
     function buildForm(rec, schema, fi, isAdd, targetFi = 0) {
       let html = '';
       const activeSchema = getMergedFormSchema(rec);
@@ -4264,6 +4310,7 @@
 
         // Single tab
         html += `<div id="tab-single-content">`;
+        html += buildAiAutofillBannerHtml();
         if (!activeSchema.length) {
           html += `<div class="form-field">
         <label class="form-lbl">${t('mdbRecordJson')}</label>
@@ -4293,6 +4340,7 @@
         html += `<div class="form-source">${t('mdbFilePrefix')}<strong>${esc(S.files[fi].name)}</strong></div>`;
       }
       html += infoBanner;
+      html += buildAiAutofillBannerHtml();
       if (!activeSchema.length) {
         html += `<div class="form-field">
       <label class="form-lbl">${t('mdbRecordJson')}</label>
@@ -5679,6 +5727,9 @@
     }
 
     async function triggerWordAutofill() {
+      if (typeof mdbTriggerFormAiAutofill === 'function') {
+        return mdbTriggerFormAiAutofill();
+      }
       const wordEl = $('ff-word') || $('ff-english') || document.querySelector('#edit-body input[type="text"]');
       const targetWord = (wordEl ? wordEl.value : '').trim();
 
@@ -5947,6 +5998,14 @@
         return;
       }
 
+      const engineMode = document.querySelector('input[name="baf-engine"]:checked')?.value || 'hybrid';
+      if (engineMode === 'hybrid' || engineMode === 'ai_only') {
+        const engineLabel = engineMode === 'hybrid' ? 'Local DB + ✨ AI Fallback' : '✨ AI Generate All Missing';
+        previewText.textContent = `Ready to autofill ${targetItems.length} records (${requestedFields.length} fields) using ${engineLabel}.`;
+        if (applyBtn) applyBtn.disabled = false;
+        return;
+      }
+
       let matchCount = 0;
       let totalFillableFields = 0;
 
@@ -6023,6 +6082,44 @@
       const targetItems = getBatchAutofillTargetRecords(scope);
       if (!targetItems.length) {
         showToast(t('mdbAlertNoRecords'), true);
+        return;
+      }
+
+      const engineMode = document.querySelector('input[name="baf-engine"]:checked')?.value || 'hybrid';
+      if (engineMode === 'hybrid' || engineMode === 'ai_only') {
+        const previewText = $('baf-preview-text');
+        const applyBtn = $('baf-apply-btn');
+        const originalHtml = applyBtn ? applyBtn.innerHTML : '';
+
+        if (applyBtn) {
+          applyBtn.textContent = '⏹ ' + (t('btnCancel') || 'Cancel');
+          applyBtn.onclick = function () {
+            if (typeof MdbAi !== 'undefined') MdbAi.cancelBatchAutofill();
+            showToast('Cancelling batch autofill…');
+          };
+        }
+
+        try {
+          const result = await MdbAi.runBatchAutofill(targetItems, requestedFields, engineMode, {
+            onProgress: function (prog) {
+              if (previewText) {
+                previewText.textContent = `[${prog.current} / ${prog.total}] ${prog.percent}% — ${prog.status}`;
+              }
+            }
+          });
+
+          closeBatchAutofillModal();
+          S.schema = buildSchema(getAllRecords());
+          renderTable();
+          showToast(`Batch autofill complete: updated ${result.updatedCount} records.`);
+        } catch (err) {
+          showToast('Batch autofill: ' + (err && err.message ? err.message : String(err)), true);
+        } finally {
+          if (applyBtn) {
+            applyBtn.innerHTML = originalHtml;
+            applyBtn.onclick = executeBatchAutofill;
+          }
+        }
         return;
       }
 

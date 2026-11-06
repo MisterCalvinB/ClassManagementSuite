@@ -1421,6 +1421,89 @@
       var api = getDesktopApi();
       return (api && typeof api.onWhisperDownloadProgress === 'function') ? api.onWhisperDownloadProgress(callback) : () => {};
     },
+    async slmListModels() {
+      if (!isElectron()) {
+        return {
+          ok: true,
+          activeModel: '',
+          device: 'auto',
+          models: [
+            {
+              id: 'slm-fast',
+              name: 'Qwen 2.5 — 0.5B Instruct (Fast)',
+              tier: 'fast',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '3/3',
+              relativeSpeed: '1.0×',
+              ramEstimate: '~700 MB',
+              diskSize: '~495 MB',
+              downloadSizeBytes: 523585050,
+              descriptionKey: 'slmFastDesc',
+              webDisabled: true
+            },
+            {
+              id: 'slm-balanced',
+              name: 'Qwen 2.5 — 1.5B Instruct (Balanced)',
+              tier: 'balanced',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '2/3',
+              relativeSpeed: '~2.2×',
+              ramEstimate: '~1.8 GB',
+              diskSize: '~1.48 GB',
+              downloadSizeBytes: 1590442786,
+              descriptionKey: 'slmBalancedDesc',
+              webDisabled: true
+            },
+            {
+              id: 'slm-deep',
+              name: 'Qwen 1.8B Deep Instruct (Quality)',
+              tier: 'deep',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '1/3',
+              relativeSpeed: '~3.2×',
+              ramEstimate: '~2.2 GB',
+              diskSize: '~1.75 GB',
+              downloadSizeBytes: 1879360000,
+              descriptionKey: 'slmDeepDesc',
+              webDisabled: true
+            }
+          ]
+        };
+      }
+      var api = getDesktopApi();
+      return (api && typeof api.slmListModels === 'function') ? api.slmListModels() : { ok: false, error: 'unavailable' };
+    },
+    async slmGetConfig() {
+      if (!isElectron()) return { ok: true, config: { activeModel: '', device: 'auto' } };
+      var api = getDesktopApi();
+      return (api && typeof api.slmGetConfig === 'function') ? api.slmGetConfig() : { ok: false, error: 'unavailable' };
+    },
+    async slmSetActiveModel(modelId, device) {
+      if (!isElectron()) return { ok: true, activeModel: modelId };
+      var api = getDesktopApi();
+      return (api && typeof api.slmSetActiveModel === 'function') ? api.slmSetActiveModel({ modelId: modelId, device: device }) : { ok: false, error: 'unavailable' };
+    },
+    async slmDeleteModel(modelId) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.slmDeleteModel === 'function') ? api.slmDeleteModel({ modelId: modelId }) : { ok: false, error: 'unavailable' };
+    },
+    async slmDownloadModel(modelId) {
+      if (!isElectron()) return { ok: false, error: 'web-fallback' };
+      var api = getDesktopApi();
+      return (api && typeof api.slmDownloadModel === 'function') ? api.slmDownloadModel({ modelId: modelId }) : { ok: false, error: 'unavailable' };
+    },
+    onSlmDownloadProgress(callback) {
+      if (!isElectron()) return () => {};
+      var api = getDesktopApi();
+      return (api && typeof api.onSlmDownloadProgress === 'function') ? api.onSlmDownloadProgress(callback) : () => {};
+    },
     getPathForFile(file) {
       var api = getDesktopApi();
       if (api && typeof api.getPathForFile === 'function' && file) {

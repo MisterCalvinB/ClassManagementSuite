@@ -13,6 +13,7 @@
   var _conShapeSelected = global._conShapeSelected = global._conShapeSelected || new Set();
   var conTableSelected = global.conTableSelected = global.conTableSelected || new Set();
   var _conPageSnapshotPngs = global._conPageSnapshotPngs = global._conPageSnapshotPngs || [];
+  var _conCopiedPages = global._conCopiedPages = global._conCopiedPages || [];
   var conDrawings = global.conDrawings = global.conDrawings || [];
   var conShapes = global.conShapes = global.conShapes || [];
   var conNotes = global.conNotes = global.conNotes || [];
@@ -4078,6 +4079,8 @@
             dbWord: n.dbWord || null,
             sourceWord: n.sourceWord || null,
             relation: n.relation || null,
+            aiDef: n.aiDef || null,
+            aiPos: n.aiPos || null,
             x: n.x, y: n.y,
             w: finalW,
             h: finalH,
@@ -11025,6 +11028,8 @@
               existing.baseWord = n.baseWord || '';
             existing.sourceWord = n.sourceWord || null;
             existing.relation = n.relation || null;
+            existing.aiDef = n.aiDef || null;
+            existing.aiPos = n.aiPos || null;
             existing.fmt = n.fmt || {};
             existing.locked = !!n.locked;
             existing.pageNum = n.pageNum != null ? n.pageNum : null;
@@ -11109,6 +11114,8 @@
               baseWord: n.baseWord || '',
               sourceWord: n.sourceWord || null,
               relation: n.relation || null,
+              aiDef: n.aiDef || null,
+              aiPos: n.aiPos || null,
               fmt: n.fmt || {},
               locked: !!n.locked,
               pageNum: n.pageNum != null ? n.pageNum : null,
@@ -11845,6 +11852,8 @@
           baseWord: n.baseWord || '',
           sourceWord: n.sourceWord || null,
           relation: n.relation || null,
+          aiDef: n.aiDef || null,
+          aiPos: n.aiPos || null,
           fmt: n.fmt || {},
           locked: !!n.locked,
           pageNum: n.pageNum != null ? n.pageNum : null,

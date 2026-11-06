@@ -925,38 +925,242 @@
             margin-left: 6px;
         }
 
-        /* Presentation Floating Control Menu */
-        .pres-control-menu {
-            position: fixed;
-            z-index: 100000;
+        /* Unified Control Menu & Floating Mini-Dock — Light Neobrutalism */
+        #timer-popup.ucm-popover {
+            width: 340px;
+            max-width: calc(100vw - 16px);
+            max-height: calc(100vh - 58px);
+            padding: 12px;
+            background: #f5f5f0;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            box-shadow: 4px 4px 0 #555555;
+            overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+        #timer-popup.ucm-popover .timer-popup-header {
+            margin-bottom: 8px !important;
+            padding-bottom: 6px !important;
+            border-bottom: 2px solid #333333 !important;
+        }
+        .ucm-section {
+            background: #ffffff;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            box-shadow: 2px 2px 0 #555555;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            box-sizing: border-box;
+        }
+        .ucm-section:last-child {
+            margin-bottom: 0;
+        }
+        .ucm-sec-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+        .ucm-sec-title {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.68rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #222222;
+        }
+        .ucm-sec-title .btn-icon {
+            width: 13px !important;
+            height: 13px !important;
+            margin: 0 !important;
+        }
+        .ucm-sec-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .ucm-icon-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            min-width: 26px;
+            height: 26px;
+            padding: 0 6px;
+            background: #f5f5f0;
+            color: #222222;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            box-shadow: 1.5px 1.5px 0 #555555;
+            font-size: 0.64rem;
+            font-weight: 700;
+            font-family: 'Lexend', inherit;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+            box-sizing: border-box;
+        }
+        .ucm-icon-btn .btn-icon {
+            width: 13px !important;
+            height: 13px !important;
+            margin: 0 !important;
+        }
+        .ucm-icon-btn:hover {
+            background: #eae8e0;
+            transform: translate(-1px, -1px);
+            box-shadow: 2.5px 2.5px 0 #555555;
+        }
+        .ucm-icon-btn:active {
+            transform: translate(1px, 1px);
+            box-shadow: 0.5px 0.5px 0 #555555;
+        }
+        .ucm-icon-btn.active {
+            background: #5b8fcc !important;
+            color: #ffffff !important;
+            border-color: #333333 !important;
+        }
+        .ucm-icon-btn.active .btn-icon {
+            filter: brightness(0) invert(1) !important;
+        }
+        .ucm-icon-btn.is-muted {
+            background: #f8f8f6;
+            color: #777777;
+            border-color: #888888;
+        }
+        .ucm-quick-presets {
             display: flex;
             align-items: center;
             gap: 4px;
-            padding: 4px 6px;
-            border: 2px solid #333333;
-            border-radius: 8px;
-            background: #ffffff;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+        .ucm-preset-chip {
+            padding: 2px 6px;
+            font-size: 0.62rem;
+            font-weight: 800;
+            font-family: 'Lexend', inherit;
+            background: #f5f5f0;
+            color: #222222;
+            border: 1.5px solid #333333;
+            border-radius: 4px;
+            box-shadow: 1px 1px 0 #555555;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.1s ease;
+        }
+        .ucm-preset-chip:hover {
+            background: #e2c96e;
+            transform: translate(-1px, -1px);
+        }
+        .ucm-vol-val {
+            font-size: 0.66rem;
+            font-weight: 800;
+            color: #333333;
+            min-width: 30px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+        .ucm-active-mode-banner {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            padding: 4px 8px;
+            margin-bottom: 6px;
+            background: #eefaf2;
+            border: 1.5px solid #2e7d4d;
+            border-radius: 6px;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #166534;
+        }
+        .ucm-active-mode-banner.visible {
+            display: flex;
+        }
+        .ucm-active-mode-info {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .ucm-active-mode-info .btn-icon {
+            width: 14px !important;
+            height: 14px !important;
+            flex-shrink: 0;
+        }
+        .ucm-pres-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+        .ucm-pres-launch-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 4px 9px;
+            font-size: 0.66rem;
+            font-weight: 800;
+            font-family: 'Lexend', inherit;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            background: #6abf8e;
+            color: #111111;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            box-shadow: 2px 2px 0 #555555;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+        }
+        .ucm-pres-launch-btn .btn-icon {
+            width: 13px !important;
+            height: 13px !important;
+            margin: 0 !important;
+            filter: none !important;
+        }
+        .ucm-pres-launch-btn:hover {
+            background: #58ad7c;
+            transform: translate(-1px, -1px);
             box-shadow: 3px 3px 0 #555555;
-            cursor: move;
+        }
+        .ucm-pres-launch-btn.is-open {
+            background: #e2c96e;
+            color: #111111;
+        }
+
+        /* Presentation & Unified Dock Shared Button Styles */
+        #cms-pres-popup,
+        #cms-unified-dock .pres-control-menu,
+        .pres-control-menu {
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            z-index: auto !important;
+            cursor: default;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0;
+            border: none;
+            background: transparent;
+            box-shadow: none;
             user-select: none;
             font-family: 'Lexend', inherit;
             box-sizing: border-box;
+            flex-wrap: wrap;
         }
-        .pres-control-menu .pres-drag-handle {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 4px 0 2px;
-            color: #888888;
-            cursor: grab;
-            user-select: none;
-            font-size: 13px;
-            line-height: 1;
-        }
-        .pres-control-menu .pres-drag-handle:active {
-            cursor: grabbing;
-        }
-        .pres-control-menu .pres-btn {
+        .pres-control-menu .pres-btn,
+        .ucm-pres-toolbar .pres-btn {
             position: relative;
             display: inline-flex;
             align-items: center;
@@ -972,51 +1176,64 @@
             transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
             box-sizing: border-box;
         }
-        .pres-control-menu .pres-btn:hover {
+        .pres-control-menu .pres-btn:hover,
+        .ucm-pres-toolbar .pres-btn:hover {
             background: #eae8e0;
             transform: translate(-1px, -1px);
             box-shadow: 3px 3px 0 #555555;
         }
-        .pres-control-menu .pres-btn:active {
+        .pres-control-menu .pres-btn:active,
+        .ucm-pres-toolbar .pres-btn:active {
             transform: translate(1px, 1px);
             box-shadow: 1px 1px 0 #555555;
         }
-        .pres-control-menu .pres-btn img {
+        .pres-control-menu .pres-btn img,
+        .ucm-pres-toolbar .pres-btn img {
             width: 14px;
             height: 14px;
             pointer-events: none;
             display: block;
+            margin: 0 !important;
         }
-        .pres-control-menu .pres-btn[data-pres-action="close"] {
-            background: #222222;
-            border-color: #222222;
-        }
-        .pres-control-menu .pres-btn[data-pres-action="close"]:hover {
+        .pres-control-menu .pres-btn[data-pres-action="close"],
+        .ucm-pres-toolbar .pres-btn[data-pres-action="close"] {
             background: #c96b6b;
             border-color: #333333;
         }
-        .pres-control-menu .pres-btn[data-pres-action="close"] img {
-            filter: invert(1);
+        .pres-control-menu .pres-btn[data-pres-action="close"]:hover,
+        .ucm-pres-toolbar .pres-btn[data-pres-action="close"]:hover {
+            background: #b55454;
+            border-color: #333333;
         }
-        .pres-control-menu .pres-btn.is-frozen {
+        .pres-control-menu .pres-btn[data-pres-action="close"] img,
+        .ucm-pres-toolbar .pres-btn[data-pres-action="close"] img {
+            filter: brightness(0) invert(1);
+        }
+        .pres-control-menu .pres-btn.is-frozen,
+        .ucm-pres-toolbar .pres-btn.is-frozen {
             background: #5b8fcc !important;
             border-color: #333333 !important;
         }
-        .pres-control-menu .pres-btn.is-frozen img {
-            filter: invert(1);
+        .pres-control-menu .pres-btn.is-frozen img,
+        .ucm-pres-toolbar .pres-btn.is-frozen img {
+            filter: brightness(0) invert(1);
         }
-        .pres-control-menu .pres-btn.is-pinned {
+        .pres-control-menu .pres-btn.is-pinned,
+        .ucm-pres-toolbar .pres-btn.is-pinned {
             background: #e2c96e !important;
             border-color: #333333 !important;
             box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.25) !important;
         }
-        .pres-control-menu .pres-btn.is-pinned img {
+        .pres-control-menu .pres-btn.is-pinned img,
+        .ucm-pres-toolbar .pres-btn.is-pinned img {
             filter: none !important;
         }
-        .pres-control-menu .pres-btn[data-tooltip]::before {
+        .pres-control-menu .pres-btn[data-tooltip]::before,
+        .ucm-pres-toolbar .pres-btn[data-tooltip]::before {
             content: attr(data-tooltip);
             position: absolute;
             left: 50%;
+            bottom: calc(100% + 6px);
             transform: translateX(-50%);
             padding: 4px 7px;
             background: #222222;
@@ -1033,18 +1250,214 @@
             transition: opacity 0.15s ease, transform 0.15s ease;
             z-index: 100001;
         }
-        .pres-control-menu.tooltip-bottom .pres-btn[data-tooltip]::before {
-            top: calc(100% + 6px);
-            bottom: auto;
-        }
-        .pres-control-menu.tooltip-top .pres-btn[data-tooltip]::before {
-            bottom: calc(100% + 6px);
-            top: auto;
-        }
-        .pres-control-menu.tooltip-bottom .pres-btn[data-tooltip]:hover::before {
+        .pres-control-menu .pres-btn[data-tooltip]:hover::before,
+        .ucm-pres-toolbar .pres-btn[data-tooltip]:hover::before {
             opacity: 1;
             visibility: visible;
-            transform: translateX(-50%) translateY(2px);
+            transform: translateX(-50%) translateY(-2px);
+        }
+
+        /* Unified Floating Mini-Dock (#cms-unified-dock) */
+        #cms-unified-dock {
+            position: fixed;
+            bottom: 14px;
+            right: 14px;
+            z-index: 99500;
+            display: none;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 8px;
+            max-width: calc(100vw - 16px);
+            background: #ffffff;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            box-shadow: 3px 3px 0 #555555;
+            font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+            user-select: none;
+            box-sizing: border-box;
+            flex-wrap: wrap;
+            transition: box-shadow 0.15s ease, opacity 0.15s ease;
+        }
+        #cms-unified-dock.is-dragging {
+            cursor: grabbing !important;
+            box-shadow: 4px 4px 0 #333333;
+            opacity: 0.96;
+        }
+        .ucm-dock-drag-handle {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 26px;
+            cursor: grab;
+            opacity: 0.6;
+            flex-shrink: 0;
+        }
+        .ucm-dock-drag-handle:hover {
+            opacity: 1;
+        }
+        .ucm-dock-drag-handle .btn-icon {
+            width: 13px !important;
+            height: 13px !important;
+            margin: 0 !important;
+            pointer-events: none;
+        }
+        .ucm-dock-seg {
+            position: relative !important;
+            top: auto !important;
+            left: auto !important;
+            right: auto !important;
+            bottom: auto !important;
+            z-index: auto !important;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            flex-wrap: wrap;
+            min-width: 0;
+        }
+        .ucm-dock-sep {
+            width: 2px;
+            height: 20px;
+            background: #d6d6ce;
+            border-radius: 1px;
+            flex-shrink: 0;
+        }
+        .ucm-dock-readout {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 7px;
+            background: #f5f5f0;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: #222222;
+            font-variant-numeric: tabular-nums;
+            cursor: pointer;
+        }
+        .ucm-dock-readout.running {
+            background: #eefaf2;
+            border-color: #2e7d4d;
+            color: #166534;
+        }
+        .ucm-dock-readout.warning {
+            background: #fff1f2;
+            border-color: #dc2626;
+            color: #b91c1c;
+        }
+        .ucm-dock-readout .btn-icon {
+            width: 13px !important;
+            height: 13px !important;
+            margin: 0 !important;
+        }
+        .ucm-dock-vol-slider {
+            width: 64px;
+            height: 5px;
+            accent-color: #333333;
+            cursor: pointer;
+        }
+        .ucm-dock-collapse-btn,
+        .ucm-dock-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            background: #f5f5f0;
+            border: 1.5px solid #333333;
+            border-radius: 6px;
+            box-shadow: 2px 2px 0 #555555;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: transform 0.1s ease, background-color 0.1s ease, box-shadow 0.1s ease;
+        }
+        .ucm-dock-expand-btn {
+            background: #e2c96e;
+        }
+        .ucm-dock-collapse-btn:hover {
+            background: #e8e8e0;
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+        .ucm-dock-expand-btn:hover {
+            background: #d6ba58;
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+        .ucm-dock-collapse-btn .btn-icon,
+        .ucm-dock-expand-btn .btn-icon {
+            width: 14px !important;
+            height: 14px !important;
+            margin: 0 !important;
+        }
+        #cms-unified-dock.is-collapsed .ucm-dock-seg,
+        #cms-unified-dock.is-collapsed .ucm-dock-sep {
+            display: none !important;
+        }
+        body:not(.presentation-mode) .main-wrapper {
+            padding-bottom: calc(var(--ucm-dock-clearance, 0px) + 12px) !important;
+        }
+        body:not(.presentation-mode) .roster-panel {
+            margin-bottom: var(--ucm-dock-clearance, 0px) !important;
+        }
+
+        /* Narrow Screen & Half-Docked Responsiveness */
+        @media (max-width: 720px) {
+            #cms-unified-dock:not(.is-collapsed) {
+                left: 6px !important;
+                right: 6px !important;
+                bottom: 6px !important;
+                width: auto !important;
+                max-width: calc(100vw - 12px) !important;
+                justify-content: space-between;
+                padding: 5px 6px;
+                gap: 4px;
+            }
+            #cms-unified-dock.is-collapsed {
+                left: auto !important;
+                right: 6px !important;
+                bottom: 6px !important;
+                width: auto !important;
+                padding: 4px 6px;
+            }
+            .ucm-dock-sep {
+                display: none !important;
+            }
+            .ucm-dock-seg {
+                padding: 2px 4px;
+                background: #fafaf7;
+                border: 1px solid #d6d6ce;
+                border-radius: 6px;
+            }
+        }
+        @media (max-width: 600px) {
+            #timer-popup.ucm-popover {
+                position: fixed !important;
+                top: 46px !important;
+                left: 6px !important;
+                right: 6px !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: calc(100vw - 12px) !important;
+                max-height: calc(100vh - 54px) !important;
+                padding: 10px;
+            }
+            .ucm-dock-vol-slider {
+                width: 48px;
+            }
+        }
+        @media (max-width: 520px) {
+            #cms-unified-dock #mode-pill-title {
+                max-width: 64px;
+            }
+            .timer-mode-shortcuts {
+                flex-wrap: wrap;
+            }
+            .timer-mode-shortcut {
+                min-width: calc(50% - 4px);
+            }
         }
         /* Exam Session Styling */
         .cm-exam-session-banner {
@@ -1191,11 +1604,12 @@
         }
 
         #timer-inline-controls {
-            display: flex !important;
+            display: inline-flex !important;
             flex-direction: row !important;
             align-items: center !important;
-            gap: 6px !important;
+            gap: 4px !important;
             flex-shrink: 0 !important;
+            flex-wrap: wrap !important;
         }
 
         #timer-inline-pp-btn,
@@ -1205,16 +1619,16 @@
             display: inline-flex !important;
             align-items: center !important;
             justify-content: center !important;
-            min-width: 38px !important;
-            height: 38px !important;
-            padding: 0 10px !important;
-            background: #ffffff !important;
+            min-width: 28px !important;
+            height: 28px !important;
+            padding: 0 7px !important;
+            background: #f8f8f6 !important;
             color: #222222 !important;
-            border: 2px solid #333333 !important;
+            border: 1.5px solid #333333 !important;
             border-radius: 6px !important;
             box-shadow: 2px 2px 0 #555555 !important;
             cursor: pointer !important;
-            font-size: 0.88rem !important;
+            font-size: 0.72rem !important;
             font-weight: 800 !important;
             font-family: 'Lexend', inherit !important;
             line-height: 1 !important;
@@ -1224,10 +1638,11 @@
         }
 
         #timer-inline-pp-btn .btn-icon,
+        #timer-inline-add30s-btn .btn-icon,
         #timer-inline-stop-btn .btn-icon,
         #timer-inline-detach-btn .btn-icon {
-            width: 16px !important;
-            height: 16px !important;
+            width: 14px !important;
+            height: 14px !important;
             margin: 0 !important;
             vertical-align: middle !important;
         }
@@ -2623,118 +3038,190 @@
                 </div>
 
                 <div id="timer-anchor">
-                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Timer"
-                        data-i18n-title="btn_timer"><img src="../assets/icons/clock.svg" class="btn-icon"
+                    <button id="timer-open-btn" onclick="toggleTimerPopup(event)" title="Control Menu"
+                        data-i18n-title="ucm_title"><img src="../assets/icons/clock.svg" class="btn-icon"
                             alt="" /></button>
-                    <div id="timer-popup">
+                    <div id="timer-popup" class="ucm-popover">
                         <div class="timer-popup-header">
-                            <h3 id="timer-popup-title" data-i18n="timer_title"><img src="../assets/icons/clock.svg"
-                                    class="btn-icon" alt="" /> Timer</h3>
+                            <h3 id="timer-popup-title" data-i18n="ucm_title"><img src="../assets/icons/settings.svg"
+                                    class="btn-icon" alt="" /> Control Menu</h3>
                             <button class="popup-close-x-btn" onclick="closeTimerPopup()" title="Close" data-i18n-title="btn_close" aria-label="Close">
                                 <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
                             </button>
                         </div>
-                        <!-- Mode toggle -->
-                        <div class="timer-mode-toggle">
-                            <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
-                                data-i18n="timer_mode_timer"><img src="../assets/icons/clock.svg" class="btn-icon"
-                                    alt="" /> Timer</button>
-                            <button class="timer-mode-btn" id="mode-btn-stopwatch" onclick="setTimerMode('stopwatch')"
-                                data-i18n="timer_mode_stopwatch"><img src="../assets/icons/stopwatch.svg"
-                                    class="btn-icon" alt="" /> Stopwatch</button>
-                        </div>
-                        <!-- Time inputs (shown only for timer mode) -->
-                        <div id="timer-inputs-section">
-                            <div class="timer-popup-row">
-                                <span class="timer-popup-label" data-i18n="timer_duration">Duration</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0"
-                                    max="23" placeholder="h">
-                                <span class="timer-popup-sep">h</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5"
-                                    min="0" max="59" placeholder="m">
-                                <span class="timer-popup-sep">m</span>
+
+                        <!-- SECTION 1: TIMER & STOPWATCH -->
+                        <div class="ucm-section" id="ucm-timer-section">
+                            <div class="ucm-sec-header">
+                                <div class="timer-mode-toggle" style="margin-bottom:0; flex:1;">
+                                    <button class="timer-mode-btn active" id="mode-btn-timer" onclick="setTimerMode('timer')"
+                                        data-i18n="timer_mode_timer"><img src="../assets/icons/clock.svg" class="btn-icon"
+                                            alt="" /> Timer</button>
+                                    <button class="timer-mode-btn" id="mode-btn-stopwatch" onclick="setTimerMode('stopwatch')"
+                                        data-i18n="timer_mode_stopwatch"><img src="../assets/icons/stopwatch.svg"
+                                            class="btn-icon" alt="" /> Stopwatch</button>
+                                </div>
+                                <div class="ucm-sec-actions">
+                                    <button type="button" class="ucm-icon-btn" id="popup-fullscreen-btn" onclick="openTimerFullscreen()" title="Fullscreen"
+                                        data-i18n-title="timer_fullscreen_title"><img src="../assets/icons/fullscreen.svg"
+                                            class="btn-icon" alt="" /></button>
+                                    <button type="button" class="ucm-icon-btn" id="timer-inline-detach-btn" title="Open timer in new window"
+                                        data-i18n-title="timer_detach_title" onclick="detachTimerWindow()"><img
+                                            src="../assets/icons/presentation.svg" class="btn-icon" alt="" /></button>
+                                </div>
                             </div>
-                            <hr class="timer-popup-divider">
-                            <div class="timer-popup-beep-row">
-                                <span class="timer-popup-label" data-i18n="timer_beeps">Beeps</span>
-                                <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1"
-                                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width:40px;">
+
+                            <!-- Time inputs (shown only for timer mode) -->
+                            <div id="timer-inputs-section">
+                                <div class="timer-popup-row" style="margin-bottom:6px; justify-content:space-between;">
+                                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                                        <span class="timer-popup-label" data-i18n="timer_duration" style="min-width:auto;">Duration</span>
+                                        <input type="number" class="timer-popup-input" id="popup-timer-hours" value="0" min="0"
+                                            max="23" placeholder="h" style="width:40px; padding:3px 4px;">
+                                        <span class="timer-popup-sep">h</span>
+                                        <input type="number" class="timer-popup-input" id="popup-timer-minutes" value="5"
+                                            min="0" max="59" placeholder="m" style="width:42px; padding:3px 4px;">
+                                        <span class="timer-popup-sep">m</span>
+                                    </div>
+                                    <div style="display:inline-flex; align-items:center; gap:4px;" title="Beeps" data-i18n-title="timer_beeps">
+                                        <img src="../assets/icons/bell.svg" class="btn-icon" alt="" style="width:13px; height:13px; margin:0;" />
+                                        <input type="number" class="timer-popup-input" id="popup-timer-beeps" value="3" min="1"
+                                            max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width:36px; padding:3px 4px;">
+                                    </div>
+                                </div>
+                                <div class="timer-popup-row" style="margin-bottom:6px; gap:4px;">
+                                    <div class="ucm-quick-presets" style="margin-left:0; width:100%; justify-content:space-between;">
+                                        <button type="button" class="ucm-preset-chip" style="flex:1;" onclick="setTimerQuickPreset(1)">1m</button>
+                                        <button type="button" class="ucm-preset-chip" style="flex:1;" onclick="setTimerQuickPreset(3)">3m</button>
+                                        <button type="button" class="ucm-preset-chip" style="flex:1;" onclick="setTimerQuickPreset(5)">5m</button>
+                                        <button type="button" class="ucm-preset-chip" style="flex:1;" onclick="setTimerQuickPreset(10)">10m</button>
+                                        <button type="button" class="ucm-preset-chip" style="flex:1;" onclick="setTimerQuickPreset(15)">15m</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="timer-popup-actions">
+                                <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start"><img
+                                        src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start</button>
+                                <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()"
+                                    style="display:none;" data-i18n="timer_pause" data-i18n-title="timer_pause_title"><img
+                                        src="../assets/icons/pause.svg" class="btn-icon" alt="" /> Pause</button>
+                                <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()"
+                                    title="-30 seconds" data-i18n-title="timer_sub30s_title"
+                                    style="display:none;"><img src="../assets/icons/rewind.svg" class="btn-icon" alt="" style="width:11px;height:11px;" /> 30s</button>
+                                <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()"
+                                    title="+30 seconds" data-i18n-title="timer_add30s_title"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:11px;height:11px;" /> 30s</button>
+                                <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()"
+                                    style="display:none;" data-i18n="timer_stop"><img src="../assets/icons/stop.svg"
+                                        class="btn-icon" alt="" /> Stop</button>
                             </div>
                         </div>
-                        <hr class="timer-popup-divider">
-                        <!-- Ambient audio -->
-                        <div class="timer-popup-label" style="margin-bottom:5px;"><span data-i18n="ambient_label"><img
-                                    src="../assets/icons/wave.svg" class="btn-icon" alt="" />
-                                Ambient
-                                Sound</span> <span
-                                style="font-size:0.55rem;color:#aaa;font-weight:400;letter-spacing:0;">[/] vol &nbsp;
-                                M mute</span></div>
-                        <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
-                            <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')"
-                                title="White noise" data-i18n="noise_white"
-                                data-i18n-title="noise_white_title">White</button>
-                            <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')"
-                                title="Pink noise" data-i18n="noise_pink"
-                                data-i18n-title="noise_pink_title">Pink</button>
-                            <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')"
-                                title="Brown noise" data-i18n="noise_brown"
-                                data-i18n-title="noise_brown_title">Brown</button>
-                            <button class="wn-type-btn" id="wn-type-file" onclick="showMp3Picker(event)"
-                                title="Loop the selected timer audio file"
-                                data-i18n-title="noise_mp3_title">MP3</button>
+
+                        <!-- SECTION 2: SOUND & VOLUME -->
+                        <div class="ucm-section" id="ucm-sound-section">
+                            <div class="ucm-sec-header">
+                                <span class="ucm-sec-title" data-i18n="ucm_sec_sound"><img
+                                        src="../assets/icons/wave.svg" class="btn-icon" alt="" /> Sound &amp; Volume</span>
+                                <div class="ucm-sec-actions">
+                                    <button type="button" class="ucm-icon-btn" id="ucm-sfx-mute-btn" onclick="toggleScoreMute()"
+                                        title="Mute/unmute score sounds" data-i18n-title="rsp_mute_score_title">
+                                        <img src="../assets/icons/bell.svg" class="btn-icon" alt="" />
+                                        <span data-i18n="ucm_sfx_label">SFX</span>
+                                    </button>
+                                    <button type="button" class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()"
+                                        data-i18n="noise_play"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Play</button>
+                                </div>
+                            </div>
+                            <div style="display:flex;gap:4px;margin-bottom:6px;flex-wrap:wrap;">
+                                <button class="wn-type-btn active" id="wn-type-white" onclick="setNoiseType('white')"
+                                    title="White noise" data-i18n="noise_white"
+                                    data-i18n-title="noise_white_title"><img src="../assets/icons/wind.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> White</button>
+                                <button class="wn-type-btn" id="wn-type-pink" onclick="setNoiseType('pink')"
+                                    title="Pink noise" data-i18n="noise_pink"
+                                    data-i18n-title="noise_pink_title"><img src="../assets/icons/flower.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> Pink</button>
+                                <button class="wn-type-btn" id="wn-type-brown" onclick="setNoiseType('brown')"
+                                    title="Brown noise" data-i18n="noise_brown"
+                                    data-i18n-title="noise_brown_title"><img src="../assets/icons/ocean.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> Brown</button>
+                                <button class="wn-type-btn" id="wn-type-file" onclick="showMp3Picker(event)"
+                                    title="Loop the selected timer audio file"
+                                    data-i18n-title="noise_mp3_title"><img src="../assets/icons/music.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /> MP3</button>
+                            </div>
+                            <div class="timer-popup-whitenoise-row">
+                                <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()"
+                                    title="Mute/Unmute (M)" data-i18n-title="noise_mute_title"><img
+                                        src="../assets/icons/mute.svg" class="btn-icon" alt="" /></button>
+                                <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="100"
+                                    value="10" oninput="setWhiteNoiseVolume(this.value)" title="Volume"
+                                    data-i18n-title="noise_volume">
+                                <span class="ucm-vol-val" id="wn-volume-val">10%</span>
+                            </div>
                         </div>
-                        <div class="timer-popup-whitenoise-row">
-                            <button class="wn-mute-btn muted" id="wn-mute-btn" onclick="toggleWhiteNoiseMute()"
-                                title="Mute/Unmute (M)" data-i18n-title="noise_mute_title"><img
-                                    src="../assets/icons/mute.svg" class="btn-icon" alt="" /></button>
-                            <input type="range" class="wn-volume-slider" id="wn-volume-slider" min="0" max="30"
-                                value="5" oninput="setWhiteNoiseVolume(this.value)" title="Volume"
-                                data-i18n-title="noise_volume">
-                            <button class="wn-play-btn" id="wn-play-btn" onclick="toggleWhiteNoise()"
-                                data-i18n="noise_play"><img src="../assets/icons/play.svg" class="btn-icon" alt="" />
-                                Play</button>
+
+                        <!-- SECTION 3: WORKING MODES -->
+                        <div class="ucm-section" id="ucm-modes-section">
+                            <div class="ucm-sec-header">
+                                <span class="ucm-sec-title" data-i18n="timer_class_mode"><img
+                                        src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Class Mode</span>
+                                <div class="ucm-sec-actions">
+                                    <button type="button" class="ucm-icon-btn" onclick="openModeManager()" title="Edit Modes" data-i18n-title="btn_edit_short">
+                                        <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+                                        <span data-i18n="btn_edit_short">Edit</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ucm-active-mode-banner" id="ucm-active-mode-banner">
+                                <div class="ucm-active-mode-info">
+                                    <img src="../assets/icons/theater.svg" class="btn-icon" id="ucm-active-mode-icon" alt="" />
+                                    <span id="ucm-active-mode-name">Class Mode</span>
+                                </div>
+                                <div class="ucm-sec-actions">
+                                    <button type="button" class="ucm-icon-btn" onclick="restoreMode()" title="Expand mode" data-i18n-title="mode_expand_title">
+                                        <img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
+                                    </button>
+                                    <button type="button" class="ucm-icon-btn" onclick="closeMode()" title="Close mode" data-i18n-title="mode_close_title">
+                                        <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="timer-mode-shortcuts" id="timer-mode-shortcuts-container">
+                                <button class="timer-mode-shortcut" onclick="activateMode('quiet')"
+                                    data-i18n-title="mode_quiet_title" title="Quiet Work (1)"><img
+                                        src="../assets/icons/shush.svg" class="btn-icon" alt="" /><span
+                                        data-i18n="mode_quiet_short">Quiet</span></button>
+                                <button class="timer-mode-shortcut" onclick="activateMode('conversation')"
+                                    data-i18n-title="mode_conv_title" title="Conversation (2)"><img
+                                        src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /><span
+                                        data-i18n="mode_talk_short">Talk</span></button>
+                                <button class="timer-mode-shortcut" onclick="activateMode('group')"
+                                    data-i18n-title="mode_group_title" title="Group Work (3)"><img
+                                        src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><span
+                                        data-i18n="mode_group_short">Group</span></button>
+                            </div>
                         </div>
-                        <hr class="timer-popup-divider">
-                        <div class="timer-popup-actions">
-                            <button id="popup-start-btn" onclick="popupStartTimer()" data-i18n="timer_start"><img
-                                    src="../assets/icons/play.svg" class="btn-icon" alt="" />
-                                Start</button>
-                            <button class="btn-stop-timer" id="popup-stop-btn" onclick="popupStopTimer()"
-                                style="display:none;" data-i18n="timer_stop"><img src="../assets/icons/stop.svg"
-                                    class="btn-icon" alt="" /> Stop</button>
-                            <button class="btn-pause-timer" id="popup-pause-btn" onclick="timerTogglePause()"
-                                style="display:none;" data-i18n="timer_pause" data-i18n-title="timer_pause_title"><img
-                                    src="../assets/icons/pause.svg" class="btn-icon" alt="" />
-                                Pause</button>
-                            <button class="btn-add30s-timer" id="popup-sub30s-btn" onclick="timerSubtract30s()"
-                                title="-30 seconds" data-i18n-title="timer_sub30s_title"
-                                style="display:none;">-30s</button>
-                            <button class="btn-add30s-timer" id="popup-add30s-btn" onclick="timerAdd30s()"
-                                title="+30 seconds" data-i18n-title="timer_add30s_title">+30s</button>
-                            <button class="btn-fullscreen-timer" onclick="openTimerFullscreen()" title="Fullscreen"
-                                data-i18n-title="timer_fullscreen_title"><img src="../assets/icons/fullscreen.svg"
-                                    class="btn-icon" alt="" /></button>
-                        </div>
-                        <hr class="timer-popup-divider">
-                        <div class="timer-popup-label" style="margin-bottom:5px;" data-i18n="timer_class_mode">Class
-                            Mode</div>
-                        <div class="timer-mode-shortcuts" id="timer-mode-shortcuts-container">
-                            <button class="timer-mode-shortcut" onclick="activateMode('quiet')"
-                                data-i18n-title="mode_quiet_title" title="Quiet Work (1)"><img
-                                    src="../assets/icons/shush.svg" class="btn-icon" alt="" /><span
-                                    data-i18n="mode_quiet_short">Quiet</span></button>
-                            <button class="timer-mode-shortcut" onclick="activateMode('conversation')"
-                                data-i18n-title="mode_conv_title" title="Conversation (2)"><img
-                                    src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /><span
-                                    data-i18n="mode_talk_short">Talk</span></button>
-                            <button class="timer-mode-shortcut" onclick="activateMode('group')"
-                                data-i18n-title="mode_group_title" title="Group Work (3)"><img
-                                    src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><span
-                                    data-i18n="mode_group_short">Group</span></button>
-                            <button class="timer-mode-shortcut timer-mode-edit-btn" onclick="openModeManager()"
-                                title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;"><img
-                                    src="../assets/icons/gear.svg" class="btn-icon" alt="" /><span
-                                    data-i18n="btn_edit_short">Edit</span></button>
+
+                        <!-- SECTION 4: PRESENTATION CONTROLS -->
+                        <div class="ucm-section" id="ucm-pres-section">
+                            <div class="ucm-sec-header">
+                                <span class="ucm-sec-title" data-i18n="rsp_presentation_mode"><img
+                                        src="../assets/icons/monitor.svg" class="btn-icon" alt="" /> Presentation</span>
+                                <div class="ucm-sec-actions">
+                                    <button type="button" class="ucm-pres-launch-btn" id="ucm-pres-toggle-btn" onclick="toggleCmsPresentationFromHub()"
+                                        title="Open or close presentation window" data-i18n-title="rsp_present_title">
+                                        <img src="../assets/icons/presentation.svg" class="btn-icon" alt="" />
+                                        <span id="ucm-pres-toggle-label" data-i18n="rsp_btn_present">Present</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="ucm-pres-toolbar" id="ucm-pres-toolbar">
+                                <button type="button" class="pres-btn" data-pres-action="freeze" onclick="toggleFreezePresentation()" title="Freeze presentation" data-i18n-title="pres_freeze_title"><img src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="pin" onclick="toggleAlwaysOnTopPresentation()" title="Keep presentation window always on top" data-i18n-title="pres_pin_title"><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="resize" onclick="cmsPresentationResizeWindow()" title="Compact window size" data-i18n-title="pres_resize_title"><img src="../assets/icons/compact.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="default-size" onclick="cmsPresentationDefaultSize()" title="Default size" data-i18n-title="pres_default_size_title"><img src="../assets/icons/aspect-ratio.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="maximize" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="pres_maximize_title"><img src="../assets/icons/maximize.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="left" onclick="cmsPresentationDockLeft()" title="Dock presentation window to the left" data-i18n-title="pres_left_title"><img src="../assets/icons/align-left.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="right" onclick="cmsPresentationDockRight()" title="Dock presentation window to the right" data-i18n-title="pres_right_title"><img src="../assets/icons/align-right.svg" class="btn-icon" alt="" /></button>
+                                <button type="button" class="pres-btn" data-pres-action="close" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="pres_stop_title"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3028,22 +3515,9 @@
         </div>
         <!-- Container -->
         <div class="container">
-            <!-- Timer active display (above title, visible when menu is collapsed) -->
+            <!-- Timer active display (above title, visible when timer is running) -->
             <div id="timer-active-area">
                 <div id="timer-active-display" onclick="toggleTimerPopup()">--:--</div>
-                <div id="timer-inline-controls">
-                    <button id="timer-inline-pp-btn" title="Play / Pause" data-i18n-title="timer_pp_title"
-                        onclick="overlayPlayPauseTimer()"><img src="../assets/icons/play.svg" class="btn-icon"
-                            alt="" /></button>
-                    <button id="timer-inline-add30s-btn" title="+30 seconds" data-i18n-title="timer_add30s_title"
-                        onclick="timerAdd30s()">+30s</button>
-                    <button id="timer-inline-stop-btn" title="Stop" data-i18n-title="timer_stop_title"
-                        onclick="overlayStopTimer()"><img src="../assets/icons/stop.svg" class="btn-icon"
-                            alt="" /></button>
-                    <button id="timer-inline-detach-btn" title="Open timer in new window"
-                        data-i18n-title="timer_detach_title" onclick="detachTimerWindow()"><img
-                            src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /></button>
-                </div>
                 <div id="timer-resize-handle" title="Drag to resize timer" data-i18n-title="timer_resize_title"></div>
             </div>
             <!-- Lesson Runner HUD Container (Scoped for Lesson Creator integration) -->
@@ -4122,20 +4596,85 @@
         </div>
     </div>
 
-    <!-- MINIMISED MODE FLOATING PILL (Main view only) -->
-    <div id="mode-minimized-pill" class="mode-minimized-pill" style="display: none;" title="Click to expand mode" data-i18n-title="mode_expand_title">
-        <div class="mode-pill-drag-handle" title="Drag to move" data-i18n-title="mode_drag_title">⋮⋮</div>
-        <span class="mode-pill-icon" id="mode-pill-icon">🎭</span>
-        <span class="mode-pill-title" id="mode-pill-title">Class Mode</span>
-        <span class="mode-pill-timer" id="mode-pill-timer" style="display: none;"></span>
-        <div class="mode-pill-actions">
-            <button type="button" class="mode-pill-btn mode-pill-restore-btn" onclick="event.stopPropagation(); restoreMode()" title="Expand mode" data-i18n-title="mode_expand_title">
-                <img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
+    <!-- UNIFIED FLOATING MINI-DOCK (Main view only) -->
+    <div id="cms-unified-dock" style="display: none;">
+        <div class="ucm-dock-drag-handle" id="ucm-dock-drag-handle" title="Drag to move" data-i18n-title="mode_drag_title">
+            <img src="../assets/icons/grip.svg" class="btn-icon" alt="" />
+        </div>
+
+        <!-- Segment 1: Active Timer / Stopwatch -->
+        <div class="ucm-dock-seg" id="ucm-dock-timer-seg" style="display: none;">
+            <div class="ucm-dock-readout" id="ucm-dock-timer-readout" onclick="openTimerFullscreen()" title="Fullscreen" data-i18n-title="timer_fullscreen_title">
+                <img src="../assets/icons/clock.svg" class="btn-icon" id="ucm-dock-timer-icon" alt="" />
+                <span id="ucm-dock-timer-text">--:--</span>
+            </div>
+            <div id="timer-inline-controls">
+                <button type="button" id="timer-inline-pp-btn" title="Play / Pause" data-i18n-title="timer_pp_title"
+                    onclick="overlayPlayPauseTimer()"><img src="../assets/icons/play.svg" class="btn-icon"
+                        alt="" /></button>
+                <button type="button" id="timer-inline-add30s-btn" title="+30 seconds" data-i18n-title="timer_add30s_title"
+                    onclick="timerAdd30s()"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" style="width:11px;height:11px;" /> 30s</button>
+                <button type="button" id="timer-inline-stop-btn" title="Stop" data-i18n-title="timer_stop_title"
+                    onclick="overlayStopTimer()"><img src="../assets/icons/stop.svg" class="btn-icon"
+                        alt="" /></button>
+            </div>
+        </div>
+
+        <div class="ucm-dock-sep" id="ucm-dock-sep-mode" style="display: none;"></div>
+
+        <!-- Segment 2: Minimised Working Mode -->
+        <div id="mode-minimized-pill" class="mode-minimized-pill ucm-dock-seg" style="display: none;" onclick="restoreMode()" title="Click to expand mode" data-i18n-title="mode_expand_title">
+            <span class="mode-pill-icon" id="mode-pill-icon"><img src="../assets/icons/theater.svg" class="btn-icon" alt="" /></span>
+            <span class="mode-pill-title" id="mode-pill-title">Class Mode</span>
+            <span class="mode-pill-timer" id="mode-pill-timer" style="display: none;"></span>
+            <div class="mode-pill-actions">
+                <button type="button" class="mode-pill-btn mode-pill-restore-btn" onclick="event.stopPropagation(); restoreMode()" title="Expand mode" data-i18n-title="mode_expand_title">
+                    <img src="../assets/icons/maximize.svg" class="btn-icon" alt="" />
+                </button>
+                <button type="button" class="mode-pill-btn mode-pill-close-btn" onclick="event.stopPropagation(); closeMode()" title="Close mode" data-i18n-title="mode_close_title">
+                    <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                </button>
+            </div>
+        </div>
+
+        <div class="ucm-dock-sep" id="ucm-dock-sep-sound" style="display: none;"></div>
+
+        <!-- Segment 3: Active Ambient Sound -->
+        <div class="ucm-dock-seg" id="ucm-dock-sound-seg" style="display: none;">
+            <button type="button" class="ucm-icon-btn" id="ucm-dock-mute-btn" onclick="toggleWhiteNoiseMute()" title="Mute/Unmute (M)" data-i18n-title="noise_mute_title">
+                <img src="../assets/icons/volume.svg" class="btn-icon" alt="" />
             </button>
-            <button type="button" class="mode-pill-btn mode-pill-close-btn" onclick="event.stopPropagation(); closeMode()" title="Close mode" data-i18n-title="mode_close_title">
-                <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+            <input type="range" class="ucm-dock-vol-slider" id="ucm-dock-vol-slider" min="0" max="100" value="10" oninput="setWhiteNoiseVolume(this.value)" title="Volume" data-i18n-title="noise_volume">
+            <button type="button" class="ucm-icon-btn" onclick="stopWhiteNoise()" title="Stop" data-i18n-title="timer_stop_title">
+                <img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
             </button>
         </div>
+
+        <div class="ucm-dock-sep" id="ucm-dock-sep-pres" style="display: none;"></div>
+
+        <!-- Segment 4: Active Presentation Controls -->
+        <div id="cms-pres-popup" class="pres-control-menu ucm-dock-seg" style="display: none;">
+            <button type="button" class="pres-btn" data-pres-action="freeze" onclick="toggleFreezePresentation()" title="Freeze presentation" data-i18n-title="pres_freeze_title"><img src="../assets/icons/snowflake.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="pin" onclick="toggleAlwaysOnTopPresentation()" title="Keep presentation window always on top" data-i18n-title="pres_pin_title"><img src="../assets/icons/pin.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="resize" onclick="cmsPresentationResizeWindow()" title="Compact window size" data-i18n-title="pres_resize_title"><img src="../assets/icons/compact.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="default-size" onclick="cmsPresentationDefaultSize()" title="Default size" data-i18n-title="pres_default_size_title"><img src="../assets/icons/aspect-ratio.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="maximize" onclick="cmsPresentationMaximize()" title="Maximise presentation window" data-i18n-title="pres_maximize_title"><img src="../assets/icons/maximize.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="left" onclick="cmsPresentationDockLeft()" title="Dock presentation window to the left" data-i18n-title="pres_left_title"><img src="../assets/icons/align-left.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="right" onclick="cmsPresentationDockRight()" title="Dock presentation window to the right" data-i18n-title="pres_right_title"><img src="../assets/icons/align-right.svg" alt="" /></button>
+            <button type="button" class="pres-btn" data-pres-action="close" onclick="cmsPresentationClose()" title="Close presentation window" data-i18n-title="pres_stop_title"><img src="../assets/icons/close.svg" alt="" /></button>
+        </div>
+
+        <div class="ucm-dock-readout ucm-dock-collapsed-badge" id="ucm-dock-collapsed-badge" onclick="toggleUnifiedDockCollapse(event)" title="Expand control bar" data-i18n-title="ucm_dock_expand_title" style="display: none;">
+            <img src="../assets/icons/clock.svg" class="btn-icon" id="ucm-dock-collapsed-icon" alt="" />
+            <span id="ucm-dock-collapsed-text">--:--</span>
+        </div>
+
+        <button type="button" class="ucm-dock-collapse-btn" id="ucm-dock-collapse-btn" onclick="toggleUnifiedDockCollapse(event)" title="Collapse control bar" data-i18n-title="ucm_dock_collapse_title">
+            <img src="../assets/icons/minimize.svg" class="btn-icon" id="ucm-dock-collapse-icon" alt="" />
+        </button>
+        <button type="button" class="ucm-dock-expand-btn" id="ucm-dock-expand-btn" onclick="toggleTimerPopup(event)" title="Control Menu" data-i18n-title="ucm_title">
+            <img src="../assets/icons/settings.svg" class="btn-icon" alt="" />
+        </button>
     </div>
 
     <!-- BADGE & SCORE FLASH OVERLAY -->
@@ -4362,19 +4901,36 @@
 
         function _updatePresWindowControls() {
             const el = document.getElementById('rsp-pres-controls');
+            if (el) {
+                el.style.display = _presWindowOpen ? 'flex' : 'none';
+            }
             if (typeof ensurePresentationPopupMenu === 'function') {
                 ensurePresentationPopupMenu();
             }
             const popup = document.getElementById('cms-pres-popup');
             if (popup) {
-                if (_presWindowOpen) {
-                    if (typeof preparePresentationPopupBeforeApparition === 'function') {
-                        preparePresentationPopupBeforeApparition();
-                    }
-                    popup.style.display = 'flex';
-                } else {
-                    popup.style.display = 'none';
-                }
+                popup.style.display = _presWindowOpen ? 'inline-flex' : 'none';
+            }
+            const toggleBtn = document.getElementById('ucm-pres-toggle-btn');
+            const toggleLbl = document.getElementById('ucm-pres-toggle-label');
+            if (toggleBtn) {
+                toggleBtn.classList.toggle('is-open', !!_presWindowOpen);
+            }
+            if (toggleLbl) {
+                toggleLbl.textContent = _presWindowOpen
+                    ? (typeof t === 'function' && t('rsp_btn_close_pres') ? t('rsp_btn_close_pres') : 'Close')
+                    : (typeof t === 'function' && t('rsp_btn_present') ? t('rsp_btn_present') : 'Present');
+            }
+            if (typeof updateUnifiedControlDock === 'function') {
+                updateUnifiedControlDock();
+            }
+        }
+
+        function toggleCmsPresentationFromHub() {
+            if (_presWindowOpen) {
+                cmsPresentationClose();
+            } else {
+                openCmsPresentation();
             }
         }
 
@@ -4975,29 +5531,27 @@
                 btn.style.background = _presFrozen ? '#4a90d9' : '';
                 btn.style.color = _presFrozen ? '#fff' : '';
             }
-            const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="freeze"]');
-            if (popupBtn) {
-                const label = _presFrozen ? (t('pres_unfreeze_title') || t('pres_unfreeze')) : (t('pres_freeze_title') || t('pres_freeze'));
+            const label = _presFrozen ? (t('pres_unfreeze_title') || t('pres_unfreeze')) : (t('pres_freeze_title') || t('pres_freeze'));
+            document.querySelectorAll('[data-pres-action="freeze"]').forEach(popupBtn => {
                 popupBtn.title = label;
                 popupBtn.setAttribute('data-tooltip', label);
                 popupBtn.setAttribute('aria-label', label);
                 popupBtn.classList.toggle('is-frozen', !!_presFrozen);
-            }
+            });
         }
 
         let _presAlwaysOnTop = false;
 
         function syncPresentationPinButtons() {
-            const popupBtn = document.querySelector('#cms-pres-popup [data-pres-action="pin"]');
-            if (popupBtn) {
-                const label = _presAlwaysOnTop
-                    ? (t('pres_unpin_title') || 'Disable always on top for presentation window')
-                    : (t('pres_pin_title') || 'Keep presentation window always on top');
+            const label = _presAlwaysOnTop
+                ? (t('pres_unpin_title') || 'Disable always on top for presentation window')
+                : (t('pres_pin_title') || 'Keep presentation window always on top');
+            document.querySelectorAll('[data-pres-action="pin"]').forEach(popupBtn => {
                 popupBtn.title = label;
                 popupBtn.setAttribute('data-tooltip', label);
                 popupBtn.setAttribute('aria-label', label);
                 popupBtn.classList.toggle('is-pinned', !!_presAlwaysOnTop);
-            }
+            });
         }
 
         async function toggleAlwaysOnTopPresentation() {
@@ -5020,7 +5574,8 @@
             }
         }
 
-        let _modePillPos = null;
+        let _unifiedDockPos = null;
+        let _unifiedDockCollapsed = false;
 
         function isWidgetVisible(el) {
             if (!el || !document.body.contains(el)) return false;
@@ -5034,315 +5589,104 @@
             return true;
         }
 
-        function getFloatingWidgetMetrics(el, fallbackW, fallbackH) {
-            if (!el) return { width: fallbackW, height: fallbackH, left: null, top: null, visible: false };
-            const isVis = isWidgetVisible(el);
-            let width = el.offsetWidth;
-            let height = el.offsetHeight;
-            if (!width || !height) {
-                const prevVis = el.style.visibility;
-                const prevDisp = el.style.display;
-                el.style.visibility = 'hidden';
-                el.style.display = (el.id === 'cms-pres-popup') ? 'flex' : 'inline-flex';
-                width = el.offsetWidth || fallbackW;
-                height = el.offsetHeight || fallbackH;
-                el.style.display = prevDisp;
-                el.style.visibility = prevVis;
+        function syncUnifiedDockBottomClearance(allowAutoScroll) {
+            if (PRESENTATION_MODE) return;
+            const dock = document.getElementById('cms-unified-dock');
+            if (!dock || !isWidgetVisible(dock)) {
+                document.body.style.setProperty('--ucm-dock-clearance', '0px');
+                return;
             }
-            let left = null;
-            let top = null;
-            if (el.style.left && el.style.top) {
-                left = parseFloat(el.style.left);
-                top = parseFloat(el.style.top);
-            } else if (isVis) {
-                const rect = el.getBoundingClientRect();
-                left = rect.left;
-                top = rect.top;
+            const dockRect = dock.getBoundingClientRect();
+            const nearBottom = (!dock.style.top) || (dockRect.bottom >= window.innerHeight - 140);
+            const clearancePx = nearBottom ? Math.max(0, Math.ceil(window.innerHeight - dockRect.top + 12)) : 0;
+            document.body.style.setProperty('--ucm-dock-clearance', clearancePx + 'px');
+
+            if (allowAutoScroll && clearancePx > 0) {
+                const pickWrap = document.getElementById('drumroll-and-pick');
+                if (pickWrap && isWidgetVisible(pickWrap)) {
+                    const pickRect = pickWrap.getBoundingClientRect();
+                    const overlapsHoriz = pickRect.right > dockRect.left - 4 && pickRect.left < dockRect.right + 4;
+                    const overlapsVert = pickRect.bottom > dockRect.top - 4 && pickRect.top < dockRect.bottom + 4;
+                    if (overlapsHoriz && overlapsVert) {
+                        const delta = Math.ceil(pickRect.bottom - dockRect.top + 14);
+                        if (delta > 0) {
+                            window.scrollBy({ top: delta, behavior: 'smooth' });
+                        }
+                    }
+                }
             }
-            return { el, width, height, left, top, visible: isVis };
         }
 
-        function rectsOverlap(r1, r2, buffer = 16) {
-            const r1Left = r1.left;
-            const r1Top = r1.top;
-            const r1Right = r1.right !== undefined ? r1.right : (r1.left + r1.width);
-            const r1Bottom = r1.bottom !== undefined ? r1.bottom : (r1.top + r1.height);
-
-            const r2Left = r2.left;
-            const r2Top = r2.top;
-            const r2Right = r2.right !== undefined ? r2.right : (r2.left + r2.width);
-            const r2Bottom = r2.bottom !== undefined ? r2.bottom : (r2.top + r2.height);
-
-            return !(
-                r1Right + buffer <= r2Left ||
-                r1Left >= r2Right + buffer ||
-                r1Bottom + buffer <= r2Top ||
-                r1Top >= r2Bottom + buffer
-            );
+        function toggleUnifiedDockCollapse(e) {
+            if (e && e.stopPropagation) e.stopPropagation();
+            _unifiedDockCollapsed = !_unifiedDockCollapsed;
+            const dock = document.getElementById('cms-unified-dock');
+            if (dock) {
+                dock.classList.toggle('is-collapsed', _unifiedDockCollapsed);
+            }
+            const collapseBtn = document.getElementById('ucm-dock-collapse-btn');
+            const collapseIcon = document.getElementById('ucm-dock-collapse-icon');
+            if (collapseIcon) {
+                collapseIcon.src = _unifiedDockCollapsed
+                    ? '../assets/icons/maximize.svg'
+                    : '../assets/icons/minimize.svg';
+            }
+            if (collapseBtn && typeof t === 'function') {
+                collapseBtn.title = _unifiedDockCollapsed
+                    ? t('ucm_dock_expand_title')
+                    : t('ucm_dock_collapse_title');
+            }
+            updateUnifiedControlDock();
         }
 
-        function prepareModePillPositionBeforeCollapse() {
-            const pill = document.getElementById('mode-minimized-pill');
-            if (!pill) return;
-            if (typeof ensurePresentationPopupMenu === 'function') {
-                ensurePresentationPopupMenu();
+        function clampUnifiedDockToViewport() {
+            const dock = document.getElementById('cms-unified-dock');
+            if (!dock || !isWidgetVisible(dock)) {
+                syncUnifiedDockBottomClearance(false);
+                return;
             }
-            const popup = document.getElementById('cms-pres-popup');
+            if (window.innerWidth <= 720) {
+                dock.style.left = '';
+                dock.style.top = '';
+                dock.style.right = '';
+                dock.style.bottom = '';
+                syncUnifiedDockBottomClearance(false);
+                return;
+            }
+            if (!dock.style.left && !dock.style.top) {
+                syncUnifiedDockBottomClearance(false);
+                return;
+            }
+            const rect = dock.getBoundingClientRect();
             const pad = 8;
-            const BUFFER = 16;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            const pillMetrics = getFloatingWidgetMetrics(pill, 160, 26);
-            const pillW = pillMetrics.width;
-            const pillH = pillMetrics.height;
-
-            const popupVisible = isWidgetVisible(popup);
-
-            let targetLeft = null;
-            let targetTop = null;
-
-            if (_modePillPos && typeof _modePillPos.left === 'number' && typeof _modePillPos.top === 'number') {
-                targetLeft = _modePillPos.left;
-                targetTop = _modePillPos.top;
-            } else {
-                targetLeft = viewportWidth - pillW - 20;
-                targetTop = viewportHeight - pillH - 20;
-            }
-
-            targetLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, targetLeft));
-            targetTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, targetTop));
-
-            if (popupVisible && popup) {
-                const popRect = popup.getBoundingClientRect();
-                const candRect = { left: targetLeft, top: targetTop, width: pillW, height: pillH };
-
-                if (rectsOverlap(candRect, popRect, BUFFER)) {
-                    // Position pill cleanly above presentation menu
-                    let candTop = popRect.top - pillH - BUFFER;
-                    let candLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, popRect.right - pillW));
-
-                    if (candTop < pad) {
-                        candTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, popRect.top));
-                        candLeft = popRect.left - pillW - BUFFER;
-                    }
-                    if (candLeft < pad) {
-                        candTop = popRect.bottom + BUFFER;
-                        candLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, popRect.left));
-                    }
-
-                    targetLeft = Math.max(pad, Math.min(viewportWidth - pillW - pad, candLeft));
-                    targetTop = Math.max(pad, Math.min(viewportHeight - pillH - pad, candTop));
-                }
-            }
-
-            pill.style.transition = 'none';
-            pill.style.left = targetLeft + 'px';
-            pill.style.top = targetTop + 'px';
-            pill.style.right = 'auto';
-            pill.style.bottom = 'auto';
-            _modePillPos = { left: targetLeft, top: targetTop };
+            const maxLeft = Math.max(pad, window.innerWidth - rect.width - pad);
+            const maxTop = Math.max(pad, window.innerHeight - rect.height - pad);
+            const newLeft = Math.min(maxLeft, Math.max(pad, rect.left));
+            const newTop = Math.min(maxTop, Math.max(pad, newTop));
+            dock.style.left = newLeft + 'px';
+            dock.style.top = newTop + 'px';
+            dock.style.right = 'auto';
+            dock.style.bottom = 'auto';
+            _unifiedDockPos = { left: newLeft, top: newTop };
+            syncUnifiedDockBottomClearance(false);
         }
 
-        function preparePresentationPopupBeforeApparition() {
-            const popup = document.getElementById('cms-pres-popup');
-            if (!popup) return;
-            const pill = document.getElementById('mode-minimized-pill');
-            const pad = 8;
-            const BUFFER = 16;
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            const popupMetrics = getFloatingWidgetMetrics(popup, 250, 34);
-            const popW = popupMetrics.width;
-            const popH = popupMetrics.height;
-
-            let popLeft = (popupMetrics.left !== null) ? popupMetrics.left : (viewportWidth - popW - 12);
-            let popTop = (popupMetrics.top !== null) ? popupMetrics.top : (viewportHeight - popH - 12);
-
-            popLeft = Math.max(pad, Math.min(viewportWidth - popW - pad, popLeft));
-            popTop = Math.max(pad, Math.min(viewportHeight - popH - pad, popTop));
-
-            const pillVisible = isWidgetVisible(pill);
-
-            if (pillVisible && pill) {
-                const pillRect = pill.getBoundingClientRect();
-                const popRect = { left: popLeft, top: popTop, width: popW, height: popH };
-
-                if (rectsOverlap(popRect, pillRect, BUFFER)) {
-                    let newPillTop = popTop - pillRect.height - BUFFER;
-                    let newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, (popLeft + popW) - pillRect.width));
-
-                    if (newPillTop < pad) {
-                        newPillTop = Math.max(pad, Math.min(viewportHeight - pillRect.height - pad, popTop));
-                        newPillLeft = popLeft - pillRect.width - BUFFER;
-                    }
-                    if (newPillLeft < pad) {
-                        newPillTop = popTop + popH + BUFFER;
-                        newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, popLeft));
-                    }
-
-                    newPillLeft = Math.max(pad, Math.min(viewportWidth - pillRect.width - pad, newPillLeft));
-                    newPillTop = Math.max(pad, Math.min(viewportHeight - pillRect.height - pad, newPillTop));
-
-                    pill.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
-                    pill.style.left = newPillLeft + 'px';
-                    pill.style.top = newPillTop + 'px';
-                    pill.style.right = 'auto';
-                    pill.style.bottom = 'auto';
-                    _modePillPos = { left: newPillLeft, top: newPillTop };
-                }
-            }
-
-            popup.style.left = popLeft + 'px';
-            popup.style.top = popTop + 'px';
-            popup.style.right = 'auto';
-            popup.style.bottom = 'auto';
-        }
-
-        function applyMagneticRepulse(activeEl, passiveEl) {
-            if (!activeEl || !passiveEl) return;
-            if (!isWidgetVisible(activeEl) || !isWidgetVisible(passiveEl)) return;
-
-            const rectA = activeEl.getBoundingClientRect();
-            const rectB = passiveEl.getBoundingClientRect();
-
-            const BUFFER = 16; // Magnetic repulsion cushion (px)
-            const pad = 8;     // Screen boundary padding (px)
-
-            const cxA = (rectA.left + rectA.right) / 2;
-            const cyA = (rectA.top + rectA.bottom) / 2;
-            const cxB = (rectB.left + rectB.right) / 2;
-            const cyB = (rectB.top + rectB.bottom) / 2;
-
-            const minDistX = (rectA.width + rectB.width) / 2 + BUFFER;
-            const minDistY = (rectA.height + rectB.height) / 2 + BUFFER;
-
-            const dx = cxB - cxA;
-            const dy = cyB - cyA;
-
-            const overlapX = minDistX - Math.abs(dx);
-            const overlapY = minDistY - Math.abs(dy);
-
-            if (overlapX <= 0 || overlapY <= 0) return;
-
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
-
-            const minLeft = pad;
-            const maxLeft = Math.max(pad, viewportWidth - rectB.width - pad);
-            const minTop = pad;
-            const maxTop = Math.max(pad, viewportHeight - rectB.height - pad);
-
-            const dirX = dx >= 0 ? 1 : -1;
-            const dirY = dy >= 0 ? 1 : -1;
-
-            const pushDistX = (dirX > 0) ? (rectA.right + BUFFER - rectB.left) : (rectA.left - BUFFER - rectB.right);
-            const pushDistY = (dirY > 0) ? (rectA.bottom + BUFFER - rectB.top) : (rectA.top - BUFFER - rectB.bottom);
-
-            const candTopY = rectB.top + pushDistY;
-            const candLeftX = rectB.left + pushDistX;
-
-            let chosenLeft = rectB.left;
-            let chosenTop = rectB.top;
-
-            const preferY = overlapY < overlapX;
-
-            if (preferY) {
-                if (candTopY >= minTop && candTopY <= maxTop) {
-                    chosenTop = candTopY;
-                } else {
-                    const altTopY = (dirY > 0) ? (rectA.top - BUFFER - rectB.height) : (rectA.bottom + BUFFER);
-                    if (altTopY >= minTop && altTopY <= maxTop) {
-                        chosenTop = altTopY;
-                    } else if (candLeftX >= minLeft && candLeftX <= maxLeft) {
-                        chosenLeft = candLeftX;
-                    } else {
-                        const altLeftX = (dirX > 0) ? (rectA.left - BUFFER - rectB.width) : (rectA.right + BUFFER);
-                        chosenLeft = Math.min(maxLeft, Math.max(minLeft, altLeftX));
-                        chosenTop = Math.min(maxTop, Math.max(minTop, candTopY));
-                    }
-                }
-            } else {
-                if (candLeftX >= minLeft && candLeftX <= maxLeft) {
-                    chosenLeft = candLeftX;
-                } else {
-                    const altLeftX = (dirX > 0) ? (rectA.left - BUFFER - rectB.width) : (rectA.right + BUFFER);
-                    if (altLeftX >= minLeft && altLeftX <= maxLeft) {
-                        chosenLeft = altLeftX;
-                    } else if (candTopY >= minTop && candTopY <= maxTop) {
-                        chosenTop = candTopY;
-                    } else {
-                        const altTopY = (dirY > 0) ? (rectA.top - BUFFER - rectB.height) : (rectA.bottom + BUFFER);
-                        chosenLeft = Math.min(maxLeft, Math.max(minLeft, candLeftX));
-                        chosenTop = Math.min(maxTop, Math.max(minTop, altTopY));
-                    }
-                }
-            }
-
-            chosenLeft = Math.min(maxLeft, Math.max(minLeft, chosenLeft));
-            chosenTop = Math.min(maxTop, Math.max(minTop, chosenTop));
-
-            passiveEl.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
-            passiveEl.style.left = chosenLeft + 'px';
-            passiveEl.style.top = chosenTop + 'px';
-            passiveEl.style.right = 'auto';
-            passiveEl.style.bottom = 'auto';
-
-            if (passiveEl.id === 'mode-minimized-pill') {
-                _modePillPos = { left: chosenLeft, top: chosenTop };
-            }
-        }
-
-        function positionFloatingWidgetsWithoutOverlap() {
-            const pill = document.getElementById('mode-minimized-pill');
-            const popup = document.getElementById('cms-pres-popup');
-            if (!pill || !popup) return;
-            if (!isWidgetVisible(pill) || !isWidgetVisible(popup)) return;
-
-            const rectPill = pill.getBoundingClientRect();
-            const rectPopup = popup.getBoundingClientRect();
-            const BUFFER = 16;
-            const pad = 8;
-
-            if (rectsOverlap(rectPill, rectPopup, BUFFER)) {
-                let newTop = rectPopup.top - rectPill.height - BUFFER;
-                let newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, rectPopup.right - rectPill.width));
-                if (newTop < pad) {
-                    newTop = Math.max(pad, Math.min(window.innerHeight - rectPill.height - pad, rectPopup.top));
-                    newLeft = rectPopup.left - rectPill.width - BUFFER;
-                }
-                if (newLeft < pad) {
-                    newTop = rectPopup.bottom + BUFFER;
-                    newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, rectPopup.left));
-                }
-                newLeft = Math.max(pad, Math.min(window.innerWidth - rectPill.width - pad, newLeft));
-                newTop = Math.max(pad, Math.min(window.innerHeight - rectPill.height - pad, newTop));
-
-                pill.style.transition = 'left 0.18s cubic-bezier(0.2, 0.9, 0.3, 1), top 0.18s cubic-bezier(0.2, 0.9, 0.3, 1)';
-                pill.style.left = newLeft + 'px';
-                pill.style.top = newTop + 'px';
-                pill.style.right = 'auto';
-                pill.style.bottom = 'auto';
-                _modePillPos = { left: newLeft, top: newTop };
-            }
-        }
-
-        function initModeMinimisedPill() {
-            const pill = document.getElementById('mode-minimized-pill');
-            if (!pill || pill._dragInitialized) return;
-            pill._dragInitialized = true;
+        function initUnifiedControlDock() {
+            const dock = document.getElementById('cms-unified-dock');
+            if (!dock || dock._dragInitialized) return;
+            dock._dragInitialized = true;
 
             let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
             let startX = 0, startY = 0;
             let hasDragged = false;
-            let pillDragRaf = null;
+            let dockDragRaf = null;
 
-            pill.addEventListener('mousedown', dragMouseDown);
-            pill.addEventListener('touchstart', dragMouseDown, { passive: false });
+            dock.addEventListener('mousedown', dragMouseDown);
+            dock.addEventListener('touchstart', dragMouseDown, { passive: false });
 
             function dragMouseDown(e) {
-                if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.closest('.mode-pill-actions')) return;
+                if (window.innerWidth <= 720) return;
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input') || e.target.closest('#mode-minimized-pill') || e.target.closest('#ucm-dock-timer-readout')) return;
                 e = e || window.event;
                 hasDragged = false;
                 if (e.type === 'touchstart') {
@@ -5377,8 +5721,8 @@
                         return;
                     }
                     hasDragged = true;
-                    pill.classList.add('is-dragging');
-                    pill.style.transition = 'none';
+                    dock.classList.add('is-dragging');
+                    dock.style.transition = 'none';
                 }
 
                 if (e.type !== 'touchstart' && e.cancelable) {
@@ -5390,149 +5734,21 @@
                 pos3 = clientX;
                 pos4 = clientY;
 
-                let newTop = pill.offsetTop - pos2;
-                let newLeft = pill.offsetLeft - pos1;
-
-                const rect = pill.getBoundingClientRect();
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-                const pad = 6;
-
-                if (newTop < pad) newTop = pad;
-                if (newTop + rect.height > viewportHeight - pad) newTop = viewportHeight - rect.height - pad;
-                if (newLeft < pad) newLeft = pad;
-                if (newLeft + rect.width > viewportWidth - pad) newLeft = viewportWidth - rect.width - pad;
-
-                pill.style.top = newTop + 'px';
-                pill.style.left = newLeft + 'px';
-                pill.style.right = 'auto';
-                pill.style.bottom = 'auto';
-
-                _modePillPos = { left: newLeft, top: newTop };
-
-                if (pillDragRaf) cancelAnimationFrame(pillDragRaf);
-                pillDragRaf = requestAnimationFrame(() => {
-                    applyMagneticRepulse(pill, document.getElementById('cms-pres-popup'));
-                });
-            }
-
-            function closeDragElement(e) {
-                document.removeEventListener('mouseup', closeDragElement);
-                document.removeEventListener('mousemove', elementDrag);
-                document.removeEventListener('touchend', closeDragElement);
-                document.removeEventListener('touchmove', elementDrag);
-
-                pill.classList.remove('is-dragging');
-                pill.style.transition = '';
-
-                if (pillDragRaf) {
-                    cancelAnimationFrame(pillDragRaf);
-                    pillDragRaf = null;
-                }
-
-                if (!hasDragged) {
-                    restoreMode();
-                } else {
-                    applyMagneticRepulse(pill, document.getElementById('cms-pres-popup'));
-                }
-            }
-        }
-
-        function ensurePresentationPopupMenu() {
-            if (PRESENTATION_MODE || document.getElementById('cms-pres-popup')) return;
-            const popup = document.createElement('div');
-            popup.id = 'cms-pres-popup';
-            popup.className = 'pres-control-menu tooltip-top';
-            popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;';
-            popup.innerHTML = ''
-                + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
-                + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${t('pres_stop_title') || t('pres_stop')}" title="${t('pres_stop_title') || t('pres_stop')}" aria-label="${t('pres_stop_title') || t('pres_stop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${t('pres_freeze_title') || t('pres_freeze')}" title="${t('pres_freeze_title') || t('pres_freeze')}" aria-label="${t('pres_freeze_title') || t('pres_freeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="pin" data-tooltip="${t('pres_pin_title') || 'Keep presentation window always on top'}" title="${t('pres_pin_title') || 'Keep presentation window always on top'}" aria-label="${t('pres_pin_title') || 'Keep presentation window always on top'}"><img src="../assets/icons/pin.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${t('pres_resize_title') || t('pres_resize')}" title="${t('pres_resize_title') || t('pres_resize')}" aria-label="${t('pres_resize_title') || t('pres_resize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="default-size" data-tooltip="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}" title="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}" aria-label="${t('pres_default_size_title') || t('pres_default_size') || 'Default size'}"><img src="../assets/icons/monitor.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="maximize" data-tooltip="${t('pres_maximize_title') || t('pres_maximize')}" title="${t('pres_maximize_title') || t('pres_maximize')}"><img src="../assets/icons/maximize.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${t('pres_left_title') || t('pres_left')}" title="${t('pres_left_title') || t('pres_left')}" aria-label="${t('pres_left_title') || t('pres_left')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
-                + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${t('pres_right_title') || t('pres_right')}" title="${t('pres_right_title') || t('pres_right')}" aria-label="${t('pres_right_title') || t('pres_right')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
-            popup.addEventListener('click', (event) => {
-                const btn = event.target.closest('[data-pres-action]');
-                if (!btn) return;
-                event.preventDefault();
-                event.stopPropagation();
-                const action = btn.getAttribute('data-pres-action');
-                if (action === 'close') cmsPresentationClose();
-                else if (action === 'freeze') toggleFreezePresentation();
-                else if (action === 'pin') toggleAlwaysOnTopPresentation();
-                else if (action === 'resize') cmsPresentationResizeWindow();
-                else if (action === 'default-size') cmsPresentationDefaultSize();
-                else if (action === 'maximize') cmsPresentationMaximize();
-                else if (action === 'right') cmsPresentationDockRight();
-                else if (action === 'left') cmsPresentationDockLeft();
-            });
-
-            // Make the popup draggable with magnetic repulsion
-            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-            let presDragRaf = null;
-            popup.addEventListener('mousedown', dragMouseDown);
-            popup.addEventListener('touchstart', dragMouseDown, { passive: false });
-
-            function dragMouseDown(e) {
-                if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-                e = e || window.event;
-                if (e.type !== 'touchstart') {
-                    e.preventDefault();
-                }
-                popup.classList.add('is-dragging');
-                popup.style.transition = 'none';
-                if (e.type === 'touchstart') {
-                    pos3 = e.touches[0].clientX;
-                    pos4 = e.touches[0].clientY;
-                } else {
-                    pos3 = e.clientX;
-                    pos4 = e.clientY;
-                }
-                document.addEventListener('mouseup', closeDragElement);
-                document.addEventListener('mousemove', elementDrag);
-                document.addEventListener('touchend', closeDragElement);
-                document.addEventListener('touchmove', elementDrag, { passive: false });
-            }
-
-            function elementDrag(e) {
-                e = e || window.event;
-                let clientX, clientY;
-                if (e.type === 'touchmove') {
-                    clientX = e.touches[0].clientX;
-                    clientY = e.touches[0].clientY;
-                } else {
-                    clientX = e.clientX;
-                    clientY = e.clientY;
-                }
-                pos1 = pos3 - clientX;
-                pos2 = pos4 - clientY;
-                pos3 = clientX;
-                pos4 = clientY;
-
-                let newTop = popup.offsetTop - pos2;
-                let newLeft = popup.offsetLeft - pos1;
-
-                const rect = popup.getBoundingClientRect();
-                const viewportWidth = window.innerWidth;
-                const viewportHeight = window.innerHeight;
-                const pad = 8;
-
-                if (newTop < pad) newTop = pad;
-                if (newTop + rect.height > viewportHeight - pad) newTop = viewportHeight - rect.height - pad;
-                if (newLeft < pad) newLeft = pad;
-                if (newLeft + rect.width > viewportWidth - pad) newLeft = viewportWidth - rect.width - pad;
-
-                popup.style.top = newTop + 'px';
-                popup.style.left = newLeft + 'px';
-                popup.style.right = 'auto';
-                popup.style.bottom = 'auto';
-
-                if (presDragRaf) cancelAnimationFrame(presDragRaf);
-                presDragRaf = requestAnimationFrame(() => {
-                    applyMagneticRepulse(popup, document.getElementById('mode-minimized-pill'));
+                if (dockDragRaf) cancelAnimationFrame(dockDragRaf);
+                dockDragRaf = requestAnimationFrame(() => {
+                    const rect = dock.getBoundingClientRect();
+                    let newTop = dock.offsetTop - pos2;
+                    let newLeft = dock.offsetLeft - pos1;
+                    const pad = 8;
+                    const maxLeft = Math.max(pad, window.innerWidth - rect.width - pad);
+                    const maxTop = Math.max(pad, window.innerHeight - rect.height - pad);
+                    newLeft = Math.min(maxLeft, Math.max(pad, newLeft));
+                    newTop = Math.min(maxTop, Math.max(pad, newTop));
+                    dock.style.top = newTop + 'px';
+                    dock.style.left = newLeft + 'px';
+                    dock.style.right = 'auto';
+                    dock.style.bottom = 'auto';
+                    _unifiedDockPos = { left: newLeft, top: newTop };
                 });
             }
 
@@ -5541,19 +5757,161 @@
                 document.removeEventListener('mousemove', elementDrag);
                 document.removeEventListener('touchend', closeDragElement);
                 document.removeEventListener('touchmove', elementDrag);
-                popup.classList.remove('is-dragging');
-                popup.style.transition = '';
-                if (presDragRaf) {
-                    cancelAnimationFrame(presDragRaf);
-                    presDragRaf = null;
+                dock.classList.remove('is-dragging');
+                dock.style.transition = '';
+                if (dockDragRaf) {
+                    cancelAnimationFrame(dockDragRaf);
+                    dockDragRaf = null;
                 }
-                applyMagneticRepulse(popup, document.getElementById('mode-minimized-pill'));
+                syncUnifiedDockBottomClearance(false);
             }
+        }
 
-            document.body.appendChild(popup);
+        function initModeMinimisedPill() {
+            initUnifiedControlDock();
+        }
+
+        function ensurePresentationPopupMenu() {
+            initUnifiedControlDock();
             syncPresentationFreezeButtons();
             syncPresentationPinButtons();
         }
+
+        function positionFloatingWidgetsWithoutOverlap() {
+            clampUnifiedDockToViewport();
+        }
+
+        function updateUnifiedControlDock() {
+            if (PRESENTATION_MODE) return;
+            initUnifiedControlDock();
+
+            const dock = document.getElementById('cms-unified-dock');
+            if (!dock) return;
+
+            const timerRunning = !!(
+                (typeof timerInterval !== 'undefined' && timerInterval) ||
+                (typeof stopwatchInterval !== 'undefined' && stopwatchInterval) ||
+                (typeof timerPaused !== 'undefined' && timerPaused) ||
+                (typeof stopwatchPaused !== 'undefined' && stopwatchPaused)
+            );
+            const modeMinActive = !!(typeof isModeMinimised !== 'undefined' && isModeMinimised && typeof activeWorkingModeId !== 'undefined' && activeWorkingModeId);
+            const soundActive = !!(typeof whiteNoisePlaying !== 'undefined' && whiteNoisePlaying);
+            const presActive = !!(typeof _presWindowOpen !== 'undefined' && _presWindowOpen);
+
+            const timerSeg = document.getElementById('ucm-dock-timer-seg');
+            const modeSeg = document.getElementById('mode-minimized-pill');
+            const soundSeg = document.getElementById('ucm-dock-sound-seg');
+            const presSeg = document.getElementById('cms-pres-popup');
+
+            const sepMode = document.getElementById('ucm-dock-sep-mode');
+            const sepSound = document.getElementById('ucm-dock-sep-sound');
+            const sepPres = document.getElementById('ucm-dock-sep-pres');
+
+            if (timerSeg) {
+                timerSeg.style.display = timerRunning ? 'inline-flex' : 'none';
+                if (timerRunning) {
+                    const iconEl = document.getElementById('ucm-dock-timer-icon');
+                    const textEl = document.getElementById('ucm-dock-timer-text');
+                    const readoutEl = document.getElementById('ucm-dock-timer-readout');
+                    const activeDisp = document.getElementById('timer-active-display');
+                    const isSw = (typeof timerMode !== 'undefined' && timerMode === 'stopwatch');
+                    if (iconEl) iconEl.src = isSw ? '../assets/icons/stopwatch.svg' : '../assets/icons/clock.svg';
+                    if (textEl && activeDisp) textEl.textContent = activeDisp.textContent || '--:--';
+                    if (readoutEl && activeDisp) {
+                        const isWarn = activeDisp.classList.contains('warning');
+                        readoutEl.classList.toggle('warning', isWarn);
+                        readoutEl.classList.toggle('running', !isWarn);
+                    }
+                    const add30Btn = document.getElementById('timer-inline-add30s-btn');
+                    if (add30Btn) {
+                        add30Btn.style.display = isSw ? 'none' : 'inline-flex';
+                    }
+                }
+            }
+
+            if (modeSeg) {
+                modeSeg.style.display = modeMinActive ? 'inline-flex' : 'none';
+                const modeTimerSpan = document.getElementById('mode-pill-timer');
+                if (modeTimerSpan && timerRunning) {
+                    modeTimerSpan.style.display = 'none';
+                }
+            }
+
+            if (soundSeg) {
+                soundSeg.style.display = soundActive ? 'inline-flex' : 'none';
+                if (soundActive) {
+                    const dockMuteBtn = document.getElementById('ucm-dock-mute-btn');
+                    const dockVolSlider = document.getElementById('ucm-dock-vol-slider');
+                    if (dockMuteBtn) {
+                        const isMuted = !!(typeof whiteNoiseMuted !== 'undefined' && whiteNoiseMuted);
+                        dockMuteBtn.innerHTML = isMuted
+                            ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />'
+                            : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />';
+                        dockMuteBtn.classList.toggle('is-muted', isMuted);
+                    }
+                    if (dockVolSlider && typeof whiteNoiseVolume === 'number') {
+                        dockVolSlider.value = Math.round(whiteNoiseVolume * 100);
+                    }
+                }
+            }
+
+            if (presSeg) {
+                presSeg.style.display = presActive ? 'inline-flex' : 'none';
+            }
+
+            if (sepMode) sepMode.style.display = (!_unifiedDockCollapsed && timerRunning && modeMinActive) ? 'block' : 'none';
+            if (sepSound) sepSound.style.display = (!_unifiedDockCollapsed && (timerRunning || modeMinActive) && soundActive) ? 'block' : 'none';
+            if (sepPres) sepPres.style.display = (!_unifiedDockCollapsed && (timerRunning || modeMinActive || soundActive) && presActive) ? 'block' : 'none';
+
+            const collapsedBadge = document.getElementById('ucm-dock-collapsed-badge');
+            if (collapsedBadge) {
+                const showCollapsedTimer = _unifiedDockCollapsed && timerRunning;
+                collapsedBadge.style.display = showCollapsedTimer ? 'inline-flex' : 'none';
+                if (showCollapsedTimer) {
+                    const colIcon = document.getElementById('ucm-dock-collapsed-icon');
+                    const colText = document.getElementById('ucm-dock-collapsed-text');
+                    const activeDisp = document.getElementById('timer-active-display');
+                    const isSw = (typeof timerMode !== 'undefined' && timerMode === 'stopwatch');
+                    if (colIcon) colIcon.src = isSw ? '../assets/icons/stopwatch.svg' : '../assets/icons/clock.svg';
+                    if (colText && activeDisp) colText.textContent = activeDisp.textContent || '--:--';
+                    const isWarn = !!(activeDisp && activeDisp.classList.contains('warning'));
+                    collapsedBadge.classList.toggle('warning', isWarn);
+                    collapsedBadge.classList.toggle('running', !isWarn);
+                }
+            }
+
+            const anyActive = timerRunning || modeMinActive || soundActive || presActive;
+            const wasVisible = isWidgetVisible(dock);
+            dock.classList.toggle('is-collapsed', _unifiedDockCollapsed);
+            dock.style.display = anyActive ? 'inline-flex' : 'none';
+
+            // Update active mode banner inside #timer-popup
+            const modeBanner = document.getElementById('ucm-active-mode-banner');
+            if (modeBanner) {
+                const hasActiveMode = !!(typeof activeWorkingModeId !== 'undefined' && activeWorkingModeId);
+                modeBanner.classList.toggle('visible', hasActiveMode);
+                if (hasActiveMode && typeof classModes !== 'undefined') {
+                    const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === String(activeWorkingModeId).toLowerCase());
+                    const bannerIcon = document.getElementById('ucm-active-mode-icon');
+                    const bannerName = document.getElementById('ucm-active-mode-name');
+                    if (curMode) {
+                        if (bannerIcon && typeof getModeSvgIcon === 'function') bannerIcon.src = getModeSvgIcon(curMode);
+                        if (bannerName) bannerName.textContent = curMode.name || curMode.text?.title || 'Mode';
+                    }
+                }
+            }
+
+            if (anyActive) {
+                clampUnifiedDockToViewport();
+                syncUnifiedDockBottomClearance(!wasVisible);
+            } else {
+                syncUnifiedDockBottomClearance(false);
+            }
+        }
+
+        window.addEventListener('resize', () => {
+            clampUnifiedDockToViewport();
+        });
 
         function toggleFreezePresentation() {
             _presFrozen = !_presFrozen;
@@ -14187,6 +14545,19 @@
             if (bInd) bInd.textContent = studentNameSizeRem.toFixed(2) + 'rem';
             const pInd = document.getElementById('rsp-pres-size-indicator');
             if (pInd) pInd.textContent = presNameSizeRem.toFixed(2) + 'rem';
+            syncUcmSfxMuteButton();
+        }
+
+        function syncUcmSfxMuteButton() {
+            const ucmBtn = document.getElementById('ucm-sfx-mute-btn');
+            if (ucmBtn) {
+                ucmBtn.classList.toggle('is-muted', !!scoreMuted);
+                const lbl = (typeof t === 'function' && t('ucm_sfx_label')) ? t('ucm_sfx_label') : 'Score SFX';
+                ucmBtn.innerHTML = scoreMuted
+                    ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" /> <span data-i18n="ucm_sfx_label">' + lbl + '</span>'
+                    : '<img src="../assets/icons/bell.svg" class="btn-icon" alt="" /> <span data-i18n="ucm_sfx_label">' + lbl + '</span>';
+                ucmBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)';
+            }
         }
 
         function toggleScoreMute() {
@@ -14751,10 +15122,18 @@
                 muteBtn.classList.toggle('muted', whiteNoiseMuted);
             }
             if (playBtn) {
-                playBtn.innerHTML = whiteNoisePlaying ? '<img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop' : '<img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Play';
+                const playLbl = whiteNoisePlaying ? (t('timer_stop') || 'Stop') : (t('noise_play') || 'Play');
+                playBtn.innerHTML = whiteNoisePlaying ? '<img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> ' + playLbl : '<img src="../assets/icons/play.svg" class="btn-icon" alt="" /> ' + playLbl;
                 playBtn.classList.toggle('playing', whiteNoisePlaying);
             }
-            if (slider) slider.value = Math.round(whiteNoiseVolume * 100);
+            const vol = Math.round(whiteNoiseVolume * 100);
+            if (slider) slider.value = vol;
+            const wnVolVal = document.getElementById('wn-volume-val');
+            if (wnVolVal) wnVolVal.textContent = vol + '%';
+            ['white', 'pink', 'brown', 'file'].forEach(tType => {
+                const tBtn = document.getElementById('wn-type-' + tType);
+                if (tBtn) tBtn.classList.toggle('active', _noiseType === tType);
+            });
 
             // Sync overlay noise panels
             const isOn = whiteNoisePlaying && !whiteNoiseMuted;
@@ -14764,7 +15143,6 @@
                     if (btn) btn.classList.toggle('active', isOn && _noiseType === t);
                 });
             });
-            const vol = Math.round(whiteNoiseVolume * 100);
             ['mode-noise-volume', 'timer-noise-volume', 'datetime-noise-volume'].forEach(id => {
                 const s = document.getElementById(id); if (s) s.value = vol;
                 const v = document.getElementById(id + '-val'); if (v) v.textContent = vol;
@@ -14780,6 +15158,7 @@
             if (overlayBtn) {
                 overlayBtn.style.background = isOn ? 'rgba(26,86,160,0.7)' : '';
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
         }
 
         // Shared handler for overlay noise type buttons
@@ -14871,7 +15250,13 @@
                 document.getElementById('popup-stop-btn').style.display = running ? 'block' : 'none';
                 document.getElementById('popup-start-btn').style.display = running ? 'none' : 'block';
                 document.getElementById('popup-add30s-btn').style.display = (timerInterval || timerPaused) ? 'block' : 'none';
+                const sub30Btn = document.getElementById('popup-sub30s-btn');
+                if (sub30Btn) sub30Btn.style.display = (timerInterval || timerPaused) ? 'block' : 'none';
                 document.getElementById('popup-pause-btn').style.display = (timerInterval || timerPaused) ? 'block' : 'none';
+                syncUcmSfxMuteButton();
+                if (typeof _updatePresWindowControls === 'function') _updatePresWindowControls();
+                if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+                if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             }
         }
 
@@ -14886,13 +15271,15 @@
         document.addEventListener('click', function (e) {
             const popup = document.getElementById('timer-popup');
             const btn = document.getElementById('timer-open-btn');
+            const dockBtn = document.getElementById('ucm-dock-expand-btn');
             const display = document.getElementById('timer-active-display');
             const mp3Picker = document.getElementById('mp3-picker-popup');
             if (popup && popup.classList.contains('open')) {
                 const inPopup = popup.contains(e.target) || (e.composedPath && e.composedPath().includes(popup));
                 const isBtn = (e.target === btn || (btn && btn.contains(e.target)));
+                const isDockBtn = (e.target === dockBtn || (dockBtn && dockBtn.contains(e.target)));
                 const isDisplay = (e.target === display || (display && display.contains(e.target)));
-                if (!inPopup && !isBtn && !isDisplay && !(mp3Picker && mp3Picker.contains(e.target))) {
+                if (!inPopup && !isBtn && !isDockBtn && !isDisplay && !(mp3Picker && mp3Picker.contains(e.target))) {
                     closeTimerPopup();
                 }
             }
@@ -14935,12 +15322,29 @@
             handle.addEventListener('click', function (e) { e.stopPropagation(); });
         })();
 
+        function setTimerQuickPreset(mins) {
+            const m = Math.max(1, parseInt(mins, 10) || 5);
+            if (timerMode !== 'timer') setTimerMode('timer');
+            const ph = document.getElementById('popup-timer-hours');
+            const pm = document.getElementById('popup-timer-minutes');
+            if (ph) ph.value = 0;
+            if (pm) pm.value = m;
+            syncPopupSettingsToOverlay();
+            popupStartTimer();
+        }
+
         function setTimerMode(mode) {
             timerMode = mode;
             document.getElementById('mode-btn-timer').classList.toggle('active', mode === 'timer');
             document.getElementById('mode-btn-stopwatch').classList.toggle('active', mode === 'stopwatch');
             document.getElementById('timer-inputs-section').style.display = mode === 'timer' ? 'block' : 'none';
-            document.getElementById('timer-popup-title').innerHTML = mode === 'timer' ? '<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer' : '<img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Stopwatch';
+            const qp = document.querySelector('#ucm-timer-section .ucm-quick-presets');
+            if (qp) qp.style.display = mode === 'timer' ? 'flex' : 'none';
+            const titleEl = document.getElementById('timer-popup-title');
+            if (titleEl) {
+                const ucmTitle = (typeof t === 'function' && t('ucm_title')) ? t('ucm_title') : 'Control Menu';
+                titleEl.innerHTML = '<img src="../assets/icons/settings.svg" class="btn-icon" alt="" /> ' + ucmTitle;
+            }
             syncOverlayTimerModeState();
             updateOverlayTransportControls();
         }
@@ -14984,6 +15388,7 @@
             const inlineStop = document.getElementById('timer-inline-stop-btn');
             if (inlinePP) inlinePP.innerHTML = paused ? '<img src="../assets/icons/play.svg" class="btn-icon" alt="" />' : (running ? '<img src="../assets/icons/pause.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/play.svg" class="btn-icon" alt="" />');
             if (inlineStop) inlineStop.disabled = !(running || paused);
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
         }
 
         function overlayPlayPauseTimer() {
@@ -15488,7 +15893,8 @@ syncState();
             document.getElementById('popup-add30s-btn').style.display = 'none';
             document.getElementById('popup-sub30s-btn').style.display = 'none';
             document.getElementById('popup-pause-btn').style.display = 'none';
-            document.getElementById('popup-pause-btn').textContent = '⏸ Pause';
+            const pauseLbl = (typeof t === 'function' && t('timer_pause')) ? t('timer_pause') : 'Pause';
+            document.getElementById('popup-pause-btn').innerHTML = '<img src="../assets/icons/pause.svg" class="btn-icon" alt="" /> ' + pauseLbl;
             document.getElementById('popup-pause-btn').classList.remove('paused');
             const oa = document.getElementById('overlay-add30s-btn');
             if (oa) oa.style.display = 'none';
@@ -15511,12 +15917,12 @@ syncState();
             // Flash the +30s button as feedback
             const btn = document.getElementById('popup-add30s-btn');
             if (btn) {
-                btn.textContent = '✓ +30s';
+                btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> +30s';
                 setTimeout(() => { btn.textContent = '+30s'; }, 800);
             }
             const overlayBtn = document.getElementById('overlay-add30s-btn');
             if (overlayBtn) {
-                overlayBtn.textContent = '✓ +30s';
+                overlayBtn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> +30s';
                 setTimeout(() => { overlayBtn.textContent = '+30s'; }, 800);
             }
         }
@@ -15530,12 +15936,12 @@ syncState();
             // Flash the -30s button as feedback
             const btn = document.getElementById('popup-sub30s-btn');
             if (btn) {
-                btn.textContent = '✓ -30s';
+                btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> -30s';
                 setTimeout(() => { btn.textContent = '-30s'; }, 800);
             }
             const overlayBtn = document.getElementById('overlay-sub30s-btn');
             if (overlayBtn) {
-                overlayBtn.textContent = '✓ -30s';
+                overlayBtn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> -30s';
                 setTimeout(() => { overlayBtn.textContent = '-30s'; }, 800);
             }
         }
@@ -15545,7 +15951,7 @@ syncState();
             timerAdd30s();
             const btn = document.getElementById('mode-overlay-add30s-btn');
             if (btn) {
-                btn.textContent = '✓ +30s';
+                btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> +30s';
                 setTimeout(() => { btn.textContent = '+30s'; }, 800);
             }
         }
@@ -15555,7 +15961,7 @@ syncState();
             timerSubtract30s();
             const btn = document.getElementById('mode-overlay-sub30s-btn');
             if (btn) {
-                btn.textContent = '✓ -30s';
+                btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" /> -30s';
                 setTimeout(() => { btn.textContent = '-30s'; }, 800);
             }
         }
@@ -15576,7 +15982,11 @@ syncState();
                 timerInterval = null;
                 timerPaused = true;
 
-                if (pauseBtn) { pauseBtn.textContent = '▶ Resume'; pauseBtn.classList.add('paused'); }
+                if (pauseBtn) {
+                    const resLbl = (typeof t === 'function' && t('timer_resume')) ? t('timer_resume') : 'Resume';
+                    pauseBtn.innerHTML = '<img src="../assets/icons/play.svg" class="btn-icon" alt="" /> ' + resLbl;
+                    pauseBtn.classList.add('paused');
+                }
 
                 // Show paused indicator on active display
                 const display = document.getElementById('timer-active-display');
@@ -15590,7 +16000,11 @@ syncState();
                 timerInterval = setInterval(updateTimerDisplay, 500);
                 updateTimerDisplay();
 
-                if (pauseBtn) { pauseBtn.textContent = '⏸ Pause'; pauseBtn.classList.remove('paused'); }
+                if (pauseBtn) {
+                    const pauseLbl = (typeof t === 'function' && t('timer_pause')) ? t('timer_pause') : 'Pause';
+                    pauseBtn.innerHTML = '<img src="../assets/icons/pause.svg" class="btn-icon" alt="" /> ' + pauseLbl;
+                    pauseBtn.classList.remove('paused');
+                }
 
                 const display = document.getElementById('timer-active-display');
                 if (display) display.style.opacity = '';
@@ -15774,6 +16188,7 @@ syncState();
             if (typeof isModeMinimised !== 'undefined' && isModeMinimised && typeof updateModeMinimisedPill === 'function') {
                 updateModeMinimisedPill();
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -15824,9 +16239,12 @@ syncState();
                     document.getElementById('popup-stop-btn').style.display = 'none';
                     document.getElementById('popup-start-btn').style.display = 'block';
                     document.getElementById('popup-pause-btn').style.display = 'none';
-                    document.getElementById('popup-pause-btn').textContent = '⏸ Pause';
+                    const pauseLbl = (typeof t === 'function' && t('timer_pause')) ? t('timer_pause') : 'Pause';
+                    document.getElementById('popup-pause-btn').innerHTML = '<img src="../assets/icons/pause.svg" class="btn-icon" alt="" /> ' + pauseLbl;
                     document.getElementById('popup-pause-btn').classList.remove('paused');
                     document.getElementById('popup-add30s-btn').style.display = 'none';
+                    const pSub = document.getElementById('popup-sub30s-btn');
+                    if (pSub) pSub.style.display = 'none';
                     const oa = document.getElementById('overlay-add30s-btn');
                     if (oa) oa.style.display = 'none';
                     const moa3 = document.getElementById('mode-overlay-add30s-btn');
@@ -15903,6 +16321,7 @@ syncState();
                 // Apply same colour to mode overlay timer
                 if (modeTimer) { modeTimer.style.background = bg; }
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -16786,9 +17205,9 @@ syncState();
                     const svgSrc = getModeSvgIcon(mode);
                     const name = mode.name || (mode.text && mode.text.title) || 'Mode';
                     const keyStr = mode.shortcutKey ? ` (${mode.shortcutKey})` : '';
-                    return `<button class="timer-mode-shortcut" onclick="activateMode('${mode.id}')" title="${name}${keyStr}"><img src="${svgSrc}" class="btn-icon" alt="" /><span>${name}</span></button>`;
+                    const isAct = activeWorkingModeId && (mode.id === activeWorkingModeId || String(mode.name || '').toLowerCase() === String(activeWorkingModeId).toLowerCase());
+                    return `<button class="timer-mode-shortcut${isAct ? ' active' : ''}" onclick="activateMode('${mode.id}')" title="${name}${keyStr}"><img src="${svgSrc}" class="btn-icon" alt="" /><span>${name}</span></button>`;
                 }).join('');
-                html += `<button class="timer-mode-shortcut timer-mode-edit-btn" onclick="openModeManager()" title="Edit Modes" style="flex:0 0 auto; padding:6px 6px;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /><span>Edit</span></button>`;
                 popupContainer.innerHTML = html;
             }
 
@@ -17646,6 +18065,9 @@ syncState();
             const modeTitle = mode ? (mode.text?.title || mode.name || mode.id) : modeId;
             logHistory('mode-start', modeTitle, `Working mode started: ${modeTitle}`, { modeId: mode ? mode.id : modeId });
 
+            if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
+
             if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode: modeId });
         }
 
@@ -17659,14 +18081,7 @@ syncState();
             overlay.classList.remove('active');
 
             updateModeMinimisedPill();
-            const pill = document.getElementById('mode-minimized-pill');
-            if (pill) {
-                initModeMinimisedPill();
-                if (typeof prepareModePillPositionBeforeCollapse === 'function') {
-                    prepareModePillPositionBeforeCollapse();
-                }
-                pill.style.display = 'inline-flex';
-            }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
         }
 
         function restoreMode() {
@@ -17691,6 +18106,7 @@ syncState();
                     if (currentMode.id === 'conversation' || currentMode.picture?.animation === 'bubbles') animateSpeechBubbles();
                 }
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
         }
 
         function updateModeMinimisedPill() {
@@ -17704,12 +18120,12 @@ syncState();
             const timerEl = document.getElementById('mode-pill-timer');
 
             if (mode) {
-                const icon = mode.icon || (mode.picture?.type === 'emoji' ? mode.picture.src : null) || '🎭';
+                const svgSrc = getModeSvgIcon(mode);
                 const name = mode.name || (mode.text?.title) || 'Mode';
-                if (iconEl) iconEl.textContent = icon;
+                if (iconEl) iconEl.innerHTML = `<img src="${svgSrc}" class="btn-icon" alt="" />`;
                 if (titleEl) titleEl.textContent = name;
             } else {
-                if (iconEl) iconEl.textContent = '🎭';
+                if (iconEl) iconEl.innerHTML = '<img src="../assets/icons/theater.svg" class="btn-icon" alt="" />';
                 if (titleEl) titleEl.textContent = 'Class Mode';
             }
 
@@ -17718,7 +18134,7 @@ syncState();
                 const display = document.getElementById('timer-active-display');
                 if (isTimerRunning && display && display.textContent && display.textContent !== '--:--') {
                     timerEl.textContent = display.textContent;
-                    timerEl.style.display = 'inline-block';
+                    timerEl.style.display = 'none';
                     if (timerEndTime && (timerEndTime - Date.now()) < 60000) {
                         timerEl.classList.add('warning');
                     } else {
@@ -17729,6 +18145,7 @@ syncState();
                     timerEl.textContent = '';
                 }
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
         }
 
         function buildCustomModeHTML(mode) {
@@ -17786,6 +18203,8 @@ syncState();
             if (pill) pill.style.display = 'none';
             document.getElementById('mode-animation-overlay').classList.remove('active');
             document.getElementById('mode-animation-content').innerHTML = '';
+            if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             if (!PRESENTATION_MODE && presSettings.modes) {
                 _broadcastAnimation('mode-close');
                 _broadcastAnimation('datetime-close');
@@ -20428,26 +20847,7 @@ syncState();
                 ensurePresentationPopupMenu();
                 initModeMinimisedPill();
                 window.addEventListener('resize', () => {
-                    const pill = document.getElementById('mode-minimized-pill');
-                    if (pill && pill.style.display !== 'none' && pill.style.top) {
-                        const r = pill.getBoundingClientRect();
-                        const pad = 6;
-                        let l = Math.max(pad, Math.min(window.innerWidth - r.width - pad, r.left));
-                        let t = Math.max(pad, Math.min(window.innerHeight - r.height - pad, r.top));
-                        pill.style.left = l + 'px';
-                        pill.style.top = t + 'px';
-                        _modePillPos = { left: l, top: t };
-                    }
-                    const popup = document.getElementById('cms-pres-popup');
-                    if (popup && popup.style.display !== 'none' && popup.style.top) {
-                        const r = popup.getBoundingClientRect();
-                        const pad = 8;
-                        let l = Math.max(pad, Math.min(window.innerWidth - r.width - pad, r.left));
-                        let t = Math.max(pad, Math.min(window.innerHeight - r.height - pad, r.top));
-                        popup.style.left = l + 'px';
-                        popup.style.top = t + 'px';
-                    }
-                    positionFloatingWidgetsWithoutOverlap();
+                    clampUnifiedDockToViewport();
                 });
                 window.addEventListener('scroll', _broadcastScrollState, { passive: true });
                 document.addEventListener('scroll', (e) => {
