@@ -39,6 +39,16 @@
       : ((typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : (global.conMediaItems || []));
   }
 
+  function _getLiveMasks() {
+    if (typeof window !== 'undefined' && Array.isArray(window.conMasks)) {
+      return window.conMasks;
+    }
+    if (global && Array.isArray(global.conMasks)) {
+      return global.conMasks;
+    }
+    return (Array.isArray(conMasks) ? conMasks : []);
+  }
+
       // ---- Super Groups ----
       const GROUP_PAD = 18; // padding around member nodes inside the rect
       const PHRASE_GROUP_PAD = 12; // tighter padding for invisible phrase-group containers
@@ -1307,14 +1317,20 @@
       }
 
       function conGetMaskById(maskId) {
-        return conMasks.find(m => m.id === maskId) || null;
+        const liveList = _getLiveMasks();
+        return liveList.find(m => String(m.id) === String(maskId)) || null;
       }
 
       function conMaskBuild(mask) {
         const brd = board();
         if (!brd) return;
+        // Clean up any stale DOM element with this ID if already present
+        const oldEl = document.getElementById(mask.id) || brd.querySelector(`.con-mask-rect[data-mid="${mask.id}"]`);
+        if (oldEl && oldEl.remove) oldEl.remove();
+
         const el = document.createElement('div');
         el.className = 'con-mask-rect';
+        el.id = mask.id;
         el.dataset.mid = mask.id;
         el.style.position = 'absolute';
         el.style.zIndex = '700';
@@ -1346,28 +1362,48 @@
           window.conMaskCtxOpen(e, mask.id);
         });
 
+        el.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          window.conMaskCtxOpen(e, mask.id);
+        });
+
         let dragging = false;
         let sx = 0, sy = 0, startX = 0, startY = 0;
         let _dragMaskRaf = null;
+        let hasMoved = false;
+
         el.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
-          if (conMode !== 'move') return;
+          if (typeof conMode !== 'undefined' && conMode === 'delete') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof _conMaskCtxId !== 'undefined') _conMaskCtxId = mask.id;
+            window._conMaskCtxId = mask.id;
+            if (typeof window.conMaskCtxDelete === 'function') window.conMaskCtxDelete();
+            return;
+          }
+          if (typeof conMode !== 'undefined' && conMode !== 'move') return;
           if (e.target.closest('.con-mask-resizer')) return;
           e.preventDefault();
           e.stopPropagation();
           dragging = true;
+          hasMoved = false;
           window._conMirrorDragging = true;
           sx = e.clientX;
           sy = e.clientY;
           startX = mask.x;
           startY = mask.y;
+          if (typeof conPushUndo === 'function') conPushUndo();
         });
+
         document.addEventListener('mousemove', function (e) {
           if (!dragging) return;
           const br = board();
           if (!br) return;
           const dx = e.clientX - sx;
           const dy = e.clientY - sy;
+          if (dx !== 0 || dy !== 0) hasMoved = true;
           mask.x = Math.max(0, startX + dx);
           mask.y = Math.max(0, startY + dy);
           conApplyMaskStyle(mask);
@@ -1388,6 +1424,7 @@
             }
           }
         });
+
         document.addEventListener('mouseup', function () {
           if (!dragging) return;
           dragging = false;
@@ -1400,6 +1437,9 @@
               y: mask.y
             });
           }
+          if (hasMoved && typeof window.conMarkBoardDirty === 'function') {
+            window.conMarkBoardDirty();
+          }
           setTimeout(function () {
             window._conMirrorDragging = false;
           }, 60);
@@ -1408,24 +1448,30 @@
         let resizing = false;
         let rw = 0, rh = 0;
         let _resizeMaskRaf = null;
+        let hasResized = false;
+
         handle.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
-          if (conMode !== 'move') return;
+          if (typeof conMode !== 'undefined' && conMode !== 'move') return;
           e.preventDefault();
           e.stopPropagation();
           resizing = true;
+          hasResized = false;
           window._conMirrorDragging = true;
           sx = e.clientX;
           sy = e.clientY;
           rw = mask.width;
           rh = mask.height;
+          if (typeof conPushUndo === 'function') conPushUndo();
         });
+
         document.addEventListener('mousemove', function (e) {
           if (!resizing) return;
           const br = board();
           if (!br) return;
           const dx = e.clientX - sx;
           const dy = e.clientY - sy;
+          if (dx !== 0 || dy !== 0) hasResized = true;
           mask.width = Math.max(20, rw + dx);
           mask.height = Math.max(20, rh + dy);
           conApplyMaskStyle(mask);
@@ -1448,6 +1494,7 @@
             }
           }
         });
+
         document.addEventListener('mouseup', function () {
           if (!resizing) return;
           resizing = false;
@@ -1461,6 +1508,9 @@
               x: mask.x,
               y: mask.y
             });
+          }
+          if (hasResized && typeof window.conMarkBoardDirty === 'function') {
+            window.conMarkBoardDirty();
           }
           setTimeout(function () {
             window._conMirrorDragging = false;
@@ -1480,6 +1530,14 @@
           const idNum = parseInt(idNumMatch[0], 10);
           if (!isNaN(idNum)) _conMaskNextId = Math.max(_conMaskNextId, idNum + 1);
         }
+        const liveList = _getLiveMasks();
+        // Prevent duplicate IDs if restoring or reconciling
+        const existingIdx = liveList.findIndex(m => String(m.id) === String(id));
+        if (existingIdx !== -1) {
+          const old = liveList[existingIdx];
+          if (old && old.el && old.el.remove) old.el.remove();
+          liveList.splice(existingIdx, 1);
+        }
         const mask = {
           id,
           x: Number(src.x) || 0,
@@ -1490,17 +1548,21 @@
           opacity: Number(src.opacity) || 0.95,
           el: null
         };
-        conMasks.push(mask);
+        liveList.push(mask);
+        if (Array.isArray(conMasks) && conMasks !== liveList) conMasks.push(mask);
+        if (Array.isArray(global.conMasks) && global.conMasks !== liveList) global.conMasks.push(mask);
+        if (typeof window !== 'undefined' && Array.isArray(window.conMasks) && window.conMasks !== liveList) window.conMasks.push(mask);
         conMaskBuild(mask);
         return mask;
       }
 
-      window.conGetMasks = function () { return conMasks; };
+      window.conGetMasks = global.conGetMasks = _getLiveMasks;
       window.conAddMaskFromData = conAddMaskFromData;
 
       window.conAddMask = function (x, y) {
         const brd = board();
         if (!brd) return;
+        if (typeof conPushUndo === 'function') conPushUndo();
         const px = Number.isFinite(x) ? x : Math.max(24, Math.round(brd.clientWidth / 2) - 80);
         const py = Number.isFinite(y) ? y : Math.max(24, Math.round(brd.clientHeight / 2) - 32);
         const newMask = conAddMaskFromData({
@@ -1511,6 +1573,7 @@
           color: '#111111',
           opacity: 0.95
         });
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (newMask && window._conMirrorSend) {
           window._conMirrorSend({
             type: 'mask-add',
@@ -1528,10 +1591,15 @@
       };
 
       window.conMasksClear = function () {
-        conMasks.forEach(m => { if (m.el) m.el.remove(); });
-        conMasks = [];
+        const liveList = _getLiveMasks();
+        liveList.forEach(m => { if (m && m.el && m.el.remove) m.el.remove(); });
+        liveList.length = 0;
+        if (Array.isArray(conMasks) && conMasks !== liveList) conMasks.length = 0;
+        if (Array.isArray(global.conMasks) && global.conMasks !== liveList) global.conMasks.length = 0;
+        if (typeof window !== 'undefined' && Array.isArray(window.conMasks) && window.conMasks !== liveList) window.conMasks.length = 0;
         _conMaskNextId = 1;
         _conMaskCtxId = null;
+        if (typeof window !== 'undefined') window._conMaskCtxId = null;
         const overlay = document.getElementById('con-mask-style-overlay');
         if (overlay) overlay.classList.remove('active');
         if (window._conMirrorSend) {
@@ -1577,6 +1645,8 @@
   window.GROUP_PAD = global.GROUP_PAD = GROUP_PAD;
   window.conApplyMaskStyle = global.conApplyMaskStyle = conApplyMaskStyle;
   window.conGetMaskById = global.conGetMaskById = conGetMaskById;
+  window.conMaskBuild = global.conMaskBuild = conMaskBuild;
+  window.conNormalizeMask = global.conNormalizeMask = conNormalizeMask;
 
   try {
     Object.defineProperty(window, '_conGroupCtxId', {

@@ -283,7 +283,7 @@
             notes: (window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : [])).slice(),
             tables: (window.conTables ? window.conTables.slice() : []),
             mediaItems: (typeof conMediaItems !== 'undefined' ? conMediaItems.slice() : []),
-            masks: (window.conMasks ? window.conMasks.slice() : []),
+            masks: (window.conGetMasks ? window.conGetMasks() : (window.conMasks ? window.conMasks : [])).slice(),
             backgroundPdf: (typeof conPageBackgroundPdf !== 'undefined' && conPageBackgroundPdf) ? Object.assign({}, conPageBackgroundPdf) : null,
             boardBg: (typeof _conBoardBg !== 'undefined' && _conBoardBg) ? Object.assign({}, _conBoardBg) : null,
             boardBgColor: (typeof _conBoardBgColor !== 'undefined' ? _conBoardBgColor : ''),
@@ -311,7 +311,10 @@
         if (liveNotes) liveNotes.length = 0;
         if (window.conTables && Array.isArray(window.conTables)) window.conTables.length = 0;
         if (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) conMediaItems.length = 0;
-        if (window.conMasks && Array.isArray(window.conMasks)) window.conMasks.length = 0;
+        const liveMasks = window.conGetMasks ? window.conGetMasks() : (window.conMasks || null);
+        if (liveMasks && Array.isArray(liveMasks)) liveMasks.length = 0;
+        if (window.conMasks && Array.isArray(window.conMasks) && window.conMasks !== liveMasks) window.conMasks.length = 0;
+        if (global.conMasks && Array.isArray(global.conMasks) && global.conMasks !== liveMasks) global.conMasks.length = 0;
         if (Array.isArray(window._conBoardStickers)) window._conBoardStickers.length = 0;
 
         // 9. Enforce LRU cache limits
@@ -409,9 +412,18 @@
           conMediaItems.length = 0;
           conMediaItems.push(...cached.state.mediaItems);
         }
-        if (window.conMasks) {
+        const liveMasks = window.conGetMasks ? window.conGetMasks() : (window.conMasks || []);
+        liveMasks.length = 0;
+        if (Array.isArray(cached.state.masks)) {
+          liveMasks.push(...cached.state.masks);
+        }
+        if (window.conMasks && window.conMasks !== liveMasks) {
           window.conMasks.length = 0;
-          window.conMasks.push(...cached.state.masks);
+          if (Array.isArray(cached.state.masks)) window.conMasks.push(...cached.state.masks);
+        }
+        if (global.conMasks && global.conMasks !== liveMasks) {
+          global.conMasks.length = 0;
+          if (Array.isArray(cached.state.masks)) global.conMasks.push(...cached.state.masks);
         }
 
         // 4. Verify node element references and display visibility
@@ -423,6 +435,26 @@
           }
           if (n.el && n.el.style.display === 'none') {
             n.el.style.display = '';
+          }
+        }
+
+        // 4b. Verify mask element references, reconnection, and styling
+        for (let i = 0; i < liveMasks.length; i++) {
+          const m = liveMasks[i];
+          if (!m.el || !boardEl.contains(m.el)) {
+            const found = (m.id && document.getElementById(m.id))
+              || boardEl.querySelector(`.con-mask-rect[data-mid="${m.id}"]`);
+            if (found) m.el = found;
+          }
+          if (!m.el) {
+            if (typeof window.conMaskBuild === 'function') {
+              window.conMaskBuild(m);
+            }
+          } else {
+            m.el.style.display = '';
+            if (typeof window.conApplyMaskStyle === 'function') {
+              window.conApplyMaskStyle(m);
+            }
           }
         }
 
@@ -3062,6 +3094,10 @@
       window.conDeleteSelectedItems = function () {
         if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('delete_items');
         conPushUndo();
+        if (window._conMaskCtxId) {
+          if (typeof window.conMaskCtxDelete === 'function') window.conMaskCtxDelete();
+          return;
+        }
         if (window._conSelectedEdgeId) {
           const edgeToDelete = window._conSelectedEdgeId;
           window._conSelectedEdgeId = null;
@@ -3566,10 +3602,26 @@
       window.conAdjustSelectedFontSize = function (delta) {
         if (!delta) return;
 
-        const hasTextSel = (typeof window.wnHasNoteTextSelection === 'function' && window.wnHasNoteTextSelection()) ||
-          (typeof window.wnGetActiveNoteTextSelection === 'function' && !!window.wnGetActiveNoteTextSelection());
+        // A node (or multi-node) selection wins over a STALE saved note text selection: only treat
+        // this as a text-in-note operation when focus / the live selection is really inside a note editor.
+        const _nodeSel = (typeof conSelected !== 'undefined' && conSelected) || (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0);
+        const _ae = document.activeElement;
+        const _focusInNoteEditor = !!(_ae && _ae.closest && _ae.closest('.wn-note-editor'));
+        let _liveSelInNoteEditor = false;
+        try {
+          const _s = window.getSelection && window.getSelection();
+          if (_s && _s.rangeCount > 0 && !_s.isCollapsed) {
+            const _a = _s.getRangeAt(0).commonAncestorContainer;
+            const _el = _a && _a.nodeType === 1 ? _a : (_a ? _a.parentElement : null);
+            _liveSelInNoteEditor = !!(_el && _el.closest && _el.closest('.wn-note-editor'));
+          }
+        } catch (_) {}
+        const _skipTextPath = !!_nodeSel && !_focusInNoteEditor && !_liveSelInNoteEditor;
 
-        if (typeof window.wnAdjustSelectionOrNoteFontSize === 'function' && window.wnAdjustSelectionOrNoteFontSize(delta)) {
+        const hasTextSel = !_skipTextPath && ((typeof window.wnHasNoteTextSelection === 'function' && window.wnHasNoteTextSelection()) ||
+          (typeof window.wnGetActiveNoteTextSelection === 'function' && !!window.wnGetActiveNoteTextSelection()));
+
+        if (!_skipTextPath && typeof window.wnAdjustSelectionOrNoteFontSize === 'function' && window.wnAdjustSelectionOrNoteFontSize(delta)) {
           return;
         }
 
@@ -3637,7 +3689,13 @@
             if (editor && editor.tagName !== 'TEXTAREA') {
               editor.querySelectorAll('[style*="font-size"]').forEach(el => {
                 const match = el.style.fontSize.match(/^([\d.]+)px$/);
-                if (match) el.style.fontSize = Math.round(next * (parseFloat(match[1]) / (oldBase * zoom)) * zoom) + 'px';
+                // Additive step (same delta as the note base) so every span/li moves by exactly the same
+                // amount per keystroke; proportional scaling + rounding made list/inline sizes drift unevenly.
+                if (match) {
+                  const elBase = Math.round(parseFloat(match[1]) / zoom);
+                  const elNext = Math.max(4, Math.min(96, elBase + (next - oldBase)));
+                  el.style.fontSize = Math.round(elNext * zoom) + 'px';
+                }
               });
               if (typeof wnSyncNoteDataFromEditor === 'function') wnSyncNoteDataFromEditor(note, editor);
             }
@@ -4183,12 +4241,27 @@
             titleFS: g._titleFS != null ? g._titleFS : null
           };
         }),
-        masks: masks.map(m => ({
-          id: m.id, x: m.x, y: m.y,
-          width: m.width, height: m.height,
-          color: m.color || '#111111',
-          opacity: Number(m.opacity) || 0.95
-        })),
+        masks: masks.map(m => {
+          let mx = Number(m.x);
+          let my = Number(m.y);
+          let mw = Number(m.width || m.w);
+          let mh = Number(m.height || m.h);
+          if (m.el) {
+            if (!Number.isFinite(mx) || mx === 0) mx = m.el.offsetLeft || 0;
+            if (!Number.isFinite(my) || my === 0) my = m.el.offsetTop || 0;
+            if (!Number.isFinite(mw) || mw <= 0) mw = m.el.offsetWidth || 160;
+            if (!Number.isFinite(mh) || mh <= 0) mh = m.el.offsetHeight || 64;
+          }
+          return {
+            id: m.id,
+            x: Number.isFinite(mx) ? mx : 0,
+            y: Number.isFinite(my) ? my : 0,
+            width: (Number.isFinite(mw) && mw > 0) ? mw : 160,
+            height: (Number.isFinite(mh) && mh > 0) ? mh : 64,
+            color: m.color || (m.el ? m.el.style.backgroundColor : '') || '#111111',
+            opacity: Number.isFinite(Number(m.opacity)) ? Number(m.opacity) : (m.el ? parseFloat(m.el.style.opacity) : 0.95) || 0.95
+          };
+        }),
         notes: (window.conGetNotes ? window.conGetNotes() : []).map(n => {
           const _noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(n.id) : document.querySelector('.con-word-note[data-id="' + n.id + '"]');
           
@@ -11458,11 +11531,12 @@
         const existingMasks = window.conGetMasks ? window.conGetMasks() : [];
         const existingMasksMap = new Map(existingMasks.map(m => [String(m.id), m]));
         const keepMaskIds = new Set();
+        const activeBoardEl = document.getElementById('constellation-board');
         savedMasksList.forEach(src => {
           const mid = String(src.id);
           keepMaskIds.add(mid);
           const existing = existingMasksMap.get(mid);
-          if (existing && existing.el) {
+          if (existing && existing.el && activeBoardEl && activeBoardEl.contains(existing.el)) {
             existing.x = Number(src.x) || 0;
             existing.y = Number(src.y) || 0;
             existing.width = Number(src.width) || 160;
@@ -11473,9 +11547,13 @@
             existing.el.style.top = existing.y + 'px';
             existing.el.style.width = existing.width + 'px';
             existing.el.style.height = existing.height + 'px';
+            existing.el.style.background = existing.color;
             existing.el.style.backgroundColor = existing.color;
             existing.el.style.opacity = String(existing.opacity);
           } else {
+            if (existing && existing.el && existing.el.remove) {
+              existing.el.remove();
+            }
             if (window.conAddMaskFromData) window.conAddMaskFromData(src);
           }
         });

@@ -300,8 +300,8 @@ When loading a class group in [Class Management](#class-managementhtml) on a dat
 
 ### Offline AI (SLM) — Board AI Studio & Manage Database Autofill
 
-- **Local & private**: Qwen small language models (0.5B Fast, 1.5B Balanced, 1.8B Deep) run offline via transformers.js in a Web Worker. Download/switch/delete tiers in the **AI Models** manager (stored in user/models/slm/).
-- **Board AI Studio** (toolbar ✨ button and node/note/canvas context menus): *Expand Nodes* (related concepts, lexical field, key terms, bridge nodes) and *Write & Analyze* (example sentences, paragraph, gap-fill, questions, literary analysis) streamed into a connected note. Optional grounding in the text loaded in Text Analysis / Book Search.
+- **Local & private**: Qwen small language models (0.5B Fast, 1.5B Balanced, 1.8B Deep) run offline via transformers.js in a Web Worker with multi-threaded WASM SIMD execution, prompt prefill optimization, and early-stopping JSON parsing. Download/switch/delete tiers in the **AI Models** manager (stored in user/models/slm/).
+- **Board AI Studio** (toolbar ✨ button and node/note/canvas context menus): *Expand Nodes* (related concepts, lexical field, key terms, bridge nodes) and *Write & Analyze* (example sentences, paragraph, gap-fill, questions, literary analysis) streamed into a connected note. Features real-time generation metrics: live elapsed timer (`00:03`), dynamic estimated remaining countdown (`~4s`), generation speed (`tok/s`), and progress bar. Optional grounding in the text loaded in Text Analysis / Book Search.
 - **Manage Database AI Autofill**: schema-driven autofill for all record types in the single-record form (✨ banner / Autofill button, with [Local DB] vs [AI] badges) and in **Batch Autofill** (engine: Local DB + AI fallback, Local only, or AI only; live progress with cancel).
 - Models exported with ONNX IR version above 8 are automatically patched on install for compatibility with the bundled runtime.
 
@@ -676,12 +676,29 @@ Offline-first **Video & Sound Converter** with visual waveform trimming, audio e
 - **Visual WaveSurfer Timeline & Trimming**:
   - Interactive dual-handle waveform region scrubber for millisecond-accurate clip trimming.
   - Lossless stream copy (`-c copy`) for instant sub-second cutting.
-- **Timeline Studio (Multi-Clip Sequence Editor)**:
-  - *Dual-Mode Architecture*: Seamless toggle between **Batch Converter** and **Timeline Studio** in the header.
-  - *Split at Playhead*: Frame-accurate cutting of video or audio tracks at the active playhead with safety margin validation.
-  - *Multi-Clip Merge / Concatenate*: Drag-and-drop or button-stepped clip reordering, with automatic resolution harmonization and letterboxing (`scale=W:H:force_original_aspect_ratio=decrease,pad=W:H:...`) to prevent concatenation errors across mixed aspect ratios.
-  - *Fade In & Fade Out*: Configurable volume ramps (0s to 3.0s) and video opacity transitions from/to black at clip boundaries.
-  - *Hybrid Dual-Execution*: Hardware-accelerated filter graph (`filter_complex`) concatenation in Desktop Electron, with client-side Web Audio API (`concatBuffers` & `applyFade`) fallback in browser environments.
+- **Video & Sound Editor (Simple Windows Movie Maker Style)**:
+  - *Dual-Mode Architecture*: Seamless toggle between **Batch Converter** and **Video & Sound Editor (Movie Maker)** in the header.
+  - *Windows Movie Maker Ribbon Toolbar*: Cleanly grouped tools: Media (`+ Add Clip`), Edit (`✂ Split Here`, `⇥ Set Start`, `⇤ Set End`, `🗑 Delete Clip`), Transitions & Audio (`Fade In`, `Fade Out`, `Speed: 0.75x–1.5x`), and Save (`💾 Save Edited File`).
+  - *Crystal-Clear "Split Here" Workflow*:
+    - Scrub the video or waveform with frame-stepping controls (`-1s`, `-0.1s (1 frame)`, `+0.1s (1 frame)`, `+1s`).
+    - Dedicated prominent **✂ Split Here (S)** buttons both in the ribbon and directly below the preview monitor transport bar.
+    - Helpful instruction banner clarifying: *"Move the playhead or scrub the video to where you want to cut, then click 'Split Here' (or press S)."*
+    - Automatically cuts the active clip into Part 1 and Part 2 with smart part naming.
+  - *Storyboard Sequence Strip*:
+    - Filmstrip cards with sprocket perforations, index numbers, trim range span (`00:00.00 → 00:15.30`), and duration badges.
+    - Direct in-card actions: `[✂ Split Here]`, `[💾 Save Clip]`, `[◀ Move Earlier]`, `[▶ Move Later]`, and `[✕ Remove]`.
+    - Interactive **Transition Slots** between adjacent cards (click to cycle: Cut / 0.5s / 1.0s / 2.0s crossfade).
+  - *Super-Convenient "Save Movie / Save Edited File" Modal*:
+    - **Export Scope Selection**: Save *All clips merged (Full Movie)* or *Selected clip only* (ideal when saving a single split part!).
+    - **Movie Maker 1-Click Quality Profiles**:
+      - ⭐️ *Classroom Standard (720p HD MP4)* — Universal playback on laptops & beamers.
+      - 🎬 *High Definition (1080p Full HD MP4)* — Highest visual quality for archiving.
+      - 📧 *Small LMS / Email (<25MB 480p MP4)* — Lightweight compression for school portals.
+      - 🎵 *Audio Only (MP3 192k)* — Clean speech/podcast track extraction.
+      - ⚡️ *Instant Lossless Cut* — Fast stream-copy without re-encoding (finishes in seconds!).
+    - **Smart Intelligent Filenaming**: Prepopulates names based on the loaded media (e.g. `lesson_edited.mp4` or `lesson_part2.mp4`) instead of arbitrary timestamp strings.
+    - **Save Location Convenience**: One-click save to the same folder as the original file or custom directory picker.
+  - *Keyboard Shortcuts*: <kbd>Space</kbd> (Play/Pause), <kbd>S</kbd> (Split Here), <kbd>I</kbd> (Set Start Point), <kbd>O</kbd> (Set End Point), <kbd>Delete</kbd> (Delete Clip), <kbd>Ctrl+S</kbd> (Save Movie), <kbd>Left</kbd>/<kbd>Right</kbd> (Step time).
 - **Destination Selection Dialog & Output Routing**:
   - Prompts before conversion (single files and batch queues) to select the output destination:
     - *Same Folder as Original Media*: Saves alongside the input file in its source directory.
@@ -978,6 +995,11 @@ Active classroom control panel for student scoring, timers, class working modes,
 Interactive mind-map, visual board, constellation session maps, and whiteboard canvas.
 
 #### Features
+- **Unified Collapsible Toolbar Drawer (Pinned vs. Auto-Hide on Hover)**: Eliminates visual discrepancy between the main teacher view and the clean mirrored display. The entire sticky top section—encompassing the main menu toolbar, the snippet navigation bar with live page thumbnails, and the drawing menu—is housed in a unified Light Neobrutalist drawer (`#con-toolbar-drawer`).
+  - **Pinned Mode (Default)**: Keeps the entire toolbar permanently visible in the document flow. The toolbar includes a dedicated **Pinned** button with an official SVG pin icon (`assets/icons/pin.svg`) to toggle modes.
+  - **Auto-Hide Mode**: Smoothly glides the unified drawer upward via GPU-composited `transform: translateY(...)`, freeing up full vertical canvas space so the teacher sees the board starting from coordinate $(0,0)$ matching the presentation mirror display.
+  - **Hover & Peek Handle**: A slim Neobrutalist peek tab at the top edge (`▾ Menu`) and an invisible top-edge hover sensor seamlessly bring down the toolbar when the mouse approaches, complete with an inline pin button to re-lock the drawer open.
+  - **Zero Disruption to Mirrored View**: The hover collapse/uncollapse uses composite-only GPU transforms that preserve document flow and layout coordinates. Viewport coordinates remain rock-solid, ensuring the projector/mirror display never jitters, jumps, or hashes abruptly during mouseover.
 - **Default Welcome Showcase Board**: When opening Board for the first time without an active session file, the application automatically populates an exhaustive interactive demonstration board showcasing all primary capabilities:
   - **Interactive Nodes & Widgets**: Concept words, KaTeX math formulas, interactive countdown timers, randomized dice/number rollers, and masked mystery elements for retrieval practice.
   - **Rich Sticky Notes & Checklists**: Styled card checklists, teacher presentation callouts, formatted keyboard shortcut reference guides, and context-aware selection formatting (right-clicking highlighted note text reflects the actual font size on the styling slider and measurement display for granular in-place adjustments).
@@ -988,7 +1010,7 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
   - **Canvas Shapes & Thematic Groups**: Color-coded containers grouping each domain with directional indicator arrows.
   - **On-Demand Reload & Premade Library**: Teachers can re-load or reference the Showcase Board anytime via the toolbar **Showcase** button (`[Showcase]`), or insert it from the Premade Library under the *Templates* tab.
 - **Zero-Teardown Smooth Undo / Redo (`Ctrl/Cmd + Z` / `Y`)**: Comprehensive non-destructive in-place reconciliation engine for undo and redo operations. Restoring past canvas snapshots mutates live DOM nodes, sticky notes, SVG line edges, freehand drawing paths, vector shapes, interactive tables, masks, and media in-place without container teardowns, SVG flashing, or scroll jumping. Preserves text editor native undo when typing in contenteditable note cards and table cells, and instantly synchronizes changes across presentation mirror displays.
-- **Instant In-Memory Multi-Page DOM Caching**: Multi-page constellation sessions cache pre-rendered detached DOM subtrees and live JavaScript state directly in memory (`_conPageDomCache`). Switching between pages with dozens or hundreds of nodes, KaTeX math formulas, and SVG drawings executes instantaneously (< 3ms) in 60fps without synchronous DOM teardown, KaTeX re-compilation, or layout reflow cascades. Features an LRU memory bounds safeguard (max 8 pages) and seamless background synchronization with disk auto-save and secondary display mirror broadcasts.
+- **Instant In-Memory Multi-Page DOM Caching**: Multi-page constellation sessions cache pre-rendered detached DOM subtrees and live JavaScript state directly in memory (`_conPageDomCache`). Switching between pages with dozens or hundreds of nodes, KaTeX math formulas, movable mask rectangles, and SVG drawings executes instantaneously (< 3ms) in 60fps without synchronous DOM teardown, KaTeX re-compilation, or layout reflow cascades. Features an LRU memory bounds safeguard (max 8 pages), full mask lifecycle persistence, and seamless background synchronization with disk auto-save and secondary display mirror broadcasts.
 - **Offline Voice Recognition & Dictation**: Offline speech-to-text dictation supporting English, French, German, and Italian with high accuracy, live audio waveform visualizer, continuous speech transcription, automatic punctuation, search integration, and **Copy to clipboard**. Features an integrated voice search mic trigger in the search overlay, a dedicated **Dictate mini button** on sticky note mini-action bars for cursor-aware in-place voice typing, and live subtitle caption broadcasting to secondary presentation/projector displays.
 - **Offline Audio File Transcription Studio & On-Import Transcripts**: 100% offline speech recognition for imported or placed audio recordings (`.mp3`, `.wav`, `.ogg`, `.m4a`, `.aac`, `.flac`, `.webm`) using local quantized Whisper neural models via background Web Workers.
   - **On-Import Quick Notification**: Dragging and dropping an audio file or selecting via the file picker triggers a non-intrusive Light Neobrutalist notification pill with a 1-click **Create Transcript** action.

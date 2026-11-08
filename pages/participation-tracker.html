@@ -4701,31 +4701,61 @@
                 });
             });
 
-            // 3. Fallback for legacy or imported sessions with 0 raw history events
-            if (filteredHistory.length === 0 && groupStudents.length > 0) {
-                groupStudents.forEach((student, sIdx) => {
-                    const pCount = student.pluses || 0;
-                    const mCount = student.minuses || 0;
-                    const isP = !!student.isPicked;
+            // 3. Reconcile per-student plus/minus totals with the logged events.
+            // Legacy, imported or restored sessions may carry pluses/minuses counters
+            // without (or with only partial) matching history events, so synthesize the missing ones.
+            const hadNoHistory = filteredHistory.length === 0;
+            if (groupStudents.length > 0) {
+                const loggedNet = new Map(); // lowercase student name -> { p, m }
+                filteredHistory.forEach(h => {
+                    if (!h || h.meta?.fromStudentData) return;
+                    const t = String(h.type || '').toLowerCase();
+                    const key = String(h.studentName || '').trim().toLowerCase();
+                    if (!key) return;
+                    const acc = loggedNet.get(key) || { p: 0, m: 0 };
+                    if (t === 'plus') acc.p += 1;
+                    else if (t === 'minus') acc.m += 1;
+                    else if (t === 'remove' && typeof h.detail === 'string') {
+                        if (/corrected\s*\+1/i.test(h.detail) && !/team/i.test(h.detail)) acc.p -= 1;
+                        else if (/corrected\s*-1/i.test(h.detail) && !/team/i.test(h.detail)) acc.m -= 1;
+                    }
+                    loggedNet.set(key, acc);
+                });
 
+                groupStudents.forEach((student, sIdx) => {
+                    const logged = loggedNet.get(String(student.name || '').trim().toLowerCase()) || { p: 0, m: 0 };
+                    const pCount = Math.max(0, (student.pluses || 0) - Math.max(0, logged.p));
+                    const mCount = Math.max(0, (student.minuses || 0) - Math.max(0, logged.m));
+                    const isP = hadNoHistory && !!student.isPicked;
+
+                    const pH = Array.isArray(student.plusHistory) ? student.plusHistory : [];
                     for (let pi = 0; pi < pCount; pi++) {
+                        const hItem = pH[logged.p + pi] || pH[pi];
+                        const itemTime = hItem?.time || '';
+                        const itemTs = hItem?.timestamp || '';
                         filteredHistory.push({
                             type: 'plus',
                             studentName: student.name,
                             detail: '+1 point',
-                            time: '',
+                            time: itemTime,
+                            timestamp: itemTs,
                             group: activeGid,
-                            meta: { studentId: student.id, value: 1, fallbackIndex: sIdx * 10 + pi }
+                            meta: { studentId: student.id, value: 1, synthesized: !itemTime && !itemTs }
                         });
                     }
+                    const mH = Array.isArray(student.minusHistory) ? student.minusHistory : [];
                     for (let mi = 0; mi < mCount; mi++) {
+                        const hItem = mH[logged.m + mi] || mH[mi];
+                        const itemTime = hItem?.time || '';
+                        const itemTs = hItem?.timestamp || '';
                         filteredHistory.push({
                             type: 'minus',
                             studentName: student.name,
                             detail: '-1 point',
-                            time: '',
+                            time: itemTime,
+                            timestamp: itemTs,
                             group: activeGid,
-                            meta: { studentId: student.id, value: -1, fallbackIndex: sIdx * 10 + 5 + mi }
+                            meta: { studentId: student.id, value: -1, synthesized: !itemTime && !itemTs }
                         });
                     }
                     if (isP) {
@@ -4735,14 +4765,30 @@
                             detail: 'Picked in session',
                             time: '',
                             group: activeGid,
-                            meta: { studentId: student.id, fallbackIndex: sIdx * 10 }
+                            meta: { studentId: student.id, synthesized: true }
                         });
                     }
                 });
             }
 
+            // Synthesized events (no real time) are spread evenly across the real event span,
+            // or a default 45-minute lesson window, so they never fall outside the lesson.
+            const realTimes = filteredHistory.filter(h => !h.meta?.synthesized).map(h => parseIsoOrLocalTime(h.timestamp, h.time, baseDate, NaN, 0)).filter(Number.isFinite);
+            let synthStart = fallbackStartMs;
+            let synthSpan = 45 * 60000;
+            if (realTimes.length > 0) {
+                const rMin = Math.min(...realTimes);
+                const rMax = Math.max(...realTimes);
+                synthStart = rMin;
+                if (rMax - rMin >= 2 * 60000) synthSpan = rMax - rMin;
+            }
+            const synthTotal = filteredHistory.filter(h => h.meta?.synthesized).length;
+            let synthSeq = 0;
+
             return filteredHistory.map((item, idx) => {
-                const ts = parseIsoOrLocalTime(item.timestamp, item.time, baseDate, fallbackStartMs, item.meta?.fallbackIndex ?? idx);
+                const ts = item.meta?.synthesized
+                    ? synthStart + ((++synthSeq) / (synthTotal + 1)) * synthSpan
+                    : parseIsoOrLocalTime(item.timestamp, item.time, baseDate, fallbackStartMs, idx);
                 const type = String(item.type || '').toLowerCase();
                 let category = 'points';
                 let iconKey = 'plus';
@@ -6950,29 +6996,49 @@
         }
 
         function getStudentPointTimestamps(session, groupId, student, typeName) {
-            if (!session || !Array.isArray(session.sessionHistory) || !student) return [];
-            const targetStudent = String(student.name || '').trim().toUpperCase();
-            const teamId = student.teamId;
+            if (!student) return [];
+            if (session && Array.isArray(session.sessionHistory)) {
+                const targetStudent = String(student.name || '').trim().toUpperCase();
+                const teamId = student.teamId;
 
-            const matches = session.sessionHistory.filter(entry => {
-                if (!entry) return false;
-                if (entry.group && entry.group !== groupId) return false;
-                const entryType = String(entry.type || '').toLowerCase();
-                if (entryType !== typeName.toLowerCase()) return false;
+                const matches = session.sessionHistory.filter(entry => {
+                    if (!entry) return false;
+                    if (entry.group && entry.group !== groupId) return false;
+                    const entryType = String(entry.type || '').toLowerCase();
+                    if (entryType !== typeName.toLowerCase()) return false;
 
-                const entryStudent = String(entry.studentName || '').trim().toUpperCase();
-                if (entryStudent === targetStudent) return true;
+                    const entryStudent = String(entry.studentName || '').trim().toUpperCase();
+                    if (entryStudent === targetStudent) return true;
 
-                if (typeName === 'team-plus' || typeName === 'team-minus') {
-                    if (teamId != null) {
-                        if (entryStudent.includes(`TEAM ${teamId}`) || entryStudent.startsWith(`${teamId}.`)) return true;
-                        if (entry.detail && String(entry.detail).toLowerCase().includes(`team ${teamId}`)) return true;
+                    if (typeName === 'team-plus' || typeName === 'team-minus') {
+                        if (teamId != null) {
+                            if (entryStudent.includes(`TEAM ${teamId}`) || entryStudent.startsWith(`${teamId}.`)) return true;
+                            if (entry.detail && String(entry.detail).toLowerCase().includes(`team ${teamId}`)) return true;
+                        }
                     }
-                }
-                return false;
-            });
+                    return false;
+                });
 
-            return matches.map(e => formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)).filter(Boolean);
+                if (matches.length > 0) {
+                    return matches.map(e => formatTimeWithSeconds(e.time || e.timestamp || session.time || session.id)).filter(Boolean);
+                }
+            }
+
+            // Fallback to student point history on the student object if sessionHistory is missing
+            if (typeName === 'plus' && Array.isArray(student.plusHistory) && student.plusHistory.length) {
+                return student.plusHistory.map(h => formatTimeWithSeconds(h.time || h.timestamp)).filter(Boolean);
+            }
+            if (typeName === 'minus' && Array.isArray(student.minusHistory) && student.minusHistory.length) {
+                return student.minusHistory.map(h => formatTimeWithSeconds(h.time || h.timestamp)).filter(Boolean);
+            }
+            if (typeName === 'team-plus' && Array.isArray(student.teamPlusHistory) && student.teamPlusHistory.length) {
+                return student.teamPlusHistory.map(h => formatTimeWithSeconds(h.time || h.timestamp)).filter(Boolean);
+            }
+            if (typeName === 'team-minus' && Array.isArray(student.teamMinusHistory) && student.teamMinusHistory.length) {
+                return student.teamMinusHistory.map(h => formatTimeWithSeconds(h.time || h.timestamp)).filter(Boolean);
+            }
+
+            return [];
         }
 
         function openStudentEditModal(studentName) {

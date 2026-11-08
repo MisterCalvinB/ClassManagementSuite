@@ -116,7 +116,20 @@
         env.localModelPath = modelBasePath;
         if (env.backends && env.backends.onnx && env.backends.onnx.wasm) {
           env.backends.onnx.wasm.wasmPaths = wasmBasePath;
-          env.backends.onnx.wasm.numThreads = 1;
+          // Multi-threaded WASM needs SharedArrayBuffer. Test support dynamically.
+          var canThread = false;
+          try {
+            if (typeof SharedArrayBuffer !== 'undefined') {
+              var _sabTest = new SharedArrayBuffer(16);
+              if (_sabTest.byteLength === 16) canThread = true;
+            }
+          } catch (_) {
+            canThread = false;
+          }
+          var cores = (self.navigator && self.navigator.hardwareConcurrency) || 4;
+          env.backends.onnx.wasm.numThreads = canThread ? Math.max(1, Math.min(4, cores - 1 || 2)) : 1;
+          env.backends.onnx.wasm.simd = true;
+          env.backends.onnx.wasm.proxy = false;
         }
 
         generator = await tf.pipeline('text-generation', modelId, {
@@ -209,12 +222,30 @@
         inputForPipe = String(data.userPrompt || data.prompt || '');
       }
 
+      // Optional assistant prefill (e.g. '[' for JSON) so the model continues directly
+      // inside the desired format instead of spending tokens on a chatty preamble.
+      var assistantPrefix = String(data.assistantPrefix || '');
+      if (assistantPrefix && Array.isArray(inputForPipe)) {
+        var templated;
+        try {
+          templated = pipe.tokenizer.apply_chat_template(inputForPipe, { tokenize: false, add_generation_prompt: true });
+        } catch (_) {
+          templated = buildFallbackChatPrompt(inputForPipe);
+        }
+        inputForPipe = templated + assistantPrefix;
+      }
+
       var lastPartialText = '';
       var maxNewTokens = Number(data.maxNewTokens) || 384;
       var temperature = typeof data.temperature === 'number' ? data.temperature : 0.35;
       var doSample = data.doSample !== undefined ? Boolean(data.doSample) : (temperature > 0.05);
       var topK = Number(data.topK) || 40;
       var repetitionPenalty = Number(data.repetitionPenalty) || 1.1;
+      var stopOnJsonComplete = Boolean(data.stopOnJsonComplete || (assistantPrefix && (assistantPrefix.indexOf('[') !== -1 || assistantPrefix.indexOf('{') !== -1)));
+      var stopSequences = Array.isArray(data.stopSequences) ? data.stopSequences : [];
+      var genStartTime = performance.now();
+      var firstTokenTime = 0;
+      var totalTokensGenerated = 0;
 
       var genOptions = {
         max_new_tokens: maxNewTokens,
@@ -241,16 +272,95 @@
             var generatedIds = promptLen > 0
               ? beam.output_token_ids.slice(promptLen)
               : beam.output_token_ids;
-            var decoded = pipe.tokenizer.decode(generatedIds, { skip_special_tokens: true });
+
+            totalTokensGenerated = generatedIds.length;
+            if (!firstTokenTime && totalTokensGenerated > 0) {
+              firstTokenTime = performance.now();
+            }
+
+            var decoded = assistantPrefix + pipe.tokenizer.decode(generatedIds, { skip_special_tokens: true });
+
+            var shouldStop = false;
+            // 1. Intelligent Early-Stopping on complete JSON array or object
+            if (stopOnJsonComplete && decoded.length > 8) {
+              var trimmed = decoded.trim();
+              if (trimmed.startsWith('[')) {
+                var arrDepth = 0;
+                var inArrStr = false;
+                var arrEsc = false;
+                var hasOpenedArr = false;
+                for (var ai = 0; ai < trimmed.length; ai++) {
+                  var ach = trimmed[ai];
+                  if (arrEsc) { arrEsc = false; continue; }
+                  if (ach === '\\') { arrEsc = true; continue; }
+                  if (ach === '"') { inArrStr = !inArrStr; continue; }
+                  if (!inArrStr) {
+                    if (ach === '[') { arrDepth++; hasOpenedArr = true; }
+                    else if (ach === ']') {
+                      arrDepth--;
+                      if (hasOpenedArr && arrDepth === 0) {
+                        decoded = trimmed.slice(0, ai + 1);
+                        shouldStop = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+              } else if (trimmed.startsWith('{')) {
+                var depth = 0;
+                var inStr = false;
+                var esc = false;
+                var hasBrace = false;
+                for (var ci = 0; ci < trimmed.length; ci++) {
+                  var ch = trimmed[ci];
+                  if (esc) { esc = false; continue; }
+                  if (ch === '\\') { esc = true; continue; }
+                  if (ch === '"') { inStr = !inStr; continue; }
+                  if (!inStr) {
+                    if (ch === '{') { depth++; hasBrace = true; }
+                    else if (ch === '}') {
+                      depth--;
+                      if (hasBrace && depth === 0) {
+                        decoded = trimmed.slice(0, ci + 1);
+                        shouldStop = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            // 2. Early-Stopping on explicit stop sequences
+            if (!shouldStop && stopSequences.length > 0) {
+              for (var s = 0; s < stopSequences.length; s++) {
+                var seq = stopSequences[s];
+                if (seq && decoded.indexOf(seq) !== -1) {
+                  decoded = decoded.slice(0, decoded.indexOf(seq));
+                  shouldStop = true;
+                  break;
+                }
+              }
+            }
+
             if (decoded && decoded.length > lastPartialText.length) {
               var delta = decoded.slice(lastPartialText.length);
               lastPartialText = decoded;
+              var curSpeed = firstTokenTime ? (totalTokensGenerated / Math.max(0.05, (performance.now() - firstTokenTime) / 1000)) : 0;
               postMessage({
                 type: 'generate-token',
                 requestId: requestId,
                 token: delta,
-                partialText: decoded
+                partialText: decoded,
+                tokenCount: totalTokensGenerated,
+                tokensPerSec: Math.round(curSpeed * 10) / 10
               });
+            }
+
+            if (shouldStop && Array.isArray(beams)) {
+              for (var sb = 0; sb < beams.length; sb++) {
+                beams[sb].done = true;
+              }
             }
           } catch (_) {}
         }
@@ -283,11 +393,24 @@
       }
 
       finalText = String(finalText || '').trim();
+      // generated_text excludes the prompt (and the prefill), so restore the prefill;
+      // lastPartialText fallback already includes it.
+      if (assistantPrefix && finalText.indexOf(assistantPrefix) !== 0) {
+        finalText = assistantPrefix + finalText;
+      }
+
+      var durationMs = Math.round(performance.now() - genStartTime);
+      var streamTimeSec = firstTokenTime ? Math.max(0.05, (performance.now() - firstTokenTime) / 1000) : Math.max(0.05, durationMs / 1000);
+      var finalSpeed = totalTokensGenerated > 0 ? (totalTokensGenerated / streamTimeSec) : 0;
+
       postMessage({
         type: 'generate-result',
         requestId: requestId,
         text: finalText,
-        modelId: currentModelId
+        modelId: currentModelId,
+        tokenCount: totalTokensGenerated,
+        tokensPerSec: Math.round(finalSpeed * 10) / 10,
+        durationMs: durationMs
       });
     } catch (err) {
       var errMsg = String(err && (err.message || err));

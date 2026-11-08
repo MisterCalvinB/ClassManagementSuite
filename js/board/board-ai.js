@@ -18,6 +18,149 @@
   var _isGenerating = false;
   var _contextOverride = null; // { nodeId?, noteId?, boardX?, boardY?, initialTab?, initialPreset? }
 
+  // Generation Timer & Metrics State
+  var _timerInterval = null;
+  var _genStartTime = 0;
+  var _firstTokenTime = 0;
+  var _tokenCount = 0;
+  var _targetTokenEstimate = 50;
+  var _lastMeasuredSpeed = 18.0; // tokens/sec
+  var _currentSpeed = 18.0;
+  var _estRemainingSec = 0;
+  var _elapsedSec = 0;
+  var _warmupEstimateSec = 0.8;
+  var _activeInlineStopBtn = null;
+
+  function _formatTimerDuration(totalSeconds) {
+    var s = Math.max(0, Math.floor(totalSeconds));
+    var mins = Math.floor(s / 60);
+    var secs = s % 60;
+    var mStr = mins < 10 ? ('0' + mins) : String(mins);
+    var sStr = secs < 10 ? ('0' + secs) : String(secs);
+    return mStr + ':' + sStr;
+  }
+
+  function _startGenerationTimer(targetTokens) {
+    if (_timerInterval) {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+    }
+    _genStartTime = performance.now();
+    _firstTokenTime = 0;
+    _tokenCount = 0;
+    _targetTokenEstimate = Math.max(15, targetTokens || 50);
+
+    var baseline = 18.0;
+    try {
+      var stModel = window.SlmService ? window.SlmService.getActiveModel() : '';
+      if (stModel === 'slm-fast') baseline = 22.0;
+      else if (stModel === 'slm-deep') baseline = 5.0;
+      else if (stModel === 'slm-balanced') baseline = 9.5;
+    } catch (_) {}
+
+    _currentSpeed = _lastMeasuredSpeed > 0 ? (0.6 * _lastMeasuredSpeed + 0.4 * baseline) : baseline;
+    var estTotalSec = _warmupEstimateSec + (_targetTokenEstimate / _currentSpeed);
+    _estRemainingSec = Math.max(1, Math.round(estTotalSec));
+    _elapsedSec = 0;
+
+    var bar = document.getElementById('bai-timer-bar');
+    var elapsedEl = document.getElementById('bai-timer-elapsed-val');
+    var remainEl = document.getElementById('bai-timer-remaining-val');
+    var speedEl = document.getElementById('bai-timer-speed-val');
+    var fillEl = document.getElementById('bai-progress-fill');
+
+    if (bar) bar.style.display = 'flex';
+    if (elapsedEl) elapsedEl.textContent = '00:00';
+    if (remainEl) remainEl.textContent = '~' + _estRemainingSec + 's';
+    if (speedEl) speedEl.textContent = '';
+    if (fillEl) fillEl.style.width = '3%';
+
+    _timerInterval = setInterval(_tickGenerationTimer, 100);
+  }
+
+  function _tickGenerationTimer() {
+    if (!_isGenerating || !_genStartTime) return;
+    var now = performance.now();
+    _elapsedSec = (now - _genStartTime) / 1000;
+
+    var elapsedEl = document.getElementById('bai-timer-elapsed-val');
+    var remainEl = document.getElementById('bai-timer-remaining-val');
+    var speedEl = document.getElementById('bai-timer-speed-val');
+    var fillEl = document.getElementById('bai-progress-fill');
+
+    if (elapsedEl) elapsedEl.textContent = _formatTimerDuration(_elapsedSec);
+
+    var pct = 0;
+    if (_firstTokenTime > 0) {
+      var streamSec = (now - _firstTokenTime) / 1000;
+      if (streamSec > 0.25 && _tokenCount >= 2) {
+        _currentSpeed = _tokenCount / streamSec;
+        if (speedEl) speedEl.textContent = _currentSpeed.toFixed(1) + ' tok/s';
+      }
+      var remainingTokens = Math.max(0, _targetTokenEstimate - _tokenCount);
+      _estRemainingSec = Math.max(0, Math.ceil(remainingTokens / Math.max(1, _currentSpeed)));
+      pct = Math.min(95, Math.max(12, Math.round((_tokenCount / _targetTokenEstimate) * 100)));
+    } else {
+      var warmupDuration = _warmupEstimateSec + (_targetTokenEstimate / _currentSpeed);
+      _estRemainingSec = Math.max(1, Math.ceil(warmupDuration - _elapsedSec));
+      pct = Math.min(20, Math.max(4, Math.round((_elapsedSec / warmupDuration) * 100)));
+    }
+
+    if (remainEl) {
+      remainEl.textContent = _estRemainingSec > 0 ? ('~' + _estRemainingSec + 's') : _t('boardAiAlmostDone', 'almost done…');
+    }
+    if (fillEl) fillEl.style.width = pct + '%';
+
+    if (_activeInlineStopBtn) {
+      _activeInlineStopBtn.textContent = '⏹ ' + _t('boardAiStopBtn', 'Stop') + ' (' + _formatTimerDuration(_elapsedSec) + ')';
+    }
+  }
+
+  function _onTokenProgress(token, partialText, metrics) {
+    if (!_firstTokenTime) _firstTokenTime = performance.now();
+    if (metrics && typeof metrics.tokenCount === 'number') {
+      _tokenCount = metrics.tokenCount;
+    } else {
+      _tokenCount++;
+    }
+    if (metrics && typeof metrics.tokensPerSec === 'number' && metrics.tokensPerSec > 0) {
+      _currentSpeed = metrics.tokensPerSec;
+    }
+  }
+
+  function _stopGenerationTimer(success, finalSummary) {
+    if (_timerInterval) {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
+    }
+    var bar = document.getElementById('bai-timer-bar');
+    var remainEl = document.getElementById('bai-timer-remaining-val');
+    var fillEl = document.getElementById('bai-progress-fill');
+    var speedEl = document.getElementById('bai-timer-speed-val');
+    var statusEl = document.getElementById('bai-status-text');
+
+    if (success) {
+      var totalDurationSec = ((performance.now() - (_genStartTime || performance.now())) / 1000).toFixed(1);
+      if (remainEl) remainEl.textContent = '✓ ' + totalDurationSec + 's';
+      if (fillEl) fillEl.style.width = '100%';
+      if (_firstTokenTime && _tokenCount >= 2) {
+        var streamSec = (performance.now() - _firstTokenTime) / 1000;
+        _lastMeasuredSpeed = _tokenCount / Math.max(0.1, streamSec);
+        if (speedEl) speedEl.textContent = _lastMeasuredSpeed.toFixed(1) + ' tok/s';
+      }
+      if (statusEl) {
+        statusEl.textContent = finalSummary || ('✨ ' + _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', totalDurationSec));
+      }
+      setTimeout(function () {
+        if (!_isGenerating && bar) {
+          bar.style.display = 'none';
+        }
+      }, 3500);
+    } else {
+      if (bar) bar.style.display = 'none';
+    }
+  }
+
   function _t(key, fallback) {
     if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function') {
       var val = window.i18n.t(key);
@@ -550,6 +693,64 @@
         '}',
         '.bai-btn-primary { background: #e2c96e; }',
         '.bai-btn-danger { background: #c96b6b; color: #ffffff; }',
+        '.bai-timer-bar {',
+        '  padding: 7px 12px;',
+        '  background: #ffffff;',
+        '  border-top: 1.5px solid #333333;',
+        '  display: flex;',
+        '  flex-direction: column;',
+        '  gap: 5px;',
+        '}',
+        '.bai-timer-info {',
+        '  display: flex;',
+        '  align-items: center;',
+        '  justify-content: space-between;',
+        '  gap: 8px;',
+        '  font-size: 0.72rem;',
+        '  font-weight: 700;',
+        '  color: #333333;',
+        '}',
+        '.bai-timer-chips {',
+        '  display: inline-flex;',
+        '  align-items: center;',
+        '  gap: 5px;',
+        '}',
+        '.bai-timer-chip {',
+        '  display: inline-flex;',
+        '  align-items: center;',
+        '  gap: 4px;',
+        '  padding: 2px 7px;',
+        '  background: #f5f5f0;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 4px;',
+        '  box-shadow: 1px 1px 0 #555555;',
+        '  font-family: "JetBrains Mono", "Courier New", monospace, sans-serif;',
+        '  font-size: 0.70rem;',
+        '  font-weight: 800;',
+        '  color: #1e1e1e;',
+        '}',
+        '.bai-timer-chip.bai-timer-elapsed { background: #ffffff; }',
+        '.bai-timer-chip.bai-timer-remaining { background: #fef9c3; border-color: #333333; }',
+        '.bai-timer-speed {',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  color: #555555;',
+        '  font-family: "JetBrains Mono", "Courier New", monospace, sans-serif;',
+        '}',
+        '.bai-progress-track {',
+        '  width: 100%;',
+        '  height: 6px;',
+        '  background: #eaeae4;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 3px;',
+        '  overflow: hidden;',
+        '}',
+        '.bai-progress-fill {',
+        '  height: 100%;',
+        '  background: #5b8fcc;',
+        '  width: 0%;',
+        '  transition: width 0.15s ease;',
+        '}',
         '.wn-ai-stop-btn {',
         '  position: absolute;',
         '  top: -28px;',
@@ -674,6 +875,24 @@
       '    <input type="checkbox" id="bai-ground-checkbox" checked />',
       '  </label>',
       '</div>',
+      '<div class="bai-timer-bar" id="bai-timer-bar" style="display:none;">',
+      '  <div class="bai-timer-info">',
+      '    <div class="bai-timer-chips">',
+      '      <span class="bai-timer-chip bai-timer-elapsed" title="' + _escapeHtml(_t('boardAiElapsed', 'Elapsed:')) + '">',
+      '        <span class="bai-timer-label">⏱</span>',
+      '        <span id="bai-timer-elapsed-val">00:00</span>',
+      '      </span>',
+      '      <span class="bai-timer-chip bai-timer-remaining" title="' + _escapeHtml(_t('boardAiEstRemaining', 'Est. remaining:')) + '">',
+      '        <span class="bai-timer-label">⏳</span>',
+      '        <span id="bai-timer-remaining-val">~4s</span>',
+      '      </span>',
+      '    </div>',
+      '    <span class="bai-timer-speed" id="bai-timer-speed-val"></span>',
+      '  </div>',
+      '  <div class="bai-progress-track">',
+      '    <div class="bai-progress-fill" id="bai-progress-fill"></div>',
+      '  </div>',
+      '</div>',
       '<div class="bai-footer">',
       '  <div class="bai-status-text" id="bai-status-text">' + _escapeHtml(_t('slmStatusReady', 'AI Ready')) + '</div>',
       '  <div style="display:flex;align-items:center;gap:6px;">',
@@ -750,6 +969,7 @@
 
     document.getElementById('bai-stop-btn').addEventListener('click', function () {
       if (window.SlmService) window.SlmService.abort();
+      _stopGenerationTimer(false);
       _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
     });
 
@@ -1020,35 +1240,32 @@
 
     var keywords = [];
     var nodeDescriptions = [];
-    sel.nodes.forEach(function (n) {
+    sel.nodes.slice(0, 6).forEach(function (n) {
       var w = (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
       if (!w) return;
       keywords.push(w);
       var dbEntry = (typeof window.conFindDbEntry === 'function') ? window.conFindDbEntry(w) : null;
-      var def = (dbEntry && (dbEntry.definition || dbEntry.def)) || n.aiDef || '';
-      if (Array.isArray(def)) def = def[0] || '';
       var pos = (dbEntry && (dbEntry.partOfSpeech || dbEntry.pos)) || n.aiPos || '';
       if (Array.isArray(pos)) pos = pos.join('/');
       var desc = w;
       if (pos) desc += ' (' + pos + ')';
-      if (def) desc += ': ' + String(def).slice(0, 90);
       nodeDescriptions.push(desc);
     });
 
     var noteTexts = [];
-    sel.notes.forEach(function (nt) {
+    sel.notes.slice(0, 3).forEach(function (nt) {
       var raw = (nt.text || _stripHtml(nt.html) || '').trim();
       if (!raw) return;
-      noteTexts.push(raw.slice(0, 500));
+      noteTexts.push(raw.slice(0, 140));
       raw.split(/\W+/).forEach(function (tok) {
-        if (tok.length >= 4 && keywords.length < 15) keywords.push(tok);
+        if (tok.length >= 4 && keywords.length < 12) keywords.push(tok);
       });
     });
 
     if (topicVal) keywords.push(topicVal);
 
     var edgeDescriptions = [];
-    sel.edges.forEach(function (e) {
+    sel.edges.slice(0, 6).forEach(function (e) {
       var findLabel = function (id) {
         var nd = sel.nodes.find(function (x) { return String(x.id) === String(id); });
         if (nd) return (nd.baseWord || '').trim();
@@ -1066,7 +1283,7 @@
     var groundedExcerpt = '';
     var refInfo = _getLoadedReferenceText();
     if (_groundInText && refInfo.hasText) {
-      groundedExcerpt = _extractRelevantExcerpts(refInfo.fullText, keywords, 600);
+      groundedExcerpt = _extractRelevantExcerpts(refInfo.fullText, keywords, 260);
     }
 
     var lines = [];
@@ -1153,37 +1370,45 @@
     var count = Math.max(2, Math.min(8, _nodeCount || 4));
     var taskDesc = '';
     if (_expandPreset === 'lexical') {
-      taskDesc = 'Generate exactly ' + count + ' rich vocabulary words, collocations, synonyms, or idiomatic expressions closely linked to the context.';
+      taskDesc = 'Generate exactly ' + count + ' domain-specific terms, active collocations, or topical expressions associated with the context. CRITICAL: Do NOT output direct synonyms; provide rich thematic vocabulary and collocations.';
     } else if (_expandPreset === 'extract') {
-      taskDesc = 'Extract the ' + count + ' most important key terms, themes, or concepts from the provided note/text.';
+      taskDesc = 'Extract the ' + count + ' most important distinct thematic concepts, motifs, or core ideas from the provided note/text. Do NOT repeat words already selected or direct synonyms.';
     } else if (_expandPreset === 'bridge') {
-      taskDesc = 'Generate ' + count + ' bridging concepts, thematic links, or synthesis nodes that connect the selected nodes/ideas together.';
+      taskDesc = 'Generate ' + count + ' distinct bridging concepts, synthesis themes, or connecting ideas that link the selected nodes together.';
     } else {
-      taskDesc = 'Generate ' + count + ' insightful related concepts, sub-themes, or analytical ideas that expand the mind map.';
+      taskDesc = 'Generate exactly ' + count + ' multidimensional concepts, sub-themes, and contextual associations that branch off the mind map into different angles (e.g. causes, consequences, real-world manifestations, psychological dimensions, or societal impacts). CRITICAL NEGATIVE RULE: NEVER generate direct synonyms, dictionary paraphrases, or alternative words for the selected concept (e.g. if the concept is "Car", do NOT output "Automobile" or "Vehicle"; instead branch into "Traffic", "Fuel Economy", "Assembly Line", or "Carbon Footprint").';
     }
 
     var systemPrompt = [
-      'You are an expert language and literature teacher assistant building a classroom mind map.',
-      'Return ONLY a valid JSON array of objects. Do not include markdown prose or explanations.',
-      'Each object MUST have these exact keys:',
-      '{"word": "concise node label (1-3 words)", "relation": "short link label (1-2 words, e.g. theme, cause, synonym, symbol)", "pos": "noun|verb|adj|adv|phrase", "def": "concise 1-sentence pedagogical definition"}'
-      'Respond ONLY with a valid JSON array of ' + count + ' objects. No markdown prose or conversational introduction.',
-      'Example valid output format:',
-      '[',
-      '  {"word": "Metaphor", "relation": "symbol", "pos": "noun", "def": "A figure of speech comparing two things without like or as."}',
-      ']'
-    ].join('\n');
+      'You are an expert pedagogical mind-mapping assistant.',
+      'Respond ONLY with a flat JSON array of ' + count + ' objects: [{"word":"...","relation":"..."}].',
+      'CRITICAL NEGATIVE CONSTRAINT: NEVER generate direct synonyms, mere rewordings, or alternative dictionary labels of the input concept.',
+      'Every concept MUST explore a distinct semantic dimension: sub-theme, cause, consequence, real-world application, or thematic contrast.',
+      'Do NOT nest objects or arrays. No prose.'
+    ].join(' ');
 
-    var userPrompt = ctx.contextBlock + '\n\nTask: ' + taskDesc + '\nReturn ONLY a JSON array of ' + count + ' items:';
+    var fewShotUser = 'Topic: Democracy\nTask: Generate 3 distinct related concepts (NO synonyms).\nOutput ONLY the JSON array:';
+    var fewShotAssistant = '[{"word":"Elections","relation":"mechanism"},{"word":"Constitution","relation":"framework"},{"word":"Civil Rights","relation":"protection"}]';
+
     var userPrompt = ctx.contextBlock + '\n\nTask: ' + taskDesc + '\nOutput ONLY the JSON array of ' + count + ' items:';
 
+    var messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: fewShotUser },
+      { role: 'assistant', content: fewShotAssistant },
+      { role: 'user', content: userPrompt }
+    ];
+
+    var targetTokens = Math.min(110, 11 * count + 16);
+    _startGenerationTimer(targetTokens);
     _setGeneratingState(true, _t('slmStatusWarmingUp', 'Warming up AI model…'));
+
     var unsub = window.SlmService.onStatusChange(function (evt) {
       if (!_isGenerating || !evt) return;
-      if (evt.status === 'loading') {
+      if (evt.state === 'loading' || evt.status === 'loading') {
         var pct = typeof evt.progress === 'number' ? (' ' + Math.round(evt.progress) + '%') : '';
         _setGeneratingState(true, _t('slmStatusWarmingUp', 'Warming up AI model…') + pct);
-      } else if (evt.status === 'generating') {
+      } else if (evt.state === 'generating' || evt.status === 'generating') {
         _setGeneratingState(true, _t('slmStatusGenerating', 'Generating…'));
       }
     });
@@ -1191,13 +1416,19 @@
     try {
       _setGeneratingState(true, _t('slmStatusGenerating', 'Generating…'));
       var jsonRes = await window.SlmService.generateJson({
+        messages: messages,
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
-        temperature: 0.35,
-        maxNewTokens: 320,
-        temperature: 0.25,
-        maxNewTokens: 512,
-        promptDownloadIfMissing: false
+        temperature: 0.45,
+        doSample: true,
+        repetitionPenalty: 1.2,
+        stopOnJsonComplete: true,
+        maxNewTokens: Math.min(150, 16 * count + 24),
+        assistantPrefix: '[{"word":"',
+        promptDownloadIfMissing: false,
+        onToken: function (delta, partialText, metrics) {
+          _onTokenProgress(delta, partialText, metrics);
+        }
       });
 
       if (jsonRes && jsonRes.aborted) {
@@ -1219,16 +1450,22 @@
         throw new Error('Could not parse generated nodes.');
       }
 
+      var existingWords = new Set(
+        sel.nodes.map(function (n) { return (n.baseWord || '').toLowerCase().trim(); })
+      );
+      if (ctx.topicVal) existingWords.add(ctx.topicVal.toLowerCase().trim());
+
       // Filter valid items
       var validItems = items
         .map(function (it) {
           if (!it || typeof it !== 'object') return null;
-          var w = String(it.word || it.term || it.label || it.concept || '').trim();
+          var w = String(it.word || it.term || it.label || it.concept || it.substitute || it.name || (Array.isArray(it.words) ? it.words[0] : '') || '').trim();
           if (!w) return null;
+          if (existingWords.has(w.toLowerCase())) return null;
           return {
             word: w.slice(0, 48),
-            relation: String(it.relation || it.link || it.type || '').trim().slice(0, 24),
-            pos: String(it.pos || it.partOfSpeech || '').trim().slice(0, 20),
+            relation: String(it.relation || it.link || it.type || 'related').trim().slice(0, 24),
+            pos: String(it.pos || it.partOfSpeech || 'noun').trim().slice(0, 20),
             def: String(it.def || it.definition || '').trim().slice(0, 180)
           };
         })
@@ -1321,12 +1558,17 @@
         window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
       }
 
+      var successMsg = '✨ ' + _t('boardAiToastNodesAdded', 'Added {count} AI nodes to the board.').replace('{count}', spawnedIds.length);
       if (typeof window.mdbToast === 'function') {
-        window.mdbToast('✨ ' + _t('boardAiToastNodesAdded', 'Added {count} AI nodes to the board.').replace('{count}', spawnedIds.length));
+        window.mdbToast(successMsg);
       }
-      _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
-      boardAiClosePopover();
+      _stopGenerationTimer(true, successMsg);
+      _setGeneratingState(false);
+      setTimeout(function () {
+        if (!_isGenerating) boardAiClosePopover();
+      }, 1200);
     } catch (err) {
+      _stopGenerationTimer(false);
       if (err && err.name === 'AbortError') {
         _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
         return;
@@ -1380,6 +1622,23 @@
 
     var userPrompt = ctx.contextBlock + '\n\nTask: ' + taskInstruction;
 
+    var targetTokens = 85;
+    var maxTokens = 120;
+    if (_writePreset === 'paragraph') {
+      targetTokens = 120;
+      maxTokens = 155;
+    } else if (_writePreset === 'gapfill') {
+      targetTokens = 140;
+      maxTokens = 175;
+    } else if (_writePreset === 'questions') {
+      targetTokens = 90;
+      maxTokens = 125;
+    } else if (_writePreset === 'analysis') {
+      targetTokens = 135;
+      maxTokens = 175;
+    }
+
+    _startGenerationTimer(targetTokens);
     _setGeneratingState(true, _t('slmStatusWarmingUp', 'Warming up AI model…'));
 
     // Single undo step before creating/editing note
@@ -1426,16 +1685,18 @@
       inlineStopBtn = document.createElement('button');
       inlineStopBtn.type = 'button';
       inlineStopBtn.className = 'wn-ai-stop-btn';
-      inlineStopBtn.textContent = '⏹ ' + _t('boardAiStopBtn', 'Stop');
+      inlineStopBtn.textContent = '⏹ ' + _t('boardAiStopBtn', 'Stop') + ' (00:00)';
       inlineStopBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         if (window.SlmService) window.SlmService.abort();
+        _stopGenerationTimer(false);
+        _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
       });
       noteEl.appendChild(inlineStopBtn);
+      _activeInlineStopBtn = inlineStopBtn;
     }
 
-    // Close popover so teacher sees live streaming directly on the canvas
-    boardAiClosePopover();
+    // Keep popover visible so teacher sees real-time elapsed timer, estimated remaining time, and tok/s speed
 
     // 60fps rAF-throttled in-place DOM & Mirror update (smooth-dom-sync)
     var latestFullText = initialPrefixText;
@@ -1473,10 +1734,11 @@
       var streamRes = await window.SlmService.generateText({
         systemPrompt: systemPrompt,
         userPrompt: userPrompt,
-        temperature: 0.45,
-        maxNewTokens: 380,
+        temperature: 0.35,
+        maxNewTokens: maxTokens,
         promptDownloadIfMissing: false,
-        onToken: function (_delta, fullSoFar) {
+        onToken: function (delta, fullSoFar, metrics) {
+          _onTokenProgress(delta, fullSoFar, metrics);
           latestFullText = initialPrefixText + String(fullSoFar || '').trimStart();
           if (!rafPending) {
             rafPending = true;
@@ -1497,21 +1759,32 @@
       if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
         window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
       }
+
+      var finalDuration = _elapsedSec.toFixed(1);
+      _stopGenerationTimer(true, '✨ ' + _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', finalDuration));
+      _setGeneratingState(false);
+      setTimeout(function () {
+        if (!_isGenerating) boardAiClosePopover();
+      }, 2400);
     } catch (err) {
+      _stopGenerationTimer(false);
       if (err && err.name === 'AbortError') {
         flushStreamToNote();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
       } else {
         console.warn('[Board AI] Stream text error:', err);
+        _setGeneratingState(false, _t('boardAiErrorGen', 'Generation failed — try again'));
         if (typeof window.mdbToast === 'function') {
           window.mdbToast('⚠️ ' + (err && err.message ? err.message : 'AI generation failed'));
         }
       }
     } finally {
+      _activeInlineStopBtn = null;
       if (inlineStopBtn && inlineStopBtn.parentNode) {
         inlineStopBtn.parentNode.removeChild(inlineStopBtn);
       }
-      _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
+      _setGeneratingState(false);
     }
   }
 

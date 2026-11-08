@@ -2971,7 +2971,7 @@
         navTo('constellation-section');
         setTimeout(function () {
           Tutorial.start([
-            { selector: '#constellation-section .board-section-tabs', title: t('tutBd1Title'), text: t('tutBd1Text') },
+            { selector: '#app-nav-board-tabs', title: t('tutBd1Title'), text: t('tutBd1Text') },
             { selector: '#con-tb-file', title: t('tutBd2Title'), text: t('tutBd2Text') },
             { selector: '#con-tb-board', title: t('tutBd3Title'), text: t('tutBd3Text') },
             { selector: '#con-tb-draw', title: t('tutBd4Title'), text: t('tutBd4Text') },
@@ -3004,7 +3004,7 @@
 
       var launch = function () {
         Tutorial.start([
-          { selector: '#constellation-section .board-section-tabs', title: t('tutBd1Title'), text: t('tutBd1Text') },
+          { selector: '#app-nav-board-tabs', title: t('tutBd1Title'), text: t('tutBd1Text') },
           { selector: '#con-tb-file', title: t('tutBd2Title'), text: t('tutBd2Text') },
           { selector: '#con-tb-board', title: t('tutBd3Title'), text: t('tutBd3Text') },
           { selector: '#con-tb-draw', title: t('tutBd4Title'), text: t('tutBd4Text') },

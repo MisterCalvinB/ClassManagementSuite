@@ -12796,9 +12796,29 @@
         function mod(id, type, val) {
             const group = studentGroups[selectedGroupName];
             const student = group.find(s => s.id === id);
+            if (!student) return;
 
-            if (type === 'p') student.pluses = Math.max(0, (student.pluses || 0) + val);
-            else student.minuses = Math.max(0, (student.minuses || 0) + val);
+            const now = new Date();
+            const bTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const bTimestamp = now.toISOString();
+
+            if (type === 'p') {
+                student.pluses = Math.max(0, (student.pluses || 0) + val);
+                if (!student.plusHistory) student.plusHistory = [];
+                if (val > 0) {
+                    for (let i = 0; i < val; i++) student.plusHistory.push({ time: bTime, timestamp: bTimestamp });
+                } else {
+                    for (let i = 0; i < Math.abs(val); i++) student.plusHistory.pop();
+                }
+            } else {
+                student.minuses = Math.max(0, (student.minuses || 0) + val);
+                if (!student.minusHistory) student.minusHistory = [];
+                if (val > 0) {
+                    for (let i = 0; i < val; i++) student.minusHistory.push({ time: bTime, timestamp: bTimestamp });
+                } else {
+                    for (let i = 0; i < Math.abs(val); i++) student.minusHistory.pop();
+                }
+            }
 
             if (val > 0) {
                 const modIcon = type === 'p' ? '+' : '-';
@@ -12815,9 +12835,9 @@
 
             // Log to history
             if (val > 0) {
-                logHistory(type === 'p' ? 'plus' : 'minus', student.name, type === 'p' ? '+1 point' : '-1 point', { studentId: student.id, value: type === 'p' ? 1 : -1 });
+                logHistory(type === 'p' ? 'plus' : 'minus', student.name, type === 'p' ? '+1 point' : '-1 point', { studentId: student.id, value: type === 'p' ? 1 : -1, time: bTime, timestamp: bTimestamp });
             } else {
-                logHistory('remove', student.name, type === 'p' ? 'corrected +1' : 'corrected -1', { studentId: student.id, value: type === 'p' ? -1 : 1 });
+                logHistory('remove', student.name, type === 'p' ? 'corrected +1' : 'corrected -1', { studentId: student.id, value: type === 'p' ? -1 : 1, time: bTime, timestamp: bTimestamp });
             }
 
             renderRoster();
@@ -12830,13 +12850,31 @@
         // New Function for Team-Wide Scoring
         function modTeam(teamId, type, val, studentId) {
             const group = studentGroups[selectedGroupName];
+            const now = new Date();
+            const bTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const bTimestamp = now.toISOString();
 
             if (teamId === null || teamId === undefined || teamId === 'null') {
                 const student = group.find(s => s.id === studentId);
                 if (student) {
-                    if (type === 'p') student.teamPluses = Math.max(0, (student.teamPluses || 0) + val);
-                    else student.teamMinuses = Math.max(0, (student.teamMinuses || 0) + val);
-                    logHistory('remove', student.name, type === 'p' ? 'corrected team +1' : 'corrected team -1', { studentId: student.id, value: type === 'p' ? -1 : 1 });
+                    if (type === 'p') {
+                        student.teamPluses = Math.max(0, (student.teamPluses || 0) + val);
+                        if (!student.teamPlusHistory) student.teamPlusHistory = [];
+                        if (val > 0) {
+                            for (let i = 0; i < val; i++) student.teamPlusHistory.push({ time: bTime, timestamp: bTimestamp });
+                        } else {
+                            for (let i = 0; i < Math.abs(val); i++) student.teamPlusHistory.pop();
+                        }
+                    } else {
+                        student.teamMinuses = Math.max(0, (student.teamMinuses || 0) + val);
+                        if (!student.teamMinusHistory) student.teamMinusHistory = [];
+                        if (val > 0) {
+                            for (let i = 0; i < val; i++) student.teamMinusHistory.push({ time: bTime, timestamp: bTimestamp });
+                        } else {
+                            for (let i = 0; i < Math.abs(val); i++) student.teamMinusHistory.pop();
+                        }
+                    }
+                    logHistory('remove', student.name, type === 'p' ? 'corrected team +1' : 'corrected team -1', { studentId: student.id, value: type === 'p' ? -1 : 1, time: bTime, timestamp: bTimestamp });
                 }
                 renderRoster();
                 renderRanking();
@@ -12848,8 +12886,23 @@
             const targets = group.filter(s => s.teamId === teamId);
 
             targets.forEach(s => {
-                if (type === 'p') s.teamPluses = Math.max(0, (s.teamPluses || 0) + val);
-                else s.teamMinuses = Math.max(0, (s.teamMinuses || 0) + val);
+                if (type === 'p') {
+                    s.teamPluses = Math.max(0, (s.teamPluses || 0) + val);
+                    if (!s.teamPlusHistory) s.teamPlusHistory = [];
+                    if (val > 0) {
+                        for (let i = 0; i < val; i++) s.teamPlusHistory.push({ time: bTime, timestamp: bTimestamp, teamId });
+                    } else {
+                        for (let i = 0; i < Math.abs(val); i++) s.teamPlusHistory.pop();
+                    }
+                } else {
+                    s.teamMinuses = Math.max(0, (s.teamMinuses || 0) + val);
+                    if (!s.teamMinusHistory) s.teamMinusHistory = [];
+                    if (val > 0) {
+                        for (let i = 0; i < val; i++) s.teamMinusHistory.push({ time: bTime, timestamp: bTimestamp, teamId });
+                    } else {
+                        for (let i = 0; i < Math.abs(val); i++) s.teamMinusHistory.pop();
+                    }
+                }
             });
 
             // Play score sound + flash feedback
@@ -12863,7 +12916,11 @@
             const tColor = teamColors[teamIndex];
             if (!tColor) return;
             const tName = tColor.customName || tColor.name + ' Team';
-            logHistory(type === 'p' ? 'team-plus' : 'team-minus', tName, (type === 'p' ? 't+1' : 't-1') + ' to whole team', { teamId: teamId, value: type === 'p' ? 1 : -1 });
+            if (val > 0) {
+                logHistory(type === 'p' ? 'team-plus' : 'team-minus', tName, (type === 'p' ? 't+1' : 't-1') + ' to whole team', { teamId: teamId, value: type === 'p' ? 1 : -1, time: bTime, timestamp: bTimestamp });
+            } else {
+                logHistory('remove', tName, type === 'p' ? 'corrected team +1' : 'corrected team -1', { teamId: teamId, value: type === 'p' ? -1 : 1, time: bTime, timestamp: bTimestamp });
+            }
 
             renderRoster();
             renderRanking();
@@ -12995,7 +13052,10 @@
 
         function manualResetFull() {
             showConfirm("Wipe points?", function () {
-                studentGroups[selectedGroupName].forEach(s => { s.pluses = 0; s.minuses = 0; s.teamPluses = 0; s.teamMinuses = 0; s.badges = []; });
+                studentGroups[selectedGroupName].forEach(s => {
+                    s.pluses = 0; s.minuses = 0; s.teamPluses = 0; s.teamMinuses = 0; s.badges = [];
+                    s.plusHistory = []; s.minusHistory = []; s.teamPlusHistory = []; s.teamMinusHistory = [];
+                });
                 renderRoster();
                 renderRanking();
                 if (typeof autosaveToDb === 'function') autosaveToDb('reset-points');
@@ -16700,7 +16760,9 @@ syncState();
                 badgeLabel: label,
                 targetType: targetType,
                 targetId: targetId,
-                studentId: targetType === 'individual' ? validStudents[0]?.id : undefined
+                studentId: targetType === 'individual' ? validStudents[0]?.id : undefined,
+                time: bTime,
+                timestamp: bTimestamp
             });
 
             renderRoster();
@@ -16717,18 +16779,22 @@ syncState();
             const idx = student.badges.findIndex(b => b.icon === icon);
             if (idx === -1) return;
             const removed = student.badges.splice(idx, 1)[0];
+            const now = new Date();
+            const bTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const bTimestamp = now.toISOString();
             // Diamond removal undoes the +1 point
             if (icon === '💎') {
                 student.pluses = Math.max(0, (student.pluses || 0) - 1);
+                if (student.plusHistory && student.plusHistory.length) student.plusHistory.pop();
             }
             if (icon === 'RV' && !student.badges.some(b => b.icon === 'RV')) {
                 student.isAbsent = false;
-                logHistory('attendance', student.name, 'Marked present (RV badge removed)', { studentId: student.id, isAbsent: false });
+                logHistory('attendance', student.name, 'Marked present (RV badge removed)', { studentId: student.id, isAbsent: false, time: bTime, timestamp: bTimestamp });
                 if (typeof cmsSyncStudentAbsenceToGradeSheet === 'function') {
                     cmsSyncStudentAbsenceToGradeSheet(student, false);
                 }
             }
-            logHistory('remove', student.name, (removed?.label ? removed.label + ' ' : '') + 'badge (' + icon + ')');
+            logHistory('remove', student.name, (removed?.label ? removed.label + ' ' : '') + 'badge (' + icon + ')', { badgeIcon: icon, studentId: student.id, time: bTime, timestamp: bTimestamp });
             renderRoster();
             renderRanking();
             if (typeof autosaveToDb === 'function') autosaveToDb('badge-remove');
@@ -16878,8 +16944,8 @@ syncState();
 
         function logHistory(type, studentName, detail, meta) {
             const now = new Date();
-            const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            const timestamp = now.toISOString();
+            const time = (meta && meta.time) ? meta.time : now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const timestamp = (meta && meta.timestamp) ? meta.timestamp : now.toISOString();
             const entry = { type: type, studentName: studentName, detail: detail, time: time, timestamp: timestamp, group: selectedGroupName };
             if (meta && typeof meta === 'object') {
                 entry.meta = meta;
@@ -19916,6 +19982,10 @@ syncState();
                             dst.teamPluses = src.teamPluses || 0;
                             dst.teamMinuses = src.teamMinuses || 0;
                             dst.badges = src.badges ? JSON.parse(JSON.stringify(src.badges)) : [];
+                            dst.plusHistory = src.plusHistory ? JSON.parse(JSON.stringify(src.plusHistory)) : [];
+                            dst.minusHistory = src.minusHistory ? JSON.parse(JSON.stringify(src.minusHistory)) : [];
+                            dst.teamPlusHistory = src.teamPlusHistory ? JSON.parse(JSON.stringify(src.teamPlusHistory)) : [];
+                            dst.teamMinusHistory = src.teamMinusHistory ? JSON.parse(JSON.stringify(src.teamMinusHistory)) : [];
                         });
                     });
 

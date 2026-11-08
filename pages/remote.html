@@ -359,8 +359,18 @@
 
     // Optimistic local update
     if (extra.action === 'score') {
-      if (extra.delta > 0) student.pluses  = (student.pluses  || 0) + 1;
-      else                 student.minuses = (student.minuses || 0) + 1;
+      const now = new Date();
+      const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const timestamp = now.toISOString();
+      if (extra.delta > 0) {
+        student.pluses = (student.pluses || 0) + 1;
+        if (!student.plusHistory) student.plusHistory = [];
+        student.plusHistory.push({ time, timestamp });
+      } else {
+        student.minuses = (student.minuses || 0) + 1;
+        if (!student.minusHistory) student.minusHistory = [];
+        student.minusHistory.push({ time, timestamp });
+      }
       renderStudents();
       showToast(extra.delta > 0 ? '✓ +1 for ' + student.name : '✓ −1 for ' + student.name);
     } else if (extra.action === 'badge_add') {

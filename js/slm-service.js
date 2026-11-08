@@ -92,9 +92,19 @@
           var req = pendingRequests[data.requestId];
           if (req && typeof req.onToken === 'function') {
             try {
-              req.onToken(data.token, data.partialText);
+              req.onToken(data.token, data.partialText, {
+                tokenCount: data.tokenCount || 0,
+                tokensPerSec: data.tokensPerSec || 0
+              });
             } catch (_) {}
           }
+          _notifyStatus({
+            state: 'generating',
+            modelId: activeModelId,
+            requestId: data.requestId,
+            tokenCount: data.tokenCount,
+            tokensPerSec: data.tokensPerSec
+          });
         } else if (data.type === 'generate-result') {
           var doneReq = pendingRequests[data.requestId];
           if (doneReq) {
@@ -103,7 +113,10 @@
               ok: true,
               text: data.text || '',
               modelId: data.modelId || activeModelId,
-              aborted: false
+              aborted: false,
+              tokenCount: data.tokenCount || 0,
+              tokensPerSec: data.tokensPerSec || 0,
+              durationMs: data.durationMs || 0
             });
           }
           _notifyStatus({ state: 'ready', modelId: activeModelId });
@@ -347,7 +360,10 @@
           temperature: typeof options.temperature === 'number' ? options.temperature : 0.35,
           doSample: options.doSample,
           topK: options.topK || 40,
-          repetitionPenalty: options.repetitionPenalty || 1.1
+          repetitionPenalty: options.repetitionPenalty || 1.1,
+          assistantPrefix: options.assistantPrefix || '',
+          stopOnJsonComplete: Boolean(options.stopOnJsonComplete),
+          stopSequences: Array.isArray(options.stopSequences) ? options.stopSequences : null
         });
       });
     })();
@@ -465,6 +481,98 @@
       } catch (_) {}
     }
 
+    // 3b. Robust Item-by-Item JSON Object Extraction from Array
+    var recoveredList = [];
+    var seenWords = new Set();
+    var objMatches = cleaned.match(/\{[^{}]*\}/g);
+    if (objMatches && objMatches.length > 0) {
+      for (var om = 0; om < objMatches.length; om++) {
+        var objStr = objMatches[om];
+        objStr = objStr.replace(/,\s*\}/g, '}');
+        objStr = objStr.replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":');
+        objStr = objStr.replace(/'([^'\\]*(?:\\.[^'\\]*)*)'/g, '"$1"');
+        try {
+          var parsedObj = JSON.parse(objStr);
+          if (parsedObj && typeof parsedObj === 'object') {
+            var wVal = parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.substitute || parsedObj.name || '';
+            if (Array.isArray(wVal)) wVal = wVal[0] || '';
+            if (typeof wVal === 'string' && wVal.trim()) {
+              var cleanW = wVal.trim();
+              var wKey = cleanW.toLowerCase();
+              if (!seenWords.has(wKey)) {
+                seenWords.add(wKey);
+                recoveredList.push({
+                  word: cleanW,
+                  relation: String(parsedObj.relation || parsedObj.link || parsedObj.type || 'related').trim(),
+                  pos: String(parsedObj.pos || parsedObj.partOfSpeech || 'noun').trim(),
+                  def: String(parsedObj.def || parsedObj.definition || '').trim()
+                });
+              }
+            }
+            // Also unpack nested array lists if model put words into an array property
+            ['words', 'substitutes', 'terms', 'concepts', 'items'].forEach(function (prop) {
+              if (Array.isArray(parsedObj[prop])) {
+                parsedObj[prop].forEach(function (subW) {
+                  if (typeof subW === 'string' && subW.trim()) {
+                    var sw = subW.trim();
+                    var swKey = sw.toLowerCase();
+                    if (!seenWords.has(swKey)) {
+                      seenWords.add(swKey);
+                      recoveredList.push({
+                        word: sw,
+                        relation: 'related',
+                        pos: 'noun',
+                        def: ''
+                      });
+                    }
+                  }
+                });
+              }
+            });
+          }
+        } catch (_) {}
+      }
+    }
+
+    // 3c. Direct Regex scan for word keys and array lists in malformed JSON
+    var wordRegex = /"(?:word|words|substitute|substitutes|term|concept|label|name)"\s*:\s*(?:\[([^\]]+)\]|"([^"]+)")/gi;
+    var wMatch;
+    while ((wMatch = wordRegex.exec(cleaned)) !== null) {
+      if (wMatch[2]) {
+        var foundWord = wMatch[2].trim();
+        var lowerWord = foundWord.toLowerCase();
+        if (foundWord.length >= 2 && !seenWords.has(lowerWord)) {
+          seenWords.add(lowerWord);
+          recoveredList.push({
+            word: foundWord,
+            relation: 'related',
+            pos: 'noun',
+            def: ''
+          });
+        }
+      } else if (wMatch[1]) {
+        var innerArr = wMatch[1];
+        var innerRegex = /"([^"]+)"/g;
+        var inMatch;
+        while ((inMatch = innerRegex.exec(innerArr)) !== null) {
+          var strItem = inMatch[1].trim();
+          var lowerItem = strItem.toLowerCase();
+          if (strItem.length >= 2 && !seenWords.has(lowerItem)) {
+            seenWords.add(lowerItem);
+            recoveredList.push({
+              word: strItem,
+              relation: 'related',
+              pos: 'noun',
+              def: ''
+            });
+          }
+        }
+      }
+    }
+    if (recoveredList.length > 0) {
+      return recoveredList;
+    }
+
     // 4. Line-based / bullet-point fallback parsing if model output prose list instead of JSON
     var lines = rawText.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
     var fallbackItems = [];
@@ -479,10 +587,16 @@
         if (k === 'word' || k === 'term' || k === 'concept' || k === 'label') {
           if (currentItem && currentItem.word) fallbackItems.push(currentItem);
           currentItem = { word: v, relation: 'related', pos: 'noun', def: '' };
-        } else if (currentItem) {
-          if (k === 'relation' || k === 'link' || k === 'type') currentItem.relation = v;
-          else if (k === 'pos' || k === 'partofspeech') currentItem.pos = v;
-          else if (k === 'def' || k === 'definition') currentItem.def = v;
+        } else if (k === 'relation' || k === 'link' || k === 'type') {
+          if (currentItem) currentItem.relation = v;
+        } else if (k === 'pos' || k === 'partofspeech') {
+          if (currentItem) currentItem.pos = v;
+        } else if (k === 'def' || k === 'definition') {
+          if (currentItem) currentItem.def = v;
+        } else {
+          // The key itself is the word! e.g. "Metaphor: A figure of speech"
+          if (currentItem && currentItem.word) fallbackItems.push(currentItem);
+          currentItem = { word: kvMatch[1].trim(), relation: 'related', pos: 'noun', def: v };
         }
       } else {
         // Matches "1. Concept (noun): Definition"
@@ -521,9 +635,13 @@
       userPrompt: options.userPrompt || options.prompt || '',
       messages: options.messages || null,
       maxNewTokens: options.maxNewTokens || 512,
-      temperature: typeof options.temperature === 'number' ? options.temperature : 0.2,
+      temperature: typeof options.temperature === 'number' ? options.temperature : 0.15,
+      doSample: options.doSample !== undefined ? options.doSample : false,
+      stopOnJsonComplete: options.stopOnJsonComplete !== false,
+      stopSequences: options.stopSequences || null,
       onToken: options.onToken,
       signal: options.signal,
+      assistantPrefix: options.assistantPrefix || '',
       promptDownloadIfMissing: options.promptDownloadIfMissing
     });
 

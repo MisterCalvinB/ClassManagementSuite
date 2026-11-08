@@ -1238,6 +1238,7 @@
         if (target && !isOpen) {
           target.style.display = 'flex';
         }
+        if (typeof window.conUpdateToolbarDropdownState === 'function') window.conUpdateToolbarDropdownState();
       };
 
       window.conDrawCloseAllMenus = function () {
@@ -1245,6 +1246,7 @@
           const el = document.getElementById(id);
           if (el) el.style.display = 'none';
         });
+        if (typeof window.conUpdateToolbarDropdownState === 'function') window.conUpdateToolbarDropdownState();
       };
 
       if (!window._conDrawMenuListenersAttached) {
@@ -1737,6 +1739,15 @@
             colorText.value = this.value.toUpperCase();
             mask.color = this.value;
             conApplyMaskStyle(mask);
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'mask-style',
+                id: mask.id,
+                color: mask.color,
+                opacity: mask.opacity
+              });
+            }
             const swatchWrap = document.getElementById('con-mask-ctx-swatches');
             if (swatchWrap) {
               swatchWrap.querySelectorAll('span').forEach(s => {
@@ -1754,6 +1765,15 @@
             this.value = hex.toUpperCase();
             mask.color = hex;
             conApplyMaskStyle(mask);
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'mask-style',
+                id: mask.id,
+                color: mask.color,
+                opacity: mask.opacity
+              });
+            }
             const swatchWrap = document.getElementById('con-mask-ctx-swatches');
             if (swatchWrap) {
               swatchWrap.querySelectorAll('span').forEach(s => {
@@ -1767,6 +1787,15 @@
             mask.opacity = Number(this.value) || 0.95;
             if (opacityVal) opacityVal.textContent = Math.round(mask.opacity * 100) + '%';
             conApplyMaskStyle(mask);
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            if (window._conMirrorSend) {
+              window._conMirrorSend({
+                type: 'mask-style',
+                id: mask.id,
+                color: mask.color,
+                opacity: mask.opacity
+              });
+            }
           };
         }
 
@@ -1787,6 +1816,7 @@
                 if (ct) ct.value = c.toUpperCase();
                 curMask.color = c;
                 conApplyMaskStyle(curMask);
+                if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
                 if (window._conMirrorSend) {
                   window._conMirrorSend({
                     type: 'mask-style',
@@ -1837,6 +1867,7 @@
 
       window.conMaskCtxClose = function () {
         _conMaskCtxId = null;
+        if (typeof window !== 'undefined') window._conMaskCtxId = null;
         const overlay = document.getElementById('con-mask-style-overlay');
         if (overlay) overlay.classList.remove('active');
       };
@@ -1850,6 +1881,7 @@
         if (colorText && /^#[0-9a-fA-F]{6}$/.test(colorText.value.trim())) mask.color = colorText.value.trim();
         if (opacityInput) mask.opacity = Number(opacityInput.value) || 0.95;
         conApplyMaskStyle(mask);
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (window._conMirrorSend) {
           window._conMirrorSend({
             type: 'mask-style',
@@ -1862,12 +1894,31 @@
 
       window.conMaskCtxDelete = function () {
         if (!_conMaskCtxId) return;
-        conPushUndo();
+        if (typeof conPushUndo === 'function') conPushUndo();
         const delId = _conMaskCtxId;
-        const mask = conGetMaskById(delId);
-        if (mask && mask.el) mask.el.remove();
-        conMasks = conMasks.filter(m => m.id !== delId);
+        const mask = (typeof conGetMaskById === 'function') ? conGetMaskById(delId) : null;
+        if (mask && mask.el && mask.el.remove) mask.el.remove();
+        const list = (typeof window.conGetMasks === 'function') ? window.conGetMasks() : (global.conMasks || conMasks);
+        for (let i = list.length - 1; i >= 0; i--) {
+          if (String(list[i].id) === String(delId)) list.splice(i, 1);
+        }
+        if (Array.isArray(conMasks) && conMasks !== list) {
+          for (let i = conMasks.length - 1; i >= 0; i--) {
+            if (String(conMasks[i].id) === String(delId)) conMasks.splice(i, 1);
+          }
+        }
+        if (Array.isArray(window.conMasks) && window.conMasks !== list) {
+          for (let i = window.conMasks.length - 1; i >= 0; i--) {
+            if (String(window.conMasks[i].id) === String(delId)) window.conMasks.splice(i, 1);
+          }
+        }
+        if (Array.isArray(global.conMasks) && global.conMasks !== list) {
+          for (let i = global.conMasks.length - 1; i >= 0; i--) {
+            if (String(global.conMasks[i].id) === String(delId)) global.conMasks.splice(i, 1);
+          }
+        }
         conMaskCtxClose();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (window._conMirrorSend) {
           window._conMirrorSend({ type: 'mask-remove', id: delId });
         }

@@ -38,7 +38,7 @@
       </button>
       <button type="button" class="mode-tab-btn" id="tabEditorMode" data-mode="editor">
         <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
-        <span data-i18n="modeTimelineEditor">Timeline Studio</span>
+        <span data-i18n="modeTimelineEditor">Video &amp; Sound Editor (Movie Maker)</span>
       </button>
     </div>
     <div class="header-actions">
@@ -53,28 +53,100 @@
 
   <main class="main-container">
 
-    <!-- Timeline Studio Panel (Split, Merge, Fade) -->
+    <!-- Timeline Studio Panel (Movie Maker Style) -->
     <section class="card-panel" id="timelineEditorPanel" style="display: none;">
-      <div class="panel-header">
-        <div class="panel-title">
-          <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
-          <span data-i18n="timelineStudioTitle">Multi-Clip Timeline &amp; Sequence Editor</span>
+      <!-- Movie Maker Ribbon Toolbar -->
+      <div class="movie-maker-ribbon">
+        <!-- Group 1: Media -->
+        <div class="ribbon-group">
+          <div class="ribbon-group-title">Media</div>
+          <div class="ribbon-group-content">
+            <input type="file" id="timelineFileInput" multiple hidden accept="audio/*,video/*,.mkv,.avi,.mov,.flv,.wmv,.webp">
+            <button type="button" class="btn btn-sm ribbon-btn" id="timelineAddClipBtn" title="Import videos, audio or clips">
+              <img src="../assets/icons/folder.svg" alt="" />
+              <span data-i18n="btnAddClip">Add Clip</span>
+            </button>
+          </div>
         </div>
-        <div class="header-actions">
-          <input type="file" id="timelineFileInput" multiple hidden accept="audio/*,video/*,.mkv,.avi,.mov,.flv,.wmv,.webp">
-          <button type="button" class="btn btn-sm" id="timelineAddClipBtn">
-            <img src="../assets/icons/folder.svg" alt="" />
-            <span data-i18n="btnAddClip">Add Clip</span>
-          </button>
-          <button type="button" class="btn btn-sm btn-primary" id="timelineSplitBtn" title="Split current clip at playhead">
-            <img src="../assets/icons/scissors.svg" alt="" />
-            <span data-i18n="btnSplitAtPlayhead">Split at Playhead</span>
-          </button>
-          <button type="button" class="btn btn-sm btn-success" id="timelineExportMergedBtn">
-            <img src="../assets/icons/check.svg" alt="" />
-            <span data-i18n="btnExportMerged">Export Merged Sequence</span>
-          </button>
+
+        <!-- Group 2: Edit & Split Tools -->
+        <div class="ribbon-group ribbon-group-primary">
+          <div class="ribbon-group-title">Edit &amp; Split</div>
+          <div class="ribbon-group-content">
+            <button type="button" class="btn btn-sm btn-split-primary ribbon-btn" id="timelineSplitBtn" data-i18n-title="btnSplitHereDesc" title="Cut selected clip into two at the playhead (Shortcut: S)">
+              <img src="../assets/icons/scissors.svg" alt="" />
+              <span data-i18n="btnSplitHere">Split Here (S)</span>
+            </button>
+            <button type="button" class="btn btn-sm ribbon-btn" id="timelineSetStartBtn" data-i18n-title="btnSetStart" title="Trim start of clip to playhead (Shortcut: I)">
+              <img src="../assets/icons/arrow-right.svg" alt="" />
+              <span data-i18n="btnSetStart">Set Start (I)</span>
+            </button>
+            <button type="button" class="btn btn-sm ribbon-btn" id="timelineSetEndBtn" data-i18n-title="btnSetEnd" title="Trim end of clip to playhead (Shortcut: O)">
+              <img src="../assets/icons/arrow-left.svg" alt="" />
+              <span data-i18n="btnSetEnd">Set End (O)</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-danger ribbon-btn" id="timelineDeleteClipBtn" data-i18n-title="btnDeleteClip" title="Remove selected clip from sequence (Delete)">
+              <img src="../assets/icons/trash.svg" alt="" />
+              <span data-i18n="btnDeleteClip">Delete Clip</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Group 3: Transitions & Adjustments -->
+        <div class="ribbon-group">
+          <div class="ribbon-group-title">Transitions &amp; Audio</div>
+          <div class="ribbon-group-content ribbon-compact-controls">
+            <div class="ribbon-control-item">
+              <label for="ribbonFadeIn" data-i18n="fadeShort">Fade In</label>
+              <select id="ribbonFadeIn" class="form-select form-select-xs">
+                <option value="0">None</option>
+                <option value="0.5">0.5s</option>
+                <option value="1.0">1.0s</option>
+                <option value="2.0">2.0s</option>
+              </select>
+            </div>
+            <div class="ribbon-control-item">
+              <label for="ribbonFadeOut" data-i18n="fadeOutShort">Fade Out</label>
+              <select id="ribbonFadeOut" class="form-select form-select-xs">
+                <option value="0">None</option>
+                <option value="0.5">0.5s</option>
+                <option value="1.0">1.0s</option>
+                <option value="2.0">2.0s</option>
+              </select>
+            </div>
+            <div class="ribbon-control-item">
+              <label for="ribbonSpeed" data-i18n="speechSpeedLabel">Speed</label>
+              <select id="ribbonSpeed" class="form-select form-select-xs">
+                <option value="0.75">0.75×</option>
+                <option value="0.85">0.85×</option>
+                <option value="1.0" selected>1.0×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 4: Save Movie (Prominent) -->
+        <div class="ribbon-group ribbon-group-save">
+          <div class="ribbon-group-title">Save &amp; Export</div>
+          <div class="ribbon-group-content">
+            <button type="button" class="btn btn-sm btn-success ribbon-btn-save" id="timelineSaveMovieBtn" title="Save full edited movie with quick quality presets (Ctrl+S)">
+              <img src="../assets/icons/save.svg" alt="" />
+              <span data-i18n="btnSaveMovieHeader">Save Edited File</span>
+            </button>
+            <button type="button" class="btn btn-sm ribbon-btn" id="timelineSaveCurrentClipBtn" title="Instantly save only the active clip/split segment">
+              <img src="../assets/icons/export.svg" alt="" />
+              <span data-i18n="btnSaveClip">Save Clip</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Split Instruction Banner -->
+      <div class="split-instruction-tip" id="splitInstructionTip">
+        <img src="../assets/icons/scissors.svg" alt="" />
+        <span data-i18n="splitInstructionTip">How to split: Move the playhead or scrub the video to where you want to cut, then click 'Split Here' (or press S).</span>
       </div>
 
       <!-- Synchronized Preview Monitor -->
@@ -83,16 +155,33 @@
           <video id="timelineVideoPlayer" controls></video>
         </div>
         <div class="waveform-box" id="timelineWaveformContainer"></div>
+        
+        <!-- Player Transport Bar & Split Here Control -->
         <div class="timeline-monitor-toolbar">
           <div class="timeline-btn-row">
-            <button type="button" class="btn btn-sm btn-primary" id="timelinePlayBtn">
-              <img src="../assets/icons/play.svg" alt="" /> <span data-i18n="playSelection">Play Selection</span>
+            <button type="button" class="btn btn-sm btn-nav" id="timelineStepBack1sBtn" data-i18n-title="stepBack1s" title="Step back 1s">
+              ◀◀ 1s
             </button>
-            <button type="button" class="btn btn-sm" id="timelinePauseBtn">
-              <img src="../assets/icons/pause.svg" alt="" /> <span data-i18n="pause">Pause</span>
+            <button type="button" class="btn btn-sm btn-nav" id="timelineStepBackFrameBtn" data-i18n-title="stepBackFrame" title="Step back 1 frame (0.1s)">
+              ◀ 0.1s
             </button>
-            <button type="button" class="btn btn-sm" id="timelineResetBtn">
-              <img src="../assets/icons/rewind.svg" alt="" /> <span data-i18n="resetSelection">Reset Range</span>
+            <button type="button" class="btn btn-sm btn-primary" id="timelinePlayPauseBtn">
+              <img src="../assets/icons/play.svg" id="timelinePlayPauseIcon" alt="" />
+              <span id="timelinePlayPauseText" data-i18n="playSelection">Play Selection</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-nav" id="timelineStepForwardFrameBtn" data-i18n-title="stepForwardFrame" title="Step forward 1 frame (0.1s)">
+              0.1s ▶
+            </button>
+            <button type="button" class="btn btn-sm btn-nav" id="timelineStepForward1sBtn" data-i18n-title="stepForward1s" title="Step forward 1s">
+              1s ▶▶
+            </button>
+            <button type="button" class="btn btn-sm btn-split-primary" id="timelineSplitHereMonitorBtn" title="Split clip right here at current playhead position (Shortcut: S)">
+              <img src="../assets/icons/scissors.svg" alt="" />
+              <strong data-i18n="btnSplitHere">Split Here (S)</strong>
+            </button>
+            <button type="button" class="btn btn-sm" id="timelineResetBtn" title="Reset trim selection to full duration">
+              <img src="../assets/icons/rewind.svg" alt="" />
+              <span data-i18n="resetSelection">Reset Range</span>
             </button>
           </div>
           <div class="timeline-time-ruler">
@@ -102,7 +191,7 @@
         </div>
       </div>
 
-      <!-- Target Export Settings for Timeline Studio -->
+      <!-- Quick Target Format / Quality Strip -->
       <div class="timeline-settings-strip">
         <div class="timeline-setting-item">
           <label for="timelineTargetFormat" data-i18n="outputFormatLabel">Output Format</label>
@@ -142,14 +231,20 @@
         </div>
       </div>
 
-      <!-- Visual Clip Sequence Strip (Light Neobrutalist Cards) -->
+      <!-- Storyboard Track Container (Windows Movie Maker Style) -->
       <div class="timeline-track-container">
         <div class="timeline-track-header">
-          <span class="track-label" data-i18n="trackClipsOrder">Sequence Order (Drag or use arrows to reorder)</span>
-          <span class="track-stats" id="timelineClipCount">0 clips</span>
+          <div class="storyboard-header-left">
+            <img src="../assets/icons/presentation.svg" style="width:16px;height:16px;" alt="" />
+            <span class="track-label" data-i18n="trackClipsOrder">Storyboard Sequence (Drag or use arrows to reorder)</span>
+          </div>
+          <div class="storyboard-header-right">
+            <span class="track-stats" id="timelineClipCount">0 clips</span>
+            <span class="track-stats track-total-time" id="timelineTotalSeqTime">00:00</span>
+          </div>
         </div>
         <div class="timeline-clips-strip" id="timelineClipsStrip">
-          <!-- Dynamic Clip Cards injected here -->
+          <!-- Dynamic Storyboard Cards injected here -->
         </div>
       </div>
     </section>
@@ -419,6 +514,133 @@
           <span data-i18n="downloadEngineBtn">Download Video Engine (1-Click)</span>
         </button>
         <button type="button" class="btn" id="cancelEngineModalBtn">
+          <span data-i18n="cancel">Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Save Movie / Edited File Modal (Movie Maker Style) -->
+  <div class="modal-backdrop" id="saveMovieModal" style="display: none;">
+    <div class="modal-card save-movie-modal-card">
+      <div class="modal-header">
+        <div class="modal-title">
+          <img src="../assets/icons/save.svg" alt="" />
+          <span data-i18n="saveMovieTitle">Save Movie / Edited Media</span>
+        </div>
+        <button type="button" class="btn btn-sm" id="closeSaveMovieModalBtn" aria-label="Close">
+          <img src="../assets/icons/close.svg" alt="" />
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- 1. What to save -->
+        <div class="save-modal-section">
+          <label class="save-modal-label" data-i18n="saveScopeLabel">What do you want to save?</label>
+          <div class="save-scope-options">
+            <label class="save-scope-option active" id="saveScopeAllLabel">
+              <input type="radio" name="saveScopeRadio" value="all" checked>
+              <div class="scope-text">
+                <strong data-i18n="saveScopeAll">All clips merged (Full Movie)</strong>
+                <span class="scope-subtext" id="saveScopeAllSubtext">0 clips • 00:00</span>
+              </div>
+            </label>
+            <label class="save-scope-option" id="saveScopeSelectedLabel">
+              <input type="radio" name="saveScopeRadio" value="selected">
+              <div class="scope-text">
+                <strong data-i18n="saveScopeSelected">Selected clip only</strong>
+                <span class="scope-subtext" id="saveScopeSelectedSubtext">Clip #1</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 2. Quality Preset (Movie Maker style) -->
+        <div class="save-modal-section">
+          <label class="save-modal-label" data-i18n="savePresetTitle">Quality Preset (Movie Maker style)</label>
+          <div class="save-preset-grid">
+            <button type="button" class="save-preset-card active" data-preset="classroom">
+              <div class="preset-card-top">
+                <img src="../assets/icons/presentation.svg" alt="" />
+                <span class="preset-tag">Recommended</span>
+              </div>
+              <strong data-i18n="saveProfileClassroom">Classroom Standard (720p HD MP4)</strong>
+              <span class="preset-details">Crisp video, universal playback on laptops &amp; beamers</span>
+            </button>
+            <button type="button" class="save-preset-card" data-preset="fullhd">
+              <div class="preset-card-top">
+                <img src="../assets/icons/maximize.svg" alt="" />
+              </div>
+              <strong data-i18n="saveProfileFullHD">High Definition (1080p Full HD MP4)</strong>
+              <span class="preset-details">Best quality for archiving &amp; large displays</span>
+            </button>
+            <button type="button" class="save-preset-card" data-preset="small">
+              <div class="preset-card-top">
+                <img src="../assets/icons/download.svg" alt="" />
+              </div>
+              <strong data-i18n="saveProfileSmall">Small LMS / Email (&lt;25MB 480p MP4)</strong>
+              <span class="preset-details">Lightweight compression for fast upload to school portals</span>
+            </button>
+            <button type="button" class="save-preset-card" data-preset="audio">
+              <div class="preset-card-top">
+                <img src="../assets/icons/music.svg" alt="" />
+              </div>
+              <strong data-i18n="saveProfileAudio">Audio Only (MP3 192kbps)</strong>
+              <span class="preset-details">Extract clean sound for listening exercises</span>
+            </button>
+            <button type="button" class="save-preset-card" id="savePresetLosslessCard" data-preset="lossless" style="display: none;">
+              <div class="preset-card-top">
+                <img src="../assets/icons/zap.svg" alt="" />
+                <span class="preset-tag" style="background:var(--accent-green);">Fast</span>
+              </div>
+              <strong data-i18n="saveProfileLossless">Instant Lossless Cut (No re-encoding)</strong>
+              <span class="preset-details">Finishes in seconds without losing quality</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3. Output Filename -->
+        <div class="save-modal-section">
+          <label class="save-modal-label" for="saveOutputFileName" data-i18n="saveFileNameLabel">Output File Name:</label>
+          <div class="filename-input-row">
+            <input type="text" id="saveOutputFileName" class="form-input" placeholder="my_edited_video.mp4">
+          </div>
+        </div>
+
+        <!-- 4. Save Location -->
+        <div class="save-modal-section">
+          <label class="save-modal-label" data-i18n="saveDestLabel">Save Location:</label>
+          <div class="save-dest-row">
+            <label class="save-dest-radio">
+              <input type="radio" name="saveDestRadio" value="same" checked>
+              <span data-i18n="saveDestSameFolder">Save in same folder as original</span>
+            </label>
+            <label class="save-dest-radio">
+              <input type="radio" name="saveDestRadio" value="custom">
+              <span data-i18n="saveDestCustomFolder">Choose destination folder...</span>
+            </label>
+          </div>
+          <div class="dest-path-preview" id="saveDestPathPreview"></div>
+        </div>
+
+        <!-- Progress Area -->
+        <div id="saveMovieProgressArea" style="display: none;">
+          <div class="progress-track" style="height: 16px;">
+            <div class="progress-bar" id="saveMovieProgressBar" style="width: 0%;"></div>
+          </div>
+          <div class="progress-label" style="margin-top: 6px;">
+            <span id="saveMovieProgressStatus">Rendering edited video...</span>
+            <span id="saveMovieProgressPercent">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-success btn-lg" id="btnSaveMovieConfirm">
+          <img src="../assets/icons/save.svg" alt="" />
+          <span data-i18n="saveNowBtn">Save Video Now</span>
+        </button>
+        <button type="button" class="btn" id="btnCancelSaveMovie">
           <span data-i18n="cancel">Cancel</span>
         </button>
       </div>

@@ -4042,6 +4042,154 @@
       }
       window.conToggleSnap = conToggleSnap;
       window.conGetSnapEnabled = function () { return conSnapEnabled; };
+
+      // ----------------------------------------------------------------
+      // Unified Collapsible Toolbar Drawer (Pinned vs Auto-Hide on Hover)
+      // ----------------------------------------------------------------
+      let _conToolbarPinned = true;
+      let _conToolbarLeaveTimer = null;
+
+      function conHasOpenDropdownMenu() {
+        const wrapper = document.getElementById('con-sticky-wrapper');
+        if (!wrapper) return false;
+        // Check dropdowns and popovers inside the drawer that are actually visible
+        const dropSelectors = [
+          '#con-draw-shapes-menu',
+          '#con-draw-colour-menu',
+          '#con-draw-line-menu',
+          '#con-draw-eraser-menu',
+          '#con-class-pills',
+          '#con-bp-popover',
+          '#con-quick-actions-dropdown'
+        ];
+        for (let i = 0; i < dropSelectors.length; i++) {
+          const el = wrapper.querySelector(dropSelectors[i]);
+          if (el && el.style.display && el.style.display !== 'none') {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      function conUpdateToolbarDropdownState() {
+        const wrapper = document.getElementById('con-sticky-wrapper');
+        if (!wrapper) return;
+        wrapper.classList.toggle('has-open-menu', conHasOpenDropdownMenu());
+      }
+
+      function conSetToolbarPinned(pinned, showFeedback) {
+        _conToolbarPinned = !!pinned;
+        try {
+          localStorage.setItem('cmt_board_toolbar_pinned', _conToolbarPinned ? 'true' : 'false');
+        } catch (_) {}
+
+        const wrapper = document.getElementById('con-sticky-wrapper');
+        const pinBtn = document.getElementById('con-tb-pin-btn');
+        const pinLabel = document.getElementById('con-tb-pin-label');
+
+        if (wrapper) {
+          wrapper.classList.toggle('is-pinned', _conToolbarPinned);
+          wrapper.classList.toggle('con-toolbar-autohide', !_conToolbarPinned);
+          if (_conToolbarPinned) {
+            wrapper.classList.remove('drawer-hovered', 'has-open-menu');
+          }
+        }
+
+        if (pinBtn) {
+          pinBtn.classList.toggle('is-pinned', _conToolbarPinned);
+          const titleKey = _conToolbarPinned ? 'conToolbarPinTitle' : 'conToolbarUnpinTitle';
+          const titleStr = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t(titleKey) : (_conToolbarPinned ? 'Toolbar is pinned (click to auto-hide on hover)' : 'Toolbar auto-hides on hover (click to pin)');
+          pinBtn.setAttribute('title', titleStr);
+          pinBtn.setAttribute('data-i18n-title', titleKey);
+        }
+        if (pinLabel) {
+          const labelKey = _conToolbarPinned ? 'conToolbarPinned' : 'conToolbarAutohide';
+          const labelStr = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t(labelKey) : (_conToolbarPinned ? 'Pinned' : 'Auto-Hide');
+          pinLabel.textContent = labelStr;
+          pinLabel.setAttribute('data-i18n', labelKey);
+        }
+
+        if (showFeedback && typeof showToast === 'function') {
+          const toastMsg = _conToolbarPinned
+            ? ((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastToolbarPinned') : 'Toolbar pinned — always visible')
+            : ((typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastToolbarAutohide') : 'Toolbar auto-hide enabled — collapses when not hovered');
+          showToast(toastMsg);
+        }
+      }
+
+      function conToggleToolbarPin(force) {
+        const nextState = (typeof force === 'boolean') ? force : !_conToolbarPinned;
+        conSetToolbarPinned(nextState, true);
+      }
+      window.conToggleToolbarPin = conToggleToolbarPin;
+      window.conSetToolbarPinned = conSetToolbarPinned;
+      window.conGetToolbarPinned = function () { return _conToolbarPinned; };
+
+      function conOnPeekHandleClick(e) {
+        if (e && e.target && e.target.closest && e.target.closest('.con-peek-pin-btn')) {
+          return;
+        }
+        const wrapper = document.getElementById('con-sticky-wrapper');
+        if (wrapper) {
+          wrapper.classList.add('drawer-hovered');
+        }
+      }
+      window.conOnPeekHandleClick = conOnPeekHandleClick;
+
+      function conInitToolbarPinState() {
+        let saved = null;
+        try {
+          saved = localStorage.getItem('cmt_board_toolbar_pinned');
+        } catch (_) {}
+        // Default is pinned as requested by user ("1. default is pinned")
+        const isPinned = (saved === null || saved === undefined) ? true : (saved === 'true');
+        conSetToolbarPinned(isPinned);
+
+        const wrapper = document.getElementById('con-sticky-wrapper');
+        const drawer = document.getElementById('con-toolbar-drawer');
+        if (wrapper && !wrapper._hasAutohideListeners) {
+          wrapper._hasAutohideListeners = true;
+
+          const onEnter = function () {
+            if (_conToolbarPinned) return;
+            if (_conToolbarLeaveTimer) {
+              clearTimeout(_conToolbarLeaveTimer);
+              _conToolbarLeaveTimer = null;
+            }
+            wrapper.classList.add('drawer-hovered');
+          };
+
+          const onLeave = function () {
+            if (_conToolbarPinned) return;
+            if (_conToolbarLeaveTimer) clearTimeout(_conToolbarLeaveTimer);
+            _conToolbarLeaveTimer = setTimeout(function () {
+              _conToolbarLeaveTimer = null;
+              if (wrapper.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') {
+                return;
+              }
+              if (conHasOpenDropdownMenu()) {
+                wrapper.classList.add('has-open-menu');
+                return;
+              }
+              wrapper.classList.remove('drawer-hovered', 'has-open-menu');
+            }, 180);
+          };
+
+          wrapper.addEventListener('mouseenter', onEnter);
+          wrapper.addEventListener('mouseleave', onLeave);
+          if (drawer) {
+            drawer.addEventListener('mouseenter', onEnter);
+            drawer.addEventListener('mouseleave', onLeave);
+          }
+          const peekHandle = document.getElementById('con-toolbar-peek-handle');
+          if (peekHandle) {
+            peekHandle.addEventListener('mouseenter', onEnter);
+            peekHandle.addEventListener('mouseleave', onLeave);
+          }
+        }
+      }
+      window.conInitToolbarPinState = conInitToolbarPinState;
+      window.conUpdateToolbarDropdownState = conUpdateToolbarDropdownState;
       let conSelected = null; // id of selected node
       window.conSelected = global.conSelected = null;
       let conMultiSelected = (typeof global.conMultiSelected !== 'undefined' && global.conMultiSelected) || new Set(); // ids of multi-selected nodes
@@ -17873,7 +18021,8 @@
         }
         if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
           const tag = document.activeElement && document.activeElement.tagName;
-          if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+          const _inType = tag === 'INPUT' ? String(document.activeElement.type || 'text').toLowerCase() : '';
+          if (tag === 'TEXTAREA' || (tag === 'INPUT' && !/^(range|checkbox|radio|button|color)$/.test(_inType))) return;
           const isNoteEd = document.activeElement && (document.activeElement.classList.contains('wn-note-editor') || (document.activeElement.closest && document.activeElement.closest('.wn-note-editor, .con-word-note, .ta-word-note')));
           if (document.activeElement && document.activeElement.isContentEditable && !isNoteEd) return;
           const sec = document.getElementById('constellation-section');
@@ -18487,6 +18636,7 @@
         if (typeof window.conSyncAllUnitControls === 'function') window.conSyncAllUnitControls();
         if (typeof conRenderHeaderCompetenceBar === 'function') conRenderHeaderCompetenceBar();
         if (typeof _ensureMirrorControlMenu === 'function') _ensureMirrorControlMenu();
+        if (typeof conInitToolbarPinState === 'function') conInitToolbarPinState();
         // Reflect initial snap state on button
         const snapBtn = document.getElementById('con-snap-toggle-btn');
         if (snapBtn) snapBtn.classList.toggle('con-panel-active', conSnapEnabled);

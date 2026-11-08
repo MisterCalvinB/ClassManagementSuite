@@ -61,7 +61,23 @@
 </head>
 <body>
   <nav id="app-nav">
-    <span class="nav-brand"></span>
+    <div class="nav-left">
+      <button id="nav-btn-back" class="action-btn btn-grey" onclick="navTo('main-menu')" style="display:none;" title="Back" data-i18n-title="back">
+        <img src="../assets/icons/arrow-left.svg" alt="" class="btn-icon" /> <span data-i18n="back">Back</span>
+      </button>
+      <span class="nav-brand"></span>
+      <div class="board-section-tabs" id="app-nav-board-tabs">
+        <button id="bst-tab-board" class="bst-tab" onclick="navTo('constellation-section')" title="Board" data-i18n-title="btnConstellation">
+          <img src="../assets/icons/board.svg" class="btn-icon" alt="" /> <span data-i18n="btnConstellation">Board</span>
+        </button>
+        <button id="bst-tab-search" class="bst-tab" onclick="navTo('search-section')" title="Search" data-i18n-title="btnSearch">
+          <img src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="btnSearch">Search</span>
+        </button>
+        <button id="bst-tab-history" class="bst-tab bst-active" onclick="navTo('main-menu')" title="Save History" data-i18n-title="historySectionTitle">
+          <img src="../assets/icons/history.svg" class="btn-icon" alt="" /> <span data-i18n="historySectionTitle">History</span>
+        </button>
+      </div>
+    </div>
     <div id="nav-action-btns">
       <div id="save-sync-wrap">
         <button id="save-sync-btn" class="action-btn btn-grey" onclick="toggleSaveSyncMenu()"
@@ -2552,12 +2568,6 @@
   <!-- SEARCH SECTION                                              -->
   <!-- ============================================================ -->
   <div id="search-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <div class="board-section-tabs">
-      <button class="bst-tab" onclick="navTo('constellation-section')" title="Board">Board</button>
-      <button class="bst-tab bst-active" title="Search">Search</button>
-      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History">History</button>
-    </div>
     <h2>Search</h2>
 
     <div id="search-toolbar">
@@ -2585,21 +2595,13 @@
     <div id="search-results"></div>
   </div>
 
-  <div id="constellation-section" class="game hidden" style="max-width:100%;padding:22px;">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <div class="board-section-tabs">
-      <button class="bst-tab bst-active" title="Board"><img src="../assets/icons/board.svg" class="btn-icon" alt="" />
-        Board</button>
-      <button class="bst-tab" onclick="navTo('search-section')" title="Search"><img src="../assets/icons/search.svg"
-          class="btn-icon" alt="" /> Search</button>
-      <button class="bst-tab" onclick="navTo('main-menu')" title="Save History"><img src="../assets/icons/history.svg"
-          class="btn-icon" alt="" /> History</button>
-    </div>
-    <h2 data-i18n="titleConstellation" style="display:inline-flex;align-items:center;"><img src="../assets/icons/board.svg" class="main-hdr-icon" alt="" /> Board <button id="con-linked-lesson-btn" class="con-hdr-linked-btn" onclick="boardOpenLinkedLessonPlan(event)" style="display:none;"></button></h2>
+  <div id="constellation-section" class="game hidden" style="max-width:100%;padding:10px 16px;">
+    <h2 data-i18n="titleConstellation" style="display:inline-flex;align-items:center;margin:4px 0 8px 0;"><img src="../assets/icons/board.svg" class="main-hdr-icon" alt="" /> Board <button id="con-linked-lesson-btn" class="con-hdr-linked-btn" onclick="boardOpenLinkedLessonPlan(event)" style="display:none;"></button></h2>
 
-    <div id="con-sticky-wrapper">
-      <!-- Toolbar -->
-      <div id="constellation-toolbar">
+    <div id="con-sticky-wrapper" class="is-pinned">
+      <div id="con-toolbar-drawer">
+        <!-- Toolbar -->
+        <div id="constellation-toolbar">
 
         <div class="con-tb-group" id="con-tb-file">
           <span class="con-tb-group-label">File</span>
@@ -2879,6 +2881,16 @@
           </div>
         </div>
 
+        <div class="con-tb-group" id="con-tb-pin-group">
+          <button type="button" class="action-btn btn-grey is-pinned" id="con-tb-pin-btn"
+            onclick="conToggleToolbarPin()"
+            title="Toolbar is pinned (click to auto-hide on hover)"
+            data-i18n-title="conToolbarPinTitle">
+            <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
+            <span id="con-tb-pin-label" data-i18n="conToolbarPinned">Pinned</span>
+          </button>
+        </div>
+
       </div><!-- /#constellation-toolbar -->
 
       <div id="con-page-nav">
@@ -3032,8 +3044,17 @@
           <span data-i18n="conDrawExit">Exit</span>
         </button>
       </div>
+    </div><!-- /#con-toolbar-drawer -->
+  </div><!-- /#con-sticky-wrapper -->
 
-    </div><!-- /#con-sticky-wrapper -->
+  <!-- Bottom Peek Handle shown when unpinned / in auto-hide mode -->
+  <div id="con-toolbar-peek-handle" class="con-toolbar-peek-handle" onclick="conOnPeekHandleClick(event)" title="Hover to reveal toolbar" data-i18n-title="conToolbarPeekTitle">
+    <span class="con-peek-icon">▾</span>
+    <span class="con-peek-label" data-i18n="conToolbarPeekLabel">Menu</span>
+    <button type="button" class="con-peek-pin-btn" onclick="event.stopPropagation(); conToggleToolbarPin(true)" title="Pin toolbar open" data-i18n-title="conToolbarPinAction">
+      <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
+    </button>
+  </div>
 
 
 

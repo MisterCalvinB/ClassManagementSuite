@@ -1443,6 +1443,154 @@ button.action-btn:hover {
   padding-bottom: 2px;
 }
 
+#con-toolbar-drawer {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Auto-hide / unpinned mode: collapse height to 0 via CSS Grid */
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned) {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  overflow: hidden;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  transition: grid-template-rows 0.22s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.18s ease;
+}
+
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned) #con-toolbar-drawer {
+  min-height: 0;
+  overflow: hidden;
+  transform: none;
+  pointer-events: auto;
+}
+
+/* Expanded state on hover, focus-within, open menu, or drawer-hovered class */
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned):hover,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned):focus-within,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned).has-open-menu,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned).drawer-hovered {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  overflow: visible;
+  pointer-events: auto;
+}
+
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned):hover #con-toolbar-drawer,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned):focus-within #con-toolbar-drawer,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned).has-open-menu #con-toolbar-drawer,
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned).drawer-hovered #con-toolbar-drawer {
+  overflow: visible;
+}
+
+/* Peek Handle Bar (Light Neobrutalist) */
+#con-toolbar-peek-handle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 24px;
+  padding: 0 14px;
+  margin: 0 auto;
+  width: fit-content;
+  background: #f5f5f0;
+  border: 2px solid #333333;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 2px 2px 0 #333333;
+  cursor: pointer;
+  user-select: none;
+  font-family: 'Lexend', inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #111111;
+  pointer-events: auto;
+  transition: background 0.15s ease, transform 0.1s ease;
+  z-index: 999;
+  position: relative;
+}
+
+#con-sticky-wrapper.con-toolbar-autohide:not(.is-pinned) + #con-toolbar-peek-handle {
+  display: flex;
+}
+
+#con-toolbar-peek-handle:hover {
+  background: #ffffff;
+}
+
+.con-peek-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.con-peek-label {
+  display: inline-block;
+  letter-spacing: 0.2px;
+}
+
+.con-peek-pin-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  margin-left: 2px;
+  transition: background 0.15s ease;
+}
+
+.con-peek-pin-btn:hover {
+  background: #e5e5dc;
+}
+
+.con-peek-pin-btn img {
+  width: 13px;
+  height: 13px;
+}
+
+/* Pin button in toolbar */
+#con-tb-pin-group {
+  margin-left: 4px;
+}
+
+#con-tb-pin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.62rem;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+#con-tb-pin-btn.is-pinned {
+  background: #e5e5dc !important;
+  color: #111111 !important;
+  border-color: #333333 !important;
+  font-weight: 800;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.18) !important;
+}
+
+#con-tb-pin-btn:not(.is-pinned) {
+  background: #ffffff !important;
+  color: #666666 !important;
+  border-color: #999999 !important;
+}
+
+#con-tb-pin-btn:not(.is-pinned):hover {
+  background: #f5f5f0 !important;
+  color: #111111 !important;
+  border-color: #333333 !important;
+}
+
 #constellation-toolbar {
   position: relative;
   z-index: 100;
@@ -5932,7 +6080,7 @@ body.laser-active .con-word-note {
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: thin;
-  padding: 4px 6px 4px 2px;
+  padding: 0px 4px;
 }
 
 #con-page-mini-strip:hover,
@@ -6844,6 +6992,92 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   border-color: #111;
   color: #fff;
   cursor: default;
+}
+
+/* Board Header Integration in App Nav */
+#app-nav .nav-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+#app-nav button#nav-btn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 6px;
+  background: #242424;
+  border: 2px solid #444444;
+  color: #f0f0f0;
+  box-shadow: 2px 2px 0 #000000;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+#app-nav button#nav-btn-back:hover {
+  background: #363636;
+  border-color: #666666;
+  color: #ffffff;
+}
+
+#app-nav button#nav-btn-back img {
+  filter: brightness(0) invert(1);
+}
+
+#app-nav .board-section-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+#app-nav .board-section-tabs button.bst-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #242424;
+  border: 2px solid #444444;
+  color: #cccccc;
+  box-shadow: 2px 2px 0 #000000;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+#app-nav .board-section-tabs button.bst-tab img {
+  width: 14px;
+  height: 14px;
+  filter: brightness(0) invert(0.8);
+}
+
+#app-nav .board-section-tabs button.bst-tab:hover:not(.bst-active) {
+  background: #363636;
+  border-color: #666666;
+  color: #ffffff;
+}
+
+#app-nav .board-section-tabs button.bst-tab:hover:not(.bst-active) img {
+  filter: brightness(0) invert(1);
+}
+
+#app-nav .board-section-tabs button.bst-tab.bst-active {
+  background: #ffffff;
+  border-color: #ffffff;
+  color: #111111;
+  box-shadow: 2px 2px 0 #000000;
+  cursor: default;
+}
+
+#app-nav .board-section-tabs button.bst-tab.bst-active img {
+  filter: brightness(0);
 }
 
 /* --- History rename modal --- */

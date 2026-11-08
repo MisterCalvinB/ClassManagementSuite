@@ -1153,6 +1153,20 @@
       const target = document.getElementById(sectionId);
       if (target) target.classList.remove('hidden');
 
+      // Update nav back button and section tabs in app-nav
+      const navBackBtn = document.getElementById('nav-btn-back');
+      if (navBackBtn) {
+        navBackBtn.style.display = (sectionId === 'main-menu') ? 'none' : 'inline-flex';
+      }
+      const tabBoard = document.getElementById('bst-tab-board');
+      const tabSearch = document.getElementById('bst-tab-search');
+      const tabHistory = document.getElementById('bst-tab-history');
+      if (tabBoard && tabSearch && tabHistory) {
+        tabBoard.classList.toggle('bst-active', sectionId === 'constellation-section');
+        tabSearch.classList.toggle('bst-active', sectionId === 'search-section');
+        tabHistory.classList.toggle('bst-active', sectionId === 'main-menu' || sectionId === 'history-section');
+      }
+
       if (sectionId !== 'main-menu' && target) {
         const mount = target.querySelector('.filter-mount');
         if (mount && !mount.innerHTML) {

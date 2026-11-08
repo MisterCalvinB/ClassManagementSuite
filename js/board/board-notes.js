@@ -3970,6 +3970,26 @@
       return baseFs;
     }
 
+    // Keeps <li> markers (bullets/numbers) in sync: when every text of a list item is
+    // covered by the resized spans, the li itself receives the font size (markers follow li).
+    function wnSyncListItemFontSizes(editor, spans, targetPx) {
+      if (!editor || !spans || !spans.length) return;
+      const lis = new Set();
+      spans.forEach(sp => { const li = sp.closest && sp.closest('li'); if (li && editor.contains(li)) lis.add(li); });
+      lis.forEach(li => {
+        const own = [];
+        const w = document.createTreeWalker(li, NodeFilter.SHOW_TEXT, null);
+        let n;
+        while ((n = w.nextNode())) {
+          if (n.parentElement && n.parentElement.closest('li') !== li) continue; // nested list text
+          if (!n.nodeValue.trim()) continue;
+          own.push(n);
+        }
+        const covered = own.every(t => { const s = t.parentElement && t.parentElement.closest('.wn-text-fs'); return s && spans.indexOf(s) !== -1 && li.contains(s); });
+        if (covered) li.style.fontSize = targetPx;
+      });
+    }
+
     function wnAdjustSelectionOrNoteFontSize(delta) {
       if (!delta) return false;
       let textSelInfo = wnGetActiveNoteTextSelection();
@@ -4049,45 +4069,55 @@
         targetSpan.style.fontSize = targetPx;
         targetSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
         const newRange = document.createRange();
+        wnSyncListItemFontSizes(editor, [targetSpan], targetPx);
         newRange.selectNodeContents(targetSpan);
         sel.removeAllRanges();
         sel.addRange(newRange);
       } else {
-        // First stroke on this text range: wrap in .wn-text-fs span
-        let span = document.createElement('span');
-        span.className = 'wn-text-fs';
-        span.style.fontSize = targetPx;
-        let wrapped = false;
-        try {
-          span.appendChild(range.extractContents());
-          span.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-          range.insertNode(span);
-          wrapped = true;
-        } catch (_) {
-          wrapped = false;
+        // First stroke on this range: wrap each selected TEXT NODE individually so the
+        // DOM structure (ul/ol/li, nested lists, checkboxes) is never split or invalidated.
+        const textNodes = [];
+        const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+        let tn;
+        while ((tn = walker.nextNode())) {
+          let hit = false;
+          try { hit = range.intersectsNode(tn); } catch (_) { hit = false; }
+          if (!hit) continue;
+          const par = tn.parentElement;
+          if (par && /^(UL|OL)$/.test(par.tagName)) continue; // structural whitespace between <li>
+          textNodes.push(tn);
         }
-
-        if (!wrapped) {
-          document.execCommand('styleWithCSS', false, false);
-          document.execCommand('fontSize', false, '7');
-          editor.querySelectorAll('font[size="7"]').forEach(node => {
-            node.removeAttribute('size');
-            node.style.fontSize = targetPx;
-            node.className = 'wn-text-fs';
-            node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-            span = node;
-          });
-          editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
-            node.style.fontSize = targetPx;
-            node.className = 'wn-text-fs';
-            node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-            span = node;
-          });
+        // Trim to range boundaries (end first so start offsets stay valid)
+        if (textNodes.length) {
+          const last = textNodes[textNodes.length - 1];
+          if (last === range.endContainer && range.endOffset < last.length) last.splitText(range.endOffset);
+          const first = textNodes[0];
+          if (first === range.startContainer && range.startOffset > 0) {
+            textNodes[0] = first.splitText(range.startOffset);
+            if (first === last) textNodes[textNodes.length - 1] = textNodes[0];
+          }
         }
-
-        if (span && span.parentNode) {
+        const spans = [];
+        textNodes.forEach(node => {
+          if (!node.parentNode || (node.nodeValue === '' )) return;
+          const par = node.parentElement;
+          if (par && par !== editor && par.classList.contains('wn-text-fs') && par.childNodes.length === 1) {
+            par.style.fontSize = targetPx;
+            spans.push(par);
+            return;
+          }
+          const span = document.createElement('span');
+          span.className = 'wn-text-fs';
+          span.style.fontSize = targetPx;
+          node.parentNode.insertBefore(span, node);
+          span.appendChild(node);
+          spans.push(span);
+        });
+        wnSyncListItemFontSizes(editor, spans, targetPx);
+        if (spans.length) {
           const newRange = document.createRange();
-          newRange.selectNodeContents(span);
+          newRange.setStartBefore(spans[0]);
+          newRange.setEndAfter(spans[spans.length - 1]);
           sel.removeAllRanges();
           sel.addRange(newRange);
         }

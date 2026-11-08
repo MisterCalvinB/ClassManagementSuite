@@ -54,7 +54,11 @@
   var conTables = global.conTables = global.conTables || [];
   var conNotes = global.conNotes = global.conNotes || [];
   var conGroups = global.conGroups = global.conGroups || [];
-  var conMasks = global.conMasks = global.conMasks || [];
+  var _conMasksVal = (global.conMasks && Array.isArray(global.conMasks)) ? global.conMasks : [];
+  var conMasks = _conMasksVal;
+  global.conMasks = _conMasksVal;
+  if (typeof window !== 'undefined') window.conMasks = _conMasksVal;
+  global.conGetMasks = window.conGetMasks = function () { return _conMasksVal; };
   var conPageSnapshots = global.conPageSnapshots = global.conPageSnapshots || [{}];
   var conTitle = global.conTitle = global.conTitle || '';
   var _conCurrentPageIndex = 0;
@@ -291,6 +295,7 @@
   _bindGlobalProp('_conMaskCtxId', function () { return _conMaskCtxIdVal; }, function (v) { _conMaskCtxIdVal = v; });
   _bindGlobalProp('_conMaskNextId', function () { return _conMaskNextIdVal; }, function (v) { _conMaskNextIdVal = Number(v) || 1; });
   _bindGlobalProp('_conGroupNextId', function () { return _conGroupNextIdVal; }, function (v) { _conGroupNextIdVal = Number(v) || 1; });
+  _bindGlobalProp('conMasks', function () { return _conMasksVal; }, function (v) { if (Array.isArray(v)) _conMasksVal = v; });
 
   function _conShapeDashArr(style, thickness) {
     var sw = Math.max(1, thickness);
