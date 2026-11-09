@@ -3769,3 +3769,108 @@
         display: none !important;
       }
     }
+
+    /* ── Universal Entity Number Badges (Light Neobrutalist) ── */
+    :root {
+      --con-node-num-bg: #fef08a;
+      --con-node-num-color: #111111;
+      --con-node-num-border: #333333;
+      --con-node-num-border-width: 2px;
+    }
+
+    .con-entity-num-badge {
+      position: absolute;
+      top: -10px;
+      left: -10px;
+      min-width: 22px;
+      height: 22px;
+      padding: 0 4px;
+      border-radius: 11px;
+      background: var(--con-node-num-bg, #fef08a);
+      color: var(--con-node-num-color, #111111);
+      border: var(--con-node-num-border-width, 2px) solid var(--con-node-num-border, #333333);
+      box-shadow: 1.5px 1.5px 0 #555555;
+      font-family: 'Lexend', sans-serif;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      user-select: none;
+      z-index: 30;
+      pointer-events: auto;
+      cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      box-sizing: border-box;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .con-entity-num-badge:hover {
+      transform: scale(1.12);
+      box-shadow: 2px 2px 0 #333333;
+    }
+
+    /* Shift star button right on nodes when number badge is present */
+    .con-node:has(.con-entity-num-badge) .con-node-star-btn {
+      left: 15px !important;
+    }
+
+    /* Group box badge offset */
+    .con-group-box > .con-entity-num-badge {
+      top: -12px;
+      left: 8px;
+    }
+
+    /* Sticky / Word note badge offset */
+    .wn-note > .con-entity-num-badge,
+    .con-word-note > .con-entity-num-badge {
+      top: -10px;
+      left: -10px;
+    }
+
+    /* Media item badge offset */
+    .con-media-item > .con-entity-num-badge {
+      top: -10px;
+      left: -10px;
+    }
+
+    /* Canvas state during interactive numbering mode */
+    body.con-numbering-active,
+    body.con-numbering-active #con-canvas,
+    body.con-numbering-active .con-node,
+    body.con-numbering-active .wn-note,
+    body.con-numbering-active .con-group-box,
+    body.con-numbering-active .con-media-item {
+      cursor: crosshair !important;
+    }
+
+    #con-number-btn.active {
+      background: #fef08a !important;
+      border-color: #333333 !important;
+      color: #111111 !important;
+      box-shadow: inset 1.5px 1.5px 0 #555555 !important;
+      font-weight: 800 !important;
+    }
+
+    /* Status pill when numbering mode is active */
+    #con-numbering-status-pill {
+      position: fixed;
+      top: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 20px;
+      padding: 5px 14px;
+      box-shadow: 3px 3px 0 #555555;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #111111;
+      z-index: 1000;
+      user-select: none;
+    }

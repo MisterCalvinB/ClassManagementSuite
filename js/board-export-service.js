@@ -1236,6 +1236,14 @@
         svg += '    <rect x="' + gx + '" y="' + gy + '" width="' + Math.min(gw, 180) + '" height="22" rx="4" fill="#333333" />\n' +
           '    <text x="' + (gx + 8) + '" y="' + (gy + 15) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="10.5" font-weight="800">' + escapeXml(gTitle) + '</text>\n';
       }
+      if (g.groupNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(g.groupNumber, g.groupNumberFormat) : String(g.groupNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = gx + 6;
+        var by = gy - 10;
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+      }
       svg += '  </g>\n';
     });
 
@@ -1332,6 +1340,14 @@
           '    <rect x="' + mx + '" y="' + my + '" width="' + mw + '" height="24" rx="4" fill="#475569" />\n' +
           '    <text x="' + (mx + 8) + '" y="' + (my + 16) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="10" font-weight="700">' + escapeXml(mKind.toUpperCase()) + ': ' + escapeXml(mName.slice(0, 24)) + '</text>\n' +
           '  </g>\n';
+      }
+      if (m.mediaNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(m.mediaNumber, m.mediaNumberFormat) : String(m.mediaNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = mx - 8;
+        var by = my - 8;
+        svg += '  <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
+          '  <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
     });
 
@@ -1665,6 +1681,15 @@
         svg += '    <text x="' + (nx + nw - 10) + '" y="' + (ny + 12) + '" font-size="11" text-anchor="middle">' + n.emoji + '</text>\n';
       }
 
+      if (n.nodeNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(n.nodeNumber, n.nodeNumberFormat) : String(n.nodeNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = nx - 8;
+        var by = ny - 8;
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+      }
+
       svg += '  </g>\n';
     });
 
@@ -1811,6 +1836,15 @@
       // Emoji dot
       if (nt.emoji) {
         svg += '    <text x="' + (tx + tw - 12) + '" y="' + (ty + 14) + '" font-size="12" text-anchor="middle">' + nt.emoji + '</text>\n';
+      }
+
+      if (nt.noteNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(nt.noteNumber, nt.noteNumberFormat) : String(nt.noteNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = tx - 8;
+        var by = ty - 8;
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
 
       svg += '  </g>\n';
@@ -1991,6 +2025,27 @@
         ctx.textBaseline = 'middle';
         ctx.fillText(gTitle.slice(0, 20), gx + 6, gy + 11);
       }
+      if (g.groupNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(g.groupNumber, g.groupNumberFormat) : String(g.groupNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = gx + 6;
+        var by = gy - 10;
+        ctx.save();
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
+        else ctx.rect(bx, by, numW, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#111111';
+        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.restore();
+      }
     });
 
     // Shapes
@@ -2077,6 +2132,27 @@
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         ctx.fillText(mKind + ': ' + mName.slice(0, 24), mx + 8, my + 12);
+        ctx.restore();
+      }
+      if (m.mediaNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(m.mediaNumber, m.mediaNumberFormat) : String(m.mediaNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = mx - 8;
+        var by = my - 8;
+        ctx.save();
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
+        else ctx.rect(bx, by, numW, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#111111';
+        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(numText, bx + numW / 2, by + 10);
         ctx.restore();
       }
     });
@@ -2404,6 +2480,28 @@
         ctx.textAlign = 'center';
         ctx.fillText(n.emoji, nx + nw - 10, ny + 12);
       }
+
+      if (n.nodeNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(n.nodeNumber, n.nodeNumberFormat) : String(n.nodeNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = nx - 8;
+        var by = ny - 8;
+        ctx.save();
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
+        else ctx.rect(bx, by, numW, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#111111';
+        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.restore();
+      }
       ctx.restore();
     });
 
@@ -2525,6 +2623,28 @@
         ctx.font = '12px "Segoe UI Emoji", "Apple Color Emoji", sans-serif';
         ctx.textAlign = 'center';
         ctx.fillText(nt.emoji, tx + tw - 12, ty + 14);
+        ctx.restore();
+      }
+
+      if (nt.noteNumber != null) {
+        var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(nt.noteNumber, nt.noteNumberFormat) : String(nt.noteNumber);
+        var numW = Math.max(22, 14 + numText.length * 6);
+        var bx = tx - 8;
+        var by = ty - 8;
+        ctx.save();
+        ctx.fillStyle = '#fef08a';
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
+        else ctx.rect(bx, by, numW, 20);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#111111';
+        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(numText, bx + numW / 2, by + 10);
         ctx.restore();
       }
 

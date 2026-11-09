@@ -270,6 +270,7 @@
       conApplyBoardBgColor();
       if (!opts || !opts.silent) {
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         if (typeof mdbToast === 'function') {
           mdbToast(normalized ? '🎨 Board background updated.' : '🧼 Board background reset.');
         }
@@ -439,6 +440,7 @@
         board.style.backgroundPosition = '';
       }
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       if (typeof mdbToast === 'function') mdbToast('🗑 Page background cleared.');
     };
 
@@ -2123,6 +2125,9 @@
       wrap.style.width = item.w + 'px';
       wrap.style.height = item.h + 'px';
       if (item.locked) wrap.classList.add('con-media-locked');
+      if (item.mediaNumber != null && typeof conApplyEntityBadge === 'function') {
+        conApplyEntityBadge(wrap, item.mediaNumber, item.mediaNumberFormat, 'media');
+      }
       wrap.addEventListener('contextmenu', function (e) { e.preventDefault(); e.stopPropagation(); window.conMediaCtxOpen(e, item); });
 
       const closeBtn = document.createElement('button');
@@ -2720,6 +2725,14 @@
             wrap.classList.add('con-media-selected');
           }
         }
+        if (window.conNumberingMode) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (typeof conHandleEntityClickForNumbering === 'function') {
+            conHandleEntityClickForNumbering('media', item, wrap, ev);
+          }
+          return;
+        }
         if (item.locked) return;
         if (ev.target.closest('.con-media-resizer')) return;
         if (ev.target.closest('.con-media-remove-btn')) return;
@@ -3171,6 +3184,8 @@
           _fsZoom: raw._fullscreen ? (Number(raw._fsZoom) || 1) : undefined,
           _fsPanX: raw._fullscreen ? (Number(raw._fsPanX) || 0) : undefined,
           _fsPanY: raw._fullscreen ? (Number(raw._fsPanY) || 0) : undefined,
+          mediaNumber: raw.mediaNumber != null ? raw.mediaNumber : null,
+          mediaNumberFormat: raw.mediaNumberFormat || null,
           transcript: raw.transcript || ''
         };
 
@@ -3317,6 +3332,14 @@
                 }
               }
             }
+          }
+        }
+
+        if (_fsWrap) {
+          if (_fsItem.mediaNumber != null && typeof window.conApplyEntityBadge === 'function') {
+            window.conApplyEntityBadge(_fsWrap, _fsItem.mediaNumber, _fsItem.mediaNumberFormat, 'media');
+          } else if (typeof window.conRemoveEntityBadge === 'function') {
+            window.conRemoveEntityBadge(_fsWrap);
           }
         }
 
@@ -3734,6 +3757,7 @@
             if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
             if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
             if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             if (typeof conTriggerLivePageSnapshot === 'function') conTriggerLivePageSnapshot();
             if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
               window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
@@ -3806,6 +3830,7 @@
         if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
         if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         if (typeof conTriggerLivePageSnapshot === 'function') conTriggerLivePageSnapshot();
         if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
           window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
@@ -4291,6 +4316,7 @@
       const _CON_UNDO_MAX = 20;
       function conPushUndo(snapshot) {
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         _conUndoStack.push(snapshot || conBuildPageSnapshot());
         if (_conUndoStack.length > _CON_UNDO_MAX) _conUndoStack.shift();
         _conRedoStack = [];
@@ -4302,6 +4328,7 @@
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       }
       function conRedo() {
         if (_conRedoStack.length === 0) return;
@@ -4310,6 +4337,7 @@
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       }
       window.conPushUndo = global.conPushUndo = conPushUndo;
       window.conUndo = global.conUndo = conUndo;
@@ -7899,6 +7927,17 @@
           if (e.target.closest('.con-node-note-btn')) return; // let note toggle btn handle it
           if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
 
+          if (window.conNumberingMode) {
+            e.preventDefault();
+            e.stopPropagation();
+            const n = conNodes.find(item => item && (item.id === id || String(item.id) === String(id)))
+              || ((global.conNodes || []).find(item => item && (item.id === id || String(item.id) === String(id))));
+            if (typeof conHandleEntityClickForNumbering === 'function') {
+              conHandleEntityClickForNumbering('node', n, el, e);
+            }
+            return;
+          }
+
           // Phrase-group nodes can be individually selected or clicked without delegating away from the node
 
           e.stopPropagation(); // prevent board rubber-band from firing
@@ -8499,6 +8538,7 @@
                 });
               }
               if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             }
             // Full mirror sync on drag end so the mirror state is always consistent
             if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
@@ -14462,6 +14502,7 @@
         if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
         if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
 
         // Mirror synchronization for multi-display / presentation
         if (window._conMirrorSend) {
@@ -15251,6 +15292,9 @@
           } else if (_savedCompBadge) {
             node.el.appendChild(_savedCompBadge);
           }
+          if (node.nodeNumber != null && typeof conApplyEntityBadge === 'function') {
+            conApplyEntityBadge(node.el, node.nodeNumber, node.nodeNumberFormat, 'node');
+          }
           node.el.style.display = 'inline-flex';
           node.el.style.flexDirection = 'column';
           node.el.style.alignItems = 'center';
@@ -15290,6 +15334,9 @@
             conUpdateNodeCompetenceBadge(node);
           } else if (_savedCompBadge) {
             node.el.appendChild(_savedCompBadge);
+          }
+          if (node.nodeNumber != null && typeof conApplyEntityBadge === 'function') {
+            conApplyEntityBadge(node.el, node.nodeNumber, node.nodeNumberFormat, 'node');
           }
           node.el.style.display = 'inline-flex';
           node.el.style.flexDirection = 'column';
@@ -15335,6 +15382,9 @@
             conUpdateNodeCompetenceBadge(node);
           } else if (_savedCompBadge) {
             node.el.appendChild(_savedCompBadge);
+          }
+          if (node.nodeNumber != null && typeof conApplyEntityBadge === 'function') {
+            conApplyEntityBadge(node.el, node.nodeNumber, node.nodeNumberFormat, 'node');
           }
           node.el.style.display = 'inline-flex';
           node.el.style.flexDirection = 'column';
@@ -15455,6 +15505,9 @@
         if (_savedLinksBar) el.appendChild(_savedLinksBar);
         if (typeof conUpdateNodeLinkBadges === 'function') {
           conUpdateNodeLinkBadges(node);
+        }
+        if (node.nodeNumber != null && typeof conApplyEntityBadge === 'function') {
+          conApplyEntityBadge(el, node.nodeNumber, node.nodeNumberFormat, 'node');
         }
         // Keep node content vertically centred for all shapes, align left if hasMaxWidth
         node.el.style.display = 'inline-flex';
@@ -16027,6 +16080,7 @@
         if (conMultiSelected) conMultiSelected.clear();
         conRedrawEdges();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
 
         if (splitCount === 0 && typeof showToast === 'function') {
@@ -16114,6 +16168,7 @@
         if (conMultiSelected) conMultiSelected.clear();
         conRedrawEdges();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
@@ -18858,6 +18913,375 @@
         setTimeout(() => conGroupCtxOpen(fakeEvt, targetGroup.id), 80);
       }
 
+      // =========================================================================
+      // UNIVERSAL ENTITY NUMBERING SYSTEM (Nodes, Notes, Groups, Media)
+      // =========================================================================
+
+      window.conNumberingMode = false;
+
+      function conFormatSequenceBadge(num, format) {
+        const n = parseInt(num, 10);
+        if (isNaN(n) || n <= 0) return String(num || '');
+        const fmt = format || window._bcEntityNumberFormat || 'arabic';
+
+        if (fmt === 'roman-upper' || fmt === 'roman-lower') {
+          const romanMatrix = [
+            [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+            [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+            [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']
+          ];
+          let val = n;
+          let res = '';
+          for (let i = 0; i < romanMatrix.length; i++) {
+            while (val >= romanMatrix[i][0]) {
+              res += romanMatrix[i][1];
+              val -= romanMatrix[i][0];
+            }
+          }
+          return (fmt === 'roman-lower') ? res.toLowerCase() : res;
+        }
+
+        if (fmt === 'alpha-upper' || fmt === 'alpha-lower') {
+          let val = n;
+          let res = '';
+          while (val > 0) {
+            val--;
+            res = String.fromCharCode(65 + (val % 26)) + res;
+            val = Math.floor(val / 26);
+          }
+          return (fmt === 'alpha-lower') ? res.toLowerCase() : res;
+        }
+
+        return String(n);
+      }
+
+      function conApplyEntityBadge(el, number, format, entityType) {
+        if (!el) return;
+        let badge = el.querySelector(':scope > .con-entity-num-badge');
+        if (number == null || number === '') {
+          if (badge) badge.remove();
+          return;
+        }
+        const text = conFormatSequenceBadge(number, format);
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.className = 'con-entity-num-badge';
+          badge.dataset.entityType = entityType || 'node';
+          badge.addEventListener('click', function (e) {
+            e.stopPropagation();
+            e.preventDefault();
+            const raw = parseInt(badge.dataset.rawNumber, 10);
+            if (!isNaN(raw)) {
+              if (typeof conPushUndo === 'function') conPushUndo();
+              conSetEntityNumberByElement(el, null);
+            }
+          });
+          el.appendChild(badge);
+        }
+        badge.textContent = text;
+        badge.dataset.rawNumber = String(number);
+        badge.dataset.entityFormat = format || 'arabic';
+        if (text.length > 2) {
+          badge.style.fontSize = Math.max(8, 12 - text.length) + 'px';
+          badge.style.minWidth = (20 + (text.length - 2) * 5) + 'px';
+        } else {
+          badge.style.fontSize = '';
+          badge.style.minWidth = '';
+        }
+      }
+
+      function conRemoveEntityBadge(el) {
+        if (!el) return;
+        const badge = el.querySelector(':scope > .con-entity-num-badge');
+        if (badge) badge.remove();
+      }
+
+      function conGetSelectedEntities() {
+        const list = [];
+        const allNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+        const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+        const allGroups = (typeof window.conGetGroups === 'function') ? window.conGetGroups() : (window.conGroups || conGroups || []);
+        const allMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (window.conMediaItems || conMediaItems || []);
+
+        const multiSel = window.conMultiSelected || conMultiSelected || new Set();
+        const selNotes = (typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected())
+          ? window.conGetNoteSelected() : (window.conNoteSelected || new Set());
+        const selMedia = (typeof window.conGetMediaSelected === 'function' && window.conGetMediaSelected())
+          ? window.conGetMediaSelected() : (window.conMediaSelected || conMediaSelected || new Set());
+
+        if (multiSel.size > 0) {
+          multiSel.forEach(id => {
+            const n = allNodes.find(item => item && (item.id === id || String(item.id) === String(id)));
+            if (n && n.el) list.push({ type: 'node', id: n.id, obj: n, el: n.el, x: n.x || 0, y: n.y || 0 });
+          });
+        } else if (window.conSelected || conSelected) {
+          const sid = window.conSelected || conSelected;
+          const n = allNodes.find(item => item && (item.id === sid || String(item.id) === String(sid)));
+          if (n && n.el) list.push({ type: 'node', id: n.id, obj: n, el: n.el, x: n.x || 0, y: n.y || 0 });
+        }
+
+        selNotes.forEach(id => {
+          const note = allNotes.find(item => item && (item.id === id || String(item.id) === String(id)));
+          const noteEl = (note && note.el) || (typeof wnGetNoteElementById === 'function' && wnGetNoteElementById(id));
+          if (note && noteEl) list.push({ type: 'note', id: note.id, obj: note, el: noteEl, x: note.x || 0, y: note.y || 0 });
+        });
+
+        selMedia.forEach(id => {
+          const m = allMedia.find(item => item && (item.id === id || String(item.id) === String(id)));
+          const mEl = (m && m.el) || document.querySelector(`.con-media-item[data-id="${id}"]`);
+          if (m && mEl) list.push({ type: 'media', id: m.id, obj: m, el: mEl, x: m.x || 0, y: m.y || 0 });
+        });
+
+        allGroups.forEach(grp => {
+          if (grp && grp.el && (grp.el.classList.contains('con-group-focused') || grp.el.classList.contains('con-group-selected') || grp.el.classList.contains('active'))) {
+            list.push({ type: 'group', id: grp.id, obj: grp, el: grp.el, x: grp.x || 0, y: grp.y || 0 });
+          }
+        });
+
+        return list;
+      }
+
+      function conGetMaxEntityNumber() {
+        let max = 0;
+        const allNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+        const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+        const allGroups = (typeof window.conGetGroups === 'function') ? window.conGetGroups() : (window.conGroups || conGroups || []);
+        const allMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (window.conMediaItems || conMediaItems || []);
+
+        allNodes.forEach(n => { if (n && typeof n.nodeNumber === 'number' && n.nodeNumber > max) max = n.nodeNumber; });
+        allNotes.forEach(n => { if (n && typeof n.noteNumber === 'number' && n.noteNumber > max) max = n.noteNumber; });
+        allGroups.forEach(g => { if (g && typeof g.groupNumber === 'number' && g.groupNumber > max) max = g.groupNumber; });
+        allMedia.forEach(m => { if (m && typeof m.mediaNumber === 'number' && m.mediaNumber > max) max = m.mediaNumber; });
+        return max;
+      }
+
+      function conSetEntityNumberByElement(el, num, preferredFormat) {
+        if (!el) return;
+        const fmt = preferredFormat || window._bcEntityNumberFormat || 'arabic';
+        const allNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+        const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+        const allGroups = (typeof window.conGetGroups === 'function') ? window.conGetGroups() : (window.conGroups || conGroups || []);
+        const allMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (window.conMediaItems || conMediaItems || []);
+
+        if (el.classList.contains('con-node')) {
+          const n = allNodes.find(item => item && (item.el === el || item.id === el.id));
+          if (n) {
+            n.nodeNumber = num;
+            n.nodeNumberFormat = fmt;
+            conApplyEntityBadge(el, num, fmt, 'node');
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'entity-number', entityType: 'node', entityId: n.id, number: num, format: fmt });
+            }
+          }
+        } else if (el.classList.contains('wn-note') || el.classList.contains('con-word-note')) {
+          const noteId = el.dataset.id || el.id;
+          const note = allNotes.find(item => item && (item.id === noteId || String(item.id) === String(noteId)));
+          if (note) {
+            note.noteNumber = num;
+            note.noteNumberFormat = fmt;
+            conApplyEntityBadge(el, num, fmt, 'note');
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'entity-number', entityType: 'note', entityId: note.id, number: num, format: fmt });
+            }
+          }
+        } else if (el.classList.contains('con-group') || el.classList.contains('con-group-box')) {
+          const gid = el.dataset.gid || el.id;
+          const grp = allGroups.find(item => item && (item.id === gid || String(item.id) === String(gid)));
+          if (grp) {
+            grp.groupNumber = num;
+            grp.groupNumberFormat = fmt;
+            conApplyEntityBadge(el, num, fmt, 'group');
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'entity-number', entityType: 'group', entityId: grp.id, number: num, format: fmt });
+            }
+          }
+        } else if (el.classList.contains('con-media-item')) {
+          const mid = el.dataset.id || el.id;
+          const media = allMedia.find(item => item && (item.id === mid || String(item.id) === String(mid)));
+          if (media) {
+            media.mediaNumber = num;
+            media.mediaNumberFormat = fmt;
+            conApplyEntityBadge(el, num, fmt, 'media');
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'entity-number', entityType: 'media', entityId: media.id, number: num, format: fmt });
+            }
+          }
+        }
+
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
+      }
+
+      function conNumberSelectedEntities(preferredFormat) {
+        const selected = conGetSelectedEntities();
+        if (selected.length === 0) return;
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+        const fmt = preferredFormat || window._bcEntityNumberFormat || 'arabic';
+
+        // Sort top-to-bottom, left-to-right (reading order)
+        selected.sort((a, b) => {
+          const dy = (a.y || 0) - (b.y || 0);
+          if (Math.abs(dy) > 30) return dy;
+          return (a.x || 0) - (b.x || 0);
+        });
+
+        selected.forEach((item, index) => {
+          const num = index + 1;
+          if (item.type === 'node') { item.obj.nodeNumber = num; item.obj.nodeNumberFormat = fmt; }
+          else if (item.type === 'note') { item.obj.noteNumber = num; item.obj.noteNumberFormat = fmt; }
+          else if (item.type === 'group') { item.obj.groupNumber = num; item.obj.groupNumberFormat = fmt; }
+          else if (item.type === 'media') { item.obj.mediaNumber = num; item.obj.mediaNumberFormat = fmt; }
+          conApplyEntityBadge(item.el, num, fmt, item.type);
+
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({ type: 'entity-number', entityType: item.type, entityId: item.id, number: num, format: fmt });
+          }
+        });
+
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
+      }
+
+      function conToggleNumberingMode(force, preferredFormat) {
+        if (force !== undefined) window.conNumberingMode = !!force;
+        else window.conNumberingMode = !window.conNumberingMode;
+
+        const btn = document.getElementById('con-number-btn');
+        if (btn) btn.classList.toggle('active', !!window.conNumberingMode);
+        document.body.classList.toggle('con-numbering-active', !!window.conNumberingMode);
+
+        let pill = document.getElementById('con-numbering-status-pill');
+        if (window.conNumberingMode) {
+          if (!pill) {
+            pill = document.createElement('div');
+            pill.id = 'con-numbering-status-pill';
+            document.body.appendChild(pill);
+          }
+          const tMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberingModeActive') : 'Numbering Mode Active — Click elements to number sequentially, Esc to exit';
+          pill.innerHTML = `
+            <img src="../assets/icons/page-number.svg" style="width:16px;height:16px;" alt="" />
+            <span>${tMsg}</span>
+            <button type="button" class="action-btn btn-grey" onclick="conExitNumberingMode()" style="padding:2px 8px;font-size:0.75rem;margin-left:6px;">✕</button>
+          `;
+          pill.style.display = 'inline-flex';
+        } else {
+          if (pill) pill.remove();
+        }
+      }
+
+      function conExitNumberingMode() {
+        if (window.conNumberingMode) {
+          conToggleNumberingMode(false);
+        }
+      }
+
+      function conTriggerEntityNumbering(preferredFormat) {
+        const selected = conGetSelectedEntities();
+        if (selected.length > 0) {
+          conNumberSelectedEntities(preferredFormat);
+        } else {
+          conToggleNumberingMode(undefined, preferredFormat);
+        }
+      }
+
+      function conHandleEntityClickForNumbering(entityType, entityObj, el, e) {
+        if (!window.conNumberingMode) return false;
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+        const badge = el ? el.querySelector(':scope > .con-entity-num-badge') : null;
+        let currentNum = null;
+        if (entityType === 'node' && entityObj) currentNum = entityObj.nodeNumber;
+        else if (entityType === 'note' && entityObj) currentNum = entityObj.noteNumber;
+        else if (entityType === 'group' && entityObj) currentNum = entityObj.groupNumber;
+        else if (entityType === 'media' && entityObj) currentNum = entityObj.mediaNumber;
+
+        if (currentNum != null || badge) {
+          // Toggle off
+          conSetEntityNumberByElement(el, null);
+        } else {
+          // Assign next
+          const next = conGetMaxEntityNumber() + 1;
+          conSetEntityNumberByElement(el, next, window._bcEntityNumberFormat || 'arabic');
+        }
+        return true;
+      }
+
+      function conClearEntityNumbers(scope) {
+        if (typeof window.conPushUndo === 'function') window.conPushUndo();
+        const allNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+        const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+        const allGroups = (typeof window.conGetGroups === 'function') ? window.conGetGroups() : (window.conGroups || conGroups || []);
+        const allMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (window.conMediaItems || conMediaItems || []);
+
+        if (scope === 'selection') {
+          const selected = conGetSelectedEntities();
+          selected.forEach(item => {
+            conSetEntityNumberByElement(item.el, null);
+          });
+        } else {
+          // Clear all across board
+          allNodes.forEach(n => {
+            if (n.nodeNumber != null) {
+              n.nodeNumber = null;
+              if (n.el) conRemoveEntityBadge(n.el);
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'entity-number', entityType: 'node', entityId: n.id, number: null });
+              }
+            }
+          });
+          allNotes.forEach(n => {
+            if (n.noteNumber != null) {
+              n.noteNumber = null;
+              const nEl = n.el || (typeof wnGetNoteElementById === 'function' && wnGetNoteElementById(n.id));
+              if (nEl) conRemoveEntityBadge(nEl);
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'entity-number', entityType: 'note', entityId: n.id, number: null });
+              }
+            }
+          });
+          allGroups.forEach(g => {
+            if (g.groupNumber != null) {
+              g.groupNumber = null;
+              if (g.el) conRemoveEntityBadge(g.el);
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'entity-number', entityType: 'group', entityId: g.id, number: null });
+              }
+            }
+          });
+          allMedia.forEach(m => {
+            if (m.mediaNumber != null) {
+              m.mediaNumber = null;
+              const mEl = m.el || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
+              if (mEl) conRemoveEntityBadge(mEl);
+              if (typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'entity-number', entityType: 'media', entityId: m.id, number: null });
+              }
+            }
+          });
+        }
+
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
+      }
+
+      window.conFormatSequenceBadge = global.conFormatSequenceBadge = conFormatSequenceBadge;
+      window.conApplyEntityBadge = global.conApplyEntityBadge = conApplyEntityBadge;
+      window.conRemoveEntityBadge = global.conRemoveEntityBadge = conRemoveEntityBadge;
+      window.conGetSelectedEntities = global.conGetSelectedEntities = conGetSelectedEntities;
+      window.conGetMaxEntityNumber = global.conGetMaxEntityNumber = conGetMaxEntityNumber;
+      window.conSetEntityNumberByElement = global.conSetEntityNumberByElement = conSetEntityNumberByElement;
+      window.conNumberSelectedEntities = global.conNumberSelectedEntities = conNumberSelectedEntities;
+      window.conToggleNumberingMode = global.conToggleNumberingMode = conToggleNumberingMode;
+      window.conExitNumberingMode = global.conExitNumberingMode = conExitNumberingMode;
+      window.conTriggerEntityNumbering = global.conTriggerEntityNumbering = conTriggerEntityNumbering;
+      window.conHandleEntityClickForNumbering = global.conHandleEntityClickForNumbering = conHandleEntityClickForNumbering;
+      window.conClearEntityNumbers = global.conClearEntityNumbers = conClearEntityNumbers;
+
       // Init mode buttons on load
       function _initBoardNodesOnLoad() {
         conSetMode('move');
@@ -19972,6 +20396,7 @@
               });
             }
             if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             _polygonReset();
           }
 
@@ -20087,6 +20512,7 @@
               });
             }
             if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
           }
 
           function _conDrawPointerDown(e) {
@@ -20269,6 +20695,7 @@
                 });
               }
               if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             } else if (livePath) {
               const liveSvg = document.getElementById('con-draw-live-svg');
               if (liveSvg && livePath.parentNode === liveSvg) liveSvg.removeChild(livePath);
@@ -20295,6 +20722,7 @@
                 if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
                 _eraserPushedUndo = false;
                 if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
               }
               livePoints = [];
               _conSetEraserOutlineVisible(false);
@@ -20598,6 +21026,7 @@
             }
             if (typeof conMarkDirty === 'function') conMarkDirty();
             else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
           }
 
           function _conFindTopDrawingAt(pos) {
@@ -20686,6 +21115,7 @@
               }
               if (typeof conMarkDirty === 'function') conMarkDirty();
               else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             }
             if (_handDragSceneSnaps) _conFinalizeHandScene(_handDragSceneSnaps);
             _handActive = false;

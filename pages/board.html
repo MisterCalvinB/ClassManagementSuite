@@ -1336,6 +1336,10 @@
           src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word"><img
           src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-number-btn" onclick="conTriggerEntityNumbering(); conCtxClose();" title="Number selected elements (Alt+N)" data-i18n-title="conTbNumberTitle"><img
+          src="../assets/icons/page-number.svg" class="btn-icon" alt="" /></button>
+      <button class="con-ctx-icon-btn" id="con-ctx-clear-number-btn" onclick="conClearEntityNumbers('selection'); conCtxClose();" title="Clear numbers from selection" data-i18n-title="conCtxClearNumbers"><img
+          src="../assets/icons/clear.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxRemove()" style="color:#b94040;" title="Remove word"><img
           src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
       <button class="con-ctx-icon-btn" onclick="conCtxClose()" style="color:#888;" title="Close"><img
@@ -1607,6 +1611,16 @@
           <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conBoardCtxCompactRegion();" title="Compact this region">
             <img src="../assets/icons/compact.svg" class="btn-icon" alt="" />
             <span data-i18n="conCtxCompactRegion">Compact Region</span>
+          </button>
+        </div>
+        <div class="con-board-ctx-duo-row" style="margin-top:4px;">
+          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conTriggerEntityNumbering();" title="Number elements (Alt+N)">
+            <img src="../assets/icons/page-number.svg" class="btn-icon" alt="" />
+            <span data-i18n="conTbNumberBtn">Number</span>
+          </button>
+          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conClearEntityNumbers('all');" title="Clear all numbers">
+            <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />
+            <span data-i18n="conCtxClearAllNumbers">Clear All Numbers</span>
           </button>
         </div>
 
@@ -2687,6 +2701,10 @@
               title="Toggle snap-to-align when dragging elements or resizing notes (hold Alt to bypass snap temporarily)"
               data-i18n-title="conSnapToggleTitle"><img
                 src="../assets/icons/snap.svg" class="btn-icon" alt="" /> <span data-i18n="conSnapToggleBtn">Snap</span></button>
+            <button class="action-btn btn-grey" id="con-number-btn" onclick="conTriggerEntityNumbering()"
+              title="Number elements (Alt+N) — Click elements sequentially or number selection"
+              data-i18n-title="conTbNumberTitle"><img
+                src="../assets/icons/page-number.svg" class="btn-icon" alt="" /> <span data-i18n="conTbNumberBtn">Number</span></button>
           </div>
         </div>
 
@@ -3987,6 +4005,47 @@
                   onclick="conPresetEditorAddRow()">＋ Add preset</button>
                 <div style="flex:1;"></div>
                 <button type="button" class="action-btn" onclick="conPresetEditorSave()">Save Node Presets</button>
+              </div>
+            </div>
+
+            <!-- Node & Entity Number Badges Customisation -->
+            <div class="bc-section" id="bc-section-entity-numbers">
+              <div class="bc-section-title" data-i18n="bcEntityNumberBadgesTitle">Entity Number Badges</div>
+              <div class="bc-section-hint" data-i18n="bcEntityNumberBadgesHint">Customise number badges for nodes, notes, groups, and media items.</div>
+              <div class="bc-fields-grid">
+                <label data-i18n="bcEntityNumberFormat">Default sequence format</label>
+                <div class="bc-field-row">
+                  <select id="bc-entity-num-format" class="bc-select" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                    <option value="arabic" data-i18n="conNumberFormatArabic">Numbers (1, 2, 3…)</option>
+                    <option value="roman-upper" data-i18n="conNumberFormatRomanUpper">Roman Numerals (I, II, III…)</option>
+                    <option value="roman-lower" data-i18n="conNumberFormatRomanLower">Roman Numerals (i, ii, iii…)</option>
+                    <option value="alpha-upper" data-i18n="conNumberFormatAlphaUpper">Letters (A, B, C…)</option>
+                    <option value="alpha-lower" data-i18n="conNumberFormatAlphaLower">Letters (a, b, c…)</option>
+                  </select>
+                </div>
+                <label data-i18n="bcEntityNumberBg">Badge background</label>
+                <div class="bc-field-row">
+                  <input type="color" id="bc-entity-num-bg" value="#fef08a" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                </div>
+                <label data-i18n="bcEntityNumberColor">Badge text colour</label>
+                <div class="bc-field-row">
+                  <input type="color" id="bc-entity-num-color" value="#111111" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                </div>
+                <label data-i18n="bcEntityNumberBorder">Badge border colour</label>
+                <div class="bc-field-row">
+                  <input type="color" id="bc-entity-num-border" value="#333333" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                </div>
+                <label data-i18n="bcEntityNumberBorderWidth">Badge border width</label>
+                <div class="bc-field-row">
+                  <input type="number" id="bc-entity-num-border-width" min="1" max="6" value="2" class="bc-num-input" style="width:60px;" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()"> px
+                </div>
+                <label>Preview</label>
+                <div id="bc-entity-num-preview-wrap" style="display:flex; align-items:center; gap:12px; padding:8px 12px; background:#f9fafb; border:1.5px solid #e5e7eb; border-radius:6px;">
+                  <span id="bc-num-badge-preview-1" class="con-entity-num-badge" style="position:static;">1</span>
+                  <span id="bc-num-badge-preview-2" class="con-entity-num-badge" style="position:static;">2</span>
+                  <span id="bc-num-badge-preview-3" class="con-entity-num-badge" style="position:static;">3</span>
+                  <span style="font-size:0.8rem; color:#666; font-style:italic;">Sample badges</span>
+                </div>
               </div>
             </div>
           </div>

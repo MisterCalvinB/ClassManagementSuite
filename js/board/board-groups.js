@@ -144,6 +144,13 @@
         conGroupAttachEvents(group);
         conGroupRefit(group);
         conGroupApplyStyle(group);
+        if (opts && opts.groupNumber != null) {
+          group.groupNumber = opts.groupNumber;
+          group.groupNumberFormat = opts.groupNumberFormat;
+          if (typeof window.conApplyEntityBadge === 'function') {
+            window.conApplyEntityBadge(el, group.groupNumber, group.groupNumberFormat, 'group');
+          }
+        }
         // If empty group, open its context menu automatically
         if (_totalGroupItems === 0 && placeholderX !== undefined && !(opts && opts.noCtxMenu)) {
           const fakeEvt = {
@@ -310,6 +317,14 @@
         let _resizeStartW = 0, _resizeStartFS = 0;
         titleEl.addEventListener('mousedown', function (e) {
           if (e.button !== 0) return;
+          if (window.conNumberingMode) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof conHandleEntityClickForNumbering === 'function') {
+              conHandleEntityClickForNumbering('group', group, el, e);
+            }
+            return;
+          }
           // Let native resize handle clicks near the right edge; snapshot for font scaling
           const rect = titleEl.getBoundingClientRect();
           if (e.clientX > rect.right - 14) {
@@ -492,6 +507,13 @@
           if (e.target.closest('.con-group-resizer')) return; // let resizer handle it
           if (e.target.closest('.con-group-title')) return; // let title handle it
           if (!group.phraseGroup && e.target.closest('.con-phrase-group')) return; // let phrase group handle it
+          if (window.conNumberingMode) {
+            e.preventDefault(); e.stopPropagation();
+            if (typeof conHandleEntityClickForNumbering === 'function') {
+              conHandleEntityClickForNumbering('group', group, el, e);
+            }
+            return;
+          }
           if (conMode === 'delete') {
             e.preventDefault(); e.stopPropagation();
             conGroupDissolve(group.id);

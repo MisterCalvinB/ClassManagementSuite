@@ -516,6 +516,10 @@
           const fsExit = fsMedia.querySelector('.con-media-fullscreen-exit-btn');
           if (fsExit) { fsExit.click(); return; }
         }
+        if (typeof window.conNumberingMode !== 'undefined' && window.conNumberingMode && typeof window.conExitNumberingMode === 'function') {
+          window.conExitNumberingMode();
+          return;
+        }
         if (document.body && document.body.classList.contains('laser-active')) { if (typeof window.laserToggle === 'function') window.laserToggle(); return; }
         if (typeof window.conIsLinkModeActive === 'function' && window.conIsLinkModeActive()) { if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode(); return; }
         if (typeof window.conGetMode === 'function' && window.conGetMode() === 'draw') { if (typeof window.conSetMode === 'function') window.conSetMode('move'); return; }
@@ -553,6 +557,12 @@
       { id: 'toggle_mask_all', name: 'Hide / Reveal All Words', desc: 'Hide or reveal all words on the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/eye.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleMaskAll === 'function') window.conToggleMaskAll(); else if (typeof conToggleMaskAll === 'function') conToggleMaskAll(); } },
       { id: 'add_mask_box', name: 'Add Mask Rectangle', desc: 'Add a movable mask overlay box', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/mask.svg', defaultShortcut: null, fn: () => { if (typeof window.conAddMask === 'function') window.conAddMask(); else if (typeof conAddMask === 'function') conAddMask(); } },
       { id: 'add_table', name: 'Add Table', desc: 'Add an editable table to the board', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/table.svg', defaultShortcut: null, fn: () => { if (typeof window.conAddTableDialog === 'function') window.conAddTableDialog(); else if (typeof conAddTableDialog === 'function') conAddTableDialog(); } },
+      { id: 'toggle_number_mode', name: 'Number Elements', desc: 'Number selected elements or toggle interactive numbering mode', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/page-number.svg', defaultShortcut: { alt: true, key: 'n' }, fn: () => {
+        if (typeof window.conTriggerEntityNumbering === 'function') window.conTriggerEntityNumbering();
+      } },
+      { id: 'clear_numbers_selected', name: 'Clear Numbers', desc: 'Remove numbers from selected elements or all elements', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/clear.svg', defaultShortcut: null, fn: () => {
+        if (typeof window.conClearEntityNumbers === 'function') window.conClearEntityNumbers('selection');
+      } },
       { id: 'toggle_snap', name: 'Toggle Snap to Align', desc: 'Toggle snapping when dragging elements or resizing notes', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/snap.svg', defaultShortcut: null, fn: () => { if (typeof window.conToggleSnap === 'function') window.conToggleSnap(); else if (typeof conToggleSnap === 'function') conToggleSnap(); } },
       { id: 'spread_nodes', name: 'Spread Words', desc: 'Spread selected words to remove overlaps', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/spread.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSpreadSelected === 'function') window.conCtxSpreadSelected(); } },
       { id: 'compact_nodes', name: 'Compact Words', desc: 'Compact words closer together without overlapping', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/compact.svg', defaultShortcut: null, fn: () => { if (typeof window.conCompactNodes === 'function') window.conCompactNodes(); } },
@@ -1954,6 +1964,12 @@
       const bsEl = document.getElementById('bc-node-border-style');
       if (bsEl) bsEl.value = bc.nodeDefaultBorderStyle || 'solid';
       set('bc-node-border-color', bc.nodeDefaultBorderColor || '#111111');
+      set('bc-entity-num-format', bc.entityNumberFormat || window._bcEntityNumberFormat || 'arabic');
+      set('bc-entity-num-bg', bc.entityNumberBg || window._bcEntityNumberBg || '#fef08a');
+      set('bc-entity-num-color', bc.entityNumberColor || window._bcEntityNumberColor || '#111111');
+      set('bc-entity-num-border', bc.entityNumberBorder || window._bcEntityNumberBorder || '#333333');
+      set('bc-entity-num-border-width', bc.entityNumberBorderWidth !== undefined ? bc.entityNumberBorderWidth : 2);
+      if (typeof window.bcUpdateNumberBadgePreview === 'function') window.bcUpdateNumberBadgePreview();
       set('bc-pen-color', bc.penDefaultColor || '#e53935');
 
       const penThickUnit = bc.penDefaultThicknessUnit || window.conThicknessUnit || 'mm';
@@ -2193,6 +2209,26 @@
         noteCasingEl.onchange = () => _bcUpdateFontPreview('note');
         _bcUpdateFontPreview('note');
       }
+
+      window.bcUpdateNumberBadgePreview = function () {
+        const fmt = document.getElementById('bc-entity-num-format')?.value || 'arabic';
+        const bg = document.getElementById('bc-entity-num-bg')?.value || '#fef08a';
+        const color = document.getElementById('bc-entity-num-color')?.value || '#111111';
+        const border = document.getElementById('bc-entity-num-border')?.value || '#333333';
+        const bw = (document.getElementById('bc-entity-num-border-width')?.value || 2) + 'px';
+
+        [1, 2, 3].forEach(i => {
+          const p = document.getElementById('bc-num-badge-preview-' + i);
+          if (p) {
+            p.textContent = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(i, fmt) : String(i);
+            p.style.backgroundColor = bg;
+            p.style.color = color;
+            p.style.borderColor = border;
+            p.style.borderWidth = bw;
+          }
+        });
+      };
+      window.bcUpdateNumberBadgePreview();
 
       // Initialize Node presets inline
       if (typeof window.conSetPresetEditorDraft === 'function' && typeof window._conPresetEditorRender === 'function' && typeof window.conGetNodePresets === 'function') {
@@ -2597,6 +2633,11 @@
         nodeDefaultBorderWidthUnit: document.getElementById('bc-node-border-width-unit')?.value || 'px',
         nodeDefaultBorderStyle: getVal('bc-node-border-style', 'solid'),
         nodeDefaultBorderColor: getVal('bc-node-border-color', '#111111'),
+        entityNumberFormat: getVal('bc-entity-num-format', 'arabic'),
+        entityNumberBg: getVal('bc-entity-num-bg', '#fef08a'),
+        entityNumberColor: getVal('bc-entity-num-color', '#111111'),
+        entityNumberBorder: getVal('bc-entity-num-border', '#333333'),
+        entityNumberBorderWidth: parseInt(document.getElementById('bc-entity-num-border-width')?.value, 10) || 2,
         penDefaultColor: getVal('bc-pen-color', '#e53935'),
         penDefaultThickness: (() => {
           const unit = document.getElementById('bc-pen-thickness-unit')?.value || 'px';
@@ -2743,6 +2784,23 @@
       }
       if (bc.nodeDefaultBorderColor) {
         document.documentElement.style.setProperty('--bc-node-border-color', bc.nodeDefaultBorderColor);
+      }
+      if (bc.entityNumberFormat) window._bcEntityNumberFormat = bc.entityNumberFormat;
+      if (bc.entityNumberBg) {
+        window._bcEntityNumberBg = bc.entityNumberBg;
+        document.documentElement.style.setProperty('--con-node-num-bg', bc.entityNumberBg);
+      }
+      if (bc.entityNumberColor) {
+        window._bcEntityNumberColor = bc.entityNumberColor;
+        document.documentElement.style.setProperty('--con-node-num-color', bc.entityNumberColor);
+      }
+      if (bc.entityNumberBorder) {
+        window._bcEntityNumberBorder = bc.entityNumberBorder;
+        document.documentElement.style.setProperty('--con-node-num-border', bc.entityNumberBorder);
+      }
+      if (bc.entityNumberBorderWidth !== undefined) {
+        window._bcEntityNumberBorderWidth = bc.entityNumberBorderWidth;
+        document.documentElement.style.setProperty('--con-node-num-border-width', bc.entityNumberBorderWidth + 'px');
       }
 
       // 4. Note background swatches

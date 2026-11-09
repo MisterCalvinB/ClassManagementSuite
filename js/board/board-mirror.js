@@ -2582,6 +2582,36 @@
           return;
         }
 
+        if (d.type === 'entity-number') {
+          if (_mirrorIsFrozen) return;
+          var targetEl = null;
+          if (d.entityType === 'node') {
+            targetEl = document.getElementById(d.entityId);
+            var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+            var nObj = _liveNodes.find(function (n) { return String(n.id) === String(d.entityId); });
+            if (nObj) { nObj.nodeNumber = d.number; nObj.nodeNumberFormat = d.format; }
+          } else if (d.entityType === 'note') {
+            targetEl = document.querySelector('#constellation-board .con-word-note[data-id="' + d.entityId + '"]');
+            var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+            var nObj = _liveNotes.find(function (n) { return String(n.id) === String(d.entityId); });
+            if (nObj) { nObj.noteNumber = d.number; nObj.noteNumberFormat = d.format; }
+          } else if (d.entityType === 'group') {
+            targetEl = document.querySelector('#constellation-board [data-gid="' + d.entityId + '"]');
+            var _liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+            var gObj = _liveGroups.find(function (g) { return String(g.id) === String(d.entityId); });
+            if (gObj) { gObj.groupNumber = d.number; gObj.groupNumberFormat = d.format; }
+          } else if (d.entityType === 'media') {
+            targetEl = document.querySelector('#constellation-board .con-media-item[data-id="' + d.entityId + '"]');
+            var _liveMedia = window.conGetMediaItems ? window.conGetMediaItems() : [];
+            var mObj = _liveMedia.find(function (m) { return String(m.id) === String(d.entityId); });
+            if (mObj) { mObj.mediaNumber = d.number; mObj.mediaNumberFormat = d.format; }
+          }
+          if (targetEl && typeof window.conApplyEntityBadge === 'function') {
+            window.conApplyEntityBadge(targetEl, d.number, d.format, d.entityType);
+          }
+          return;
+        }
+
         if (d.type === 'board-bg') {
           if (_mirrorIsFrozen) return;
           var brd = document.getElementById('constellation-board');

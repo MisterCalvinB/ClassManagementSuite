@@ -4315,7 +4315,9 @@
             videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
             competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
             shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
-            rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0
+            rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0,
+            nodeNumber: n.nodeNumber != null ? n.nodeNumber : (n.el && n.el.querySelector(':scope > .con-entity-num-badge') ? (parseInt(n.el.querySelector(':scope > .con-entity-num-badge').dataset.rawNumber, 10) || null) : null),
+            nodeNumberFormat: n.nodeNumberFormat || (n.el && n.el.querySelector(':scope > .con-entity-num-badge') ? (n.el.querySelector(':scope > .con-entity-num-badge').dataset.entityFormat || null) : null)
           };
         }),
         edges: edges.map(e => ({
@@ -4373,7 +4375,9 @@
             titleX: g._titleX != null ? g._titleX : null,
             titleY: g._titleY != null ? g._titleY : null,
             titleW: g._titleW != null ? g._titleW : null,
-            titleFS: g._titleFS != null ? g._titleFS : null
+            titleFS: g._titleFS != null ? g._titleFS : null,
+            groupNumber: g.groupNumber != null ? g.groupNumber : (g.el && g.el.querySelector(':scope > .con-entity-num-badge') ? (parseInt(g.el.querySelector(':scope > .con-entity-num-badge').dataset.rawNumber, 10) || null) : null),
+            groupNumberFormat: g.groupNumberFormat || (g.el && g.el.querySelector(':scope > .con-entity-num-badge') ? (g.el.querySelector(':scope > .con-entity-num-badge').dataset.entityFormat || null) : null)
           };
         }),
         masks: masks.map(m => {
@@ -4483,7 +4487,9 @@
             preset: n.preset || null,
             blink: !!n.blink,
             studentInput: !!n.studentInput,
-            textAlign: n.textAlign || null
+            textAlign: n.textAlign || null,
+            noteNumber: n.noteNumber != null ? n.noteNumber : (_noteEl && _noteEl.querySelector(':scope > .con-entity-num-badge') ? (parseInt(_noteEl.querySelector(':scope > .con-entity-num-badge').dataset.rawNumber, 10) || null) : null),
+            noteNumberFormat: n.noteNumberFormat || (_noteEl && _noteEl.querySelector(':scope > .con-entity-num-badge') ? (_noteEl.querySelector(':scope > .con-entity-num-badge').dataset.entityFormat || null) : null)
           };
         }),
         drawings: (window.conGetDrawings ? window.conGetDrawings() : []).map(d => ({
@@ -4542,7 +4548,9 @@
           _fsPanY: m._fullscreen ? (m._fsPanY || 0) : undefined,
           dataUrl: (m.dataUrl && m.dataUrl.startsWith('data:')) ? m.dataUrl : (m._resolvedDataUrl || undefined),
           base64: m.base64 || undefined,
-          transcript: m.transcript || undefined
+          transcript: m.transcript || undefined,
+          mediaNumber: m.mediaNumber != null ? m.mediaNumber : (document.querySelector(`.con-media-item[data-id="${m.id}"] > .con-entity-num-badge`) ? (parseInt(document.querySelector(`.con-media-item[data-id="${m.id}"] > .con-entity-num-badge`).dataset.rawNumber, 10) || null) : null),
+          mediaNumberFormat: m.mediaNumberFormat || (document.querySelector(`.con-media-item[data-id="${m.id}"] > .con-entity-num-badge`) ? (document.querySelector(`.con-media-item[data-id="${m.id}"] > .con-entity-num-badge`).dataset.entityFormat || null) : null)
         })),
         backgroundPdf: (() => {
           const bgPdf = (typeof conPageBackgroundPdf !== 'undefined' ? conPageBackgroundPdf : (typeof window !== 'undefined' ? window.conPageBackgroundPdf : null));
@@ -11019,6 +11027,7 @@
         const isMirrorSync = !!data._isMirrorSync;
         const isUndoRedo = !!data._isUndoRedo;
         if (!isPageRestore) {
+          if (typeof window.conExitNumberingMode === 'function') window.conExitNumberingMode();
           if (typeof _conClearPageDomCache === 'function') _conClearPageDomCache();
           _conUndoStack = []; _conRedoStack = [];
           if (window._conPdfDocCache) {
@@ -11276,6 +11285,13 @@
             existing.textStrokeWidth = n.textStrokeWidth || null;
             existing.competences = Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []);
             if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(existing);
+            existing.nodeNumber = n.nodeNumber != null ? n.nodeNumber : null;
+            existing.nodeNumberFormat = n.nodeNumberFormat || null;
+            if (existing.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
+              window.conApplyEntityBadge(existing.el, existing.nodeNumber, existing.nodeNumberFormat, 'node');
+            } else if (typeof window.conRemoveEntityBadge === 'function') {
+              window.conRemoveEntityBadge(existing.el);
+            }
 
             window.conRenderNodeLabel(existing);
             if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(existing, n.fontSize || '16px');
@@ -11355,7 +11371,9 @@
               fontSize: n.fontSize || '16px',
               textStrokeColor: n.textStrokeColor || null,
               textStrokeWidth: n.textStrokeWidth || null,
-              competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])
+              competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []),
+              nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
+              nodeNumberFormat: n.nodeNumberFormat || null
             };
             if (nodeObj.isTimer && nodeObj.timerState === 'running') {
               nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
@@ -11367,6 +11385,9 @@
               window.conAttachNodeEvents(n.id, el);
             }
             window.conRenderNodeLabel(nodeObj);
+            if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
+              window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
+            }
             if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
             conApplyNodeShape(nodeObj, nodeObj.shape);
             if (el.offsetWidth > 0) {
@@ -11625,6 +11646,13 @@
             existing._manualH = (g.manualH != null ? g.manualH : null);
             existing._px = (g.x != null ? g.x : null);
             existing._py = (g.y != null ? g.y : null);
+            existing.groupNumber = g.groupNumber != null ? g.groupNumber : null;
+            existing.groupNumberFormat = g.groupNumberFormat || null;
+            if (existing.groupNumber != null && typeof window.conApplyEntityBadge === 'function') {
+              window.conApplyEntityBadge(existing.el, existing.groupNumber, existing.groupNumberFormat, 'group');
+            } else if (typeof window.conRemoveEntityBadge === 'function') {
+              window.conRemoveEntityBadge(existing.el);
+            }
             if (!existing.drawingGroup && !existing.phraseGroup) {
               if (existing.invisible) {
                 existing.el.classList.add('con-group-invisible');
@@ -12098,7 +12126,9 @@
           fontSize: n.fontSize || '16px',
           textStrokeColor: n.textStrokeColor || null,
           textStrokeWidth: n.textStrokeWidth || null,
-          competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []))
+          competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])),
+          nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
+          nodeNumberFormat: n.nodeNumberFormat || null
         };
         if (nodeObj.isTimer && nodeObj.timerState === 'running') {
           nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
@@ -12111,6 +12141,9 @@
         }
         // Rebuild innerHTML with formatting + annotations + page badge
         window.conRenderNodeLabel(nodeObj);
+        if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
+          window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
+        }
         if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
         conApplyNodeShape(nodeObj, nodeObj.shape);
         if (el.offsetWidth > 0) {
@@ -12193,6 +12226,8 @@
           color: '#111111', bg: '#ffffff',
           hidden: false, locked: false,
           manualSize: false, width: null, height: null,
+          noteNumber: n.noteNumber != null ? n.noteNumber : null,
+          noteNumberFormat: n.noteNumberFormat || null,
           ...n
         };
         const resolvedNoteW = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : (n.w != null ? n.w : n.styleWidth))) || null;
@@ -12224,7 +12259,13 @@
       // Re-apply styles after DOM layout settles (fixes size/weight not showing on load)
       requestAnimationFrame(() => {
         const _notesForStyle = window.conGetNotes ? window.conGetNotes() : [];
-        _notesForStyle.forEach(nd => { if (nd._applyStyle) nd._applyStyle(); });
+        _notesForStyle.forEach(nd => {
+          if (nd._applyStyle) nd._applyStyle();
+          if (nd.noteNumber != null && typeof window.conApplyEntityBadge === 'function') {
+            const _nel = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : document.querySelector('.con-word-note[data-id="' + nd.id + '"]');
+            if (_nel) window.conApplyEntityBadge(_nel, nd.noteNumber, nd.noteNumberFormat, 'note');
+          }
+        });
         if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
         if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
       });
@@ -12478,13 +12519,18 @@
         _titleX: g.titleX != null ? g.titleX : null,
         _titleY: g.titleY != null ? g.titleY : null,
         _titleW: g.titleW != null ? g.titleW : null,
-        _titleFS: g.titleFS != null ? g.titleFS : null
+        _titleFS: g.titleFS != null ? g.titleFS : null,
+        groupNumber: g.groupNumber != null ? g.groupNumber : null,
+        groupNumberFormat: g.groupNumberFormat || null
       };
       groupsArr.push(groupObj);
       if (typeof window.conGroupAttach === 'function') {
         window.conGroupAttach(groupObj);
       } else if (typeof window.conGroupAttachEvents === 'function') {
         window.conGroupAttachEvents(groupObj);
+      }
+      if (groupObj.groupNumber != null && typeof window.conApplyEntityBadge === 'function') {
+        window.conApplyEntityBadge(el, groupObj.groupNumber, groupObj.groupNumberFormat, 'group');
       }
       if (groupObj.blink) el.classList.add('con-group-blink');
       if (groupObj.phraseGroup) {

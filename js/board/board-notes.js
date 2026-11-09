@@ -5647,6 +5647,14 @@
         e.stopPropagation();
       });
       ta.addEventListener('mousedown', e => {
+        if (window.conNumberingMode) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof conHandleEntityClickForNumbering === 'function') {
+            conHandleEntityClickForNumbering('note', noteData, note, e);
+          }
+          return;
+        }
         if (document.body.classList.contains('laser-active')) { e.preventDefault(); return; }
         if (e.button !== 0) {
           // Prevent right-click from focusing editor and deselecting nodes/other elements
@@ -6024,6 +6032,14 @@
       let _conNoteMoveRaf = null;
       note.addEventListener('mousedown', e => {
         if (e.button !== 0) return; // Left button only; right-click is handled by contextmenu
+        if (window.conNumberingMode) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof conHandleEntityClickForNumbering === 'function') {
+            conHandleEntityClickForNumbering('note', noteData, note, e);
+          }
+          return;
+        }
         if (e.target.closest('.wn-note-editor') || e.target.closest('.wn-note-resizer')) return;
         // Blur active editor so Delete key or movement shortcuts immediately act on the selected note container
         if (document.activeElement && (document.activeElement.isContentEditable || document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
@@ -6504,6 +6520,10 @@
           window._conMirrorDragging = false;
         }, 60);
       });
+
+      if (noteData.noteNumber != null && typeof window.conApplyEntityBadge === 'function') {
+        window.conApplyEntityBadge(note, noteData.noteNumber, noteData.noteNumberFormat, 'note');
+      }
     }
 
     function conDuplicateNoteData(noteData, offsetX, offsetY) {
