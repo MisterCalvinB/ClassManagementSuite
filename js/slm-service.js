@@ -485,7 +485,13 @@
     var recoveredList = [];
     var seenKeys = new Set();
     var objMatches = cleaned.match(/\{[^{}]*\}/g);
-    var METADATA_KEYS = new Set(['width', 'height', 'style', 'title', 'version', 'viewbox', 'database', 'system', 'status']);
+    var METADATA_KEYS = new Set([
+      'width', 'height', 'style', 'title', 'version', 'viewbox', 'database', 'system', 'status',
+      'english', 'german', 'french', 'italian', 'spanish', 'portuguese', 'russian', 'chinese', 'japanese', 'latin',
+      'examplesentence', 'sentence', 'sentences', 'translation', 'translations', 'equivalent',
+      'topic', 'theme', 'concept', 'concepts', 'definition', 'definitions', 'meaning',
+      'synonym', 'synonyms', 'antonym', 'antonyms', 'hypernym', 'hyponym', 'partofspeech'
+    ]);
 
     if (objMatches && objMatches.length > 0) {
       for (var om = 0; om < objMatches.length; om++) {
@@ -503,13 +509,10 @@
             var isMetaOnly = keys.every(function (k) { return METADATA_KEYS.has(k.toLowerCase()); });
             if (isMetaOnly) continue;
 
-            // Reject hallucinated metadata words like word: "title" with def: "educational database"
+            // Reject hallucinated metadata words like word: "title" with def: "educational database" or instruction phrases
             var rawWord = String(parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.name || '').trim().toLowerCase();
-            if (rawWord === 'title' || rawWord === 'width' || rawWord === 'height') {
-              var rawDef = String(parsedObj.def || parsedObj.definition || '').toLowerCase();
-              if (rawDef.includes('educational database') || !parsedObj.ipa) {
-                continue;
-              }
+            if (METADATA_KEYS.has(rawWord) || rawWord.length > 35 || rawWord.split(/\s+/).length > 4 || /example\s*sentence|illustrat|translation|equivalent/i.test(rawWord)) {
+              continue;
             }
 
             var primaryVal = String(parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.name || parsedObj.id || parsedObj.code || parsedObj.quote || parsedObj.sentence || parsedObj.rule || JSON.stringify(parsedObj)).trim();
@@ -535,14 +538,16 @@
       if (wMatch[2]) {
         var foundWord = wMatch[2].trim();
         var lowerWord = foundWord.toLowerCase();
-        if (foundWord.length >= 2 && !seenKeys.has(lowerWord) && !METADATA_KEYS.has(lowerWord)) {
-          seenKeys.add(lowerWord);
-          recoveredList.push({
-            word: foundWord,
-            relation: 'related',
-            pos: 'noun',
-            def: ''
-          });
+        if (foundWord.length >= 2 && foundWord.length <= 35 && foundWord.split(/\s+/).length <= 4 && !seenKeys.has(lowerWord) && !METADATA_KEYS.has(lowerWord)) {
+          if (!/example\s*sentence|illustrat|translation|equivalent/i.test(foundWord)) {
+            seenKeys.add(lowerWord);
+            recoveredList.push({
+              word: foundWord,
+              relation: 'related',
+              pos: 'noun',
+              def: ''
+            });
+          }
         }
       } else if (wMatch[1]) {
         var innerArr = wMatch[1];
@@ -551,14 +556,16 @@
         while ((inMatch = innerRegex.exec(innerArr)) !== null) {
           var strItem = inMatch[1].trim();
           var lowerItem = strItem.toLowerCase();
-          if (strItem.length >= 2 && !seenKeys.has(lowerItem) && !METADATA_KEYS.has(lowerItem)) {
-            seenKeys.add(lowerItem);
-            recoveredList.push({
-              word: strItem,
-              relation: 'related',
-              pos: 'noun',
-              def: ''
-            });
+          if (strItem.length >= 2 && strItem.length <= 35 && strItem.split(/\s+/).length <= 4 && !seenKeys.has(lowerItem) && !METADATA_KEYS.has(lowerItem)) {
+            if (!/example\s*sentence|illustrat|translation|equivalent/i.test(strItem)) {
+              seenKeys.add(lowerItem);
+              recoveredList.push({
+                word: strItem,
+                relation: 'related',
+                pos: 'noun',
+                def: ''
+              });
+            }
           }
         }
       }
@@ -578,7 +585,11 @@
       'note', 'notes', 'instruction', 'instructions', 'rule', 'rules',
       'schema', 'format', 'code', 'class', 'id', 'count', 'level', 'model',
       'table', 'column', 'columns', 'row', 'rows', 'property', 'properties',
-      'key', 'keys', 'value', 'values', 'target', 'view', 'size'
+      'key', 'keys', 'value', 'values', 'target', 'view', 'size',
+      'english', 'german', 'french', 'italian', 'spanish', 'portuguese', 'russian', 'chinese', 'japanese', 'latin',
+      'examplesentence', 'sentence', 'sentences', 'translation', 'translations', 'equivalent',
+      'topic', 'theme', 'concept', 'concepts', 'definition', 'definitions', 'meaning',
+      'synonym', 'synonyms', 'antonym', 'antonyms', 'hypernym', 'hyponym', 'partofspeech'
     ]);
 
     lines.forEach(function (line) {
@@ -587,9 +598,12 @@
       if (kvMatch) {
         var k = kvMatch[1].toLowerCase().trim();
         var v = kvMatch[2].replace(/^["']|["']$/g, '').trim();
-        if (k === 'word' || k === 'term' || k === 'concept' || k === 'label') {
-          if (currentItem && currentItem.word) fallbackItems.push(currentItem);
-          currentItem = { word: v, relation: 'related', pos: 'noun', def: '' };
+        if (k === 'word' || k === 'term' || k === 'label') {
+          var vLower = v.toLowerCase();
+          if (v.length >= 2 && v.length <= 35 && v.split(/\s+/).length <= 4 && !BLACKLIST_KEYS.has(vLower) && !/example\s*sentence|illustrat|translation|equivalent/i.test(v)) {
+            if (currentItem && currentItem.word) fallbackItems.push(currentItem);
+            currentItem = { word: v, relation: 'related', pos: 'noun', def: '' };
+          }
         } else if (k === 'relation' || k === 'link' || k === 'type') {
           if (currentItem) currentItem.relation = v;
         } else if (k === 'pos' || k === 'partofspeech') {
@@ -598,15 +612,20 @@
           if (currentItem) currentItem.def = v;
         } else if (!BLACKLIST_KEYS.has(k) && /^[A-Za-z\s'-]{2,35}$/.test(kvMatch[1].trim()) && v.length > 2) {
           // The key itself is the word! (e.g. "Metaphor: A figure of speech")
-          if (currentItem && currentItem.word) fallbackItems.push(currentItem);
-          currentItem = { word: kvMatch[1].trim(), relation: 'related', pos: 'noun', def: v };
+          var candidateWord = kvMatch[1].trim();
+          var candLower = candidateWord.toLowerCase();
+          if (!BLACKLIST_KEYS.has(candLower) && candidateWord.split(/\s+/).length <= 4 && !/example\s*sentence|illustrat|translation|equivalent/i.test(candidateWord)) {
+            if (currentItem && currentItem.word) fallbackItems.push(currentItem);
+            currentItem = { word: candidateWord, relation: 'related', pos: 'noun', def: v };
+          }
         }
       } else {
         // Matches "1. Concept (noun): Definition"
         var bulletMatch = line.match(/^(?:[-*•\d.]+\s*)?([A-Za-z\s'-]{2,30})(?:\s*\(([^)]+)\))?\s*[:–-]\s*(.+)$/);
         if (bulletMatch) {
           var candWord = bulletMatch[1].trim();
-          if (!BLACKLIST_KEYS.has(candWord.toLowerCase())) {
+          var candLower = candWord.toLowerCase();
+          if (!BLACKLIST_KEYS.has(candLower) && candWord.split(/\s+/).length <= 4 && !/example\s*sentence|illustrat|translation|equivalent/i.test(candWord)) {
             if (currentItem && currentItem.word) fallbackItems.push(currentItem);
             currentItem = {
               word: candWord,

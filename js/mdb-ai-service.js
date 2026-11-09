@@ -1200,46 +1200,46 @@
     var useCefr = typeCfg.showCefr !== false && cefrLevel && cefrLevel !== 'Any';
 
     var systemPrompt = [
-      'You are an expert language education and curriculum database AI assistant.',
-      'Your task is to generate exactly ' + count + ' structured ' + typeTitle + ' record(s) in valid JSON format.',
+      'You are an expert language teacher and educational lexicographer.',
+      'Your task is to generate exactly ' + count + ' structured ' + typeTitle + ' records in valid JSON format.',
       'CRITICAL INSTRUCTIONS:',
       '1. Respond ONLY with a valid JSON array of objects (starting with [ and ending with ]).',
-      '2. Do NOT write conversational preamble, introductory text, markdown commentary, or explanations.',
-      '3. Each object in the array represents one database entry and must strictly conform to the expected schema fields.',
-      '4. Do NOT output metadata like "title", "width", "height", or "database". Output actual content records only.',
-      useCefr ? ('5. Ensure language difficulty, vocabulary, and grammar match CEFR level ' + cefrLevel + '.') : ''
+      '2. Do NOT write conversational preamble, commentary, metadata, or markdown fences.',
+      '3. Each object represents one real vocabulary word related to the topic. NEVER output the topic title itself as a word.',
+      '4. NEVER output field names, language names, or instruction phrases as vocabulary words.',
+      useCefr ? ('5. Ensure language difficulty and vocabulary match CEFR level ' + cefrLevel + '.') : ''
     ].filter(Boolean).join('\n');
 
     var schemaDescription = '';
     if (typeKey === 'wordbanks') {
       schemaDescription = [
-        'Format Example:',
+        'Format Example (array of vocabulary objects with concrete values):',
         '[',
         '  {',
-        '    "word": "target word",',
-        '    "ipa": "IPA phonetic transcription (e.g. /.../)",',
-        '    "partOfSpeech": "noun | verb | adjective | adverb | preposition | etc.",',
+        '    "word": "affection",',
+        '    "ipa": "əˈfek.ʃən",',
+        '    "partOfSpeech": "noun",',
         '    "level": "' + (useCefr ? cefrLevel : 'B1') + '",',
-        '    "theme": "Thematic category",',
-        '    "definition": "Clear pedagogical definition for language learners",',
-        '    "exampleSentence": "Natural example sentence illustrating the word without using the word itself",',
-        '    "french": "French translation",',
-        '    "english": "English equivalent",',
-        '    "german": "German translation",',
-        '    "italian": "Italian translation",',
-        '    "synonyms": ["synonym1", "synonym2"],',
-        '    "antonyms": ["antonym1"],',
-        '    "otherForms": ["other form"],',
-        '    "hypernym": ["broader category"],',
+        '    "theme": "' + (promptText || 'Topic') + '",',
+        '    "definition": "A gentle feeling of fondness or liking.",',
+        '    "exampleSentence": "They showed great tenderness and warmth toward each other.",',
+        '    "french": "affection",',
+        '    "english": "affection",',
+        '    "german": "Zuneigung",',
+        '    "italian": "affetto",',
+        '    "synonyms": ["fondness", "warmth"],',
+        '    "antonyms": ["coldness", "hostility"],',
+        '    "otherForms": ["affectionate", "affectionately"],',
+        '    "hypernym": ["feeling", "emotion"],',
         '    "hyponym": []',
         '  }',
         ']',
         '',
-        'Rules:',
-        '- "word" must be a genuine vocabulary word (never "title", "width", or metadata properties).',
-        '- "definition" must define the word clearly in English.',
-        '- "exampleSentence" must be a single illustrative sentence without using the target word.',
-        '- Include all fields shown above for every object.'
+        'CRITICAL INSTRUCTIONS FOR WORDS:',
+        '- Generate ' + count + ' DIFFERENT vocabulary words related to "' + (promptText || 'the topic') + '".',
+        '- NEVER use "' + (promptText || 'the topic') + '" as a word itself.',
+        '- NEVER use field names or instruction phrases (such as "exampleSentence", "English", "German", "French", "sentence") as words.',
+        '- Each "word" MUST be an individual vocabulary term belonging to the topic (e.g. for "Romantic Relationships", use words like "affection", "commitment", "courtship", "infatuation", "passion").'
       ].join('\n');
     } else if (promptTemplate) {
       // Clean up human prompt instructions if present (e.g. "Give me a JSON array of vocabulary entries for: [PASTE WORDS HERE].")
@@ -1263,13 +1263,14 @@
     }
 
     var userPrompt = [
-      'Database Category: ' + typeTitle,
-      'Task: ' + (mode === 'text' ? 'Extract and generate ' + count + ' structured records from the provided text.' : 'Generate ' + count + ' rich structured entries on the specified topic/concept.'),
+      'Target Database: ' + typeTitle,
+      'Theme / Topic: ' + promptText,
+      'Task: ' + (mode === 'text' ? 'Extract and generate ' + count + ' vocabulary records from the provided passage.' : 'Generate ' + count + ' distinct vocabulary words related to the topic "' + promptText + '". (Do NOT use "' + promptText + '" as a word).'),
       'Number of Records Requested: ' + count,
       useCefr ? ('Target CEFR Level: ' + cefrLevel) : '',
       extraFocus ? ('Special Instructions / Focus: ' + extraFocus) : '',
-      mode === 'text' ? ('Source Passage / Notes:\n' + promptText) : ('Topic / Concept / Seed:\n' + promptText),
-      '\nExpected Format & Rules:\n' + schemaDescription,
+      mode === 'text' ? ('Source Passage / Notes:\n' + promptText) : ('Topic Seed:\n' + promptText),
+      '\nExpected JSON Schema Format:\n' + schemaDescription,
       '\nReturn ONLY the JSON array starting with [ and ending with ]:'
     ].filter(Boolean).join('\n\n');
 
@@ -1343,6 +1344,9 @@
 
       var schema = options.schema || (window.S ? window.S.schema : []) || [];
       var primaryKey = mdbGetPrimaryFieldKey(typeKey);
+      var LANGUAGE_NAMES = new Set(['english', 'french', 'german', 'italian', 'spanish', 'portuguese', 'russian', 'chinese', 'japanese', 'latin']);
+      var promptLower = (promptData.promptText || options.prompt || '').toLowerCase().trim();
+
       var cleanedRecords = recordsArray.filter(function (r) {
         if (!r || typeof r !== 'object' || Array.isArray(r)) return false;
         var keys = Object.keys(r).filter(function (k) { return !k.startsWith('_'); });
@@ -1354,14 +1358,24 @@
         });
         if (isMetadataOnly) return false;
 
-        // Filter out corrupted metadata rows (e.g. word: "title" with definition: "educational database")
         if (primaryKey && r[primaryKey]) {
-          var pVal = String(r[primaryKey]).trim().toLowerCase();
-          if (pVal === 'title' || pVal === 'width' || pVal === 'height') {
-            var defVal = String(r.definition || r.def || '').toLowerCase();
-            if (defVal.includes('educational database') || (!r.ipa && !r.partOfSpeech)) {
-              return false;
-            }
+          var rawWord = String(r[primaryKey]).trim();
+          var wordLower = rawWord.toLowerCase();
+
+          // Reject if word is the exact topic name (e.g. "Romantic Relationships")
+          if (promptLower && wordLower === promptLower) return false;
+
+          // Reject if word is an instruction or placeholder sentence
+          if (rawWord.split(/\s+/).length > 4 || rawWord.length > 35) return false;
+          if (/example\s*sentence|illustrat|target\s*word|equivalent|translation/i.test(rawWord)) return false;
+
+          // Reject if word is a metadata keyword or language name
+          if (wordLower === 'title' || wordLower === 'width' || wordLower === 'height' || wordLower === 'database') return false;
+          if (LANGUAGE_NAMES.has(wordLower) && (!r.ipa || r.ipa === '...')) return false;
+
+          var defVal = String(r.definition || r.def || '').toLowerCase();
+          if (defVal.includes('educational database') || defVal.includes('illustrating the word') || defVal.includes('pedagogical definition')) {
+            return false;
           }
         }
         return true;

@@ -3616,7 +3616,7 @@
             _liveSelInNoteEditor = !!(_el && _el.closest && _el.closest('.wn-note-editor'));
           }
         } catch (_) {}
-        const _skipTextPath = !!_nodeSel && !_focusInNoteEditor && !_liveSelInNoteEditor;
+        const _skipTextPath = !!_nodeSel || (!_focusInNoteEditor && !_liveSelInNoteEditor);
 
         const hasTextSel = !_skipTextPath && ((typeof window.wnHasNoteTextSelection === 'function' && window.wnHasNoteTextSelection()) ||
           (typeof window.wnGetActiveNoteTextSelection === 'function' && !!window.wnGetActiveNoteTextSelection()));
@@ -3695,6 +3695,12 @@
                   const elBase = Math.round(parseFloat(match[1]) / zoom);
                   const elNext = Math.max(4, Math.min(96, elBase + (next - oldBase)));
                   el.style.fontSize = Math.round(elNext * zoom) + 'px';
+                }
+              });
+              editor.querySelectorAll('[style*="font-size"]').forEach(el => {
+                const p = el.parentElement ? el.parentElement.closest('[style*="font-size"]') : null;
+                if (p && p.style.fontSize === el.style.fontSize) {
+                  el.style.fontSize = '';
                 }
               });
               if (typeof wnSyncNoteDataFromEditor === 'function') wnSyncNoteDataFromEditor(note, editor);

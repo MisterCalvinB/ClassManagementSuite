@@ -3674,18 +3674,28 @@
 
       if (canList) {
         try {
-          const result = await Desktop.listFiles('customBooks', {
-            extensions: ['.epub', '.html', '.htm', '.xhtml', '.txt']
-          });
+          const result = (typeof Desktop.listByPath === 'function')
+            ? await Desktop.listByPath('customBooks', '', {
+                extensions: ['.epub', '.mobi', '.docx', '.odt', '.pdf', '.html', '.htm', '.xhtml', '.txt'],
+                recursive: true
+              })
+            : await Desktop.listFiles('customBooks', {
+                extensions: ['.epub', '.mobi', '.docx', '.odt', '.pdf', '.html', '.htm', '.xhtml', '.txt']
+              });
           const files = result && result.ok && Array.isArray(result.files) ? result.files : [];
           files.forEach(file => {
-            const relPath = file.relativePath || file.filename;
-            const label = String(file.filename || '').replace(/\.(epub|html?|xhtml|txt)$/i, '');
+            if (file.isDirectory) return;
+            const relPath = (file.relativePath || file.filename || '').replace(/\\/g, '/');
+            const pathParts = relPath.split('/');
+            const baseFileName = pathParts.pop();
+            const folder = pathParts.join('/');
+            const label = String(baseFileName || '').replace(/\.(epub|mobi|docx|odt|pdf|html?|xhtml|txt)$/i, '');
             searchAvailableBooks.push({
               id: 'customBooks:' + relPath,
-              label: label || file.filename,
-              fileName: file.filename,
+              label: label || baseFileName,
+              fileName: baseFileName,
               path: relPath,
+              folder: folder || '',
               target: 'customBooks',
               isCustom: true
             });
@@ -3695,13 +3705,48 @@
         }
       }
 
-      select.innerHTML = '<option value="">Books folder…</option>';
+      select.innerHTML = '<option value="">' + (typeof i18n !== 'undefined' ? i18n.t('taImpBooksFolderPrompt') : 'Books folder…') + '</option>';
 
+      if (searchAvailableBooks.length > 0) {
+        const allOpt = document.createElement('option');
+        allOpt.value = '__all_books__';
+        allOpt.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : '📚 All Books';
+        select.appendChild(allOpt);
+      }
+
+      // Group books by subfolder if subfolders exist
+      const folders = {};
       searchAvailableBooks.forEach(book => {
-        const opt = document.createElement('option');
-        opt.value = book.id;
-        opt.textContent = book.label;
-        select.appendChild(opt);
+        const f = book.folder || '';
+        if (!folders[f]) folders[f] = [];
+        folders[f].push(book);
+      });
+
+      const folderKeys = Object.keys(folders).sort((a, b) => {
+        if (!a) return -1;
+        if (!b) return 1;
+        return a.localeCompare(b);
+      });
+
+      folderKeys.forEach(fKey => {
+        if (!fKey) {
+          folders[fKey].forEach(book => {
+            const opt = document.createElement('option');
+            opt.value = book.id;
+            opt.textContent = book.label;
+            select.appendChild(opt);
+          });
+        } else {
+          const grp = document.createElement('optgroup');
+          grp.label = '📁 ' + fKey;
+          folders[fKey].forEach(book => {
+            const opt = document.createElement('option');
+            opt.value = book.id;
+            opt.textContent = book.label;
+            grp.appendChild(opt);
+          });
+          select.appendChild(grp);
+        }
       });
 
       if (previousValue && searchAvailableBooks.some(b => b.id === previousValue)) {
@@ -3770,6 +3815,22 @@
           return taEpubExtractTextAsync(bytes.buffer);
         }
 
+        if (lowerPath.endsWith('.mobi')) {
+          return taMobiExtractTextAsync(bytes.buffer);
+        }
+
+        if (lowerPath.endsWith('.docx')) {
+          return taDocxExtractTextAsync(bytes.buffer);
+        }
+
+        if (lowerPath.endsWith('.odt')) {
+          return taOdtExtractTextAsync(bytes.buffer);
+        }
+
+        if (lowerPath.endsWith('.pdf')) {
+          return taPdfExtractTextAsync(bytes.buffer);
+        }
+
         const rawText = new TextDecoder('utf-8').decode(bytes);
         if (lowerPath.endsWith('.html') || lowerPath.endsWith('.htm') || lowerPath.endsWith('.xhtml')) {
           return taImportHtmlToText(rawText);
@@ -3787,6 +3848,22 @@
         return taEpubExtractTextAsync(await response.arrayBuffer());
       }
 
+      if (lowerPath.endsWith('.mobi')) {
+        return taMobiExtractTextAsync(await response.arrayBuffer());
+      }
+
+      if (lowerPath.endsWith('.docx')) {
+        return taDocxExtractTextAsync(await response.arrayBuffer());
+      }
+
+      if (lowerPath.endsWith('.odt')) {
+        return taOdtExtractTextAsync(await response.arrayBuffer());
+      }
+
+      if (lowerPath.endsWith('.pdf')) {
+        return taPdfExtractTextAsync(await response.arrayBuffer());
+      }
+
       const rawText = await response.text();
       if (lowerPath.endsWith('.html') || lowerPath.endsWith('.htm') || lowerPath.endsWith('.xhtml')) {
         return taImportHtmlToText(rawText);
@@ -3798,6 +3875,11 @@
       const select = document.getElementById('search-book-select');
       if (!select || !select.value) {
         searchSetBookStatus(searchBookText ? 'Book still loaded. Choose another book to replace it.' : 'No book loaded.');
+        return;
+      }
+
+      if (select.value === '__all_books__') {
+        searchSetBookStatus('📚 All Books mode: searches will query across all library books.');
         return;
       }
 
@@ -3824,44 +3906,261 @@
       }
     }
 
-    // ---- HTML / EPUB Import core ----
+    // ---- HTML / EPUB / MOBI Import core ----
+    // ---- HTML / EPUB / MOBI / DOCX / ODT / PDF Import core ----
     let _taImportRawText = '';
     let _taImportBooks = [];
+    let _taImportFolders = [];
+    let _taImportCurrentFolder = '';
+    let _taImportPageMap = [];
+    let _taImportTotalPages = 1;
+    let _taImportIsEstimatedPages = false;
+    let _taImportSearchScope = 'this_book';
+    let _taImportCurrentBookId = '';
+    let _taImportSearchAllMatches = [];
+    let _taImportIsSearchingAll = false;
+    window._taBookTextCache = window._taBookTextCache || new Map();
     window._conImportTextCallback = null;
     let _taImportSearchMatches = [];
     let _taImportSearchIdx = -1;
+    let _taImportLowerText = '';
+    let _taImportSearchTimer = null;
+    let _taImportSearchTokenSeq = 0;
+    let _taImportCurrentSearchToken = 0;
 
-    function taImportApplyText(text, fileLabel) {
-      _taImportRawText = text;
+    function taApplySyntheticPagination(text, charsPerPage = 1750) {
+      if (!text || text.length <= charsPerPage) {
+        return '[p. 1]\n\n' + (text || '');
+      }
+      if (/\[p\.\s*\d+\]/i.test(text)) return text;
+
+      let result = '';
+      let pageNum = 1;
+      let pos = 0;
+      const len = text.length;
+
+      while (pos < len) {
+        result += (result ? '\n\n' : '') + `[p. ${pageNum}]\n\n`;
+        let nextPos = pos + charsPerPage;
+        if (nextPos >= len) {
+          result += text.slice(pos).trim();
+          break;
+        }
+        let splitIdx = text.lastIndexOf('\n\n', nextPos);
+        if (splitIdx < pos + charsPerPage * 0.6) {
+          splitIdx = text.lastIndexOf('\n', nextPos);
+        }
+        if (splitIdx < pos + charsPerPage * 0.6) {
+          splitIdx = text.lastIndexOf('. ', nextPos);
+          if (splitIdx !== -1) splitIdx += 1;
+        }
+        if (splitIdx < pos + charsPerPage * 0.6) {
+          splitIdx = text.lastIndexOf(' ', nextPos);
+        }
+        if (splitIdx <= pos) {
+          splitIdx = nextPos;
+        }
+        result += text.slice(pos, splitIdx).trim();
+        pos = splitIdx;
+        pageNum++;
+      }
+      return result;
+    }
+
+    function taImportProcessBookText(text) {
+      let processedText = String(text || '');
+      let isEstimated = false;
+      const hasPageMarkers = /\[p\.\s*\d+\]/i.test(processedText);
+      if (!hasPageMarkers) {
+        processedText = taApplySyntheticPagination(processedText, 1750);
+        isEstimated = true;
+      } else {
+        isEstimated = false;
+      }
+
+      // Build page map
+      const pageMap = [];
+      const pageRe = /\[p\.\s*(\d+)\]/gi;
+      let m;
+      while ((m = pageRe.exec(processedText)) !== null) {
+        pageMap.push({
+          page: parseInt(m[1], 10),
+          offset: m.index,
+          length: m[0].length
+        });
+      }
+      if (pageMap.length === 0) {
+        pageMap.push({ page: 1, offset: 0, length: 0 });
+      }
+      const totalPages = Math.max(...pageMap.map(p => p.page), 1);
+      pageMap._totalPages = totalPages;
+      return { text: processedText, pageMap, totalPages, isEstimated };
+    }
+
+    function taImportApplyText(text, fileLabel, options = {}) {
+      const proc = taImportProcessBookText(text);
+      _taImportIsEstimatedPages = proc.isEstimated;
+      _taImportRawText = proc.text;
+      _taImportLowerText = proc.text.toLowerCase();
+      _taImportPageMap = proc.pageMap;
+      _taImportTotalPages = proc.totalPages;
+
+      if (_taImportCurrentBookId) {
+        window._taBookTextCache = window._taBookTextCache || new Map();
+        window._taBookTextCache.set(_taImportCurrentBookId, {
+          id: _taImportCurrentBookId,
+          label: fileLabel,
+          fileName: fileLabel,
+          text: proc.text,
+          lowerText: _taImportLowerText,
+          pageMap: proc.pageMap,
+          totalPages: proc.totalPages,
+          isEstimated: proc.isEstimated
+        });
+      }
 
       const titleEl = document.getElementById('ta-imp-title');
       if (titleEl) titleEl.textContent = '📂 ' + (fileLabel || 'Imported book');
 
       const ta = document.getElementById('ta-imp-text');
       if (ta) {
-        ta.value = text;
-        ta.onselect = ta.onmouseup = ta.onkeyup = taImportUpdateInsertBtn;
+        ta.value = proc.text;
+        ta.onselect = ta.onmouseup = ta.onkeyup = function () {
+          taImportUpdateInsertBtn();
+          taImportUpdatePageIndicator();
+        };
+        ta.onscroll = function () {
+          const hl = document.getElementById('ta-imp-highlights');
+          if (hl) {
+            hl.scrollTop = ta.scrollTop;
+            hl.scrollLeft = ta.scrollLeft;
+          }
+          taImportUpdatePageIndicator();
+        };
         ta.onkeydown = function (e) {
           if (e.key === 'Enter') { e.preventDefault(); taImportSearchStep(e.shiftKey ? -1 : 1); }
         };
       }
 
-      const searchInput = document.getElementById('ta-imp-search-input');
-      if (searchInput) searchInput.value = '';
+      if (!options.preserveSearch) {
+        _taImportSearchScope = 'this_book';
+        taImportUpdateSearchScopeUI();
 
-      const searchCount = document.getElementById('ta-imp-search-count');
-      if (searchCount) searchCount.textContent = '';
+        const searchInput = document.getElementById('ta-imp-search-input');
+        if (searchInput) searchInput.value = '';
 
-      const prevBtn = document.getElementById('ta-imp-search-prev');
-      if (prevBtn) prevBtn.disabled = true;
+        const searchCount = document.getElementById('ta-imp-search-count');
+        if (searchCount) searchCount.textContent = '';
 
-      const nextBtn = document.getElementById('ta-imp-search-next');
-      if (nextBtn) nextBtn.disabled = true;
+        const prevBtn = document.getElementById('ta-imp-search-prev');
+        if (prevBtn) prevBtn.disabled = true;
 
-      _taImportSearchMatches = [];
-      _taImportSearchIdx = -1;
+        const nextBtn = document.getElementById('ta-imp-search-next');
+        if (nextBtn) nextBtn.disabled = true;
+
+        const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+        if (toggleBtn) {
+          toggleBtn.disabled = true;
+          toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ' (0)';
+          toggleBtn.classList.remove('is-active');
+        }
+
+        const panel = document.getElementById('ta-imp-search-results-panel');
+        if (panel) panel.style.display = 'none';
+
+        const listEl = document.getElementById('ta-imp-search-results-list');
+        if (listEl) listEl.innerHTML = '';
+
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
+
+        _taImportSearchMatches = [];
+        _taImportSearchAllMatches = [];
+        _taImportSearchIdx = -1;
+      } else {
+        taImportUpdateHighlights();
+      }
 
       taImportUpdateInsertBtn();
+      taImportUpdatePageIndicator(1);
+    }
+
+    function taImportGetPageFromMap(pageMap, charOffset) {
+      if (!pageMap || pageMap.length === 0) {
+        return { page: 1, total: 1, isEstimated: false };
+      }
+      let low = 0;
+      let high = pageMap.length - 1;
+      let best = 0;
+      while (low <= high) {
+        const mid = (low + high) >> 1;
+        if (pageMap[mid].offset <= charOffset) {
+          best = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      const total = pageMap._totalPages || (pageMap[pageMap.length - 1] ? pageMap[pageMap.length - 1].page : 1);
+      return {
+        page: pageMap[best] ? pageMap[best].page : 1,
+        total: total,
+        isEstimated: false
+      };
+    }
+
+    function taImportGetPageAtOffset(charOffset) {
+      const res = taImportGetPageFromMap(_taImportPageMap, charOffset);
+      res.total = _taImportTotalPages;
+      res.isEstimated = _taImportIsEstimatedPages;
+      return res;
+    }
+
+    function taImportUpdatePageIndicator(forcedPage) {
+      const ind = document.getElementById('ta-imp-page-indicator');
+      const input = document.getElementById('ta-imp-page-input');
+      const ta = document.getElementById('ta-imp-text');
+      if (!ind || !ta) return;
+
+      let pageNum = forcedPage;
+      if (!pageNum) {
+        const offset = ta.selectionStart || 0;
+        const info = taImportGetPageAtOffset(offset);
+        pageNum = info.page;
+      }
+
+      const estLabel = _taImportIsEstimatedPages ? ' ~' : '';
+      ind.textContent = `p. ${pageNum} / ${_taImportTotalPages}${estLabel}`;
+      if (input && document.activeElement !== input) {
+        input.value = pageNum;
+        input.max = _taImportTotalPages;
+      }
+    }
+
+    function taImportJumpToPageInput() {
+      const input = document.getElementById('ta-imp-page-input');
+      if (!input || !input.value) return;
+      const targetPage = parseInt(input.value, 10);
+      if (isNaN(targetPage) || targetPage < 1) return;
+      taImportJumpToPage(targetPage);
+    }
+
+    function taImportJumpToPage(targetPage) {
+      if (!_taImportPageMap || !_taImportPageMap.length) return;
+      let match = _taImportPageMap.find(item => item.page === targetPage);
+      if (!match) {
+        match = _taImportPageMap.reduce((prev, curr) => Math.abs(curr.page - targetPage) < Math.abs(prev.page - targetPage) ? curr : prev);
+      }
+      if (match) {
+        const ta = document.getElementById('ta-imp-text');
+        if (ta) {
+          ta.focus();
+          ta.setSelectionRange(match.offset, match.offset + match.length);
+          taImportScrollToPos(match.offset);
+          taImportUpdateInsertBtn();
+          taImportUpdatePageIndicator(match.page);
+        }
+      }
     }
 
     function taImportUpdateInsertBtn() {
@@ -3870,53 +4169,272 @@
       if (!ta || !btn) return;
       if (!_taImportRawText) {
         btn.disabled = true;
-        btn.textContent = window._conImportTextCallback ? 'Import' : 'Import Book';
+        btn.textContent = typeof i18n !== 'undefined' ? (i18n.t('taImpImportBtn') || 'Import') : 'Import';
         return;
       }
       btn.disabled = false;
-      const isConstellation = !!window._conImportTextCallback;
       if (ta.selectionStart === ta.selectionEnd) {
-        btn.textContent = isConstellation ? 'Import all' : 'Import all';
+        btn.textContent = typeof i18n !== 'undefined' ? (i18n.t('taImpImportAll') || 'Import all') : 'Import all';
       } else {
-        btn.textContent = isConstellation ? 'Import selection' : 'Import selection';
+        btn.textContent = typeof i18n !== 'undefined' ? (i18n.t('taImpImportSelection') || 'Import selection') : 'Import selection';
+      }
+    }
+
+    function taImportToggleSearchScope() {
+      _taImportSearchScope = (_taImportSearchScope === 'all_books') ? 'this_book' : 'all_books';
+      taImportUpdateSearchScopeUI();
+      taImportSearchRun(true);
+    }
+
+    function taImportUpdateSearchScopeUI() {
+      const scopeBtn = document.getElementById('ta-imp-scope-btn');
+      const searchInput = document.getElementById('ta-imp-search-input');
+      const isAll = (_taImportSearchScope === 'all_books');
+      if (scopeBtn) {
+        scopeBtn.classList.toggle('is-all-books', isAll);
+        scopeBtn.textContent = isAll
+          ? (typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') || '📚 All Books' : '📚 All Books')
+          : (typeof i18n !== 'undefined' ? i18n.t('taImpScopeThisBook') || '📖 This Book' : '📖 This Book');
+      }
+      if (searchInput) {
+        searchInput.placeholder = isAll
+          ? (typeof i18n !== 'undefined' ? i18n.t('taImpSearchAllPlaceholder') || 'Search all books in library… (↵ to search)' : 'Search all books in library… (↵ to search)')
+          : (typeof i18n !== 'undefined' ? i18n.t('taImpSearchPlaceholder') || 'Search in book… (↵ or click Search)' : 'Search in book… (↵ or click Search)');
       }
     }
 
     async function taImportPopulateBookShortcuts() {
       const select = document.getElementById('ta-imp-book-shortcut');
+      const folderSelect = document.getElementById('ta-imp-folder-select');
       if (!select) return;
+
       _taImportBooks = [];
-      select.innerHTML = '<option value="">Books folder…</option>';
+      _taImportFolders = [];
+      _taImportCurrentFolder = '';
+      select.innerHTML = '<option value="">' + (typeof i18n !== 'undefined' ? i18n.t('taImpBooksFolderPrompt') : 'Books folder…') + '</option>';
       select.style.display = 'none';
-      const canList = !!(window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.listFiles === 'function');
+
+      const canList = !!(window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof (Desktop.listByPath || Desktop.listFiles) === 'function');
       if (!canList) return;
+
       try {
-        const result = await Desktop.listFiles('customBooks', { extensions: ['.epub', '.html', '.htm', '.xhtml', '.txt'] });
+        const result = (typeof Desktop.listByPath === 'function')
+          ? await Desktop.listByPath('customBooks', '', {
+              extensions: ['.epub', '.mobi', '.docx', '.odt', '.pdf', '.html', '.htm', '.xhtml', '.txt'],
+              recursive: true,
+              includeDirectories: true
+            })
+          : await Desktop.listFiles('customBooks', {
+              extensions: ['.epub', '.mobi', '.docx', '.odt', '.pdf', '.html', '.htm', '.xhtml', '.txt']
+            });
+
         const files = result && result.ok && Array.isArray(result.files) ? result.files : [];
         if (!files.length) return;
-        _taImportBooks = files.map(file => ({
-          fileName: file.filename,
-          relativePath: file.relativePath || file.filename,
-          label: String(file.filename || '').replace(/\.(epub|html?|xhtml|txt)$/i, '')
-        }));
-        _taImportBooks.forEach(book => {
-          const option = document.createElement('option');
-          option.value = book.relativePath;
-          option.textContent = book.label || book.fileName;
-          select.appendChild(option);
+
+        const folderSet = new Set();
+        files.forEach(file => {
+          if (file.isDirectory) {
+            const dirRel = (file.relativePath || file.filename || '').replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+            if (dirRel) folderSet.add(dirRel);
+            return;
+          }
+          const relPath = (file.relativePath || file.filename || '').replace(/\\/g, '/');
+          const pathParts = relPath.split('/');
+          const baseName = pathParts.pop();
+          const folder = pathParts.join('/');
+          if (folder) folderSet.add(folder);
+
+          _taImportBooks.push({
+            id: 'customBooks:' + relPath,
+            fileName: baseName,
+            relativePath: relPath,
+            folder: folder || '',
+            target: 'customBooks',
+            label: String(baseName || '').replace(/\.(epub|mobi|docx|odt|pdf|html?|xhtml|txt)$/i, '')
+          });
         });
+
+        _taImportFolders = Array.from(folderSet).sort();
+
+        if (folderSelect) {
+          folderSelect.innerHTML = '';
+          const optAll = document.createElement('option');
+          optAll.value = '';
+          optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpAllFolders') : '📁 All Folders';
+          folderSelect.appendChild(optAll);
+
+          const optRoot = document.createElement('option');
+          optRoot.value = '/';
+          optRoot.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpRootFolder') : '📁 / (Root)';
+          folderSelect.appendChild(optRoot);
+
+          _taImportFolders.forEach(f => {
+            const opt = document.createElement('option');
+            opt.value = f;
+            opt.textContent = '📁 ' + f;
+            folderSelect.appendChild(opt);
+          });
+          folderSelect.value = '';
+        }
+
+        taImportRenderBooksForCurrentFolder();
         select.style.display = 'block';
       } catch (error) {
         console.warn('Could not list customBooks for import shortcuts:', error);
       }
     }
 
+    function taImportRenderBooksForCurrentFolder() {
+      const select = document.getElementById('ta-imp-book-shortcut');
+      const folderSelect = document.getElementById('ta-imp-folder-select');
+      const upBtn = document.getElementById('ta-imp-folder-up-btn');
+      const breadcrumbsEl = document.getElementById('ta-imp-breadcrumbs');
+      const countEl = document.getElementById('ta-imp-book-count');
+      if (!select) return;
+
+      const promptText = typeof i18n !== 'undefined' ? i18n.t('taImpBooksFolderPrompt') : 'Books folder…';
+      select.innerHTML = '<option value="">' + promptText + '</option>';
+
+      let filteredBooks = [];
+      if (_taImportCurrentFolder === '') {
+        filteredBooks = _taImportBooks;
+      } else if (_taImportCurrentFolder === '/') {
+        filteredBooks = _taImportBooks.filter(b => !b.folder);
+      } else {
+        filteredBooks = _taImportBooks.filter(b => b.folder === _taImportCurrentFolder || b.folder.startsWith(_taImportCurrentFolder + '/'));
+      }
+
+      if (filteredBooks.length > 0 || _taImportBooks.length > 0) {
+        const optAll = document.createElement('option');
+        optAll.value = '__all_books__';
+        optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : '📚 All Books';
+        select.appendChild(optAll);
+      }
+
+      if (_taImportCurrentFolder === '') {
+        const groups = {};
+        _taImportBooks.forEach(b => {
+          const k = b.folder || '';
+          if (!groups[k]) groups[k] = [];
+          groups[k].push(b);
+        });
+        const gKeys = Object.keys(groups).sort((a, b) => (!a ? -1 : !b ? 1 : a.localeCompare(b)));
+        gKeys.forEach(k => {
+          if (!k) {
+            groups[k].forEach(book => {
+              const opt = document.createElement('option');
+              opt.value = book.relativePath;
+              opt.textContent = book.label || book.fileName;
+              select.appendChild(opt);
+            });
+          } else {
+            const grp = document.createElement('optgroup');
+            grp.label = '📁 ' + k;
+            groups[k].forEach(book => {
+              const opt = document.createElement('option');
+              opt.value = book.relativePath;
+              opt.textContent = book.label || book.fileName;
+              grp.appendChild(opt);
+            });
+            select.appendChild(grp);
+          }
+        });
+      } else if (_taImportCurrentFolder === '/') {
+        filteredBooks = _taImportBooks.filter(b => !b.folder);
+        filteredBooks.forEach(book => {
+          const opt = document.createElement('option');
+          opt.value = book.relativePath;
+          opt.textContent = book.label || book.fileName;
+          select.appendChild(opt);
+        });
+      } else {
+        filteredBooks = _taImportBooks.filter(b => b.folder === _taImportCurrentFolder || b.folder.startsWith(_taImportCurrentFolder + '/'));
+        filteredBooks.forEach(book => {
+          const opt = document.createElement('option');
+          opt.value = book.relativePath;
+          opt.textContent = book.label || book.fileName;
+          select.appendChild(opt);
+        });
+      }
+
+      if (countEl) {
+        countEl.textContent = filteredBooks.length + ' book' + (filteredBooks.length !== 1 ? 's' : '');
+      }
+
+      if (breadcrumbsEl) {
+        breadcrumbsEl.innerHTML = '';
+        const rootCrumb = document.createElement('span');
+        rootCrumb.className = 'ta-imp-crumb ta-imp-crumb-root';
+        rootCrumb.textContent = 'Books';
+        rootCrumb.onclick = () => taImportSelectFolder('');
+        breadcrumbsEl.appendChild(rootCrumb);
+
+        if (_taImportCurrentFolder && _taImportCurrentFolder !== '/') {
+          const parts = _taImportCurrentFolder.split('/');
+          let acc = '';
+          parts.forEach((p, idx) => {
+            acc += (acc ? '/' : '') + p;
+            const sep = document.createTextNode(' > ');
+            breadcrumbsEl.appendChild(sep);
+            const crumb = document.createElement('span');
+            crumb.className = 'ta-imp-crumb';
+            crumb.textContent = p;
+            const targetAcc = acc;
+            crumb.onclick = () => taImportSelectFolder(targetAcc);
+            breadcrumbsEl.appendChild(crumb);
+          });
+        }
+      }
+
+      if (folderSelect) {
+        folderSelect.value = _taImportCurrentFolder;
+      }
+
+      if (upBtn) {
+        upBtn.disabled = !_taImportCurrentFolder || _taImportCurrentFolder === '/';
+      }
+    }
+
+    function taImportSelectFolder(folderPath) {
+      _taImportCurrentFolder = folderPath || '';
+      taImportRenderBooksForCurrentFolder();
+    }
+
+    function taImportFolderUp() {
+      if (!_taImportCurrentFolder || _taImportCurrentFolder === '/') {
+        _taImportCurrentFolder = '';
+      } else {
+        const parts = _taImportCurrentFolder.split('/');
+        parts.pop();
+        _taImportCurrentFolder = parts.length > 0 ? parts.join('/') : '/';
+      }
+      taImportRenderBooksForCurrentFolder();
+    }
+
     async function taImportLoadShortcutBook() {
       const select = document.getElementById('ta-imp-book-shortcut');
       if (!select || !select.value) return;
       const selectedPath = select.value;
+
+      if (selectedPath === '__all_books__') {
+        _taImportSearchScope = 'all_books';
+        taImportUpdateSearchScopeUI();
+        const searchInput = document.getElementById('ta-imp-search-input');
+        if (searchInput) searchInput.focus();
+        return;
+      }
+
       const selectedBook = _taImportBooks.find(book => book.relativePath === selectedPath);
       const label = selectedBook ? selectedBook.label : select.options[select.selectedIndex].textContent;
+      const bookId = 'customBooks:' + selectedPath;
+
+      if (window._taBookTextCache && window._taBookTextCache.has(bookId)) {
+        const cached = window._taBookTextCache.get(bookId);
+        _taImportCurrentBookId = cached.id;
+        taImportApplyText(cached.text, cached.fileName || cached.label);
+        return;
+      }
+
       try {
         select.disabled = true;
         const fileInput = document.getElementById('ta-imp-file-input');
@@ -3937,10 +4455,19 @@
         let text;
         if (lowerPath.endsWith('.epub')) {
           text = await taEpubExtractTextAsync(bytes.buffer);
+        } else if (lowerPath.endsWith('.mobi')) {
+          text = await taMobiExtractTextAsync(bytes.buffer);
+        } else if (lowerPath.endsWith('.docx')) {
+          text = await taDocxExtractTextAsync(bytes.buffer);
+        } else if (lowerPath.endsWith('.odt')) {
+          text = await taOdtExtractTextAsync(bytes.buffer);
+        } else if (lowerPath.endsWith('.pdf')) {
+          text = await taPdfExtractTextAsync(bytes.buffer);
         } else {
           text = taImportHtmlToText(new TextDecoder('utf-8').decode(bytes));
         }
         if (!text) throw new Error('The selected book did not produce readable text.');
+        _taImportCurrentBookId = bookId;
         taImportApplyText(text, selectedBook ? selectedBook.fileName : label);
       } catch (error) {
         const ta = document.getElementById('ta-imp-text');
@@ -3955,6 +4482,11 @@
     }
 
     function taCloseImport() {
+      if (_taImportSearchTimer) {
+        clearTimeout(_taImportSearchTimer);
+        _taImportSearchTimer = null;
+      }
+      _taImportCurrentSearchToken = ++_taImportSearchTokenSeq;
       const overlay = document.getElementById('ta-import-overlay');
       if (overlay) overlay.classList.remove('active');
       window._conImportTextCallback = null;
@@ -3973,25 +4505,163 @@
       const titleEl = document.getElementById('ta-imp-title');
       if (titleEl) titleEl.textContent = '📂 Reading…';
 
-      const isEpub = file.name.toLowerCase().endsWith('.epub');
+      const lowerName = file.name.toLowerCase();
+      const isEpub = lowerName.endsWith('.epub');
+      const isMobi = lowerName.endsWith('.mobi');
+      const isDocx = lowerName.endsWith('.docx');
+      const isOdt = lowerName.endsWith('.odt');
+      const isPdf = lowerName.endsWith('.pdf');
+      const isBinary = isEpub || isMobi || isDocx || isOdt || isPdf;
       const reader = new FileReader();
       reader.onload = e => {
         try {
           if (isEpub) {
             taEpubExtractTextAsync(e.target.result).then(text => {
+              _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
               if (ta) ta.value = '⚠ EPUB error: ' + err.message;
             });
+          } else if (isMobi) {
+            taMobiExtractTextAsync(e.target.result).then(text => {
+              _taImportCurrentBookId = 'file:' + file.name;
+              taImportApplyText(text, file.name);
+            }).catch(err => {
+              if (ta) ta.value = '⚠ MOBI error: ' + err.message;
+            });
+          } else if (isDocx) {
+            taDocxExtractTextAsync(e.target.result).then(text => {
+              _taImportCurrentBookId = 'file:' + file.name;
+              taImportApplyText(text, file.name);
+            }).catch(err => {
+              if (ta) ta.value = '⚠ DOCX error: ' + err.message;
+            });
+          } else if (isOdt) {
+            taOdtExtractTextAsync(e.target.result).then(text => {
+              _taImportCurrentBookId = 'file:' + file.name;
+              taImportApplyText(text, file.name);
+            }).catch(err => {
+              if (ta) ta.value = '⚠ ODT error: ' + err.message;
+            });
+          } else if (isPdf) {
+            taPdfExtractTextAsync(e.target.result).then(text => {
+              _taImportCurrentBookId = 'file:' + file.name;
+              taImportApplyText(text, file.name);
+            }).catch(err => {
+              if (ta) ta.value = '⚠ PDF error: ' + err.message;
+            });
           } else {
+            _taImportCurrentBookId = 'file:' + file.name;
             taImportApplyText(taImportHtmlToText(e.target.result), file.name);
           }
         } catch (err) {
           if (ta) ta.value = '⚠ Could not read file: ' + err.message;
         }
       };
-      if (isEpub) reader.readAsArrayBuffer(file);
+      if (isBinary) reader.readAsArrayBuffer(file);
       else reader.readAsText(file, 'UTF-8');
+    }
+
+    // ---- PalmDOC LZ77 & MOBI extraction ----
+    function taMobiDecompressPalmDoc(buf) {
+      const out = [];
+      let i = 0;
+      const len = buf.length;
+      while (i < len) {
+        const byte = buf[i++];
+        if (byte === 0x00) {
+          out.push(0x00);
+        } else if (byte >= 0x01 && byte <= 0x08) {
+          for (let j = 0; j < byte && i < len; j++) {
+            out.push(buf[i++]);
+          }
+        } else if (byte >= 0x09 && byte <= 0x7f) {
+          out.push(byte);
+        } else if (byte >= 0x80 && byte <= 0xbf) {
+          if (i >= len) break;
+          const byte2 = buf[i++];
+          const distance = (((byte & 0x1f) << 8) | byte2) >> 3;
+          const count = (byte2 & 0x07) + 3;
+          const start = out.length - distance;
+          for (let j = 0; j < count; j++) {
+            out.push(out[start + j]);
+          }
+        } else {
+          out.push(0x20);
+          out.push(byte ^ 0x80);
+        }
+      }
+      return new Uint8Array(out);
+    }
+
+    async function taMobiExtractTextAsync(arrayBuffer) {
+      const view = new DataView(arrayBuffer);
+      const buf = new Uint8Array(arrayBuffer);
+      if (buf.length < 78) throw new Error('File too small to be a valid MOBI book.');
+
+      const numRecords = view.getUint16(76, false);
+      if (numRecords === 0 || buf.length < 78 + numRecords * 8) {
+        throw new Error('Invalid Palm database header in MOBI file.');
+      }
+
+      const recordOffsets = [];
+      for (let r = 0; r < numRecords; r++) {
+        recordOffsets.push(view.getUint32(78 + r * 8, false));
+      }
+
+      // Check for embedded EPUB in records (KF8 hybrid)
+      for (let r = 1; r < numRecords; r++) {
+        const off = recordOffsets[r];
+        if (off + 4 <= buf.length) {
+          if (buf[off] === 0x50 && buf[off + 1] === 0x4b && buf[off + 2] === 0x03 && buf[off + 3] === 0x04) {
+            try {
+              return await taEpubExtractTextAsync(arrayBuffer.slice(off));
+            } catch (_) {}
+          }
+        }
+      }
+
+      const r0Offset = recordOffsets[0];
+      const r0End = numRecords > 1 ? recordOffsets[1] : buf.length;
+      const r0View = new DataView(arrayBuffer, r0Offset, r0End - r0Offset);
+
+      const compression = r0View.getUint16(0, false);
+      const textRecordCount = r0View.getUint16(8, false);
+
+      if (compression !== 1 && compression !== 2) {
+        throw new Error('Unsupported MOBI compression scheme (' + compression + ').');
+      }
+
+      const textChunks = [];
+      const maxRecords = Math.min(textRecordCount, numRecords - 1);
+      for (let r = 1; r <= maxRecords; r++) {
+        const start = recordOffsets[r];
+        const end = r + 1 < numRecords ? recordOffsets[r + 1] : buf.length;
+        if (start >= buf.length || end <= start) continue;
+        const recordBytes = buf.slice(start, end);
+        if (compression === 1) {
+          textChunks.push(recordBytes);
+        } else if (compression === 2) {
+          textChunks.push(taMobiDecompressPalmDoc(recordBytes));
+        }
+      }
+
+      const totalLen = textChunks.reduce((acc, c) => acc + c.length, 0);
+      const merged = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const c of textChunks) {
+        merged.set(c, offset);
+        offset += c.length;
+      }
+
+      let rawHtml = '';
+      try {
+        rawHtml = new TextDecoder('utf-8').decode(merged);
+      } catch (_) {
+        rawHtml = new TextDecoder('windows-1252').decode(merged);
+      }
+
+      return taImportHtmlToText(rawHtml);
     }
 
     // ---- ZIP / EPUB extraction ----
@@ -4108,6 +4778,160 @@
       return '';
     }
 
+    function taUnescapeXml(str) {
+      return String(str || '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'");
+    }
+
+    async function taDocxExtractTextAsync(arrayBuffer) {
+      const zip = taZipParse(arrayBuffer);
+      const docEntry = zip.entries.find(e => e.name === 'word/document.xml');
+      if (!docEntry) throw new Error('Invalid DOCX file: word/document.xml not found.');
+
+      async function extractBytes(entry) {
+        const lh = entry.localOffset;
+        const lNameLen = zip.u16(lh + 26);
+        const lExtraLen = zip.u16(lh + 28);
+        const dataStart = lh + 30 + lNameLen + lExtraLen;
+        const compressed = zip.buf.slice(dataStart, dataStart + entry.compSize);
+        if (entry.compMethod === 0) return compressed;
+        if (entry.compMethod === 8) return await taDecompressDeflate(compressed);
+        throw new Error('Unsupported compression: ' + entry.compMethod);
+      }
+
+      const xmlBytes = await extractBytes(docEntry);
+      const xml = new TextDecoder('utf-8').decode(xmlBytes);
+
+      let pageNum = 1;
+      let pageBreakFound = false;
+      const paragraphs = [];
+
+      const pRegex = /<w:p\b[\s\S]*?<\/w:p>/gi;
+      let pMatch;
+      while ((pMatch = pRegex.exec(xml)) !== null) {
+        const pXml = pMatch[0];
+        const hasBreak = /<w:pageBreakBefore\b/i.test(pXml) ||
+          /<w:br\b[^>]*w:type="page"/i.test(pXml) ||
+          /<w:lastRenderedPageBreak\b/i.test(pXml);
+
+        if (hasBreak) {
+          pageBreakFound = true;
+          pageNum++;
+          paragraphs.push(`[p. ${pageNum}]`);
+        }
+
+        let pText = '';
+        const runRegex = /<w:t\b[^>]*>([\s\S]*?)<\/w:t>|<w:tab\/>|<w:br\b(?![^>]*w:type="page")[^>]*\/>/gi;
+        let rMatch;
+        while ((rMatch = runRegex.exec(pXml)) !== null) {
+          if (rMatch[1] !== undefined) {
+            pText += taUnescapeXml(rMatch[1]);
+          } else if (rMatch[0].includes('w:tab')) {
+            pText += '\t';
+          } else if (rMatch[0].includes('w:br')) {
+            pText += '\n';
+          }
+        }
+        if (pText.trim().length > 0) {
+          paragraphs.push(pText.trim());
+        }
+      }
+
+      let text = paragraphs.join('\n\n');
+      if (pageBreakFound) {
+        text = `[p. 1]\n\n` + text;
+      }
+      return text.replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    async function taOdtExtractTextAsync(arrayBuffer) {
+      const zip = taZipParse(arrayBuffer);
+      const contentEntry = zip.entries.find(e => e.name === 'content.xml');
+      if (!contentEntry) throw new Error('Invalid ODT file: content.xml not found.');
+
+      async function extractBytes(entry) {
+        const lh = entry.localOffset;
+        const lNameLen = zip.u16(lh + 26);
+        const lExtraLen = zip.u16(lh + 28);
+        const dataStart = lh + 30 + lNameLen + lExtraLen;
+        const compressed = zip.buf.slice(dataStart, dataStart + entry.compSize);
+        if (entry.compMethod === 0) return compressed;
+        if (entry.compMethod === 8) return await taDecompressDeflate(compressed);
+        throw new Error('Unsupported compression: ' + entry.compMethod);
+      }
+
+      const xmlBytes = await extractBytes(contentEntry);
+      const xml = new TextDecoder('utf-8').decode(xmlBytes);
+
+      let pageNum = 1;
+      let pageBreakFound = false;
+      const paragraphs = [];
+
+      const pRegex = /<text:(p|h)\b[\s\S]*?<\/text:\1>/gi;
+      let pMatch;
+      while ((pMatch = pRegex.exec(xml)) !== null) {
+        const pXml = pMatch[0];
+        const hasBreak = /<text:soft-page-break\b/i.test(pXml) ||
+          /fo:break-before="page"/i.test(pXml) ||
+          /fo:break-after="page"/i.test(pXml);
+
+        if (hasBreak) {
+          pageBreakFound = true;
+          pageNum++;
+          paragraphs.push(`[p. ${pageNum}]`);
+        }
+
+        let pText = pXml
+          .replace(/<text:s\b[^>]*text:c="(\d+)"[^>]*\/>/gi, (_, count) => ' '.repeat(parseInt(count, 10) || 1))
+          .replace(/<text:s\b[^>]*\/>/gi, ' ')
+          .replace(/<text:tab\b[^>]*\/>/gi, '\t')
+          .replace(/<text:line-break\b[^>]*\/>/gi, '\n')
+          .replace(/<[^>]+>/g, '');
+        pText = taUnescapeXml(pText).trim();
+        if (pText.length > 0) {
+          paragraphs.push(pText);
+        }
+      }
+
+      let text = paragraphs.join('\n\n');
+      if (pageBreakFound) {
+        text = `[p. 1]\n\n` + text;
+      }
+      return text.replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    async function taPdfExtractTextAsync(arrayBuffer) {
+      const ensurePdf = (typeof window !== 'undefined' && typeof window.conEnsurePdfjsLib === 'function')
+        ? window.conEnsurePdfjsLib
+        : (typeof conEnsurePdfjsLib === 'function' ? conEnsurePdfjsLib : null);
+      if (!ensurePdf) throw new Error('PDF.js library is not available.');
+      const pdfjsLib = await ensurePdf();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdfDoc = await loadingTask.promise;
+      const numPages = pdfDoc.numPages;
+      const pageTexts = [];
+
+      for (let p = 1; p <= numPages; p++) {
+        const page = await pdfDoc.getPage(p);
+        const content = await page.getTextContent();
+        const strings = [];
+        for (const item of content.items) {
+          if (item.str !== undefined) {
+            strings.push(item.str);
+            if (item.hasEOL) strings.push('\n');
+          }
+        }
+        const pageStr = strings.join(' ').replace(/[ \t]+/g, ' ').replace(/\n /g, '\n').trim();
+        pageTexts.push(`[p. ${p}]\n\n${pageStr}`);
+      }
+
+      return pageTexts.join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
     function taImportHtmlToText(html) {
       // Strip <img> and <source> tags before parsing to avoid browser ERR_FILE_NOT_FOUND for relative book images
       const sanitizedHtml = String(html || '')
@@ -4115,6 +4939,28 @@
         .replace(/<source\b[^>]*>/gi, '');
       const tmp = document.createElement('div');
       tmp.innerHTML = sanitizedHtml;
+
+      // Extract explicit page breaks: epub:type="pagebreak", role="doc-pagebreak", .pagebreak, etc.
+      tmp.querySelectorAll('[epub\\:type="pagebreak"], [role="doc-pagebreak"], .pagebreak, .page-break, .pagenumber, [data-page]').forEach(el => {
+        let pNum = el.getAttribute('title') || el.getAttribute('aria-label') || el.getAttribute('data-page') || (el.textContent || '').trim();
+        if (!pNum && el.id) {
+          const m = el.id.match(/(?:page|p)[-_]?(\d+)/i);
+          if (m) pNum = m[1];
+        }
+        if (pNum) {
+          el.insertAdjacentText('afterend', `\n\n[p. ${pNum}]\n\n`);
+        }
+      });
+
+      // Anchors with page id e.g. <a id="page12"/>
+      tmp.querySelectorAll('a[id^="page"], a[id^="p_"], a[id^="p-"]').forEach(el => {
+        const m = (el.id || '').match(/^(?:page|p)[-_]?(\d+)$/i);
+        if (m && !el.dataset.pageHandled) {
+          el.dataset.pageHandled = '1';
+          el.insertAdjacentText('afterend', `\n\n[p. ${m[1]}]\n\n`);
+        }
+      });
+
       tmp.querySelectorAll('p, div, br, h1, h2, h3, h4, h5, h6, li, tr, blockquote').forEach(el => {
         el.insertAdjacentText('afterend', '\n');
       });
@@ -4151,9 +4997,45 @@
       const nextBtn = document.getElementById('ta-imp-search-next');
       if (nextBtn) nextBtn.disabled = true;
 
+      const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+      if (toggleBtn) {
+        toggleBtn.disabled = true;
+        toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ' (0)';
+        toggleBtn.classList.remove('is-active');
+      }
+
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      if (panel) panel.style.display = 'none';
+
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      if (listEl) listEl.innerHTML = '';
+
+      const pageInd = document.getElementById('ta-imp-page-indicator');
+      if (pageInd) pageInd.textContent = 'p. - / -';
+
+      const pageInput = document.getElementById('ta-imp-page-input');
+      if (pageInput) pageInput.value = '';
+
+      const hl = document.getElementById('ta-imp-highlights');
+      if (hl) hl.innerHTML = '';
+
+      if (_taImportSearchTimer) {
+        clearTimeout(_taImportSearchTimer);
+        _taImportSearchTimer = null;
+      }
+      _taImportCurrentSearchToken = ++_taImportSearchTokenSeq;
       _taImportRawText = '';
+      _taImportLowerText = '';
+      _taImportCurrentBookId = '';
       _taImportSearchMatches = [];
+      _taImportSearchAllMatches = [];
       _taImportSearchIdx = -1;
+      _taImportPageMap = [];
+      _taImportTotalPages = 1;
+      _taImportIsEstimatedPages = false;
+
+      _taImportSearchScope = 'all_books';
+      taImportUpdateSearchScopeUI();
 
       taImportUpdateInsertBtn();
 
@@ -4165,87 +5047,658 @@
       if (searchInput) searchInput.focus();
     }
 
-    function taImportSearchRun() {
-      const query = document.getElementById('ta-imp-search-input').value;
-      const ta = document.getElementById('ta-imp-text');
+    function taImportSearchRun(immediate) {
+      if (_taImportSearchTimer) {
+        clearTimeout(_taImportSearchTimer);
+        _taImportSearchTimer = null;
+      }
+
+      if (!immediate) {
+        _taImportSearchTimer = setTimeout(() => {
+          _taImportSearchTimer = null;
+          taImportSearchRun(true);
+        }, 150);
+        return;
+      }
+
+      const queryInput = document.getElementById('ta-imp-search-input');
+      const query = queryInput ? queryInput.value : '';
       const countEl = document.getElementById('ta-imp-search-count');
+      const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      const nextBtn = document.getElementById('ta-imp-search-next');
+
+      _taImportCurrentSearchToken = ++_taImportSearchTokenSeq;
+      const token = _taImportCurrentSearchToken;
+
       _taImportSearchMatches = [];
+      _taImportSearchAllMatches = [];
       _taImportSearchIdx = -1;
-      if (!query || !ta) {
+
+      if (!query || !query.trim()) {
         if (countEl) countEl.textContent = '';
-        const prevBtn = document.getElementById('ta-imp-search-prev');
+        if (toggleBtn) {
+          toggleBtn.disabled = true;
+          toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ' (0)';
+          toggleBtn.classList.remove('is-active');
+        }
+        if (panel) panel.style.display = 'none';
+        if (listEl) listEl.innerHTML = '';
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
         if (prevBtn) prevBtn.disabled = true;
-        const nextBtn = document.getElementById('ta-imp-search-next');
         if (nextBtn) nextBtn.disabled = true;
         return;
       }
-      const text = ta.value;
-      const lower = text.toLowerCase();
+
+      const q = query.trim();
+      if (_taImportSearchScope === 'all_books' || (!_taImportRawText && (_taImportBooks.length > 0 || searchAvailableBooks.length > 0))) {
+        taImportExecuteAllBooksSearch(q, token);
+        return;
+      }
+
+      taImportExecuteSingleBookSearch(q);
+    }
+
+    function taImportExecuteSingleBookSearch(query) {
+      const ta = document.getElementById('ta-imp-text');
+      const countEl = document.getElementById('ta-imp-search-count');
+      const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      const nextBtn = document.getElementById('ta-imp-search-next');
+
+      if (!ta || !ta.value || !_taImportRawText) return;
+
+      if (!_taImportLowerText || _taImportLowerText.length !== _taImportRawText.length) {
+        _taImportLowerText = _taImportRawText.toLowerCase();
+      }
+
+      const lower = _taImportLowerText;
       const q = query.toLowerCase();
+      const qLen = query.length;
       let pos = 0;
-      while (true) {
+      const MAX_MATCHES = 5000;
+      while (pos < lower.length) {
         const idx = lower.indexOf(q, pos);
         if (idx === -1) break;
         _taImportSearchMatches.push(idx);
         pos = idx + 1;
+        if (_taImportSearchMatches.length >= MAX_MATCHES) break;
       }
-      const hasMatches = _taImportSearchMatches.length > 0;
-      const prevBtn = document.getElementById('ta-imp-search-prev');
+
+      const totalMatches = _taImportSearchMatches.length;
+      const hasMatches = totalMatches > 0;
       if (prevBtn) prevBtn.disabled = !hasMatches;
-      const nextBtn = document.getElementById('ta-imp-search-next');
       if (nextBtn) nextBtn.disabled = !hasMatches;
 
+      if (toggleBtn) {
+        toggleBtn.disabled = !hasMatches;
+        toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ' (' + totalMatches + ')';
+      }
+
+      if (listEl) {
+        if (panel && panel.style.display !== 'none') {
+          taImportRenderSearchResultsList();
+        } else {
+          listEl.dataset.dirty = 'true';
+        }
+      }
+
       if (hasMatches) {
-        _taImportSearchIdx = 0;
-        taImportSearchHighlight(query.length);
-        if (countEl) countEl.textContent = _taImportSearchMatches.length + ' match' + (_taImportSearchMatches.length !== 1 ? 'es' : '') + ' — press Enter ↵';
+        _taImportSearchIdx = -1;
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
+        if (countEl) {
+          const matchPrompt = (totalMatches === 1)
+            ? (typeof i18n !== 'undefined' && i18n.t('taImpMatchFoundPrompt') ? i18n.t('taImpMatchFoundPrompt') : '1 match — press Enter ↵')
+            : (typeof i18n !== 'undefined' && i18n.t('taImpMatchesFoundPrompt') ? i18n.t('taImpMatchesFoundPrompt').replace('{count}', totalMatches) : `${totalMatches} matches — press Enter ↵`);
+          countEl.textContent = matchPrompt;
+        }
       } else {
-        if (countEl) countEl.textContent = 'No matches';
+        _taImportSearchIdx = -1;
+        if (countEl) countEl.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpNoResults') || 'No matches found' : 'No matches found';
+        if (panel) panel.style.display = 'none';
+        if (toggleBtn) toggleBtn.classList.remove('is-active');
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
+      }
+    }
+
+    function taImportRenderSearchResultsList() {
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      if (!listEl) return;
+      listEl.dataset.dirty = 'false';
+
+      if (!listEl.dataset.delegationAttached) {
+        listEl.dataset.delegationAttached = 'true';
+        listEl.addEventListener('click', function (e) {
+          const item = e.target.closest('.ta-imp-search-item');
+          if (!item) return;
+          if (item.dataset.allMatchIdx !== undefined) {
+            const idx = parseInt(item.dataset.allMatchIdx, 10);
+            if (!isNaN(idx)) taImportSelectAllBooksMatch(idx, { focusTa: true });
+          } else if (item.dataset.matchIdx !== undefined) {
+            const idx = parseInt(item.dataset.matchIdx, 10);
+            if (!isNaN(idx)) taImportSelectSearchResult(idx, { focusTa: true });
+          }
+        });
+      }
+
+      const totalMatches = _taImportSearchMatches.length;
+      if (!totalMatches) {
+        listEl.innerHTML = `<div style="padding:10px 12px;color:#888;font-size:0.85rem;">${typeof i18n !== 'undefined' ? i18n.t('taImpNoResults') || 'No matches found.' : 'No matches found.'}</div>`;
+        return;
+      }
+
+      const queryInput = document.getElementById('ta-imp-search-input');
+      const q = queryInput ? queryInput.value.trim() : '';
+      const qLen = q.length || 1;
+      const MAX_PREVIEW = 100;
+      const countToRender = Math.min(totalMatches, MAX_PREVIEW);
+      const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const text = _taImportRawText;
+      const textLen = text.length;
+
+      let html = '';
+      for (let idx = 0; idx < countToRender; idx++) {
+        const offset = _taImportSearchMatches[idx];
+        const pageInfo = taImportGetPageAtOffset(offset);
+        const beforeStart = offset > 45 ? offset - 45 : 0;
+        const afterEnd = (offset + qLen + 45 < textLen) ? offset + qLen + 45 : textLen;
+        const rawBefore = text.substring(beforeStart, offset).replace(/[\r\n]+/g, ' ');
+        const rawMatch = text.substring(offset, offset + qLen).replace(/[\r\n]+/g, ' ');
+        const rawAfter = text.substring(offset + qLen, afterEnd).replace(/[\r\n]+/g, ' ');
+
+        html += `<div class="ta-imp-search-item${idx === _taImportSearchIdx ? ' is-active' : ''}" data-match-idx="${idx}">` +
+          `<span class="ta-imp-search-badge">#${idx + 1}</span>` +
+          `<span class="ta-imp-search-page">p. ${pageInfo.page}${pageInfo.isEstimated ? '~' : ''}</span>` +
+          `<span class="ta-imp-search-snippet">…${esc(rawBefore)}<mark class="ta-search-mark">${esc(rawMatch)}</mark>${esc(rawAfter)}…</span>` +
+        `</div>`;
+      }
+      if (totalMatches > MAX_PREVIEW) {
+        const moreLabel = typeof i18n !== 'undefined' && i18n.t
+          ? (i18n.t('taImpShowingFirstMatches') || 'Showing first {shown} of {total} matches').replace('{shown}', MAX_PREVIEW).replace('{total}', totalMatches)
+          : `Showing first ${MAX_PREVIEW} of ${totalMatches} matches`;
+        html += `<div style="padding:6px 10px;font-size:0.75rem;color:#666;font-style:italic;background:#f9f9f6;border-radius:4px;border:1px dashed #ccc;">` +
+          esc(moreLabel) + ' (↵ / ▲ / ▼)' +
+        `</div>`;
+      }
+      listEl.innerHTML = html;
+    }
+
+    async function taImportExecuteAllBooksSearch(query, token) {
+      if (_taImportIsSearchingAll) return;
+      _taImportIsSearchingAll = true;
+
+      const countEl = document.getElementById('ta-imp-search-count');
+      const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      const prevBtn = document.getElementById('ta-imp-search-prev');
+      const nextBtn = document.getElementById('ta-imp-search-next');
+
+      if (query.length < 2) {
+        _taImportIsSearchingAll = false;
+        const minPrompt = typeof i18n !== 'undefined' ? (i18n.t('taImpMinCharsPrompt') || 'Type at least 2 characters…') : 'Type at least 2 characters…';
+        if (countEl) countEl.textContent = minPrompt;
+        if (toggleBtn) {
+          toggleBtn.disabled = true;
+          toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ' (0)';
+          toggleBtn.classList.remove('is-active');
+        }
+        if (panel) panel.style.display = 'none';
+        if (listEl) listEl.innerHTML = '';
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
+        if (prevBtn) prevBtn.disabled = true;
+        if (nextBtn) nextBtn.disabled = true;
+        return;
+      }
+
+      if (countEl) countEl.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpSearchingAll') || 'Searching all books…' : 'Searching all books…';
+      if (listEl) listEl.innerHTML = '<div style="padding:12px;color:#666;font-size:0.85rem;">⏳ Searching library…</div>';
+      if (panel) panel.style.display = 'block';
+      if (toggleBtn) toggleBtn.classList.add('is-active');
+
+      _taImportSearchAllMatches = [];
+      _taImportSearchIdx = -1;
+
+      const booksSource = (_taImportBooks && _taImportBooks.length > 0) ? _taImportBooks : searchAvailableBooks;
+      const booksToSearch = _taImportCurrentFolder
+        ? booksSource.filter(b => b.folder === _taImportCurrentFolder || (b.folder && b.folder.startsWith(_taImportCurrentFolder + '/')))
+        : booksSource.filter(b => b.id !== '__all_books__');
+
+      const lowerQ = query.toLowerCase();
+      const qLen = query.length;
+      const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      try {
+        window._taBookTextCache = window._taBookTextCache || new Map();
+        const booksWithMatches = new Set();
+
+        for (let i = 0; i < booksToSearch.length; i += 4) {
+          if (token !== _taImportCurrentSearchToken) return;
+          const chunk = booksToSearch.slice(i, i + 4);
+          await Promise.all(chunk.map(async book => {
+            if (token !== _taImportCurrentSearchToken) return;
+            const bookId = book.id || ('customBooks:' + (book.relativePath || book.path));
+            const relPath = book.relativePath || book.path;
+            const target = book.target || 'customBooks';
+            let cached = window._taBookTextCache.get(bookId);
+
+            if (!cached) {
+              try {
+                const raw = await searchReadShortcutBook(relPath, target);
+                if (raw) {
+                  const proc = taImportProcessBookText(raw);
+                  cached = {
+                    id: bookId,
+                    label: book.label,
+                    fileName: book.fileName,
+                    path: relPath,
+                    folder: book.folder,
+                    text: proc.text,
+                    lowerText: proc.text.toLowerCase(),
+                    pageMap: proc.pageMap,
+                    totalPages: proc.totalPages,
+                    isEstimated: proc.isEstimated
+                  };
+                  window._taBookTextCache.set(bookId, cached);
+                }
+              } catch (e) {
+                console.warn('Could not read book during all-books search:', relPath, e);
+              }
+            }
+
+            if (!cached || !cached.text) return;
+            if (!cached.lowerText) cached.lowerText = cached.text.toLowerCase();
+
+            const bLower = cached.lowerText;
+            let idx = bLower.indexOf(lowerQ);
+            while (idx !== -1) {
+              _taImportSearchAllMatches.push({
+                bookId: cached.id,
+                bookLabel: cached.label,
+                bookFileName: cached.fileName,
+                offset: idx,
+                isEstimated: cached.isEstimated
+              });
+              booksWithMatches.add(cached.id);
+              if (_taImportSearchAllMatches.length >= 500) break;
+              idx = bLower.indexOf(lowerQ, idx + 1);
+            }
+          }));
+        }
+
+        if (token !== _taImportCurrentSearchToken) return;
+
+        const matchCount = _taImportSearchAllMatches.length;
+        if (toggleBtn) {
+          toggleBtn.textContent = '☰ ' + (typeof i18n !== 'undefined' ? i18n.t('taImpToggleResults') || 'Results' : 'Results') + ` (${matchCount})`;
+          toggleBtn.disabled = matchCount === 0;
+        }
+
+        if (listEl) {
+          if (!listEl.dataset.delegationAttached) {
+            listEl.dataset.delegationAttached = 'true';
+            listEl.addEventListener('click', function (e) {
+              const item = e.target.closest('.ta-imp-search-item');
+              if (!item) return;
+              if (item.dataset.allMatchIdx !== undefined) {
+                const idx = parseInt(item.dataset.allMatchIdx, 10);
+                if (!isNaN(idx)) taImportSelectAllBooksMatch(idx);
+              } else if (item.dataset.matchIdx !== undefined) {
+                const idx = parseInt(item.dataset.matchIdx, 10);
+                if (!isNaN(idx)) taImportSelectSearchResult(idx);
+              }
+            });
+          }
+
+          if (matchCount === 0) {
+            listEl.innerHTML = `<div style="padding:12px;color:#888;font-size:0.85rem;">${typeof i18n !== 'undefined' ? i18n.t('taImpNoResults') || 'No matches found.' : 'No matches found.'}</div>`;
+            if (countEl) countEl.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpNoResults') || 'No matches' : 'No matches';
+            if (prevBtn) prevBtn.disabled = true;
+            if (nextBtn) nextBtn.disabled = true;
+            return;
+          }
+
+          const MAX_PREVIEW = 100;
+          const countToRender = Math.min(matchCount, MAX_PREVIEW);
+          let html = '';
+
+          for (let idx = 0; idx < countToRender; idx++) {
+            const m = _taImportSearchAllMatches[idx];
+            const cached = window._taBookTextCache.get(m.bookId);
+            const bText = cached ? cached.text : '';
+            const bTextLen = bText.length;
+            const pageInfo = cached ? taImportGetPageFromMap(cached.pageMap, m.offset) : { page: 1, isEstimated: false };
+
+            const beforeStart = m.offset > 45 ? m.offset - 45 : 0;
+            const afterEnd = (m.offset + qLen + 45 < bTextLen) ? m.offset + qLen + 45 : bTextLen;
+            const rawBefore = bText.substring(beforeStart, m.offset).replace(/[\r\n]+/g, ' ');
+            const rawMatch = bText.substring(m.offset, m.offset + qLen).replace(/[\r\n]+/g, ' ');
+            const rawAfter = bText.substring(m.offset + qLen, afterEnd).replace(/[\r\n]+/g, ' ');
+
+            html += `<div class="ta-imp-search-item${idx === 0 ? ' is-active' : ''}" data-all-match-idx="${idx}">` +
+              `<span class="ta-imp-search-badge">#${idx + 1}</span>` +
+              `<span class="ta-imp-search-book-tag" title="${esc(m.bookLabel)}">📖 ${esc(m.bookLabel)}</span>` +
+              `<span class="ta-imp-search-page">p. ${pageInfo.page}${m.isEstimated ? '~' : ''}</span>` +
+              `<span class="ta-imp-search-snippet">…${esc(rawBefore)}<mark class="ta-search-mark">${esc(rawMatch)}</mark>${esc(rawAfter)}…</span>` +
+            `</div>`;
+          }
+
+          if (matchCount > MAX_PREVIEW) {
+            const moreLabel = typeof i18n !== 'undefined' && i18n.t
+              ? (i18n.t('taImpShowingFirstMatches') || 'Showing first {shown} of {total} matches').replace('{shown}', MAX_PREVIEW).replace('{total}', matchCount)
+              : `Showing first ${MAX_PREVIEW} of ${matchCount} matches`;
+            html += `<div style="padding:6px 10px;font-size:0.75rem;color:#666;font-style:italic;background:#f9f9f6;border-radius:4px;border:1px dashed #ccc;">` +
+              esc(moreLabel) + ' (↵ / ▲ / ▼)' +
+            `</div>`;
+          }
+
+          listEl.innerHTML = html;
+        }
+
+        if (countEl) {
+          const bookWord = booksWithMatches.size !== 1 ? 'books' : 'book';
+          const matchWord = matchCount !== 1 ? 'matches' : 'match';
+          countEl.textContent = `${matchCount} ${matchWord} in ${booksWithMatches.size} ${bookWord} — press Enter ↵`;
+        }
+
+        if (prevBtn) prevBtn.disabled = matchCount === 0;
+        if (nextBtn) nextBtn.disabled = matchCount === 0;
+
+        _taImportSearchIdx = -1;
+        const hl = document.getElementById('ta-imp-highlights');
+        if (hl) hl.innerHTML = '';
+      } finally {
+        _taImportIsSearchingAll = false;
+      }
+    }
+
+    function taImportSelectAllBooksMatch(idx, options = {}) {
+      if (idx < 0 || idx >= _taImportSearchAllMatches.length) return;
+      _taImportSearchIdx = idx;
+      const match = _taImportSearchAllMatches[idx];
+      const queryInput = document.getElementById('ta-imp-search-input');
+      const query = queryInput ? queryInput.value.trim() : '';
+
+      const activeItem = document.querySelector('#ta-imp-search-results-list .ta-imp-search-item.is-active');
+      if (activeItem) activeItem.classList.remove('is-active');
+      const targetItem = document.querySelector(`#ta-imp-search-results-list .ta-imp-search-item[data-all-match-idx="${idx}"]`);
+      if (targetItem) targetItem.classList.add('is-active');
+      taImportScrollActiveSearchResultIntoView();
+
+      if (_taImportCurrentBookId !== match.bookId) {
+        const cached = window._taBookTextCache ? window._taBookTextCache.get(match.bookId) : null;
+        if (cached) {
+          _taImportCurrentBookId = cached.id;
+          taImportApplyText(cached.text, cached.fileName || cached.label, { preserveSearch: true });
+          const sel = document.getElementById('ta-imp-book-shortcut');
+          if (sel) {
+            const rel = cached.path || cached.id.replace('customBooks:', '');
+            sel.value = rel;
+          }
+        }
+      }
+
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) {
+        if (options && options.focusTa) {
+          ta.focus();
+        }
+        ta.setSelectionRange(match.offset, match.offset + query.length);
+      }
+      taImportUpdateInsertBtn();
+      taImportUpdatePageIndicator();
+
+      const countEl = document.getElementById('ta-imp-search-count');
+      if (countEl) {
+        countEl.textContent = `${idx + 1} / ${_taImportSearchAllMatches.length} (${match.bookLabel})`;
+      }
+      taImportUpdateHighlights();
+      taImportScrollToActiveMatch();
+    }
+
+    function taImportToggleSearchResults() {
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      const toggleBtn = document.getElementById('ta-imp-search-toggle-btn');
+      const listEl = document.getElementById('ta-imp-search-results-list');
+      const totalMatches = (_taImportSearchScope === 'all_books') ? _taImportSearchAllMatches.length : _taImportSearchMatches.length;
+      if (!panel || !toggleBtn || !totalMatches) return;
+      const isHidden = panel.style.display === 'none';
+      if (isHidden) {
+        if (_taImportSearchScope !== 'all_books' && listEl && listEl.dataset.dirty === 'true') {
+          taImportRenderSearchResultsList();
+        }
+        panel.style.display = 'block';
+        toggleBtn.classList.add('is-active');
+        taImportScrollActiveSearchResultIntoView();
+      } else {
+        panel.style.display = 'none';
+        toggleBtn.classList.remove('is-active');
+      }
+    }
+
+    function taImportSelectSearchResult(idx, options = {}) {
+      if (idx < 0 || idx >= _taImportSearchMatches.length) return;
+      _taImportSearchIdx = idx;
+      const queryInput = document.getElementById('ta-imp-search-input');
+      const query = queryInput ? queryInput.value.trim() : '';
+      taImportSearchHighlight(query.length, options);
+      taImportUpdateActiveSearchResultCard();
+      if (options && options.focusTa) {
+        const ta = document.getElementById('ta-imp-text');
+        if (ta) ta.focus();
+      }
+    }
+
+    function taImportUpdateActiveSearchResultCard() {
+      const activeItem = document.querySelector('#ta-imp-search-results-list .ta-imp-search-item.is-active');
+      if (activeItem) activeItem.classList.remove('is-active');
+      const targetItem = document.querySelector(`#ta-imp-search-results-list .ta-imp-search-item[data-match-idx="${_taImportSearchIdx}"]`);
+      if (targetItem) targetItem.classList.add('is-active');
+      taImportScrollActiveSearchResultIntoView();
+    }
+
+    function taImportScrollActiveSearchResultIntoView() {
+      const panel = document.getElementById('ta-imp-search-results-panel');
+      const active = panel ? panel.querySelector('.ta-imp-search-item.is-active') : null;
+      if (active && panel && panel.style.display !== 'none') {
+        active.scrollIntoView({ block: 'nearest' });
       }
     }
 
     function taImportSearchStep(dir) {
-      if (!_taImportSearchMatches.length) return;
-      _taImportSearchIdx = (_taImportSearchIdx + dir + _taImportSearchMatches.length) % _taImportSearchMatches.length;
-      const query = document.getElementById('ta-imp-search-input').value;
-      taImportSearchHighlight(query.length);
-      const ta = document.getElementById('ta-imp-text');
-      if (ta) ta.focus();
+      if (_taImportSearchScope === 'all_books') {
+        if (!_taImportSearchAllMatches || !_taImportSearchAllMatches.length) return;
+        const total = _taImportSearchAllMatches.length;
+        let newIdx;
+        if (_taImportSearchIdx === -1) {
+          newIdx = dir >= 0 ? 0 : total - 1;
+        } else {
+          newIdx = (_taImportSearchIdx + dir + total) % total;
+        }
+        taImportSelectAllBooksMatch(newIdx);
+        return;
+      }
+      if (!_taImportSearchMatches || !_taImportSearchMatches.length) return;
+      const total = _taImportSearchMatches.length;
+      let newIdx;
+      if (_taImportSearchIdx === -1) {
+        newIdx = dir >= 0 ? 0 : total - 1;
+      } else {
+        newIdx = (_taImportSearchIdx + dir + total) % total;
+      }
+      taImportSelectSearchResult(newIdx);
     }
 
     function taImportScrollToPos(pos) {
       const ta = document.getElementById('ta-imp-text');
+      const hl = document.getElementById('ta-imp-highlights');
       if (!ta) return;
-      const style = window.getComputedStyle(ta);
-      const mirror = document.createElement('div');
-      mirror.style.cssText =
-        'position:absolute;visibility:hidden;overflow:hidden;white-space:pre-wrap;word-wrap:break-word;' +
-        'width:' + ta.clientWidth + 'px;' +
-        'padding:' + style.padding + ';' +
-        'font:' + style.font + ';' +
-        'line-height:' + style.lineHeight + ';';
-      mirror.textContent = ta.value.substring(0, pos);
-      document.body.appendChild(mirror);
-      const top = mirror.scrollHeight;
-      document.body.removeChild(mirror);
-      ta.scrollTop = Math.max(0, top - ta.clientHeight / 3);
+      const textLen = (_taImportRawText || ta.value || '').length || 1;
+      const ratio = Math.min(1, Math.max(0, pos / textLen));
+      const maxScroll = Math.max(0, ta.scrollHeight - ta.clientHeight);
+      const targetScroll = Math.round(ratio * maxScroll);
+      ta.scrollTop = targetScroll;
+      if (hl) hl.scrollTop = targetScroll;
     }
 
-    function taImportSearchHighlight(len) {
+    function taImportScrollToActiveMatch() {
+      const ta = document.getElementById('ta-imp-text');
+      const hl = document.getElementById('ta-imp-highlights');
+      if (!ta) return;
+
+      if (hl) {
+        const activeMark = hl.querySelector('.ta-match-active');
+        if (activeMark) {
+          const markRect = activeMark.getBoundingClientRect();
+          const hlRect = hl.getBoundingClientRect();
+          // Exact pixel distance from top of the scroll container to the mark
+          const markAbsoluteTop = (markRect.top - hlRect.top) + hl.scrollTop;
+          const targetScroll = Math.max(0, Math.round(markAbsoluteTop - (ta.clientHeight / 2) + 20));
+          ta.scrollTop = targetScroll;
+          hl.scrollTop = targetScroll;
+          return;
+        }
+      }
+
+      // Fallback: character-length proportional calculation
+      let start = -1;
+      if (_taImportSearchScope === 'all_books') {
+        if (_taImportSearchAllMatches && _taImportSearchAllMatches[_taImportSearchIdx]) {
+          start = _taImportSearchAllMatches[_taImportSearchIdx].offset;
+        }
+      } else {
+        if (_taImportSearchMatches && _taImportSearchMatches[_taImportSearchIdx] !== undefined) {
+          start = _taImportSearchMatches[_taImportSearchIdx];
+        }
+      }
+      if (start >= 0) {
+        taImportScrollToPos(start);
+      }
+    }
+
+    function taImportSearchHighlight(len, options = {}) {
       const ta = document.getElementById('ta-imp-text');
       if (!ta) return;
       const start = _taImportSearchMatches[_taImportSearchIdx];
+      if (typeof start !== 'number') return;
+      if (options && options.focusTa) {
+        ta.focus();
+      }
       ta.setSelectionRange(start, start + len);
-      taImportScrollToPos(start);
       taImportUpdateInsertBtn();
       const countEl = document.getElementById('ta-imp-search-count');
       if (countEl) countEl.textContent = (_taImportSearchIdx + 1) + ' / ' + _taImportSearchMatches.length;
+      taImportUpdatePageIndicator();
+      taImportUpdateHighlights();
+      taImportScrollToActiveMatch();
+    }
+
+    function taImportUpdateHighlights() {
+      const hl = document.getElementById('ta-imp-highlights');
+      if (!hl) return;
+
+      const queryInput = document.getElementById('ta-imp-search-input');
+      const q = queryInput ? queryInput.value.trim() : '';
+
+      if (!q || !_taImportRawText) {
+        hl.innerHTML = '';
+        return;
+      }
+
+      const text = _taImportRawText;
+      const qLen = q.length;
+      const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      let activeOffset = -1;
+      let matchesToMark = [];
+
+      if (_taImportSearchScope === 'all_books') {
+        if (!_taImportSearchAllMatches || !_taImportSearchAllMatches.length || _taImportSearchIdx < 0) {
+          hl.innerHTML = '';
+          return;
+        }
+        const activeMatch = _taImportSearchAllMatches[_taImportSearchIdx];
+        if (!activeMatch) {
+          hl.innerHTML = '';
+          return;
+        }
+        activeOffset = activeMatch.offset;
+        const targetBookId = activeMatch.bookId || _taImportCurrentBookId;
+        matchesToMark = _taImportSearchAllMatches
+          .filter(m => m.bookId === targetBookId || (!m.bookId && !targetBookId))
+          .map(m => m.offset)
+          .sort((a, b) => a - b);
+      } else {
+        if (!_taImportSearchMatches || !_taImportSearchMatches.length || _taImportSearchIdx < 0) {
+          hl.innerHTML = '';
+          return;
+        }
+        activeOffset = _taImportSearchMatches[_taImportSearchIdx];
+        matchesToMark = _taImportSearchMatches;
+      }
+
+      if (!matchesToMark.length) {
+        hl.innerHTML = '';
+        return;
+      }
+
+      if (activeOffset >= 0 && matchesToMark.indexOf(activeOffset) === -1) {
+        matchesToMark.push(activeOffset);
+        matchesToMark.sort((a, b) => a - b);
+      }
+
+      if (matchesToMark.length > 500) {
+        const actPos = matchesToMark.indexOf(activeOffset);
+        const center = actPos >= 0 ? actPos : 0;
+        const startI = Math.max(0, center - 250);
+        const endI = Math.min(matchesToMark.length, startI + 500);
+        matchesToMark = matchesToMark.slice(startI, endI);
+      }
+
+      const parts = [];
+      let last = 0;
+      for (let i = 0; i < matchesToMark.length; i++) {
+        const m = matchesToMark[i];
+        if (m < last || m + qLen > text.length) continue;
+        parts.push(esc(text.substring(last, m)));
+        const isActive = (m === activeOffset);
+        const cls = isActive ? 'ta-match-active' : 'ta-match-subtle';
+        parts.push('<mark class="' + cls + '">' + esc(text.substring(m, m + qLen)) + '</mark>');
+        last = m + qLen;
+      }
+      parts.push(esc(text.substring(last)));
+      hl.innerHTML = parts.join('');
+
+      const ta = document.getElementById('ta-imp-text');
+      if (ta) {
+        hl.scrollTop = ta.scrollTop;
+        hl.scrollLeft = ta.scrollLeft;
+      }
     }
 
     function taImportSearchKey(e) {
       if (e.key === 'Enter') {
         e.preventDefault();
+        if (_taImportSearchTimer) {
+          clearTimeout(_taImportSearchTimer);
+          _taImportSearchTimer = null;
+          taImportSearchRun(true);
+        }
         taImportSearchStep(e.shiftKey ? -1 : 1);
+      } else if (e.key === 'Escape') {
+        const queryInput = document.getElementById('ta-imp-search-input');
+        if (queryInput && queryInput.value) {
+          queryInput.value = '';
+          taImportSearchRun(true);
+        }
       }
     }
 
@@ -4275,12 +5728,20 @@
       }
     }
 
-    function searchPerform() {
-      const word = document.getElementById('search-word').value.trim().toLowerCase();
+    async function searchPerform() {
+      const wordInput = document.getElementById('search-word');
+      const word = wordInput ? wordInput.value.trim().toLowerCase() : '';
       if (!word) {
         mdbToast('⚠️ Please enter a word to search.');
         return;
       }
+
+      const bookSelect = document.getElementById('search-book-select');
+      if (bookSelect && bookSelect.value === '__all_books__') {
+        await searchPerformAllBooks(word);
+        return;
+      }
+
       if (!searchBookText) {
         mdbToast('⚠️ Please import a book first.');
         return;
@@ -4289,6 +5750,109 @@
       const scope = document.querySelector('input[name="search-scope"]:checked').value;
       searchResults = searchFindOccurrences(word, scope);
       searchRenderResults(word);
+    }
+
+    function searchFindOccurrencesInText(text, word, scope, bookTitle) {
+      if (!word || !word.trim() || !text) return [];
+      const results = [];
+      const seenContexts = new Set();
+      const lowerText = text.toLowerCase();
+      const lowerWord = word.trim().toLowerCase();
+      if (!lowerWord) return [];
+      let index = lowerText.indexOf(lowerWord);
+
+      while (index !== -1) {
+        const actualWord = text.substring(index, index + word.length);
+        let contextStart, contextEnd, contextText;
+
+        if (scope === 'paragraph') {
+          let pStart = text.lastIndexOf('\n\n', index);
+          pStart = pStart === -1 ? 0 : pStart + 2;
+          let pEnd = text.indexOf('\n\n', index + word.length);
+          pEnd = pEnd === -1 ? text.length : pEnd;
+          contextStart = pStart;
+          contextEnd = pEnd;
+          contextText = text.substring(pStart, pEnd);
+        } else {
+          let wordCount = 0;
+          let startPos = index;
+          while (startPos > 0 && wordCount < 200) {
+            startPos--;
+            if (text[startPos] === ' ' || text[startPos] === '\n') wordCount++;
+          }
+          wordCount = 0;
+          let endPos = index + word.length;
+          while (endPos < text.length && wordCount < 200) {
+            endPos++;
+            if (text[endPos] === ' ' || text[endPos] === '\n') wordCount++;
+          }
+          contextStart = startPos;
+          contextEnd = endPos;
+          contextText = text.substring(startPos, endPos);
+        }
+
+        if (!seenContexts.has(contextText.trim())) {
+          seenContexts.add(contextText.trim());
+          results.push({
+            word: actualWord,
+            startIndex: index,
+            contextStart,
+            contextEnd,
+            contextText,
+            paragraphStartIndex: 0,
+            paragraphEndIndex: 0,
+            bookTitle: bookTitle || ''
+          });
+        }
+        index = lowerText.indexOf(lowerWord, index + Math.max(1, lowerWord.length));
+      }
+      return results;
+    }
+
+    async function searchPerformAllBooks(word) {
+      const scopeEl = document.querySelector('input[name="search-scope"]:checked');
+      const scope = scopeEl ? scopeEl.value : 'paragraph';
+      searchSetBookStatus('Searching all library books…', 'is-loading');
+
+      const allResults = [];
+      window._taBookTextCache = window._taBookTextCache || new Map();
+
+      for (const book of searchAvailableBooks) {
+        if (book.id === '__all_books__') continue;
+        let bookText = '';
+        if (window._taBookTextCache.has(book.id)) {
+          bookText = window._taBookTextCache.get(book.id).text;
+        } else {
+          try {
+            const raw = await searchReadShortcutBook(book.path, book.target);
+            if (raw) {
+              const proc = taImportProcessBookText(raw);
+              bookText = proc.text;
+              window._taBookTextCache.set(book.id, {
+                id: book.id,
+                label: book.label,
+                fileName: book.fileName,
+                path: book.path,
+                folder: book.folder,
+                text: proc.text,
+                pageMap: proc.pageMap,
+                totalPages: proc.totalPages,
+                isEstimated: proc.isEstimated
+              });
+            }
+          } catch (e) {
+            console.warn('Failed loading book for search:', book.path, e);
+          }
+        }
+        if (bookText) {
+          const occs = searchFindOccurrencesInText(bookText, word, scope, book.label);
+          allResults.push(...occs);
+        }
+      }
+
+      searchResults = allResults;
+      searchRenderResults(word);
+      searchSetBookStatus(`Found ${allResults.length} match${allResults.length !== 1 ? 'es' : ''} across ${searchAvailableBooks.length - 1} books.`);
     }
 
     function searchFindOccurrences(word, scope) {
@@ -4379,10 +5943,11 @@
         div.dataset.searchIndex = String(index);
         const paraPct = searchGetParagraphPositionPercent(result);
         const paraInfo = paraPct === null ? '' : ` · Paragraph: ${paraPct}%`;
+        const bookTag = result.bookTitle ? ` · 📖 ${result.bookTitle}` : '';
         const canAddPrevious = result.paragraphStartIndex > 0;
         const canAddNext = result.paragraphEndIndex < searchParagraphs.length - 1;
         div.innerHTML = `
-          <div class="search-result-header">Result ${index + 1}: "${result.word}"${paraInfo}</div>
+          <div class="search-result-header">Result ${index + 1}: "${result.word}"${bookTag}${paraInfo}</div>
           <div class="search-result-context">
             <button class="search-result-expand" onclick="searchExpandResultParagraph(${index}, -1)" ${canAddPrevious ? '' : 'disabled'} title="Add previous paragraph">+</button>
             <div class="search-result-text">${searchRenderContextHtml(result.contextText, searchWord)}</div>
@@ -4782,6 +6347,22 @@
   window.taImportSearchStep = global.taImportSearchStep = taImportSearchStep;
   window.taImportSearchKey = global.taImportSearchKey = taImportSearchKey;
   window.taImportConfirm = global.taImportConfirm = taImportConfirm;
+  window.taImportSelectFolder = global.taImportSelectFolder = taImportSelectFolder;
+  window.taImportFolderUp = global.taImportFolderUp = taImportFolderUp;
+  window.taImportToggleSearchResults = global.taImportToggleSearchResults = taImportToggleSearchResults;
+  window.taImportRenderSearchResultsList = global.taImportRenderSearchResultsList = taImportRenderSearchResultsList;
+  window.taImportSelectSearchResult = global.taImportSelectSearchResult = taImportSelectSearchResult;
+  window.taImportUpdateHighlights = global.taImportUpdateHighlights = taImportUpdateHighlights;
+  window.taImportScrollToActiveMatch = global.taImportScrollToActiveMatch = taImportScrollToActiveMatch;
+  window.taImportJumpToPageInput = global.taImportJumpToPageInput = taImportJumpToPageInput;
+  window.taImportJumpToPage = global.taImportJumpToPage = taImportJumpToPage;
+  window.taMobiExtractTextAsync = global.taMobiExtractTextAsync = taMobiExtractTextAsync;
+  window.taDocxExtractTextAsync = global.taDocxExtractTextAsync = taDocxExtractTextAsync;
+  window.taOdtExtractTextAsync = global.taOdtExtractTextAsync = taOdtExtractTextAsync;
+  window.taPdfExtractTextAsync = global.taPdfExtractTextAsync = taPdfExtractTextAsync;
+  window.taImportToggleSearchScope = global.taImportToggleSearchScope = taImportToggleSearchScope;
+  window.taImportSelectAllBooksMatch = global.taImportSelectAllBooksMatch = taImportSelectAllBooksMatch;
+  window.searchPerformAllBooks = global.searchPerformAllBooks = searchPerformAllBooks;
   window.searchPerform = global.searchPerform = searchPerform;
   window.searchClear = global.searchClear = searchClear;
   window.searchCtxClose = global.searchCtxClose = searchCtxClose;

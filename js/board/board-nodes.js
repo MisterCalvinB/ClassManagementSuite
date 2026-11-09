@@ -13530,6 +13530,33 @@
         return best;
       }
 
+      // Determines accurate rendered width of a node with text before creation
+      function conDetermineNodeWidth(text) {
+        const brd = board();
+        if (!brd) return 88;
+        const clean = String(text || '').replace(/\s*\(\([^)]+\)\)\s*/, '').trim();
+        if (!clean) return 88;
+        let measurer = document.getElementById('con-node-width-measurer');
+        if (!measurer) {
+          measurer = document.createElement('div');
+          measurer.id = 'con-node-width-measurer';
+          measurer.className = 'con-node';
+          measurer.style.cssText = 'position:absolute;top:-9999px;left:-9999px;visibility:hidden;pointer-events:none;z-index:-1;white-space:nowrap;display:inline-flex;padding:4px 9px;box-sizing:border-box;';
+          brd.appendChild(measurer);
+        }
+        conApplyDefaultWordFontSize(measurer);
+        if (window._bcNodeFontFamily) measurer.style.fontFamily = window._bcNodeFontFamily;
+        measurer.textContent = clean;
+        const measured = measurer.offsetWidth || 88;
+        let extra = 12;
+        if (typeof vocabBank !== 'undefined' && Array.isArray(vocabBank)) {
+          const match = conFindDbEntry(clean);
+          if (match) extra += 20;
+        }
+        return Math.max(72, measured + extra);
+      }
+      window.conDetermineNodeWidth = conDetermineNodeWidth;
+
       // Unified node layout computation keeping all new nodes within compact radius (140px-160px)
       function conComputeNodeLayout(opts) {
         const origin = opts.origin || { x: 100, y: 100 };
@@ -13556,6 +13583,7 @@
 
         // Single node
         if (count === 1) {
+          const singleW = (Array.isArray(opts.nodeWidths) && opts.nodeWidths[0]) ? opts.nodeWidths[0] : nodeW;
           if (isConnected && srcNode) {
             const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
             const srcH = (srcNode.el && srcNode.el.offsetHeight) || 32;
@@ -13564,24 +13592,24 @@
             const spaceBottom = bh - (srcNode.y + srcH);
 
             let targetX, targetY;
-            // Prefer right side if >= 120px room, else pick side with most space
-            if (spaceRight >= 120) {
+            // Prefer right side if room, else pick side with most space
+            if (spaceRight >= singleW + 28) {
               targetX = srcNode.x + srcW + 28;
               targetY = srcNode.y + (srcH - nodeH) / 2;
-            } else if (spaceLeft >= 120) {
-              targetX = srcNode.x - nodeW - 28;
+            } else if (spaceLeft >= singleW + 28) {
+              targetX = srcNode.x - singleW - 28;
               targetY = srcNode.y + (srcH - nodeH) / 2;
             } else if (spaceBottom >= 60) {
-              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetX = srcNode.x + (srcW - singleW) / 2;
               targetY = srcNode.y + srcH + 24;
             } else {
-              targetX = srcNode.x + (srcW - nodeW) / 2;
+              targetX = srcNode.x + (srcW - singleW) / 2;
               targetY = srcNode.y - nodeH - 24;
             }
             const c = clamp(targetX, targetY);
             positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
           } else {
-            const c = clamp(origin.x - nodeW / 2, origin.y - nodeH / 2);
+            const c = clamp(origin.x - singleW / 2, origin.y - nodeH / 2);
             positions.push(conFindFreePositionBounded(c.x, c.y, origin.x, origin.y, maxR, excludeId));
           }
           return positions;
@@ -13602,9 +13630,14 @@
             positions.push(clamp(nx, ny));
           }
         } else if (layout === 'horizontal') {
-          // Always a single horizontal row, cleanly spaced and centered on origin
-          const gap = 10;
-          const totalW = count * nodeW + (count - 1) * gap;
+          // Always a single horizontal row, cleanly spaced and centered on origin without overlapping
+          const gap = 16;
+          const widths = (Array.isArray(opts.nodeWidths) && opts.nodeWidths.length === count)
+            ? opts.nodeWidths.map(w => Math.max(60, Number(w) || nodeW))
+            : (Array.isArray(opts.nodeTexts) && opts.nodeTexts.length === count)
+              ? opts.nodeTexts.map(t => conDetermineNodeWidth(t))
+              : Array(count).fill(nodeW);
+          const totalW = widths.reduce((sum, w) => sum + w, 0) + (count - 1) * gap;
           let startX, rowY;
           if (isConnected && srcNode) {
             const srcW = (srcNode.el && srcNode.el.offsetWidth) || 80;
@@ -13632,8 +13665,10 @@
           if (startX < 4) startX = 4;
           if (startX + totalW > bw - 4) startX = Math.max(4, bw - totalW - 4);
           rowY = Math.max(4, Math.min(bh - nodeH - 4, rowY));
+          let currentX = startX;
           for (let i = 0; i < count; i++) {
-            positions.push({ x: startX + i * (nodeW + gap), y: rowY });
+            positions.push({ x: currentX, y: rowY, width: widths[i], height: nodeH });
+            currentX += widths[i] + gap;
           }
         } else if (layout === 'vertical') {
           // Always a single vertical column, cleanly spaced and centered on origin
@@ -13748,13 +13783,16 @@
           }
         }
 
+        const entryWidths = entries.map(e => conDetermineNodeWidth(e));
         const entryBasePositions = conComputeNodeLayout({
           origin: { x: originX, y: originY },
           count: entries.length,
           layout: chosenLayout,
           isConnected: !!pendingSrc,
           srcNode: srcNodeObj,
-          maxRadius: 150
+          maxRadius: 150,
+          nodeWidths: entryWidths,
+          nodeTexts: entries
         });
 
         entries.forEach((entry, entryIdx) => {
@@ -13786,9 +13824,17 @@
           const baseX = entryBase.x;
           const baseY = entryBase.y;
 
+          let cumulativePartOffsetX = 0;
           chainParts.forEach((part, partIdx) => {
-            const partOffsetX = partIdx * 20;
-            const partOffsetY = partIdx * 8;
+            const firstWord = part.words[0] || '';
+            const measuredPartW = conDetermineNodeWidth(firstWord);
+            const partOffsetX = (chosenLayout === 'horizontal' && chainParts.length > 1)
+              ? cumulativePartOffsetX
+              : partIdx * 20;
+            const partOffsetY = (chosenLayout === 'horizontal' && chainParts.length > 1)
+              ? 0
+              : partIdx * 8;
+            cumulativePartOffsetX += measuredPartW + 36;
             const unitNodeIds = [];
 
             part.words.forEach((word, wordIdx) => {
@@ -13806,7 +13852,9 @@
               nx = Math.max(4, Math.min(bw - 88 - 4, nx));
               ny = Math.max(4, Math.min(bh - 34 - 4, ny));
               const _fp = (partIdx > 0 || wordIdx > 0)
-                ? conFindFreePositionBounded(nx, ny, originX, originY, 150, pendingSrc)
+                ? (chosenLayout === 'horizontal' && chainParts.length > 1
+                    ? { x: nx, y: ny }
+                    : conFindFreePositionBounded(nx, ny, originX, originY, 150, pendingSrc))
                 : { x: nx, y: ny };
               if (cleanWord.includes('_')) {
                 // Underscore-separated phrase → seamless phrase group (one node per segment)
@@ -13858,11 +13906,40 @@
             conAddEdge(aId, bId, t);
           }
 
-          // Spread multi-segment chains
-          if (chainParts.length > 1 && chainNodeIds.length > 1) {
+          // Spread multi-segment chains if not in horizontal row mode
+          if (chainParts.length > 1 && chainNodeIds.length > 1 && chosenLayout !== 'horizontal') {
             conSpreadNodeSet(chainNodeIds);
           }
         });
+
+        // Ensure nodes in horizontal row do not overlap (adjusting according to exact measured DOM width)
+        if (chosenLayout === 'horizontal' && allNewIds.length >= 2) {
+          const newNodes = allNewIds.map(id => conNodes.find(n => n.id === id)).filter(Boolean);
+          if (newNodes.length >= 2) {
+            newNodes.sort((a, b) => a.x - b.x);
+            const minGap = 16;
+            for (let i = 0; i < newNodes.length - 1; i++) {
+              const curr = newNodes[i];
+              const next = newNodes[i + 1];
+              const currW = (curr.el && curr.el.offsetWidth) || conDetermineNodeWidth(curr.baseWord) || 80;
+              const minNextX = curr.x + currW + minGap;
+              if (next.x < minNextX) {
+                const shift = minNextX - next.x;
+                for (let k = i + 1; k < newNodes.length; k++) {
+                  newNodes[k].x += shift;
+                  if (newNodes[k].el) newNodes[k].el.style.left = newNodes[k].x + 'px';
+                  const brd = board();
+                  if (brd) {
+                    const cx2 = brd.clientWidth / 2, cy2 = brd.clientHeight / 2;
+                    newNodes[k].baseX = cx2 + (newNodes[k].x - cx2) / conCurrentZoom;
+                    newNodes[k].baseY = cy2 + (newNodes[k].y - cy2) / conCurrentZoom;
+                  }
+                }
+              }
+            }
+            if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          }
+        }
 
         // When multiple nodes are created, select all of them for immediate joint moving
         if (allNewIds.length > 1) {
@@ -14456,30 +14533,139 @@
 
         if (typeof window.conPushUndo === 'function') window.conPushUndo();
 
-        const brd = board();
-        const ordered = [...targets].sort((a, b) => (a.y - b.y) || (a.x - b.x));
-        const bounds = conGetSelectionBounds(ordered);
-        const maxWidth = Math.max(...ordered.map(t => t.width || 80));
-        const maxHeight = Math.max(...ordered.map(t => t.height || 32));
-        const ratio = bounds.height > 0 ? bounds.width / bounds.height : 1;
-        let columns = Math.round(Math.sqrt(ordered.length * Math.max(ratio, 0.5)));
-        columns = Math.max(1, Math.min(ordered.length, columns || 1));
-        const rows = Math.ceil(ordered.length / columns);
-        const gapX = 24;
-        const gapY = 18;
-        const gridWidth = columns * maxWidth + (columns - 1) * gapX;
-        const gridHeight = rows * maxHeight + (rows - 1) * gapY;
-        const startX = Math.max(0, bounds.centerX - gridWidth / 2);
-        const startY = Math.max(0, bounds.centerY - gridHeight / 2);
-
-        ordered.forEach((t, index) => {
-          const column = index % columns;
-          const row = Math.floor(index / columns);
-          t.x = startX + column * (maxWidth + gapX) + (maxWidth - t.width) / 2;
-          t.y = startY + row * (maxHeight + gapY) + (maxHeight - t.height) / 2;
+        // Calculate visual centers of all targets
+        targets.forEach(t => {
+          t.cx = t.x + (t.width || 80) / 2;
+          t.cy = t.y + (t.height || 32) / 2;
         });
 
-        conCommitSelectedLayout(ordered);
+        const avgW = targets.reduce((s, t) => s + (t.width || 80), 0) / targets.length;
+        const avgH = targets.reduce((s, t) => s + (t.height || 32), 0) / targets.length;
+
+        // 1. Group nodes approximately on the same line into horizontal rows
+        const sortedByY = [...targets].sort((a, b) => a.cy - b.cy);
+        const rowThreshold = Math.max(26, avgH * 0.7);
+        const rows = [];
+        let currentRow = [sortedByY[0]];
+        let currentRowSumY = sortedByY[0].cy;
+
+        for (let i = 1; i < sortedByY.length; i++) {
+          const t = sortedByY[i];
+          const rowAvgY = currentRowSumY / currentRow.length;
+          if (Math.abs(t.cy - rowAvgY) <= rowThreshold) {
+            currentRow.push(t);
+            currentRowSumY += t.cy;
+          } else {
+            rows.push(currentRow);
+            currentRow = [t];
+            currentRowSumY = t.cy;
+          }
+        }
+        if (currentRow.length) rows.push(currentRow);
+
+        // 2. Group nodes approximately on the same column into vertical columns
+        const sortedByX = [...targets].sort((a, b) => a.cx - b.cx);
+        const colThreshold = Math.max(38, avgW * 0.55);
+        const cols = [];
+        let currentCol = [sortedByX[0]];
+        let currentColSumX = sortedByX[0].cx;
+
+        for (let i = 1; i < sortedByX.length; i++) {
+          const t = sortedByX[i];
+          const colAvgX = currentColSumX / currentCol.length;
+          if (Math.abs(t.cx - colAvgX) <= colThreshold) {
+            currentCol.push(t);
+            currentColSumX += t.cx;
+          } else {
+            cols.push(currentCol);
+            currentCol = [t];
+            currentColSumX = t.cx;
+          }
+        }
+        if (currentCol.length) cols.push(currentCol);
+
+        // 3. Compute target Y for each row so nodes on the same line get aligned horizontally
+        const rowCenterYs = rows.map(r => {
+          return r.reduce((sum, t) => sum + t.cy, 0) / r.length;
+        });
+
+        // 4. Compute target X for each column so nodes on the same column get aligned vertically
+        const colCenterXs = cols.map(c => {
+          return c.reduce((sum, t) => sum + t.cx, 0) / c.length;
+        });
+
+        // Map targets to their row and column index
+        const targetRowIndex = new Map();
+        rows.forEach((r, rIdx) => {
+          r.forEach(t => targetRowIndex.set(t, rIdx));
+        });
+
+        const targetColIndex = new Map();
+        cols.forEach((c, cIdx) => {
+          c.forEach(t => targetColIndex.set(t, cIdx));
+        });
+
+        // Prevent column overlaps
+        const minGapX = 16;
+        for (let j = 0; j < cols.length - 1; j++) {
+          const colA = cols[j];
+          const colB = cols[j + 1];
+          const maxRightA = Math.max(...colA.map(t => colCenterXs[j] + (t.width || 80) / 2));
+          const minLeftB = Math.min(...colB.map(t => colCenterXs[j + 1] - (t.width || 80) / 2));
+          if (minLeftB < maxRightA + minGapX) {
+            const shiftX = (maxRightA + minGapX) - minLeftB;
+            for (let k = j + 1; k < cols.length; k++) {
+              colCenterXs[k] += shiftX;
+            }
+          }
+        }
+
+        // Prevent row overlaps
+        const minGapY = 14;
+        for (let i = 0; i < rows.length - 1; i++) {
+          const rowA = rows[i];
+          const rowB = rows[i + 1];
+          const maxBottomA = Math.max(...rowA.map(t => rowCenterYs[i] + (t.height || 32) / 2));
+          const minTopB = Math.min(...rowB.map(t => rowCenterYs[i + 1] - (t.height || 32) / 2));
+          if (minTopB < maxBottomA + minGapY) {
+            const shiftY = (maxBottomA + minGapY) - minTopB;
+            for (let k = i + 1; k < rows.length; k++) {
+              rowCenterYs[k] += shiftY;
+            }
+          }
+        }
+
+        // 5. Apply positions:
+        // - Nodes on approximately the same line get aligned horizontally to rowCenterYs[rIdx]
+        // - Nodes on approximately the same column get aligned vertically to colCenterXs[cIdx]
+        targets.forEach(t => {
+          const rIdx = targetRowIndex.get(t);
+          const cIdx = targetColIndex.get(t);
+          const targetCy = (rIdx != null) ? rowCenterYs[rIdx] : t.cy;
+          const targetCx = (cIdx != null) ? colCenterXs[cIdx] : t.cx;
+
+          t.y = Math.round(targetCy - (t.height || 32) / 2);
+          t.x = Math.round(targetCx - (t.width || 80) / 2);
+        });
+
+        // 6. Guarantee no overlap between targets on the same horizontal line
+        rows.forEach(r => {
+          if (r.length < 2) return;
+          r.sort((a, b) => a.x - b.x);
+          for (let i = 0; i < r.length - 1; i++) {
+            const curr = r[i];
+            const next = r[i + 1];
+            const minX = curr.x + (curr.width || 80) + minGapX;
+            if (next.x < minX) {
+              const shift = minX - next.x;
+              for (let k = i + 1; k < r.length; k++) {
+                r[k].x += shift;
+              }
+            }
+          }
+        });
+
+        conCommitSelectedLayout(targets);
         conCtxClose();
         if (typeof window.wnStyleRefreshPosition === 'function') window.wnStyleRefreshPosition();
       };

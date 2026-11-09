@@ -818,20 +818,14 @@
       const range = sel.getRangeAt(0);
       const anc = range.commonAncestorContainer;
       if (!(editor === anc || editor.contains(anc))) return;
-      if (!range.collapsed) {
-        _wnSavedSelectionRange = range.cloneRange();
-      } else if (isExplicit) {
-        _wnSavedSelectionRange = range.cloneRange();
-      } else if (!_wnSavedSelectionRange || _wnSavedSelectionRange.collapsed || !(editor === _wnSavedSelectionRange.commonAncestorContainer || editor.contains(_wnSavedSelectionRange.commonAncestorContainer))) {
-        _wnSavedSelectionRange = range.cloneRange();
-      }
+      _wnSavedSelectionRange = range.cloneRange();
       if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
         wnSyncAndBroadcastNoteSelection(true);
       }
     }
 
     function wnRestoreSelection(editor) {
-      if (!editor || editor.tagName === 'TEXTAREA' || !_wnSavedSelectionRange) return false;
+      if (!editor || editor.tagName === 'TEXTAREA' || !_wnSavedSelectionRange || _wnSavedSelectionRange.collapsed) return false;
       const anc = _wnSavedSelectionRange.commonAncestorContainer;
       if (!(editor === anc || editor.contains(anc))) return false;
       const sel = window.getSelection && window.getSelection();
@@ -1251,8 +1245,14 @@
         if (prevNoteEl) {
           prevEditor = prevNoteEl.querySelector('.wn-note-editor, textarea');
           if (prevEditor) {
-            wnRememberSelection(prevEditor);
-            hasSel = !!(wnSelectionInside(prevEditor) || (typeof _wnSavedSelectionRange !== 'undefined' && _wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed && (prevEditor === _wnSavedSelectionRange.commonAncestorContainer || prevEditor.contains(_wnSavedSelectionRange.commonAncestorContainer))));
+            const isClickOutsideEditor = !!(triggerEvent && triggerEvent.target && !prevEditor.contains(triggerEvent.target));
+            if (isClickOutsideEditor) {
+              _wnSavedSelectionRange = null;
+              hasSel = false;
+            } else {
+              wnRememberSelection(prevEditor);
+              hasSel = !!(wnSelectionInside(prevEditor) || (typeof _wnSavedSelectionRange !== 'undefined' && _wnSavedSelectionRange && !_wnSavedSelectionRange.collapsed && (prevEditor === _wnSavedSelectionRange.commonAncestorContainer || prevEditor.contains(_wnSavedSelectionRange.commonAncestorContainer))));
+            }
           }
         }
       }
@@ -3925,7 +3925,10 @@
       const anc = range.commonAncestorContainer;
       const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
       if (ancEl && ancEl !== editor) {
-        const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
+        const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs'))
+          ? ancEl
+          : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null)
+          || (ancEl.querySelector ? ancEl.querySelector('.wn-text-fs') : null);
         if (candidate && editor.contains(candidate)) {
           const fs = getExplicitFs(candidate);
           if (fs != null) return fs;
@@ -3934,16 +3937,22 @@
         if (fs != null) return fs;
       }
 
-      // Priority C: check startContainer
-      let startEl = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+      // Priority C: check start node / startContainer
+      let startNode = range.startContainer;
+      if (startNode && startNode.nodeType === 1 && startNode.childNodes.length > 0) {
+        const idx = Math.min(Math.max(0, range.startOffset), startNode.childNodes.length - 1);
+        startNode = startNode.childNodes[idx] || startNode;
+      }
+      let startEl = startNode ? (startNode.nodeType === 1 ? startNode : startNode.parentElement) : null;
       if (startEl && startEl !== editor) {
         const fs = getExplicitFs(startEl);
         if (fs != null) return fs;
       }
 
-      // Priority D: check any styled elements inside commonAncestorContainer intersecting the range
-      if (ancEl && ancEl.querySelectorAll) {
-        const styled = ancEl.querySelectorAll('[style*="font-size"], .wn-text-fs, font[size]');
+      // Priority D: check any styled elements inside commonAncestorContainer or editor intersecting the range
+      const searchRoot = (ancEl && ancEl !== editor) ? ancEl : editor;
+      if (searchRoot && searchRoot.querySelectorAll) {
+        const styled = searchRoot.querySelectorAll('[style*="font-size"], .wn-text-fs, font[size]');
         for (let i = 0; i < styled.length; i++) {
           try {
             if (range.intersectsNode(styled[i])) {
@@ -3955,7 +3964,7 @@
       }
 
       // Priority E: check getComputedStyle on probeTarget
-      const probeTarget = clickedEl || startEl || ancEl;
+      const probeTarget = clickedEl || startEl || (ancEl !== editor ? ancEl : null);
       if (probeTarget && probeTarget !== editor) {
         try {
           const cs = window.getComputedStyle(probeTarget);
@@ -4013,12 +4022,20 @@
       const anc = range.commonAncestorContainer;
       const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
       if (ancEl && ancEl !== editor) {
-        const candidate = ancEl.classList && ancEl.classList.contains('wn-text-fs') ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
+        let candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : null;
+        if (!candidate && ancEl.closest) {
+          candidate = ancEl.closest('.wn-text-fs');
+        }
+        if (!candidate && ancEl.querySelector) {
+          const innerCandidate = ancEl.querySelector('.wn-text-fs');
+          if (innerCandidate && (range.intersectsNode(innerCandidate) || ancEl.textContent.trim() === innerCandidate.textContent.trim())) {
+            candidate = innerCandidate;
+          }
+        }
         if (candidate && editor.contains(candidate)) {
           const candText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
           const selText = range.toString().replace(/\s+/g, ' ').trim();
-          // Only reuse candidate as targetSpan if selection actually covers the entire candidate
-          if (candText && selText && candText === selText) {
+          if (candText && selText && (candText === selText || (candidate.contains(range.startContainer) && candidate.contains(range.endContainer)))) {
             targetSpan = candidate;
           }
         }
@@ -4031,7 +4048,12 @@
         if (m) currentFs = Math.round(parseFloat(m[1]) / zoom);
       }
       if (!currentFs) {
-        let probe = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+        let startNode = range.startContainer;
+        if (startNode && startNode.nodeType === 1 && startNode.childNodes.length > 0) {
+          const idx = Math.min(Math.max(0, range.startOffset), startNode.childNodes.length - 1);
+          startNode = startNode.childNodes[idx] || startNode;
+        }
+        let probe = startNode ? (startNode.nodeType === 1 ? startNode : startNode.parentElement) : null;
         while (probe && probe !== editor) {
           if (probe.style && probe.style.fontSize) {
             const m = probe.style.fontSize.match(/^([\d.]+)px$/);
@@ -4043,13 +4065,33 @@
           probe = probe.parentElement;
         }
       }
-      if (!currentFs && ancEl && ancEl !== editor) {
-        const styled = ancEl.querySelectorAll('[style*="font-size"]');
-        for (let i = 0; i < styled.length; i++) {
+      if (!currentFs) {
+        const searchRoot = (ancEl && ancEl !== editor) ? ancEl : editor;
+        if (searchRoot && searchRoot.querySelectorAll) {
+          const styled = searchRoot.querySelectorAll('[style*="font-size"], .wn-text-fs, font[size]');
+          for (let i = 0; i < styled.length; i++) {
+            try {
+              if (range.intersectsNode(styled[i])) {
+                const m = (styled[i].style.fontSize || '').match(/^([\d.]+)px$/);
+                if (m) { currentFs = Math.round(parseFloat(m[1]) / zoom); break; }
+              }
+            } catch (_) {}
+          }
+        }
+      }
+      if (!currentFs) {
+        let startNode = range.startContainer;
+        if (startNode && startNode.nodeType === 1 && startNode.childNodes.length > 0) {
+          const idx = Math.min(Math.max(0, range.startOffset), startNode.childNodes.length - 1);
+          startNode = startNode.childNodes[idx] || startNode;
+        }
+        const probeEl = startNode ? (startNode.nodeType === 1 ? startNode : startNode.parentElement) : null;
+        if (probeEl && probeEl !== editor) {
           try {
-            if (range.intersectsNode(styled[i])) {
-              const m = styled[i].style.fontSize.match(/^([\d.]+)px$/);
-              if (m) { currentFs = Math.round(parseFloat(m[1]) / zoom); break; }
+            const cs = window.getComputedStyle(probeEl);
+            if (cs && cs.fontSize) {
+              const m = cs.fontSize.match(/^([\d.]+)px$/);
+              if (m) currentFs = Math.round(parseFloat(m[1]) / zoom);
             }
           } catch (_) {}
         }
@@ -4075,7 +4117,7 @@
         sel.addRange(newRange);
       } else {
         // First stroke on this range: wrap each selected TEXT NODE individually so the
-        // DOM structure (ul/ol/li, nested lists, checkboxes) is never split or invalidated.
+        // DOM structure (ul/ol/li, nested lists, checkboxes, bold/italic/underline) is never split or invalidated.
         const textNodes = [];
         const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
         let tn;
@@ -4099,11 +4141,18 @@
         }
         const spans = [];
         textNodes.forEach(node => {
-          if (!node.parentNode || (node.nodeValue === '' )) return;
+          if (!node.parentNode || (node.nodeValue === '')) return;
           const par = node.parentElement;
           if (par && par !== editor && par.classList.contains('wn-text-fs') && par.childNodes.length === 1) {
             par.style.fontSize = targetPx;
             spans.push(par);
+            return;
+          }
+          const fsAnc = par && par !== editor ? par.closest('.wn-text-fs') : null;
+          if (fsAnc && fsAnc.textContent.trim() === node.nodeValue.trim()) {
+            fsAnc.style.fontSize = targetPx;
+            fsAnc.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
+            spans.push(fsAnc);
             return;
           }
           const span = document.createElement('span');
@@ -4114,7 +4163,12 @@
           spans.push(span);
         });
         wnSyncListItemFontSizes(editor, spans, targetPx);
-        if (spans.length) {
+        if (spans.length === 1) {
+          const newRange = document.createRange();
+          newRange.selectNodeContents(spans[0]);
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+        } else if (spans.length > 1) {
           const newRange = document.createRange();
           newRange.setStartBefore(spans[0]);
           newRange.setEndAfter(spans[spans.length - 1]);
@@ -4186,59 +4240,84 @@
           let targetSpan = null;
           const anc = range.commonAncestorContainer;
           const ancEl = (anc && anc.nodeType === 1) ? anc : (anc ? anc.parentElement : null);
+          let candidate = null;
           if (ancEl && ancEl !== editor) {
-            const candidate = (ancEl.classList && ancEl.classList.contains('wn-text-fs')) ? ancEl : (ancEl.closest ? ancEl.closest('.wn-text-fs') : null);
-            if (candidate && editor.contains(candidate)) {
-              const candText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
-              const selText = range.toString().replace(/\s+/g, ' ').trim();
-              if (candText && selText && candText === selText) {
-                targetSpan = candidate;
+            if (ancEl.classList && ancEl.classList.contains('wn-text-fs')) {
+              candidate = ancEl;
+            } else if (ancEl.closest) {
+              candidate = ancEl.closest('.wn-text-fs');
+            }
+            if (!candidate && ancEl.querySelectorAll) {
+              const innerCandidates = ancEl.querySelectorAll('.wn-text-fs');
+              if (innerCandidates.length === 1) {
+                candidate = innerCandidates[0];
               }
+            }
+          }
+          if (candidate && editor.contains(candidate)) {
+            const candText = (candidate.textContent || '').replace(/\s+/g, ' ').trim();
+            const selText = range.toString().replace(/\s+/g, ' ').trim();
+            if (candText && selText && candText === selText) {
+              targetSpan = candidate;
             }
           }
 
           if (targetSpan) {
             targetSpan.style.fontSize = targetPx;
             targetSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
+            if (typeof wnSyncListItemFontSizes === 'function') wnSyncListItemFontSizes(editor, [targetSpan], targetPx);
             const newRange = document.createRange();
             newRange.selectNodeContents(targetSpan);
             sel.removeAllRanges();
             sel.addRange(newRange);
           } else {
-            let span = document.createElement('span');
-            span.className = 'wn-text-fs';
-            span.style.fontSize = targetPx;
-            let wrapped = false;
-            try {
-              span.appendChild(range.extractContents());
-              span.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-              range.insertNode(span);
-              wrapped = true;
-            } catch (_) {
-              wrapped = false;
+            // First stroke: wrap selected text nodes individually so formatting tags (b, i, u, lists) are never torn
+            const textNodes = [];
+            const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, null);
+            let tn;
+            while ((tn = walker.nextNode())) {
+              let hit = false;
+              try { hit = range.intersectsNode(tn); } catch (_) { hit = false; }
+              if (!hit) continue;
+              const par = tn.parentElement;
+              if (par && /^(UL|OL)$/.test(par.tagName)) continue;
+              textNodes.push(tn);
             }
-
-            if (!wrapped) {
-              if (wnApplySelectionCommand('fontSize', '7')) {
-                editor.querySelectorAll('font[size="7"]').forEach(node => {
-                  node.removeAttribute('size');
-                  node.style.fontSize = targetPx;
-                  node.className = 'wn-text-fs';
-                  node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-                  span = node;
-                });
-                editor.querySelectorAll('[style*="-webkit-xxx-large"], [style*="xxx-large"]').forEach(node => {
-                  node.style.fontSize = targetPx;
-                  node.className = 'wn-text-fs';
-                  node.querySelectorAll('[style*="font-size"]').forEach(child => { child.style.fontSize = ''; });
-                  span = node;
-                });
+            if (textNodes.length) {
+              const last = textNodes[textNodes.length - 1];
+              if (last === range.endContainer && range.endOffset < last.length) last.splitText(range.endOffset);
+              const first = textNodes[0];
+              if (first === range.startContainer && range.startOffset > 0) {
+                textNodes[0] = first.splitText(range.startOffset);
+                if (first === last) textNodes[textNodes.length - 1] = textNodes[0];
               }
             }
-
-            if (span && span.parentNode) {
+            const spans = [];
+            textNodes.forEach(tNode => {
+              if (!tNode.nodeValue) return;
+              const existingFsSpan = tNode.parentElement && tNode.parentElement.closest ? tNode.parentElement.closest('.wn-text-fs') : null;
+              if (existingFsSpan && editor.contains(existingFsSpan) && (existingFsSpan.textContent || '').trim() === (tNode.nodeValue || '').trim()) {
+                existingFsSpan.style.fontSize = targetPx;
+                existingFsSpan.querySelectorAll('[style*="font-size"]').forEach(c => { c.style.fontSize = ''; });
+                spans.push(existingFsSpan);
+                return;
+              }
+              const s = document.createElement('span');
+              s.className = 'wn-text-fs';
+              s.style.fontSize = targetPx;
+              tNode.parentNode.insertBefore(s, tNode);
+              s.appendChild(tNode);
+              spans.push(s);
+            });
+            if (typeof wnSyncListItemFontSizes === 'function') wnSyncListItemFontSizes(editor, spans, targetPx);
+            if (spans.length) {
               const newRange = document.createRange();
-              newRange.selectNodeContents(span);
+              if (spans.length === 1) {
+                newRange.selectNodeContents(spans[0]);
+              } else {
+                newRange.setStartBefore(spans[0]);
+                newRange.setEndAfter(spans[spans.length - 1]);
+              }
               sel.removeAllRanges();
               sel.addRange(newRange);
             }
@@ -4277,7 +4356,7 @@
       // Whole note fallback:
       const targets = wnGetTargetNotes(_wnActiveNote);
       targets.forEach(nd => {
-        const oldBase = nd.fontSize || value;
+        const oldBase = parseFloat(nd.fontSize) || value;
         if (oldBase !== value) {
           const noteEl = wnGetNoteElementById(nd.id);
           const editor = noteEl ? noteEl.querySelector('.wn-note-editor, textarea') : null;
@@ -4285,6 +4364,12 @@
             editor.querySelectorAll('[style*="font-size"]').forEach(el => {
               const match = el.style.fontSize.match(/^([\d.]+)px$/);
               if (match) el.style.fontSize = Math.round(value * (parseFloat(match[1]) / (oldBase * zoom)) * zoom) + 'px';
+            });
+            editor.querySelectorAll('[style*="font-size"]').forEach(el => {
+              const p = el.parentElement ? el.parentElement.closest('[style*="font-size"]') : null;
+              if (p && p.style.fontSize === el.style.fontSize) {
+                el.style.fontSize = '';
+              }
             });
             wnSyncNoteDataFromEditor(nd, editor);
           }

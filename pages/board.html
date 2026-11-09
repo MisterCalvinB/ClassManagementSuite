@@ -3152,29 +3152,56 @@
     </div>
   </div><!-- end of constellation section -->
 
-    <!-- TA HTML/EPUB Import Modal -->
+    <!-- TA HTML/EPUB/MOBI/DOCX/ODT/PDF Import Modal -->
     <div id="ta-import-overlay" onclick="if(event.target===this)taCloseImport()">
       <div id="ta-import-modal">
         <div id="ta-imp-header">
           <span id="ta-imp-title">📂 Import Book</span>
-          <input type="file" id="ta-imp-file-input" accept=".html,.htm,.epub,.txt,.xhtml" style="display:none"
+          <input type="file" id="ta-imp-file-input" accept=".html,.htm,.epub,.mobi,.docx,.odt,.pdf,.txt,.xhtml" style="display:none"
             onchange="taImportFileLoaded(event)">
-          <button id="ta-imp-choose-btn" onclick="document.getElementById('ta-imp-file-input').click()">Choose
+          <button id="ta-imp-choose-btn" type="button" onclick="document.getElementById('ta-imp-file-input').click()" data-i18n="taImpChooseFile">Choose
             File…</button>
-          <select id="ta-imp-book-shortcut" onchange="taImportLoadShortcutBook()" style="display:none">
-            <option value="">Books folder…</option>
-          </select>
-          <button id="ta-imp-confirm-btn" onclick="taImportConfirm()" disabled>Import</button>
-          <button id="ta-imp-close-btn" onclick="taCloseImport()">✕ Close</button>
+          <button id="ta-imp-confirm-btn" type="button" onclick="taImportConfirm()" disabled data-i18n="taImpImportBtn">Import</button>
+          <button id="ta-imp-close-btn" type="button" onclick="taCloseImport()">✕ Close</button>
+        </div>
+        <div id="ta-imp-nav-bar">
+          <div class="ta-imp-nav-group">
+            <button id="ta-imp-folder-up-btn" type="button" class="ta-imp-nav-btn" onclick="taImportFolderUp()" title="Up one level" data-i18n-title="taImpUpFolder" disabled>⬆</button>
+            <select id="ta-imp-folder-select" onchange="taImportSelectFolder(this.value)">
+              <option value="" data-i18n="taImpAllFolders">📁 All Folders</option>
+            </select>
+            <div id="ta-imp-breadcrumbs" class="ta-imp-breadcrumbs" title="Current folder">
+              <span class="ta-imp-crumb ta-imp-crumb-root" onclick="taImportSelectFolder('')">Books</span>
+            </div>
+          </div>
+          <div class="ta-imp-nav-group ta-imp-book-group">
+            <select id="ta-imp-book-shortcut" onchange="taImportLoadShortcutBook()" style="display:none">
+              <option value="" data-i18n="taImpBooksFolderPrompt">Books folder…</option>
+            </select>
+            <span id="ta-imp-book-count" class="ta-imp-badge"></span>
+          </div>
         </div>
         <div id="ta-imp-search-row">
-          <input id="ta-imp-search-input" type="text" placeholder="Search in book…" oninput="taImportSearchRun()"
+          <button type="button" class="ta-imp-search-nav ta-imp-scope-btn" id="ta-imp-scope-btn" onclick="taImportToggleSearchScope()" title="Toggle: Search in current book vs All books">📚 All Books</button>
+          <input id="ta-imp-search-input" type="text" placeholder="Search in book…" data-i18n-placeholder="taImpSearchPlaceholder" oninput="taImportSearchRun()"
             onkeydown="taImportSearchKey(event)">
-          <button class="ta-imp-search-nav" id="ta-imp-search-prev" onclick="taImportSearchStep(-1)" disabled>▲</button>
-          <button class="ta-imp-search-nav" id="ta-imp-search-next" onclick="taImportSearchStep(1)" disabled>▼</button>
+          <button class="ta-imp-search-nav" id="ta-imp-search-prev" onclick="taImportSearchStep(-1)" disabled title="Previous match" data-i18n-title="taImpPrevMatch">▲</button>
+          <button class="ta-imp-search-nav" id="ta-imp-search-next" onclick="taImportSearchStep(1)" disabled title="Next match" data-i18n-title="taImpNextMatch">▼</button>
           <span id="ta-imp-search-count"></span>
+          <button type="button" class="ta-imp-search-nav ta-imp-toggle-btn" id="ta-imp-search-toggle-btn" onclick="taImportToggleSearchResults()" disabled title="Toggle search results preview" data-i18n-title="taImpToggleResultsTitle">☰ Results (0)</button>
+          <div class="ta-imp-page-nav">
+            <span id="ta-imp-page-indicator" title="Current page">p. - / -</span>
+            <input type="number" id="ta-imp-page-input" min="1" placeholder="#" title="Go to page" style="width:55px;">
+            <button type="button" class="ta-imp-search-nav" id="ta-imp-page-go-btn" onclick="taImportJumpToPageInput()" title="Go to page" data-i18n="taImpPageGo">Go</button>
+          </div>
         </div>
-        <textarea id="ta-imp-text" readonly spellcheck="false"></textarea>
+        <div id="ta-imp-search-results-panel" class="ta-imp-search-results-panel" style="display:none;">
+          <div id="ta-imp-search-results-list" class="ta-imp-search-results-list"></div>
+        </div>
+        <div id="ta-imp-text-wrap" class="ta-imp-text-wrap">
+          <div id="ta-imp-highlights" class="ta-imp-highlights" aria-hidden="true"></div>
+          <textarea id="ta-imp-text" readonly spellcheck="false"></textarea>
+        </div>
       </div>
     </div>
 
