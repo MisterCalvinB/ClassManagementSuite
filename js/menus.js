@@ -62,6 +62,7 @@
     { href: 'test-creator.html',     icon: 'test-creator.svg',     label: 'Test Creator'     },
     { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
     { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
+    { href: 'pdf-viewer.html',       icon: 'pdf-viewer.svg',       label: 'PDF Studio'       },
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
     { href: 'import-tool.html',      icon: 'import-tool.svg',      label: 'Import'           },
     { href: 'database-converter.html', icon: 'table.svg',          label: 'Database Converter'},

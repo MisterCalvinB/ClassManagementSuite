@@ -675,6 +675,29 @@
     return getDesktopApi().docPresentationCommand(command);
   }
 
+  async function openPdfPresentation(opts) {
+    if (!isElectron()) return null;
+    return getDesktopApi().openPdfPresentation(opts || {});
+  }
+
+  async function isPdfPresentationOpen() {
+    if (!isElectron()) return false;
+    return getDesktopApi().isPdfPresentationOpen();
+  }
+
+  async function pdfPresentationCommand(command) {
+    if (!isElectron()) return null;
+    return getDesktopApi().pdfPresentationCommand(command);
+  }
+
+  function onPdfPresentationClosed(callback) {
+    if (!isElectron()) return;
+    const api = getDesktopApi();
+    if (typeof api.onPdfPresentationClosed === 'function') {
+      api.onPdfPresentationClosed(callback);
+    }
+  }
+
   async function remoteStart(opts) {
     if (!isElectron()) return null;
     const req = (opts && typeof opts === 'object') ? opts : { port: opts };
@@ -1265,6 +1288,10 @@
     openDocPresentation,
     isDocPresentationOpen,
     docPresentationCommand,
+    openPdfPresentation,
+    isPdfPresentationOpen,
+    pdfPresentationCommand,
+    onPdfPresentationClosed,
     remoteStart,
     remoteStop,
     remoteStatus,

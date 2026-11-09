@@ -59,7 +59,49 @@
   global.conMasks = _conMasksVal;
   if (typeof window !== 'undefined') window.conMasks = _conMasksVal;
   global.conGetMasks = window.conGetMasks = function () { return _conMasksVal; };
-  var conPageSnapshots = global.conPageSnapshots = global.conPageSnapshots || [{}];
+
+  // Global property descriptor for conPageSnapshots so all files share the single active page array
+  var _conPageSnapshots = (global.conPageSnapshots && Array.isArray(global.conPageSnapshots)) ? global.conPageSnapshots : [{}];
+  try {
+    Object.defineProperty(global, 'conPageSnapshots', {
+      get: function () { return _conPageSnapshots; },
+      set: function (v) { _conPageSnapshots = Array.isArray(v) ? v : [{}]; },
+      configurable: true,
+      enumerable: true
+    });
+    if (typeof window !== 'undefined' && window !== global) {
+      Object.defineProperty(window, 'conPageSnapshots', {
+        get: function () { return _conPageSnapshots; },
+        set: function (v) { _conPageSnapshots = Array.isArray(v) ? v : [{}]; },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  } catch (_) {
+    global.conPageSnapshots = _conPageSnapshots;
+  }
+
+  // Global property descriptor for _conPageSnapshotPngs thumbnails
+  var _conPageSnapshotPngsList = (global._conPageSnapshotPngs && Array.isArray(global._conPageSnapshotPngs)) ? global._conPageSnapshotPngs : [];
+  try {
+    Object.defineProperty(global, '_conPageSnapshotPngs', {
+      get: function () { return _conPageSnapshotPngsList; },
+      set: function (v) { _conPageSnapshotPngsList = Array.isArray(v) ? v : []; },
+      configurable: true,
+      enumerable: true
+    });
+    if (typeof window !== 'undefined' && window !== global) {
+      Object.defineProperty(window, '_conPageSnapshotPngs', {
+        get: function () { return _conPageSnapshotPngsList; },
+        set: function (v) { _conPageSnapshotPngsList = Array.isArray(v) ? v : []; },
+        configurable: true,
+        enumerable: true
+      });
+    }
+  } catch (_) {
+    global._conPageSnapshotPngs = _conPageSnapshotPngsList;
+  }
+
   var conTitle = global.conTitle = global.conTitle || '';
   var _conCurrentPageIndex = 0;
 

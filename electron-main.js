@@ -70,6 +70,7 @@ const PAGE_FILES = {
   scheduleMaker: 'schedule-maker.html',
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
+  pdfViewer: 'pdf-viewer.html',
   planner: 'planner.html',
   lessonCreator: 'lesson-creator.html',
   importTool: 'import-tool.html',
@@ -121,6 +122,9 @@ const PAGE_ARG_MAP = {
   doceditor: PAGE_FILES.documentEditor,
   markdownkatex: PAGE_FILES.documentEditor,
   markdown: PAGE_FILES.documentEditor,
+  pdfviewer: PAGE_FILES.pdfViewer,
+  pdf: PAGE_FILES.pdfViewer,
+  pdfstudio: PAGE_FILES.pdfViewer,
   planner: PAGE_FILES.planner,
   semplanner: PAGE_FILES.planner,
   lessoncreator: PAGE_FILES.lessonCreator,
@@ -172,6 +176,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
+  [PAGE_FILES.pdfViewer]: 'PDF Studio',
   [PAGE_FILES.planner]: 'Planner',
   [PAGE_FILES.lessonCreator]: 'Lesson Creator',
   [PAGE_FILES.importTool]: 'Import Tool',
@@ -510,6 +515,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint', 'docEditorDocs', 'grades', 'groupParticipation', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'lessons', 'mindmaps', 'exportCss', 'userExportCss']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans', 'seatingPlans', 'groupParticipation']),
   [PAGE_FILES.documentEditor]: new Set(['docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'docEditorSettings', 'user', 'app', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customPhases', 'customActivities', 'customChips', 'customExercises', 'classPlans', 'seatingPlans', 'grades', 'groupParticipation', 'gradeSheet', 'toPrint', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'customDescriptors', 'lessons', 'exportCss', 'userExportCss']),
+  [PAGE_FILES.pdfViewer]: new Set(['user', 'toPrint', 'docEditorDocs', 'data', 'lessons', 'mindmaps', 'constellations', 'grades', 'exportCss', 'userExportCss']),
   [PAGE_FILES.planner]: new Set(['user', 'lessons', 'groupParticipation', 'grades', 'mindmaps', 'constellations', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'customDescriptors', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customChips', 'customExercises', 'docEditorTemplates', 'classPlans', 'seatingPlans', 'exportCss', 'userExportCss']),
   [PAGE_FILES.lessonCreator]: new Set(['user', 'lessons', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'mindmaps', 'constellations', 'toPrint', 'docEditorDocs', 'tests', 'customCriteria', 'customScales', 'grades', 'groupParticipation', 'data', 'customData', 'customWordbanks', 'customQuotes', 'customGapfillbanks', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'customQuizzes', 'customBooks', 'customChips', 'customExercises', 'docEditorTemplates', 'classPlans', 'seatingPlans', 'exportCss', 'userExportCss']),
   [PAGE_FILES.importTool]: new Set(['user', 'lessons', 'groupParticipation', 'customWordbanks', 'customQuizzes', 'customGapfillbanks', 'customQuotes', 'customErrorbanks', 'customDictations', 'customGrammarbanks', 'customSentences', 'customStorybanks', 'data', 'docEditorDocs', 'customBooks', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customExercises', 'classPlans', 'seatingPlans']),
@@ -645,6 +651,8 @@ let oralPresenterWindow = null;
 let oralPresenterSourceWindow = null;
 let docPresentationWindow = null;
 let docPresentationSourceWindow = null;
+let pdfPresentationWindow = null;
+let pdfPresentationSourceWindow = null;
 
 function isPresentationWindow(win) {
   if (!win || win.isDestroyed()) return false;
@@ -653,6 +661,7 @@ function isPresentationWindow(win) {
   if (win === learningToolsPresentationWindow) return true;
   if (win === oralPresenterWindow) return true;
   if (win === docPresentationWindow) return true;
+  if (win === pdfPresentationWindow) return true;
   if (typeof timerDetachedWindow !== 'undefined' && win === timerDetachedWindow) return true;
   try {
     const u = win.webContents ? win.webContents.getURL() : '';
@@ -1149,6 +1158,11 @@ function createToolWindow(pageFile, options = {}) {
       docPresentationWindow.close();
       docPresentationWindow = null;
       docPresentationSourceWindow = null;
+    }
+    if (currentPage === PAGE_FILES.pdfViewer && pdfPresentationWindow && !pdfPresentationWindow.isDestroyed() && win === pdfPresentationSourceWindow) {
+      pdfPresentationWindow.close();
+      pdfPresentationWindow = null;
+      pdfPresentationSourceWindow = null;
     }
   });
   loadTool(pageFile, win, options).catch((error) => {
@@ -6510,6 +6524,90 @@ ipcMain.handle('app:doc-presentation-command', (event, command) => {
     case 'resize-window': syncTargetWindowToSource(docPresentationWindow, docPresentationSourceWindow); break;
     case 'dock-left':     dockTargetWindow(docPresentationWindow, 'left', 0.2, docPresentationSourceWindow); break;
     case 'dock-right':    dockTargetWindow(docPresentationWindow, 'right', 0.2, docPresentationSourceWindow); break;
+    default: return { ok: false, reason: 'unknown-command' };
+  }
+  return { ok: true };
+});
+
+// ── PDF Studio Presentation Window ──────────────────────────────────────────
+ipcMain.handle('app:open-pdf-presentation', async (event, request = {}) => {
+  if (pdfPresentationWindow && !pdfPresentationWindow.isDestroyed()) {
+    pdfPresentationWindow.focus();
+    return { ok: true, alreadyOpen: true };
+  }
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  pdfPresentationSourceWindow = senderWin || null;
+  const sBounds = senderWin ? senderWin.getBounds() : null;
+  const secondDisplay = getExtendedDisplayForBounds(sBounds);
+  let winOpts;
+  if (secondDisplay) {
+    const sourceDisplay = sBounds
+      ? (screen.getDisplayMatching(sBounds) || screen.getPrimaryDisplay())
+      : screen.getPrimaryDisplay();
+    const mappedBounds = mapWindowBoundsToDisplay(sBounds, sourceDisplay, secondDisplay)
+      || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
+    winOpts = {
+      x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
+      autoHideMenuBar: true, title: 'PDF Studio – Presentation Mode',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
+    };
+  } else {
+    const width  = sBounds ? sBounds.width  : 1200;
+    const height = sBounds ? sBounds.height : 800;
+    winOpts = {
+      width, height, autoHideMenuBar: true, title: 'PDF Studio – Presentation Mode',
+      webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
+    };
+    if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
+  }
+
+  pdfPresentationWindow = new BrowserWindow(winOpts);
+  setupWindowExternalLinkHandling(pdfPresentationWindow);
+  pdfPresentationWindow.on('closed', () => {
+    pdfPresentationWindow = null;
+    if (pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed()) {
+      try {
+        pdfPresentationSourceWindow.webContents.send('app:pdf-presentation-closed');
+      } catch (_) {}
+    }
+  });
+
+  const query = { presentation: '1' };
+  if (request.openTarget) query.openTarget = request.openTarget;
+  if (request.openRelPath) query.openRelPath = request.openRelPath;
+  if (request.openAbsPath) query.openAbsPath = request.openAbsPath;
+  if (request.currentPage) query.currentPage = String(request.currentPage);
+
+  try {
+    await pdfPresentationWindow.loadFile(
+      getToolPath(PAGE_FILES.pdfViewer),
+      { query }
+    );
+  } catch (err) {
+    console.error('app:open-pdf-presentation load failed', err);
+    return { ok: false, error: String(err) };
+  }
+  if (senderWin && !senderWin.isDestroyed() && pdfPresentationWindow && !pdfPresentationWindow.isDestroyed()) {
+    try {
+      const srcZoom = senderWin.webContents.getZoomFactor();
+      pdfPresentationWindow.webContents.setZoomFactor(srcZoom);
+    } catch (_) {}
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('app:pdf-presentation-open', () => {
+  return !!(pdfPresentationWindow && !pdfPresentationWindow.isDestroyed());
+});
+
+ipcMain.handle('app:pdf-presentation-command', (event, command) => {
+  if (!pdfPresentationWindow || pdfPresentationWindow.isDestroyed()) return { ok: false, reason: 'not-open' };
+  switch (command) {
+    case 'close':         pdfPresentationWindow.close(); break;
+    case 'fullscreen':    pdfPresentationWindow.setFullScreen(!pdfPresentationWindow.isFullScreen()); break;
+    case 'maximize':
+    case 'maximise':      maximizePresenterWindow(pdfPresentationWindow, pdfPresentationSourceWindow); break;
+    case 'resize-window': syncTargetWindowToSource(pdfPresentationWindow, pdfPresentationSourceWindow); break;
     default: return { ok: false, reason: 'unknown-command' };
   }
   return { ok: true };

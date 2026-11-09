@@ -320,6 +320,19 @@ const exposedApi = {
   docPresentationCommand(command) {
     return invoke('app:doc-presentation-command', command);
   },
+  openPdfPresentation(request) {
+    return invoke('app:open-pdf-presentation', request);
+  },
+  isPdfPresentationOpen() {
+    return invoke('app:pdf-presentation-open');
+  },
+  pdfPresentationCommand(command) {
+    return invoke('app:pdf-presentation-command', command);
+  },
+  onPdfPresentationClosed(callback) {
+    if (!ipcRenderer) return;
+    ipcRenderer.on('app:pdf-presentation-closed', function () { callback(); });
+  },
   setZoomFactor(factor) {
     if (webFrame && typeof webFrame.setZoomFactor === 'function') {
       webFrame.setZoomFactor(factor);

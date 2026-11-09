@@ -35,10 +35,8 @@
   var invalidateThemeIndex = global.invalidateThemeIndex = window.invalidateThemeIndex = window.invalidateThemeIndex || function() {};
 
     // ================================================================
-    // CONSTELLATION PAGES STATE  (shared between IIFE + outer functions)
+    // CONSTELLATION PAGES STATE  (shared globally via board-state.js descriptors)
     // ================================================================
-    var conPageSnapshots = global.conPageSnapshots = global.conPageSnapshots || [{}];
-    var _conPageSnapshotPngs = global._conPageSnapshotPngs = global._conPageSnapshotPngs || [];
     function board() { return document.getElementById('constellation-board'); }
     global.board = window.board = board;
     function svg() { return document.getElementById('constellation-svg'); }
@@ -3599,8 +3597,6 @@
       window.conPdfPagePickerClose();
       if (selectedPages.length === 0) { mdbToast('ℹ️ No pages selected.'); return; }
 
-      // Save current page snapshot before we start adding new pages
-      conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
       const insertAfterIdx = conCurrentPageIndex;
 
       if (asImage) {
@@ -3695,10 +3691,15 @@
           }
 
           // Do not actually integrate the PDF into the document: remove from conAttachments if not used elsewhere
-          const isPdfUsedElsewhere = conPageSnapshots.some((pageSnap, idx) => {
-            if (idx === conCurrentPageIndex) return false;
-            return (pageSnap.media || []).some(m => m.attachmentId === att.id);
-          }) || (conMediaItems || []).some(m => m.attachmentId === att.id);
+          const sharedSnaps = window.conPageSnapshots || global.conPageSnapshots || conPageSnapshots;
+          const isPdfUsedElsewhere = sharedSnaps.some((pageSnap, idx) => {
+            if (!pageSnap) return false;
+            const hasMedia = (pageSnap.media || []).some(m => m && m.attachmentId === att.id);
+            const hasBg = pageSnap.backgroundPdf && (pageSnap.backgroundPdf.attachmentId === att.id || pageSnap.backgroundPdf.id === att.id);
+            const hasNodes = (pageSnap.nodes || []).some(n => n && (n.pdfAttachmentId === att.id || n.attachmentId === att.id));
+            return hasMedia || hasBg || hasNodes;
+          }) || (conMediaItems || []).some(m => m && m.attachmentId === att.id)
+            || (typeof conPageBackgroundPdf !== 'undefined' && conPageBackgroundPdf && conPageBackgroundPdf.attachmentId === att.id);
 
           if (!isPdfUsedElsewhere) {
             conAttachments = conAttachments.filter(a => a.id !== att.id);
@@ -3710,13 +3711,34 @@
             }
           }
 
-          conPageSnapshots.splice(insertAfterIdx + 1, 0, ...newSnaps);
-          conCurrentPageIndex = insertAfterIdx + 1;
-          _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
-          conUpdatePageBar();
-          conRenderAttachmentSummary();
-          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+          if (typeof window.conInsertPageSnapshots === 'function') {
+            window.conInsertPageSnapshots(insertAfterIdx, newSnaps, { isImage: true });
+          } else {
+            const snapsTarget = window.conPageSnapshots || global.conPageSnapshots || conPageSnapshots;
+            if (typeof _conCacheCurrentPageDom === 'function') {
+              _conCacheCurrentPageDom();
+            } else if (snapsTarget[insertAfterIdx]) {
+              snapsTarget[insertAfterIdx] = conBuildPageSnapshot();
+            }
+            const insertIdx = insertAfterIdx + 1;
+            if (typeof _conRemapPageDomCacheOnInsertCount === 'function') {
+              _conRemapPageDomCacheOnInsertCount(insertIdx, newSnaps.length);
+            }
+            snapsTarget.splice(insertIdx, 0, ...newSnaps);
+            const pngsTarget = window._conPageSnapshotPngs || global._conPageSnapshotPngs;
+            if (Array.isArray(pngsTarget)) {
+              pngsTarget.splice(insertIdx, 0, ...new Array(newSnaps.length).fill(null));
+            }
+            conCurrentPageIndex = insertIdx;
+            _conRestorePageToBoard(snapsTarget[conCurrentPageIndex]);
+            if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+            if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            if (typeof conTriggerLivePageSnapshot === 'function') conTriggerLivePageSnapshot();
+            if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+              window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+            }
+          }
           mdbToast('🖼 Inserted ' + selectedPages.length + ' page' + (selectedPages.length === 1 ? '' : 's') + ' as compressed images.');
         } catch (err) {
           console.error('[PDF to Image] Failed to render PDF pages:', err);
@@ -3761,10 +3783,34 @@
         return snap;
       });
 
-      conPageSnapshots.splice(insertAfterIdx + 1, 0, ...newSnaps);
-      conCurrentPageIndex = insertAfterIdx + 1;
-      _conRestorePageToBoard(conPageSnapshots[conCurrentPageIndex]);
-      conUpdatePageBar();
+      if (typeof window.conInsertPageSnapshots === 'function') {
+        window.conInsertPageSnapshots(insertAfterIdx, newSnaps, { isPdf: true });
+      } else {
+        const snapsTarget = window.conPageSnapshots || global.conPageSnapshots || conPageSnapshots;
+        if (typeof _conCacheCurrentPageDom === 'function') {
+          _conCacheCurrentPageDom();
+        } else if (snapsTarget[insertAfterIdx]) {
+          snapsTarget[insertAfterIdx] = conBuildPageSnapshot();
+        }
+        const insertIdx = insertAfterIdx + 1;
+        if (typeof _conRemapPageDomCacheOnInsertCount === 'function') {
+          _conRemapPageDomCacheOnInsertCount(insertIdx, newSnaps.length);
+        }
+        snapsTarget.splice(insertIdx, 0, ...newSnaps);
+        const pngsTarget = window._conPageSnapshotPngs || global._conPageSnapshotPngs;
+        if (Array.isArray(pngsTarget)) {
+          pngsTarget.splice(insertIdx, 0, ...new Array(newSnaps.length).fill(null));
+        }
+        conCurrentPageIndex = insertIdx;
+        _conRestorePageToBoard(snapsTarget[conCurrentPageIndex]);
+        if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+        if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof conTriggerLivePageSnapshot === 'function') conTriggerLivePageSnapshot();
+        if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        }
+      }
       mdbToast('📄 Inserted ' + selectedPages.length + ' PDF page' + (selectedPages.length === 1 ? '' : 's') + ' as new board pages.');
     };
 

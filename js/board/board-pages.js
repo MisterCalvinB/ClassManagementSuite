@@ -12,7 +12,7 @@
   var conNoteSelected = global.conNoteSelected = global.conNoteSelected || new Set();
   var _conShapeSelected = global._conShapeSelected = global._conShapeSelected || new Set();
   var conTableSelected = global.conTableSelected = global.conTableSelected || new Set();
-  var _conPageSnapshotPngs = global._conPageSnapshotPngs = global._conPageSnapshotPngs || [];
+  // _conPageSnapshotPngs is shared globally via board-state.js descriptors
   var _conCopiedPages = global._conCopiedPages = global._conCopiedPages || [];
   var conDrawings = global.conDrawings = global.conDrawings || [];
   var conShapes = global.conShapes = global.conShapes || [];
@@ -1374,6 +1374,10 @@
           _conRemapPageDomCacheOnInsertCount(insertIdx, clones.length);
         }
         conPageSnapshots.splice(insertIdx, 0, ...clones);
+        const pngsTarget = window._conPageSnapshotPngs || global._conPageSnapshotPngs;
+        if (Array.isArray(pngsTarget)) {
+          pngsTarget.splice(insertIdx, 0, ...new Array(clones.length).fill(null));
+        }
         conCurrentPageIndex = insertIdx;
         _conRestorePageToBoard(clones[0]);
         conUpdatePageBar();
@@ -1383,6 +1387,131 @@
         }
         return clones.length;
       }
+
+      /**
+       * Determines whether a given page snapshot (and active board if it matches the active page)
+       * is completely blank without any nodes, notes, drawings, shapes, tables, media, or backgrounds.
+       */
+      function conIsPageEffectivelyEmpty(snap, isCurrentPage = false) {
+        if (!snap) return true;
+        if ((snap.nodes && snap.nodes.length > 0) ||
+            (snap.notes && snap.notes.length > 0) ||
+            (snap.drawings && snap.drawings.length > 0) ||
+            (snap.shapes && snap.shapes.length > 0) ||
+            (snap.tables && snap.tables.length > 0) ||
+            (snap.media && snap.media.length > 0) ||
+            (snap.masks && snap.masks.length > 0) ||
+            snap.backgroundPdf ||
+            snap.boardBg) {
+          return false;
+        }
+        if (isCurrentPage) {
+          const liveNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : []);
+          const liveNotes = window.conGetNotes ? window.conGetNotes() : (typeof conNotes !== 'undefined' ? conNotes : []);
+          const liveDrawings = window.conGetDrawings ? window.conGetDrawings() : (typeof conDrawings !== 'undefined' ? conDrawings : []);
+          const liveShapes = window.conGetShapes ? window.conGetShapes() : (typeof conShapes !== 'undefined' ? conShapes : []);
+          const liveTables = window.conTables || [];
+          const liveMedia = (typeof conMediaItems !== 'undefined') ? conMediaItems : [];
+          const liveMasks = window.conGetMasks ? window.conGetMasks() : (window.conMasks || []);
+          if (liveNodes.length > 0 || liveNotes.length > 0 || liveDrawings.length > 0 ||
+              liveShapes.length > 0 || liveTables.length > 0 || liveMedia.length > 0 ||
+              liveMasks.length > 0 || (typeof conPageBackgroundPdf !== 'undefined' && conPageBackgroundPdf) ||
+              (typeof _conBoardBg !== 'undefined' && _conBoardBg)) {
+            return false;
+          }
+        }
+        return true;
+      }
+      window.conIsPageEffectivelyEmpty = global.conIsPageEffectivelyEmpty = conIsPageEffectivelyEmpty;
+
+      /**
+       * Inserts one or more page snapshots into the board.
+       * If the target page is completely empty and either the only page or the last page,
+       * replaces that empty page to avoid orphaned blank pages.
+       * Otherwise, safely inserts the new pages AFTER insertAfterIdx, preserving all existing
+       * pages and live DOM elements without any overwrites or data loss.
+       *
+       * @param {number} insertAfterIdx - Page index to insert after (defaults to conCurrentPageIndex).
+       * @param {Array<object>} snapshots - Array of page snapshot objects to insert.
+       * @param {object} options - Optional flags ({ isImage, isPdf, replaceIfEmpty }).
+       * @returns {number} The active page index after insertion.
+       */
+      function conInsertPageSnapshots(insertAfterIdx, snapshots, options = {}) {
+        if (!Array.isArray(snapshots) || snapshots.length === 0) return conCurrentPageIndex;
+
+        const snapsTarget = window.conPageSnapshots || global.conPageSnapshots || conPageSnapshots;
+        const curIdx = conCurrentPageIndex;
+        const baseIdx = (typeof insertAfterIdx === 'number' && !isNaN(insertAfterIdx) && insertAfterIdx >= 0)
+          ? insertAfterIdx
+          : curIdx;
+
+        const targetSnap = snapsTarget[baseIdx];
+        const isTargetEmpty = conIsPageEffectivelyEmpty(targetSnap, baseIdx === curIdx);
+        const shouldReplace = isTargetEmpty && (snapsTarget.length === 1 || baseIdx === snapsTarget.length - 1) && options.replaceIfEmpty !== false;
+
+        if (shouldReplace) {
+          // Replace the single blank page or trailing blank page
+          if (typeof _conInvalidatePageDomCache === 'function') {
+            _conInvalidatePageDomCache(baseIdx, { silent: true });
+          }
+          snapsTarget.splice(baseIdx, 1, ...snapshots);
+          const pngsTarget = window._conPageSnapshotPngs || global._conPageSnapshotPngs;
+          if (Array.isArray(pngsTarget)) {
+            pngsTarget.splice(baseIdx, 1, ...new Array(snapshots.length).fill(null));
+          }
+          conCurrentPageIndex = baseIdx;
+          _conRestorePageToBoard(snapsTarget[conCurrentPageIndex], { scrollToTop: false });
+        } else {
+          // Preserve current page DOM and insert new pages AFTER baseIdx
+          if (typeof _conCacheCurrentPageDom === 'function') {
+            _conCacheCurrentPageDom();
+          } else if (typeof conBuildPageSnapshot === 'function') {
+            if (snapsTarget[curIdx]) snapsTarget[curIdx] = conBuildPageSnapshot();
+          }
+          if (typeof conQueueCurrentPageSnapshotPng === 'function') {
+            conQueueCurrentPageSnapshotPng(curIdx);
+          }
+
+          const insertIdx = Math.max(0, Math.min(baseIdx + 1, snapsTarget.length));
+
+          // Remap cached DOM for all pages at or after insertIdx
+          if (typeof _conRemapPageDomCacheOnInsertCount === 'function') {
+            _conRemapPageDomCacheOnInsertCount(insertIdx, snapshots.length);
+          } else if (typeof _conRemapPageDomCacheOnInsert === 'function') {
+            for (let k = 0; k < snapshots.length; k++) {
+              _conRemapPageDomCacheOnInsert(insertIdx + k);
+            }
+          }
+
+          snapsTarget.splice(insertIdx, 0, ...snapshots);
+          const pngsTarget = window._conPageSnapshotPngs || global._conPageSnapshotPngs;
+          if (Array.isArray(pngsTarget)) {
+            pngsTarget.splice(insertIdx, 0, ...new Array(snapshots.length).fill(null));
+          }
+
+          conCurrentPageIndex = insertIdx;
+          _conRestorePageToBoard(snapsTarget[conCurrentPageIndex], { scrollToTop: false });
+        }
+
+        // Update UI, strips, thumbnails, and sync
+        const strip = document.getElementById('con-page-mini-strip');
+        if (strip) strip.dataset.pageCount = '';
+        if (typeof conUpdatePageBar === 'function') conUpdatePageBar();
+        if (typeof window.conUpdatePageBar === 'function') window.conUpdatePageBar();
+        if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (typeof conTriggerLivePageSnapshot === 'function') conTriggerLivePageSnapshot();
+        if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        }
+        const pagesOverlay = document.getElementById('con-pages-overlay');
+        if (pagesOverlay && pagesOverlay.classList.contains('active') && typeof window.conOpenPagePreview === 'function') {
+          window.conOpenPagePreview();
+        }
+
+        return conCurrentPageIndex;
+      }
+      window.conInsertPageSnapshots = global.conInsertPageSnapshots = conInsertPageSnapshots;
 
       // Cross-window channel for page clipboard
       if (typeof BroadcastChannel !== 'undefined') {

@@ -51,6 +51,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
+  - [PDF Studio (`pdf-viewer.html`)](#pdf-viewerhtml)
   - [How-To Guide (`how-to.html`)](#how-tohtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
 
@@ -109,7 +110,8 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
-| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml) & [Document Editor](#document-editorhtml) |
+| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml), [Document Editor](#document-editorhtml) & [PDF Studio](#pdf-viewerhtml) |
+| [`pdf-viewer.html`](#pdf-viewerhtml) | Dedicated PDF Studio & Annotator: open, view, draw freehand with pen, highlight text, insert movable notes, search all app PDFs, and present on secondary display | Links directly to [File Manager](#file-managerhtml) & Presentation screens |
 | [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
 | [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, clock constellation widget, compact presentation mirror toolbar, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
@@ -1462,6 +1464,32 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 - **Book Text Import**: Browse and extract text passages directly from `custom-data/books/` (`.epub`, `.html`, `.txt`) into active documents.
 - **Presentation Mode**: Broadcasts clean, live-rendered vector SVGs or HTML previews to secondary display monitors or classroom beamers.
 - **Export Options**: Export to native vector PDF, DOCX, LibreOffice Writer (.odt), or HTML with automatic document metadata and PDF title reflection matching the actual file title.
+
+---
+
+### pdf-viewer.html
+
+Dedicated desktop **PDF Studio & Annotator** designed for classroom worksheets, textbooks, exam review, and reading materials.
+
+#### Features
+- **High-DPI PDF Rendering**: Offline PDF rendering powered by Mozilla PDF.js at native device pixel ratio with continuous vertical scroll and zoom controls (50% to 300%, Fit Width, Fit Page).
+- **Interactive Annotation Engine**:
+  - **Pen**: Smooth Bézier inking with teacher color palette (Charcoal, Crimson, Slate Blue, Emerald, Purple, Warm Gold) and configurable stroke widths (2px to 16px).
+  - **Highlighter**: Semi-transparent multiply blend highlighting that preserves sharp text legibility underneath.
+  - **Text Boxes**: Click anywhere on a page to insert movable, resizable, and editable text boxes.
+  - **Eraser & Undo**: Click-to-erase strokes and complete undo/redo stack (`Ctrl+Z`, `Ctrl+Y`).
+- **File Manager Integration**:
+  - Direct opening from **File Manager** (`pages/file-manager.html`) via "Open in PDF Studio ↗" buttons and right-click context menu.
+  - Double-click on any `.pdf` row in File Manager launches PDF Studio immediately.
+- **App PDF Search Modal**:
+  - Top "Files" menu contains **Search App PDFs...**, scanning all user folders (`user/`, `user/to-print/`, `user/doceditor/`) in real-time with instant text filtering, folder categories, file size, modification dates, and "Annotated" indicators.
+- **Non-Destructive Sidecar Persistence**:
+  - Annotations are stored as normalized vector coordinates `[0.0, 1.0]` in companion `.cmt-annot.json` files, leaving original PDFs 100% untouched while allowing annotations to be reloaded and edited anytime.
+- **Projector Presentation Mode**:
+  - Detached secondary window mirroring the exact dimensions, visible area, vertical/horizontal scrolling, zoom, inking, and text notes in real-time without toolbars or distractions (matching the Board mirrored view architecture with letterbox/pillarbox clip framing and 60fps composite transform sync).
+  - Classroom focus hotkeys: `B` (Blackout screen), `W` (Whiteout screen), and arrow/page keys for slide navigation.
+- **Export Options**:
+  - Export flattened high-resolution annotated PDF via native Electron print pipeline.
 
 ---
 

@@ -1060,6 +1060,21 @@ function makeRfRow(file, isSession, snippet, isArchived) {
       });
     })(file);
     acts.appendChild(openBtn);
+  } else if (/\.pdf$/i.test(file.filename)) {
+    var pdfBtn = document.createElement('button');
+    pdfBtn.className = 'btn-open';
+    pdfBtn.textContent = tt('rfOpenInPdfStudio', 'Open in PDF Studio ↗');
+    (function(f) {
+      pdfBtn.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) {
+          showToast(tt('rfElectronRequired','Requires Electron app.'), true); return;
+        }
+        Desktop.openTool('pdf-viewer.html', {
+          query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename }
+        });
+      });
+    })(file);
+    acts.appendChild(pdfBtn);
   }
 
   if (window.Desktop && Desktop.isElectron() && isSession) {
@@ -2282,6 +2297,17 @@ function makeBrowseRow(file) {
     }, ev);
   });
 
+  row.addEventListener('dblclick', function(ev) {
+    if (ev.target.closest('button,input,a')) return;
+    if (/\.pdf$/i.test(file.filename)) {
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.openTool('pdf-viewer.html', {
+          query: { openTarget: file.target || browseTarget, openRelPath: file.relativePath || file.filename }
+        });
+      }
+    }
+  });
+
   if (browseTarget !== 'docEditor') {
     row.addEventListener('dragstart', function(ev) {
       var selected = fmEnsureSelectionForContext({
@@ -2368,6 +2394,21 @@ function makeBrowseRow(file) {
       });
     })(file);
     acts.appendChild(boardBtn);
+  }
+
+  if (/\.pdf$/i.test(file.filename)) {
+    var pdfBtn = document.createElement('button');
+    pdfBtn.className = 'btn-open';
+    pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in PDF Studio') + ' ↗';
+    (function(f) {
+      pdfBtn.addEventListener('click', function() {
+        if (!window.Desktop || !Desktop.isElectron()) return;
+        Desktop.openTool('pdf-viewer.html', {
+          query: { openTarget: f.target || browseTarget, openRelPath: f.relativePath || f.filename }
+        });
+      });
+    })(file);
+    acts.appendChild(pdfBtn);
   }
 
   if (window.Desktop && Desktop.isElectron()) {
@@ -2892,6 +2933,14 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
       }
 
+      var isPdf = /\.pdf$/i.test(file.filename);
+      if (isPdf) {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Studio'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
+        }});
+      }
+
       items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
       items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
       items.push('-');
@@ -3035,6 +3084,14 @@ document.addEventListener('DOMContentLoaded', function() {
             }
           }
           Desktop.openTool('document-editor.html', { query: { editTarget: target, editRelPath: relPath } });
+        }});
+      }
+
+      var isPdf = /\.pdf$/i.test(file.filename);
+      if (isPdf) {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Studio'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
         }});
       }
 

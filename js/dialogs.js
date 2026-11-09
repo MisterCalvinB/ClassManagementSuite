@@ -551,7 +551,8 @@
       'Planner': 'app_planner_title',
       'Import Tool': 'app_importTool_title',
       'Import': 'app_importTool_title',
-      'Oral Marking': 'app_oralMarking_title'
+      'Oral Marking': 'app_oralMarking_title',
+      'PDF Studio': 'app_pdfViewer_title'
     };
     if (pageTitleKeys[source]) {
       var trSource = _syncT(pageTitleKeys[source]);
