@@ -108,6 +108,10 @@
     window.boardUpdateLinkedLessonBadge = function () {
       const hdrBtn = document.getElementById('con-linked-lesson-btn');
       if (!hdrBtn || typeof LinksService === 'undefined') return;
+      if (typeof activeSection !== 'undefined' && activeSection !== 'constellation-section') {
+        hdrBtn.style.display = 'none';
+        return;
+      }
       const sessionUrn = boardGetActiveSessionUrn();
       const sessionLinks = LinksService.getLinksForSync(sessionUrn) || [];
 

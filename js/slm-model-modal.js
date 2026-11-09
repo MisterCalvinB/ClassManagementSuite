@@ -441,12 +441,14 @@
         badgeText = _t('slmInstalled', 'Installed');
       }
 
-      var descKey = m.descriptionKey || (m.id === 'slm-fast' ? 'slmFastDesc' : (m.id === 'slm-balanced' ? 'slmBalancedDesc' : 'slmDeepDesc'));
-      var defaultDesc = m.id === 'slm-fast'
-        ? 'Ultra-fast multilingual model (EN, FR, DE, IT). Ideal for instant node expansion, lexical fields, and quick autofill on any laptop.'
-        : (m.id === 'slm-balanced'
-          ? 'Recommended balance of speed and reasoning. Great for multi-field JSON database autofill, cohesive paragraphs, and gap-fills.'
-          : 'Deep instruction model for nuanced literary analysis, thematic bridging, and rich pedagogical explanations.');
+      var descKey = m.descriptionKey || (m.id === 'slm-ultra' ? 'slmUltraFastDesc' : (m.id === 'slm-fast' ? 'slmFastDesc' : (m.id === 'slm-balanced' ? 'slmBalancedDesc' : 'slmDeepDesc')));
+      var defaultDesc = m.id === 'slm-ultra'
+        ? 'Ultra-compact model (~370 MB, ~450 MB RAM). Highest token generation speed (~15–20 tok/s). Perfect for quick brainstorming, word definitions, and fast autofill.'
+        : (m.id === 'slm-fast'
+          ? 'Ultra-fast multilingual model (EN, FR, DE, IT). Ideal for instant node expansion, lexical fields, and quick autofill on any laptop.'
+          : (m.id === 'slm-balanced'
+            ? 'Recommended balance of speed and reasoning. Great for multi-field JSON database autofill, cohesive paragraphs, and gap-fills.'
+            : 'Deep instruction model for nuanced literary analysis, thematic bridging, and rich pedagogical explanations.'));
       var descText = _t(descKey, defaultDesc);
 
       var actionsHtml = '';
@@ -634,7 +636,8 @@
   function _syncActiveSlmEverywhere(modelId) {
     var badges = document.querySelectorAll('[data-slm-active-label]');
     var shortLabel = _t('slmNoModelShort', 'No Model');
-    if (modelId === 'slm-fast') shortLabel = 'Qwen 0.5B (Fast)';
+    if (modelId === 'slm-ultra') shortLabel = 'SmolLM2 360M (Ultra)';
+    else if (modelId === 'slm-fast') shortLabel = 'Qwen 0.5B (Fast)';
     else if (modelId === 'slm-balanced') shortLabel = 'Qwen 1.5B (Balanced)';
     else if (modelId === 'slm-deep') shortLabel = 'Qwen 1.8B (Deep)';
 

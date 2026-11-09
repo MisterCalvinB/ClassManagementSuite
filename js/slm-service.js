@@ -483,8 +483,10 @@
 
     // 3b. Robust Item-by-Item JSON Object Extraction from Array
     var recoveredList = [];
-    var seenWords = new Set();
+    var seenKeys = new Set();
     var objMatches = cleaned.match(/\{[^{}]*\}/g);
+    var METADATA_KEYS = new Set(['width', 'height', 'style', 'title', 'version', 'viewbox', 'database', 'system', 'status']);
+
     if (objMatches && objMatches.length > 0) {
       for (var om = 0; om < objMatches.length; om++) {
         var objStr = objMatches[om];
@@ -494,44 +496,36 @@
         try {
           var parsedObj = JSON.parse(objStr);
           if (parsedObj && typeof parsedObj === 'object') {
-            var wVal = parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.substitute || parsedObj.name || '';
-            if (Array.isArray(wVal)) wVal = wVal[0] || '';
-            if (typeof wVal === 'string' && wVal.trim()) {
-              var cleanW = wVal.trim();
-              var wKey = cleanW.toLowerCase();
-              if (!seenWords.has(wKey)) {
-                seenWords.add(wKey);
-                recoveredList.push({
-                  word: cleanW,
-                  relation: String(parsedObj.relation || parsedObj.link || parsedObj.type || 'related').trim(),
-                  pos: String(parsedObj.pos || parsedObj.partOfSpeech || 'noun').trim(),
-                  def: String(parsedObj.def || parsedObj.definition || '').trim()
-                });
+            var keys = Object.keys(parsedObj).filter(function (k) { return !k.startsWith('_'); });
+            if (keys.length === 0) continue;
+
+            // Reject metadata-only objects like { "width": 800, "height": 600 }
+            var isMetaOnly = keys.every(function (k) { return METADATA_KEYS.has(k.toLowerCase()); });
+            if (isMetaOnly) continue;
+
+            // Reject hallucinated metadata words like word: "title" with def: "educational database"
+            var rawWord = String(parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.name || '').trim().toLowerCase();
+            if (rawWord === 'title' || rawWord === 'width' || rawWord === 'height') {
+              var rawDef = String(parsedObj.def || parsedObj.definition || '').toLowerCase();
+              if (rawDef.includes('educational database') || !parsedObj.ipa) {
+                continue;
               }
             }
-            // Also unpack nested array lists if model put words into an array property
-            ['words', 'substitutes', 'terms', 'concepts', 'items'].forEach(function (prop) {
-              if (Array.isArray(parsedObj[prop])) {
-                parsedObj[prop].forEach(function (subW) {
-                  if (typeof subW === 'string' && subW.trim()) {
-                    var sw = subW.trim();
-                    var swKey = sw.toLowerCase();
-                    if (!seenWords.has(swKey)) {
-                      seenWords.add(swKey);
-                      recoveredList.push({
-                        word: sw,
-                        relation: 'related',
-                        pos: 'noun',
-                        def: ''
-                      });
-                    }
-                  }
-                });
-              }
-            });
+
+            var primaryVal = String(parsedObj.word || parsedObj.term || parsedObj.concept || parsedObj.label || parsedObj.name || parsedObj.id || parsedObj.code || parsedObj.quote || parsedObj.sentence || parsedObj.rule || JSON.stringify(parsedObj)).trim();
+            var primaryLower = primaryVal.toLowerCase();
+            if (primaryVal && !seenKeys.has(primaryLower)) {
+              seenKeys.add(primaryLower);
+              recoveredList.push(parsedObj);
+            } else if (!primaryVal) {
+              recoveredList.push(parsedObj);
+            }
           }
         } catch (_) {}
       }
+    }
+    if (recoveredList.length > 0) {
+      return recoveredList;
     }
 
     // 3c. Direct Regex scan for word keys and array lists in malformed JSON
@@ -541,8 +535,8 @@
       if (wMatch[2]) {
         var foundWord = wMatch[2].trim();
         var lowerWord = foundWord.toLowerCase();
-        if (foundWord.length >= 2 && !seenWords.has(lowerWord)) {
-          seenWords.add(lowerWord);
+        if (foundWord.length >= 2 && !seenKeys.has(lowerWord) && !METADATA_KEYS.has(lowerWord)) {
+          seenKeys.add(lowerWord);
           recoveredList.push({
             word: foundWord,
             relation: 'related',
@@ -557,8 +551,8 @@
         while ((inMatch = innerRegex.exec(innerArr)) !== null) {
           var strItem = inMatch[1].trim();
           var lowerItem = strItem.toLowerCase();
-          if (strItem.length >= 2 && !seenWords.has(lowerItem)) {
-            seenWords.add(lowerItem);
+          if (strItem.length >= 2 && !seenKeys.has(lowerItem) && !METADATA_KEYS.has(lowerItem)) {
+            seenKeys.add(lowerItem);
             recoveredList.push({
               word: strItem,
               relation: 'related',
@@ -577,12 +571,21 @@
     var lines = rawText.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
     var fallbackItems = [];
     var currentItem = null;
+    var BLACKLIST_KEYS = new Set([
+      'title', 'width', 'height', 'style', 'border', 'color', 'background',
+      'margin', 'padding', 'font', 'type', 'version', 'task', 'database',
+      'system', 'user', 'assistant', 'role', 'status', 'error', 'warning',
+      'note', 'notes', 'instruction', 'instructions', 'rule', 'rules',
+      'schema', 'format', 'code', 'class', 'id', 'count', 'level', 'model',
+      'table', 'column', 'columns', 'row', 'rows', 'property', 'properties',
+      'key', 'keys', 'value', 'values', 'target', 'view', 'size'
+    ]);
 
     lines.forEach(function (line) {
       // Matches "1. Word: Concept" or "- word: Concept" or "Word: Concept"
       var kvMatch = line.match(/^(?:[-*•\d.]+\s*)?([a-zA-Z_]+)\s*[:=-]\s*(.+)$/);
       if (kvMatch) {
-        var k = kvMatch[1].toLowerCase();
+        var k = kvMatch[1].toLowerCase().trim();
         var v = kvMatch[2].replace(/^["']|["']$/g, '').trim();
         if (k === 'word' || k === 'term' || k === 'concept' || k === 'label') {
           if (currentItem && currentItem.word) fallbackItems.push(currentItem);
@@ -593,8 +596,8 @@
           if (currentItem) currentItem.pos = v;
         } else if (k === 'def' || k === 'definition') {
           if (currentItem) currentItem.def = v;
-        } else {
-          // The key itself is the word! e.g. "Metaphor: A figure of speech"
+        } else if (!BLACKLIST_KEYS.has(k) && /^[A-Za-z\s'-]{2,35}$/.test(kvMatch[1].trim()) && v.length > 2) {
+          // The key itself is the word! (e.g. "Metaphor: A figure of speech")
           if (currentItem && currentItem.word) fallbackItems.push(currentItem);
           currentItem = { word: kvMatch[1].trim(), relation: 'related', pos: 'noun', def: v };
         }
@@ -602,13 +605,16 @@
         // Matches "1. Concept (noun): Definition"
         var bulletMatch = line.match(/^(?:[-*•\d.]+\s*)?([A-Za-z\s'-]{2,30})(?:\s*\(([^)]+)\))?\s*[:–-]\s*(.+)$/);
         if (bulletMatch) {
-          if (currentItem && currentItem.word) fallbackItems.push(currentItem);
-          currentItem = {
-            word: bulletMatch[1].trim(),
-            relation: 'related',
-            pos: (bulletMatch[2] || 'noun').trim(),
-            def: (bulletMatch[3] || '').trim()
-          };
+          var candWord = bulletMatch[1].trim();
+          if (!BLACKLIST_KEYS.has(candWord.toLowerCase())) {
+            if (currentItem && currentItem.word) fallbackItems.push(currentItem);
+            currentItem = {
+              word: candWord,
+              relation: 'related',
+              pos: (bulletMatch[2] || 'noun').trim(),
+              def: (bulletMatch[3] || '').trim()
+            };
+          }
         }
       }
     });
@@ -629,19 +635,23 @@
     var sys = (options.systemPrompt || 'You are a helpful educational AI assistant.') +
       '\nIMPORTANT: Respond ONLY with valid JSON. Do not include markdown explanations or prose outside the JSON.';
 
+    var prefix = options.assistantPrefix !== undefined
+      ? options.assistantPrefix
+      : (options.expectObject ? '{' : '[');
+
     var res = await generateText({
       modelId: options.modelId,
       systemPrompt: sys,
       userPrompt: options.userPrompt || options.prompt || '',
       messages: options.messages || null,
       maxNewTokens: options.maxNewTokens || 512,
-      temperature: typeof options.temperature === 'number' ? options.temperature : 0.15,
+      temperature: typeof options.temperature === 'number' ? options.temperature : 0.2,
       doSample: options.doSample !== undefined ? options.doSample : false,
       stopOnJsonComplete: options.stopOnJsonComplete !== false,
       stopSequences: options.stopSequences || null,
       onToken: options.onToken,
       signal: options.signal,
-      assistantPrefix: options.assistantPrefix || '',
+      assistantPrefix: prefix,
       promptDownloadIfMissing: options.promptDownloadIfMissing
     });
 

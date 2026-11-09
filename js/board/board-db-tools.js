@@ -1166,6 +1166,9 @@
         tabSearch.classList.toggle('bst-active', sectionId === 'search-section');
         tabHistory.classList.toggle('bst-active', sectionId === 'main-menu' || sectionId === 'history-section');
       }
+      if (typeof boardUpdateLinkedLessonBadge === 'function') {
+        boardUpdateLinkedLessonBadge();
+      }
 
       if (sectionId !== 'main-menu' && target) {
         const mount = target.querySelector('.filter-mount');

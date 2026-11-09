@@ -53,7 +53,8 @@
     var baseline = 18.0;
     try {
       var stModel = window.SlmService ? window.SlmService.getActiveModel() : '';
-      if (stModel === 'slm-fast') baseline = 22.0;
+      if (stModel === 'slm-ultra') baseline = 30.0;
+      else if (stModel === 'slm-fast') baseline = 22.0;
       else if (stModel === 'slm-deep') baseline = 5.0;
       else if (stModel === 'slm-balanced') baseline = 9.5;
     } catch (_) {}
@@ -1039,7 +1040,7 @@
       var activeSpec = (st.models || []).find(function (m) { return m.id === activeId; });
       if (activeSpec) {
         var isInstalled = Boolean(activeSpec.isInstalled || activeSpec.installed);
-        var shortTier = activeSpec.id === 'slm-fast' ? '0.5B Fast' : (activeSpec.id === 'slm-deep' ? '1.8B Deep' : '1.5B Balanced');
+        var shortTier = activeSpec.id === 'slm-ultra' ? '360M Ultra' : (activeSpec.id === 'slm-fast' ? '0.5B Fast' : (activeSpec.id === 'slm-deep' ? '1.8B Deep' : '1.5B Balanced'));
         chipLabel.textContent = shortTier + (isInstalled ? ' ✓' : ' ⬇');
         if (!_isGenerating && statusEl) {
           statusEl.textContent = isInstalled

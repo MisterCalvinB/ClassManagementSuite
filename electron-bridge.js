@@ -1429,6 +1429,21 @@
           device: 'auto',
           models: [
             {
+              id: 'slm-ultra',
+              name: 'SmolLM2 — 360M Instruct (Ultra Fast)',
+              tier: 'ultra',
+              isBundled: false,
+              isInstalled: false,
+              isActive: false,
+              speedRating: '4/4',
+              relativeSpeed: '0.6×',
+              ramEstimate: '~450 MB',
+              diskSize: '~370 MB',
+              downloadSizeBytes: 367000000,
+              descriptionKey: 'slmUltraFastDesc',
+              webDisabled: true
+            },
+            {
               id: 'slm-fast',
               name: 'Qwen 2.5 — 0.5B Instruct (Fast)',
               tier: 'fast',

@@ -127,9 +127,15 @@
             canThread = false;
           }
           var cores = (self.navigator && self.navigator.hardwareConcurrency) || 4;
-          env.backends.onnx.wasm.numThreads = canThread ? Math.max(1, Math.min(4, cores - 1 || 2)) : 1;
+          var numThreads = canThread ? Math.max(1, Math.min(6, cores - 1 || 2)) : 1;
+          env.backends.onnx.wasm.numThreads = numThreads;
           env.backends.onnx.wasm.simd = true;
           env.backends.onnx.wasm.proxy = false;
+
+          postMessage({
+            type: 'worker-log',
+            message: 'ONNX WebAssembly engine configured: ' + (canThread ? (numThreads + ' threads (multi-threaded active)') : '1 thread (single-thread fallback)') + ' across ' + cores + ' CPU cores.'
+          });
         }
 
         generator = await tf.pipeline('text-generation', modelId, {
@@ -215,17 +221,10 @@
         messages.push({ role: 'user', content: String(data.userPrompt || data.prompt || '') });
       }
 
-      // If messages is a structured Chat, keep it as an array so Transformers.js
-      // natively formats it and returns pure assistant content without prompt-slicing artifacts.
-      var inputForPipe = messages;
-      if (!Array.isArray(messages) || messages.length === 0) {
-        inputForPipe = String(data.userPrompt || data.prompt || '');
-      }
-
-      // Optional assistant prefill (e.g. '[' for JSON) so the model continues directly
-      // inside the desired format instead of spending tokens on a chatty preamble.
+      // If messages is a structured Chat, format it into ChatML text prompt with optional assistant prefix
       var assistantPrefix = String(data.assistantPrefix || '');
-      if (assistantPrefix && Array.isArray(inputForPipe)) {
+      var inputForPipe = messages;
+      if (Array.isArray(inputForPipe)) {
         var templated;
         try {
           templated = pipe.tokenizer.apply_chat_template(inputForPipe, { tokenize: false, add_generation_prompt: true });
@@ -233,6 +232,11 @@
           templated = buildFallbackChatPrompt(inputForPipe);
         }
         inputForPipe = templated + assistantPrefix;
+      } else if (!inputForPipe) {
+        inputForPipe = String(data.userPrompt || data.prompt || '');
+        if (assistantPrefix) {
+          inputForPipe += assistantPrefix;
+        }
       }
 
       var lastPartialText = '';

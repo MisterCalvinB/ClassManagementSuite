@@ -109,8 +109,10 @@
               <button class="btn btn-primary btn-sm" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
               <button class="btn btn-secondary btn-sm" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
               <button class="btn btn-secondary btn-sm" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
+              <button class="btn btn-secondary btn-sm" id="ai-studio-btn" onclick="openMdbAiStudio()"
+                style="display:none;background:#e2c96e;font-weight:800;" data-i18n="mdbBtnAiStudio" title="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Studio</button>
               <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)"
-                style="display:none" data-i18n="mdbBtnAiPrompt"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Prompt</button>
+                style="display:none" data-i18n="mdbBtnAiPrompt"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> AI Prompt</button>
               <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()"
                 style="display:none"></button>
               <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()"
@@ -311,6 +313,142 @@
         <button class="btn btn-primary" id="baf-apply-btn" onclick="executeBatchAutofill()" data-i18n="mdbBatchAutofillApply">
           <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBatchAutofillApply">Apply Batch Autofill</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI Generation Studio Modal -->
+  <div id="ai-studio-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeMdbAiStudio()">
+    <div class="modal modal-lg">
+      <div class="modal-hd">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;background:#e2c96e;border:1.5px solid #333;border-radius:4px;box-shadow:1.5px 1.5px 0 #333;">
+            <img src="../assets/icons/sparkles.svg" style="width:14px;height:14px;" alt="" />
+          </span>
+          <div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span data-i18n="mdbAiStudioTitle">AI Generation Studio</span>
+              <span id="ai-studio-type-badge" class="ai-type-badge-pill" style="display:none;"></span>
+            </div>
+            <div id="ai-studio-type-title" style="font-size:0.75rem;color:#666;font-weight:600;"></div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-studio-model-chip" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" title="Manage Offline AI Models" style="font-size:0.73rem;padding:3px 8px;display:flex;align-items:center;gap:4px;">
+            <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>Model</span>
+          </button>
+          <button class="modal-x" onclick="closeMdbAiStudio()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        </div>
+      </div>
+
+      <div class="modal-bd" style="padding:16px 20px;">
+        <!-- Type-Specific Tailored Guide Banner -->
+        <div id="ai-studio-guide-banner" class="ai-type-guide-banner" style="display:none;"></div>
+
+        <div class="ai-mode-tabs">
+          <button type="button" class="ai-mode-tab active" id="ai-tab-topic" onclick="MdbAi.switchStudioMode('topic')">
+            <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbAiModeTopic">From Topic / Prompt</span>
+          </button>
+          <button type="button" class="ai-mode-tab" id="ai-tab-text" onclick="MdbAi.switchStudioMode('text')">
+            <img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbAiModeText">Extract from Text</span>
+          </button>
+        </div>
+
+        <div class="ai-studio-section">
+          <div id="ai-studio-topic-row">
+            <label class="form-lbl" id="ai-studio-topic-lbl" data-i18n="mdbAiModeTopic">Topic or Concept Prompt</label>
+            <input type="text" id="ai-studio-prompt-input" data-i18n-placeholder="mdbAiTopicPlaceholder" placeholder="e.g., Airport Travel & Security, Shakespeare's Macbeth, Modal Verbs of Deduction..." />
+            <div id="ai-studio-presets" class="ai-preset-chips" style="display:none;"></div>
+          </div>
+
+          <div id="ai-studio-text-row" style="display:none;">
+            <label class="form-lbl" id="ai-studio-text-lbl" data-i18n="mdbAiModeText">Source Reading Passage or Transcript</label>
+            <textarea id="ai-studio-text-input" rows="4" data-i18n-placeholder="mdbAiTextPlaceholder" placeholder="Paste reading passage, dialogue, article, or lesson notes to extract records from..."></textarea>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:10px;margin-top:10px;">
+            <div>
+              <label class="form-lbl" data-i18n="mdbAiCountLabel">Record Count</label>
+              <select id="ai-studio-count">
+                <option value="1">1 record</option>
+                <option value="3">3 records</option>
+                <option value="5" selected>5 records</option>
+                <option value="8">8 records</option>
+                <option value="10">10 records</option>
+                <option value="15">15 records</option>
+              </select>
+            </div>
+            <div id="ai-studio-cefr-wrap">
+              <label class="form-lbl" data-i18n="mdbAiCefrLabel">Target Level</label>
+              <select id="ai-studio-cefr">
+                <option value="Any" data-i18n="mdbAiAnyCefr">Any / Mixed</option>
+                <option value="A1">A1 (Beginner)</option>
+                <option value="A2">A2 (Elementary)</option>
+                <option value="B1" selected>B1 (Intermediate)</option>
+                <option value="B2">B2 (Upper-Intermediate)</option>
+                <option value="C1">C1 (Advanced)</option>
+                <option value="C2">C2 (Proficiency)</option>
+              </select>
+            </div>
+            <div style="grid-column:span 2;">
+              <label class="form-lbl" data-i18n="mdbAiTargetFile">Target File</label>
+              <select id="ai-studio-target-file"></select>
+            </div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <label class="form-lbl" data-i18n="mdbAiExtraFocus">Custom Focus / Guidelines (optional)</label>
+            <input type="text" id="ai-studio-focus" data-i18n-placeholder="mdbAiExtraFocusPlaceholder" placeholder="e.g., British spelling, focus on irregular verbs, teen-friendly context..." />
+          </div>
+
+          <div id="ai-studio-timer-bar" class="ai-timer-bar" style="display:none;margin-top:12px;">
+            <span id="ai-studio-timer-elapsed">00:00</span>
+            <div class="ai-progress-track"><div id="ai-studio-progress-fill" class="ai-progress-fill"></div></div>
+            <span id="ai-studio-timer-remaining">~6s</span>
+            <span id="ai-studio-timer-speed" style="color:#666;font-size:0.72rem;"></span>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="if(window.SlmService)window.SlmService.abort();" style="padding:2px 8px;font-size:0.72rem;">⏹ <span data-i18n="mdbAiStopGeneration">Stop</span></button>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:8px;">
+            <button type="button" class="btn btn-primary" id="ai-studio-generate-btn" onclick="MdbAi.runStudioGeneration()" style="font-weight:800;background:#e2c96e;padding:7px 18px;font-size:0.86rem;">
+              <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+              <span data-i18n="mdbAiBtnGenerate">Generate Records</span>
+            </button>
+            <button type="button" class="btn btn-secondary" onclick="MdbAi.copyPromptTemplate(this)" style="font-size:0.78rem;padding:6px 12px;">
+              <img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" />
+              <span data-i18n="mdbAiBtnCopyPrompt">Copy Prompt Template</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Review Container -->
+        <div id="ai-studio-review-container" class="ai-review-container" style="display:none;">
+          <div class="ai-review-hd">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span data-i18n="mdbAiPreviewTitle">Generated Records Preview</span>
+              <span id="ai-studio-review-count" style="font-size:0.72rem;color:#666;font-weight:600;"></span>
+            </div>
+            <div style="display:flex;gap:6px;">
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="MdbAi.studioSelectAll(true)" data-i18n="mdbAiSelectAll">Select All</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="MdbAi.studioSelectAll(false)" data-i18n="mdbAiDeselectAll">Deselect All</button>
+            </div>
+          </div>
+          <div class="ai-review-body" id="ai-studio-review-body"></div>
+        </div>
+      </div>
+
+      <div class="modal-ft" style="display:flex;align-items:center;justify-content:space-between;">
+        <span id="ai-studio-selected-summary" style="font-size:0.8rem;font-weight:700;color:#555;"></span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-secondary" onclick="closeMdbAiStudio()" data-i18n="mdbBtnCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="ai-studio-insert-btn" onclick="MdbAi.insertStudioRecords()" disabled style="font-weight:800;background:#6abf8e;padding:7px 18px;">
+            <img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbAiBtnInsert">Insert Records into File</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -1471,6 +1609,8 @@
 
       const aiBtn = $('ai-prompt-btn');
       if (aiBtn) aiBtn.style.display = AI_PROMPTS[key] ? '' : 'none';
+      const aiStudioBtn = $('ai-studio-btn');
+      if (aiStudioBtn) aiStudioBtn.style.display = '';
 
       const def = getTypeDef(key);
       if (key === 'criteria') {
@@ -4117,13 +4257,18 @@
         || (typeof MdbAi !== 'undefined' && field.key === MdbAi.getPrimaryFieldKey(S.typeKey));
       const isCompCriteriaField = S.typeKey === 'criteria' && field.key === 'competenceIds';
       const isCompLinkedField = (S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds';
+      const canAiField = !isWordField && !isCompCriteriaField && !isCompLinkedField
+        && !field.key.startsWith('_') && field.key !== 'id'
+        && (field.type === 'string' || field.type === 'array' || field.type === 'number' || field.isLong);
       const actionBtn = isWordField
         ? `<button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof mdbTriggerFormAiAutofill==='function'){mdbTriggerFormAiAutofill();}else{triggerWordAutofill();}" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>`
         : (isCompCriteriaField
           ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('competenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
           : (isCompLinkedField
             ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('linkedCompetenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbLinkCompetence">${t('mdbLinkCompetence', 'Link Competence')}</span></button>`
-            : ''));
+            : (canAiField
+              ? `<button type="button" class="btn-field-ai" onclick="mdbTriggerFieldAiAutofill('${esc(field.key)}')" title="${t('mdbAiFieldFill', 'AI Suggest')}"><img src="../assets/icons/sparkles.svg" style="width:10px;height:10px;" alt="" /> AI</button>`
+              : '')));
 
       if (isCompCriteriaField || isCompLinkedField) {
         typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#2563eb;background:#eff6ff;border:1px solid #bfdbfe;padding:1px 5px;border-radius:3px;margin-left:6px;">Competences</span>`;
@@ -4296,6 +4441,7 @@
         html += `<div style="display:flex;margin-bottom:14px;border:1.5px solid #bbb;border-radius:5px;overflow:hidden;">
       <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="filter:brightness(0) invert(1);" /> ${t('mdbTabSingle')}</button>
       <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> ${t('mdbTabBulkJson')}</button>
+      <button id="tab-btn-ai" onclick="switchAddTab('ai')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbTabAiGenerate', 'Generate with AI')}</button>
     </div>`;
 
         html += infoBanner;
@@ -4332,6 +4478,9 @@
       </div>
     </div>`;
 
+        // AI tab (hidden by default)
+        html += `<div id="tab-ai-content" class="hidden"></div>`;
+
         return html;
       }
 
@@ -4355,18 +4504,41 @@
 
     function switchAddTab(tab) {
       const isBulk = tab === 'bulk';
-      $('tab-single-content').classList.toggle('hidden', isBulk);
-      $('tab-bulk-content').classList.toggle('hidden', !isBulk);
+      const isAi = tab === 'ai';
+      const isSingle = !isBulk && !isAi;
+
+      $('tab-single-content')?.classList.toggle('hidden', !isSingle);
+      $('tab-bulk-content')?.classList.toggle('hidden', !isBulk);
+      $('tab-ai-content')?.classList.toggle('hidden', !isAi);
+
       const btnSingle = $('tab-btn-single');
       const btnBulk = $('tab-btn-bulk');
-      btnSingle.style.background = isBulk ? '#fff' : '#111';
-      btnSingle.style.color = isBulk ? '#111' : '#fff';
-      const imgSingle = btnSingle.querySelector('.btn-icon');
-      if (imgSingle) imgSingle.style.filter = isBulk ? 'none' : 'brightness(0) invert(1)';
-      btnBulk.style.background = isBulk ? '#111' : '#fff';
-      btnBulk.style.color = isBulk ? '#fff' : '#111';
-      const imgBulk = btnBulk.querySelector('.btn-icon');
-      if (imgBulk) imgBulk.style.filter = isBulk ? 'brightness(0) invert(1)' : 'none';
+      const btnAi = $('tab-btn-ai');
+
+      if (btnSingle) {
+        btnSingle.style.background = isSingle ? '#111' : '#fff';
+        btnSingle.style.color = isSingle ? '#fff' : '#111';
+        const img = btnSingle.querySelector('.btn-icon');
+        if (img) img.style.filter = isSingle ? 'brightness(0) invert(1)' : 'none';
+      }
+      if (btnBulk) {
+        btnBulk.style.background = isBulk ? '#111' : '#fff';
+        btnBulk.style.color = isBulk ? '#fff' : '#111';
+        const img = btnBulk.querySelector('.btn-icon');
+        if (img) img.style.filter = isBulk ? 'brightness(0) invert(1)' : 'none';
+      }
+      if (btnAi) {
+        btnAi.style.background = isAi ? '#111' : '#fff';
+        btnAi.style.color = isAi ? '#fff' : '#111';
+        const img = btnAi.querySelector('.btn-icon');
+        if (img) img.style.filter = isAi ? 'brightness(0) invert(1)' : 'none';
+        if (isAi && window.MdbAi && typeof window.MdbAi.renderAddAiTabContent === 'function') {
+          const aiWrap = $('tab-ai-content');
+          if (aiWrap && !aiWrap.hasChildNodes()) {
+            window.MdbAi.renderAddAiTabContent(aiWrap);
+          }
+        }
+      }
     }
 
     async function submitEdit() {
@@ -5675,6 +5847,9 @@
     }
 
     async function triggerRecordAutofill(fi, ri) {
+      if (window.MdbAi && typeof window.MdbAi.triggerRecordAutofill === 'function') {
+        return window.MdbAi.triggerRecordAutofill(fi, ri);
+      }
       const file = S.files[fi];
       if (!file || !file.records[ri]) return;
       const rec = file.records[ri];
@@ -7228,6 +7403,7 @@ Rules:
 - "scoringDecisions" is an array of guidelines or empty array [].
 - No markdown or explanation text.`,
     };
+    window.AI_PROMPTS = AI_PROMPTS;
 
     function copyAIPrompt(btn) {
       const template = AI_PROMPTS[S.typeKey];
@@ -11148,6 +11324,14 @@ Rules:
         }
 
         // 3. Higher z-index modals / subdialogs
+        if ($('ai-studio-bg') && !$('ai-studio-bg').classList.contains('hidden')) {
+          if (typeof closeMdbAiStudio === 'function') closeMdbAiStudio();
+          else $('ai-studio-bg').classList.add('hidden');
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
         if ($('autofill-bg') && !$('autofill-bg').classList.contains('hidden')) {
           closeAutofill();
           e.preventDefault();

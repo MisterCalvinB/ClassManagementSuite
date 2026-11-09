@@ -17,6 +17,7 @@ try {
   // This prevents V8 from delaying GC until memory reaches excessive levels
   const maxOldSpace = Math.max(1024, Math.min(2048, Math.round(totalMemMB * 0.45)));
   app.commandLine.appendSwitch('js-flags', `--max-old-space-size=${maxOldSpace} --expose-gc`);
+  app.commandLine.appendSwitch('enable-features', 'SharedArrayBuffer');
   app.commandLine.appendSwitch('disable-gpu-process-crash-limit');
   app.commandLine.appendSwitch('ignore-gpu-blocklist');
   app.commandLine.appendSwitch('enable-gpu-rasterization');
@@ -11287,6 +11288,22 @@ const SLM_TEXT_FILES = [
 ];
 
 const SLM_MODEL_SPECS = {
+  'slm-ultra': {
+    id: 'slm-ultra',
+    name: 'SmolLM2 — 360M Instruct (Ultra Fast)',
+    tier: 'ultra',
+    isBundled: false,
+    speedRating: '4/4',
+    relativeSpeed: '0.6×',
+    ramEstimate: '~450 MB',
+    diskSize: '~370 MB',
+    sizeBytes: 367000000,
+    downloadSizeBytes: 367000000,
+    huggingFaceRepo: 'onnx-community/SmolLM2-360M-Instruct-ONNX',
+    onnxRemoteFile: 'onnx/model_quantized.onnx',
+    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    descriptionKey: 'slmUltraFastDesc'
+  },
   'slm-fast': {
     id: 'slm-fast',
     name: 'Qwen 2.5 — 0.5B Instruct (Fast)',
@@ -11397,6 +11414,35 @@ function patchOnnxIrVersionSync(filePath) {
   return false;
 }
 
+/**
+ * Ensures tokenizer.json is compatible with transformers.js v2 by converting
+ * any array-based BPE merges (e.g. [["Ġ", "t"], ...]) into space-separated strings ("Ġ t").
+ */
+function patchTokenizerCompatibilitySync(filePath) {
+  try {
+    if (!fsSync.existsSync(filePath)) return false;
+    const raw = fsSync.readFileSync(filePath, 'utf8');
+    const tok = JSON.parse(raw);
+    let modified = false;
+
+    if (tok && tok.model && Array.isArray(tok.model.merges)) {
+      if (tok.model.merges.length > 0 && Array.isArray(tok.model.merges[0])) {
+        console.log(`[SlmModel] Converting array merges to space-delimited strings in ${path.basename(filePath)}`);
+        tok.model.merges = tok.model.merges.map(m => Array.isArray(m) ? m.join(' ') : String(m));
+        modified = true;
+      }
+    }
+
+    if (modified) {
+      fsSync.writeFileSync(filePath, JSON.stringify(tok), 'utf8');
+      return true;
+    }
+  } catch (err) {
+    console.warn('[SlmModel] Could not inspect/patch tokenizer compatibility:', err?.message || err);
+  }
+  return false;
+}
+
 async function isSlmModelInstalled(modelId) {
   const spec = SLM_MODEL_SPECS[modelId];
   if (!spec) return { installed: false, dir: '', basePath: '' };
@@ -11407,6 +11453,7 @@ async function isSlmModelInstalled(modelId) {
   const onnxPath = path.join(userModelDir, spec.onnxLocalFile);
   if (fsSync.existsSync(cfgPath) && fsSync.existsSync(tokPath) && fsSync.existsSync(onnxPath)) {
     patchOnnxIrVersionSync(onnxPath);
+    patchTokenizerCompatibilitySync(tokPath);
     return { installed: true, dir: userModelDir, basePath: userModelsDir };
   }
   return { installed: false, dir: '', basePath: '' };
@@ -11639,6 +11686,7 @@ ipcMain.handle('slm:download-model', async (event, request = {}) => {
     }
 
     patchOnnxIrVersionSync(checkOnnx);
+    patchTokenizerCompatibilitySync(checkTok);
 
     if (fsSync.existsSync(destDir)) {
       await fs.rm(destDir, { recursive: true, force: true });
