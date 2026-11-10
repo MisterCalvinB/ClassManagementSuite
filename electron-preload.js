@@ -62,6 +62,9 @@ const exposedApi = {
   updateSessionContext(context) {
     return invoke('app:update-session-context', context);
   },
+  checkBoardFileOpen(query) {
+    return invoke('app:check-board-file-open', query);
+  },
   getSessionState() {
     return invoke('app:get-session-state');
   },

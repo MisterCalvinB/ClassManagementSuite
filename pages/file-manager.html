@@ -2909,6 +2909,10 @@ document.addEventListener('DOMContentLoaded', function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath } });
         }});
+        items.push({ label: tt('rfOpenInNewWindow','Open in New Window'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          Desktop.openTool('board.html', { query: { openSession:'1', openTarget: file.target, openFilename: file.filename, openRelPath: relPath }, forceNewWindow: true });
+        }});
       }
 
       var isDoc = /\.(md|html)$/i.test(file.filename);
@@ -3062,6 +3066,16 @@ document.addEventListener('DOMContentLoaded', function() {
             relPath = relPath.slice('mindmaps/'.length);
           }
           Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath } });
+        }});
+        items.push({ label: tt('rfOpenInNewWindow','Open in New Window'), action: function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          var target = file.target;
+          var relPath = file.relativePath || file.filename;
+          if (target === 'user' && relPath.startsWith('mindmaps/')) {
+            target = 'mindmaps';
+            relPath = relPath.slice('mindmaps/'.length);
+          }
+          Desktop.openTool('board.html', { query: { openSession:'1', openTarget: target, openFilename: file.filename, openRelPath: relPath }, forceNewWindow: true });
         }});
       }
 

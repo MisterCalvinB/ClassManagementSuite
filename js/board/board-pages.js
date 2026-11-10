@@ -8908,6 +8908,15 @@
     }
     window.conOpenCurrentFileNative = conOpenCurrentFileNative;
 
+    function conOpenNewBoardWindow() {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+        Desktop.openTool('board.html', { forceNewWindow: true });
+      } else {
+        window.open('board.html', '_blank');
+      }
+    }
+    window.conOpenNewBoardWindow = conOpenNewBoardWindow;
+
     function conFormatVersionDate(filename) {
       const m = String(filename).match(/\.v(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.js$/i);
       if (!m) return filename;

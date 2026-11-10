@@ -4589,22 +4589,22 @@
                     min="0" max="59" onchange="syncModeOverlayToPopup()">
                 <span class="timer-overlay-setting-sep">m</span>
             </div>
-            <div class="timer-overlay-setting" style="border-left: 1px solid #ccc; padding-left: 12px;">
+            <div class="timer-overlay-setting" style="border-left: 1.5px solid #dcdcd6; padding-left: 10px;">
                 <span class="timer-overlay-setting-label" data-i18n="timer_beeps">Beeps</span>
                 <input type="number" class="timer-overlay-setting-input" id="mode-overlay-timer-beeps" value="3" min="1"
                     max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width: 40px;">
             </div>
             <button class="timer-overlay-mode-toggle-btn" id="mode-overlay-stopwatch-btn"
-                onclick="toggleOverlayStopwatchMode()" data-i18n="timer_stopwatch_btn">⏱ Stopwatch</button>
+                onclick="toggleOverlayStopwatchMode()" data-i18n-title="timer_mode_stopwatch"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> <span class="btn-text" data-i18n="timer_mode_stopwatch">Stopwatch</span></button>
             <div class="timer-overlay-transport">
                 <button class="timer-overlay-transport-btn" id="mode-overlay-playpause-btn"
-                    onclick="overlayPlayPauseTimer()" data-i18n="timer_play_btn">▶ Play</button>
+                    onclick="overlayPlayPauseTimer()" data-i18n="timer_play_btn"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Play</button>
                 <button class="timer-overlay-transport-btn" id="mode-overlay-stop-main-btn" onclick="overlayStopTimer()"
-                    data-i18n="timer_stop_btn">■ Stop</button>
+                    data-i18n="timer_stop_btn"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop</button>
                 <button class="timer-overlay-transport-btn" id="mode-overlay-sub30s-btn"
-                    onclick="modeOverlaySubtract30s()" style="display:none;">-30s</button>
+                    onclick="modeOverlaySubtract30s()" title="-30 seconds" data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
                 <button class="timer-overlay-transport-btn" id="mode-overlay-add30s-btn" onclick="modeOverlayAdd30s()"
-                    style="display:none;">+30s</button>
+                    title="+30 seconds" data-i18n-title="timer_add30s_title" style="display:none;">+30s</button>
             </div>
         </div>
         <div id="mode-animation-content"></div>
@@ -5038,9 +5038,13 @@
                     timerDisplayOpacity: (() => { const d = document.getElementById('timer-active-display'); return d ? (d.style.opacity || '') : ''; })(),
                     timerDisplayFontSize: (() => { const d = document.getElementById('timer-active-display'); return d ? (d.style.fontSize || '') : ''; })(),
                     overlayProgressWidth: (() => { const p = document.getElementById('timer-overlay-progress-bar'); return p ? p.style.width : ''; })(),
+                    overlayProgressClass: (() => { const p = document.getElementById('timer-overlay-progress-bar'); return p ? p.className : ''; })(),
                     overlayBg: (() => { const o = document.getElementById('timer-overlay'); return o ? o.style.background : ''; })(),
                     modeTimerBg: (() => { const m = document.getElementById('mode-overlay-timer'); return m ? m.style.background : ''; })(),
                     modeTimerClass: (() => { const m = document.getElementById('mode-overlay-timer'); return m ? m.className : ''; })(),
+                    modeProgressWidth: (() => { const p = document.getElementById('mode-overlay-progress-bar'); return p ? p.style.width : ''; })(),
+                    modeProgressClass: (() => { const p = document.getElementById('mode-overlay-progress-bar'); return p ? p.className : ''; })(),
+                    modeProgressVisible: (() => { const p = document.getElementById('mode-overlay-progress'); return p ? (p.style.display !== 'none') : false; })(),
                     isWarning: (() => { const d = document.getElementById('timer-active-display'); return !!((timerEndTime && (timerEndTime - Date.now()) < 60000) || (d && (d.classList.contains('warning') || d.classList.contains('timer-warning')))); })()
                 });
             } catch (_) { }
@@ -5115,6 +5119,9 @@
                     overlayBg: overlayEl ? overlayEl.style.background : '',
                     modeTimerBg: modeTimer ? modeTimer.style.background : (overlayEl ? overlayEl.style.background : ''),
                     modeTimerClass: modeTimer ? modeTimer.className : '',
+                    modeProgressWidth: (() => { const p = document.getElementById('mode-overlay-progress-bar'); return p ? p.style.width : (progressBar ? progressBar.style.width : ''); })(),
+                    modeProgressClass: (() => { const p = document.getElementById('mode-overlay-progress-bar'); return p ? p.className : (progressBar ? progressBar.className : ''); })(),
+                    modeProgressVisible: (() => { const p = document.getElementById('mode-overlay-progress'); return p ? (p.style.display !== 'none') : (timerMode !== 'stopwatch'); })(),
                     isWarning: isWarning
                 });
             } catch (_) { }
@@ -5253,6 +5260,27 @@
                         modeTimer.style.background = data.overlayBg;
                     }
                 }
+                // Keep mode overlay progress bar live
+                let modeProgressBar = document.getElementById('mode-overlay-progress-bar');
+                let modeProgressWrap = document.getElementById('mode-overlay-progress');
+                if (modeTimer && !modeProgressWrap && data.modeProgressVisible !== false) {
+                    modeTimer.insertAdjacentHTML('afterend', `
+                        <div id="mode-overlay-progress" class="mode-overlay-progress">
+                            <div id="mode-overlay-progress-bar" class="mode-overlay-progress-bar"></div>
+                        </div>
+                    `);
+                    modeProgressBar = document.getElementById('mode-overlay-progress-bar');
+                    modeProgressWrap = document.getElementById('mode-overlay-progress');
+                }
+                if (modeProgressWrap && data.modeProgressVisible !== undefined) {
+                    modeProgressWrap.style.display = data.modeProgressVisible ? '' : 'none';
+                }
+                if (modeProgressBar) {
+                    const widthVal = data.modeProgressWidth || data.overlayProgressWidth;
+                    if (widthVal) modeProgressBar.style.width = widthVal;
+                    const classVal = data.modeProgressClass !== undefined ? data.modeProgressClass : data.overlayProgressClass;
+                    if (classVal !== undefined) modeProgressBar.className = 'mode-overlay-progress-bar ' + classVal;
+                }
                 // Keep fullscreen timer overlay display, progress bar, and colour live
                 const overlayDisplay = document.getElementById('timer-overlay-display');
                 if (overlayDisplay && data.timerDisplayText && overlayCurrentView !== 'clock') overlayDisplay.textContent = data.timerDisplayText;
@@ -5354,6 +5382,27 @@
                     else if (data.isWarning !== undefined) modeTimer.classList.toggle('warning', !!data.isWarning);
                     if (data.modeTimerBg) modeTimer.style.background = data.modeTimerBg;
                     else if (data.overlayBg) modeTimer.style.background = data.overlayBg;
+
+                    let modeProgressBar = document.getElementById('mode-overlay-progress-bar');
+                    let modeProgressWrap = document.getElementById('mode-overlay-progress');
+                    if (!modeProgressWrap && data.modeProgressVisible !== false) {
+                        modeTimer.insertAdjacentHTML('afterend', `
+                            <div id="mode-overlay-progress" class="mode-overlay-progress">
+                                <div id="mode-overlay-progress-bar" class="mode-overlay-progress-bar"></div>
+                            </div>
+                        `);
+                        modeProgressBar = document.getElementById('mode-overlay-progress-bar');
+                        modeProgressWrap = document.getElementById('mode-overlay-progress');
+                    }
+                    if (modeProgressWrap && data.modeProgressVisible !== undefined) {
+                        modeProgressWrap.style.display = data.modeProgressVisible ? '' : 'none';
+                    }
+                    if (modeProgressBar) {
+                        const widthVal = data.modeProgressWidth || data.overlayProgressWidth;
+                        if (widthVal) modeProgressBar.style.width = widthVal;
+                        const classVal = data.modeProgressClass !== undefined ? data.modeProgressClass : data.overlayProgressClass;
+                        if (classVal !== undefined) modeProgressBar.className = 'mode-overlay-progress-bar ' + classVal;
+                    }
                 }
                 const overlayDisplay = document.getElementById('timer-overlay-display');
                 if (overlayDisplay && data.timerDisplayText !== undefined) overlayDisplay.textContent = data.timerDisplayText;
@@ -15489,15 +15538,44 @@
         }
 
         function syncOverlayTimerModeState() {
-            const btn = document.getElementById('overlay-stopwatch-btn');
-            const durationWrap = document.getElementById('overlay-duration-setting');
-            if (!btn || !durationWrap) return;
-
             const isStopwatch = timerMode === 'stopwatch';
-            btn.classList.toggle('active', isStopwatch);
-            btn.innerHTML = isStopwatch ? '<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> Timer' : '<img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Stopwatch';
-            durationWrap.style.opacity = isStopwatch ? '0.4' : '1';
-            durationWrap.style.pointerEvents = isStopwatch ? 'none' : 'auto';
+
+            // Fullscreen timer duration setting
+            const durationWrap = document.getElementById('overlay-duration-setting');
+            if (durationWrap) {
+                durationWrap.style.opacity = isStopwatch ? '0.4' : '1';
+                durationWrap.style.pointerEvents = isStopwatch ? 'none' : 'auto';
+            }
+
+            // Mode overlay duration setting
+            const modeDurationWrap = document.getElementById('mode-overlay-duration-setting');
+            if (modeDurationWrap) {
+                modeDurationWrap.style.opacity = isStopwatch ? '0.4' : '1';
+                modeDurationWrap.style.pointerEvents = isStopwatch ? 'none' : 'auto';
+            }
+
+            // Mode overlay toggle button
+            const modeSwBtn = document.getElementById('mode-overlay-stopwatch-btn') || document.getElementById('overlay-stopwatch-btn');
+            if (modeSwBtn) {
+                modeSwBtn.classList.toggle('active', isStopwatch);
+                const iconSrc = isStopwatch ? '../assets/icons/clock.svg' : '../assets/icons/stopwatch.svg';
+                const labelTxt = isStopwatch ? 'Timer' : 'Stopwatch';
+                modeSwBtn.innerHTML = `<img src="${iconSrc}" class="btn-icon" alt="" /> <span class="btn-text">${labelTxt}</span>`;
+            }
+
+            // Fullscreen overlay segmented buttons (if present)
+            const segTimerBtn = document.getElementById('overlay-view-timer-btn');
+            const segSwBtn = document.getElementById('overlay-view-stopwatch-btn');
+            if (segTimerBtn && segSwBtn) {
+                segTimerBtn.classList.toggle('active', !isStopwatch);
+                segSwBtn.classList.toggle('active', isStopwatch);
+            }
+
+            // Mode overlay progress bar (only show for countdown timer, not stopwatch)
+            const modeProgress = document.getElementById('mode-overlay-progress');
+            if (modeProgress) {
+                modeProgress.style.display = isStopwatch ? 'none' : '';
+            }
         }
 
         function updateOverlayTransportControls() {
@@ -15590,16 +15668,25 @@
             document.getElementById('popup-start-btn').style.display = 'none';
             updateOverlayTransportControls();
 
-            // If the mode animation overlay is visible but the small mode timer
-            // element is not present, inject it so the overlay shows the running time.
+            // If the mode animation overlay is visible but the mode timer or progress
+            // element is not present, inject it so the overlay shows the running time and progress.
             const modeOverlay = document.getElementById('mode-animation-overlay');
             if (modeOverlay && modeOverlay.classList && modeOverlay.classList.contains('active')) {
-                if (!document.getElementById('mode-overlay-timer')) {
+                const existingTimer = document.getElementById('mode-overlay-timer');
+                if (!existingTimer) {
                     const html = typeof getModeTimerHTML === 'function' ? getModeTimerHTML() : '';
                     if (html) {
-                        const content = document.getElementById('mode-animation-content');
-                        if (content) content.insertAdjacentHTML('afterbegin', html);
+                        const targetContainer = modeOverlay.querySelector('.quiet-mode-anim, .conversation-mode-anim, .group-mode-anim, .custom-mode-anim') || document.getElementById('mode-animation-content');
+                        if (targetContainer) targetContainer.insertAdjacentHTML('beforeend', html);
                     }
+                } else if (!document.getElementById('mode-overlay-progress') && timerMode !== 'stopwatch') {
+                    existingTimer.insertAdjacentHTML('afterend', `
+                        <div id="mode-overlay-progress" class="mode-overlay-progress">
+                            <div id="mode-overlay-progress-bar" class="mode-overlay-progress-bar" style="width: 100%;"></div>
+                        </div>
+                    `);
+                } else if (document.getElementById('mode-overlay-progress')) {
+                    document.getElementById('mode-overlay-progress').style.display = timerMode === 'stopwatch' ? 'none' : '';
                 }
             }
         }
@@ -15954,6 +16041,9 @@ syncState();
             if (document.getElementById('overlay-timer-hours')) document.getElementById('overlay-timer-hours').value = hours;
             if (document.getElementById('overlay-timer-minutes')) document.getElementById('overlay-timer-minutes').value = minutes;
             if (document.getElementById('overlay-timer-beeps')) document.getElementById('overlay-timer-beeps').value = beeps;
+            if (document.getElementById('mode-overlay-timer-hours')) document.getElementById('mode-overlay-timer-hours').value = hours;
+            if (document.getElementById('mode-overlay-timer-minutes')) document.getElementById('mode-overlay-timer-minutes').value = minutes;
+            if (document.getElementById('mode-overlay-timer-beeps')) document.getElementById('mode-overlay-timer-beeps').value = beeps;
             if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
         }
 
@@ -15964,6 +16054,9 @@ syncState();
             if (document.getElementById('popup-timer-hours')) document.getElementById('popup-timer-hours').value = hours;
             if (document.getElementById('popup-timer-minutes')) document.getElementById('popup-timer-minutes').value = minutes;
             if (document.getElementById('popup-timer-beeps')) document.getElementById('popup-timer-beeps').value = beeps;
+            if (document.getElementById('mode-overlay-timer-hours')) document.getElementById('mode-overlay-timer-hours').value = hours;
+            if (document.getElementById('mode-overlay-timer-minutes')) document.getElementById('mode-overlay-timer-minutes').value = minutes;
+            if (document.getElementById('mode-overlay-timer-beeps')) document.getElementById('mode-overlay-timer-beeps').value = beeps;
             if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
             if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
         }
@@ -15976,12 +16069,20 @@ syncState();
             const ph = document.getElementById('popup-timer-hours');
             const pm = document.getElementById('popup-timer-minutes');
             const pb = document.getElementById('popup-timer-beeps');
+            const oh = document.getElementById('overlay-timer-hours');
+            const om = document.getElementById('overlay-timer-minutes');
+            const ob = document.getElementById('overlay-timer-beeps');
             const tb = document.getElementById('timer-beeps');
-            if (ph && mh) ph.value = mh.value || 0;
-            if (pm && mm) pm.value = mm.value || 5;
+            const hours = mh.value || 0;
+            const minutes = mm ? (mm.value || 5) : 5;
+            if (ph) ph.value = hours;
+            if (pm) pm.value = minutes;
+            if (oh) oh.value = hours;
+            if (om) om.value = minutes;
             if (mb) {
                 const beeps = mb.value || soundSettings?.timerEnd?.iterations || 3;
                 if (pb) pb.value = beeps;
+                if (ob) ob.value = beeps;
                 if (tb) tb.value = beeps;
                 if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
             }
@@ -16024,6 +16125,12 @@ syncState();
             if (typeof updateOverlayTransportControls === 'function') updateOverlayTransportControls();
             const bar = document.getElementById('timer-overlay-progress-bar');
             if (bar) { bar.style.width = '100%'; bar.className = ''; }
+            const mBar = document.getElementById('mode-overlay-progress-bar');
+            if (mBar) { mBar.style.width = '100%'; mBar.className = ''; }
+            const mProg = document.getElementById('mode-overlay-progress');
+            if (mProg) { mProg.style.display = ''; }
+            const modeTimer = document.getElementById('mode-overlay-timer');
+            if (modeTimer) { modeTimer.style.display = ''; }
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(updateTimerDisplay, 500);
             const display = document.getElementById('timer-active-display');
@@ -16082,6 +16189,12 @@ syncState();
             timerEndTime = Date.now() + totalMs;
             const bar = document.getElementById('timer-overlay-progress-bar');
             if (bar) { bar.style.width = '100%'; bar.className = ''; }
+            const mBar = document.getElementById('mode-overlay-progress-bar');
+            if (mBar) { mBar.style.width = '100%'; mBar.className = ''; }
+            const mProg = document.getElementById('mode-overlay-progress');
+            if (mProg) { mProg.style.display = ''; }
+            const modeTimer = document.getElementById('mode-overlay-timer');
+            if (modeTimer) { modeTimer.style.display = ''; }
 
             const objEl = document.getElementById('timer-overlay-objective');
             const objText = currentObjectives.trim();
@@ -16123,6 +16236,7 @@ syncState();
             const mInput = document.getElementById('popup-timer-minutes');
             if (hInput) hInput.value = hours;
             if (mInput) mInput.value = minutes + ((sec % 60) > 0 ? 1 : 0);
+            syncPopupSettingsToOverlay();
 
             if (timerInterval) clearInterval(timerInterval);
             timerTotalMs = totalMs;
@@ -16132,6 +16246,12 @@ syncState();
 
             const prog = document.getElementById('timer-overlay-progress-bar');
             if (prog) { prog.style.width = '100%'; prog.className = ''; }
+            const mBar = document.getElementById('mode-overlay-progress-bar');
+            if (mBar) { mBar.style.width = '100%'; mBar.className = ''; }
+            const mProg = document.getElementById('mode-overlay-progress');
+            if (mProg) { mProg.style.display = ''; }
+            const modeTimer = document.getElementById('mode-overlay-timer');
+            if (modeTimer) { modeTimer.style.display = ''; }
 
             timerInterval = setInterval(updateTimerDisplay, 500);
             const display = document.getElementById('timer-active-display');
@@ -16166,6 +16286,12 @@ syncState();
             document.getElementById('timer-overlay-display').textContent = '--:--';
             const bar = document.getElementById('timer-overlay-progress-bar');
             if (bar) { bar.style.width = '100%'; bar.className = ''; }
+            const mBar = document.getElementById('mode-overlay-progress-bar');
+            if (mBar) { mBar.style.width = '100%'; mBar.className = ''; }
+            const mProg = document.getElementById('mode-overlay-progress');
+            if (mProg) { mProg.style.display = 'none'; }
+            const modeTimer = document.getElementById('mode-overlay-timer');
+            if (modeTimer) { modeTimer.style.display = 'none'; }
 
             const display = document.getElementById('timer-active-display');
             document.getElementById('timer-active-area').style.display = 'none';
@@ -16502,6 +16628,11 @@ syncState();
                     pBar.style.width = '0%';
                     pBar.className = 'finished';
                 }
+                const mBar = document.getElementById('mode-overlay-progress-bar');
+                if (mBar) {
+                    mBar.style.width = '0%';
+                    mBar.className = 'finished';
+                }
 
                 const display = document.getElementById('timer-active-display');
                 display.textContent = '00:00';
@@ -16532,8 +16663,12 @@ syncState();
                     if (pSub) pSub.style.display = 'none';
                     const oa = document.getElementById('overlay-add30s-btn');
                     if (oa) oa.style.display = 'none';
+                    const os = document.getElementById('overlay-sub30s-btn');
+                    if (os) os.style.display = 'none';
                     const moa3 = document.getElementById('mode-overlay-add30s-btn');
                     if (moa3) moa3.style.display = 'none';
+                    const mos3 = document.getElementById('mode-overlay-sub30s-btn');
+                    if (mos3) mos3.style.display = 'none';
                     updateOverlayTransportControls();
                 }, 500);
 
@@ -16583,16 +16718,24 @@ syncState();
             // Update progress bar and smooth status color
             if (timerTotalMs > 0) {
                 const pct = remaining / timerTotalMs; // 1 = full, 0 = done
+                const widthStyle = (pct * 100) + '%';
+                let barClass = '';
+                if (remaining < 60000 || pct < 0.2) {
+                    barClass = 'finished';
+                } else if (pct < 0.5) {
+                    barClass = 'warning';
+                }
+
                 const progressBar = document.getElementById('timer-overlay-progress-bar');
                 if (progressBar) {
-                    progressBar.style.width = (pct * 100) + '%';
-                    if (remaining < 60000 || pct < 0.2) {
-                        progressBar.className = 'finished';
-                    } else if (pct < 0.5) {
-                        progressBar.className = 'warning';
-                    } else {
-                        progressBar.className = '';
-                    }
+                    progressBar.style.width = widthStyle;
+                    progressBar.className = barClass;
+                }
+
+                const modeProgressBar = document.getElementById('mode-overlay-progress-bar');
+                if (modeProgressBar) {
+                    modeProgressBar.style.width = widthStyle;
+                    modeProgressBar.className = barClass;
                 }
 
                 let bg;
@@ -18462,10 +18605,16 @@ syncState();
 
             overlay.classList.add('active');
 
+            // Synchronize current timer settings and state to mode overlay
+            syncPopupSettingsToOverlay();
+            syncOverlayTimerModeState();
+
             // Show timer control buttons if a countdown is active or paused
             const _timerActive = timerInterval || timerPaused;
             const _moa = document.getElementById('mode-overlay-add30s-btn');
             if (_moa) _moa.style.display = _timerActive ? '' : 'none';
+            const _mos = document.getElementById('mode-overlay-sub30s-btn');
+            if (_mos) _mos.style.display = _timerActive ? '' : 'none';
             updateOverlayTransportControls();
 
             // Mark active shortcut button
@@ -18624,7 +18773,7 @@ syncState();
         }
 
         function getModeTimerHTML() {
-            let timeStr, isWarning, bg;
+            let timeStr, isWarning, bg, showProgress = false, progressPct = 100, progressClass = '';
             if (PRESENTATION_MODE) {
                 const area = document.getElementById('timer-active-area');
                 const display = document.getElementById('timer-active-display');
@@ -18633,6 +18782,12 @@ syncState();
                 timeStr = display ? display.textContent : '--:--';
                 isWarning = display && (display.classList.contains('warning') || display.classList.contains('timer-warning'));
                 bg = overlayEl ? overlayEl.style.background : '';
+                const ovBar = document.getElementById('timer-overlay-progress-bar');
+                if (ovBar && timerMode !== 'stopwatch') {
+                    showProgress = true;
+                    progressPct = parseFloat(ovBar.style.width) || 100;
+                    progressClass = ovBar.className || '';
+                }
             } else {
                 const isTimerRunning = timerInterval && timerEndTime;
                 const isStopwatchRunning = stopwatchInterval && stopwatchStart;
@@ -18642,9 +18797,24 @@ syncState();
                 isWarning = timerEndTime && (timerEndTime - Date.now()) < 60000;
                 const overlayEl = document.getElementById('timer-overlay');
                 bg = overlayEl ? overlayEl.style.background : '';
+                if (isTimerRunning && timerMode !== 'stopwatch' && timerTotalMs > 0) {
+                    showProgress = true;
+                    const remaining = Math.max(0, timerEndTime - Date.now());
+                    const pct = Math.max(0, Math.min(1, remaining / timerTotalMs));
+                    progressPct = Math.round(pct * 1000) / 10;
+                    if (remaining < 60000 || pct < 0.2) {
+                        progressClass = 'finished';
+                    } else if (pct < 0.5) {
+                        progressClass = 'warning';
+                    }
+                }
             }
             const bgStyle = bg ? ` style="background:${bg};"` : '';
-            return `<div class="mode-overlay-timer${isWarning ? ' warning' : ''}" id="mode-overlay-timer"${bgStyle} onclick="openTimerFullscreen()" title="Click to open fullscreen timer">${timeStr}</div>`;
+            const progressHtml = showProgress ? `
+                <div id="mode-overlay-progress" class="mode-overlay-progress">
+                    <div id="mode-overlay-progress-bar" class="mode-overlay-progress-bar ${progressClass}" style="width: ${progressPct}%;"></div>
+                </div>` : '';
+            return `<div class="mode-overlay-timer${isWarning ? ' warning' : ''}" id="mode-overlay-timer"${bgStyle} onclick="openTimerFullscreen()" title="Click to open fullscreen timer">${timeStr}</div>${progressHtml}`;
         }
 
         function buildQuietMode(mode) {

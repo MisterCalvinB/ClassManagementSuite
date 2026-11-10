@@ -154,6 +154,11 @@
     return getDesktopApi().updateSessionContext(context);
   }
 
+  async function checkBoardFileOpen(query) {
+    if (!isElectron()) return { ok: true, isOpen: false };
+    return getDesktopApi().checkBoardFileOpen(query);
+  }
+
   async function getSessionState() {
     if (!isElectron()) return null;
     return getDesktopApi().getSessionState();
@@ -1299,6 +1304,7 @@
     saveFile,
     saveFiles,
     updateSessionContext,
+    checkBoardFileOpen,
     getSessionState,
     saveBoardArchive,
     readBoardArchive,

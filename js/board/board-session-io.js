@@ -2532,6 +2532,13 @@
       try {
         if (typeof closeSessionLoadPopup === 'function') closeSessionLoadPopup();
         const result = await Desktop.openTool('board.html', { query, newWindow: true });
+        if (result && result.alreadyOpen) {
+          const msg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+            ? i18n.t('boardFileAlreadyOpenToast')
+            : 'This file is already open in another window.';
+          mdbToast(msg);
+          return true;
+        }
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Could not open a new board window.');
         }
@@ -2734,6 +2741,25 @@
 
     async function historyLoadSavedFile(entry) {
       if (!entry || !entry.target || !entry.filename) return;
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkBoardFileOpen === 'function') {
+        try {
+          const check = await Desktop.checkBoardFileOpen({
+            openTarget: entry.target,
+            openFilename: entry.filename,
+            openRelPath: entry.relativePath || entry.filename
+          });
+          if (check && check.isOpen) {
+            const msg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+              ? i18n.t('boardFileAlreadyOpenToast')
+              : 'This file is already open in another window.';
+            mdbToast(msg);
+            if (typeof closeSessionLoadPopup === 'function') closeSessionLoadPopup();
+            return;
+          }
+        } catch (_) {}
+      }
+
       try {
         sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({
           target: entry.target,
@@ -6293,6 +6319,7 @@
           name: boardStripJsonExt(file && file.name)
         });
         boardSetAutosaveFingerprint('constellation', data);
+        if (typeof boardReportActiveFileContext === 'function') boardReportActiveFileContext();
       });
 
       initDropzone('ta-dropzone', (data, file) => {

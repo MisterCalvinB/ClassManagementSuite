@@ -816,6 +816,39 @@ function registerWindowForSessionState(win, initialContext = null) {
   scheduleSaveSessionState(500);
 }
 
+function _hasBoardFile(item) {
+  if (!item || typeof item !== 'object') return false;
+  if (item.openLocalSession || item.localSession) {
+    const id = String(item.openLocalEntryId || item.entryId || '').trim();
+    if (id) return true;
+  }
+  const fn = String(item.openFilename || item.filename || item.openRelPath || item.relativePath || item.file || '').trim();
+  return !!fn;
+}
+
+function _areBoardFilesEqual(a, b) {
+  if (!a || !b) return false;
+  const isLocalA = !!(a.openLocalSession || a.localSession);
+  const isLocalB = !!(b.openLocalSession || b.localSession);
+  if (isLocalA || isLocalB) {
+    if (isLocalA !== isLocalB) return false;
+    const modeA = String(a.openLocalMode || a.mode || '').trim().toLowerCase();
+    const modeB = String(b.openLocalMode || b.mode || '').trim().toLowerCase();
+    const idA = String(a.openLocalEntryId || a.entryId || '').trim();
+    const idB = String(b.openLocalEntryId || b.entryId || '').trim();
+    return modeA === modeB && idA === idB && idA !== '';
+  }
+
+  const fnA = String(a.openFilename || a.filename || a.file || '').trim().toLowerCase();
+  const fnB = String(b.openFilename || b.filename || b.file || '').trim().toLowerCase();
+  const relA = String(a.openRelPath || a.relativePath || a.file || a.openFilename || a.filename || '').trim().replace(/\\/g, '/').toLowerCase();
+  const relB = String(b.openRelPath || b.relativePath || b.file || b.openFilename || b.filename || '').trim().replace(/\\/g, '/').toLowerCase();
+
+  if (fnA && fnB && fnA === fnB) return true;
+  if (relA && relB && relA === relB) return true;
+  return false;
+}
+
 function _buildSessionWindowQuery(item) {
   const query = {};
   if (item && item.pageFile === PAGE_FILES.board && item.context && item.context.filename) {
@@ -1130,7 +1163,7 @@ function createToolWindow(pageFile, options = {}) {
   }
 
   setupWindowExternalLinkHandling(win);
-  registerWindowForSessionState(win);
+  registerWindowForSessionState(win, options.initialContext || null);
   win.on('close', (event) => {
     const currentPage = getLoadedPageFile(win);
 
@@ -5309,8 +5342,62 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
 
   const wantsNewWindow = !!(request.newWindow || request.forceNewWindow);
 
-  // If an existing window for this page is already open (and no side-by-side, second screen, presentation query, or explicit new-window request)
-  if (!wantsNewWindow && !isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
+  // Board multi-window handling: allow opening multiple board windows provided files are not the same
+  if (pageFile === PAGE_FILES.board && !request.sideBySide && !request.openOnSecondScreen) {
+    const boardWins = BrowserWindow.getAllWindows().filter(
+      w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === PAGE_FILES.board
+    );
+    const isTargetFileSpecified = _hasBoardFile(query);
+
+    if (isTargetFileSpecified) {
+      // 1. If an existing Board window already has this exact file loaded, focus it
+      const sameFileWin = boardWins.find(w => _areBoardFilesEqual(_windowSessionContexts.get(w.id), query));
+      if (sameFileWin) {
+        if (targetBounds) _applySafeBounds(sameFileWin, targetBounds);
+        if (sameFileWin.isMinimized()) sameFileWin.restore();
+        sameFileWin.focus();
+        return { ok: true, windowId: sameFileWin.id, alreadyOpen: true };
+      }
+
+      // 2. If an existing Board window is clean and blank (no file loaded and not dirty), reuse it (unless user explicitly forced a new window)
+      if (!wantsNewWindow) {
+        const isDirtyWin = (w) => (typeof w.getTitle === 'function' && w.getTitle().startsWith('●')) || !!(_windowSessionContexts.get(w.id)?.isDirty);
+        const blankWin = boardWins.find(w => !_hasBoardFile(_windowSessionContexts.get(w.id)) && !isDirtyWin(w));
+        if (blankWin) {
+          if (query && !request.noReload) {
+            loadTool(pageFile, blankWin, { query }).catch((err) => {
+              console.error(`Failed to navigate ${pageFile}:`, err);
+            });
+          }
+          _windowSessionContexts.set(blankWin.id, {
+            target: query.openTarget || query.target || 'mindmaps',
+            filename: query.openFilename || query.filename || query.file || '',
+            relativePath: query.openRelPath || query.relativePath || query.file || query.openFilename || '',
+            section: query.openSection || query.section || 'constellation'
+          });
+          if (targetBounds) _applySafeBounds(blankWin, targetBounds);
+          if (blankWin.isMinimized()) blankWin.restore();
+          blankWin.focus();
+          return { ok: true, windowId: blankWin.id, reusedBlank: true };
+        }
+      }
+
+      // 3. Different file and no clean blank window to reuse -> fall through to create a new Board window!
+    } else {
+      // No specific file requested (e.g. clicking Board card in Launcher)
+      if (!wantsNewWindow) {
+        const isDirtyWin = (w) => (typeof w.getTitle === 'function' && w.getTitle().startsWith('●')) || !!(_windowSessionContexts.get(w.id)?.isDirty);
+        const blankWin = boardWins.find(w => !_hasBoardFile(_windowSessionContexts.get(w.id)) && !isDirtyWin(w));
+        if (blankWin) {
+          if (targetBounds) _applySafeBounds(blankWin, targetBounds);
+          if (blankWin.isMinimized()) blankWin.restore();
+          blankWin.focus();
+          return { ok: true, windowId: blankWin.id };
+        }
+        // If all existing board windows have files loaded or are dirty, fall through to create a new blank Board window!
+      }
+    }
+  } else if (!wantsNewWindow && !isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
     const existing = BrowserWindow.getAllWindows().find(
       w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === pageFile
     );
@@ -5330,6 +5417,14 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   }
 
   const toolOptions = query ? { query } : {};
+  if (pageFile === PAGE_FILES.board && _hasBoardFile(query)) {
+    toolOptions.initialContext = {
+      target: query.openTarget || query.target || 'mindmaps',
+      filename: query.openFilename || query.filename || query.file || '',
+      relativePath: query.openRelPath || query.relativePath || query.file || query.openFilename || '',
+      section: query.openSection || query.section || 'constellation'
+    };
+  }
   if (targetBounds) {
     toolOptions.width  = targetBounds.width;
     toolOptions.height = targetBounds.height;
@@ -10103,6 +10198,22 @@ ipcMain.handle('app:update-session-context', async (event, context = {}) => {
     scheduleSaveSessionState(300);
   }
   return { ok: true };
+});
+
+ipcMain.handle('app:check-board-file-open', async (event, query = {}) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  const boardWins = BrowserWindow.getAllWindows().filter(
+    w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === PAGE_FILES.board && w !== senderWin
+  );
+  for (const w of boardWins) {
+    const ctx = _windowSessionContexts.get(w.id);
+    if (_areBoardFilesEqual(ctx, query)) {
+      if (w.isMinimized()) w.restore();
+      w.focus();
+      return { ok: true, isOpen: true, windowId: w.id };
+    }
+  }
+  return { ok: true, isOpen: false };
 });
 
 ipcMain.handle('app:get-session-state', async () => {

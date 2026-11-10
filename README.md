@@ -1004,6 +1004,12 @@ Active classroom control panel for student scoring, timers, class working modes,
 Interactive mind-map, visual board, constellation session maps, and whiteboard canvas.
 
 #### Features
+- **Multi-Window Board Sessions & Smart Routing**: Open and run multiple independent Board windows side-by-side or on multiple monitors, provided each window displays a distinct session or file:
+  - **Conflict-Free File Protection**: Attempting to open a file that is already loaded in an active Board window smoothly brings that window to the front and focuses it, preventing conflicting concurrent edits or duplicate autosaves.
+  - **Clean Blank Window Reuse**: Opening a file from the Launcher, File Manager, or other suite tools automatically reuses an existing clean/untitled Board window (if available and not modified), keeping workspace windows tidy.
+  - **Smart Launcher App Card Launching**: Clicking the Board card in the Launcher focuses a blank Board window if one is open; if all active Board windows have files loaded, it automatically spawns a new blank Board window.
+  - **In-Board "New Window" Button & Shortcut**: A dedicated **New Window** action button in the toolbar's File group (and shortcut registry) allows teachers to instantly open an empty Board window on demand.
+  - **Context Menu Integration in Launcher & File Manager**: Right-clicking session files (`.cstz`, `.js`, `.json`) in the Launcher's Recent Documents or File Manager offers both **Open in Board** and **Open in New Window**.
 - **Unified Collapsible Toolbar Drawer (Pinned vs. Auto-Hide on Hover)**: Eliminates visual discrepancy between the main teacher view and the clean mirrored display. The entire sticky top section—encompassing the main menu toolbar, the snippet navigation bar with live page thumbnails, and the drawing menu—is housed in a unified Light Neobrutalist drawer (`#con-toolbar-drawer`).
   - **Pinned Mode (Default)**: Keeps the entire toolbar permanently visible in the document flow. The toolbar includes a dedicated **Pinned** button with an official SVG pin icon (`assets/icons/pin.svg`) to toggle modes.
   - **Auto-Hide Mode**: Smoothly glides the unified drawer upward via GPU-composited `transform: translateY(...)`, freeing up full vertical canvas space so the teacher sees the board starting from coordinate $(0,0)$ matching the presentation mirror display.
