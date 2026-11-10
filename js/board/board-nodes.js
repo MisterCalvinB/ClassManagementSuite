@@ -18992,8 +18992,10 @@
         badge.dataset.rawNumber = String(number);
         badge.dataset.entityFormat = format || 'arabic';
         if (text.length > 2) {
-          badge.style.fontSize = Math.max(8, 12 - text.length) + 'px';
-          badge.style.minWidth = (20 + (text.length - 2) * 5) + 'px';
+          const baseSize = (typeof window._bcEntityNumberSize === 'number') ? window._bcEntityNumberSize : 22;
+          const baseFont = Math.round(baseSize * 0.5);
+          badge.style.fontSize = Math.max(8, baseFont - (text.length - 2) * 2) + 'px';
+          badge.style.minWidth = (baseSize + (text.length - 2) * 6) + 'px';
         } else {
           badge.style.fontSize = '';
           badge.style.minWidth = '';
@@ -19122,12 +19124,149 @@
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       }
 
-      function conNumberSelectedEntities(preferredFormat) {
+      function conGetMaxEntityNumberOutside(selectedList) {
+        let max = 0;
+        const selIds = new Set((selectedList || []).map(s => String(s.id)));
+        const allNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+        const allNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+        const allGroups = (typeof window.conGetGroups === 'function') ? window.conGetGroups() : (window.conGroups || conGroups || []);
+        const allMedia = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : (window.conMediaItems || conMediaItems || []);
+
+        allNodes.forEach(n => {
+          if (n && !selIds.has(String(n.id)) && typeof n.nodeNumber === 'number' && n.nodeNumber > max) {
+            max = n.nodeNumber;
+          }
+        });
+        allNotes.forEach(n => {
+          if (n && !selIds.has(String(n.id)) && typeof n.noteNumber === 'number' && n.noteNumber > max) {
+            max = n.noteNumber;
+          }
+        });
+        allGroups.forEach(g => {
+          if (g && !selIds.has(String(g.id)) && typeof g.groupNumber === 'number' && g.groupNumber > max) {
+            max = g.groupNumber;
+          }
+        });
+        allMedia.forEach(m => {
+          if (m && !selIds.has(String(m.id)) && typeof m.mediaNumber === 'number' && m.mediaNumber > max) {
+            max = m.mediaNumber;
+          }
+        });
+        return max;
+      }
+
+      function conCloseNumberingChoiceToast() {
+        const toast = document.getElementById('con-numbering-choice-toast');
+        if (toast) {
+          if (toast._onDocClick) {
+            document.removeEventListener('pointerdown', toast._onDocClick, true);
+          }
+          toast.remove();
+        }
+      }
+
+      function conShowNumberingChoiceToast(opts) {
+        conCloseNumberingChoiceToast();
+        if (!opts) return;
+
+        const tMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberConflictMsg') : 'Numbers already exist on the board:';
+        const tContinue = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceContinue') : 'Continue number';
+        const tKeep = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceKeepOld') : 'Keep old and start new';
+        const tClear = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceClearOld') : 'Clear old and start new';
+
+        const toast = document.createElement('div');
+        toast.id = 'con-numbering-choice-toast';
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+
+        const header = document.createElement('div');
+        header.className = 'con-numbering-toast-header';
+
+        const icon = document.createElement('img');
+        icon.src = '../assets/icons/page-number.svg';
+        icon.className = 'btn-icon';
+        icon.alt = '';
+        icon.style.width = '16px';
+        icon.style.height = '16px';
+        icon.style.margin = '0';
+        header.appendChild(icon);
+
+        const msgSpan = document.createElement('span');
+        msgSpan.className = 'con-numbering-toast-msg';
+        msgSpan.textContent = tMsg;
+        header.appendChild(msgSpan);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'action-btn btn-grey con-numbering-toast-close';
+        closeBtn.title = 'Dismiss';
+        closeBtn.setAttribute('aria-label', 'Dismiss');
+        closeBtn.textContent = '✕';
+        closeBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          conCloseNumberingChoiceToast();
+        });
+        header.appendChild(closeBtn);
+
+        const actions = document.createElement('div');
+        actions.className = 'con-numbering-toast-actions';
+
+        const continueBtn = document.createElement('button');
+        continueBtn.type = 'button';
+        continueBtn.className = 'action-btn con-numbering-choice-btn con-btn-continue';
+        continueBtn.textContent = tContinue;
+        continueBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          conCloseNumberingChoiceToast();
+          if (typeof opts.onChoice === 'function') opts.onChoice('continue');
+        });
+        actions.appendChild(continueBtn);
+
+        const keepBtn = document.createElement('button');
+        keepBtn.type = 'button';
+        keepBtn.className = 'action-btn btn-grey con-numbering-choice-btn con-btn-keep';
+        keepBtn.textContent = tKeep;
+        keepBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          conCloseNumberingChoiceToast();
+          if (typeof opts.onChoice === 'function') opts.onChoice('keep');
+        });
+        actions.appendChild(keepBtn);
+
+        const clearBtn = document.createElement('button');
+        clearBtn.type = 'button';
+        clearBtn.className = 'action-btn btn-grey con-numbering-choice-btn con-btn-clear';
+        clearBtn.textContent = tClear;
+        clearBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          conCloseNumberingChoiceToast();
+          if (typeof opts.onChoice === 'function') opts.onChoice('clear');
+        });
+        actions.appendChild(clearBtn);
+
+        toast.appendChild(header);
+        toast.appendChild(actions);
+
+        const onDocClick = function (e) {
+          if (!toast.contains(e.target)) {
+            conCloseNumberingChoiceToast();
+          }
+        };
+        toast._onDocClick = onDocClick;
+        setTimeout(() => {
+          document.addEventListener('pointerdown', onDocClick, true);
+        }, 120);
+
+        document.body.appendChild(toast);
+      }
+
+      function conNumberSelectedEntities(preferredFormat, startFromNum) {
         const selected = conGetSelectedEntities();
         if (selected.length === 0) return;
         if (typeof window.conPushUndo === 'function') window.conPushUndo();
 
         const fmt = preferredFormat || window._bcEntityNumberFormat || 'arabic';
+        const start = (typeof startFromNum === 'number' && startFromNum > 0) ? startFromNum : 1;
 
         // Sort top-to-bottom, left-to-right (reading order)
         selected.sort((a, b) => {
@@ -19137,7 +19276,7 @@
         });
 
         selected.forEach((item, index) => {
-          const num = index + 1;
+          const num = start + index;
           if (item.type === 'node') { item.obj.nodeNumber = num; item.obj.nodeNumberFormat = fmt; }
           else if (item.type === 'note') { item.obj.noteNumber = num; item.obj.noteNumberFormat = fmt; }
           else if (item.type === 'group') { item.obj.groupNumber = num; item.obj.groupNumberFormat = fmt; }
@@ -19176,11 +19315,14 @@
           `;
           pill.style.display = 'inline-flex';
         } else {
+          conCloseNumberingChoiceToast();
+          window._conNumberingSeq = null;
           if (pill) pill.remove();
         }
       }
 
       function conExitNumberingMode() {
+        conCloseNumberingChoiceToast();
         if (window.conNumberingMode) {
           conToggleNumberingMode(false);
         }
@@ -19188,10 +19330,55 @@
 
       function conTriggerEntityNumbering(preferredFormat) {
         const selected = conGetSelectedEntities();
+        const maxNum = conGetMaxEntityNumber();
+        const hasExisting = maxNum > 0;
+
         if (selected.length > 0) {
-          conNumberSelectedEntities(preferredFormat);
+          if (!hasExisting) {
+            conNumberSelectedEntities(preferredFormat, 1);
+            return;
+          }
+          conShowNumberingChoiceToast({
+            mode: 'selection',
+            onChoice: function (choice) {
+              if (choice === 'continue') {
+                const outsideMax = conGetMaxEntityNumberOutside(selected);
+                const startNum = (outsideMax > 0 ? outsideMax : maxNum) + 1;
+                conNumberSelectedEntities(preferredFormat, startNum);
+              } else if (choice === 'keep') {
+                conNumberSelectedEntities(preferredFormat, 1);
+              } else if (choice === 'clear') {
+                conClearEntityNumbers('all');
+                conNumberSelectedEntities(preferredFormat, 1);
+              }
+            }
+          });
         } else {
-          conToggleNumberingMode(undefined, preferredFormat);
+          if (window.conNumberingMode) {
+            conToggleNumberingMode(false);
+            return;
+          }
+          if (!hasExisting) {
+            window._conNumberingSeq = 1;
+            conToggleNumberingMode(true, preferredFormat);
+            return;
+          }
+          conShowNumberingChoiceToast({
+            mode: 'interactive',
+            onChoice: function (choice) {
+              if (choice === 'continue') {
+                window._conNumberingSeq = maxNum + 1;
+                conToggleNumberingMode(true, preferredFormat);
+              } else if (choice === 'keep') {
+                window._conNumberingSeq = 1;
+                conToggleNumberingMode(true, preferredFormat);
+              } else if (choice === 'clear') {
+                conClearEntityNumbers('all');
+                window._conNumberingSeq = 1;
+                conToggleNumberingMode(true, preferredFormat);
+              }
+            }
+          });
         }
       }
 
@@ -19215,7 +19402,12 @@
           conSetEntityNumberByElement(el, null);
         } else {
           // Assign next
-          const next = conGetMaxEntityNumber() + 1;
+          let next;
+          if (typeof window._conNumberingSeq === 'number') {
+            next = window._conNumberingSeq++;
+          } else {
+            next = conGetMaxEntityNumber() + 1;
+          }
           conSetEntityNumberByElement(el, next, window._bcEntityNumberFormat || 'arabic');
         }
         return true;
@@ -19284,6 +19476,9 @@
       window.conRemoveEntityBadge = global.conRemoveEntityBadge = conRemoveEntityBadge;
       window.conGetSelectedEntities = global.conGetSelectedEntities = conGetSelectedEntities;
       window.conGetMaxEntityNumber = global.conGetMaxEntityNumber = conGetMaxEntityNumber;
+      window.conGetMaxEntityNumberOutside = global.conGetMaxEntityNumberOutside = conGetMaxEntityNumberOutside;
+      window.conShowNumberingChoiceToast = global.conShowNumberingChoiceToast = conShowNumberingChoiceToast;
+      window.conCloseNumberingChoiceToast = global.conCloseNumberingChoiceToast = conCloseNumberingChoiceToast;
       window.conSetEntityNumberByElement = global.conSetEntityNumberByElement = conSetEntityNumberByElement;
       window.conNumberSelectedEntities = global.conNumberSelectedEntities = conNumberSelectedEntities;
       window.conToggleNumberingMode = global.conToggleNumberingMode = conToggleNumberingMode;

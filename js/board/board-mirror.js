@@ -2612,6 +2612,33 @@
           return;
         }
 
+        if (d.type === 'entity-number-style') {
+          if (_mirrorIsFrozen) return;
+          if (d.size !== undefined) {
+            window._bcEntityNumberSize = d.size;
+            document.documentElement.style.setProperty('--con-node-num-size', d.size + 'px');
+            document.documentElement.style.setProperty('--con-node-num-font-size', Math.round(d.size * 0.5) + 'px');
+            document.documentElement.style.setProperty('--con-node-num-radius', Math.round(d.size / 2) + 'px');
+          }
+          if (d.bg) {
+            window._bcEntityNumberBg = d.bg;
+            document.documentElement.style.setProperty('--con-node-num-bg', d.bg);
+          }
+          if (d.color) {
+            window._bcEntityNumberColor = d.color;
+            document.documentElement.style.setProperty('--con-node-num-color', d.color);
+          }
+          if (d.border) {
+            window._bcEntityNumberBorder = d.border;
+            document.documentElement.style.setProperty('--con-node-num-border', d.border);
+          }
+          if (d.borderWidth !== undefined) {
+            window._bcEntityNumberBorderWidth = d.borderWidth;
+            document.documentElement.style.setProperty('--con-node-num-border-width', d.borderWidth + 'px');
+          }
+          return;
+        }
+
         if (d.type === 'board-bg') {
           if (_mirrorIsFrozen) return;
           var brd = document.getElementById('constellation-board');

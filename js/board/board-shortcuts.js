@@ -1965,6 +1965,7 @@
       if (bsEl) bsEl.value = bc.nodeDefaultBorderStyle || 'solid';
       set('bc-node-border-color', bc.nodeDefaultBorderColor || '#111111');
       set('bc-entity-num-format', bc.entityNumberFormat || window._bcEntityNumberFormat || 'arabic');
+      set('bc-entity-num-size', bc.entityNumberSize !== undefined ? bc.entityNumberSize : (window._bcEntityNumberSize || 22));
       set('bc-entity-num-bg', bc.entityNumberBg || window._bcEntityNumberBg || '#fef08a');
       set('bc-entity-num-color', bc.entityNumberColor || window._bcEntityNumberColor || '#111111');
       set('bc-entity-num-border', bc.entityNumberBorder || window._bcEntityNumberBorder || '#333333');
@@ -2212,6 +2213,7 @@
 
       window.bcUpdateNumberBadgePreview = function () {
         const fmt = document.getElementById('bc-entity-num-format')?.value || 'arabic';
+        const size = parseInt(document.getElementById('bc-entity-num-size')?.value, 10) || 22;
         const bg = document.getElementById('bc-entity-num-bg')?.value || '#fef08a';
         const color = document.getElementById('bc-entity-num-color')?.value || '#111111';
         const border = document.getElementById('bc-entity-num-border')?.value || '#333333';
@@ -2225,6 +2227,11 @@
             p.style.color = color;
             p.style.borderColor = border;
             p.style.borderWidth = bw;
+            p.style.width = size + 'px';
+            p.style.minWidth = size + 'px';
+            p.style.height = size + 'px';
+            p.style.borderRadius = Math.round(size / 2) + 'px';
+            p.style.fontSize = Math.round(size * 0.5) + 'px';
           }
         });
       };
@@ -2634,6 +2641,7 @@
         nodeDefaultBorderStyle: getVal('bc-node-border-style', 'solid'),
         nodeDefaultBorderColor: getVal('bc-node-border-color', '#111111'),
         entityNumberFormat: getVal('bc-entity-num-format', 'arabic'),
+        entityNumberSize: parseInt(document.getElementById('bc-entity-num-size')?.value, 10) || 22,
         entityNumberBg: getVal('bc-entity-num-bg', '#fef08a'),
         entityNumberColor: getVal('bc-entity-num-color', '#111111'),
         entityNumberBorder: getVal('bc-entity-num-border', '#333333'),
@@ -2786,6 +2794,12 @@
         document.documentElement.style.setProperty('--bc-node-border-color', bc.nodeDefaultBorderColor);
       }
       if (bc.entityNumberFormat) window._bcEntityNumberFormat = bc.entityNumberFormat;
+      if (bc.entityNumberSize !== undefined) {
+        window._bcEntityNumberSize = bc.entityNumberSize;
+        document.documentElement.style.setProperty('--con-node-num-size', bc.entityNumberSize + 'px');
+        document.documentElement.style.setProperty('--con-node-num-font-size', Math.round(bc.entityNumberSize * 0.5) + 'px');
+        document.documentElement.style.setProperty('--con-node-num-radius', Math.round(bc.entityNumberSize / 2) + 'px');
+      }
       if (bc.entityNumberBg) {
         window._bcEntityNumberBg = bc.entityNumberBg;
         document.documentElement.style.setProperty('--con-node-num-bg', bc.entityNumberBg);
@@ -2801,6 +2815,16 @@
       if (bc.entityNumberBorderWidth !== undefined) {
         window._bcEntityNumberBorderWidth = bc.entityNumberBorderWidth;
         document.documentElement.style.setProperty('--con-node-num-border-width', bc.entityNumberBorderWidth + 'px');
+      }
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'entity-number-style',
+          size: bc.entityNumberSize,
+          bg: bc.entityNumberBg,
+          color: bc.entityNumberColor,
+          border: bc.entityNumberBorder,
+          borderWidth: bc.entityNumberBorderWidth
+        });
       }
 
       // 4. Note background swatches

@@ -348,6 +348,26 @@
   }
 
   /**
+   * Helper: Resolve accurate entity number badge styling
+   */
+  function resolveEntityBadgeStyle() {
+    var sz = (typeof window !== 'undefined' && typeof window._bcEntityNumberSize === 'number') ? window._bcEntityNumberSize : 22;
+    var bg = (typeof window !== 'undefined' && window._bcEntityNumberBg) ? window._bcEntityNumberBg : '#fef08a';
+    var color = (typeof window !== 'undefined' && window._bcEntityNumberColor) ? window._bcEntityNumberColor : '#111111';
+    var border = (typeof window !== 'undefined' && window._bcEntityNumberBorder) ? window._bcEntityNumberBorder : '#333333';
+    var bw = (typeof window !== 'undefined' && window._bcEntityNumberBorderWidth !== undefined) ? window._bcEntityNumberBorderWidth : 2;
+    return {
+      size: sz,
+      bg: bg,
+      color: color,
+      border: border,
+      borderWidth: bw,
+      fontSize: Math.max(9, Math.round(sz * 0.5)),
+      radius: Math.round(sz / 2)
+    };
+  }
+
+  /**
    * Helper: Resolve accurate note border properties (respecting main view styling: 1px dotted #cdc9c9 by default)
    */
   function resolveNoteBorder(nt) {
@@ -1237,12 +1257,13 @@
           '    <text x="' + (gx + 8) + '" y="' + (gy + 15) + '" fill="#ffffff" font-family="Lexend, sans-serif" font-size="10.5" font-weight="800">' + escapeXml(gTitle) + '</text>\n';
       }
       if (g.groupNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(g.groupNumber, g.groupNumberFormat) : String(g.groupNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
         var bx = gx + 6;
-        var by = gy - 10;
-        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
-          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+        var by = gy - Math.round(bSt.size * 0.5);
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="' + bSt.size + '" rx="' + bSt.radius + '" fill="' + bSt.bg + '" stroke="' + bSt.border + '" stroke-width="' + bSt.borderWidth + '" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + Math.round(bSt.size * 0.68)) + '" fill="' + bSt.color + '" font-family="Lexend, sans-serif" font-size="' + bSt.fontSize + '" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
       svg += '  </g>\n';
     });
@@ -1342,12 +1363,13 @@
           '  </g>\n';
       }
       if (m.mediaNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(m.mediaNumber, m.mediaNumberFormat) : String(m.mediaNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = mx - 8;
-        var by = my - 8;
-        svg += '  <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
-          '  <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = mx - Math.round(bSt.size * 0.45);
+        var by = my - Math.round(bSt.size * 0.45);
+        svg += '  <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="' + bSt.size + '" rx="' + bSt.radius + '" fill="' + bSt.bg + '" stroke="' + bSt.border + '" stroke-width="' + bSt.borderWidth + '" />\n' +
+          '  <text x="' + (bx + numW / 2) + '" y="' + (by + Math.round(bSt.size * 0.68)) + '" fill="' + bSt.color + '" font-family="Lexend, sans-serif" font-size="' + bSt.fontSize + '" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
     });
 
@@ -1682,12 +1704,13 @@
       }
 
       if (n.nodeNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(n.nodeNumber, n.nodeNumberFormat) : String(n.nodeNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = nx - 8;
-        var by = ny - 8;
-        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
-          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = nx - Math.round(bSt.size * 0.45);
+        var by = ny - Math.round(bSt.size * 0.45);
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="' + bSt.size + '" rx="' + bSt.radius + '" fill="' + bSt.bg + '" stroke="' + bSt.border + '" stroke-width="' + bSt.borderWidth + '" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + Math.round(bSt.size * 0.68)) + '" fill="' + bSt.color + '" font-family="Lexend, sans-serif" font-size="' + bSt.fontSize + '" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
 
       svg += '  </g>\n';
@@ -1839,12 +1862,13 @@
       }
 
       if (nt.noteNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(nt.noteNumber, nt.noteNumberFormat) : String(nt.noteNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = tx - 8;
-        var by = ty - 8;
-        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="20" rx="10" fill="#fef08a" stroke="#333333" stroke-width="2" />\n' +
-          '    <text x="' + (bx + numW / 2) + '" y="' + (by + 14) + '" fill="#111111" font-family="Lexend, sans-serif" font-size="11" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = tx - Math.round(bSt.size * 0.45);
+        var by = ty - Math.round(bSt.size * 0.45);
+        svg += '    <rect x="' + bx + '" y="' + by + '" width="' + numW + '" height="' + bSt.size + '" rx="' + bSt.radius + '" fill="' + bSt.bg + '" stroke="' + bSt.border + '" stroke-width="' + bSt.borderWidth + '" />\n' +
+          '    <text x="' + (bx + numW / 2) + '" y="' + (by + Math.round(bSt.size * 0.68)) + '" fill="' + bSt.color + '" font-family="Lexend, sans-serif" font-size="' + bSt.fontSize + '" font-weight="800" text-anchor="middle">' + escapeXml(numText) + '</text>\n';
       }
 
       svg += '  </g>\n';
@@ -2026,24 +2050,25 @@
         ctx.fillText(gTitle.slice(0, 20), gx + 6, gy + 11);
       }
       if (g.groupNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(g.groupNumber, g.groupNumberFormat) : String(g.groupNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
         var bx = gx + 6;
-        var by = gy - 10;
+        var by = gy - Math.round(bSt.size * 0.5);
         ctx.save();
-        ctx.fillStyle = '#fef08a';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = bSt.bg;
+        ctx.strokeStyle = bSt.border;
+        ctx.lineWidth = bSt.borderWidth;
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
-        else ctx.rect(bx, by, numW, 20);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, bSt.size, bSt.radius);
+        else ctx.rect(bx, by, numW, bSt.size);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = '#111111';
-        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.fillStyle = bSt.color;
+        ctx.font = '800 ' + bSt.fontSize + 'px "Lexend", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.fillText(numText, bx + numW / 2, by + bSt.size / 2);
         ctx.restore();
       }
     });
@@ -2135,24 +2160,25 @@
         ctx.restore();
       }
       if (m.mediaNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(m.mediaNumber, m.mediaNumberFormat) : String(m.mediaNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = mx - 8;
-        var by = my - 8;
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = mx - Math.round(bSt.size * 0.45);
+        var by = my - Math.round(bSt.size * 0.45);
         ctx.save();
-        ctx.fillStyle = '#fef08a';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = bSt.bg;
+        ctx.strokeStyle = bSt.border;
+        ctx.lineWidth = bSt.borderWidth;
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
-        else ctx.rect(bx, by, numW, 20);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, bSt.size, bSt.radius);
+        else ctx.rect(bx, by, numW, bSt.size);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = '#111111';
-        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.fillStyle = bSt.color;
+        ctx.font = '800 ' + bSt.fontSize + 'px "Lexend", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.fillText(numText, bx + numW / 2, by + bSt.size / 2);
         ctx.restore();
       }
     });
@@ -2482,24 +2508,25 @@
       }
 
       if (n.nodeNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(n.nodeNumber, n.nodeNumberFormat) : String(n.nodeNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = nx - 8;
-        var by = ny - 8;
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = nx - Math.round(bSt.size * 0.45);
+        var by = ny - Math.round(bSt.size * 0.45);
         ctx.save();
-        ctx.fillStyle = '#fef08a';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = bSt.bg;
+        ctx.strokeStyle = bSt.border;
+        ctx.lineWidth = bSt.borderWidth;
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
-        else ctx.rect(bx, by, numW, 20);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, bSt.size, bSt.radius);
+        else ctx.rect(bx, by, numW, bSt.size);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = '#111111';
-        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.fillStyle = bSt.color;
+        ctx.font = '800 ' + bSt.fontSize + 'px "Lexend", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.fillText(numText, bx + numW / 2, by + bSt.size / 2);
         ctx.restore();
       }
       ctx.restore();
@@ -2627,24 +2654,25 @@
       }
 
       if (nt.noteNumber != null) {
+        var bSt = resolveEntityBadgeStyle();
         var numText = (typeof conFormatSequenceBadge === 'function') ? conFormatSequenceBadge(nt.noteNumber, nt.noteNumberFormat) : String(nt.noteNumber);
-        var numW = Math.max(22, 14 + numText.length * 6);
-        var bx = tx - 8;
-        var by = ty - 8;
+        var numW = Math.max(bSt.size, Math.round(bSt.size * 0.65) + numText.length * 6);
+        var bx = tx - Math.round(bSt.size * 0.45);
+        var by = ty - Math.round(bSt.size * 0.45);
         ctx.save();
-        ctx.fillStyle = '#fef08a';
-        ctx.strokeStyle = '#333333';
-        ctx.lineWidth = 2;
+        ctx.fillStyle = bSt.bg;
+        ctx.strokeStyle = bSt.border;
+        ctx.lineWidth = bSt.borderWidth;
         ctx.beginPath();
-        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, 20, 10);
-        else ctx.rect(bx, by, numW, 20);
+        if (typeof ctx.roundRect === 'function') ctx.roundRect(bx, by, numW, bSt.size, bSt.radius);
+        else ctx.rect(bx, by, numW, bSt.size);
         ctx.fill();
         ctx.stroke();
-        ctx.fillStyle = '#111111';
-        ctx.font = '800 11px "Lexend", sans-serif';
+        ctx.fillStyle = bSt.color;
+        ctx.font = '800 ' + bSt.fontSize + 'px "Lexend", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(numText, bx + numW / 2, by + 10);
+        ctx.fillText(numText, bx + numW / 2, by + bSt.size / 2);
         ctx.restore();
       }
 
