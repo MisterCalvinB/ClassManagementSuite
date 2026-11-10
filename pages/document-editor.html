@@ -11,6 +11,47 @@
   <link rel="stylesheet" href="../css/common.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <link rel="stylesheet" href="../css/universal-importer.css">
+  <style>
+    .de-dict-pill {
+      position: fixed;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      box-shadow: 3px 3px 0 #555555;
+      padding: 3px 6px;
+      gap: 6px;
+      transform: translate(-50%, -100%);
+      margin-top: -8px;
+      pointer-events: auto;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .de-dict-pill-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      color: #333333;
+      padding: 3px 6px;
+      border-radius: 4px;
+      transition: background 0.12s ease;
+    }
+    .de-dict-pill-btn:hover {
+      background: #f0f0eb;
+    }
+    .de-dict-pill-btn img {
+      width: 14px;
+      height: 14px;
+    }
+  </style>
 </head>
 
 <body>
@@ -221,6 +262,7 @@
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-de-file-gen-handout" onclick="deOpenPullLessonModal()"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deGenHandoutFromLesson">Generate Student Handout…</span></button>
         <button class="nav-pop-item" id="btn-de-file-attach-ref" onclick="deAttachReferenceFile()"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAttachReferenceFile">Attach Reference PDF / File…</span></button>
+        <button class="nav-pop-item" id="btn-de-lookup-dict" onclick="deLookupWordInDictionary()"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deLookupInDict">Look up in Quick Dictionary</span> <span class="nav-pop-hint">Ctrl+⇧D</span></button>
         
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-mp-connect"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deMpConnect">Connect Class Roster…</span></button>
@@ -458,6 +500,12 @@
           <span id="de-pill-css-text">CSS</span>
         </span>
         <button class="de-pill-close" id="de-pill-close" title="Close inspector">✕</button>
+      </div>
+      <div id="de-dict-selection-pill" class="de-dict-pill" style="display:none;">
+        <button type="button" class="de-dict-pill-btn" id="btn-de-dict-pill-lookup">
+          <img src="../assets/icons/dictionary.svg" alt="">
+          <span data-i18n="dictLookupWord">Look up in Dictionary</span>
+        </button>
       </div>
     </div>
   </div>
@@ -2452,6 +2500,19 @@
             return;
           }
           openAddCustomCssModal(text.trim());
+        }
+      });
+
+      mdEditor.addAction({
+        id: 'cmt-lookup-word-in-dictionary',
+        label: window.t ? t('deLookupInDict', 'Look up in Quick Dictionary') : 'Look up in Quick Dictionary',
+        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
+        contextMenuGroupId: '1_snippets',
+        contextMenuOrder: 1.3,
+        run: function (ed) {
+          const sel = ed.getSelection();
+          const text = ed.getModel().getValueInRange(sel);
+          deLookupWordInDictionary(text);
         }
       });
 
@@ -6358,6 +6419,121 @@
       document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && lastInspectedPreviewEl) {
           deClearInspectorHighlights();
+        }
+      });
+
+      initPreviewDictionaryLookup();
+    }
+
+    // ── Quick Dictionary Lookup ──────────────────────────────────
+    function deCleanWordForLookup(raw) {
+      if (!raw) return '';
+      let str = String(raw).trim();
+      str = str.replace(/^[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+|[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+$/g, '').trim();
+      const words = str.split(/\s+/).filter(Boolean);
+      if (words.length > 3) {
+        str = words[0];
+      } else {
+        str = words.join(' ');
+      }
+      return str.replace(/^[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+|[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+$/g, '').trim();
+    }
+
+    function deLookupWordInDictionary(explicitText) {
+      let candidate = '';
+      if (typeof explicitText === 'string' && explicitText.trim()) {
+        candidate = explicitText;
+      } else if (mdEditor && mdEditor.hasTextFocus && mdEditor.hasTextFocus()) {
+        const sel = mdEditor.getSelection();
+        if (sel && !sel.isEmpty()) {
+          candidate = mdEditor.getModel().getValueInRange(sel);
+        }
+      }
+
+      if (!candidate) {
+        const winSel = window.getSelection();
+        if (winSel && winSel.toString().trim()) {
+          candidate = winSel.toString();
+        }
+      }
+
+      const word = deCleanWordForLookup(candidate);
+
+      if (window.electronBridge && typeof window.electronBridge.openDictionary === 'function') {
+        window.electronBridge.openDictionary(word);
+      } else if (window.electronApi && typeof window.electronApi.openHtml === 'function') {
+        window.electronApi.openHtml({
+          file: 'dictionary.html',
+          query: word ? { q: word } : undefined,
+          width: 880,
+          height: 680,
+          reuseId: 'dictionary'
+        });
+      } else {
+        const url = 'dictionary.html' + (word ? '?q=' + encodeURIComponent(word) : '');
+        window.open(url, 'cmt_quick_dictionary');
+      }
+    }
+
+    function initPreviewDictionaryLookup() {
+      const dictPill = document.getElementById('de-dict-selection-pill');
+      const lookupBtn = document.getElementById('btn-de-dict-pill-lookup');
+
+      if (lookupBtn) {
+        lookupBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deLookupWordInDictionary();
+          if (dictPill) dictPill.style.display = 'none';
+        });
+      }
+
+      function updateDictPillPosition() {
+        if (!dictPill) return;
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+          dictPill.style.display = 'none';
+          return;
+        }
+
+        const previewContainer = document.getElementById('preview-content') || document.getElementById('preview-scroll');
+        const fullPreviewContainer = document.getElementById('full-preview-content');
+        const anchorNode = sel.anchorNode;
+
+        const isInsidePreview = (previewContainer && previewContainer.contains(anchorNode)) ||
+                                (fullPreviewContainer && fullPreviewContainer.contains(anchorNode));
+
+        if (!isInsidePreview) {
+          dictPill.style.display = 'none';
+          return;
+        }
+
+        try {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            dictPill.style.left = (rect.left + rect.width / 2) + 'px';
+            dictPill.style.top = Math.max(10, rect.top) + 'px';
+            dictPill.style.display = 'flex';
+            return;
+          }
+        } catch (_) {}
+        dictPill.style.display = 'none';
+      }
+
+      document.addEventListener('selectionchange', () => {
+        requestAnimationFrame(updateDictPillPosition);
+      });
+
+      document.addEventListener('pointerdown', (e) => {
+        if (dictPill && !dictPill.contains(e.target)) {
+          dictPill.style.display = 'none';
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+          e.preventDefault();
+          deLookupWordInDictionary();
         }
       });
     }

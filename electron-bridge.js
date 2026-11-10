@@ -261,6 +261,36 @@
     return getDesktopApi().openHtml(request);
   }
 
+  async function openDictionary(word) {
+    var queryWord = typeof word === 'string' ? word.trim() : '';
+    try {
+      var bc = new BroadcastChannel('cmt-dictionary');
+      bc.postMessage({ type: 'search', q: queryWord });
+      bc.close();
+    } catch (_) {}
+
+    if (isElectron()) {
+      return getDesktopApi().openHtml({
+        file: 'dictionary.html',
+        query: queryWord ? { q: queryWord } : undefined,
+        width: 880,
+        height: 680,
+        reuseId: 'dictionary'
+      });
+    } else {
+      var url = 'dictionary.html' + (queryWord ? '?q=' + encodeURIComponent(queryWord) : '');
+      window.open(url, 'cmt_quick_dictionary');
+      return { ok: true };
+    }
+  }
+
+  function onDictionaryLookup(callback) {
+    if (isElectron() && typeof getDesktopApi().onDictionaryLookup === 'function') {
+      return getDesktopApi().onDictionaryLookup(callback);
+    }
+    return function () {};
+  }
+
   async function setAlwaysOnTop(flag) {
     if (!isElectron()) return null;
     return getDesktopApi().setAlwaysOnTop(flag);
@@ -1253,6 +1283,8 @@
     deleteFile,
     deleteByPath,
     openHtml,
+    openDictionary,
+    onDictionaryLookup,
     setAlwaysOnTop,
     isAlwaysOnTop,
     printHtml,

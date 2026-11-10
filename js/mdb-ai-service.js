@@ -440,6 +440,34 @@
         '"coefficient" must be an integer (e.g. 1, 2, 3, -1).',
         '"scope" must be "individual", "team", or "both".'
       ]
+    },
+    modebanks: {
+      title: 'Class Management Working Modes',
+      badge: 'Class Modes',
+      badgeColor: '#8b7cc2',
+      guide: 'Generates customized classroom working modes for Class Management with icons, visual animations, background audio, presentation display titles, and volume settings.',
+      topicLabel: 'Classroom Dynamic, Activity Type, or Pedagogical Focus',
+      topicPlaceholder: 'e.g., Silent Reading, Socratic Debate, Team Hackathon, Lab Safety, Mindfulness...',
+      textLabel: 'Classroom Guidelines or Mode Behavioral Expectations',
+      textPlaceholder: 'Paste classroom guidelines, volume expectations, or activity rules to convert into working modes...',
+      focusPlaceholder: 'e.g., Focus on calm visual animations (pulse, bubbles), clear titles, appropriate audio (whitenoise, binaural)...',
+      defaultCount: 3,
+      showCefr: false,
+      defaultCefr: 'Any',
+      presets: [
+        { label: 'Independent Deep Work', val: 'Silent individual study, focused writing, exam condition' },
+        { label: 'Collaborative Workshop', val: 'Small team breakout, interactive workshop, science experiment' },
+        { label: 'Socratic Discussion', val: 'Active seminar debate, structured speaking turns, fishbowl conversation' },
+        { label: 'Quick Sprint & Review', val: 'Gamified speed challenge, team quiz race, energetic brain break' }
+      ],
+      schemaInstructions: [
+        'Each record MUST include: "name", "icon", "shortcutKey", "title", "subtitle", "pictureType", "pictureAnim", "soundType", "soundVol".',
+        '"icon" must be a single emoji or valid icon name (e.g. "🤫", "💬", "👥", "🔬", "🎯").',
+        '"pictureType" must be one of: "emoji", "speech_bubbles", "group_icons", "custom_url", "custom_file".',
+        '"pictureAnim" must be one of: "none", "pulse", "bounce", "rotate", "shush", "bubbles".',
+        '"soundType" must be one of: "none", "whitenoise", "binaural", "custom_audio".',
+        '"soundVol" must be an integer between 0 and 100.'
+      ]
     }
   };
 
@@ -586,6 +614,7 @@
     if (typeKey === 'phases') return 'name';
     if (typeKey === 'chips') return 'label';
     if (typeKey === 'badgebanks') return 'name';
+    if (typeKey === 'modebanks') return 'name';
     return 'title';
   }
 

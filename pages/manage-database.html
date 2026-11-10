@@ -17,6 +17,7 @@
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
   <script src="../js/badge-sets-service.js"></script>
+  <script src="../js/mode-sets-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../js/slm-service.js"></script>
@@ -622,6 +623,13 @@
             </label>
             <div style="font-size:0.75rem;color:#555;margin-top:4px;" data-i18n="mdbBadgeStartFromDefaultDesc">Pre-populates the new badge set with the standard class management badges.</div>
           </div>
+          <div id="nf-modes-seed-wrap" class="hidden" style="margin-top:12px;padding:8px 10px;background:#f5f5f0;border:1.5px solid #333;border-radius:6px;">
+            <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;cursor:pointer;">
+              <input type="checkbox" id="nf-seed-default-modes" checked style="width:16px;height:16px;cursor:pointer;">
+              <span data-i18n="mdbModeStartFromDefault">Start from default modes</span>
+            </label>
+            <div style="font-size:0.75rem;color:#555;margin-top:4px;" data-i18n="mdbModeStartFromDefaultDesc">Pre-populates the new mode set with the standard class management modes (Quiet, Talk, Group).</div>
+          </div>
         </div>
       </div>
       <div class="modal-ft">
@@ -698,6 +706,7 @@
             <option value="number" data-i18n="mdbColTypeNumber">Number</option>
             <option value="boolean" data-i18n="mdbColTypeBoolean">Boolean (Yes/No)</option>
             <option value="array" data-i18n="mdbColTypeArray">List / Tags</option>
+            <option value="color" data-i18n="mdbColTypeColor">Color (Picker)</option>
           </select>
         </div>
         <div class="form-field" id="add-col-default-wrap">
@@ -784,6 +793,7 @@
       { key: 'scales', labelKey: 'mdbTypeScales', icon: 'award.svg', target: 'customScales', defaultView: 'table' },
       { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'table' },
       { key: 'badgebanks', labelKey: 'mdbTypeBadges', icon: 'award.svg', target: 'customBadges', defaultView: 'table' },
+      { key: 'modebanks', labelKey: 'mdbTypeModes', icon: 'theater.svg', target: 'customModes', defaultView: 'table' },
     ];
 
     const DATABASE_SECTIONS = [
@@ -795,7 +805,7 @@
       {
         id: 'assessmentCurriculum',
         labelKey: 'mdbSectionAssessmentCurriculum',
-        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips', 'badgebanks']
+        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips', 'badgebanks', 'modebanks']
       }
     ];
 
@@ -808,7 +818,7 @@
       competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
       phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
       scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
-      badgebanks: 'customBadgeBank'
+      badgebanks: 'customBadgeBank', modebanks: 'customModeBank'
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -866,6 +876,217 @@
       return (typeKey === 'criteria' && (key === 'comments' || key === 'colors')) ||
              (typeKey === 'scales' && (key === 'colors' || key === 'thresholds'));
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // COLOR HELPERS & UNIVERSAL PICKERS
+    // ─────────────────────────────────────────────────────────────────────
+    function isValidHexColor(str) {
+      if (typeof str !== 'string') return false;
+      return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(str.trim());
+    }
+
+    function isColorField(field, val) {
+      if (!field) return false;
+      if (field.type === 'color') return true;
+      const k = String(field.key || '').toLowerCase();
+      if (k === 'colors') return false; // Structured multi-grade object
+      if (k === 'color' || k === 'colour' || k.endsWith('color') || k.endsWith('colour') ||
+          k.includes('textcolor') || k.includes('bgcolor') || k.includes('backgroundcolor') ||
+          k.includes('accentcolor') || k.includes('badgecolor') || k.includes('bordercolor')) {
+        return true;
+      }
+      if (typeof val === 'string' && isValidHexColor(val)) {
+        return true;
+      }
+      return false;
+    }
+
+    const MDB_COLOR_PRESETS = [
+      { color: '#16a34a', label: 'Emerald / Strengths' },
+      { color: '#dc2626', label: 'Rose / To remedy' },
+      { color: '#d97706', label: 'Amber / Action plan' },
+      { color: '#0284c7', label: 'Sky / General' },
+      { color: '#7c3aed', label: 'Purple / Focus' },
+      { color: '#475569', label: 'Slate / Neutral' },
+      { color: '#111111', label: 'Charcoal / Dark' },
+      { color: '#ffffff', label: 'White / Light' }
+    ];
+
+    function buildSingleColorFieldHtml(id, val) {
+      const curVal = String(val ?? '').trim();
+      const pickerVal = isValidHexColor(curVal)
+        ? (curVal.length === 4 ? `#${curVal[1]}${curVal[1]}${curVal[2]}${curVal[2]}${curVal[3]}${curVal[3]}` : curVal)
+        : '#16a34a';
+      return `<div class="mdb-color-field-wrap">
+        <input type="color" id="${id}_picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" class="mdb-color-input-picker" oninput="mdbOnColorPickerInput('${id}', this.value)">
+        <input type="text" id="${id}" value="${esc(curVal)}" placeholder="#16a34a" class="mdb-color-input-text" oninput="mdbOnColorTextInput('${id}', this.value)">
+        <div class="mdb-color-swatches">
+          ${MDB_COLOR_PRESETS.map(sw => `<button type="button" class="mdb-color-swatch-btn" onclick="mdbApplySwatch('${id}', '${sw.color}')" title="${esc(sw.label)}" style="background:${sw.color};"></button>`).join('')}
+        </div>
+      </div>`;
+    }
+
+    function mdbOnColorPickerInput(id, color) {
+      const txt = document.getElementById(id);
+      if (txt) {
+        txt.value = color;
+        txt.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    }
+    window.mdbOnColorPickerInput = mdbOnColorPickerInput;
+
+    function mdbOnColorTextInput(id, text) {
+      const picker = document.getElementById(id + '_picker');
+      if (picker && isValidHexColor(text)) {
+        const norm = text.trim();
+        picker.value = norm.length === 4 ? `#${norm[1]}${norm[1]}${norm[2]}${norm[2]}${norm[3]}${norm[3]}` : norm;
+      }
+    }
+    window.mdbOnColorTextInput = mdbOnColorTextInput;
+
+    function mdbApplySwatch(id, color) {
+      const txt = document.getElementById(id);
+      const picker = document.getElementById(id + '_picker');
+      if (txt) {
+        txt.value = color;
+        txt.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      if (picker) {
+        picker.value = color;
+      }
+    }
+    window.mdbApplySwatch = mdbApplySwatch;
+
+    function buildGradeColorsHelperHtml(id, val, rec) {
+      return `<div id="${id}_grade_panel" class="mdb-grade-colors-panel">
+        <div class="mdb-grade-colors-header">
+          <span class="mdb-grade-colors-title">
+            <img src="../assets/icons/award.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbInteractiveColorsHelper">${t('mdbInteractiveColorsHelper', 'Interactive Grade Color Pickers')}</span>
+          </span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="mdbApplyTrafficLightGradient('${id}')" style="font-size:0.72rem;padding:2px 7px;">
+            <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbBtnApplyColorGradient">${t('mdbBtnApplyColorGradient', 'Traffic Light Gradient')}</span>
+          </button>
+        </div>
+        <div id="${id}_grade_list" class="mdb-grade-colors-list">
+          <!-- Populated by mdbSyncGradeColorsFromText -->
+        </div>
+      </div>`;
+    }
+
+    function mdbSyncGradeColorsFromText(id) {
+      const ta = document.getElementById(id);
+      const listEl = document.getElementById(id + '_grade_list');
+      if (!ta || !listEl) return;
+      const text = ta.value;
+      const lines = text.split('\n');
+      const items = [];
+      for (const line of lines) {
+        const tr = line.trim();
+        if (!tr) continue;
+        const colonIdx = tr.indexOf(':');
+        if (colonIdx > 0) {
+          const grade = tr.substring(0, colonIdx).trim();
+          const color = tr.substring(colonIdx + 1).trim();
+          if (grade) items.push({ grade, color });
+        }
+      }
+      if (!items.length) {
+        listEl.innerHTML = '<span style="font-size:0.75rem;color:#888;font-style:italic;">No grade lines entered yet (e.g. 6: #166534).</span>';
+        return;
+      }
+      listEl.innerHTML = items.map(item => {
+        const pickerVal = isValidHexColor(item.color)
+          ? (item.color.length === 4 ? `#${item.color[1]}${item.color[1]}${item.color[2]}${item.color[2]}${item.color[3]}${item.color[3]}` : item.color)
+          : '#166534';
+        return `<div class="mdb-grade-color-row" data-grade="${esc(item.grade)}">
+          <span class="mdb-grade-badge">${esc(item.grade)}</span>
+          <input type="color" class="mdb-grade-color-picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" oninput="mdbOnGradePickerChange('${id}', '${esc(item.grade)}', this.value)">
+          <span class="mdb-grade-color-val">${esc(item.color || '—')}</span>
+        </div>`;
+      }).join('');
+    }
+    window.mdbSyncGradeColorsFromText = mdbSyncGradeColorsFromText;
+
+    function mdbOnGradePickerChange(id, gradeKey, newColor) {
+      const ta = document.getElementById(id);
+      if (!ta) return;
+      const lines = ta.value.split('\n');
+      let found = false;
+      const newLines = lines.map(line => {
+        const tr = line.trim();
+        const colonIdx = tr.indexOf(':');
+        if (colonIdx > 0) {
+          const g = tr.substring(0, colonIdx).trim();
+          if (g.toLowerCase() === gradeKey.toLowerCase()) {
+            found = true;
+            return `${g}: ${newColor}`;
+          }
+        }
+        return line;
+      });
+      if (!found) {
+        newLines.push(`${gradeKey}: ${newColor}`);
+      }
+      ta.value = newLines.join('\n');
+      const listEl = document.getElementById(id + '_grade_list');
+      if (listEl) {
+        const rows = listEl.querySelectorAll('.mdb-grade-color-row');
+        rows.forEach(r => {
+          if (r.dataset.grade === gradeKey) {
+            const valSpan = r.querySelector('.mdb-grade-color-val');
+            if (valSpan) valSpan.textContent = newColor;
+            const picker = r.querySelector('.mdb-grade-color-picker');
+            if (picker && picker.value !== newColor) picker.value = newColor;
+          }
+        });
+      }
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    window.mdbOnGradePickerChange = mdbOnGradePickerChange;
+
+    function mdbApplyTrafficLightGradient(id) {
+      const ta = document.getElementById(id);
+      if (!ta) return;
+      const lines = ta.value.split('\n');
+      const grades = [];
+      for (const line of lines) {
+        const tr = line.trim();
+        const colonIdx = tr.indexOf(':');
+        if (colonIdx > 0) {
+          const g = tr.substring(0, colonIdx).trim();
+          if (g) grades.push(g);
+        }
+      }
+      if (!grades.length) return;
+      const count = grades.length;
+      const hexLerp = (c1, c2, t) => {
+        const r1 = parseInt(c1.slice(1, 3), 16), g1 = parseInt(c1.slice(3, 5), 16), b1 = parseInt(c1.slice(5, 7), 16);
+        const r2 = parseInt(c2.slice(1, 3), 16), g2 = parseInt(c2.slice(3, 5), 16), b2 = parseInt(c2.slice(5, 7), 16);
+        const r = Math.round(r1 + (r2 - r1) * t).toString(16).padStart(2, '0');
+        const g = Math.round(g1 + (g2 - g1) * t).toString(16).padStart(2, '0');
+        const b = Math.round(b1 + (b2 - b1) * t).toString(16).padStart(2, '0');
+        return `#${r}${g}${b}`;
+      };
+      const green = '#16a34a', yellow = '#eab308', red = '#dc2626';
+      const newLines = grades.map((g, i) => {
+        let col = green;
+        if (count > 1) {
+          const t = i / (count - 1);
+          if (t < 0.5) {
+            col = hexLerp(green, yellow, t * 2);
+          } else {
+            col = hexLerp(yellow, red, (t - 0.5) * 2);
+          }
+        }
+        return `${g}: ${col}`;
+      });
+      ta.value = newLines.join('\n');
+      mdbSyncGradeColorsFromText(id);
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    window.mdbApplyTrafficLightGradient = mdbApplyTrafficLightGradient;
 
     // ─────────────────────────────────────────────────────────────────────
     // MARKDOWN EDITOR WIDGET
@@ -1104,6 +1325,13 @@
           if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.parseFileContent === 'function') {
             const bRes = BadgeSets.parseFileContent(content);
             if (Array.isArray(bRes) && bRes.length > 0) return bRes;
+          }
+        } catch (_) {}
+      } else if (typeKey === 'modebanks') {
+        try {
+          if (typeof ModeSets !== 'undefined' && typeof ModeSets.parseFileContent === 'function') {
+            const mRes = ModeSets.parseFileContent(content);
+            if (Array.isArray(mRes) && mRes.length > 0) return mRes;
           }
         } catch (_) {}
       }
@@ -1796,8 +2024,9 @@
         let uniqueVals = [];
         let useSelect = false;
         const isBadgeTextField = (S.typeKey === 'badgebanks' && ['icon', 'label', 'meaning', 'coefficient'].includes(key));
+        const isModeTextField = (S.typeKey === 'modebanks' && ['icon', 'name', 'shortcutKey', 'title', 'subtitle', 'pictureSrc', 'soundFile', 'soundVol'].includes(key));
         const isCriteriaType = (S.typeKey === 'criteria');
-        if (!isBadgeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
+        if (!isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
           const valSet = new Set();
           for (let i = 0; i < records.length; i++) {
             const v = records[i]?.[key];
@@ -1961,6 +2190,22 @@
         addBool('inlineInRoster');
         addBool('strikeOnAward');
         addBool('hidden');
+      } else if (typeKey === 'modebanks') {
+        addStr('icon');
+        addStr('name');
+        addStr('shortcutKey');
+        addStr('title');
+        addStr('subtitle');
+        addStr('textSize', { useSelect: true, uniqueVals: ['normal', 'large', 'xlarge'] });
+        addStr('textColor');
+        addStr('pictureType', { useSelect: true, uniqueVals: ['emoji', 'speech_bubbles', 'group_icons', 'custom_url', 'custom_file'] });
+        addStr('pictureSrc');
+        addStr('pictureAnim', { useSelect: true, uniqueVals: ['none', 'pulse', 'bounce', 'rotate', 'shush', 'bubbles'] });
+        addStr('pictureFit', { useSelect: true, uniqueVals: ['fit', 'cover', 'contain'] });
+        addStr('soundType', { useSelect: true, uniqueVals: ['none', 'whitenoise', 'binaural', 'custom_audio'] });
+        addStr('soundFile');
+        addNum('soundVol');
+        addBool('soundChime');
       }
 
       const customCols = getCustomColumns(typeKey);
@@ -2131,6 +2376,12 @@
       } else if (typeKey === 'badgebanks') {
         if (typeof BadgeSets !== 'undefined' && typeof BadgeSets.normalizeDefs === 'function') {
           const norm = BadgeSets.normalizeDefs(records).filter(b => !b.isBuiltin);
+          records.length = 0;
+          records.push(...norm);
+        }
+      } else if (typeKey === 'modebanks') {
+        if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeDefs === 'function') {
+          const norm = ModeSets.normalizeDefs(records);
           records.length = 0;
           records.push(...norm);
         }
@@ -2903,6 +3154,10 @@
         return `<span class="cell-trunc" title="${esc(str)}">${esc(display)}</span>`;
       }
       if (str.length > 85) return `<span class="cell-trunc" title="${esc(str)}">${esc(str.slice(0, 85))}\u2026</span>`;
+      if (isColorField(field, val) || isValidHexColor(str)) {
+        const hex = isValidHexColor(str) ? str.trim() : '#16a34a';
+        return `<span class="color-badge"><span class="color-dot" style="background:${esc(hex)};"></span>${esc(str)}</span>`;
+      }
       return esc(str);
     }
 
@@ -3186,12 +3441,18 @@
         inputHtml = `<textarea class="cell-inline-textarea" rows="4" placeholder="${esc(placeholder)}">${escHtml(strVal)}</textarea>`;
       } else if (type === 'number') {
         inputHtml = `<input type="number" class="cell-inline-input" value="${esc(strVal)}" />`;
+      } else if (isColorField({ key, type }, strVal)) {
+        const pickerHex = isValidHexColor(strVal) ? (strVal.trim().length === 4 ? `#${strVal.trim()[1]}${strVal.trim()[1]}${strVal.trim()[2]}${strVal.trim()[2]}${strVal.trim()[3]}${strVal.trim()[3]}` : strVal.trim()) : '#16a34a';
+        inputHtml = `<div class="cell-inline-color-wrap">
+          <input type="color" class="cell-inline-color-picker" value="${esc(pickerHex)}" oninput="this.nextElementSibling.value=this.value" title="Pick color" />
+          <input type="text" class="cell-inline-input" value="${esc(strVal)}" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))this.previousElementSibling.value=this.value" />
+        </div>`;
       } else {
         inputHtml = `<input type="text" class="cell-inline-input" value="${esc(strVal)}" />`;
       }
 
       td.innerHTML = inputHtml;
-      const input = td.querySelector('input, textarea');
+      const input = td.querySelector('.cell-inline-input, textarea') || td.querySelector('input, textarea');
       if (!input) return;
 
       input.focus();
@@ -3228,6 +3489,7 @@
       input.addEventListener('blur', function () {
         setTimeout(() => {
           if (_activeEditingTd === td) {
+            if (td.contains(document.activeElement)) return;
             commitCellEdit(td);
           }
         }, 120);
@@ -3245,7 +3507,7 @@
 
     async function commitCellEdit(td, advance = false, shift = false) {
       if (!td || !td.classList.contains('cell-editing')) return;
-      const input = td.querySelector('input, textarea');
+      const input = td.querySelector('.cell-inline-input, textarea') || td.querySelector('input, textarea');
       if (!input) {
         td.classList.remove('cell-editing');
         if (_activeEditingTd === td) _activeEditingTd = null;
@@ -3980,6 +4242,7 @@
       $('edit-title').textContent = tFmt('mdbEditRecord', { filename: S.files[fi].name });
       $('edit-body').innerHTML = buildForm(rec, S.schema, fi, false);
       upgradeMdTextareas($('edit-body'));
+      if ($('ff-colors')) mdbSyncGradeColorsFromText('ff-colors');
       if (S.typeKey === 'criteria') {
         initCriteriaCompField(rec, 'competenceIds');
       } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
@@ -4015,6 +4278,7 @@
       $('edit-title').textContent = t('mdbAddRecord');
       $('edit-body').innerHTML = buildForm({}, S.schema, null, true, defaultTargetFi);
       upgradeMdTextareas($('edit-body'));
+      if ($('ff-colors')) mdbSyncGradeColorsFromText('ff-colors');
       if (S.typeKey === 'criteria') {
         initCriteriaCompField({}, 'competenceIds');
       } else if (S.typeKey === 'competences' || S.typeKey === 'descriptors') {
@@ -4048,6 +4312,8 @@
         else if (field.isLong) typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#059669;background:#ecfdf5;border:1px solid #a7f3d0;padding:1px 5px;border-radius:3px;margin-left:6px;">Multiline</span>`;
         else if (field.type === 'number') typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#d97706;background:#fffbeb;border:1px solid #fde68a;padding:1px 5px;border-radius:3px;margin-left:6px;">Number</span>`;
         else typeBadge = `<span style="font-size:0.68rem;font-weight:600;color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;padding:1px 5px;border-radius:3px;margin-left:6px;">Text</span>`;
+      } else if (field.type === 'color' || isColorField(field, val)) {
+        typeBadge = `<span style="font-size:0.68rem;font-weight:700;color:#0f766e;background:#ccfbf1;border:1px solid #99f6e4;padding:1px 5px;border-radius:3px;margin-left:6px;">Color</span>`;
       }
 
       let input = '';
@@ -4097,6 +4363,65 @@
         const maxLenAttr = field.key === 'icon' ? ' maxlength="8"' : '';
         const defVal = (field.key === 'coefficient' && (val === undefined || val === null || val === '')) ? '1' : String(val ?? '');
         input = `<input type="text" id="${id}" value="${esc(defVal)}"${maxLenAttr} placeholder="${esc(ph)}">`;
+      } else if (S.typeKey === 'modebanks' && field.key === 'pictureType') {
+        const curPicType = String(val || 'emoji').toLowerCase();
+        const picOpts = [
+          { val: 'emoji', lbl: 'Emoji / Character' },
+          { val: 'speech_bubbles', lbl: 'Speech Bubbles' },
+          { val: 'group_icons', lbl: 'Group Icons' },
+          { val: 'custom_url', lbl: 'Custom Image URL' },
+          { val: 'custom_file', lbl: 'Custom Image File' }
+        ];
+        input = `<select id="${id}">${picOpts.map(o => `<option value="${o.val}"${curPicType === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'modebanks' && field.key === 'pictureAnim') {
+        const curAnim = String(val || 'none').toLowerCase();
+        const animOpts = [
+          { val: 'none', lbl: 'None' },
+          { val: 'pulse', lbl: 'Pulse' },
+          { val: 'bounce', lbl: 'Bounce' },
+          { val: 'rotate', lbl: 'Rotate' },
+          { val: 'shush', lbl: 'Shush Particles' },
+          { val: 'bubbles', lbl: 'Speech Bubbles' }
+        ];
+        input = `<select id="${id}">${animOpts.map(o => `<option value="${o.val}"${curAnim === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'modebanks' && field.key === 'pictureFit') {
+        const curFit = String(val || 'fit').toLowerCase();
+        const fitOpts = [
+          { val: 'fit', lbl: 'Fit' },
+          { val: 'cover', lbl: 'Cover' },
+          { val: 'contain', lbl: 'Contain' }
+        ];
+        input = `<select id="${id}">${fitOpts.map(o => `<option value="${o.val}"${curFit === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'modebanks' && field.key === 'soundType') {
+        const curSound = String(val || 'none').toLowerCase();
+        const soundOpts = [
+          { val: 'none', lbl: 'None' },
+          { val: 'whitenoise', lbl: 'White Noise' },
+          { val: 'binaural', lbl: 'Binaural Beats' },
+          { val: 'custom_audio', lbl: 'Custom Audio File' }
+        ];
+        input = `<select id="${id}">${soundOpts.map(o => `<option value="${o.val}"${curSound === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'modebanks' && field.key === 'textSize') {
+        const curSize = String(val || 'large').toLowerCase();
+        const sizeOpts = [
+          { val: 'normal', lbl: 'Normal' },
+          { val: 'large', lbl: 'Large' },
+          { val: 'xlarge', lbl: 'Extra Large' }
+        ];
+        input = `<select id="${id}">${sizeOpts.map(o => `<option value="${o.val}"${curSize === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
+      } else if (S.typeKey === 'modebanks' && (field.key === 'icon' || field.key === 'name' || field.key === 'shortcutKey' || field.key === 'title' || field.key === 'subtitle' || field.key === 'pictureSrc' || field.key === 'soundFile' || field.key === 'soundVol')) {
+        let ph = '';
+        if (field.key === 'icon') ph = 'e.g. 🤫, 💬, 👥, 🎯 (emoji or icon name)';
+        else if (field.key === 'name') ph = 'e.g. Quiet, Talk, Group, Debate';
+        else if (field.key === 'shortcutKey') ph = 'e.g. 1, 2, 3 (1-9)';
+        else if (field.key === 'title') ph = 'e.g. Quiet Work';
+        else if (field.key === 'subtitle') ph = 'e.g. Work independently on your tasks';
+        else if (field.key === 'pictureSrc') ph = 'e.g. 🤫 or image URL / path';
+        else if (field.key === 'soundFile') ph = 'e.g. focus-bell.mp3 (optional audio file)';
+        else if (field.key === 'soundVol') ph = 'e.g. 20 (volume 0-100)';
+        const maxLenAttr = field.key === 'shortcutKey' ? ' maxlength="2"' : (field.key === 'icon' ? ' maxlength="16"' : '');
+        const defVal = (field.key === 'soundVol' && (val === undefined || val === null || val === '')) ? '20' : String(val ?? '');
+        input = `<input type="${field.key === 'soundVol' ? 'number' : 'text'}" id="${id}" value="${esc(defVal)}"${maxLenAttr} placeholder="${esc(ph)}"${field.key === 'soundVol' ? ' min="0" max="100"' : ''}>`;
       } else if (S.typeKey !== 'criteria' && field.useSelect && Array.isArray(field.uniqueVals) && (field.type === 'string' || field.type === 'number')) {
         // Free-text entry (all data types) with existing values as suggestions, instead of a dropdown
         const listId = `${id}-suggestions`;
@@ -4200,8 +4525,10 @@
             hintKey = 'mdbHintScaleThresholds';
             hintDefault = 'One per line: grade: threshold percentage (e.g. 6: 90)';
           }
-          input = `<textarea id="${id}" rows="5" placeholder="${esc(placeholder)}">${escHtml(sv)}</textarea>
-               <div class="form-hint" data-i18n="${hintKey}">${t(hintKey, hintDefault)}</div>`;
+          const gradeHelper = (field.key === 'colors') ? buildGradeColorsHelperHtml(id, val, rec) : '';
+          input = `<textarea id="${id}" rows="5" placeholder="${esc(placeholder)}" oninput="${field.key === 'colors' ? `mdbSyncGradeColorsFromText('${id}')` : ''}">${escHtml(sv)}</textarea>
+               <div class="form-hint" data-i18n="${hintKey}">${t(hintKey, hintDefault)}</div>
+               ${gradeHelper}`;
         } else {
           const sv = val !== undefined ? JSON.stringify(val, null, 2) : '';
           input = `<textarea id="${id}" rows="5">${escHtml(sv)}</textarea>
@@ -4222,23 +4549,8 @@
         <datalist id="mdb-chip-sections-list">
           ${existingSections.map(s => `<option value="${esc(s)}"></option>`).join('')}
         </datalist>`;
-      } else if (S.typeKey === 'chips' && field.key === 'color') {
-        const swatches = [
-          { color: '#16a34a', label: 'Emerald / Strengths' },
-          { color: '#dc2626', label: 'Rose / To remedy' },
-          { color: '#d97706', label: 'Amber / Action plan' },
-          { color: '#0284c7', label: 'Sky / General' },
-          { color: '#7c3aed', label: 'Purple / Focus' },
-          { color: '#475569', label: 'Slate / Neutral' }
-        ];
-        const curColor = val || '#16a34a';
-        input = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <input type="color" id="${id}_picker" value="${esc(curColor.startsWith('#') && curColor.length === 7 ? curColor : '#16a34a')}" onchange="document.getElementById('${id}').value=this.value" style="width:36px;height:32px;padding:1px;border:1.5px solid #000;border-radius:4px;cursor:pointer;">
-          <input type="text" id="${id}" value="${esc(String(val ?? ''))}" placeholder="#16a34a" style="width:110px;font-family:monospace;font-size:0.85rem;" oninput="try{if(this.value.startsWith('#')&&this.value.length===7)document.getElementById('${id}_picker').value=this.value}catch(_){}">
-          <div style="display:flex;gap:5px;align-items:center;margin-left:4px;">
-            ${swatches.map(sw => `<button type="button" onclick="document.getElementById('${id}').value='${sw.color}';try{document.getElementById('${id}_picker').value='${sw.color}'}catch(_){}" title="${sw.label}" style="width:22px;height:22px;border-radius:50%;background:${sw.color};border:1.5px solid #000;cursor:pointer;box-shadow:1px 1px 0 #000;"></button>`).join('')}
-          </div>
-        </div>`;
+      } else if (isColorField(field, val)) {
+        input = buildSingleColorFieldHtml(id, val);
       } else {
         const placeholder = (S.typeKey === 'chips' && field.key === 'type') ? 'e.g. Oral Fluency, Work Habits'
           : (S.typeKey === 'scales' && field.key === 'key') ? 'e.g. standard-1-6, custom-scale'
@@ -4287,6 +4599,15 @@
       else if (S.typeKey === 'scales' && field.key === 'label') fieldLabel = 'Scale Display Name';
       else if (S.typeKey === 'badgebanks' && field.key === 'inlineInRoster') fieldLabel = 'Inline in Roster';
       else if (S.typeKey === 'badgebanks' && field.key === 'strikeOnAward') fieldLabel = 'Strike on Award';
+      else if (S.typeKey === 'modebanks' && field.key === 'shortcutKey') fieldLabel = t('mdbColShortcutKey', 'Shortcut Key (1-9)');
+      else if (S.typeKey === 'modebanks' && field.key === 'pictureType') fieldLabel = t('mdbColPictureType', 'Picture Type');
+      else if (S.typeKey === 'modebanks' && field.key === 'pictureSrc') fieldLabel = t('mdbColPictureSrc', 'Picture Source (Emoji / URL)');
+      else if (S.typeKey === 'modebanks' && field.key === 'pictureAnim') fieldLabel = t('mdbColPictureAnim', 'Visual Animation');
+      else if (S.typeKey === 'modebanks' && field.key === 'pictureFit') fieldLabel = t('mdbColPictureFit', 'Picture Fitting');
+      else if (S.typeKey === 'modebanks' && field.key === 'soundType') fieldLabel = t('mdbColSoundType', 'Sound Type');
+      else if (S.typeKey === 'modebanks' && field.key === 'soundFile') fieldLabel = t('mdbColSoundFile', 'Audio File');
+      else if (S.typeKey === 'modebanks' && field.key === 'soundVol') fieldLabel = t('mdbColSoundVol', 'Audio Volume (%)');
+      else if (S.typeKey === 'modebanks' && field.key === 'soundChime') fieldLabel = t('mdbColSoundChime', 'Chime on Start');
 
       return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -4332,6 +4653,16 @@
         });
       }
 
+      if (S.typeKey === 'modebanks') {
+        ['icon', 'name', 'shortcutKey', 'title', 'subtitle', 'pictureSrc', 'soundFile', 'soundVol'].forEach(k => {
+          if (map.has(k)) {
+            const item = map.get(k);
+            item.useSelect = false;
+            item.uniqueVals = [];
+          }
+        });
+      }
+
       if (S.typeKey === 'criteria') {
         for (const item of map.values()) {
           item.useSelect = false;
@@ -4348,7 +4679,8 @@
             const isObj = val !== null && typeof val === 'object' && !isArr;
             const isNum = typeof val === 'number';
             const isBool = typeof val === 'boolean';
-            const type = isArr ? 'array' : isObj ? 'object' : isNum ? 'number' : isBool ? 'boolean' : 'string';
+            const isCol = typeof val === 'string' && (key.toLowerCase().includes('color') || key.toLowerCase().includes('colour') || isValidHexColor(val));
+            const type = isArr ? 'array' : isObj ? 'object' : isNum ? 'number' : isBool ? 'boolean' : (isCol ? 'color' : 'string');
             map.set(key, { key, type, isLong: false, longArray: isArr, uniqueVals: [], useSelect: false });
           }
         }
@@ -4433,6 +4765,14 @@
             <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Class Management Badges</span>
           </div>
           <div>Manage custom badge sets that can be assigned per class in <strong>Class Management</strong>. Define <strong>icon</strong> (emoji or short text, max 8 chars), <strong>label</strong>, <strong>tone</strong> (positive/negative), <strong>meaning</strong>, <strong>coefficient</strong>, <strong>scope</strong> (individual/team/both), and behavior flags.</div>
+        </div>`;
+      } else if (S.typeKey === 'modebanks') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Class Working Modes Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Class Management Presentation</span>
+          </div>
+          <div>Configure full-screen classroom working modes for <strong>Class Management</strong>. Define mode <strong>icon</strong>, <strong>name</strong>, keyboard <strong>shortcut</strong> (1–9), display <strong>title</strong>, visual <strong>animation</strong>, background <strong>sound</strong>, and volume. Modes project onto the presentation screen overlay.</div>
         </div>`;
       }
 
@@ -4603,6 +4943,16 @@
           } else {
             values.coefficient = 1;
           }
+        } else if (S.typeKey === 'modebanks') {
+          const name = String(values.name || '').trim();
+          const icon = String(values.icon || '').trim();
+          if (!name) { showToast(t('mdbErrModeNameReq', 'Mode name is required.'), true); return; }
+          if (!icon) { showToast(t('mdbErrModeIconReq', 'Mode icon is required.'), true); return; }
+          const exists = S.files[fi].records.some(r => String(r.name || '').trim().toLowerCase() === name.toLowerCase());
+          if (exists) { showToast(t('mdbErrModeDuplicate', 'A mode with this name already exists in this file.'), true); return; }
+          if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeMode === 'function') {
+            values = ModeSets.normalizeMode(values, S.files[fi].records.length);
+          }
         }
 
         indexRecord(values);
@@ -4633,6 +4983,16 @@
             values.coefficient = Number.isFinite(num) ? num : 1;
           } else {
             values.coefficient = 1;
+          }
+        } else if (S.typeKey === 'modebanks') {
+          const name = String(values.name || '').trim();
+          const icon = String(values.icon || '').trim();
+          if (!name) { showToast(t('mdbErrModeNameReq', 'Mode name is required.'), true); return; }
+          if (!icon) { showToast(t('mdbErrModeIconReq', 'Mode icon is required.'), true); return; }
+          const exists = S.files[fi].records.some((r, idx) => idx !== ri && String(r.name || '').trim().toLowerCase() === name.toLowerCase());
+          if (exists) { showToast(t('mdbErrModeDuplicate', 'A mode with this name already exists in this file.'), true); return; }
+          if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeMode === 'function') {
+            values = ModeSets.normalizeMode(values, ri);
           }
         }
 
@@ -6428,6 +6788,16 @@
           seedWrap.classList.add('hidden');
         }
       }
+      const modesSeedWrap = $('nf-modes-seed-wrap');
+      if (modesSeedWrap) {
+        if (S.typeKey === 'modebanks') {
+          modesSeedWrap.classList.remove('hidden');
+          const seedCb = $('nf-seed-default-modes');
+          if (seedCb) seedCb.checked = true;
+        } else {
+          modesSeedWrap.classList.add('hidden');
+        }
+      }
       $('nf-bg').classList.remove('hidden');
       setTimeout(() => $('nf-name').focus(), 80);
     }
@@ -6445,6 +6815,11 @@
         const seedCb = $('nf-seed-default-badges');
         if (seedCb && seedCb.checked && typeof BadgeSets !== 'undefined' && typeof BadgeSets.getDefaultDefs === 'function') {
           initialRecords = BadgeSets.getDefaultDefs(true); // exclude built-ins (+ and -)
+        }
+      } else if (S.typeKey === 'modebanks') {
+        const seedCb = $('nf-seed-default-modes');
+        if (seedCb && seedCb.checked && typeof ModeSets !== 'undefined' && typeof ModeSets.getDefaultDefs === 'function') {
+          initialRecords = ModeSets.getDefaultDefs();
         }
       }
 
@@ -6470,6 +6845,14 @@
           if (typeof BroadcastChannel !== 'undefined') {
             const ch = new BroadcastChannel('cmt-badgebanks');
             ch.postMessage({ type: 'badgebanks-updated', filename: name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'modebanks') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-modebanks');
+            ch.postMessage({ type: 'modebanks-updated', filename: name, timestamp: Date.now() });
             ch.close();
           }
         } catch (_) {}
@@ -6507,6 +6890,8 @@
         defInput.placeholder = 'e.g. 0 or 1';
       } else if (type === 'array') {
         defInput.placeholder = 'tag1, tag2';
+      } else if (type === 'color') {
+        defInput.placeholder = 'e.g. #16a34a';
       } else {
         defInput.placeholder = 'Optional default value';
       }
@@ -6538,7 +6923,8 @@
       }
 
       const isLong = typeVal === 'isLong';
-      const type = isLong ? 'string' : typeVal;
+      const isColor = typeVal === 'color';
+      const type = isLong ? 'string' : (isColor ? 'color' : typeVal);
       const longArray = type === 'array';
 
       let defaultValue = '';
@@ -6548,6 +6934,8 @@
         defaultValue = defValRaw.toLowerCase() === 'true' || defValRaw === '1';
       } else if (type === 'array') {
         defaultValue = defValRaw ? defValRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      } else if (type === 'color') {
+        defaultValue = isValidHexColor(defValRaw) ? defValRaw : (defValRaw || '#16a34a');
       } else {
         defaultValue = defValRaw || '';
       }
@@ -7023,6 +7411,18 @@
           if (typeof BroadcastChannel !== 'undefined') {
             const ch = new BroadcastChannel('cmt-badgebanks');
             ch.postMessage({ type: 'badgebanks-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'modebanks') {
+        try {
+          if (typeof ModeSets !== 'undefined' && typeof ModeSets.clearCache === 'function') {
+            const setId = file.name.replace(/\.(js|json)$/i, '');
+            ModeSets.clearCache(setId);
+          }
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-modebanks');
+            ch.postMessage({ type: 'modebanks-updated', filename: file.name, timestamp: Date.now() });
             ch.close();
           }
         } catch (_) {}
@@ -9855,6 +10255,24 @@ Rules:
       if (col.key === 'competenceIds' || col.key === 'linkedCompetenceIds') {
         const arr = Array.isArray(rawVal) ? rawVal : String(rawVal).split(';').map(s => s.trim()).filter(Boolean);
         return '<div class="tags-cell">' + arr.map(code => '<span class="badge-tag">' + esc(code) + '</span>').join(' ') + '</div>';
+      }
+
+      if (S.typeKey === 'modebanks') {
+        if (col.key === 'shortcutKey' && rawVal) {
+          return '<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;background:#f1f5f9;border:1.5px solid #333;border-radius:4px;font-weight:800;font-size:0.75rem;padding:0 4px;">' + esc(rawVal) + '</span>';
+        }
+        if (col.key === 'pictureAnim' && rawVal) {
+          return '<span class="badge badge-category">' + esc(rawVal) + '</span>';
+        }
+        if (col.key === 'pictureType' && rawVal) {
+          return '<span class="badge badge-theme">' + esc(rawVal) + '</span>';
+        }
+        if (col.key === 'soundType' && rawVal) {
+          return '<span class="badge badge-level">' + esc(rawVal) + '</span>';
+        }
+        if (col.key === 'textColor' && rawVal) {
+          return '<span class="color-pill" style="display:inline-flex;align-items:center;gap:6px;"><span class="color-dot" style="width:12px;height:12px;border-radius:50%;border:1.5px solid #000;background:' + esc(rawVal) + '"></span> ' + esc(rawVal) + '</span>';
+        }
       }
 
       // Quiz options

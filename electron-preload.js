@@ -500,6 +500,16 @@ const exposedApi = {
   dictionaryDispose() {
     return invoke('dictionary:dispose');
   },
+  onDictionaryLookup(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, data) => {
+      try { callback(data); } catch (e) { console.error('Dictionary lookup listener error:', e); }
+    };
+    ipcRenderer.on('cmt:dictionary-search', listener);
+    return () => {
+      try { ipcRenderer.removeListener('cmt:dictionary-search', listener); } catch (_) {}
+    };
+  },
   onMediaEngineDownloadProgress(callback) {
     if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
     const listener = (_event, data) => {

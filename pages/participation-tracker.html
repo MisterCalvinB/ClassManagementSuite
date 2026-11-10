@@ -3434,6 +3434,10 @@
 
             updateClassOverviewTable(selectedSession ? [selectedSession] : participationSessions);
             setClassOverviewTitle(selectedSession || null);
+
+            if (currentStudentName && typeof updateStudentDetails === 'function') {
+                updateStudentDetails();
+            }
         }
         function getGroupSummary(groupId, dateFrom, dateTo) {
             const allSessions = filterSessionsByDateAndGroup(groupId, dateFrom, dateTo);
@@ -3797,6 +3801,8 @@
                     }
                 });
             });
+
+            window._ptLastOverallStudentMap = overallStudentMap;
 
             const studentMap = {};
             sessions.forEach(session => {
@@ -6580,182 +6586,90 @@
             }
 
             const dateRange = getDateRange();
-            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            const allSessionsInRange = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            const participationSessions = allSessionsInRange.filter(s => !isExamSession(s, currentGroupId));
 
-            // Calculate stats
-            let picks = 0, absent = 0, pluses = 0, minuses = 0, teamPluses = 0, teamMinuses = 0, badges = 0, badgePositive = 0, badgeNegative = 0, total = 0, teamRoleEvents = 0;
-            let studentBadgesAccumulated = [];
-            const sessionNets = [];
+            // Retrieve student record from classOverviewData or cached overall map or compute overall data identically
+            let stOverview = (Array.isArray(classOverviewData) ? classOverviewData.find(d => d.name === currentStudentName) : null);
+            let overallData = (stOverview && stOverview.overall)
+                ? stOverview.overall
+                : ((window._ptLastOverallStudentMap && window._ptLastOverallStudentMap[currentStudentName]) || (stOverview && !stOverview.overall ? stOverview : null));
 
-            sessions.forEach(session => {
-                const students = session.groups[currentGroupId] || [];
-                const student = students.find(s => s.name === currentStudentName);
-                if (student) {
-                    total++;
-                    if (student.isPicked) picks++;
-                    if (student.isAbsent) absent++;
-                    pluses += student.pluses || 0;
-                    minuses += student.minuses || 0;
-                    teamPluses += student.teamPluses || 0;
-                    teamMinuses += student.teamMinuses || 0;
-                    const studentBadges = student.badges || [];
-                    studentBadgesAccumulated = studentBadgesAccumulated.concat(studentBadges);
-                    const badgeSentiment = countBadgeSentiment(studentBadges);
-                    badges += studentBadges.length;
-                    badgePositive += badgeSentiment.positive;
-                    badgeNegative += badgeSentiment.negative;
-                    
-                    const studentEvents = getSessionTeamRoleEvents ? getSessionTeamRoleEvents(session, currentGroupId, currentStudentName) : [];
-                    teamRoleEvents += studentEvents.length;
-                    
-                    sessionNets.push(getStudentSessionNet(student));
-                }
-            });
+            if (!overallData) {
+                const os = {
+                    name: currentStudentName,
+                    sessions: 0,
+                    attendedSessions: 0,
+                    picks: 0,
+                    absent: 0,
+                    pluses: 0,
+                    minuses: 0,
+                    teamPluses: 0,
+                    teamMinuses: 0,
+                    badges: [],
+                    badgePositive: 0,
+                    badgeNegative: 0,
+                    teamRoleEvents: 0,
+                    teamRolePreview: '',
+                    notes: '',
+                    notesCount: 0,
+                    sessionNets: []
+                };
+                participationSessions.forEach(session => {
+                    const st = (session.groups[currentGroupId] || []).find(s => s.name === currentStudentName);
+                    if (st) {
+                        os.sessions++;
+                        if (!st.isAbsent) os.attendedSessions++;
+                        if (st.isPicked) os.picks++;
+                        if (st.isAbsent) os.absent++;
+                        os.pluses += st.pluses || 0;
+                        os.minuses += st.minuses || 0;
+                        os.teamPluses += st.teamPluses || 0;
+                        os.teamMinuses += st.teamMinuses || 0;
+                        const studentBadges = st.badges || [];
+                        const badgeSentiment = countBadgeSentiment(studentBadges);
+                        os.badges = os.badges.concat(studentBadges);
+                        os.badgePositive += badgeSentiment.positive;
+                        os.badgeNegative += badgeSentiment.negative;
+                        const studentEvents = getSessionTeamRoleEvents ? getSessionTeamRoleEvents(session, currentGroupId, currentStudentName) : [];
+                        os.teamRoleEvents += studentEvents.length;
+                        if (!st.isAbsent) {
+                            os.sessionNets.push(getStudentSessionNet(st));
+                        }
+                    }
+                });
+                overallData = os;
+            }
 
-            // Calculate provisional grade
-            const mockOverviewData = {
-                picks,
-                attendedSessions: total - absent,
-                pluses,
-                minuses,
-                teamPluses,
-                teamMinuses,
-                badgePositive,
-                badgeNegative,
-                badges: studentBadgesAccumulated,
-                sessions: total,
-                absent: absent,
-                teamRoleEvents,
-                sessionNets
-            };
-            const provGrade = calculateStudentProvisionalGrade(mockOverviewData);
+            const total = overallData.sessions || 0;
+            const absent = overallData.absent || 0;
+            const picks = overallData.picks || 0;
+            const pluses = overallData.pluses || 0;
+            const minuses = overallData.minuses || 0;
+            const teamPluses = overallData.teamPluses || 0;
+            const teamMinuses = overallData.teamMinuses || 0;
+            const badges = (overallData.badges || []).length;
+            const badgePositive = overallData.badgePositive || 0;
+            const badgeNegative = overallData.badgeNegative || 0;
+            const net = getClassOverviewNet(overallData);
+
+            // Calculate provisional grade using the exact same function and data as overview table
+            const gradeDetails = calculateStudentProvisionalGradeDetails(stOverview || overallData);
+            const provGrade = gradeDetails ? gradeDetails.grade : null;
             
             let provGradeHtml = '';
-            if (provGrade !== null && window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) {
-                const config = window.CMS_PARTICIPATION_RULES[currentGroupId];
-                const maxText = config.scaleToMax ? ` / ${config.maxGrade}` : '';
+            const rulesConfig = (window.CMS_PARTICIPATION_RULES && (window.CMS_PARTICIPATION_RULES[currentGroupId] || window.CMS_PARTICIPATION_RULES['_default'])) || null;
+            if (provGrade !== null && rulesConfig && gradeDetails && Array.isArray(gradeDetails.rules)) {
+                const maxText = rulesConfig.scaleToMax ? ` / ${rulesConfig.maxGrade}` : '';
                 
-                // Detailed achieved rules list
-                const net = (pluses + teamPluses + badgePositive) - (minuses + teamMinuses + badgeNegative);
-                const attendanceRate = total > 0 ? ((total - absent) / total) * 100 : 0;
-                
-                const attendedSessions = total - absent;
-                const posRatio = attendedSessions ? (pluses + teamPluses + badgePositive) / attendedSessions : 0;
-                const negRatio = attendedSessions ? (minuses + teamMinuses + badgeNegative) / attendedSessions : 0;
-                const netRatio = attendedSessions ? net / attendedSessions : 0;
-                const totalGood = pluses + teamPluses + badgePositive;
-                const totalBad = minuses + teamMinuses + badgeNegative;
-                const ratio = totalBad > 0 ? totalGood / totalBad : (totalGood > 0 ? 999 : 0);
-                const trend = (mockOverviewData.sessionNets && typeof computeTrend !== 'undefined') ? (computeTrend(mockOverviewData.sessionNets) === 'up' ? 1 : computeTrend(mockOverviewData.sessionNets) === 'down' ? -1 : 0) : 0;
-
-                const achievedRuleLabels = [];
-                config.rules.forEach((rule, idx) => {
-                    let studentValue = 0;
-                    let label = '';
-                    let rulePoints = 0;
-                    let possiblePoints = 0;
-                    
-                    if (rule.metric === 'formula') {
-                        let met = false;
-                        let maxPts = Number(rule.maxPts) ?? 0;
-                        possiblePoints = maxPts;
-                        const context = {
-                            netPoints: net,
-                            net: net,
-                            picks: picks,
-                            attendanceRate: attendanceRate,
-                            attendance: attendanceRate,
-                            positivePoints: pluses + teamPluses,
-                            positive: pluses + teamPluses,
-                            pluses: pluses,
-                            minuses: minuses,
-                            teamPluses: teamPluses,
-                            teamMinuses: teamMinuses,
-                            badgePositive: badgePositive,
-                            badgeNegative: badgeNegative,
-                            sessions: total,
-                            absent: absent,
-                            posRatio: posRatio,
-                            negRatio: negRatio,
-                            netRatio: netRatio,
-                            ratio: ratio,
-                            trend: trend,
-                            teamRoleEvents: teamRoleEvents,
-                            ...getStudentBadgeCounts(studentBadgesAccumulated)
-                        };
-                        try {
-                            const formulaResult = evaluateExpression(rule.value || rule.formulaVal, context);
-                            if (typeof formulaResult === 'boolean') {
-                                met = formulaResult;
-                                rulePoints = met ? maxPts : 0;
-                            } else if (typeof formulaResult === 'number') {
-                                met = formulaResult > 0;
-                                rulePoints = formulaResult;
-                            } else {
-                                met = !!formulaResult;
-                                rulePoints = met ? maxPts : 0;
-                            }
-                        } catch (e) {
-                            met = false;
-                        }
-                        label = `Formula: ${rule.value || rule.formulaVal}`;
-                        if (met) {
-                            achievedRuleLabels.push(`<span style="color:#2ca02c; font-weight:600;">✓ ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
-                        } else {
-                            achievedRuleLabels.push(`<span style="color:#888;">✗ ${label} (0 / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
-                        }
+                const achievedRuleLabels = gradeDetails.rules.map(rd => {
+                    const isMet = rd.rawPoints > (Number(rd.minPts) || 0);
+                    const ptsDisplay = `${formatSummaryNumber(rd.points)} / ${formatSummaryNumber(rd.maxPoints)} pts`;
+                    const labelText = rd.valueLabel ? `${rd.name} [${rd.valueLabel}]` : rd.name;
+                    if (isMet) {
+                        return `<span style="color:#15803d; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(467%) hue-rotate(86deg) brightness(97%) contrast(90%);" /> ${escapeHtml(labelText)} (${ptsDisplay})</span>`;
                     } else {
-                        if (rule.metric === 'netPoints') { studentValue = net; label = `${t('ptStatsNetPoints')}: ${net}`; }
-                        else if (rule.metric === 'picks') { studentValue = picks; label = `${t('ptStatsTimesPicked')}: ${picks}`; }
-                        else if (rule.metric === 'attendanceRate') { studentValue = attendanceRate; label = `${t('ptStatsSessionsRecorded')}: ${attendanceRate.toFixed(0)}%`; }
-                        else if (rule.metric === 'positivePoints') { studentValue = pluses + teamPluses; label = `${t('ptStatPluses')}: ${pluses + teamPluses}`; }
-                        else if (rule.metric === 'badgePositive') { studentValue = badgePositive; label = `${t('ptStatsPosBadges')} (Total): ${badgePositive}`; }
-                        else if (rule.metric === 'badgePositiveSession') { studentValue = parseFloat((badgePositive / Math.max(1, total)).toFixed(2)); label = `${t('ptStatsPosBadges')}/session: ${studentValue}`; }
-                        else if (rule.metric === 'badgeNegative') { studentValue = badgeNegative; label = `${t('ptColBadgeMinus')} (Total): ${badgeNegative}`; }
-                        else if (rule.metric === 'badgeNegativeSession') { studentValue = parseFloat((badgeNegative / Math.max(1, total)).toFixed(2)); label = `${t('ptColBadgeMinus')}/session: ${studentValue}`; }
-                        else if (rule.metric === 'pluses') { studentValue = pluses; label = `${t('ptColPluses')}: ${pluses}`; }
-                        else if (rule.metric === 'minuses') { studentValue = minuses; label = `${t('ptColMinuses')}: ${minuses}`; }
-                        else if (rule.metric === 'teamPluses') { studentValue = teamPluses; label = `${t('ptColT')}: ${teamPluses}`; }
-                        else if (rule.metric === 'teamMinuses') { studentValue = teamMinuses; label = `${t('ptColTm')}: ${teamMinuses}`; }
-                        else if (rule.metric === 'absent') { studentValue = absent; label = `${t('ptColAbsent')}: ${absent}`; }
-                        else if (rule.metric === 'sessions') { studentValue = total; label = `${t('ptColSess')}: ${total}`; }
-                        else if (rule.metric === 'posRatio') { studentValue = posRatio; label = `${t('ptColPosRatio')}: ${posRatio.toFixed(2)}`; }
-                        else if (rule.metric === 'negRatio') { studentValue = negRatio; label = `${t('ptColNegRatio')}: ${negRatio.toFixed(2)}`; }
-                        else if (rule.metric === 'netRatio') { studentValue = netRatio; label = `${t('ptColNetRatio')}: ${netRatio.toFixed(2)}`; }
-                        else if (rule.metric === 'ratio') { studentValue = ratio; label = `${t('ptColGoodBad')}: ${ratio === 999 ? '∞' : ratio.toFixed(2)}`; }
-                        else if (rule.metric === 'trend') { studentValue = trend; label = `${t('ptColTrend')}: ${trend === 1 ? 'Up' : trend === -1 ? 'Down' : 'Flat'}`; }
-                        else if (rule.metric === 'teamRoleEvents') { studentValue = teamRoleEvents; label = `${t('ptColTeamRole')}: ${teamRoleEvents}`; }
-                        else if (rule.metric.startsWith('badge_icon_session:')) {
-                            const icon = rule.metric.replace('badge_icon_session:', '');
-                            const cnt = getStudentBadgeCounts(studentBadgesAccumulated)[icon] || 0;
-                            studentValue = parseFloat((cnt / Math.max(1, total)).toFixed(2));
-                            label = `${icon}/session: ${studentValue}`;
-                        } else if (rule.metric.startsWith('badge_label_session:')) {
-                            const bLabel = rule.metric.replace('badge_label_session:', '');
-                            const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            const cnt = getStudentBadgeCounts(studentBadgesAccumulated)[key] || 0;
-                            studentValue = parseFloat((cnt / Math.max(1, total)).toFixed(2));
-                            label = `${bLabel}/session: ${studentValue}`;
-                        } else if (rule.metric.startsWith('badge_icon:')) {
-                            const icon = rule.metric.replace('badge_icon:', '');
-                            studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[icon] || 0;
-                            label = `${icon} (Total): ${studentValue}`;
-                        } else if (rule.metric.startsWith('badge_label:')) {
-                            const bLabel = rule.metric.replace('badge_label:', '');
-                            const key = bLabel.toLowerCase().replace(/[^a-z0-9]/g, '');
-                            studentValue = getStudentBadgeCounts(studentBadgesAccumulated)[key] || 0;
-                            label = `${bLabel} (Total): ${studentValue}`;
-                        }
-                        
-                        rulePoints = calculateCriterionPoints(studentValue, rule);
-                        possiblePoints = Number(rule.maxPts) ?? 0;
-                        
-                        const isMet = rulePoints > (Number(rule.minPts) || 0);
-                        if (isMet) {
-                            achievedRuleLabels.push(`<span style="color:#15803d; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; filter: brightness(0) saturate(100%) invert(48%) sepia(79%) saturate(467%) hue-rotate(86deg) brightness(97%) contrast(90%);" /> ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
-                        } else {
-                            achievedRuleLabels.push(`<span style="color:#64748b; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; opacity:0.6;" /> ${label} (${formatSummaryNumber(rulePoints)} / ${formatSummaryNumber(possiblePoints)} pts)</span>`);
-                        }
+                        return `<span style="color:#64748b; font-weight:600; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:13px; height:13px; vertical-align:-1px; opacity:0.6;" /> ${escapeHtml(labelText)} (${ptsDisplay})</span>`;
                     }
                 });
 
@@ -6848,7 +6762,7 @@
                 </div>
                 <div class="detail-stat">
                     <div class="detail-stat-label">${t('ptStatsNetPoints')}</div>
-                    <div class="detail-stat-value" style="color: ${(pluses + teamPluses) - (minuses + teamMinuses) >= 0 ? '#2ca02c' : '#d62728'}">${(pluses + teamPluses) - (minuses + teamMinuses)}</div>
+                    <div class="detail-stat-value" style="color: ${net >= 0 ? '#2ca02c' : '#d62728'}">${net >= 0 ? '+' : ''}${net}</div>
                 </div>
                 <div class="detail-stat">
                     <div class="detail-stat-label">${t('ptStatsTeamPts')}</div>
@@ -6872,7 +6786,7 @@
 
             // Filter student sessions and sort them
             const studentSessions = [];
-            sessions.forEach(session => {
+            allSessionsInRange.forEach(session => {
                 const students = session.groups[currentGroupId] || [];
                 const student = students.find(s => s.name === currentStudentName);
                 if (student) {
@@ -11348,7 +11262,9 @@
         function calculateStudentProvisionalGradeDetails(studentData, customRulesConfig = null) {
             const dataToUse = (studentData && studentData.overall) ? studentData.overall : studentData;
             if (!dataToUse) return null;
-            const groupRulesConfig = customRulesConfig || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[currentGroupId]) || null;
+            const groupRulesConfig = customRulesConfig
+                || (window.CMS_PARTICIPATION_RULES && (window.CMS_PARTICIPATION_RULES[currentGroupId] || window.CMS_PARTICIPATION_RULES['_default']))
+                || null;
             if (!groupRulesConfig || !groupRulesConfig.rules || groupRulesConfig.rules.length === 0) {
                 return null;
             }
@@ -11463,10 +11379,47 @@
                     totalPossiblePoints += effectiveMaxPts;
                 }
 
+                let valueLabel = '';
+                if (rule.metric === 'formula') {
+                    valueLabel = `Formula: ${rule.value || rule.formulaVal || ''}`;
+                } else if (rule.metric === 'attendanceRate') {
+                    valueLabel = `${t('ptStatsSessionsRecorded') || 'Attendance'}: ${studentValue.toFixed(0)}%`;
+                } else if (rule.metric === 'netPoints') {
+                    valueLabel = `${t('ptStatsNetPoints') || 'Net Points'}: ${studentValue}`;
+                } else if (rule.metric === 'picks') {
+                    valueLabel = `${t('ptStatsTimesPicked') || 'Times Picked'}: ${studentValue}`;
+                } else if (rule.metric === 'trend') {
+                    valueLabel = `${t('ptColTrend') || 'Trend'}: ${studentValue === 1 ? 'Up' : studentValue === -1 ? 'Down' : 'Flat'}`;
+                } else if (rule.metric === 'posRatio') {
+                    valueLabel = `${t('ptColPosRatio') || '+/s'}: +${studentValue.toFixed(2)}`;
+                } else if (rule.metric === 'negRatio') {
+                    valueLabel = `${t('ptColNegRatio') || '-/s'}: -${studentValue.toFixed(2)}`;
+                } else if (rule.metric === 'netRatio') {
+                    valueLabel = `${t('ptColNetRatio') || 'Net/s'}: ${studentValue >= 0 ? '+' : ''}${studentValue.toFixed(2)}`;
+                } else if (rule.metric === 'ratio') {
+                    valueLabel = `${t('ptColGoodBad') || 'Good/Bad'}: ${studentValue === 999 ? '∞' : studentValue.toFixed(2)}`;
+                } else if (rule.metric === 'badgePositive') {
+                    valueLabel = `${t('ptStatsPosBadges') || 'Positive Badges'}: ${studentValue}`;
+                } else if (rule.metric === 'badgeNegative') {
+                    valueLabel = `${t('ptColBadgeMinus') || 'Negative Badges'}: ${studentValue}`;
+                } else if (rule.metric === 'badgePositiveSession') {
+                    valueLabel = `${t('ptStatsPosBadges') || 'Pos Badges'}/s: ${studentValue}`;
+                } else if (rule.metric === 'badgeNegativeSession') {
+                    valueLabel = `${t('ptColBadgeMinus') || 'Neg Badges'}/s: ${studentValue}`;
+                } else if (rule.metric === 'teamRoleEvents') {
+                    valueLabel = `${t('ptColTeamRole') || 'Team/Role Events'}: ${studentValue}`;
+                } else {
+                    valueLabel = `${rule.metric}: ${studentValue}`;
+                }
+
                 ruleDetails.push({
                     ruleIndex: idx,
                     metric: rule.metric,
                     name: getRuleLabel(rule, idx),
+                    studentValue: studentValue,
+                    valueLabel: valueLabel,
+                    minPts: minPts,
+                    passPts: passPts,
                     rawPoints: parseFloat(rulePoints.toFixed(2)),
                     maxPts: effectiveMaxPts
                 });
@@ -11475,12 +11428,9 @@
             let finalGrade = 0;
             const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
 
-            if (totalPossiblePoints > 0) {
-                finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
-            }
-
             if (groupRulesConfig.scaleToMax) {
                 if (totalPossiblePoints > 0) {
+                    finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
                     ruleDetails.forEach(rd => {
                         rd.points = parseFloat(((rd.rawPoints / totalPossiblePoints) * maxGrade).toFixed(2));
                         rd.maxPoints = parseFloat(((rd.maxPts / totalPossiblePoints) * maxGrade).toFixed(2));
@@ -11490,6 +11440,7 @@
                     ruleDetails.forEach(rd => { rd.points = 0; rd.maxPoints = 0; });
                 }
             } else {
+                finalGrade = parseFloat(achievedPoints.toFixed(2));
                 ruleDetails.forEach(rd => {
                     rd.points = rd.rawPoints;
                     rd.maxPoints = rd.maxPts;

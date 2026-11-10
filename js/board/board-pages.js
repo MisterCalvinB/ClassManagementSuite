@@ -3544,7 +3544,11 @@
               }
               if (typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id === note.id) {
                 const hideBtn = document.getElementById('wn-sp-hide-btn');
-                if (hideBtn) hideBtn.innerHTML = note.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+                if (hideBtn) {
+                  hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+                  hideBtn.classList.toggle('active', !!note.hidden);
+                  hideBtn.title = note.hidden ? 'Reveal note' : 'Hide note';
+                }
               }
             });
             // Sync note hidden state to mirror view without DOM teardown
@@ -3562,9 +3566,17 @@
               if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
               if (typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id === m.id) {
                 const imgHideBtn = document.getElementById('con-img-sp-hide-btn');
-                if (imgHideBtn) imgHideBtn.innerHTML = m.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+                if (imgHideBtn) {
+                  imgHideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+                  imgHideBtn.classList.toggle('active', !!m.hidden);
+                  imgHideBtn.title = m.hidden ? 'Reveal' : 'Hide';
+                }
                 const pdfHideBtn = document.getElementById('con-pdf-sp-hide-btn');
-                if (pdfHideBtn) pdfHideBtn.innerHTML = m.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+                if (pdfHideBtn) {
+                  pdfHideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+                  pdfHideBtn.classList.toggle('active', !!m.hidden);
+                  pdfHideBtn.title = m.hidden ? 'Reveal' : 'Hide';
+                }
               }
             });
             // Sync media hidden state to mirror view without DOM teardown

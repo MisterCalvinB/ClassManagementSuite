@@ -531,10 +531,12 @@
     function _positionPopup(popup, e) {
       if (!popup) return;
       popup.style.maxHeight = Math.max(160, window.innerHeight - 16) + 'px';
-      popup.style.maxWidth = Math.max(200, window.innerWidth - 16) + 'px';
+      var maxW = Math.min(360, Math.max(280, window.innerWidth - 16));
+      popup.style.maxWidth = maxW + 'px';
+      popup.style.width = Math.min(320, maxW) + 'px';
       popup.style.overflowY = 'auto';
       popup.style.overflowX = 'hidden';
-      var pw = popup.offsetWidth || 260;
+      var pw = popup.offsetWidth || 320;
       var ph = popup.offsetHeight || 300;
       var mx = e.clientX + 10, my = e.clientY + 8;
       if (mx + pw > window.innerWidth - 12) mx = e.clientX - pw - 10;
@@ -714,9 +716,17 @@
       var blinkBtn = document.getElementById('con-img-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-img-sp-lock-btn');
-      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (lockBtn) {
+        lockBtn.innerHTML = '<img src="../assets/icons/' + (item.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        lockBtn.classList.toggle('active', !!item.locked);
+        lockBtn.title = item.locked ? 'Unlock' : 'Lock';
+      }
       var hideBtn = document.getElementById('con-img-sp-hide-btn');
-      if (hideBtn) hideBtn.innerHTML = item.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (hideBtn) {
+        hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        hideBtn.classList.toggle('active', !!item.hidden);
+        hideBtn.title = item.hidden ? 'Reveal' : 'Hide';
+      }
       var fullBtn = document.getElementById('con-img-sp-fullscreen-btn');
       if (fullBtn) fullBtn.classList.toggle('active', !!item._fullscreen);
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
@@ -968,14 +978,22 @@
       _conCtxItem.locked = !_conCtxItem.locked;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-img-sp-lock-btn');
-      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (btn) {
+        btn.innerHTML = '<img src="../assets/icons/' + (_conCtxItem.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        btn.classList.toggle('active', !!_conCtxItem.locked);
+        btn.title = _conCtxItem.locked ? 'Unlock' : 'Lock';
+      }
     };
     window.conImgSpToggleHide = function () {
       if (!_conCtxItem) return;
       _conCtxItem.hidden = !_conCtxItem.hidden;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-img-sp-hide-btn');
-      if (btn) btn.innerHTML = _conCtxItem.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (btn) {
+        btn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        btn.classList.toggle('active', !!_conCtxItem.hidden);
+        btn.title = _conCtxItem.hidden ? 'Reveal' : 'Hide';
+      }
       if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: _conCtxItem.id, hidden: !!_conCtxItem.hidden });
     };
     window.conImgSpAddEmoji = function () {
@@ -1049,9 +1067,17 @@
       var blinkBtn = document.getElementById('con-pdf-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!item.blink);
       var lockBtn = document.getElementById('con-pdf-sp-lock-btn');
-      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (lockBtn) {
+        lockBtn.innerHTML = '<img src="../assets/icons/' + (item.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        lockBtn.classList.toggle('active', !!item.locked);
+        lockBtn.title = item.locked ? 'Unlock' : 'Lock';
+      }
       var hideBtn = document.getElementById('con-pdf-sp-hide-btn');
-      if (hideBtn) hideBtn.innerHTML = item.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (hideBtn) {
+        hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        hideBtn.classList.toggle('active', !!item.hidden);
+        hideBtn.title = item.hidden ? 'Reveal' : 'Hide';
+      }
       var lockFitBtn = document.getElementById('con-pdf-sp-lockfit-btn');
       if (lockFitBtn) lockFitBtn.classList.toggle('active', !!item.pdfLockSize);
       var fullBtn = document.getElementById('con-pdf-sp-fullscreen-btn');
@@ -1240,14 +1266,22 @@
       _conCtxItem.locked = !_conCtxItem.locked;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-pdf-sp-lock-btn');
-      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (btn) {
+        btn.innerHTML = '<img src="../assets/icons/' + (_conCtxItem.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        btn.classList.toggle('active', !!_conCtxItem.locked);
+        btn.title = _conCtxItem.locked ? 'Unlock' : 'Lock';
+      }
     };
     window.conPdfSpToggleHide = function () {
       if (!_conCtxItem) return;
       _conCtxItem.hidden = !_conCtxItem.hidden;
       _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
       var btn = document.getElementById('con-pdf-sp-hide-btn');
-      if (btn) btn.innerHTML = _conCtxItem.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (btn) {
+        btn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        btn.classList.toggle('active', !!_conCtxItem.hidden);
+        btn.title = _conCtxItem.hidden ? 'Reveal' : 'Hide';
+      }
       if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: _conCtxItem.id, hidden: !!_conCtxItem.hidden });
     };
     window.conPdfSpToggleLockFit = function () {
@@ -1311,7 +1345,11 @@
       if (!overlay) return;
       _conSoundOverlayOpenTime = Date.now();
       var lockBtn = document.getElementById('con-sound-sp-lock-btn');
-      if (lockBtn) lockBtn.innerHTML = item.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (lockBtn) {
+        lockBtn.innerHTML = '<img src="../assets/icons/' + (item.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        lockBtn.classList.toggle('active', !!item.locked);
+        lockBtn.title = item.locked ? 'Unlock' : 'Lock';
+      }
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
       var openFileBtn = document.getElementById('con-sound-sp-openfile-btn');
       var openFolderBtn = document.getElementById('con-sound-sp-openfolder-btn');
@@ -1342,7 +1380,11 @@
       var wrap = _conMediaGetWrap(_conCtxItem);
       if (wrap) wrap.classList.toggle('con-media-locked', !!_conCtxItem.locked);
       var btn = document.getElementById('con-sound-sp-lock-btn');
-      if (btn) btn.innerHTML = _conCtxItem.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+      if (btn) {
+        btn.innerHTML = '<img src="../assets/icons/' + (_conCtxItem.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        btn.classList.toggle('active', !!_conCtxItem.locked);
+        btn.title = _conCtxItem.locked ? 'Unlock' : 'Lock';
+      }
     };
     window.conSoundSpOpenFile = function () {
       var item = _conCtxItem;

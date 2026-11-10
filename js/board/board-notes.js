@@ -1451,9 +1451,17 @@
         if (btn) btn.classList.toggle('active', _curAlign === a);
       });
       const lockBtn = document.getElementById('wn-sp-lock-btn');
-      if (lockBtn) { lockBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
+      if (lockBtn) {
+        lockBtn.innerHTML = '<img src="../assets/icons/' + (noteData.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+        lockBtn.classList.toggle('active', !!noteData.locked);
+        lockBtn.title = noteData.locked ? 'Unlock note' : 'Lock note';
+      }
       const hideBtn = document.getElementById('wn-sp-hide-btn');
-      if (hideBtn) hideBtn.innerHtml = noteData.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (hideBtn) {
+        hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        hideBtn.classList.toggle('active', !!noteData.hidden);
+        hideBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
+      }
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
       if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
       const libBtn = document.getElementById('wn-sp-save-library-btn');
@@ -1539,11 +1547,11 @@
     function _initWnPopupDrag() {
       const popup = document.getElementById('wn-style-popup');
       if (!popup) return;
-      const handle = popup.querySelector('h4');
+      const handle = popup.querySelector('.con-board-ctx-header, h4');
       if (!handle) return;
       let dragging = false, ox = 0, oy = 0;
       handle.addEventListener('mousedown', e => {
-        if (e.target.tagName === 'BUTTON') return;
+        if (e.target.closest('button')) return;
         dragging = true; _wnPopupDragged = true;
         if (typeof conCloseNoteConvertModal === 'function') conCloseNoteConvertModal();
         ox = e.clientX - popup.offsetLeft;
@@ -3046,8 +3054,9 @@
       });
       const lockBtn = document.getElementById('wn-sp-lock-btn');
       if (lockBtn) {
-        lockBtn.innerHTML = newLocked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock';
+        lockBtn.innerHTML = '<img src="../assets/icons/' + (newLocked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
         lockBtn.classList.toggle('active', !!newLocked);
+        lockBtn.title = newLocked ? 'Unlock note' : 'Lock note';
       }
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     }
@@ -3066,7 +3075,11 @@
         }
       });
       const hideBtn = document.getElementById('wn-sp-hide-btn');
-      if (hideBtn) hideBtn.innerHTML = newHidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+      if (hideBtn) {
+        hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+        hideBtn.classList.toggle('active', !!newHidden);
+        hideBtn.title = newHidden ? 'Reveal note' : 'Hide note';
+      }
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     }
@@ -5765,7 +5778,11 @@
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const hideBtn = document.getElementById('wn-sp-hide-btn');
-          if (hideBtn) hideBtn.innerHTML = noteData.hidden ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Reveal' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /> Hide';
+          if (hideBtn) {
+            hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+            hideBtn.classList.toggle('active', !!noteData.hidden);
+            hideBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
+          }
         }
       });
       miniActions.appendChild(hideQuickBtn);
@@ -5852,7 +5869,11 @@
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const lockBtn = document.getElementById('wn-sp-lock-btn');
-          if (lockBtn) { lockBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /> Unlock' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /> Lock'; lockBtn.classList.toggle('active', !!noteData.locked); }
+          if (lockBtn) {
+            lockBtn.innerHTML = '<img src="../assets/icons/' + (noteData.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+            lockBtn.classList.toggle('active', !!noteData.locked);
+            lockBtn.title = noteData.locked ? 'Unlock note' : 'Lock note';
+          }
         }
       });
       miniActions.appendChild(lockQuickBtn);
@@ -6011,7 +6032,11 @@
         if (noteData._applyStyle) noteData._applyStyle();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const hideBtn = document.getElementById('wn-sp-hide-btn');
-          if (hideBtn) hideBtn.textContent = 'Hide';
+          if (hideBtn) {
+            hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+            hideBtn.classList.remove('active');
+            hideBtn.title = 'Hide note';
+          }
         }
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof window._conMirrorSend === 'function') {

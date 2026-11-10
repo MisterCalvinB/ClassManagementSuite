@@ -1080,8 +1080,11 @@
         const menu = document.getElementById('con-group-ctx-menu');
         menu.classList.add('visible');
         const margin = 8;
-        menu.style.maxHeight = Math.max(160, window.innerHeight - 2 * margin) + 'px';
-        menu.style.maxWidth = Math.max(200, window.innerWidth - 2 * margin) + 'px';
+        const maxAvailH = Math.max(160, window.innerHeight - 2 * margin);
+        const maxAvailW = Math.min(350, Math.max(200, window.innerWidth - 2 * margin));
+        menu.style.maxHeight = maxAvailH + 'px';
+        menu.style.maxWidth = maxAvailW + 'px';
+        menu.style.width = Math.min(310, maxAvailW) + 'px';
         menu.style.overflowY = 'auto';
         menu.style.overflowX = 'hidden';
 
@@ -1303,6 +1306,8 @@
         if (menu) {
           menu.classList.remove('visible');
           menu.style.maxHeight = '';
+          menu.style.maxWidth = '';
+          menu.style.width = '';
         }
       };
 

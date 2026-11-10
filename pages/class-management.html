@@ -15,6 +15,7 @@
     <script src="../js/tutorial.js"></script>
     <script src="../js/shortcuts-modal.js"></script>
     <script src="../js/badge-sets-service.js"></script>
+    <script src="../js/mode-sets-service.js"></script>
     <script src="../js/lesson-creator-service.js"></script>
     <script src="../js/links-service.js"></script>
     <script src="../js/tag-link-modal.js"></script>
@@ -3655,54 +3656,36 @@
         </div>
     </div>
     <div id="timer-overlay">
-        <div id="timer-overlay-settings">
-            <div class="timer-overlay-setting" id="overlay-duration-setting">
-                <span class="timer-overlay-setting-label" data-i18n="timer_duration">Duration</span>
-                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-hours" value="0" min="0"
-                    max="23" onchange="syncOverlaySettingsToPopup()">
-                <span class="timer-overlay-setting-sep">h</span>
-                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-minutes" value="5" min="0"
-                    max="59" onchange="syncOverlaySettingsToPopup()">
-                <span class="timer-overlay-setting-sep">m</span>
+        <!-- Top Navigation Bar -->
+        <div id="timer-overlay-top-bar">
+            <div class="overlay-nav-group">
+                <div class="overlay-segmented-group">
+                    <button type="button" class="overlay-segment-btn active" id="overlay-view-timer-btn" onclick="setOverlayView('timer')"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> <span data-i18n="timer_view_timer">Timer</span></button>
+                    <button type="button" class="overlay-segment-btn" id="overlay-view-stopwatch-btn" onclick="setOverlayView('stopwatch')"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> <span data-i18n="timer_view_stopwatch">Stopwatch</span></button>
+                    <button type="button" class="overlay-segment-btn" id="overlay-view-clock-btn" onclick="setOverlayView('clock')"><img src="../assets/icons/calendar.svg" class="btn-icon" alt="" /> <span data-i18n="timer_view_clock">Clock</span></button>
+                </div>
+                <button type="button" id="overlay-view-merged-btn" onclick="toggleOverlayMergedView()" title="Toggle simultaneous clock and timer view" data-i18n-title="timer_btn_merge_clock_title"><img src="../assets/icons/split.svg" class="btn-icon" alt="" /> <span data-i18n="timer_view_merged">Dual View</span></button>
             </div>
-            <div class="timer-overlay-setting"
-                style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 12px;">
-                <span class="timer-overlay-setting-label" data-i18n="timer_beeps">Beeps</span>
-                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-beeps" value="3" min="1"
-                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width: 40px;">
-            </div>
-            <button class="timer-overlay-mode-toggle-btn" id="overlay-stopwatch-btn"
-                onclick="toggleOverlayStopwatchMode()" style="margin-left: auto;" data-i18n="timer_stopwatch_btn"><img
-                    src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" />
-                Stopwatch</button>
-            <div class="timer-overlay-transport">
-                <button class="timer-overlay-transport-btn" id="overlay-playpause-btn" onclick="overlayPlayPauseTimer()"
-                    data-i18n="timer_play_btn"><img src="../assets/icons/play.svg" class="btn-icon" alt="" />
-                    Play</button>
-                <button class="timer-overlay-transport-btn" id="overlay-stop-main-btn" onclick="overlayStopTimer()"
-                    data-i18n="timer_stop_btn"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
-                    Stop</button>
-                <button class="timer-overlay-transport-btn" id="overlay-sub30s-btn" onclick="timerSubtract30s()"
-                    title="-30 seconds" data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
-                <button class="timer-overlay-transport-btn" id="overlay-add30s-btn" onclick="timerAdd30s()"
-                    title="+30 seconds" data-i18n-title="timer_add30s_title" style="display:none;">+30s</button>
+            <div class="overlay-nav-group">
+                <button type="button" class="overlay-action-btn" id="overlay-theater-btn" onclick="toggleOverlayTheaterMode()" title="Toggle theater / dark projection mode" data-i18n-title="timer_theater_mode_title"><img src="../assets/icons/palette.svg" class="btn-icon" alt="" /></button>
+                <button type="button" class="overlay-action-btn" id="overlay-noise-toggle-btn" onclick="toggleOverlayNoisePanel()" title="Sound & ambient noise options" data-i18n-title="timer_sound_panel_title"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /></button>
+                <button type="button" id="timer-overlay-close" onclick="closeTimerFullscreen()" title="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
             </div>
         </div>
+
+        <!-- Main Presentation Card -->
         <div id="timer-overlay-content">
+            <div id="timer-overlay-merged-clock">
+                <div id="timer-overlay-merged-time">00:00:00</div>
+                <div id="timer-overlay-merged-date"></div>
+            </div>
             <div id="timer-overlay-display">--:--</div>
+            <div id="timer-overlay-clock-date"></div>
             <div id="timer-overlay-progress">
                 <div id="timer-overlay-progress-bar"></div>
             </div>
             <div id="timer-overlay-objective"></div>
-            <div id="timer-overlay-mode-btns">
-                <button class="timer-overlay-mode-btn" onclick="activateMode('quiet')" title="Quiet Work (1)"><img
-                        src="../assets/icons/shush.svg" class="btn-icon" alt="" /><span>1</span></button>
-                <button class="timer-overlay-mode-btn" onclick="activateMode('conversation')"
-                    title="Conversation (2)"><img src="../assets/icons/speech-bubbles.svg" class="btn-icon"
-                        alt="" /><span>2</span></button>
-                <button class="timer-overlay-mode-btn" onclick="activateMode('group')" title="Group Work (3)"><img
-                        src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><span>3</span></button>
-            </div>
+
             <div class="overlay-noise-panel" id="timer-overlay-noise-panel" style="margin-top:8px;">
                 <button class="overlay-noise-type-btn" id="timer-noise-btn-white" onclick="overlaySetNoise('white', event)"
                     title="White noise" data-i18n-title="overlay_white_title"><img src="../assets/icons/wind.svg"
@@ -3723,7 +3706,46 @@
                     <span class="overlay-noise-vol-value" id="timer-noise-volume-val">10</span>
                 </div>
             </div>
-            <button id="timer-overlay-close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        </div>
+
+        <!-- Bottom Toolbar (Controls & Shortcuts) -->
+        <div id="timer-overlay-bottom-bar">
+            <div class="timer-overlay-setting" id="overlay-duration-setting">
+                <span class="timer-overlay-setting-label" data-i18n="timer_duration">Duration</span>
+                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-hours" value="0" min="0"
+                    max="23" onchange="syncOverlaySettingsToPopup()">
+                <span class="timer-overlay-setting-sep">h</span>
+                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-minutes" value="5" min="0"
+                    max="59" onchange="syncOverlaySettingsToPopup()">
+                <span class="timer-overlay-setting-sep">m</span>
+            </div>
+            <div class="timer-overlay-setting"
+                style="border-left: 1.5px solid #dcdcd6; padding-left: 10px;">
+                <span class="timer-overlay-setting-label" data-i18n="timer_beeps">Beeps</span>
+                <input type="number" class="timer-overlay-setting-input" id="overlay-timer-beeps" value="3" min="1"
+                    max="20" oninput="onTimerBeepsInputChanged(this.value)" onchange="onTimerBeepsInputChanged(this.value)" style="width: 40px;">
+            </div>
+            <div class="timer-overlay-transport">
+                <button class="timer-overlay-transport-btn" id="overlay-playpause-btn" onclick="overlayPlayPauseTimer()"
+                    data-i18n="timer_play_btn"><img src="../assets/icons/play.svg" class="btn-icon" alt="" />
+                    Play</button>
+                <button class="timer-overlay-transport-btn" id="overlay-stop-main-btn" onclick="overlayStopTimer()"
+                    data-i18n="timer_stop_btn"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" />
+                    Stop</button>
+                <button class="timer-overlay-transport-btn" id="overlay-sub30s-btn" onclick="timerSubtract30s()"
+                    title="-30 seconds" data-i18n-title="timer_sub30s_title" style="display:none;">-30s</button>
+                <button class="timer-overlay-transport-btn" id="overlay-add30s-btn" onclick="timerAdd30s()"
+                    title="+30 seconds" data-i18n-title="timer_add30s_title" style="display:none;">+30s</button>
+            </div>
+            <div id="timer-overlay-mode-btns">
+                <button class="timer-overlay-mode-btn" onclick="activateMode('quiet')" title="Quiet Work (1)"><img
+                        src="../assets/icons/shush.svg" class="btn-icon" alt="" /><span>1</span></button>
+                <button class="timer-overlay-mode-btn" onclick="activateMode('conversation')"
+                    title="Conversation (2)"><img src="../assets/icons/speech-bubbles.svg" class="btn-icon"
+                        alt="" /><span>2</span></button>
+                <button class="timer-overlay-mode-btn" onclick="activateMode('group')" title="Group Work (3)"><img
+                        src="../assets/icons/people-group.svg" class="btn-icon" alt="" /><span>3</span></button>
+            </div>
         </div>
     </div>
     <div class="modal-overlay" id="team-modal" onclick="closeTeamModal()">
@@ -4251,8 +4273,21 @@
                         title="Reset built-in modes to default">🔄 Reset</button>
                 </div>
             </div>
-            <p style="color:#666; font-size:0.85rem; margin-top:0; margin-bottom:16px;" data-i18n="mode_manager_desc">
+            <p style="color:#666; font-size:0.85rem; margin-top:0; margin-bottom:12px;" data-i18n="mode_manager_desc">
                 Create, reorder, or edit working modes. Assign custom sounds, images, and instructions text.</p>
+
+            <div class="badge-set-header-bar" id="cm-mode-set-bar" style="margin-bottom:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f9f9f9; padding:8px 12px; border:1.5px solid #333; border-radius:6px;">
+                <span class="badge-set-label" style="font-weight:700; font-size:0.82rem;" data-i18n="cm_mode_set_label">Mode Set:</span>
+                <select id="cm-mode-set-select" class="badge-set-select" style="padding:4px 8px; border:1.5px solid #333; border-radius:4px; font-size:0.82rem; font-weight:600; background:#fff;" onchange="onModeSetChange(this.value)"></select>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333;">
+                    <input type="checkbox" id="cm-mode-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;" onchange="toggleModeSetDefaultAll(this.checked)">
+                    <span data-i18n="cm_mode_set_use_default_all">Use as default for all classes</span>
+                </label>
+                <button type="button" class="badge-set-action-btn" onclick="openManageDatabaseForModes()" style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.80rem; font-weight:700; background:#fff; border:1.5px solid #333; border-radius:4px; cursor:pointer;">
+                    <img src="../assets/icons/theater.svg" class="btn-icon" alt="" style="width:14px; height:14px;" />
+                    <span data-i18n="cm_mode_set_manage">Manage in Database…</span>
+                </button>
+            </div>
 
             <div id="mode-manager-list" class="mode-manager-list"
                 style="display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto; padding-right:4px;">
@@ -5075,6 +5110,8 @@
                     timerDisplayOpacity: display ? (display.style.opacity || '') : '',
                     timerDisplayFontSize: display ? (display.style.fontSize || '') : '',
                     overlayProgressWidth: progressBar ? progressBar.style.width : '',
+                    overlayProgressClass: progressBar ? progressBar.className : '',
+                    overlayView: typeof overlayCurrentView !== 'undefined' ? overlayCurrentView : 'timer',
                     overlayBg: overlayEl ? overlayEl.style.background : '',
                     modeTimerBg: modeTimer ? modeTimer.style.background : (overlayEl ? overlayEl.style.background : ''),
                     modeTimerClass: modeTimer ? modeTimer.className : '',
@@ -5116,10 +5153,16 @@
                 }
                 if (data.kind === 'mode-activate') { activateMode(data.mode); return; }
                 if (data.kind === 'mode-close') { closeMode(); return; }
-                if (data.kind === 'datetime-open') { openDatetimeOverlay(); return; }
-                if (data.kind === 'datetime-close') { closeDatetimeOverlay(); return; }
-                if (data.kind === 'timer-fullscreen-open') { document.getElementById('timer-overlay').classList.add('active'); return; }
-                if (data.kind === 'timer-fullscreen-close') { document.getElementById('timer-overlay').classList.remove('active'); return; }
+                if (data.kind === 'datetime-open') { openTimerFullscreen('clock'); return; }
+                if (data.kind === 'datetime-close') { closeTimerFullscreen(); return; }
+                if (data.kind === 'timer-fullscreen-open') {
+                    openTimerFullscreen(data.view || 'timer');
+                    if (data.theater !== undefined && data.theater !== overlayTheaterMode) toggleOverlayTheaterMode(false);
+                    return;
+                }
+                if (data.kind === 'timer-fullscreen-close') { closeTimerFullscreen(); return; }
+                if (data.kind === 'overlay-view-change') { if (typeof setOverlayView === 'function') setOverlayView(data.view, false); return; }
+                if (data.kind === 'overlay-theater-toggle') { if (data.theater !== undefined && data.theater !== overlayTheaterMode) toggleOverlayTheaterMode(false); return; }
                 if (!_presAnimEnabled) return;
                 if (data.kind === 'score-flash') showScoreFlash(data.label, data.color);
                 else if (data.kind === 'badge-flash') showBadgeFlash(data.icon);
@@ -5212,11 +5255,15 @@
                 }
                 // Keep fullscreen timer overlay display, progress bar, and colour live
                 const overlayDisplay = document.getElementById('timer-overlay-display');
-                if (overlayDisplay) overlayDisplay.textContent = data.timerDisplayText;
+                if (overlayDisplay && data.timerDisplayText && overlayCurrentView !== 'clock') overlayDisplay.textContent = data.timerDisplayText;
                 const overlayBar = document.getElementById('timer-overlay-progress-bar');
-                if (overlayBar && data.overlayProgressWidth) overlayBar.style.width = data.overlayProgressWidth;
-                const overlayEl = document.getElementById('timer-overlay');
-                if (overlayEl && data.overlayBg) overlayEl.style.background = data.overlayBg;
+                if (overlayBar) {
+                    if (data.overlayProgressWidth) overlayBar.style.width = data.overlayProgressWidth;
+                    if (data.overlayProgressClass !== undefined) overlayBar.className = data.overlayProgressClass;
+                }
+                if (data.overlayView && typeof setOverlayView === 'function' && overlayCurrentView !== data.overlayView) {
+                    setOverlayView(data.overlayView, false);
+                }
                 return;
             }
             if (data.type !== 'state') return;
@@ -6369,6 +6416,12 @@
                 classSets: (rawBadgeSets?.classSets && typeof rawBadgeSets.classSets === 'object') ? { ...rawBadgeSets.classSets } : {}
             };
 
+            const rawModeSets = config?.modeSetSettings;
+            modeSetSettings = {
+                defaultSetId: String(rawModeSets?.defaultSetId || 'default').trim() || 'default',
+                classSets: (rawModeSets?.classSets && typeof rawModeSets.classSets === 'object') ? { ...rawModeSets.classSets } : {}
+            };
+
             const savedBadges = Array.isArray(config?.badgeDefinitions) ? config.badgeDefinitions : DEFAULT_BADGE_DEFINITIONS;
             const normalizedDefaults = normalizeBadgeDefinitions(savedBadges && savedBadges.length ? savedBadges : DEFAULT_BADGE_DEFINITIONS);
             // Ensure builtin + and - entries always exist (inject for backward compat with old configs)
@@ -6513,6 +6566,9 @@
                     return copy;
                 });
                 if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+            }
+            if (typeof ModeSets !== 'undefined' && typeof ModeSets.setCachedDefs === 'function') {
+                ModeSets.setCachedDefs('default', classModes);
             }
             if (config?.shortcuts && typeof config.shortcuts === 'object' && !Array.isArray(config.shortcuts)) {
                 try {
@@ -6678,7 +6734,17 @@
                     defaultSetId: String(badgeSetSettings?.defaultSetId || 'default').trim() || 'default',
                     classSets: { ...(badgeSetSettings?.classSets || {}) }
                 },
-                classModes: classModes.map(entry => ({ ...entry })),
+                modeSetSettings: {
+                    defaultSetId: String(modeSetSettings?.defaultSetId || 'default').trim() || 'default',
+                    classSets: { ...(modeSetSettings?.classSets || {}) }
+                },
+                classModes: (function () {
+                    const defaultDefs = (typeof ModeSets !== 'undefined' && typeof ModeSets.getCachedDefs === 'function')
+                        ? ModeSets.getCachedDefs('default')
+                        : null;
+                    const source = (activeModeSetId === 'default') ? classModes : (defaultDefs || loadedConfig.classModes || DEFAULT_CLASS_MODES);
+                    return (source || []).map(entry => ({ ...entry }));
+                })(),
                 soundSettings: normalizeSoundSettings(soundSettings),
                 participationSettings: normalizeParticipationSettings(participationSettings),
                 roleDefinitions: (rolesLibraryLoaded && Array.isArray(roleDefinitions))
@@ -9188,6 +9254,7 @@
             updateUtilityButtons();
             _cmsUpdatePlanChip();
             await applyBadgeSetForClass(groupName);
+            await applyModeSetForClass(groupName);
             renderRoster();
             updateExamSessionBanner();
             renderRanking();
@@ -12677,8 +12744,12 @@
             let finalGrade = 0;
             const maxGrade = Number(groupRulesConfig.maxGrade) || 20;
 
-            if (totalPossiblePoints > 0) {
-                finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+            if (groupRulesConfig.scaleToMax) {
+                if (totalPossiblePoints > 0) {
+                    finalGrade = parseFloat(((achievedPoints / totalPossiblePoints) * maxGrade).toFixed(2));
+                }
+            } else {
+                finalGrade = parseFloat(achievedPoints.toFixed(2));
             }
 
             return {
@@ -13976,28 +14047,36 @@
 
         let datetimeOverlayInterval = null;
         function openDatetimeOverlay() {
-            const overlay = document.getElementById('datetime-overlay');
-            overlay.classList.add('active');
-            updateDatetimeOverlay();
-            datetimeOverlayInterval = setInterval(updateDatetimeOverlay, 1000);
-            document.addEventListener('keydown', onDatetimeOverlayKey);
-            if (!PRESENTATION_MODE) _broadcastAnimation('datetime-open');
+            if (typeof openTimerFullscreen === 'function') {
+                openTimerFullscreen('clock');
+            } else {
+                const overlay = document.getElementById('datetime-overlay');
+                if (overlay) overlay.classList.add('active');
+            }
+            if (!PRESENTATION_MODE && typeof _broadcastAnimation === 'function') _broadcastAnimation('datetime-open');
         }
         function closeDatetimeOverlay() {
-            document.getElementById('datetime-overlay').classList.remove('active');
-            clearInterval(datetimeOverlayInterval);
-            document.removeEventListener('keydown', onDatetimeOverlayKey);
-            if (!PRESENTATION_MODE) _broadcastAnimation('datetime-close');
+            if (typeof closeTimerFullscreen === 'function') {
+                closeTimerFullscreen();
+            } else {
+                const overlay = document.getElementById('datetime-overlay');
+                if (overlay) overlay.classList.remove('active');
+            }
+            if (!PRESENTATION_MODE && typeof _broadcastAnimation === 'function') _broadcastAnimation('datetime-close');
         }
         function onDatetimeOverlayKey(e) {
             if (e.key === 'Escape') closeDatetimeOverlay();
         }
         function updateDatetimeOverlay() {
-            const now = new Date();
-            document.getElementById('datetime-overlay-time').textContent =
-                now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            document.getElementById('datetime-overlay-date').textContent =
-                now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            if (typeof updateOverlayClock === 'function') {
+                updateOverlayClock();
+            } else {
+                const now = new Date();
+                const dt = document.getElementById('datetime-overlay-time');
+                if (dt) dt.textContent = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const dd = document.getElementById('datetime-overlay-date');
+                if (dd) dd.textContent = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+            }
         }
 
         // Timer functionality
@@ -15538,21 +15617,168 @@
             updateOverlayTransportControls();
         }
 
-        function openTimerFullscreen() {
+        let overlayCurrentView = 'timer'; // 'timer', 'stopwatch', 'clock', 'merged'
+        let overlayPreviousTimerView = 'timer';
+        let overlayTheaterMode = (function () {
+            try { return localStorage.getItem('cmt-overlay-theater-mode') === 'true'; } catch (_) { return false; }
+        })();
+        let overlayClockInterval = null;
+
+        function updateOverlayClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            let dateLocale = 'en-GB';
+            if (currentLang === 'fr') dateLocale = 'fr-FR';
+            else if (currentLang === 'de') dateLocale = 'de-DE';
+            else if (currentLang === 'it') dateLocale = 'it-IT';
+            const dateStr = now.toLocaleDateString(dateLocale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+            const mTime = document.getElementById('timer-overlay-merged-time');
+            if (mTime) mTime.textContent = timeStr;
+            const mDate = document.getElementById('timer-overlay-merged-date');
+            if (mDate) mDate.textContent = dateStr;
+
+            const cDate = document.getElementById('timer-overlay-clock-date');
+            if (cDate) cDate.textContent = dateStr;
+
+            if (overlayCurrentView === 'clock') {
+                const d = document.getElementById('timer-overlay-display');
+                if (d) d.textContent = timeStr;
+            }
+
+            const dtTime = document.getElementById('datetime-overlay-time');
+            if (dtTime) dtTime.textContent = timeStr;
+            const dtDate = document.getElementById('datetime-overlay-date');
+            if (dtDate) dtDate.textContent = dateStr;
+        }
+
+        function setOverlayView(viewMode, broadcast = true) {
+            if (!['timer', 'stopwatch', 'clock', 'merged'].includes(viewMode)) viewMode = 'timer';
+            if (viewMode === 'timer' || viewMode === 'stopwatch') {
+                overlayPreviousTimerView = viewMode;
+            }
+            overlayCurrentView = viewMode;
+
+            const overlay = document.getElementById('timer-overlay');
+            if (!overlay) return;
+
+            overlay.classList.remove('view-timer', 'view-stopwatch', 'view-clock', 'view-merged');
+            overlay.classList.add('view-' + viewMode);
+
+            const timerBtn = document.getElementById('overlay-view-timer-btn');
+            const swBtn = document.getElementById('overlay-view-stopwatch-btn');
+            const clockBtn = document.getElementById('overlay-view-clock-btn');
+            const mergedBtn = document.getElementById('overlay-view-merged-btn');
+
+            if (timerBtn) timerBtn.classList.toggle('active', viewMode === 'timer');
+            if (swBtn) swBtn.classList.toggle('active', viewMode === 'stopwatch');
+            if (clockBtn) clockBtn.classList.toggle('active', viewMode === 'clock');
+            if (mergedBtn) mergedBtn.classList.toggle('active', viewMode === 'merged');
+
+            if (viewMode === 'stopwatch' && timerMode !== 'stopwatch') {
+                setTimerMode('stopwatch');
+            } else if (viewMode === 'timer' && timerMode !== 'timer') {
+                setTimerMode('timer');
+            }
+
+            if (viewMode === 'clock') {
+                updateOverlayClock();
+            } else if (viewMode === 'stopwatch') {
+                updateStopwatchDisplay();
+            } else {
+                const activeDisplay = document.getElementById('timer-active-display');
+                const overlayDisplay = document.getElementById('timer-overlay-display');
+                if (activeDisplay && overlayDisplay) {
+                    overlayDisplay.textContent = (activeDisplay.textContent && activeDisplay.textContent !== '--:--')
+                        ? activeDisplay.textContent
+                        : getFormattedTimerInputTime();
+                }
+            }
+
+            updateOverlayTransportControls();
+
+            if (broadcast && !PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
+                _broadcastAnimation('overlay-view-change', { view: viewMode });
+            }
+        }
+
+        function toggleOverlayMergedView() {
+            if (overlayCurrentView === 'merged') {
+                setOverlayView(overlayPreviousTimerView || 'timer');
+            } else {
+                setOverlayView('merged');
+            }
+        }
+
+        function toggleOverlayTheaterMode(broadcast = true) {
+            overlayTheaterMode = !overlayTheaterMode;
+            const overlay = document.getElementById('timer-overlay');
+            if (overlay) overlay.classList.toggle('theater-mode', overlayTheaterMode);
+            const thBtn = document.getElementById('overlay-theater-btn');
+            if (thBtn) thBtn.classList.toggle('active', overlayTheaterMode);
+            try { localStorage.setItem('cmt-overlay-theater-mode', overlayTheaterMode ? 'true' : 'false'); } catch (_) {}
+            if (broadcast && !PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
+                _broadcastAnimation('overlay-theater-toggle', { theater: overlayTheaterMode });
+            }
+        }
+
+        function toggleOverlayNoisePanel() {
+            const panel = document.getElementById('timer-overlay-noise-panel');
+            const btn = document.getElementById('overlay-noise-toggle-btn');
+            if (panel) {
+                const isOpen = panel.classList.toggle('open');
+                if (btn) btn.classList.toggle('active', isOpen);
+            }
+        }
+
+        function onOverlayKeyDown(e) {
+            if (e.key === 'Escape') {
+                closeTimerFullscreen();
+            }
+        }
+
+        function openTimerFullscreen(initialView = null) {
             document.getElementById('timer-popup').classList.remove('open');
-            // Sync popup settings to overlay display
             syncPopupSettingsToOverlay();
             syncOverlayTimerModeState();
             updateOverlayTransportControls();
             if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
-            document.getElementById('timer-overlay').classList.add('active');
-            if (!PRESENTATION_MODE) _broadcastAnimation('timer-fullscreen-open');
+
+            const overlay = document.getElementById('timer-overlay');
+            overlay.classList.add('active');
+            overlay.classList.toggle('theater-mode', overlayTheaterMode);
+
+            const thBtn = document.getElementById('overlay-theater-btn');
+            if (thBtn) thBtn.classList.toggle('active', overlayTheaterMode);
+
+            if (!overlayClockInterval) {
+                updateOverlayClock();
+                overlayClockInterval = setInterval(updateOverlayClock, 1000);
+            }
+
+            document.removeEventListener('keydown', onOverlayKeyDown);
+            document.addEventListener('keydown', onOverlayKeyDown);
+
+            const viewToSet = initialView || (overlayCurrentView === 'clock' ? 'timer' : (overlayCurrentView || 'timer'));
+            setOverlayView(viewToSet, false);
+
+            if (!PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
+                _broadcastAnimation('timer-fullscreen-open', { view: viewToSet, theater: overlayTheaterMode });
+            }
         }
 
         function closeTimerFullscreen() {
             syncOverlaySettingsToPopup();
-            document.getElementById('timer-overlay').classList.remove('active');
-            if (!PRESENTATION_MODE) _broadcastAnimation('timer-fullscreen-close');
+            const overlay = document.getElementById('timer-overlay');
+            overlay.classList.remove('active');
+            if (overlayClockInterval) {
+                clearInterval(overlayClockInterval);
+                overlayClockInterval = null;
+            }
+            document.removeEventListener('keydown', onOverlayKeyDown);
+            if (!PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
+                _broadcastAnimation('timer-fullscreen-close');
+            }
         }
 
         function getFormattedTimerInputTime() {
@@ -15796,10 +16022,8 @@ syncState();
             const startBtn = document.getElementById('popup-start-btn');
             if (startBtn) startBtn.style.display = 'none';
             if (typeof updateOverlayTransportControls === 'function') updateOverlayTransportControls();
-            const overlayEl = document.getElementById('timer-overlay');
-            if (overlayEl) overlayEl.style.background = '#2a9d2a';
             const bar = document.getElementById('timer-overlay-progress-bar');
-            if (bar) bar.style.width = '100%';
+            if (bar) { bar.style.width = '100%'; bar.className = ''; }
             if (timerInterval) clearInterval(timerInterval);
             timerInterval = setInterval(updateTimerDisplay, 500);
             const display = document.getElementById('timer-active-display');
@@ -15856,8 +16080,8 @@ syncState();
 
             timerTotalMs = totalMs;
             timerEndTime = Date.now() + totalMs;
-            document.getElementById('timer-overlay').style.background = '#2a9d2a';
-            document.getElementById('timer-overlay-progress-bar').style.width = '100%';
+            const bar = document.getElementById('timer-overlay-progress-bar');
+            if (bar) { bar.style.width = '100%'; bar.className = ''; }
 
             const objEl = document.getElementById('timer-overlay-objective');
             const objText = currentObjectives.trim();
@@ -15906,10 +16130,8 @@ syncState();
             timerPaused = false;
             timerPausedRemaining = 0;
 
-            const overlay = document.getElementById('timer-overlay');
-            if (overlay) overlay.style.background = '#2a9d2a';
             const prog = document.getElementById('timer-overlay-progress-bar');
-            if (prog) prog.style.width = '100%';
+            if (prog) { prog.style.width = '100%'; prog.className = ''; }
 
             timerInterval = setInterval(updateTimerDisplay, 500);
             const display = document.getElementById('timer-active-display');
@@ -15942,8 +16164,8 @@ syncState();
             timerPausedRemaining = 0;
             document.getElementById('timer-display').textContent = '--:--';
             document.getElementById('timer-overlay-display').textContent = '--:--';
-            document.getElementById('timer-overlay').style.background = '#2a9d2a';
-            document.getElementById('timer-overlay-progress-bar').style.width = '100%';
+            const bar = document.getElementById('timer-overlay-progress-bar');
+            if (bar) { bar.style.width = '100%'; bar.className = ''; }
 
             const display = document.getElementById('timer-active-display');
             document.getElementById('timer-active-area').style.display = 'none';
@@ -16275,8 +16497,11 @@ syncState();
                 document.getElementById('timer-display').textContent = '00:00';
                 document.getElementById('timer-overlay-display').textContent = '00:00';
                 document.getElementById('timer-display').style.color = '#555';
-                document.getElementById('timer-overlay').style.background = '#c0392b';
-                document.getElementById('timer-overlay-progress-bar').style.width = '0%';
+                const pBar = document.getElementById('timer-overlay-progress-bar');
+                if (pBar) {
+                    pBar.style.width = '0%';
+                    pBar.className = 'finished';
+                }
 
                 const display = document.getElementById('timer-active-display');
                 display.textContent = '00:00';
@@ -16355,11 +16580,20 @@ syncState();
                 updateModeMinimisedPill();
             }
 
-            // Colour shift: green -> amber -> red based on % remaining
+            // Update progress bar and smooth status color
             if (timerTotalMs > 0) {
                 const pct = remaining / timerTotalMs; // 1 = full, 0 = done
                 const progressBar = document.getElementById('timer-overlay-progress-bar');
-                progressBar.style.width = (pct * 100) + '%';
+                if (progressBar) {
+                    progressBar.style.width = (pct * 100) + '%';
+                    if (remaining < 60000 || pct < 0.2) {
+                        progressBar.className = 'finished';
+                    } else if (pct < 0.5) {
+                        progressBar.className = 'warning';
+                    } else {
+                        progressBar.className = '';
+                    }
+                }
 
                 let bg;
                 if (pct > 0.5) {
@@ -16377,8 +16611,7 @@ syncState();
                     const b = 0;
                     bg = 'rgb(' + r + ',' + g + ',' + b + ')';
                 }
-                document.getElementById('timer-overlay').style.background = bg;
-                // Apply same colour to mode overlay timer
+                // Apply color to mode overlay timer if active
                 if (modeTimer) { modeTimer.style.background = bg; }
             }
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
@@ -17226,9 +17459,121 @@ syncState();
         ];
 
         let classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
+        let modeSetSettings = { defaultSetId: 'default', classSets: {} };
+        let activeModeSetId = 'default';
+        let modalEditingModeSetId = 'default';
         let activeEditingModeId = null;
         let isModeMinimised = false;
         let activeWorkingModeId = null;
+
+        function openManageDatabaseForModes() {
+            if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+                window.Desktop.openTool('manage-database.html', { query: { type: 'modebanks' } });
+            } else {
+                window.open('manage-database.html?type=modebanks', '_blank');
+            }
+        }
+
+        async function populateModeSetSelector(desiredSetId) {
+            const select = document.getElementById('cm-mode-set-select');
+            const defAllCb = document.getElementById('cm-mode-set-default-all-cb');
+            if (!select) return;
+
+            const sets = (typeof ModeSets !== 'undefined' && typeof ModeSets.listSets === 'function')
+                ? await ModeSets.listSets()
+                : [{ id: 'default', name: 'Default (config.js)' }];
+
+            const curClassSet = selectedGroupName && modeSetSettings?.classSets
+                ? (modeSetSettings.classSets[selectedGroupName] || modeSetSettings.defaultSetId || 'default')
+                : (modeSetSettings?.defaultSetId || 'default');
+
+            const targetSetId = desiredSetId || (select.value && sets.some(s => s.id === select.value) ? select.value : curClassSet);
+
+            select.innerHTML = sets.map(s => {
+                const label = s.isDefault ? (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('eb_set_default', 'Default (config.js)') : 'Default (config.js)') : s.name;
+                return `<option value="${escapeSettingsHtml(s.id)}" ${s.id === targetSetId ? 'selected' : ''}>${escapeSettingsHtml(label)}</option>`;
+            }).join('');
+
+            modalEditingModeSetId = select.value || targetSetId || 'default';
+            if (defAllCb) {
+                defAllCb.checked = (modeSetSettings?.defaultSetId === modalEditingModeSetId);
+            }
+        }
+
+        async function onModeSetChange(newSetId) {
+            modalEditingModeSetId = newSetId || 'default';
+            const defAllCb = document.getElementById('cm-mode-set-default-all-cb');
+            if (defAllCb) {
+                defAllCb.checked = (modeSetSettings?.defaultSetId === modalEditingModeSetId);
+            }
+
+            if (selectedGroupName) {
+                if (!modeSetSettings.classSets) modeSetSettings.classSets = {};
+                if (modalEditingModeSetId === (modeSetSettings.defaultSetId || 'default')) {
+                    delete modeSetSettings.classSets[selectedGroupName];
+                } else {
+                    modeSetSettings.classSets[selectedGroupName] = modalEditingModeSetId;
+                }
+            }
+
+            const loaded = (typeof ModeSets !== 'undefined' && typeof ModeSets.loadSet === 'function')
+                ? await ModeSets.loadSet(modalEditingModeSetId, getLoadedConfig()?.classModes)
+                : null;
+
+            if (loaded && Array.isArray(loaded)) {
+                activeModeSetId = modalEditingModeSetId;
+                classModes = loaded.map(m => {
+                    const copy = { ...m };
+                    if (copy.picture && typeof copy.picture === 'object' && copy.picture.src) {
+                        copy.picture = { ...copy.picture, src: sanitizeModeImgSrc(copy.picture.src) };
+                    }
+                    return copy;
+                });
+                renderModeManagerList();
+                renderTimerModeShortcuts();
+            }
+            persistSettingsToUserFile().catch(err => console.warn('onModeSetChange save config:', err));
+        }
+
+        function toggleModeSetDefaultAll(checked) {
+            if (!modeSetSettings) modeSetSettings = { defaultSetId: 'default', classSets: {} };
+            if (checked) {
+                modeSetSettings.defaultSetId = modalEditingModeSetId;
+            } else if (modeSetSettings.defaultSetId === modalEditingModeSetId) {
+                modeSetSettings.defaultSetId = 'default';
+            }
+            persistSettingsToUserFile().catch(err => console.warn('toggleModeSetDefaultAll save config:', err));
+        }
+
+        async function applyModeSetForClass(classId) {
+            if (!classId) return;
+            const targetSetId = (typeof ModeSets !== 'undefined' && typeof ModeSets.resolveForClass === 'function')
+                ? ModeSets.resolveForClass(classId, modeSetSettings)
+                : (modeSetSettings?.defaultSetId || 'default');
+
+            const loadedDefs = (typeof ModeSets !== 'undefined' && typeof ModeSets.loadSet === 'function')
+                ? await ModeSets.loadSet(targetSetId, getLoadedConfig()?.classModes)
+                : null;
+
+            if (loadedDefs && Array.isArray(loadedDefs)) {
+                activeModeSetId = targetSetId;
+                classModes = loadedDefs.map(m => {
+                    const copy = { ...m };
+                    if (copy.picture && typeof copy.picture === 'object' && copy.picture.src) {
+                        copy.picture = { ...copy.picture, src: sanitizeModeImgSrc(copy.picture.src) };
+                    }
+                    return copy;
+                });
+                renderTimerModeShortcuts();
+            } else if (targetSetId !== 'default') {
+                const defaultDefs = (typeof ModeSets !== 'undefined' && typeof ModeSets.loadSet === 'function')
+                    ? await ModeSets.loadSet('default', getLoadedConfig()?.classModes)
+                    : DEFAULT_CLASS_MODES;
+                activeModeSetId = 'default';
+                classModes = (defaultDefs || DEFAULT_CLASS_MODES).map(m => ({ ...m }));
+                renderTimerModeShortcuts();
+            }
+        }
 
         function getModeSvgIcon(mode) {
             if (!mode) return '../assets/icons/theater.svg';
@@ -17327,8 +17672,9 @@ syncState();
             document.getElementById('mode-picker-modal').style.display = 'none';
         }
 
-        function openModeManager() {
+        async function openModeManager() {
             closeModePicker();
+            await populateModeSetSelector();
             renderModeManagerList();
             document.getElementById('mode-manager-modal').style.display = 'flex';
         }
@@ -20999,28 +21345,28 @@ syncState();
     </script>
     <!-- Fullscreen date/time overlay -->
     <div id="datetime-overlay" onclick="closeDatetimeOverlay()">
-        <button id="datetime-overlay-close" onclick="closeDatetimeOverlay()" title="Close">✕</button>
+        <button id="datetime-overlay-close" onclick="closeDatetimeOverlay()" title="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
         <div id="datetime-overlay-time">00:00:00</div>
         <div id="datetime-overlay-date"></div>
         <div id="datetime-noise-shortcuts" onclick="event.stopPropagation()">
             <button class="datetime-noise-shortcut" id="datetime-noise-btn-white" onclick="overlaySetNoise('white', event)"
                 title="Use timer white noise">
-                <span class="noise-shortcut-icon">🌬</span>
+                <span class="noise-shortcut-icon"><img src="../assets/icons/wind.svg" class="btn-icon" alt="" /></span>
                 <span class="noise-shortcut-label">White</span>
             </button>
             <button class="datetime-noise-shortcut" id="datetime-noise-btn-pink" onclick="overlaySetNoise('pink', event)"
                 title="Use timer pink noise">
-                <span class="noise-shortcut-icon">🌸</span>
+                <span class="noise-shortcut-icon"><img src="../assets/icons/flower.svg" class="btn-icon" alt="" /></span>
                 <span class="noise-shortcut-label">Pink</span>
             </button>
             <button class="datetime-noise-shortcut" id="datetime-noise-btn-brown" onclick="overlaySetNoise('brown', event)"
                 title="Use timer brown noise">
-                <span class="noise-shortcut-icon">🌊</span>
+                <span class="noise-shortcut-icon"><img src="../assets/icons/ocean.svg" class="btn-icon" alt="" /></span>
                 <span class="noise-shortcut-label">Brown</span>
             </button>
             <button class="datetime-noise-shortcut" id="datetime-noise-btn-file" onclick="overlaySetNoise('file', event)"
                 title="Use timer audio file">
-                <span class="noise-shortcut-icon">🎵</span>
+                <span class="noise-shortcut-icon"><img src="../assets/icons/music.svg" class="btn-icon" alt="" /></span>
                 <span class="noise-shortcut-label">MP3</span>
             </button>
             <div class="datetime-noise-volume-wrap">
@@ -24024,6 +24370,30 @@ ${body}
                             if (typeof applyBadgeSetForClass === 'function' && typeof selectedGroupName !== 'undefined' && selectedGroupName) {
                                 applyBadgeSetForClass(selectedGroupName).then(function () {
                                     if (typeof renderRoster === 'function') renderRoster();
+                                });
+                            }
+                        }
+                    };
+
+                    var _modeCh = new BroadcastChannel('cmt-modebanks');
+                    _modeCh.onmessage = function (e) {
+                        if (e.data && e.data.type === 'modebanks-updated') {
+                            if (typeof ModeSets !== 'undefined' && typeof ModeSets.clearCache === 'function') {
+                                if (e.data.filename) {
+                                    ModeSets.clearCache(e.data.filename.replace(/\.(js|json)$/i, ''));
+                                } else {
+                                    ModeSets.clearCache();
+                                }
+                            }
+                            var modal = document.getElementById('mode-manager-modal');
+                            if (modal && modal.style.display !== 'none' && typeof populateModeSetSelector === 'function') {
+                                populateModeSetSelector();
+                            }
+                            if (typeof applyModeSetForClass === 'function' && typeof selectedGroupName !== 'undefined' && selectedGroupName) {
+                                applyModeSetForClass(selectedGroupName).then(function () {
+                                    if (typeof renderModeManagerList === 'function' && modal && modal.style.display !== 'none') {
+                                        renderModeManagerList();
+                                    }
                                 });
                             }
                         }

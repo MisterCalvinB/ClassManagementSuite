@@ -376,6 +376,7 @@
           <button class="sidebar-child" data-accordion="acc-db-scales" onclick="navToAccordion('manage-database','acc-db-scales')"><span class="sidebar-child-dot"></span>Grading Scales</button>
           <button class="sidebar-child" data-accordion="acc-db-chips" onclick="navToAccordion('manage-database','acc-db-chips')"><span class="sidebar-child-dot"></span>Observation Chips</button>
           <button class="sidebar-child" data-accordion="acc-db-badges" onclick="navToAccordion('manage-database','acc-db-badges')"><span class="sidebar-child-dot"></span>Custom Badges</button>
+          <button class="sidebar-child" data-accordion="acc-db-modes" onclick="navToAccordion('manage-database','acc-db-modes')"><span class="sidebar-child-dot"></span>Class Modes</button>
           <button class="sidebar-child" data-accordion="acc-db-batch" onclick="navToAccordion('manage-database','acc-db-batch')"><span class="sidebar-child-dot"></span>Global Search &amp; Tools</button>
           <button class="sidebar-child" data-accordion="acc-db-export" onclick="navToAccordion('manage-database','acc-db-export')"><span class="sidebar-child-dot"></span>Export &amp; Print</button>
         </div>
@@ -1841,6 +1842,7 @@
           <ol class="steps">
             <li>Click <strong>Timer</strong> in the top toolbar to open the <strong>Unified Control Menu</strong> (<code>#timer-popup.ucm-popover</code>), which consolidates <strong>Timer &amp; Stopwatch</strong> (including <code>1m</code>, <code>3m</code>, <code>5m</code>, <code>10m</code>, <code>15m</code> quick presets), <strong>Sound &amp; Volume</strong> (ambient soundscape selector, volume slider, and Score SFX mute toggle), <strong>Class Modes</strong>, and <strong>Presentation Controls</strong> in one compact Light Neobrutalist panel.</li>
             <li>When any live classroom state is active (Timer running/paused, Class Mode minimised, Ambient Sound playing, or Presentation Window open), the compact draggable <strong>Unified Floating Mini-Dock</strong> (<code>#cms-unified-dock</code>) appears at the bottom-right with inline segments for each active feature and responsive multi-row wrapping on narrow screens.</li>
+            <li><strong>Fullscreen Focus &amp; Time Overlay</strong>: Click the fullscreen icon on the timer popover or click the live clock in the top bar to open the redesigned Light Neobrutalist focus overlay. Use the top segmented switcher to toggle between <strong>Timer</strong>, <strong>Stopwatch</strong>, and <strong>Clock</strong>. Click <strong>Dual View</strong> to display the live clock and date alongside the countdown timer or stopwatch on the same screen. Switch to <strong>Theater Mode</strong> via the palette icon for a high-contrast dark theme without projector glare.</li>
             <li>The timer also appears as a floating overlay on the <button class="xlink" onclick="navToAccordion('board','acc-board-timer')">Board</button> automatically.</li>
             <li>Configure grace period and point deduction settings in the Timer Settings modal.</li>
           </ol>
@@ -3642,6 +3644,31 @@
         </div></div>
       </div>
 
+      <div class="accordion" id="acc-db-modes">
+        <button class="accordion-header" onclick="toggleAccordion('acc-db-modes')">
+          <span class="accordion-arrow">▶</span>
+          <span class="accordion-title"><img src="../assets/icons/theater.svg" class="ht-icon-img" alt="" /> Class Modes Database</span>
+          <span class="accordion-badge">presentation sets</span>
+        </button>
+        <div class="accordion-body"><div class="accordion-inner">
+          <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">The <strong>Class Modes Database</strong> (stored in <code>user/custom-data/modes/</code>) allows you to curate distinct working mode collections for different classes, activities, or subjects. Working modes defined here power the fullscreen presentation and timer overlays in <button class="xlink" onclick="navTo('class-management')">Class Management</button>.</p>
+          <ol class="steps">
+            <li>Click <strong>Class Modes</strong> in the Manage Database sidebar to view or create mode files (e.g. <code>exam-modes.js</code>, <code>science-lab-modes.js</code>).</li>
+            <li>When creating a new mode file, check <strong>Start from default modes</strong> to automatically pre-populate the file with standard class management modes (Quiet, Talk, Group).</li>
+            <li>Click <strong>Add Record</strong> to define custom working modes with:
+              <ul style="margin:4px 0 0 16px;padding:0;line-height:1.6">
+                <li><strong>Name &amp; Icon:</strong> Mode name and visual emoji or icon symbol (e.g. 🤫, 💬, 👥, 🎯).</li>
+                <li><strong>Shortcut Key:</strong> Numeric shortcut (1–9) for instant keyboard switching in Class Management.</li>
+                <li><strong>Title &amp; Subtitle:</strong> Large heading and secondary pedagogical instructions displayed on student screens.</li>
+                <li><strong>Visual Picture &amp; Animation:</strong> Visual centerpiece (Emoji, Speech bubbles, Group icons, Custom image) with animations (Pulse, Bounce, Rotate, Shush particles, Speech bubbles).</li>
+                <li><strong>Audio &amp; Volume:</strong> Ambient background soundscape (White Noise, Binaural Beats, Custom audio file) and volume percentage (0–100%).</li>
+              </ul>
+            </li>
+            <li>In <strong>Class Management</strong>, open <strong>Manage Class Modes</strong> to choose an active mode set per class or set a global default, with direct 1-click access to Manage Database.</li>
+          </ol>
+        </div></div>
+      </div>
+
       <div class="accordion" id="acc-db-ai-autofill">
         <button class="accordion-header" onclick="toggleAccordion('acc-db-ai-autofill')">
           <span class="accordion-arrow">▶</span>
@@ -3742,7 +3769,10 @@
           <p style="font-size:0.87rem;color:#000;line-height:1.6;margin-bottom:12px;">Manage Database functions as a full-featured, responsive desktop spreadsheet with in-cell editing, dynamic column creation, and draggable header resizing:</p>
           <ol class="steps">
             <li><strong>Adding Custom Columns to Any Database:</strong>
-              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Click <strong>+ Add Column</strong> in the toolbar (or the <strong>+</strong> header button in the table). Enter a field name/key (e.g. <code>difficulty</code>, <code>source_notes</code>), display label, data type (Text, Multiline, Number, Boolean, or List/Tags), and an optional default value. Choose whether to apply to all files in this database or the active file only. The column is added to all records, saved to disk immediately, and permanently remembered for future entries and imports.</p>
+              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Click <strong>+ Add Column</strong> in the toolbar (or the <strong>+</strong> header button in the table). Enter a field name/key (e.g. <code>difficulty</code>, <code>source_notes</code>), display label, data type (Text, Multiline, Number, Boolean, List/Tags, or Color Picker), and an optional default value. Choose whether to apply to all files in this database or the active file only. The column is added to all records, saved to disk immediately, and permanently remembered for future entries and imports.</p>
+            </li>
+            <li><strong>Universal Colour Pickers &amp; Interactive Grade Palettes:</strong>
+              <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Whenever a field contains colours (such as hex values, colour column names, <code>chips.color</code>, or <code>modebanks.textColor</code>), an interactive Light Neobrutalist colour picker is automatically activated. Features a native colour picker, monospace hex code input, two-way live sync, and an 8-swatch classroom preset palette. For multi-grade structured fields in Evaluation Criteria and Scale models (<code>colors</code>), an interactive grade-by-grade palette editor provides individual colour pickers for each score level with two-way sync to the text representation and a 1-click <strong>Traffic Light Gradient</strong> shortcut.</p>
             </li>
             <li><strong>Direct In-Cell Spreadsheet Editing:</strong>
               <p style="font-size:0.85rem;line-height:1.6;margin:4px 0 8px;">Double-click any table cell (or single-click boolean switches) to edit directly in the table. Use standard spreadsheet keyboard shortcuts:</p>
@@ -5841,7 +5871,9 @@
       { label: 'Students', path: 'user/students.js' },
       { label: 'Participation sessions', path: 'user/group-participation/', type: 'dir' },
       { label: 'Grades', path: 'user/grades/', type: 'dir' },
-      { label: 'Sounds', path: 'user/custom-data/sounds/', type: 'dir' }
+      { label: 'Sounds', path: 'user/custom-data/sounds/', type: 'dir' },
+      { label: 'Custom badges', path: 'user/custom-data/badges/', type: 'dir' },
+      { label: 'Class modes', path: 'user/custom-data/modes/', type: 'dir' }
     ],
     'group-editor': [
       { label: 'Class groups', path: 'user/class-groups.js' },
@@ -5956,7 +5988,9 @@
       { label: 'Competence descriptors', path: 'user/descriptors.js' },
       { label: 'Lesson phases', path: 'user/phases.js' },
       { label: 'Evaluation criteria & chips', path: 'user/correction-criteria.js' },
-      { label: 'Grading scale models', path: 'user/grade-scale-models.js' }
+      { label: 'Grading scale models', path: 'user/grade-scale-models.js' },
+      { label: 'Custom badges', path: 'user/custom-data/badges/', type: 'dir' },
+      { label: 'Class modes', path: 'user/custom-data/modes/', type: 'dir' }
     ],
     'file-manager': [
       { label: 'Mind maps', path: 'user/mindmaps/', type: 'dir' },

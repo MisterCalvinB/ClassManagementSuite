@@ -456,8 +456,96 @@
       left: 0;
       width: 100%;
       height: 100%;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    /* PDF Text Layer (selectable text) */
+    .page-container .textLayer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      opacity: 1;
+      line-height: 1;
+      text-size-adjust: none;
+      forced-color-adjust: none;
+      transform-origin: 0 0;
       z-index: 3;
       pointer-events: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    .page-container.mode-pan .textLayer {
+      pointer-events: none;
+    }
+    .page-container.mode-pan .textLayer span,
+    .page-container.mode-pan .textLayer br {
+      pointer-events: auto;
+      cursor: text;
+    }
+    .page-container:not(.mode-pan) .textLayer {
+      pointer-events: none !important;
+    }
+    .page-container:not(.mode-pan) .textLayer * {
+      pointer-events: none !important;
+    }
+    .textLayer span {
+      color: transparent;
+      position: absolute;
+      white-space: pre;
+      cursor: text;
+      transform-origin: 0% 0%;
+    }
+    .textLayer ::selection {
+      background: rgba(91, 143, 204, 0.42);
+      color: transparent;
+    }
+    body.is-presentation .textLayer {
+      display: none !important;
+    }
+
+    /* Floating Dictionary Lookup Pill */
+    .pdf-dict-pill {
+      position: fixed;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: var(--radius-md);
+      box-shadow: 3px 3px 0 #555555;
+      padding: 3px 6px;
+      gap: 6px;
+      transform: translate(-50%, -100%);
+      margin-top: -8px;
+      pointer-events: auto;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .pdf-dict-pill-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      color: #333333;
+      padding: 3px 6px;
+      border-radius: var(--radius-sm);
+      transition: background 0.12s ease;
+    }
+    .pdf-dict-pill-btn:hover {
+      background: #f0f0eb;
+    }
+    .pdf-dict-pill-btn img {
+      width: 14px;
+      height: 14px;
     }
 
     .pdf-text-box {
@@ -962,6 +1050,11 @@
           <img src="../assets/icons/document-editor.svg" class="item-icon" alt="">
           <span data-i18n="pdfExportPdf">Export Flattened PDF</span>
         </div>
+        <div class="dropdown-sep"></div>
+        <div class="dropdown-item" id="menuLookupDict">
+          <img src="../assets/icons/dictionary.svg" class="item-icon" alt="">
+          <span data-i18n="pdfLookupInDict">Quick Dictionary</span>
+        </div>
       </div>
     </div>
 
@@ -989,6 +1082,12 @@
       <button type="button" id="fitPageBtn" data-i18n="pdfFitPage" title="Fit Page">Fit Page</button>
     </div>
 
+    <!-- Quick Dictionary Button -->
+    <button type="button" class="nav-btn" id="dictBtn" data-i18n-title="deLookupInDict" title="Look up in Quick Dictionary (Ctrl+Shift+D)">
+      <img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" style="width:14px;height:14px;vertical-align:-2px;" />
+      <span data-i18n="pdfLookupInDict">Dictionary</span>
+    </button>
+
     <!-- Projector / Second Screen Presentation Mode -->
     <button type="button" class="nav-btn" id="projectorBtn" data-i18n="pdfProjectorMode" style="display:none;">
       🖥 Presentation
@@ -1003,6 +1102,14 @@
       <div class="hm-menu" id="hmMenu"></div>
     </div>
   </header>
+
+  <!-- Floating Dictionary Lookup Pill on Text Selection -->
+  <div id="pdf-dict-selection-pill" class="pdf-dict-pill" style="display:none;">
+    <button type="button" class="pdf-dict-pill-btn" id="btn-pdf-dict-pill-lookup">
+      <img src="../assets/icons/dictionary.svg" alt="">
+      <span data-i18n="dictLookupWord">Look up in Dictionary</span>
+    </button>
+  </div>
 
   <!-- ── Annotation Tool Palette ── -->
   <div id="tool-bar" style="display:none;">
@@ -1348,6 +1455,21 @@
         exportFlattenedPdf();
       });
 
+      const menuLookupDict = document.getElementById('menuLookupDict');
+      if (menuLookupDict) {
+        menuLookupDict.addEventListener('click', () => {
+          filesMenuWrap.classList.remove('open');
+          pdfLookupSelectedWord();
+        });
+      }
+
+      const dictBtn = document.getElementById('dictBtn');
+      if (dictBtn) {
+        dictBtn.addEventListener('click', () => {
+          pdfLookupSelectedWord();
+        });
+      }
+
       // Page Stepper
       document.getElementById('prevPageBtn').addEventListener('click', () => jumpToPage(state.currentPage - 1));
       document.getElementById('nextPageBtn').addEventListener('click', () => jumpToPage(state.currentPage + 1));
@@ -1426,6 +1548,7 @@
 
       // Keyboard Shortcuts
       window.addEventListener('keydown', handleKeyShortcuts);
+      setupPdfDictionaryLookup();
 
       // Viewport scroll tracking for active page updates & live mirror synchronization
       viewport.addEventListener('scroll', () => {
@@ -1617,6 +1740,17 @@
         annotCanvas.style.height = '100%';
         pageWrap.appendChild(annotCanvas);
 
+        // PDF Text Layer (selectable text)
+        let textLayerDiv = null;
+        if (!state.isPresentation) {
+          textLayerDiv = document.createElement('div');
+          textLayerDiv.className = 'textLayer';
+          textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
+          textLayerDiv.style.setProperty('--scale-round-x', '1px');
+          textLayerDiv.style.setProperty('--scale-round-y', '1px');
+          pageWrap.appendChild(textLayerDiv);
+        }
+
         // Movable Text Box Overlay
         const textBoxesOverlay = document.createElement('div');
         textBoxesOverlay.className = 'text-boxes-overlay';
@@ -1626,6 +1760,20 @@
 
         // Render PDF content onto base canvas
         await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+        if (textLayerDiv && pdfjsLib.TextLayer) {
+          try {
+            const textContent = await page.getTextContent();
+            const textLayer = new pdfjsLib.TextLayer({
+              textContentSource: textContent,
+              container: textLayerDiv,
+              viewport: scaledViewport
+            });
+            await textLayer.render();
+          } catch (tErr) {
+            console.warn('TextLayer render error on page', pNum, tErr);
+          }
+        }
 
         // Setup Inking & Interaction only on presenter window
         if (!state.isPresentation) {
@@ -2718,6 +2866,12 @@
 
     // ── Keyboard Shortcuts ──
     function handleKeyShortcuts(e) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+        e.preventDefault();
+        pdfLookupSelectedWord();
+        return;
+      }
+
       if (e.target.matches('input, textarea, [contenteditable="true"]')) return;
 
       if (e.ctrlKey && e.key.toLowerCase() === 'z') {
@@ -2760,6 +2914,103 @@
         console.warn('arrayBufferToBase64 error:', err);
         return '';
       }
+    }
+
+    // ── Quick Dictionary Integration ──
+    function pdfCleanWordForLookup(raw) {
+      if (!raw) return '';
+      let str = String(raw).trim();
+      str = str.replace(/^[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+|[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+$/g, '').trim();
+      const words = str.split(/\s+/).filter(Boolean);
+      if (words.length > 3) {
+        str = words[0];
+      } else {
+        str = words.join(' ');
+      }
+      return str.replace(/^[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+|[\s"'“”‘’«»()\[\]{}.,:;!?¿¡…—–*`#<>~|+=\/\\]+$/g, '').trim();
+    }
+
+    function pdfLookupSelectedWord() {
+      let candidate = '';
+      const winSel = window.getSelection();
+      if (winSel && winSel.toString().trim()) {
+        candidate = winSel.toString();
+      }
+
+      if (!candidate && document.activeElement && document.activeElement.classList.contains('pdf-text-box-content')) {
+        candidate = document.activeElement.textContent || '';
+      }
+
+      const word = pdfCleanWordForLookup(candidate);
+
+      if (window.Desktop && typeof Desktop.openDictionary === 'function') {
+        Desktop.openDictionary(word);
+      } else if (window.electronBridge && typeof window.electronBridge.openDictionary === 'function') {
+        window.electronBridge.openDictionary(word);
+      } else if (window.electronApi && typeof window.electronApi.openHtml === 'function') {
+        window.electronApi.openHtml({
+          file: 'dictionary.html',
+          query: word ? { q: word } : undefined,
+          width: 880,
+          height: 680,
+          reuseId: 'dictionary'
+        });
+      } else {
+        const url = 'dictionary.html' + (word ? '?q=' + encodeURIComponent(word) : '');
+        window.open(url, 'cmt_quick_dictionary');
+      }
+
+      const dictPill = document.getElementById('pdf-dict-selection-pill');
+      if (dictPill) dictPill.style.display = 'none';
+    }
+
+    function setupPdfDictionaryLookup() {
+      const dictPill = document.getElementById('pdf-dict-selection-pill');
+      const pillBtn = document.getElementById('btn-pdf-dict-pill-lookup');
+      if (pillBtn) {
+        pillBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          pdfLookupSelectedWord();
+        });
+      }
+
+      function updateDictPillPosition() {
+        if (!dictPill || state.isPresentation) return;
+        const sel = window.getSelection();
+        if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+          dictPill.style.display = 'none';
+          return;
+        }
+
+        const anchor = sel.anchorNode;
+        const isInsideViewer = viewport && viewport.contains(anchor);
+        if (!isInsideViewer) {
+          dictPill.style.display = 'none';
+          return;
+        }
+
+        try {
+          const range = sel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            dictPill.style.left = (rect.left + rect.width / 2) + 'px';
+            dictPill.style.top = Math.max(10, rect.top) + 'px';
+            dictPill.style.display = 'flex';
+            return;
+          }
+        } catch (_) {}
+        dictPill.style.display = 'none';
+      }
+
+      document.addEventListener('selectionchange', () => {
+        requestAnimationFrame(updateDictPillPosition);
+      });
+
+      document.addEventListener('pointerdown', (e) => {
+        if (dictPill && !dictPill.contains(e.target)) {
+          dictPill.style.display = 'none';
+        }
+      });
     }
   </script>
 </body>

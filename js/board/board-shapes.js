@@ -1620,11 +1620,13 @@
         overlay.classList.add('active');
         if (popup) {
           popup.style.maxHeight = Math.max(160, window.innerHeight - 16) + 'px';
-          popup.style.maxWidth = Math.max(200, window.innerWidth - 16) + 'px';
+          const maxW = Math.min(360, Math.max(280, window.innerWidth - 16));
+          popup.style.maxWidth = maxW + 'px';
+          popup.style.width = Math.min(320, maxW) + 'px';
           popup.style.overflowY = 'auto';
           popup.style.overflowX = 'hidden';
         }
-        const pw = popup ? (popup.offsetWidth || 240) : 240;
+        const pw = popup ? (popup.offsetWidth || 320) : 320;
         const ph = popup ? (popup.offsetHeight || 280) : 280;
         let mx = e.clientX + 6, my = e.clientY + 6;
         if (mx + pw > window.innerWidth - 8) mx = e.clientX - pw - 6;
@@ -1841,7 +1843,9 @@
         overlay.classList.add('active');
         if (popup) {
           popup.style.maxHeight = Math.max(160, window.innerHeight - 16) + 'px';
-          popup.style.maxWidth = Math.max(200, window.innerWidth - 16) + 'px';
+          const maxW = Math.min(350, Math.max(200, window.innerWidth - 16));
+          popup.style.maxWidth = maxW + 'px';
+          popup.style.width = Math.min(310, maxW) + 'px';
           popup.style.overflowY = 'auto';
           popup.style.overflowX = 'hidden';
         }

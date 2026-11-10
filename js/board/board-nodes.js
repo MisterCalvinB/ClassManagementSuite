@@ -10492,12 +10492,18 @@
         }
         _conSyncPresetButtons();
         const maskBtn = document.getElementById('con-ctx-mask-btn');
-        if (maskBtn) maskBtn.innerHTML = (node && node.masked) ? '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">show</span>' : '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">hide</span>';
+        if (maskBtn) {
+          const isMasked = !!(node && node.masked);
+          maskBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
+          maskBtn.classList.toggle('active', isMasked);
+          maskBtn.title = isMasked ? 'Reveal word' : 'Mask word';
+        }
 
         const lockBtn = document.getElementById('con-ctx-lock-btn');
         if (lockBtn) {
           const isLocked = !!(node && node.locked);
-          lockBtn.innerHTML = isLocked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
+          lockBtn.innerHTML = isLocked ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />';
+          lockBtn.classList.toggle('active', isLocked);
           lockBtn.title = isLocked ? 'Unlock node position and size' : 'Lock node position and size';
         }
 
@@ -10505,9 +10511,10 @@
         menu.classList.add('visible');
         const margin = 8;
         const maxAvailH = Math.max(160, window.innerHeight - 2 * margin);
-        const maxAvailW = Math.max(200, window.innerWidth - 2 * margin);
+        const maxAvailW = Math.min(340, Math.max(200, window.innerWidth - 2 * margin));
         menu.style.maxHeight = maxAvailH + 'px';
         menu.style.maxWidth = maxAvailW + 'px';
+        menu.style.width = Math.min(320, maxAvailW) + 'px';
         menu.style.overflowY = 'auto';
         menu.style.overflowX = 'hidden';
 
@@ -11131,7 +11138,8 @@
         });
         const lockBtn = document.getElementById('con-ctx-lock-btn');
         if (lockBtn) {
-          lockBtn.innerHTML = shouldLock ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">lock</span>' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" /><span class="con-ctx-icon-label">free</span>';
+          lockBtn.innerHTML = shouldLock ? '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />';
+          lockBtn.classList.toggle('active', shouldLock);
           lockBtn.title = shouldLock ? 'Unlock node position and size' : 'Lock node position and size';
         }
       };
@@ -11176,6 +11184,8 @@
         if (menu) {
           menu.classList.remove('visible');
           menu.style.maxHeight = '';
+          menu.style.maxWidth = '';
+          menu.style.width = '';
         }
       };
 

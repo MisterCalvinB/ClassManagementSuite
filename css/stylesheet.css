@@ -15183,55 +15183,380 @@ h1#main-title {
    TIMER � FULLSCREEN OVERLAY
    ============================================================ */
 
+/* ============================================================
+   TIMER — FULLSCREEN FOCUS & TIME OVERLAY (Light Neobrutalism)
+   ============================================================ */
+
 #timer-overlay {
   display: none;
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  background: #2a9d2a;
+  background: #f5f5f0;
+  color: #111111;
   z-index: 10000;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  transition: background 1.5s ease;
+  box-sizing: border-box;
+  padding: 16px 24px;
+  transition: background 0.2s ease, color 0.2s ease;
+  overflow-y: auto;
+  font-family: 'Lexend', system-ui, -apple-system, sans-serif;
 }
 
 #timer-overlay.active {
   display: flex;
 }
 
+/* Theater / Dark Projection Mode */
+#timer-overlay.theater-mode {
+  background: #141416;
+  color: #fdfdfd;
+}
+
+/* Top Navigation Bar */
+#timer-overlay-top-bar {
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  z-index: 2;
+  margin-bottom: 8px;
+}
+
+.overlay-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Segmented View Switcher */
+.overlay-segmented-group {
+  display: inline-flex;
+  align-items: center;
+  background: #e8e8e2;
+  border: 2px solid #333333;
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+  box-shadow: 2px 2px 0 #333333;
+}
+
+.theater-mode .overlay-segmented-group {
+  background: #232328;
+  border-color: #44444c;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+.overlay-segment-btn {
+  background: transparent;
+  border: none;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #333333;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.1s ease;
+}
+
+.overlay-segment-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.overlay-segment-btn.active {
+  background: #333333;
+  color: #ffffff;
+  box-shadow: 1px 1px 0 #111111;
+}
+
+.overlay-segment-btn.active .btn-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+.theater-mode .overlay-segment-btn {
+  color: #bbbbbb;
+}
+
+.theater-mode .overlay-segment-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.theater-mode .overlay-segment-btn.active {
+  background: #f5f5f0;
+  color: #111111;
+  box-shadow: 1px 1px 0 #000000;
+}
+
+.theater-mode .overlay-segment-btn.active .btn-icon {
+  filter: none !important;
+}
+
+/* Merged / Dual View Button */
+#overlay-view-merged-btn {
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #333333;
+  box-shadow: 2.5px 2.5px 0 #333333;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.12s ease;
+}
+
+#overlay-view-merged-btn:hover {
+  background: #f0f0eb;
+  transform: translateY(-1px);
+}
+
+#overlay-view-merged-btn.active {
+  background: #5b8fcc;
+  color: #ffffff;
+  border-color: #223344;
+  box-shadow: 1px 1px 0 #223344;
+  transform: translate(1.5px, 1.5px);
+}
+
+#overlay-view-merged-btn.active .btn-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+.theater-mode #overlay-view-merged-btn {
+  background: #232328;
+  color: #fdfdfd;
+  border-color: #44444c;
+  box-shadow: 2.5px 2.5px 0 #000000;
+}
+
+.theater-mode #overlay-view-merged-btn .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.theater-mode #overlay-view-merged-btn.active {
+  background: #4a7ab5;
+  color: #ffffff;
+  border-color: #2e4d75;
+}
+
+/* Top Action Icon Buttons */
+.overlay-action-btn,
+#timer-overlay-close {
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 2.5px 2.5px 0 #333333;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.overlay-action-btn:hover,
+#timer-overlay-close:hover {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.overlay-action-btn:hover .btn-icon,
+#timer-overlay-close:hover .btn-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+.overlay-action-btn.active {
+  background: #e2c96e;
+  border-color: #333333;
+  box-shadow: 1px 1px 0 #333333;
+  transform: translate(1.5px, 1.5px);
+}
+
+.theater-mode .overlay-action-btn,
+.theater-mode #timer-overlay-close {
+  background: #232328;
+  border-color: #44444c;
+  box-shadow: 2.5px 2.5px 0 #000000;
+}
+
+.theater-mode .overlay-action-btn .btn-icon,
+.theater-mode #timer-overlay-close .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.theater-mode .overlay-action-btn:hover,
+.theater-mode #timer-overlay-close:hover {
+  background: #ffffff;
+  border-color: #ffffff;
+}
+
+.theater-mode .overlay-action-btn:hover .btn-icon,
+.theater-mode #timer-overlay-close:hover .btn-icon {
+  filter: none !important;
+}
+
+/* Main Presentation Card */
 #timer-overlay-content {
-  background: rgba(15, 23, 42, 0.92);
-  padding: 60px 80px;
-  border-radius: 16px;
-  border: 4px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  position: relative;
+  background: #ffffff;
+  border: 2.5px solid #333333;
+  border-radius: 14px;
+  box-shadow: 5px 5px 0 #333333;
+  padding: 36px 48px;
+  max-width: min(920px, 94vw);
+  width: 100%;
+  box-sizing: border-box;
   text-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  justify-content: center;
+  gap: 16px;
+  margin: auto;
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-#timer-overlay-display {
-  font-size: 120px;
-  font-weight: 900;
-  font-family: 'Courier New', monospace;
-  color: #fff;
-  letter-spacing: 8px;
-  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+.theater-mode #timer-overlay-content {
+  background: #1c1c20;
+  border-color: #38383e;
+  box-shadow: 5px 5px 0 #000000;
+  color: #fdfdfd;
 }
 
-#timer-overlay-objective {
-  color: rgba(255, 255, 255, 0.92);
-  font-size: clamp(1rem, 2.5vw, 1.6rem);
+/* Merged Live Clock Banner (Above Countdown in Merged Mode) */
+#timer-overlay-merged-clock {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  background: #f0f4f8;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 #333333;
+  padding: 8px 24px;
+  width: fit-content;
+  max-width: 90%;
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+#timer-overlay.view-merged #timer-overlay-merged-clock {
+  display: flex;
+}
+
+.theater-mode #timer-overlay-merged-clock {
+  background: #252830;
+  border-color: #484c56;
+  box-shadow: 3px 3px 0 #000000;
+}
+
+#timer-overlay-merged-time {
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: clamp(1.8rem, 4.5vw, 3rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #111111;
+  letter-spacing: -1px;
+  line-height: 1.1;
+}
+
+.theater-mode #timer-overlay-merged-time {
+  color: #ffffff;
+}
+
+#timer-overlay-merged-date {
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: clamp(0.72rem, 1.8vw, 0.95rem);
   font-weight: 700;
-  max-width: 600px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #555555;
+  line-height: 1.2;
+}
+
+.theater-mode #timer-overlay-merged-date {
+  color: #aaaaaa;
+}
+
+/* Main Digits */
+#timer-overlay-display {
+  font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+  font-size: clamp(4.5rem, 15vw, 10.5rem);
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #111111;
+  letter-spacing: -3px;
+  line-height: 1;
+  margin: 0;
+  text-shadow: none;
+  user-select: none;
+}
+
+.theater-mode #timer-overlay-display {
+  color: #ffffff;
+}
+
+#timer-overlay.view-merged #timer-overlay-display {
+  font-size: clamp(3.8rem, 12vw, 8rem);
+}
+
+#timer-overlay.view-clock #timer-overlay-display {
+  font-size: clamp(4.5rem, 16vw, 11rem);
+}
+
+/* Standalone Date in Clock Mode */
+#timer-overlay-clock-date {
+  display: none;
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: clamp(1.1rem, 3vw, 2.2rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  color: #555555;
+  margin-top: 4px;
+}
+
+#timer-overlay.view-clock #timer-overlay-clock-date {
+  display: block;
+}
+
+.theater-mode #timer-overlay-clock-date {
+  color: #bbbbbb;
+}
+
+/* Objective Banner */
+#timer-overlay-objective {
+  background: #fff9db;
+  border: 2px solid #333333;
+  border-radius: 8px;
+  box-shadow: 2px 2px 0 #333333;
+  color: #222222;
+  padding: 6px 18px;
+  font-size: clamp(0.95rem, 2vw, 1.3rem);
+  font-weight: 700;
+  max-width: 650px;
   text-align: center;
-  line-height: 1.5;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  line-height: 1.4;
+  text-shadow: none;
   display: none;
 }
 
@@ -15239,222 +15564,299 @@ h1#main-title {
   display: block;
 }
 
+.theater-mode #timer-overlay-objective {
+  background: #2c281e;
+  border-color: #554d38;
+  box-shadow: 2px 2px 0 #000000;
+  color: #f7e394;
+}
+
+/* Progress Bar */
 #timer-overlay-progress {
-  width: 300px;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.25);
-  border-radius: 4px;
+  width: 100%;
+  max-width: 600px;
+  height: 14px;
+  background: #e8e8e2;
+  border: 2px solid #333333;
+  border-radius: 7px;
   overflow: hidden;
+  box-sizing: border-box;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+#timer-overlay.view-clock #timer-overlay-progress {
+  display: none;
+}
+
+.theater-mode #timer-overlay-progress {
+  background: #2a2a30;
+  border-color: #4a4a52;
 }
 
 #timer-overlay-progress-bar {
   height: 100%;
-  background: rgba(255, 255, 255, 0.8);
+  background: #6abf8e;
   border-radius: 4px;
-  transition: width 1s linear;
+  transition: width 0.5s linear, background-color 0.4s ease;
   width: 100%;
 }
 
-#timer-overlay-close {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-radius: 5px;
-  width: 40px;
-  height: 40px;
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
+#timer-overlay-progress-bar.warning {
+  background: #e2c96e;
+}
+
+#timer-overlay-progress-bar.finished {
+  background: #c96b6b;
+}
+
+/* Ambient Noise Panel Popover inside Overlay */
+#timer-overlay-noise-panel {
+  display: none;
   align-items: center;
-  justify-content: center;
-  font-weight: 900;
-  transition: all 0.12s;
-}
-
-#timer-overlay-close:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-#timer-overlay-mode-btns {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
   gap: 8px;
-  margin-top: 4px;
-  max-width: calc(100vw - 48px);
-}
-
-.timer-overlay-mode-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.18);
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-radius: 6px;
-  color: #fff;
-  font-size: 1.2rem;
-  padding: 5px 10px;
-  cursor: pointer;
-  transition: all 0.12s;
-  line-height: 1;
-}
-
-.timer-overlay-mode-btn .btn-icon {
-  width: 20px;
-  height: 20px;
-  margin-right: 0 !important;
-  filter: brightness(0) invert(1);
-  transition: filter 0.12s, transform 0.12s;
-}
-
-.timer-overlay-mode-btn span {
-  font-size: 0.55rem;
-  font-weight: 700;
-  font-family: monospace;
-  opacity: 0.75;
-  letter-spacing: 0;
-}
-
-.timer-overlay-mode-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.8);
-  transform: translateY(-2px);
-}
-
-.timer-overlay-mode-btn:hover .btn-icon,
-.timer-overlay-mode-btn.active .btn-icon {
-  filter: brightness(0) invert(1) !important;
-}
-
-#timer-overlay-noise-panel .overlay-noise-type-btn .btn-icon {
-  width: 18px;
-  height: 18px;
-  margin-right: 0 !important;
-  filter: brightness(0) invert(1);
-}
-
-.btn-icon:only-child,
-img.btn-icon:only-child,
-button > .btn-icon:only-child,
-button > img.btn-icon:only-child {
-  margin-right: 0 !important;
-}
-
-#timer-overlay-settings {
-  position: absolute;
-  top: 15px;
-  left: 15px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 8px;
-  padding: 8px 12px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 #333333;
+  padding: 8px 14px;
+  margin-top: 6px;
   flex-wrap: wrap;
-  max-width: calc(100vw - 120px);
 }
 
-.timer-overlay-setting {
+#timer-overlay-noise-panel.open {
+  display: flex;
+}
+
+.theater-mode #timer-overlay-noise-panel {
+  background: #232328;
+  border-color: #44444c;
+  box-shadow: 3px 3px 0 #000000;
+  color: #fdfdfd;
+}
+
+/* Bottom Control Toolbar */
+#timer-overlay-bottom-bar {
+  width: 100%;
+  max-width: 1100px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  z-index: 2;
+  margin-top: 8px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 12px;
+  box-shadow: 3.5px 3.5px 0 #333333;
+  padding: 8px 16px;
+  box-sizing: border-box;
+}
+
+.theater-mode #timer-overlay-bottom-bar {
+  background: #1c1c20;
+  border-color: #38383e;
+  box-shadow: 3.5px 3.5px 0 #000000;
+  color: #fdfdfd;
+}
+
+#timer-overlay.view-clock #timer-overlay-bottom-bar {
+  display: none;
+}
+
+/* Settings Controls */
+.timer-overlay-setting {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .timer-overlay-setting-label {
-  font-size: 0.7rem;
+  font-family: 'Lexend', system-ui, sans-serif;
+  font-size: 0.72rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.85);
+  color: #444444;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
+.theater-mode .timer-overlay-setting-label {
+  color: #bbbbbb;
+}
+
 .timer-overlay-setting-input {
-  width: 45px;
+  width: 44px;
   padding: 4px 6px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  font-size: 0.8rem;
-  font-weight: 600;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  background: #fdfdfd;
+  color: #111111;
+  font-size: 0.85rem;
+  font-weight: 700;
   text-align: center;
-  font-family: 'Courier New', monospace;
+  font-family: 'Lexend', system-ui, sans-serif;
+  box-shadow: 1.5px 1.5px 0 #333333;
 }
 
 .timer-overlay-setting-input:focus {
   outline: none;
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.7);
+  border-color: #2563eb;
+  background: #ffffff;
+}
+
+.theater-mode .timer-overlay-setting-input {
+  background: #2a2a30;
+  border-color: #4a4a52;
+  color: #ffffff;
+  box-shadow: 1.5px 1.5px 0 #000000;
 }
 
 .timer-overlay-setting-sep {
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.72rem;
+  color: #666666;
   font-weight: 700;
 }
 
-.timer-overlay-mode-toggle-btn {
-  padding: 4px 8px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  transition: all 0.12s;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  white-space: nowrap;
+.theater-mode .timer-overlay-setting-sep {
+  color: #999999;
 }
 
-.timer-overlay-mode-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.25);
-  border-color: rgba(255, 255, 255, 0.6);
-}
-
-.timer-overlay-mode-toggle-btn.active {
-  background: rgba(255, 255, 255, 0.35);
-  border-color: rgba(255, 255, 255, 0.8);
-}
-
+/* Transport Controls */
 .timer-overlay-transport {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 4px;
 }
 
 .timer-overlay-transport-btn {
-  padding: 4px 8px;
-  font-size: 0.65rem;
+  padding: 6px 12px;
+  font-size: 0.78rem;
   font-weight: 700;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  border-radius: 4px;
-  color: rgba(255, 255, 255, 0.95);
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  color: #222222;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 2px 2px 0 #333333;
   transition: all 0.12s;
   text-transform: uppercase;
   letter-spacing: 0.4px;
   white-space: nowrap;
+  font-family: 'Lexend', system-ui, sans-serif;
 }
 
 .timer-overlay-transport-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.7);
+  background: #f5f5f0;
+  transform: translateY(-1px);
+}
+
+.timer-overlay-transport-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #333333;
 }
 
 .timer-overlay-transport-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
   transform: none;
+}
+
+.theater-mode .timer-overlay-transport-btn {
+  background: #28282e;
+  border-color: #4a4a52;
+  color: #fdfdfd;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+.theater-mode .timer-overlay-transport-btn .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.theater-mode .timer-overlay-transport-btn:hover {
+  background: #33333a;
+}
+
+/* Overlay Working Mode Shortcuts */
+#timer-overlay-mode-btns {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer-overlay-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #ffffff;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  color: #333333;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 5px 9px;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #333333;
+  transition: all 0.12s;
+  font-family: 'Lexend', system-ui, sans-serif;
+}
+
+.timer-overlay-mode-btn .btn-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0 !important;
+  filter: none;
+}
+
+.timer-overlay-mode-btn span {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.8;
+}
+
+.timer-overlay-mode-btn:hover {
+  background: #f0f0eb;
+  transform: translateY(-1px);
+}
+
+.timer-overlay-mode-btn.active {
+  background: #333333;
+  color: #ffffff;
+  box-shadow: 1px 1px 0 #111111;
+}
+
+.timer-overlay-mode-btn.active .btn-icon {
+  filter: brightness(0) invert(1) !important;
+}
+
+.theater-mode .timer-overlay-mode-btn {
+  background: #28282e;
+  border-color: #4a4a52;
+  color: #fdfdfd;
+  box-shadow: 2px 2px 0 #000000;
+}
+
+.theater-mode .timer-overlay-mode-btn .btn-icon {
+  filter: brightness(0) invert(1);
+}
+
+.theater-mode .timer-overlay-mode-btn:hover {
+  background: #33333a;
+}
+
+.theater-mode .timer-overlay-mode-btn.active {
+  background: #ffffff;
+  color: #111111;
+  border-color: #ffffff;
+}
+
+.theater-mode .timer-overlay-mode-btn.active .btn-icon {
+  filter: none !important;
 }
 
 /* ============================================================
@@ -21387,8 +21789,8 @@ html.con-exporting #con-board-title {
   border: 2px solid #111;
   border-radius: 6px;
   box-shadow: 3px 3px 0 #111;
-  width: auto;
-  max-width: calc(100vw - 16px);
+  width: 320px;
+  max-width: min(340px, calc(100vw - 16px));
   max-height: calc(100vh - 16px);
   overflow-y: auto;
   overflow-x: hidden;
@@ -26406,6 +26808,9 @@ body.presentation-mode {
 .presentation-mode #mode-overlay-noise-panel,
 .presentation-mode #mode-overlay-shortcuts,
 .presentation-mode #datetime-noise-shortcuts,
+.presentation-mode #timer-overlay-top-bar,
+.presentation-mode #timer-overlay-bottom-bar,
+.presentation-mode #timer-overlay-noise-panel,
 .presentation-mode #timer-overlay-settings,
 .presentation-mode #timer-overlay-mode-btns,
 .presentation-mode #timer-overlay-close,

@@ -592,6 +592,34 @@
       try { seen = localStorage.getItem(LS_TOUR_SEEN) === '1'; } catch (_) { /* ignore */ }
       if (!seen && !initialQuery) setTimeout(function () { window.startDictionaryTour(); }, 500);
     });
+
+    // Reactive listener for word lookups dispatched from other CMT windows (e.g. Document Editor, PDF Studio)
+    function handleExternalQuery(word) {
+      if (typeof word !== 'string') return;
+      var trimmed = word.trim();
+      if (!el.input) return;
+      el.input.value = trimmed;
+      el.input.focus();
+      if (trimmed) {
+        el.input.select();
+        runSearch();
+      }
+    }
+
+    try {
+      var dictBc = new BroadcastChannel('cmt-dictionary');
+      dictBc.onmessage = function (ev) {
+        if (ev && ev.data && ev.data.type === 'search' && typeof ev.data.q === 'string') {
+          handleExternalQuery(ev.data.q);
+        }
+      };
+    } catch (_) {}
+
+    if (api && typeof api.onDictionaryLookup === 'function') {
+      api.onDictionaryLookup(function (word) {
+        handleExternalQuery(word);
+      });
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
