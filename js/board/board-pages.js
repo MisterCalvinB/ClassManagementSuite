@@ -7115,7 +7115,10 @@
       const board = document.getElementById('constellation-board');
       if (!board) return;
       const widgets = Array.from(board.querySelectorAll('.con-media-item'));
+      const allMedia = (window.conGetMediaItems ? window.conGetMediaItems() : (typeof conMediaItems !== 'undefined' ? conMediaItems : [])) || [];
       widgets.forEach(wrap => {
+        const wrapId = wrap.dataset.id;
+        const m = allMedia.find(it => String(it.id) === String(wrapId)) || {};
         const kind = wrap.classList.contains('con-media-kind-pdf') ? 'pdf' : wrap.classList.contains('con-media-kind-pics') ? 'pics' : (wrap.classList.contains('con-media-kind-videos') || wrap.classList.contains('con-media-kind-video')) ? 'videos' : (wrap.classList.contains('con-media-kind-sounds') || wrap.classList.contains('con-media-kind-sound') || wrap.classList.contains('con-media-kind-audio')) ? 'sounds' : '';
         if (allowedKinds && Array.isArray(allowedKinds) && !allowedKinds.includes(kind)) return;
         const x = PAD + wrap.offsetLeft; const y = PAD + wrap.offsetTop;
@@ -7190,6 +7193,15 @@
           }
         } else {
           drawn = drawSource(wrap.querySelector('.con-media-asset')) || drawSource(wrap.querySelector('canvas')) || drawSource(wrap.querySelector('img'));
+          if (!drawn && kind === 'pics') {
+            const cacheKey = String(m.attachmentId || m.id || wrapId || '');
+            if (window._conThumbImgCache && window._conThumbImgCache.has(cacheKey)) {
+              const cImg = window._conThumbImgCache.get(cacheKey);
+              if (cImg && cImg.complete && cImg.naturalWidth > 0) {
+                drawn = drawSource(cImg);
+              }
+            }
+          }
         }
 
         if (!drawn) {
@@ -7294,6 +7306,9 @@
       }));
       if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
         try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+      }
+      if (typeof conAwaitAllMediaRendersOnBoard === 'function') {
+        try { await conAwaitAllMediaRendersOnBoard(); } catch (_) { }
       }
 
       const nodes = window.conGetNodes ? window.conGetNodes() : [];
@@ -8097,6 +8112,9 @@
             if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
               try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
             }
+            if (typeof conAwaitAllMediaRendersOnBoard === 'function') {
+              try { await conAwaitAllMediaRendersOnBoard(); } catch (_) { }
+            }
             await new Promise(r => setTimeout(r, 80));
             const res = await _conBuildBoardCanvas({ scale: targetScale });
             if (res && res.canvas) {
@@ -8299,6 +8317,9 @@
           _conRestorePageToBoard(pagesToProcess[i], { isExport: true });
           if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
             try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+          }
+          if (typeof conAwaitAllMediaRendersOnBoard === 'function') {
+            try { await conAwaitAllMediaRendersOnBoard(); } catch (_) { }
           }
           await new Promise(r => setTimeout(r, 80));
           const res = await _conBuildBoardCanvas({ scale: targetScale });
@@ -8549,11 +8570,13 @@
           throw new Error(result && result.error ? result.error : 'Could not save Constellation archive.');
         }
 
-        _conCurrentFileName = archiveBundle.filename;
-        _conCurrentFolderName = null;
-        if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
-        conSetAttachmentsFromSession(archiveBundle.attachments);
-        if (window.conUpdatePageBar) window.conUpdatePageBar();
+        if (!options.preserveCurrentSession) {
+          _conCurrentFileName = archiveBundle.filename;
+          _conCurrentFolderName = null;
+          if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
+          conSetAttachmentsFromSession(archiveBundle.attachments);
+          if (window.conUpdatePageBar) window.conUpdatePageBar();
+        }
         if (typeof historyUpsertEntry === 'function') {
           historyUpsertEntry('mindmaps', archiveBundle.filename, archiveBundle.filename, archiveBundle.data, options);
         }
@@ -8571,11 +8594,13 @@
         throw new Error(result && result.error ? result.error : 'Could not save Constellation bundle.');
       }
 
-      _conCurrentFileName = bundle.filename;
-      _conCurrentFolderName = bundle.folderName;
-      if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
-      conSetAttachmentsFromSession(bundle.attachments);
-      if (window.conUpdatePageBar) window.conUpdatePageBar();
+      if (!options.preserveCurrentSession) {
+        _conCurrentFileName = bundle.filename;
+        _conCurrentFolderName = bundle.folderName;
+        if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
+        conSetAttachmentsFromSession(bundle.attachments);
+        if (window.conUpdatePageBar) window.conUpdatePageBar();
+      }
       if (typeof historyUpsertEntry === 'function') {
         const rel = bundle.folderName ? (bundle.folderName + '/' + bundle.filename) : bundle.filename;
         historyUpsertEntry('mindmaps', bundle.filename, rel, bundle.data, options);
@@ -8821,17 +8846,13 @@
       if (activePlannerEntryId) {
         const linkedEntry = bpGetAllEntries().find(e => e.id === activePlannerEntryId);
         const linkedLabel = linkedEntry ? ('\n\nCurrent link: ' + bpBuildLabel(linkedEntry)) : '';
-        const proceed = await showConfirm(
-          'This file is linked to a Planner class timeslot.'
-          + '\nDuplicating it will break that link in the duplicate file.'
-          + linkedLabel
-          + '\n\nContinue with duplication?'
-        );
-        if (!proceed) return;
-
+        const promptMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+          ? i18n.t('boardDuplicatePlannerRelinkPrompt')
+          : 'This board is linked to a Planner class timeslot.\nDo you want to link the duplicated board to a new timeslot in the new window?';
         relinkAfterDuplicate = await showConfirm(
-          'After duplicating, do you want to create a new Planner link for the duplicate file?'
-          + '\n\nOK = open class timeslot picker'
+          promptMsg
+          + linkedLabel
+          + '\n\nOK = open class timeslot picker in the new window'
           + '\nCancel = keep duplicate unlinked'
         );
       }
@@ -8843,21 +8864,28 @@
         const persistedData = boardBuildPersistedSessionData('constellation', data);
         delete persistedData._plannerEntryId;
 
-        const saved = await conSaveSessionFolderBundle(duplicateFilename, persistedData, { isManualSave: true });
-        activePlannerEntryId = '';
-        bpUpdateBtn();
-        boardPersistLocalSession('constellation', saved.data, { source: 'manual-save', name: saved.filename });
-        boardSetAutosaveFingerprint('constellation', saved.data);
-        conSaveHistorySnapshot(saved.folderName, saved.filename, saved.data);
+        const saved = await conSaveSessionFolderBundle(duplicateFilename, persistedData, {
+          isManualSave: true,
+          preserveCurrentSession: true
+        });
 
         if (typeof historyRenderList === 'function') historyRenderList();
 
-        mdbToast('✅ Duplicated: ' + saved.filename);
+        const toastMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('boardDuplicatedNewWindow') : 'Duplicated and opened in new window: ') + saved.filename;
+        mdbToast('✅ ' + toastMsg);
 
-        if (relinkAfterDuplicate) {
-          _conPendingDuplicateRelinkRename = true;
-          mdbToast('📅 Choose a class timeslot to link this duplicate file.');
-          bpShowAll();
+        if (typeof boardOpenSessionInNewWindow === 'function') {
+          const entry = {
+            target: 'mindmaps',
+            filename: saved.filename,
+            relativePath: saved.folderName ? (saved.folderName + '/' + saved.filename) : saved.filename,
+            section: 'constellation'
+          };
+          await boardOpenSessionInNewWindow({
+            type: 'file',
+            entry,
+            openPlannerRelink: relinkAfterDuplicate
+          });
         }
       } catch (error) {
         mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));

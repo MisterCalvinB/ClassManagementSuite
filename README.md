@@ -51,7 +51,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
-  - [PDF Studio (`pdf-viewer.html`)](#pdf-viewerhtml)
+  - [PDF Viewer (`pdf-viewer.html`)](#pdf-viewerhtml)
   - [How-To Guide (`how-to.html`)](#how-tohtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
 
@@ -110,8 +110,8 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
-| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml), [Document Editor](#document-editorhtml) & [PDF Studio](#pdf-viewerhtml) |
-| [`pdf-viewer.html`](#pdf-viewerhtml) | Dedicated PDF Studio & Annotator: open, view, draw freehand with pen, highlight text, insert movable notes, search all app PDFs, and present on secondary display | Links directly to [File Manager](#file-managerhtml) & Presentation screens |
+| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml), [Document Editor](#document-editorhtml) & [PDF Viewer](#pdf-viewerhtml) |
+| [`pdf-viewer.html`](#pdf-viewerhtml) | Dedicated PDF Viewer & Annotator: open, view, draw freehand with pen, highlight text, insert movable notes, search all app PDFs, and present on secondary display | Links directly to [File Manager](#file-managerhtml) & Presentation screens |
 | [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
 | [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, clock constellation widget, compact presentation mirror toolbar, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
@@ -177,11 +177,12 @@ Classes and students are linked by persistent UUIDs (`st-…` for students, UUID
 </details>
 
 <details>
-<summary><strong>Universal Export Standards & Document Editor Workflow</strong></summary>
+<summary><strong>Universal Export Standards & Document / PDF Viewer Workflow</strong></summary>
 
 Whenever files are exported from any tool across the suite:
 - **"Open File"**: Launches the exported file in the default operating system viewer.
 - **"Open with Document Editor"**: Displayed automatically for Markdown (`.md`) and HTML (`.html`) files to open directly in [Document Editor](#document-editorhtml) with Monaco syntax highlighting and live preview. Edits can be saved directly back to the file with `Ctrl+S`.
+- **"Open with PDF Viewer"**: Displayed automatically for PDF (`.pdf`) files to open directly in [PDF Viewer](#pdf-viewerhtml) with high-fidelity PDF.js rendering, annotation pens/highlighters, and presentation display modes.
 - **"Open Folder"**: Reveals and highlights the exported file or folder in the system file explorer.
 - **Semantic HTML & Stylesheets**: HTML exports across all tools adhere to the `export-standards` skill, using clean semantic CSS classes and embedded `<style>` blocks rather than repetitive inline styles, enabling rapid re-styling in Document Editor.
 </details>
@@ -545,7 +546,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 - **PDF Export Settings**:
   - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
   - **Margin Space**: Define page margins using standard CSS margin syntax (e.g., `16mm 14mm` or `15mm`).
-  - **Page Orientation**: Choose default layout orientation (**Portrait** or **Landscape**). Applied automatically across all suite export operations (Planner, Grade Sheet, Participation Tracker, Schedule Maker, Class Plan, Board).
+  - **Page Orientation**: Choose default layout orientation (**Portrait** or **Landscape**). Applied automatically across all suite export operations (Planner, Grade Sheet, Participation Tracker, Schedule Maker, Class Plan, Board, Lesson Creator, Test Creator, Administrative Groups, Manage Database, Document Editor).
 - **Startup & Launch**:
   - **Apps to open at startup**: Select tools to auto-launch when the app starts.
   - **Window arrangement**: Choose layout mode:
@@ -556,6 +557,9 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 
 #### 2. Storage & Sync Tab (`data-tab="storage"`)
 
+- **Offline Speech & Language AI Models**:
+  - **Speech Recognition Models (Whisper AI)**: Manage, 1-click download, and switch offline transcription models (*Whisper Tiny Quantized*, *Whisper Base*, *Whisper Small*) for Board audio transcription, oral exam evaluation, and live dictation.
+  - **Small Language Models (SLM AI)**: Manage, 1-click download, and switch local offline language models (*SmolLM2 360M Ultra Fast*, *Qwen 2.5 0.5B Fast*, *Qwen 2.5 1.5B Balanced*, *Qwen 1.8B Deep*) used for Mind Mapping / AI Studio in Board and smart Autofill / Batch Autofill in Manage Database.
 - **Data Location**:
   - Displays current data directory path.
   - Buttons for **Change folder…**, **Reset to default**, and **Check for Updates**.
@@ -728,7 +732,7 @@ Offline-first **Quick Dictionary** designed for instantaneous, sub-millisecond k
 - **Dynamic Word Bank Filter & Memory Pruning**:
   - Built-in multi-select word bank popover allows toggling individual dictionaries on/off.
   - Deselected databases are instantly unloaded and pruned from memory in the worker thread.
-- **Suite-Wide Companion Lookup**: Receives instant search queries from [Document Editor](#document-editorhtml) and [PDF Studio](#pdf-viewerhtml) via `BroadcastChannel` and Electron IPC. Reuses existing windows to avoid desktop clutter, bringing the dictionary to the foreground and searching words immediately without reloads.
+- **Suite-Wide Companion Lookup**: Receives instant search queries from [Document Editor](#document-editorhtml) and [PDF Viewer](#pdf-viewerhtml) via `BroadcastChannel` and Electron IPC. Reuses existing windows to avoid desktop clutter, bringing the dictionary to the foreground and searching words immediately without reloads.
 - **Light Neobrutalist UI & 60fps Micro-DOM Performance**:
   - Fixed-size in-place DOM pool with node recycling prevents costly `innerHTML` teardowns.
   - Event delegation on result lists with keyboard navigation (<kbd>↑</kbd>/<kbd>↓</kbd> browse, <kbd>Enter</kbd> expand, <kbd>Esc</kbd> clear/close, <kbd>Ctrl+K</kbd> / <kbd>Ctrl+F</kbd> search focus).
@@ -985,6 +989,14 @@ Active classroom control panel for student scoring, timers, class working modes,
   - **1-Click Merged / Dual View**: Simultaneous presentation of the real-time clock & date banner alongside the active countdown timer or stopwatch, allowing students and teachers to track the scheduled time of day and remaining activity duration at a glance on the same screen.
   - **Theater Mode**: 1-click high-contrast dark projection mode (`#141416` dark stage) optimized for beamers, smartboards, and darkened classrooms without eye strain or white glare.
   - **Integrated Ergonomic Controls**: Non-intrusive bottom toolbar with hours/minutes duration inputs, beeps selector, transport controls (`Play/Pause`, `Stop`, `+30s`, `-30s`), and class working mode shortcuts (`1 Quiet`, `2 Discussion`, `3 Group`). Toggleable ambient noise panel with 100% SVG icons (zero emojis). Synchronized live with secondary presentation and beamer displays.
+- **Unified General Settings Modal (`#settings-modal`)**: Streamlined Neobrutalist tabbed configuration dialog replacing scattered standalone modals with a single unified, 7-tab interface modeled after General Config:
+  - **7 Sidebar Tabs**: Fast, one-click access to **General** (coefficients, layout mode, animations, quick links), **Teams** (team names, colors, border styling), **Badges** (badge sets, point values, icons), **Sounds** (timer end sounds, background ambiances, SFX volumes, audio import), **Roles** (role titles, expectations, explanations), **Auto-Flag** (dynamic rules, metrics, operators, random pick weights), and **Shortcuts** (interactive hotkey customizer and conflict checker).
+  - **Preserved Header Ergonomics**: The top bar settings button opens the unified dialog directly without altering the top menu bar layout or navigation.
+- **Empty Team Creation & Manual Drag-and-Drop (Option D)**: In the Team Creation modal, teachers can click **Option D** to instantly generate 1–12 empty teams. Each empty team displays a dedicated Light Neobrutalist dropzone (`.empty-team-dropzone`). Teachers can drag and drop students directly into empty or existing teams, or right-click any student to use the collapsible **Assign to Team** context menu palette for rapid manual team allocation.
+- **Manual Student Highlighting & Spotlight Animation**: Spotlight any individual student at will with the exact 4-second pulsating gold blinking effect used by the random picker. Highlights the student card with `.picked-blink`, animates the top bar display name, logs the highlight event to session history, and broadcasts real-time spotlight animations to secondary presentation and beamer displays. Triggerable via:
+  - The **Eye icon button** (`.btn-highlight`) on each student card in the roster controls.
+  - The **Highlight Student** item in the right-click roster context menu.
+  - **Alt+Click** or **Shift+Click** on the student's name in both standard roster view and interactive seating plan view.
 - **Roster & Scoring**: Award participation marks (**+** / **−**), badges, and strikes. High-density Light Neobrutalist layout with compact 24px vertical roster items, 20px tactile scoring buttons (`.btn-mini`), pill-encapsulated point badges, distinct visual contrast between picked students (warm amber highlight) and absent students (muted dashed styling), and structured team card headers. On narrow displays (down to 340px width), student items remain single-line and compact, allowing over twice as many students to fit on screen vertically. Context menu for attendance, flagging, and role assignment. Respects custom student display names.
 - **Roster Settings & Popups**: Comprehensive 3-tab configuration popup (*Display*, *Grouping*, *Tools*), Class Selection modal, and Timer modal. On mobile and narrow screen widths, modals are anchored with fixed viewport positioning and centered alignment to prevent edge clipping or right-side clamping. Allows scaling student name font sizes on the board (`A−` / `A` / `A+`) and presentation display independently with live rem readouts. Interface toggles (sounds, SEN, roles, badges, autoflag, anim, seating plan view), sort order, and mirror settings automatically persist in `user/config.js` under `CLASS_MANAGEMENT_CONFIG.rosterSettings` and `uiSettings`, restoring seamlessly across application reboots.
 - **Auto-Flagging & Criteria Engine**: Multi-color student auto-flagging with customizable criteria (Bottom/Top % Net Score, Net Points, Attendance Rate, **Participation Grade** computed from Participation Tracker rules, badges, and expression formulas) with weighted random picking multipliers.
@@ -1005,11 +1017,12 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
 
 #### Features
 - **Multi-Window Board Sessions & Smart Routing**: Open and run multiple independent Board windows side-by-side or on multiple monitors, provided each window displays a distinct session or file:
+  - **File Menu Duplicate to New Window**: Duplicating a file from the Board File menu (or keyboard shortcut) writes the copy to disk and opens the newly duplicated file in a separate Board window while keeping the original file untouched in the current window. If linked to a Planner timeslot, teachers can optionally choose to launch the timeslot picker in the newly opened window to relink the duplicate.
   - **Conflict-Free File Protection**: Attempting to open a file that is already loaded in an active Board window smoothly brings that window to the front and focuses it, preventing conflicting concurrent edits or duplicate autosaves.
   - **Clean Blank Window Reuse**: Opening a file from the Launcher, File Manager, or other suite tools automatically reuses an existing clean/untitled Board window (if available and not modified), keeping workspace windows tidy.
   - **Smart Launcher App Card Launching**: Clicking the Board card in the Launcher focuses a blank Board window if one is open; if all active Board windows have files loaded, it automatically spawns a new blank Board window.
   - **In-Board "New Window" Button & Shortcut**: A dedicated **New Window** action button in the toolbar's File group (and shortcut registry) allows teachers to instantly open an empty Board window on demand.
-  - **Context Menu Integration in Launcher & File Manager**: Right-clicking session files (`.cstz`, `.js`, `.json`) in the Launcher's Recent Documents or File Manager offers both **Open in Board** and **Open in New Window**.
+  - **Context Menu Integration in Launcher & File Manager**: Right-clicking files (`.cstz`, `.js`, `.json`, `.md`, `.html`, `.pdf`, media) or folders anywhere they appear in Launcher (Recent Files modal, sidebar recent documents, sidebar pinned items, Unit & Tag Explorer) or File Manager (Recent tab, Browse tab, Folders, and Tagged resources) offers **Open location** (reveals and highlights the item in the desktop file manager) and **Open file in system** / **Open folder in system** (launches directly in the operating system's default application).
 - **Unified Collapsible Toolbar Drawer (Pinned vs. Auto-Hide on Hover)**: Eliminates visual discrepancy between the main teacher view and the clean mirrored display. The entire sticky top section—encompassing the main menu toolbar, the snippet navigation bar with live page thumbnails, and the drawing menu—is housed in a unified Light Neobrutalist drawer (`#con-toolbar-drawer`).
   - **Pinned Mode (Default)**: Keeps the entire toolbar permanently visible in the document flow. The toolbar includes a dedicated **Pinned** button with an official SVG pin icon (`assets/icons/pin.svg`) to toggle modes.
   - **Auto-Hide Mode**: Smoothly glides the unified drawer upward via GPU-composited `transform: translateY(...)`, freeing up full vertical canvas space so the teacher sees the board starting from coordinate $(0,0)$ matching the presentation mirror display.
@@ -1462,12 +1475,16 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 
 #### Features
 - **Streamlined 5-Menu Navigation & Compact Badges**: Cleanly categorized navigation bar structured into:
-  - **File**: New Document, Open, Open from disk, Templates, Save, Save As, Save to folder, Save All, Version History, Pin Document.
+  - **File**: New Document, New Window (`Ctrl+Shift+N`), Open, Open from disk, Templates, Save, Save As, Save to folder, Save All, Version History, Pin Document.
   - **Insert**: Pure content insertion (Tables with visual grid picker, Spreadsheet tables `.ods`/`.xlsx`, Images, Universal Importer, Book text excerpts, and Student merge fields).
   - **Layout**: Dedicated page setup menu hosting **Page Layout & Margins…** (paper sizes, margins, orientation, dynamic headers/footers, typography, image sizing) and **Toggle Stylesheet Panel ({ } CSS)**.
   - **Tools**: Lesson Handout Generator, Attach Reference PDF/File, Class Roster Connect, Student Preview, unified **Snippets & Style Library…** (`Ctrl+Shift+L`), and lean Editor Settings.
   - **Export**: Native PDF Document, Word DOCX, LibreOffice Writer ODT, Batch Mailposting, and single-source **Send Outline to Board Mindmap…**.
   - **On-Demand Stylesheet Panel**: The `#css-panel` strip is collapsed by default to maximize vertical editing space, toggleable at any time via a dedicated `{ } CSS` button or the Layout menu.
+- **Multi-Window Document Architecture & Session Restoration**:
+  - Open multiple documents simultaneously in independent windows (via File menu **New Window**, the file browser **New Window** action, or directly from File Manager / Launcher).
+  - Collision prevention: Opening a file that is already loaded in another window brings that window to the front and focuses it, preventing duplicate conflicting edits.
+  - Session recovery: All open document windows and their active files are saved and restored across app restarts and crash recovery.
 - **Triple Format Switcher (`MD` / `HTML` / `TYP`) & ODT Mode**: One-click format toggle in the navigation bar dynamically switches Monaco language grammars, toolbar actions, and compiler pipelines, with full round-trip editing and in-place saving for LibreOffice Writer (`.odt`) files.
 - **LibreOffice Integration (.odt & .ods)**:
   - **Open, Edit & Save LibreOffice Writer (.odt)**: Open `.odt` documents from disk, via drag-and-drop, or through the "Open with Document Editor" action in export popups. Extracts document structure into Markdown with live preview, preserves page size, margins, and typography, and saves directly back into the `.odt` file with `Ctrl+S`.
@@ -1500,7 +1517,7 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 
 ### pdf-viewer.html
 
-Dedicated desktop **PDF Studio & Annotator** designed for classroom worksheets, textbooks, exam review, and reading materials.
+Dedicated desktop **PDF Viewer & Annotator** designed for classroom worksheets, textbooks, exam review, and reading materials.
 
 #### Features
 - **High-DPI PDF Rendering & Selectable Text Layer**: Offline PDF rendering powered by Mozilla PDF.js at native device pixel ratio with continuous vertical scroll, zoom controls (50% to 300%, Fit Width, Fit Page), and a native selectable text layer for selecting and copying page text.
@@ -1511,12 +1528,16 @@ Dedicated desktop **PDF Studio & Annotator** designed for classroom worksheets, 
   - **Text Boxes**: Click anywhere on a page to insert movable, resizable, and editable text boxes.
   - **Eraser & Undo**: Click-to-erase strokes and complete undo/redo stack (`Ctrl+Z`, `Ctrl+Y`).
 - **File Manager Integration**:
-  - Direct opening from **File Manager** (`pages/file-manager.html`) via "Open in PDF Studio ↗" buttons and right-click context menu.
-  - Double-click on any `.pdf` row in File Manager launches PDF Studio immediately.
+  - Direct opening from **File Manager** (`pages/file-manager.html`) via "Open in PDF Viewer ↗" buttons and right-click context menu.
+  - Double-click on any `.pdf` row in File Manager launches PDF Viewer immediately.
 - **App PDF Search Modal**:
   - Top "Files" menu contains **Search App PDFs...**, scanning all user folders (`user/`, `user/to-print/`, `user/doceditor/`) in real-time with instant text filtering, folder categories, file size, modification dates, and "Annotated" indicators.
 - **Non-Destructive Sidecar Persistence**:
   - Annotations are stored as normalized vector coordinates `[0.0, 1.0]` in companion `.cmt-annot.json` files, leaving original PDFs 100% untouched while allowing annotations to be reloaded and edited anytime.
+- **Multi-Window PDF Architecture & Collision Protection**:
+  - Open multiple PDF documents simultaneously in separate windows (via Files menu **New Window** (`Ctrl+Shift+N`), the App PDFs search list **New Window** action, or directly from File Manager).
+  - Collision prevention: Selecting a PDF that is already open in another window smoothly focuses the existing window with a toast notice, avoiding duplicate conflicting instances.
+  - Session recovery: Active windows and opened PDFs are fully restored on restart.
 - **Projector Presentation Mode**:
   - Detached secondary window mirroring the exact dimensions, visible area, vertical/horizontal scrolling, zoom, inking, and text notes in real-time without toolbars or distractions (matching the Board mirrored view architecture with letterbox/pillarbox clip framing and 60fps composite transform sync).
   - Classroom focus hotkeys: `B` (Blackout screen), `W` (Whiteout screen), and arrow/page keys for slide navigation.

@@ -176,7 +176,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
-  [PAGE_FILES.pdfViewer]: 'PDF Studio',
+  [PAGE_FILES.pdfViewer]: 'PDF Viewer',
   [PAGE_FILES.planner]: 'Planner',
   [PAGE_FILES.lessonCreator]: 'Lesson Creator',
   [PAGE_FILES.importTool]: 'Import Tool',
@@ -849,14 +849,152 @@ function _areBoardFilesEqual(a, b) {
   return false;
 }
 
+function _hasDocumentFile(item) {
+  if (!item || typeof item !== 'object') return false;
+  const disk = String(item.editAbsPath || item.absPath || item.diskPath || '').trim();
+  if (disk) return true;
+  const rel = String(item.editRelPath || item.relPath || item.relativePath || item.filename || item.file || '').trim();
+  return !!rel;
+}
+
+function _normalizeDocTarget(target) {
+  const t = String(target || '').trim().toLowerCase();
+  return t || 'doceditordocs';
+}
+
+function _normalizeDocPath(p) {
+  if (!p) return '';
+  let s = String(p).trim().replace(/\\/g, '/').toLowerCase();
+  s = s.replace(/^\/+/, '');
+  if (s.startsWith('user/document-editor/docs/')) s = s.slice('user/document-editor/docs/'.length);
+  else if (s.startsWith('document-editor/docs/')) s = s.slice('document-editor/docs/'.length);
+  else if (s.startsWith('doceditordocs/')) s = s.slice('doceditordocs/'.length);
+  else if (s.startsWith('doceditor/')) s = s.slice('doceditor/'.length);
+  return s;
+}
+
+function _areDocumentFilesEqual(a, b) {
+  if (!a || !b) return false;
+  const diskA = String(a.editAbsPath || a.absPath || a.diskPath || '').trim().replace(/\\/g, '/').toLowerCase();
+  const diskB = String(b.editAbsPath || b.absPath || b.diskPath || '').trim().replace(/\\/g, '/').toLowerCase();
+  if (diskA && diskB) return diskA === diskB;
+  if (diskA || diskB) return false;
+
+  const targetA = _normalizeDocTarget(a.editTarget || a.target);
+  const targetB = _normalizeDocTarget(b.editTarget || b.target);
+  const relA = _normalizeDocPath(a.editRelPath || a.relPath || a.relativePath || a.filename || a.file);
+  const relB = _normalizeDocPath(b.editRelPath || b.relPath || b.relativePath || b.filename || b.file);
+  if (!relA || !relB) return false;
+  return targetA === targetB && relA === relB;
+}
+
+function _hasPdfFile(item) {
+  if (!item || typeof item !== 'object') return false;
+  const disk = String(item.openAbsPath || item.absPath || item.diskPath || item.pdfPath || '').trim();
+  if (disk) return true;
+  const rel = String(item.openRelPath || item.relPath || item.relativePath || item.file || item.filename || item.pdfRelPath || item.pdfFilename || '').trim();
+  return !!rel;
+}
+
+function _arePdfFilesEqual(a, b) {
+  if (!a || !b) return false;
+  const diskA = String(a.openAbsPath || a.absPath || a.diskPath || a.pdfPath || '').trim().replace(/\\/g, '/').toLowerCase();
+  const diskB = String(b.openAbsPath || b.absPath || b.diskPath || b.pdfPath || '').trim().replace(/\\/g, '/').toLowerCase();
+  if (diskA && diskB) return diskA === diskB;
+  if (diskA || diskB) return false;
+
+  const targetA = String(a.openTarget || a.target || a.pdfTarget || '').trim().toLowerCase();
+  const targetB = String(b.openTarget || b.target || b.pdfTarget || '').trim().toLowerCase();
+  const relA = String(a.openRelPath || a.relPath || a.relativePath || a.file || a.filename || a.pdfRelPath || a.pdfFilename || '').trim().replace(/\\/g, '/').toLowerCase();
+  const relB = String(b.openRelPath || b.relPath || b.relativePath || b.file || b.filename || b.pdfRelPath || b.pdfFilename || '').trim().replace(/\\/g, '/').toLowerCase();
+  if (!relA || !relB) return false;
+  if (targetA || targetB) {
+    return targetA === targetB && relA === relB;
+  }
+  return relA === relB;
+}
+
+function _isMultiWindowFileTool(pageFile) {
+  return pageFile === PAGE_FILES.board ||
+         pageFile === PAGE_FILES.documentEditor ||
+         pageFile === PAGE_FILES.pdfViewer;
+}
+
+function _hasToolFile(pageFile, item) {
+  if (!item || typeof item !== 'object') return false;
+  if (pageFile === PAGE_FILES.board) return _hasBoardFile(item);
+  if (pageFile === PAGE_FILES.documentEditor) return _hasDocumentFile(item);
+  if (pageFile === PAGE_FILES.pdfViewer) return _hasPdfFile(item);
+  return false;
+}
+
+function _areToolFilesEqual(pageFile, a, b) {
+  if (!a || !b) return false;
+  if (pageFile === PAGE_FILES.board) return _areBoardFilesEqual(a, b);
+  if (pageFile === PAGE_FILES.documentEditor) return _areDocumentFilesEqual(a, b);
+  if (pageFile === PAGE_FILES.pdfViewer) return _arePdfFilesEqual(a, b);
+  return false;
+}
+
+function _extractInitialContext(pageFile, query) {
+  if (!query) return null;
+  if (pageFile === PAGE_FILES.board) {
+    return {
+      target: query.openTarget || query.target || 'mindmaps',
+      filename: query.openFilename || query.filename || query.file || '',
+      relativePath: query.openRelPath || query.relativePath || query.file || query.openFilename || '',
+      section: query.openSection || query.section || 'constellation',
+      isDirty: false
+    };
+  }
+  if (pageFile === PAGE_FILES.documentEditor) {
+    const diskPath = query.editAbsPath || query.absPath || query.diskPath || null;
+    const rel = query.editRelPath || query.relPath || query.relativePath || query.file || query.filename || '';
+    return {
+      target: diskPath ? null : (query.editTarget || query.target || 'docEditorDocs'),
+      filename: (diskPath || rel || '').split(/[\/\\]/).pop(),
+      relativePath: rel,
+      diskPath: diskPath,
+      isDirty: false
+    };
+  }
+  if (pageFile === PAGE_FILES.pdfViewer) {
+    const diskPath = query.openAbsPath || query.absPath || query.diskPath || null;
+    const rel = query.openRelPath || query.relPath || query.relativePath || query.file || query.filename || '';
+    return {
+      target: diskPath ? null : (query.openTarget || query.target || 'user'),
+      filename: (diskPath || rel || '').split(/[\/\\]/).pop(),
+      relativePath: rel,
+      diskPath: diskPath,
+      isDirty: false
+    };
+  }
+  return null;
+}
+
 function _buildSessionWindowQuery(item) {
   const query = {};
-  if (item && item.pageFile === PAGE_FILES.board && item.context && item.context.filename) {
+  if (!item || !item.context) return query;
+  if (item.pageFile === PAGE_FILES.board && item.context.filename) {
     query.openSession = '1';
     query.openTarget = item.context.target || 'mindmaps';
     query.openFilename = item.context.filename;
     query.openRelPath = item.context.relativePath || item.context.filename;
     query.openSection = item.context.section || 'constellation';
+  } else if (item.pageFile === PAGE_FILES.documentEditor) {
+    if (item.context.diskPath) {
+      query.editAbsPath = item.context.diskPath;
+    } else if (item.context.relativePath || item.context.filename) {
+      query.editTarget = item.context.target || 'docEditorDocs';
+      query.editRelPath = item.context.relativePath || item.context.filename;
+    }
+  } else if (item.pageFile === PAGE_FILES.pdfViewer) {
+    if (item.context.diskPath) {
+      query.openAbsPath = item.context.diskPath;
+    } else if (item.context.relativePath || item.context.filename) {
+      query.openTarget = item.context.target || 'user';
+      query.openRelPath = item.context.relativePath || item.context.filename;
+    }
   }
   return query;
 }
@@ -5342,16 +5480,17 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
 
   const wantsNewWindow = !!(request.newWindow || request.forceNewWindow);
 
-  // Board multi-window handling: allow opening multiple board windows provided files are not the same
-  if (pageFile === PAGE_FILES.board && !request.sideBySide && !request.openOnSecondScreen) {
-    const boardWins = BrowserWindow.getAllWindows().filter(
-      w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === PAGE_FILES.board
+  // Multi-window file tool handling (Board, Document Editor, PDF Viewer):
+  // allow opening multiple tool windows provided files are not the same
+  if (_isMultiWindowFileTool(pageFile) && !request.sideBySide && !request.openOnSecondScreen) {
+    const toolWins = BrowserWindow.getAllWindows().filter(
+      w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === pageFile
     );
-    const isTargetFileSpecified = _hasBoardFile(query);
+    const isTargetFileSpecified = _hasToolFile(pageFile, query);
 
     if (isTargetFileSpecified) {
-      // 1. If an existing Board window already has this exact file loaded, focus it
-      const sameFileWin = boardWins.find(w => _areBoardFilesEqual(_windowSessionContexts.get(w.id), query));
+      // 1. If an existing window already has this exact file loaded, focus it
+      const sameFileWin = toolWins.find(w => _areToolFilesEqual(pageFile, _windowSessionContexts.get(w.id), query));
       if (sameFileWin) {
         if (targetBounds) _applySafeBounds(sameFileWin, targetBounds);
         if (sameFileWin.isMinimized()) sameFileWin.restore();
@@ -5359,22 +5498,20 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
         return { ok: true, windowId: sameFileWin.id, alreadyOpen: true };
       }
 
-      // 2. If an existing Board window is clean and blank (no file loaded and not dirty), reuse it (unless user explicitly forced a new window)
+      // 2. If an existing window is clean and blank (no file loaded and not dirty), reuse it (unless user explicitly forced a new window)
       if (!wantsNewWindow) {
         const isDirtyWin = (w) => (typeof w.getTitle === 'function' && w.getTitle().startsWith('●')) || !!(_windowSessionContexts.get(w.id)?.isDirty);
-        const blankWin = boardWins.find(w => !_hasBoardFile(_windowSessionContexts.get(w.id)) && !isDirtyWin(w));
+        const blankWin = toolWins.find(w => !_hasToolFile(pageFile, _windowSessionContexts.get(w.id)) && !isDirtyWin(w));
         if (blankWin) {
           if (query && !request.noReload) {
             loadTool(pageFile, blankWin, { query }).catch((err) => {
               console.error(`Failed to navigate ${pageFile}:`, err);
             });
           }
-          _windowSessionContexts.set(blankWin.id, {
-            target: query.openTarget || query.target || 'mindmaps',
-            filename: query.openFilename || query.filename || query.file || '',
-            relativePath: query.openRelPath || query.relativePath || query.file || query.openFilename || '',
-            section: query.openSection || query.section || 'constellation'
-          });
+          const initCtx = _extractInitialContext(pageFile, query);
+          if (initCtx) {
+            _windowSessionContexts.set(blankWin.id, initCtx);
+          }
           if (targetBounds) _applySafeBounds(blankWin, targetBounds);
           if (blankWin.isMinimized()) blankWin.restore();
           blankWin.focus();
@@ -5382,19 +5519,19 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
         }
       }
 
-      // 3. Different file and no clean blank window to reuse -> fall through to create a new Board window!
+      // 3. Different file and no clean blank window to reuse -> fall through to create a new window!
     } else {
-      // No specific file requested (e.g. clicking Board card in Launcher)
+      // No specific file requested (e.g. clicking tool card in Launcher)
       if (!wantsNewWindow) {
         const isDirtyWin = (w) => (typeof w.getTitle === 'function' && w.getTitle().startsWith('●')) || !!(_windowSessionContexts.get(w.id)?.isDirty);
-        const blankWin = boardWins.find(w => !_hasBoardFile(_windowSessionContexts.get(w.id)) && !isDirtyWin(w));
+        const blankWin = toolWins.find(w => !_hasToolFile(pageFile, _windowSessionContexts.get(w.id)) && !isDirtyWin(w));
         if (blankWin) {
           if (targetBounds) _applySafeBounds(blankWin, targetBounds);
           if (blankWin.isMinimized()) blankWin.restore();
           blankWin.focus();
           return { ok: true, windowId: blankWin.id };
         }
-        // If all existing board windows have files loaded or are dirty, fall through to create a new blank Board window!
+        // If all existing windows have files loaded or are dirty, fall through to create a new blank window!
       }
     }
   } else if (!wantsNewWindow && !isLearningToolsPresentation && !request.sideBySide && !request.openOnSecondScreen && !request.maximize) {
@@ -5417,13 +5554,11 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   }
 
   const toolOptions = query ? { query } : {};
-  if (pageFile === PAGE_FILES.board && _hasBoardFile(query)) {
-    toolOptions.initialContext = {
-      target: query.openTarget || query.target || 'mindmaps',
-      filename: query.openFilename || query.filename || query.file || '',
-      relativePath: query.openRelPath || query.relativePath || query.file || query.openFilename || '',
-      section: query.openSection || query.section || 'constellation'
-    };
+  if (_isMultiWindowFileTool(pageFile) && _hasToolFile(pageFile, query)) {
+    const initCtx = _extractInitialContext(pageFile, query);
+    if (initCtx) {
+      toolOptions.initialContext = initCtx;
+    }
   }
   if (targetBounds) {
     toolOptions.width  = targetBounds.width;
@@ -6654,7 +6789,7 @@ ipcMain.handle('app:doc-presentation-command', (event, command) => {
   return { ok: true };
 });
 
-// ── PDF Studio Presentation Window ──────────────────────────────────────────
+// ── PDF Viewer Presentation Window ──────────────────────────────────────────
 ipcMain.handle('app:open-pdf-presentation', async (event, request = {}) => {
   if (pdfPresentationWindow && !pdfPresentationWindow.isDestroyed()) {
     pdfPresentationWindow.focus();
@@ -6673,14 +6808,14 @@ ipcMain.handle('app:open-pdf-presentation', async (event, request = {}) => {
       || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
     winOpts = {
       x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
-      autoHideMenuBar: true, title: 'PDF Studio – Presentation Mode',
+      autoHideMenuBar: true, title: 'PDF Viewer – Presentation Mode',
       webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
   } else {
     const width  = sBounds ? sBounds.width  : 1200;
     const height = sBounds ? sBounds.height : 800;
     winOpts = {
-      width, height, autoHideMenuBar: true, title: 'PDF Studio – Presentation Mode',
+      width, height, autoHideMenuBar: true, title: 'PDF Viewer – Presentation Mode',
       webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: false, backgroundThrottling: false }
     };
     if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }
@@ -6806,6 +6941,30 @@ ipcMain.handle('app:print-html', async (event, request = {}) => {
   return result;
 });
 
+function getDefaultPdfExportOptions() {
+  try {
+    const configPath = path.join(getWritableRootDir(), 'user', 'config.js');
+    if (fsSync.existsSync(configPath)) {
+      const content = fsSync.readFileSync(configPath, 'utf8');
+      const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+      if (match) {
+        const parsed = JSON.parse(match[1]);
+        if (parsed && parsed.export) {
+          const exp = parsed.export;
+          const isLandscape = (exp.orientation || exp.pdfOrientation || '').toLowerCase() === 'landscape';
+          return {
+            pageSize: (exp.pageSize || exp.size || 'A4').trim(),
+            landscape: isLandscape
+          };
+        }
+      }
+    }
+  } catch (err) {
+    // ignore
+  }
+  return { pageSize: 'A4', landscape: false };
+}
+
 ipcMain.handle('app:print-pdf', async (event, request = {}) => {
   const html = String(request.html || '');
   const tmpFile = path.join(os.tmpdir(), `cmt-pdf-${Date.now()}.html`);
@@ -6879,8 +7038,9 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
       else if (mt === 'default') reqOpts.marginsType = 0;
       delete reqOpts.margins;
     }
+    const defaultExportOpts = getDefaultPdfExportOptions();
     const pdfOptions = Object.assign(
-      { landscape: false, pageSize: 'A4', marginsType: 1, preferCSSPageSize: true },
+      { landscape: defaultExportOpts.landscape, pageSize: defaultExportOpts.pageSize, marginsType: 1, preferCSSPageSize: true },
       reqOpts,
       { printBackground: true }
     );
@@ -7666,7 +7826,7 @@ ipcMain.handle('app:pick-and-read-file', async (_event, request = {}) => {
   const name = path.basename(filePath);
   try {
     const content = await fs.readFile(filePath, 'utf8');
-    return { ok: true, canceled: false, name, content };
+    return { ok: true, canceled: false, name, path: filePath, filePath, content };
   } catch (err) {
     return { ok: false, canceled: false, error: String(err?.message || err) };
   }
@@ -10208,6 +10368,28 @@ ipcMain.handle('app:check-board-file-open', async (event, query = {}) => {
   for (const w of boardWins) {
     const ctx = _windowSessionContexts.get(w.id);
     if (_areBoardFilesEqual(ctx, query)) {
+      if (w.isMinimized()) w.restore();
+      w.focus();
+      return { ok: true, isOpen: true, windowId: w.id };
+    }
+  }
+  return { ok: true, isOpen: false };
+});
+
+ipcMain.handle('app:check-file-open', async (event, request = {}) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  let rawPage = request.pageFile || (senderWin ? getLoadedPageFile(senderWin) : null);
+  if (typeof rawPage === 'string') rawPage = rawPage.replace(/^[./\\]*pages[/\\]/, '');
+  const targetPageFile = PAGE_FILES[rawPage] || rawPage;
+  if (!targetPageFile || !_isMultiWindowFileTool(targetPageFile)) {
+    return { ok: true, isOpen: false };
+  }
+  const toolWins = BrowserWindow.getAllWindows().filter(
+    w => !w.isDestroyed() && !isPresentationWindow(w) && getLoadedPageFile(w) === targetPageFile && w !== senderWin
+  );
+  for (const w of toolWins) {
+    const ctx = _windowSessionContexts.get(w.id);
+    if (_areToolFilesEqual(targetPageFile, ctx, request)) {
       if (w.isMinimized()) w.restore();
       w.focus();
       return { ok: true, isOpen: true, windowId: w.id };

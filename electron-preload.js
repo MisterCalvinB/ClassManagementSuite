@@ -65,6 +65,9 @@ const exposedApi = {
   checkBoardFileOpen(query) {
     return invoke('app:check-board-file-open', query);
   },
+  checkFileOpen(request) {
+    return invoke('app:check-file-open', request);
+  },
   getSessionState() {
     return invoke('app:get-session-state');
   },

@@ -159,6 +159,15 @@
     return getDesktopApi().checkBoardFileOpen(query);
   }
 
+  async function checkFileOpen(request) {
+    if (!isElectron()) return { ok: true, isOpen: false };
+    const api = getDesktopApi();
+    if (typeof api.checkFileOpen === 'function') {
+      return api.checkFileOpen(request);
+    }
+    return { ok: true, isOpen: false };
+  }
+
   async function getSessionState() {
     if (!isElectron()) return null;
     return getDesktopApi().getSessionState();
@@ -789,8 +798,71 @@
     return getDesktopApi().quizServerStatus();
   }
 
+  function getPdfExportSettings(overrides) {
+    overrides = overrides || {};
+    let exp = {};
+    if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.export) {
+      exp = CLASS_MANAGEMENT_CONFIG.export;
+    } else if (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && window.CLASS_MANAGEMENT_CONFIG.export) {
+      exp = window.CLASS_MANAGEMENT_CONFIG.export;
+    } else {
+      try {
+        const lsExp = JSON.parse(localStorage.getItem('cmt-pdf-export-config') || '{}');
+        if (lsExp && Object.keys(lsExp).length) {
+          exp = lsExp;
+        } else {
+          const genCfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+          if (genCfg && genCfg.export) exp = genCfg.export;
+        }
+      } catch (_) {}
+    }
+
+    let margin = overrides.margin || overrides.pdfMargin || '16mm 14mm';
+    if (!overrides.margin && !overrides.pdfMargin && exp.pdfMargin) {
+      if (typeof exp.pdfMargin === 'string') margin = exp.pdfMargin;
+      else if (typeof exp.pdfMargin === 'number') margin = exp.pdfMargin + 'mm';
+      else if (typeof exp.pdfMargin === 'object') {
+        const t = exp.pdfMargin.top || '16mm';
+        const r = exp.pdfMargin.right || '14mm';
+        const b = exp.pdfMargin.bottom || '16mm';
+        const l = exp.pdfMargin.left || '14mm';
+        margin = `${t} ${r} ${b} ${l}`;
+      }
+    } else if (!overrides.margin && !overrides.pdfMargin && exp.margin) {
+      if (typeof exp.margin === 'string') margin = exp.margin;
+      else if (typeof exp.margin === 'number') margin = exp.margin + 'mm';
+    }
+
+    let orientation = (overrides.orientation || overrides.pdfOrientation || exp.orientation || exp.pdfOrientation || 'portrait').toLowerCase();
+    if (orientation !== 'landscape' && orientation !== 'portrait') orientation = 'portrait';
+
+    let pageSize = (overrides.pageSize || overrides.size || exp.pageSize || exp.size || 'A4').trim();
+
+    return {
+      margin: margin,
+      orientation: orientation,
+      isLandscape: orientation === 'landscape',
+      pageSize: pageSize
+    };
+  }
+
   async function printPdf(request) {
     if (!isElectron()) return null;
+    if (!request || typeof request !== 'object') request = {};
+    const settings = getPdfExportSettings();
+    if (!request.pdfOptions || typeof request.pdfOptions !== 'object') {
+      request.pdfOptions = {};
+    }
+    if (!request.pdfOptions.pageSize) {
+      request.pdfOptions.pageSize = settings.pageSize;
+    }
+    if (typeof request.pdfOptions.landscape !== 'boolean') {
+      if (typeof request.landscape === 'boolean') {
+        request.pdfOptions.landscape = request.landscape;
+      } else {
+        request.pdfOptions.landscape = settings.isLandscape;
+      }
+    }
     return getDesktopApi().printPdf(request);
   }
 
@@ -1294,6 +1366,7 @@
     isAlwaysOnTop,
     printHtml,
     printPdf,
+    getPdfExportSettings,
     exportDocx,
     exportOdt,
     readOdtFile,
@@ -1305,6 +1378,7 @@
     saveFiles,
     updateSessionContext,
     checkBoardFileOpen,
+    checkFileOpen,
     getSessionState,
     saveBoardArchive,
     readBoardArchive,
@@ -1592,6 +1666,10 @@
       return file ? (file.path || '') : '';
     }
   });
+
+  if (typeof window !== 'undefined' && typeof window.getPdfExportSettings !== 'function') {
+    window.getPdfExportSettings = getPdfExportSettings;
+  }
 
   // Global interceptor for external hyperlinks (http://, https://, mailto:)
   // Ensures external websites always open in the user's default browser or a new tab

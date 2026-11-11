@@ -436,6 +436,30 @@
       var css = await this.getStyleContent(styleId, null, true);
       if (!css) return html;
 
+      var pdfSettings = (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.getPdfExportSettings === 'function')
+        ? window.Desktop.getPdfExportSettings()
+        : ((typeof getPdfExportSettings === 'function') ? getPdfExportSettings() : null);
+
+      if (pdfSettings && css) {
+        if (pdfSettings.margin || pdfSettings.pageSize) {
+          css = css.replace(/@page\s*\{([^}]*)\}/gi, function (match, content) {
+            var updated = content;
+            if (pdfSettings.margin) {
+              if (/margin\s*:[^;]+;/i.test(updated)) {
+                updated = updated.replace(/margin\s*:[^;]+;/i, 'margin: ' + pdfSettings.margin + ';');
+              } else {
+                updated += '\n  margin: ' + pdfSettings.margin + ';';
+              }
+            }
+            if (pdfSettings.pageSize && /size\s*:\s*auto/i.test(updated)) {
+              var ori = pdfSettings.isLandscape ? 'landscape' : 'portrait';
+              updated = updated.replace(/size\s*:\s*auto/i, 'size: ' + pdfSettings.pageSize + ' ' + ori);
+            }
+            return '@page {\n  ' + updated.trim() + '\n}';
+          });
+        }
+      }
+
       var styleTag = '<style id="cmt-export-theme">\n' + css + '\n</style>';
 
       // If document already has #cmt-export-theme, replace it

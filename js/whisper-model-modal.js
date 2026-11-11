@@ -606,6 +606,20 @@
     if (studioSelect) {
       studioSelect.value = modelId;
     }
+
+    // 3. General Config active model label
+    var gcSpan = document.getElementById('gc-active-whisper-model');
+    if (gcSpan) {
+      var label = 'Whisper Tiny (Quantized)';
+      if (modelId === 'whisper-base') label = 'Whisper Base';
+      else if (modelId === 'whisper-small') label = 'Whisper Small';
+      if (global.i18n && typeof global.i18n.t === 'function') {
+        if (modelId === 'whisper-tiny') label = global.i18n.t('whisperTinyTitle') || label;
+        else if (modelId === 'whisper-base') label = global.i18n.t('whisperBaseTitle') || label;
+        else if (modelId === 'whisper-small') label = global.i18n.t('whisperSmallTitle') || label;
+      }
+      gcSpan.textContent = label;
+    }
   }
 
   /**

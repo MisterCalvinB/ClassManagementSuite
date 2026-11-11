@@ -626,6 +626,9 @@
       if (typeof global.showToast === 'function') {
         global.showToast(_t('slmModelDeleted', 'AI model deleted successfully.'));
       }
+      if (_slmModalActiveOptions && typeof _slmModalActiveOptions.onModelChanged === 'function') {
+        _slmModalActiveOptions.onModelChanged(currentActive);
+      }
     } catch (err) {
       if (typeof global.showToast === 'function') {
         global.showToast('Failed to delete AI model: ' + (err.message || err), true);
@@ -636,13 +639,18 @@
   function _syncActiveSlmEverywhere(modelId) {
     var badges = document.querySelectorAll('[data-slm-active-label]');
     var shortLabel = _t('slmNoModelShort', 'No Model');
-    if (modelId === 'slm-ultra') shortLabel = 'SmolLM2 360M (Ultra)';
-    else if (modelId === 'slm-fast') shortLabel = 'Qwen 0.5B (Fast)';
-    else if (modelId === 'slm-balanced') shortLabel = 'Qwen 1.5B (Balanced)';
-    else if (modelId === 'slm-deep') shortLabel = 'Qwen 1.8B (Deep)';
+    if (modelId === 'slm-ultra') shortLabel = _t('slmUltraFastTitle', 'SmolLM2 360M (Ultra)');
+    else if (modelId === 'slm-fast') shortLabel = _t('slmFastTitle', 'Qwen 0.5B (Fast)');
+    else if (modelId === 'slm-balanced') shortLabel = _t('slmBalancedTitle', 'Qwen 1.5B (Balanced)');
+    else if (modelId === 'slm-deep') shortLabel = _t('slmDeepTitle', 'Qwen 1.8B (Deep)');
 
     for (var i = 0; i < badges.length; i++) {
       badges[i].textContent = shortLabel;
+      if (!modelId) {
+        badges[i].style.color = '#888888';
+      } else {
+        badges[i].style.color = '#337a4e';
+      }
     }
   }
 

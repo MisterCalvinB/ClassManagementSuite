@@ -552,6 +552,7 @@
       'Import Tool': 'app_importTool_title',
       'Import': 'app_importTool_title',
       'Oral Marking': 'app_oralMarking_title',
+      'PDF Viewer': 'app_pdfViewer_title',
       'PDF Studio': 'app_pdfViewer_title'
     };
     if (pageTitleKeys[source]) {
@@ -1134,16 +1135,22 @@
 
   function ensureExportOverlay() {
     if (exportOverlay) return;
+    var iconPrefix = (location.pathname.indexOf('/pages/') !== -1 || location.pathname.indexOf('\\pages\\') !== -1) ? '../assets/icons/' : 'assets/icons/';
     exportOverlay = document.createElement('div');
     exportOverlay.className = 'cmt-overlay';
     exportOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: center; max-width: 420px; padding: 28px 24px 20px; border: 2.5px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 8px;">' +
-        '<div style="font-size: 2.2rem; margin-bottom: 12px; line-height: 1;">🎉</div>' +
+        '<div style="display: flex; justify-content: center; margin-bottom: 12px;">' +
+          '<div style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #000; background: #86efac; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0 #000;">' +
+            '<img src="' + iconPrefix + 'check.svg" style="width: 22px; height: 22px;" alt="" />' +
+          '</div>' +
+        '</div>' +
         '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.15rem; font-weight: 800; font-family: inherit; color: #111;">Export Complete</h3>' +
         '<p class="cmt-export-msg" style="margin: 0 0 22px; font-size: .88rem; line-height: 1.5; color: #555; word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
         '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
           '<button class="cmt-btn-open-file" style="padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #000; color: #fff; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open File</button>' +
           '<button class="cmt-btn-open-doc-editor" style="display: none; padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fef08a; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open with Document Editor</button>' +
+          '<button class="cmt-btn-open-pdf-viewer" style="display: none; padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fef08a; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open with PDF Viewer</button>' +
           '<button class="cmt-btn-show-in-folder" style="padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fff; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open Folder</button>' +
           '<button class="cmt-btn-close-export" style="padding: 6px 18px; border-radius: 6px; border: none; font-size: .82rem; font-weight: 600; cursor: pointer; background: transparent; color: #777; transition: color .12s; margin-top: 4px; outline: none; font-family: inherit;">Close</button>' +
         '</div>' +
@@ -1157,8 +1164,12 @@
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+        var pdfBtn = exportOverlay.querySelector('.cmt-btn-open-pdf-viewer');
+        var docBtn = exportOverlay.querySelector('.cmt-btn-open-doc-editor');
         var primaryBtn = exportOverlay.querySelector('.cmt-btn-open-file');
-        if (primaryBtn && primaryBtn.style.display !== 'none') primaryBtn.click();
+        if (pdfBtn && pdfBtn.style.display !== 'none') pdfBtn.click();
+        else if (docBtn && docBtn.style.display !== 'none') docBtn.click();
+        else if (primaryBtn && primaryBtn.style.display !== 'none') primaryBtn.click();
         else {
           var folderBtn = exportOverlay.querySelector('.cmt-btn-show-in-folder');
           if (folderBtn) folderBtn.click();
@@ -1183,9 +1194,13 @@
 
     var filePath = '';
     var customTitle = '';
+    var target = '';
+    var relativePath = '';
     if (filePathOrOptions && typeof filePathOrOptions === 'object') {
       filePath = filePathOrOptions.filePath || filePathOrOptions.path || '';
       fileName = filePathOrOptions.fileName || fileName;
+      target = filePathOrOptions.target || '';
+      relativePath = filePathOrOptions.relativePath || filePathOrOptions.relPath || '';
       isFolder = filePathOrOptions.isFolder !== undefined ? filePathOrOptions.isFolder : isFolder;
       customTitle = filePathOrOptions.title || '';
     } else {
@@ -1205,15 +1220,25 @@
 
     var openBtn = exportOverlay.querySelector('.cmt-btn-open-file');
     var docEditorBtn = exportOverlay.querySelector('.cmt-btn-open-doc-editor');
+    var pdfViewerBtn = exportOverlay.querySelector('.cmt-btn-open-pdf-viewer');
     var showBtn = exportOverlay.querySelector('.cmt-btn-show-in-folder');
     var closeBtn = exportOverlay.querySelector('.cmt-btn-close-export');
 
-    var ext = String(filePath || '').split('?')[0].split('.').pop().toLowerCase();
+    var ext = '';
+    if (filePath) {
+      ext = String(filePath).split('?')[0].split('.').pop().toLowerCase();
+    }
+    if ((!ext || ext === String(filePath).toLowerCase()) && fileName) {
+      ext = String(fileName).split('?')[0].split('.').pop().toLowerCase();
+    }
+
     var isDoc = !isFolder && (ext === 'md' || ext === 'html' || ext === 'typ' || ext === 'odt');
+    var isPdf = !isFolder && (ext === 'pdf');
 
     if (isFolder) {
       openBtn.style.display = 'none';
       docEditorBtn.style.display = 'none';
+      pdfViewerBtn.style.display = 'none';
       showBtn.style.display = 'block';
       showBtn.textContent = _getExportText('exportOpenFolderBtn', 'Open Folder');
     } else {
@@ -1228,16 +1253,25 @@
       } else {
         docEditorBtn.style.display = 'none';
       }
+
+      if (isPdf) {
+        pdfViewerBtn.style.display = 'block';
+        pdfViewerBtn.textContent = _getExportText('exportOpenWithPdfViewerBtn', 'Open with PDF Viewer');
+      } else {
+        pdfViewerBtn.style.display = 'none';
+      }
     }
     closeBtn.textContent = _getExportText('exportCloseBtn', 'Close');
 
     // Clone nodes to easily clean up previous listeners
     var newOpenBtn = openBtn.cloneNode(true);
     var newDocEditorBtn = docEditorBtn.cloneNode(true);
+    var newPdfViewerBtn = pdfViewerBtn.cloneNode(true);
     var newShowBtn = showBtn.cloneNode(true);
     var newCloseBtn = closeBtn.cloneNode(true);
     openBtn.replaceWith(newOpenBtn);
     docEditorBtn.replaceWith(newDocEditorBtn);
+    pdfViewerBtn.replaceWith(newPdfViewerBtn);
     showBtn.replaceWith(newShowBtn);
     closeBtn.replaceWith(newCloseBtn);
 
@@ -1251,6 +1285,11 @@
     newDocEditorBtn.addEventListener('mouseleave', function () { newDocEditorBtn.style.background = '#fef08a'; });
     newDocEditorBtn.addEventListener('mousedown', function () { newDocEditorBtn.style.transform = 'translate(1px, 1px)'; newDocEditorBtn.style.boxShadow = '1px 1px 0 #000'; });
     newDocEditorBtn.addEventListener('mouseup', function () { newDocEditorBtn.style.transform = 'none'; newDocEditorBtn.style.boxShadow = '2px 2px 0 #000'; });
+
+    newPdfViewerBtn.addEventListener('mouseenter', function () { newPdfViewerBtn.style.background = '#fde047'; });
+    newPdfViewerBtn.addEventListener('mouseleave', function () { newPdfViewerBtn.style.background = '#fef08a'; });
+    newPdfViewerBtn.addEventListener('mousedown', function () { newPdfViewerBtn.style.transform = 'translate(1px, 1px)'; newPdfViewerBtn.style.boxShadow = '1px 1px 0 #000'; });
+    newPdfViewerBtn.addEventListener('mouseup', function () { newPdfViewerBtn.style.transform = 'none'; newPdfViewerBtn.style.boxShadow = '2px 2px 0 #000'; });
 
     newShowBtn.addEventListener('mouseenter', function () { newShowBtn.style.background = '#f3f4f6'; });
     newShowBtn.addEventListener('mouseleave', function () { newShowBtn.style.background = '#fff'; });
@@ -1283,6 +1322,18 @@
       }
     });
 
+    newPdfViewerBtn.addEventListener('click', function () {
+      closeExportOverlay();
+      if (window.Desktop && typeof Desktop.openTool === 'function') {
+        var query = { openAbsPath: filePath };
+        if (target && relativePath) {
+          query.openTarget = target;
+          query.openRelPath = relativePath;
+        }
+        Desktop.openTool('pdf-viewer.html', { query: query });
+      }
+    });
+
     newShowBtn.addEventListener('click', function () {
       closeExportOverlay();
       Desktop.showInFolder({ absolutePath: filePath });
@@ -1298,6 +1349,8 @@
     setTimeout(function () {
       if (isDoc) {
         newDocEditorBtn.focus();
+      } else if (isPdf) {
+        newPdfViewerBtn.focus();
       } else if (!isFolder && newOpenBtn.style.display !== 'none') {
         newOpenBtn.focus();
       } else {
@@ -1323,6 +1376,7 @@
         exportSuccessMessageFolder: 'Folder "{name}" has been successfully exported.',
         exportOpenBtn: 'Open File',
         exportOpenWithDocEditorBtn: 'Open with Document Editor',
+        exportOpenWithPdfViewerBtn: 'Open with PDF Viewer',
         exportOpenFolderBtn: 'Open Folder',
         exportShowInFolderBtn: 'Show in Folder',
         exportCloseBtn: 'Close',
@@ -1346,6 +1400,7 @@
         exportSuccessMessageFolder: 'Le dossier "{name}" a été exporté avec succès.',
         exportOpenBtn: 'Ouvrir le fichier',
         exportOpenWithDocEditorBtn: "Ouvrir dans l'éditeur de documents",
+        exportOpenWithPdfViewerBtn: "Ouvrir avec le lecteur PDF",
         exportOpenFolderBtn: 'Ouvrir le dossier',
         exportShowInFolderBtn: 'Afficher dans le dossier',
         exportCloseBtn: 'Fermer',
@@ -1369,6 +1424,7 @@
         exportSuccessMessageFolder: 'Der Ordner "{name}" wurde erfolgreich exportiert.',
         exportOpenBtn: 'Datei öffnen',
         exportOpenWithDocEditorBtn: 'Im Dokument-Editor öffnen',
+        exportOpenWithPdfViewerBtn: 'In PDF-Viewer öffnen',
         exportOpenFolderBtn: 'Ordner öffnen',
         exportShowInFolderBtn: 'Im Ordner anzeigen',
         exportCloseBtn: 'Schließen',
@@ -1392,6 +1448,7 @@
         exportSuccessMessageFolder: 'La cartella "{name}" è stata esportata con successo.',
         exportOpenBtn: 'Apri file',
         exportOpenWithDocEditorBtn: "Apri nell'editor de documenti",
+        exportOpenWithPdfViewerBtn: "Apri con PDF Viewer",
         exportOpenFolderBtn: 'Apri cartella',
         exportShowInFolderBtn: 'Mostra nella cartella',
         exportCloseBtn: 'Chiudi',

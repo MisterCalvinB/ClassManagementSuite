@@ -1003,6 +1003,20 @@ function makeRfRow(file, isSession, snippet, isArchived) {
   if (window.Desktop && Desktop.isElectron()) {
     (function(f) {
       row.addEventListener('contextmenu', function(e) { fmCtxRecent(e, f); });
+      row.addEventListener('dblclick', function(ev) {
+        if (ev.target.closest('button,input,a')) return;
+        if (isSession) {
+          Desktop.openTool('board.html', {
+            query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename }
+          });
+        } else if (/\.pdf$/i.test(f.filename)) {
+          Desktop.openTool('pdf-viewer.html', {
+            query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename }
+          });
+        } else {
+          ctxOpenNative(f.target, f.relativePath || f.filename);
+        }
+      });
     })(file);
   }
 
@@ -1063,7 +1077,7 @@ function makeRfRow(file, isSession, snippet, isArchived) {
   } else if (/\.pdf$/i.test(file.filename)) {
     var pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn-open';
-    pdfBtn.textContent = tt('rfOpenInPdfStudio', 'Open in PDF Studio ↗');
+    pdfBtn.textContent = tt('rfOpenInPdfStudio', 'Open in PDF Viewer ↗');
     (function(f) {
       pdfBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) {
@@ -1075,6 +1089,16 @@ function makeRfRow(file, isSession, snippet, isArchived) {
       });
     })(file);
     acts.appendChild(pdfBtn);
+  } else if (!isSession && window.Desktop && Desktop.isElectron()) {
+    var nativeBtn = document.createElement('button');
+    nativeBtn.className = 'btn-open';
+    nativeBtn.textContent = tt('fmOpenInSystem', 'Open file in system') + ' ↗';
+    (function(f) {
+      nativeBtn.addEventListener('click', function() {
+        ctxOpenNative(f.target, f.relativePath || f.filename);
+      });
+    })(file);
+    acts.appendChild(nativeBtn);
   }
 
   if (window.Desktop && Desktop.isElectron() && isSession) {
@@ -1100,6 +1124,18 @@ function makeEditorDocRow(file, isArchived) {
   if (window.Desktop && Desktop.isElectron()) {
     (function(f) {
       row.addEventListener('contextmenu', function(e) { fmCtxRecent(e, f); });
+      row.addEventListener('dblclick', function(ev) {
+        if (ev.target.closest('button,input,a')) return;
+        var target = f.target;
+        var relPath = f.relativePath || f.filename;
+        if (target === 'user') {
+          if (relPath.startsWith('document-editor/docs/')) {
+            target = 'docEditorDocs';
+            relPath = relPath.slice('document-editor/docs/'.length);
+          }
+        }
+        Desktop.openTool('document-editor.html', { query: { editTarget: target, editRelPath: relPath } });
+      });
     })(file);
   }
 
@@ -2399,7 +2435,7 @@ function makeBrowseRow(file) {
   if (/\.pdf$/i.test(file.filename)) {
     var pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn-open';
-    pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in PDF Studio') + ' ↗';
+    pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in PDF Viewer') + ' ↗';
     (function(f) {
       pdfBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
@@ -2415,7 +2451,7 @@ function makeBrowseRow(file) {
     // Open in native app
     var nativeBtn = document.createElement('button');
     nativeBtn.className = 'btn-action';
-    nativeBtn.textContent = tt('fmOpenNative','Open');
+    nativeBtn.textContent = tt('fmOpenInSystem', 'Open file in system');
     (function(f) {
       nativeBtn.addEventListener('click', async function() {
         var res = await Desktop.openNative(f.target, f.relativePath || f.filename);
@@ -2939,14 +2975,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
       var isPdf = /\.pdf$/i.test(file.filename);
       if (isPdf) {
-        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Studio'), action: function() {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
         }});
       }
 
-      items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
-      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+      items.push({ label: tt('fmOpenInSystem', 'Open file in system'), action: function() { ctxOpenNative(file.target, relPath); } });
+      items.push({ label: tt('fmOpenLocation', 'Open location'), action: function() { ctxShowInFolder(file.target, relPath); } });
       items.push('-');
 
       if (isSession) {
@@ -3103,14 +3139,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
       var isPdf = /\.pdf$/i.test(file.filename);
       if (isPdf) {
-        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Studio'), action: function() {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
         }});
       }
 
-      items.push({ label: tt('fmOpenNative','Open with default app'), action: function() { ctxOpenNative(file.target, relPath); } });
-      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(file.target, relPath); } });
+      items.push({ label: tt('fmOpenInSystem', 'Open file in system'), action: function() { ctxOpenNative(file.target, relPath); } });
+      items.push({ label: tt('fmOpenLocation', 'Open location'), action: function() { ctxShowInFolder(file.target, relPath); } });
       items.push('-');
       items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
         fmMoveCopyViaPicker(selectedForContext, 'move');
@@ -3193,7 +3229,8 @@ document.addEventListener('DOMContentLoaded', function() {
       });
       items.push('-');
 
-      items.push({ label: tt('fmShowInFolder','Show in folder'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
+      items.push({ label: tt('fmOpenFolderInSystem', 'Open folder in system'), action: function() { ctxOpenNative(itemForContext.target, itemForContext.relativePath); } });
+      items.push({ label: tt('fmOpenLocation', 'Open location'), action: function() { ctxShowInFolder(itemForContext.target, itemForContext.relativePath); } });
       items.push('-');
       items.push({ label: tt('fmMoveTo', 'Move to...'), action: function() {
         fmMoveCopyViaPicker(selectedForContext, 'move');
@@ -3483,6 +3520,27 @@ function openFmShortcuts() {
         });
       });
 
+      var rPath = item.relativePath || (item.meta && item.meta.relativePath) || '';
+      var tgt = item.target || (item.meta && item.meta.target) || 'user';
+      if (rPath && window.Desktop && Desktop.isElectron()) {
+        card.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var isDir = !!(item.type === 'folder' || item.isDirectory);
+          var cItems = [
+            {
+              label: isDir ? tt('fmOpenFolderInSystem', 'Open folder in system') : tt('fmOpenInSystem', 'Open file in system'),
+              action: function() { ctxOpenNative(tgt, rPath); }
+            },
+            {
+              label: tt('fmOpenLocation', 'Open location'),
+              action: function() { ctxShowInFolder(tgt, rPath); }
+            }
+          ];
+          showCtx(e.clientX, e.clientY, cItems);
+        });
+      }
+
       frag.appendChild(card);
     });
 
@@ -3671,6 +3729,25 @@ function openFmShortcuts() {
       actions.appendChild(delBtn);
 
       card.appendChild(actions);
+
+      if (window.Desktop && Desktop.isElectron()) {
+        card.addEventListener('contextmenu', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var cItems = [
+            {
+              label: tt('fmOpenFolderInSystem', 'Open folder in system'),
+              action: function() { ctxOpenNative('user', 'archives/' + arc.archiveId); }
+            },
+            {
+              label: tt('fmOpenLocation', 'Open location'),
+              action: function() { ctxShowInFolder('user', 'archives/' + arc.archiveId); }
+            }
+          ];
+          showCtx(e.clientX, e.clientY, cItems);
+        });
+      }
+
       frag.appendChild(card);
     });
 

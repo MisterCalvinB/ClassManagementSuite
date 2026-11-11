@@ -879,6 +879,9 @@
             if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
               try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
             }
+            if (typeof conAwaitAllMediaRendersOnBoard === 'function') {
+              try { await conAwaitAllMediaRendersOnBoard(); } catch (_) { }
+            }
             await new Promise(r => setTimeout(r, 40));
             const liveRes = await _conBuildBoardCanvas({ scale: targetScale });
             if (liveRes && liveRes.canvas) {
@@ -909,6 +912,9 @@
             _conRestorePageToBoard(targetPageSnap, { isExport: true });
             if (typeof conAwaitAllPdfRendersOnBoard === 'function') {
               try { await conAwaitAllPdfRendersOnBoard(); } catch (_) { }
+            }
+            if (typeof conAwaitAllMediaRendersOnBoard === 'function') {
+              try { await conAwaitAllMediaRendersOnBoard(); } catch (_) { }
             }
             await new Promise(r => setTimeout(r, 80));
             const res = await _conBuildBoardCanvas({ scale: targetScale });
@@ -1524,15 +1530,76 @@
       const token = 'pw_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
       const titleVal = (window.conGetTitle ? window.conGetTitle() : '').trim() || (typeof _conCurrentConstellationTitle === 'string' ? _conCurrentConstellationTitle.trim() : '') || 'Board';
 
+      // Collect data URLs for all attachments so secondary read-only window can display them immediately
+      const attachmentDataUrls = {};
+      const attList = (typeof conAttachments !== 'undefined' && Array.isArray(conAttachments)) ? conAttachments : [];
+      await Promise.all(attList.map(async function (att) {
+        if (!att) return;
+        try {
+          let url = att._cachedDataUrl;
+          if (!url || !url.startsWith('data:')) {
+            if (att.base64) {
+              url = att.base64.startsWith('data:') ? att.base64 : ('data:' + (att.mime || 'image/png') + ';base64,' + att.base64);
+            } else if (att.file) {
+              url = await new Promise(function (resolve) {
+                const reader = new FileReader();
+                reader.onload = function () { resolve(reader.result || ''); };
+                reader.onerror = function () { resolve(''); };
+                reader.readAsDataURL(att.file);
+              });
+            } else if (typeof conGetAttachmentDataUrl === 'function') {
+              url = await conGetAttachmentDataUrl(att);
+              if (url && url.startsWith('blob:')) {
+                try {
+                  const resp = await fetch(url);
+                  const blob = await resp.blob();
+                  if (blob && blob.size <= 15 * 1024 * 1024) {
+                    url = await new Promise(function (resolve, reject) {
+                      const reader = new FileReader();
+                      reader.onload = function () { resolve(reader.result); };
+                      reader.onerror = reject;
+                      reader.readAsDataURL(blob);
+                    });
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+          if (url && url.startsWith('data:')) {
+            if (att.id) attachmentDataUrls[att.id] = url;
+            if (att.name) attachmentDataUrls[att.name] = url;
+          }
+        } catch (_) {}
+      }));
+
+      // Also gather any dataUrl directly from media items
+      const allMedia = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : [];
+      allMedia.forEach(m => {
+        if (m && m.dataUrl && m.dataUrl.startsWith('data:')) {
+          if (m.attachmentId && !attachmentDataUrls[m.attachmentId]) attachmentDataUrls[m.attachmentId] = m.dataUrl;
+          if (m.id && !attachmentDataUrls[m.id]) attachmentDataUrls[m.id] = m.dataUrl;
+        }
+      });
+
+      const payloadObj = {
+        session: sessionData,
+        targetPageIndex: targetIdx,
+        sourceTitle: titleVal,
+        sourceFileName: (typeof _conCurrentFileName === 'string') ? _conCurrentFileName : '',
+        sourceFolderName: (typeof _conCurrentFolderName === 'string') ? _conCurrentFolderName : '',
+        attachmentDataUrls: Object.keys(attachmentDataUrls).length ? attachmentDataUrls : undefined
+      };
+
       if (sessionData) {
         try {
-          localStorage.setItem('cmt_board_pw_' + token, JSON.stringify({
-            session: sessionData,
-            targetPageIndex: targetIdx,
-            sourceTitle: titleVal
-          }));
+          localStorage.setItem('cmt_board_pw_' + token, JSON.stringify(payloadObj));
         } catch (e) {
           console.warn('Could not store page window session in localStorage', e);
+        }
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+          try {
+            await Desktop.saveJson('mindmaps', '.cmt_board_pw_' + token + '.json', payloadObj);
+          } catch (_) {}
         }
       }
 

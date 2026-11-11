@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
-  <title>PDF Studio — Class Management Tools</title>
+  <title>PDF Viewer — Class Management Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <style>
     :root {
@@ -1020,7 +1020,7 @@
   <header id="app-nav">
     <a class="nav-brand" id="brandBtn" title="Class Management Tools">
       <img src="../assets/icons/pdf-viewer.svg" class="nav-brand-icon" alt="">
-      <span data-i18n="pdfViewerTitle">PDF Studio</span>
+      <span data-i18n="pdfViewerTitle">PDF Viewer</span>
     </a>
 
     <!-- Files Menu Dropdown -->
@@ -1029,6 +1029,10 @@
         <span data-i18n="pdfFilesMenu">Files</span> ▾
       </button>
       <div class="dropdown-menu" id="filesDropdown">
+        <div class="dropdown-item" id="menuNewWindow">
+          <img src="../assets/icons/pdf-viewer.svg" class="item-icon" alt="">
+          <span data-i18n="pdfOpenInNewWindow">New Window</span>
+        </div>
         <div class="dropdown-item" id="menuSearchPdfs">
           <img src="../assets/icons/search.svg" class="item-icon" alt="">
           <span data-i18n="pdfSearchAppModalTitle">Search App PDFs...</span>
@@ -1191,7 +1195,7 @@
     <div id="empty-state">
       <div class="empty-card">
         <img src="../assets/icons/pdf-viewer.svg" class="empty-icon" alt="">
-        <h2 class="empty-title" data-i18n="pdfViewerTitle">PDF Studio</h2>
+        <h2 class="empty-title" data-i18n="pdfViewerTitle">PDF Viewer</h2>
         <p class="empty-desc">Open any PDF worksheet, textbook, or exam to draw, highlight, add notes, and present to your class.</p>
         <div class="empty-actions">
           <button type="button" class="empty-btn primary" id="emptySearchBtn">
@@ -1422,6 +1426,16 @@
       document.addEventListener('click', () => filesMenuWrap.classList.remove('open'));
 
       // Files Dropdown Actions
+      const menuNewWin = document.getElementById('menuNewWindow');
+      if (menuNewWin) {
+        menuNewWin.addEventListener('click', () => {
+          filesMenuWrap.classList.remove('open');
+          if (window.Desktop && Desktop.isElectron()) {
+            Desktop.openTool('pdf-viewer.html', { newWindow: true });
+          }
+        });
+      }
+
       document.getElementById('menuSearchPdfs').addEventListener('click', () => {
         filesMenuWrap.classList.remove('open');
         openSearchModal();
@@ -1592,8 +1606,26 @@
     // ── PDF Document Loading ──
     async function loadPdfFromTarget(target, relPath) {
       try {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+          try {
+            const check = await Desktop.checkFileOpen({
+              pageFile: 'pdf-viewer.html',
+              target: target,
+              relativePath: relPath
+            });
+            if (check && check.isOpen) {
+              const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
+                ? i18n.t('pdfFileAlreadyOpenToast')
+                : 'This PDF is already open in another window.';
+              showToast(msg);
+              return;
+            }
+          } catch (_) {}
+        }
+
         state.pdfTarget = target;
         state.pdfRelPath = relPath;
+        state.pdfPath = null;
         state.pdfFilename = relPath.split('/').pop();
 
         let res;
@@ -1619,7 +1651,25 @@
 
     async function loadPdfFromDisk(absPath) {
       try {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+          try {
+            const check = await Desktop.checkFileOpen({
+              pageFile: 'pdf-viewer.html',
+              diskPath: absPath
+            });
+            if (check && check.isOpen) {
+              const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
+                ? i18n.t('pdfFileAlreadyOpenToast')
+                : 'This PDF is already open in another window.';
+              showToast(msg);
+              return;
+            }
+          } catch (_) {}
+        }
+
         state.pdfPath = absPath;
+        state.pdfTarget = null;
+        state.pdfRelPath = null;
         state.pdfFilename = absPath.split(/[\/\\]/).pop();
 
         if (window.Desktop && Desktop.isElectron()) {
@@ -2451,6 +2501,18 @@
     function setDirty(dirty) {
       state.isDirty = dirty;
       docDirtyDot.style.display = dirty ? 'inline-block' : 'none';
+      if (state.pdfFilename) {
+        document.title = (dirty ? '● ' : '') + state.pdfFilename + ' — PDF Viewer';
+      }
+      if (window.Desktop && typeof Desktop.updateSessionContext === 'function') {
+        Desktop.updateSessionContext({
+          target: state.pdfTarget,
+          relativePath: state.pdfRelPath,
+          diskPath: state.pdfPath,
+          filename: state.pdfFilename,
+          isDirty: !!dirty
+        }).catch(() => {});
+      }
     }
 
     // ── Export Flattened PDF ──
@@ -2567,6 +2629,10 @@
         const kb = item.size ? (item.size / 1024).toFixed(1) + ' KB' : '';
         const dateStr = item.mtimeMs ? new Date(item.mtimeMs).toLocaleDateString() : '';
 
+        const openLabel = (window.i18n && typeof i18n.t === 'function' && i18n.t('btnOpen')) || 'Open';
+        const newWinLabel = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfOpenInNewWindowShort')) || 'New Window';
+        const newWinTitle = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfOpenInNewWindow')) || 'Open in New Window';
+
         row.innerHTML = `
           <img src="../assets/icons/pdf-viewer.svg" class="pdf-item-icon" alt="">
           <div class="pdf-item-info">
@@ -2578,8 +2644,33 @@
               <span>${dateStr}</span>
             </div>
           </div>
-          <button type="button" class="pdf-item-open-btn">Open ↗</button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button type="button" class="pdf-item-open-btn pdf-btn-open-cur">${openLabel}</button>
+            <button type="button" class="pdf-item-open-btn pdf-btn-open-new" style="background:#f5f5f0;color:#333333;" title="${newWinTitle}">${newWinLabel}</button>
+          </div>
         `;
+
+        const curBtn = row.querySelector('.pdf-btn-open-cur');
+        if (curBtn) {
+          curBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSearchModal();
+            loadPdfFromTarget(item.target, item.relativePath);
+          });
+        }
+        const newBtn = row.querySelector('.pdf-btn-open-new');
+        if (newBtn) {
+          newBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            closeSearchModal();
+            if (window.Desktop && Desktop.isElectron()) {
+              Desktop.openTool('pdf-viewer.html', {
+                newWindow: true,
+                query: { openTarget: item.target, openRelPath: item.relativePath }
+              });
+            }
+          });
+        }
 
         row.addEventListener('click', () => {
           closeSearchModal();
@@ -2609,7 +2700,27 @@
         try {
           const res = await Desktop.pickAndReadFile([{ name: 'PDF Documents', extensions: ['pdf'] }]);
           if (res && res.ok && res.name) {
-            // Picked local file
+            const diskPath = res.path || res.filePath;
+            if (diskPath && typeof Desktop.checkFileOpen === 'function') {
+              try {
+                const check = await Desktop.checkFileOpen({
+                  pageFile: 'pdf-viewer.html',
+                  diskPath: diskPath
+                });
+                if (check && check.isOpen) {
+                  const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
+                    ? i18n.t('pdfFileAlreadyOpenToast')
+                    : 'This PDF is already open in another window.';
+                  showToast(msg);
+                  return;
+                }
+              } catch (_) {}
+            }
+            if (diskPath) {
+              await loadPdfFromDisk(diskPath);
+              return;
+            }
+            // Picked local file (fallback when path is not available)
             if (res.content) {
               const binary = res.content;
               const bytes = new Uint8Array(binary.length);
@@ -2866,6 +2977,14 @@
 
     // ── Keyboard Shortcuts ──
     function handleKeyShortcuts(e) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+        e.preventDefault();
+        if (window.Desktop && Desktop.isElectron()) {
+          Desktop.openTool('pdf-viewer.html', { newWindow: true });
+        }
+        return;
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
         e.preventDefault();
         pdfLookupSelectedWord();

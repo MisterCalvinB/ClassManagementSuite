@@ -20,8 +20,8 @@
     '#app-nav .dropdown-item:hover img.btn-icon,#app-nav .dropdown-item:hover .btn-icon,#app-nav .menu-item:hover img.btn-icon,#app-nav .menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
     /* hamburger wrapper */
     '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',
-    /* dropdown panel — grid layout */
-    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a1a;border:2px solid #3a3a3a;border-radius:10px;z-index:9999;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);width:280px;box-sizing:border-box}',
+    /* dropdown panel — grid layout with responsive bounds */
+    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a1a;border:2px solid #3a3a3a;border-radius:10px;z-index:9999;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);width:280px;max-width:calc(100vw - 16px);max-height:calc(100vh - 56px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}',
     '.hm-wrap.open .hm-menu{display:block}',
     /* grid container inside the panel */
     '.hm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}',
@@ -38,7 +38,10 @@
     '.hm-lang-row{display:flex;gap:4px;padding:4px 0 0;grid-column:1/-1}',
     '.hm-lang-btn{flex:1;background:none;border:1px solid #3a3a3a;color:#888;padding:4px 2px;border-radius:4px;cursor:pointer;font-size:.72rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}',
     '.hm-lang-btn:hover{border-color:#888;color:#ddd}',
-    '.hm-lang-btn.active{background:#333;color:#fff;border-color:#777}'
+    '.hm-lang-btn.active{background:#333;color:#fff;border-color:#777}',
+    /* responsive narrow window styling for hamburger & navbars across all tools */
+    '@media(max-width:600px){#app-nav{padding:4px 8px !important;gap:6px !important;min-height:38px !important;flex-wrap:nowrap !important;box-sizing:border-box !important}#app-nav .nav-brand{font-size:.8rem !important;max-width:140px !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important;min-width:0 !important;flex-shrink:1 !important}#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{padding:4px 7px !important;font-size:.76rem !important;height:28px !important;min-width:28px !important}.hm-wrap{gap:4px !important;flex-shrink:0 !important}.hm-menu{position:fixed !important;top:44px !important;left:8px !important;right:8px !important;width:auto !important;max-width:none !important;max-height:calc(100vh - 54px) !important;box-shadow:0 8px 32px rgba(0,0,0,.75) !important;border-radius:10px !important;z-index:100000 !important}}',
+    '@media(max-width:360px){#app-nav .nav-brand{max-width:85px !important;font-size:.72rem !important}#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{padding:3px 5px !important;font-size:.72rem !important;min-width:25px !important;height:26px !important}.hm-grid{grid-template-columns:repeat(3,1fr) !important;gap:3px !important}.hm-item{padding:5px 2px 3px !important;font-size:.58rem !important;gap:3px !important}.hm-icon-img{width:18px !important;height:18px !important}}'
   ].join('');
   document.head.appendChild(style);
 
@@ -62,7 +65,7 @@
     { href: 'test-creator.html',     icon: 'test-creator.svg',     label: 'Test Creator'     },
     { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
     { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
-    { href: 'pdf-viewer.html',       icon: 'pdf-viewer.svg',       label: 'PDF Studio'       },
+    { href: 'pdf-viewer.html',       icon: 'pdf-viewer.svg',       label: 'PDF Viewer'       },
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
     { href: 'import-tool.html',      icon: 'import-tool.svg',      label: 'Import'           },
     { href: 'database-converter.html', icon: 'table.svg',          label: 'Database Converter'},
@@ -176,6 +179,22 @@
         if (typeof window.closeDbPopup === 'function') window.closeDbPopup();
         if (typeof window.closeSettingsPopup === 'function') window.closeSettingsPopup();
         wrap.classList.toggle('open', willOpen);
+        if (willOpen) {
+          requestAnimationFrame(function () {
+            var menu = wrap.querySelector('.hm-menu');
+            if (!menu) return;
+            if (window.innerWidth > 480) {
+              var rect = menu.getBoundingClientRect();
+              if (rect.left < 8) {
+                menu.style.right = 'auto';
+                menu.style.left = '0';
+              } else {
+                menu.style.right = '0';
+                menu.style.left = 'auto';
+              }
+            }
+          });
+        }
       });
     }
 

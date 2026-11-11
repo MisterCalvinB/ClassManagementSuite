@@ -11,6 +11,8 @@
   <script src="../js/dialogs.js"></script>
   <script src="../js/speech-transcriber.js"></script>
   <script src="../js/whisper-model-modal.js"></script>
+  <script src="../js/slm-service.js"></script>
+  <script src="../js/slm-model-modal.js"></script>
   <link rel="stylesheet" href="../css/general-config.css">
 </head>
 
@@ -252,14 +254,32 @@
             <p class="section-desc" data-i18n="whisperModelManagerSubtitle">Select, download and switch between offline speech models.</p>
             <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
               <div>
-                <strong style="font-size: 0.92rem; color: #111;">Offline Whisper Speech Engine</strong>
+                <strong style="font-size: 0.92rem; color: #111;" data-i18n="whisperEngineTitle">Offline Whisper Speech Engine</strong>
                 <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
-                  Active Model: <span id="gc-active-whisper-model" style="font-weight: 700; color: #337a4e;">Whisper Tiny (Quantized)</span>
+                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-whisper-model" style="font-weight: 700; color: #337a4e;">Whisper Tiny (Quantized)</span>
                 </div>
               </div>
               <button type="button" class="btn" onclick="openWhisperModelManager({ onModelChanged: gcRefreshWhisperModel })" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 <img src="../assets/icons/gear.svg" style="width: 15px; height: 15px;" alt="" />
                 <span data-i18n="whisperManageModels">Manage Models...</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- ── Offline Small Language Models (SLM) ─────────── -->
+          <section class="config-section">
+            <h2 data-i18n="slmModelManagerTitle">Local Language Models (SLM AI)</h2>
+            <p class="section-desc" data-i18n="slmModelManagerSubtitle">Select, download, and switch between offline language models for Mind Mapping, Text Analysis, and Database Autofill.</p>
+            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
+              <div>
+                <strong style="font-size: 0.92rem; color: #111;" data-i18n="slmEngineTitle">Offline Small Language Model (Board &amp; Database)</strong>
+                <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
+                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-slm-model" data-slm-active-label style="font-weight: 700; color: #337a4e;">Loading…</span>
+                </div>
+              </div>
+              <button type="button" class="btn" onclick="openSlmModelManager({ onModelChanged: gcRefreshSlmModel })" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <img src="../assets/icons/brain.svg" style="width: 15px; height: 15px;" alt="" />
+                <span data-i18n="slmManageModels">Manage AI Models...</span>
               </button>
             </div>
           </section>
@@ -936,6 +956,88 @@
       }
     }
 
+    /* ── Offline AI Model Managers (Whisper & SLM) ─────── */
+    async function gcRefreshWhisperModel(modelId) {
+      try {
+        if (!modelId) {
+          if (window.SpeechTranscriber && typeof window.SpeechTranscriber.listAvailableModels === 'function') {
+            try {
+              var wRes = await window.SpeechTranscriber.listAvailableModels();
+              if (wRes && wRes.activeModel) modelId = wRes.activeModel;
+            } catch (_) {}
+          }
+          if (!modelId && window.SpeechTranscriber && typeof window.SpeechTranscriber.getActiveModel === 'function') {
+            modelId = window.SpeechTranscriber.getActiveModel();
+          }
+          if (!modelId) {
+            try { modelId = localStorage.getItem('cmt-active-whisper-model'); } catch (_) {}
+          }
+        }
+        if (!modelId) modelId = 'whisper-tiny';
+
+        var el = document.getElementById('gc-active-whisper-model');
+        if (el) {
+          var label = 'Whisper Tiny (Quantized)';
+          if (modelId === 'whisper-base') label = 'Whisper Base (Quantized)';
+          else if (modelId === 'whisper-small') label = 'Whisper Small (Quantized)';
+
+          if (window.i18n && typeof window.i18n.t === 'function') {
+            if (modelId === 'whisper-tiny') label = window.i18n.t('whisperTinyTitle') || label;
+            else if (modelId === 'whisper-base') label = window.i18n.t('whisperBaseTitle') || label;
+            else if (modelId === 'whisper-small') label = window.i18n.t('whisperSmallTitle') || label;
+          }
+          el.textContent = label;
+        }
+      } catch (err) {
+        console.warn('[GeneralConfig] gcRefreshWhisperModel error:', err);
+      }
+    }
+    window.gcRefreshWhisperModel = gcRefreshWhisperModel;
+
+    async function gcRefreshSlmModel(modelId) {
+      try {
+        if (modelId === undefined || modelId === null) {
+          if (window.SlmService && typeof window.SlmService.listAvailableModels === 'function') {
+            try {
+              var sRes = await window.SlmService.listAvailableModels();
+              if (sRes && typeof sRes.activeModel !== 'undefined') modelId = sRes.activeModel;
+            } catch (_) {}
+          }
+          if (!modelId && window.SlmService && typeof window.SlmService.getActiveModel === 'function') {
+            modelId = window.SlmService.getActiveModel();
+          }
+          if (!modelId) {
+            try { modelId = localStorage.getItem('cmt-active-slm-model') || ''; } catch (_) {}
+          }
+        }
+
+        var el = document.getElementById('gc-active-slm-model');
+        if (el) {
+          var noModelText = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('slmNoModelShort')) || 'No Model';
+          if (!modelId) {
+            el.textContent = noModelText;
+            el.style.color = '#888888';
+          } else {
+            var label = 'Qwen 0.5B (Fast)';
+            if (modelId === 'slm-ultra') {
+              label = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('slmUltraFastTitle')) || 'SmolLM2 360M (Ultra Fast)';
+            } else if (modelId === 'slm-fast') {
+              label = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('slmFastTitle')) || 'Qwen 2.5 0.5B (Fast)';
+            } else if (modelId === 'slm-balanced') {
+              label = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('slmBalancedTitle')) || 'Qwen 2.5 1.5B (Balanced)';
+            } else if (modelId === 'slm-deep') {
+              label = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('slmDeepTitle')) || 'Qwen 1.8B (Deep)';
+            }
+            el.textContent = label;
+            el.style.color = '#337a4e';
+          }
+        }
+      } catch (err) {
+        console.warn('[GeneralConfig] gcRefreshSlmModel error:', err);
+      }
+    }
+    window.gcRefreshSlmModel = gcRefreshSlmModel;
+
     /* ── persistence ───────────────────────────────────── */
     function getGeneralConfig() {
       try { return JSON.parse(localStorage.getItem('cmt-general-config') || '{}'); } catch { return {}; }
@@ -970,11 +1072,36 @@
     }
 
     async function patchExportSettings(patch) {
-      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readJson !== 'function') return;
+      // 1. Keep localStorage and in-memory config in sync for web fallback & immediate reactivity
       try {
-        const result = await Desktop.readJson('user', 'config.js');
-        if (!result || !result.ok || !result.data) return;
-        const data = result.data;
+        const lsExp = JSON.parse(localStorage.getItem('cmt-pdf-export-config') || '{}');
+        Object.assign(lsExp, patch);
+        localStorage.setItem('cmt-pdf-export-config', JSON.stringify(lsExp));
+
+        const genCfg = getGeneralConfig();
+        if (!genCfg.export) genCfg.export = {};
+        Object.assign(genCfg.export, patch);
+        localStorage.setItem('cmt-general-config', JSON.stringify(genCfg));
+      } catch (err) {
+        console.warn('general-config: could not update export in localStorage:', err);
+      }
+
+      if (typeof window !== 'undefined') {
+        if (!window.CLASS_MANAGEMENT_CONFIG) window.CLASS_MANAGEMENT_CONFIG = {};
+        if (!window.CLASS_MANAGEMENT_CONFIG.export) window.CLASS_MANAGEMENT_CONFIG.export = {};
+        Object.assign(window.CLASS_MANAGEMENT_CONFIG.export, patch);
+      }
+
+      // 2. Persist to user/config.js in Electron
+      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.saveText !== 'function') return;
+      try {
+        let data = {};
+        if (typeof Desktop.readJson === 'function') {
+          const result = await Desktop.readJson('user', 'config.js');
+          if (result && result.ok && result.data && typeof result.data === 'object') {
+            data = result.data;
+          }
+        }
         if (!data.export) data.export = {};
         Object.assign(data.export, patch);
         await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
@@ -1041,7 +1168,16 @@
     }
 
     if (pdfMarginInput) {
+      var _marginDebounceTimer = null;
       pdfMarginInput.addEventListener('input', function () {
+        clearTimeout(_marginDebounceTimer);
+        _marginDebounceTimer = setTimeout(function () {
+          patchExportSettings({ pdfMargin: pdfMarginInput.value.trim() });
+          flashSaved(pdfExportSaveStatus);
+        }, 300);
+      });
+      pdfMarginInput.addEventListener('change', function () {
+        clearTimeout(_marginDebounceTimer);
         patchExportSettings({ pdfMargin: pdfMarginInput.value.trim() });
         flashSaved(pdfExportSaveStatus);
       });
@@ -1077,6 +1213,9 @@
         window.parent.postMessage({ type: 'cmt-lang-changed', lang: btn.dataset.lang }, '*');
       }
       flashSaved(langStatus);
+      if (typeof applyTranslations === 'function') applyTranslations();
+      if (typeof gcRefreshWhisperModel === 'function') gcRefreshWhisperModel();
+      if (typeof gcRefreshSlmModel === 'function') gcRefreshSlmModel();
     });
 
     function updateDevFeaturesVisibility() {
@@ -3135,6 +3274,7 @@
     }
 
     async function init() {
+      var expLoaded = false;
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
           var cfgResult = await Desktop.readJson('user', 'config.js');
@@ -3149,9 +3289,27 @@
               if (expCfg.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, expCfg.pageSize);
               if (expCfg.pdfMargin && pdfMarginInput) pdfMarginInput.value = expCfg.pdfMargin;
               if (expCfg.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, expCfg.orientation);
+              expLoaded = true;
+              try {
+                localStorage.setItem('cmt-pdf-export-config', JSON.stringify(expCfg));
+              } catch (_) {}
             }
           }
         } catch (e) { console.warn('general-config: could not read config.js:', e); }
+      }
+      if (!expLoaded) {
+        try {
+          var lsExp = JSON.parse(localStorage.getItem('cmt-pdf-export-config') || '{}');
+          if (!lsExp || !Object.keys(lsExp).length) {
+            var gCfg = getGeneralConfig();
+            if (gCfg && gCfg.export) lsExp = gCfg.export;
+          }
+          if (lsExp) {
+            if (lsExp.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, lsExp.pageSize);
+            if (lsExp.pdfMargin && pdfMarginInput) pdfMarginInput.value = lsExp.pdfMargin;
+            if (lsExp.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, lsExp.orientation);
+          }
+        } catch (_) {}
       }
       var cfg = getGeneralConfig();
 
@@ -3550,6 +3708,8 @@
       initGeneralConfigCollapsible();
       initResetApp();
       handleInitialNavigation();
+      if (typeof gcRefreshWhisperModel === 'function') gcRefreshWhisperModel();
+      if (typeof gcRefreshSlmModel === 'function') gcRefreshSlmModel();
       if (typeof applyTranslations === 'function') applyTranslations();
     });
   </script>

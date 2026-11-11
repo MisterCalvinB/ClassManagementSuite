@@ -66,6 +66,7 @@
       <button class="nav-btn"><span data-i18n="menuFile">File</span> ▾</button>
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-new-doc"><span data-i18n="btnNew">New</span> <span class="nav-pop-hint">Ctrl+N</span></button>
+        <button class="nav-pop-item" id="btn-new-window"><span data-i18n="conTbNewWindow">New Window</span> <span class="nav-pop-hint">Ctrl+⇧N</span></button>
         <button class="nav-pop-item" id="btn-open-doc"><span data-i18n="btnOpen">Open</span> <span class="nav-pop-hint">Ctrl+O</span></button>
         <button class="nav-pop-item" id="btn-open-from-disk"><span data-i18n="deOpenFromDisk">Open from disk…</span></button>
         <button class="nav-pop-item" id="btn-open-template"><span data-i18n="deOpenTemplate">Open template…</span></button>
@@ -3017,6 +3018,24 @@
         actionBtn.onclick = info.onclick;
         row.appendChild(actionBtn);
 
+        if (entry.kind === 'file' && state.mode !== 'save') {
+          const newWinBtn = document.createElement('button');
+          newWinBtn.className = 'file-row-btn file-row-btn-outline';
+          newWinBtn.title = t('deOpenInNewWindow') || 'Open in New Window';
+          newWinBtn.innerHTML = '<img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:4px;" />' + (t('deOpenInNewWindowShort') || 'New Window');
+          newWinBtn.onclick = async (e) => {
+            e.stopPropagation();
+            if (window.Desktop && Desktop.isElectron()) {
+              Desktop.openTool('document-editor.html', {
+                newWindow: true,
+                query: { editTarget: state.target || 'docEditorDocs', editRelPath: entry.relativePath }
+              });
+              hideModal('file-modal');
+            }
+          };
+          row.appendChild(newWinBtn);
+        }
+
         if (entry.kind === 'file' || (entry.kind === 'dir' && state.allowDeleteFolders)) {
           const delBtn = document.createElement('button');
           delBtn.className = 'file-row-btn file-row-btn-del';
@@ -3105,6 +3124,22 @@
       if (!r.ok) {
         showToast((t('deOpenFromDiskError') || 'Could not read file: ') + (r.error || ''), true);
         return;
+      }
+      const diskPath = r.path || r.filePath;
+      if (diskPath && window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+        try {
+          const check = await Desktop.checkFileOpen({
+            pageFile: 'document-editor.html',
+            diskPath: diskPath
+          });
+          if (check && check.isOpen) {
+            const msg = (window.t && t('deFileAlreadyOpenToast'))
+              ? t('deFileAlreadyOpenToast')
+              : 'This document is already open in another window.';
+            showToast(msg);
+            return;
+          }
+        } catch (_) {}
       }
       const ext = (r.name.split('.').pop() || '').toLowerCase();
       if (ext === 'odt') {
@@ -3213,6 +3248,24 @@
         else if (normRel.startsWith('user/document-editor/docs/')) normRel = normRel.slice('user/document-editor/docs/'.length);
         else if (normRel.startsWith('document-editor/docs/')) normRel = normRel.slice('document-editor/docs/'.length);
         else if (normRel.startsWith('doceditor/')) normRel = normRel.slice('doceditor/'.length);
+
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+          try {
+            const check = await Desktop.checkFileOpen({
+              pageFile: 'document-editor.html',
+              target: 'docEditorDocs',
+              relativePath: normRel
+            });
+            if (check && check.isOpen) {
+              const msg = (window.t && t('deFileAlreadyOpenToast'))
+                ? t('deFileAlreadyOpenToast')
+                : 'This document is already open in another window.';
+              showToast(msg);
+              hideModal('file-modal');
+              return;
+            }
+          } catch (_) {}
+        }
 
         const r = await Desktop.readByPath('docEditorDocs', normRel);
         if (r && r.ok) {
@@ -3342,16 +3395,30 @@
           const rawLast = localStorage.getItem('cmt-doceditor-last-open');
           if (rawLast) {
             const last = JSON.parse(rawLast);
-            if (last && last.diskPath) {
-              await loadExternalDocByAbsPath(last.diskPath);
-            } else if (last && last.target && last.relPath) {
-              if (last.target === 'docEditorDocs') {
-                await loadDoc(last.relPath);
-              } else {
-                await loadExternalDoc(last.target, last.relPath);
+            let isAlreadyOpen = false;
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+              try {
+                const check = await Desktop.checkFileOpen({
+                  pageFile: 'document-editor.html',
+                  diskPath: last.diskPath,
+                  target: last.target,
+                  relativePath: last.relPath || last.name
+                });
+                if (check && check.isOpen) isAlreadyOpen = true;
+              } catch (_) {}
+            }
+            if (!isAlreadyOpen) {
+              if (last && last.diskPath) {
+                await loadExternalDocByAbsPath(last.diskPath);
+              } else if (last && last.target && last.relPath) {
+                if (last.target === 'docEditorDocs') {
+                  await loadDoc(last.relPath);
+                } else {
+                  await loadExternalDoc(last.target, last.relPath);
+                }
+              } else if (last && last.name) {
+                await loadDoc(last.name);
               }
-            } else if (last && last.name) {
-              await loadDoc(last.name);
             }
           }
         } catch (_) {}
@@ -3366,6 +3433,21 @@
 
     async function loadExternalDocByAbsPath(absPath) {
       if (!window.Desktop || !Desktop.isElectron()) return;
+      if (typeof Desktop.checkFileOpen === 'function') {
+        try {
+          const check = await Desktop.checkFileOpen({
+            pageFile: 'document-editor.html',
+            diskPath: absPath
+          });
+          if (check && check.isOpen) {
+            const msg = (window.t && t('deFileAlreadyOpenToast'))
+              ? t('deFileAlreadyOpenToast')
+              : 'This document is already open in another window.';
+            showToast(msg);
+            return;
+          }
+        } catch (_) {}
+      }
       try {
         if (String(absPath).toLowerCase().endsWith('.odt')) {
           const odtData = await Desktop.readOdtFile(absPath);
@@ -3451,6 +3533,23 @@
         } else if (effectiveTarget === 'user' && normRel.startsWith('doceditor/')) {
           effectiveTarget = 'docEditorDocs';
           normRel = normRel.slice('doceditor/'.length);
+        }
+
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
+          try {
+            const check = await Desktop.checkFileOpen({
+              pageFile: 'document-editor.html',
+              target: effectiveTarget,
+              relativePath: normRel
+            });
+            if (check && check.isOpen) {
+              const msg = (window.t && t('deFileAlreadyOpenToast'))
+                ? t('deFileAlreadyOpenToast')
+                : 'This document is already open in another window.';
+              showToast(msg);
+              return;
+            }
+          } catch (_) {}
         }
 
         const r = await Desktop.readByPath(effectiveTarget, normRel);
@@ -4622,6 +4721,16 @@
       footerAlign: 'center',
       imageWidth: 'auto'
     };
+
+    try {
+      const _s = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function')
+        ? Desktop.getPdfExportSettings()
+        : ((typeof getPdfExportSettings === 'function') ? getPdfExportSettings() : null);
+      if (_s) {
+        if (_s.pageSize) DEFAULT_PAGE_LAYOUT.size = _s.pageSize;
+        if (_s.orientation) DEFAULT_PAGE_LAYOUT.orientation = _s.orientation;
+      }
+    } catch (_) {}
 
     let pageLayout = deCloneDefaultPageLayout();
     let editorLayoutDefaults = deCloneDefaultPageLayout();
@@ -6613,11 +6722,53 @@
       const el = document.getElementById('doc-name-indicator');
       const name = currentDocName ? currentDocName.replace(/\.(md|html|typ|typst)$/i, '') : 'Untitled';
       el.textContent = name;
-      document.title = name + ' — Document Editor';
+      document.title = (docModified ? '● ' : '') + name + ' — Document Editor';
       el.classList.toggle('modified', docModified);
       updatePinButtonState();
       updateDeDocLinksBadge();
       dePersistActiveDocState();
+      if (window.Desktop && typeof Desktop.updateSessionContext === 'function') {
+        let ctx = null;
+        if (currentOpenedDiskPath) {
+          ctx = {
+            target: null,
+            diskPath: currentOpenedDiskPath,
+            relativePath: currentOpenedDiskPath,
+            filename: currentDocName || 'Untitled.md',
+            isDirty: !!docModified
+          };
+        } else if (currentEditTarget && currentEditRelPath) {
+          ctx = {
+            target: currentEditTarget,
+            relativePath: currentEditRelPath,
+            filename: currentDocName || currentEditRelPath.split(/[\/\\]/).pop(),
+            isDirty: !!docModified
+          };
+        } else if (currentDocName && (currentDocStoredInDocs || currentDocSubdir)) {
+          const relPath = currentDocSubdir ? (currentDocSubdir.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '') + '/' + currentDocName) : currentDocName;
+          ctx = {
+            target: 'docEditorDocs',
+            relativePath: relPath,
+            filename: currentDocName,
+            isDirty: !!docModified
+          };
+        } else if (currentDocName && currentDocName !== 'Untitled.md' && currentDocName !== 'Untitled') {
+          ctx = {
+            target: 'docEditorDocs',
+            relativePath: currentDocName,
+            filename: currentDocName,
+            isDirty: !!docModified
+          };
+        } else {
+          ctx = {
+            target: null,
+            relativePath: '',
+            filename: '',
+            isDirty: !!docModified
+          };
+        }
+        Desktop.updateSessionContext(ctx).catch(() => {});
+      }
     }
 
     function dePersistActiveDocState() {
@@ -11030,6 +11181,14 @@
         setDocType(next);
       });
       document.getElementById('btn-new-doc').addEventListener('click', newDoc);
+      const btnNewWin = document.getElementById('btn-new-window');
+      if (btnNewWin) {
+        btnNewWin.addEventListener('click', () => {
+          if (window.Desktop && Desktop.isElectron()) {
+            Desktop.openTool('document-editor.html', { newWindow: true });
+          }
+        });
+      }
       document.getElementById('btn-open-doc').addEventListener('click', openDocModal);
       document.getElementById('btn-open-from-disk').addEventListener('click', openFromDisk);
       document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
@@ -11209,6 +11368,7 @@
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'l') { e.preventDefault(); openSyntaxHelpModal(); return; }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 's') { e.preventDefault(); saveAll(); return; }
         if ((e.ctrlKey || e.metaKey) && key === 's') { e.preventDefault(); saveDoc(); }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'n') { e.preventDefault(); if (window.Desktop && Desktop.isElectron()) Desktop.openTool('document-editor.html', { newWindow: true }); return; }
         if ((e.ctrlKey || e.metaKey) && key === 'n') { e.preventDefault(); newDoc(); }
         if ((e.ctrlKey || e.metaKey) && key === 'o') { e.preventDefault(); openDocModal(); }
         if (e.key === 'Escape') {

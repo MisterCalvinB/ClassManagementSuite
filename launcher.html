@@ -546,7 +546,7 @@
       id: 'pdfViewer',
       pageFile: 'pdf-viewer.html',
       icon: 'assets/icons/pdf-viewer.svg',
-      title: 'PDF Studio',
+      title: 'PDF Viewer',
       desc: 'Open, annotate with pen and highlighter, add notes, search app PDFs, and present on secondary display.'
     },
     {
@@ -2144,14 +2144,32 @@
   function rfRenderDocs(files) {
     var heading = document.getElementById('rfDocsHeading');
     var list    = document.getElementById('rfDocsList');
+    if (!heading || !list) return;
     if (!files.length) { heading.style.display = 'none'; list.innerHTML = ''; return; }
     heading.style.display = '';
     list.innerHTML = '';
     files.forEach(function(f) {
       var info = rfDocTypeInfo(f.filename);
       var kb = f.size ? (f.size / 1024).toFixed(1) + ' KB' : '';
+      var isPdf = /\.pdf$/i.test(f.filename || '');
+      var btn = document.createElement('button');
+      btn.className = 'rf-open-btn';
+      if (isPdf) {
+        btn.textContent = (typeof t === 'function' ? t('fmOpenInPdfStudio') : 'Open in PDF Viewer');
+        btn.addEventListener('click', function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          Desktop.openTool('pdf-viewer.html', { query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename } });
+        });
+      } else {
+        btn.textContent = (typeof t === 'function' ? (t('fmOpenInSystem') || t('fmOpenNative')) : 'Open file in system');
+        btn.addEventListener('click', async function() {
+          if (!window.Desktop || !Desktop.isElectron()) return;
+          var res = await Desktop.openNative(f.target || 'user', f.relativePath || f.filename);
+          if (res && !res.ok) showToast(tl('fmOpenNativeFailed', 'Could not open file.'), true);
+        });
+      }
       var row = rfMakeRow(info.label, f.filename, f.relativePath || f.filename,
-        rfFormatDate(f.mtimeMs) + (kb ? ' · ' + kb : ''), null);
+        rfFormatDate(f.mtimeMs) + (kb ? ' · ' + kb : ''), btn);
       if (typeof rfAttachCtx === 'function') { (function(f, r) { rfAttachCtx(r, f); })(f, row); }
       list.appendChild(row);
     });
@@ -2259,6 +2277,13 @@
       rfAllDocs = d.files.filter(function(f) {
         var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
         return rel.split('/').indexOf('archived') === -1;
+      }).map(function(f) {
+        var rel = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        var fullRel = rel.startsWith('custom-data/') ? rel : ('custom-data/' + rel);
+        return Object.assign({}, f, {
+          target: 'user',
+          relativePath: fullRel
+        });
       });
     }
 
@@ -2923,23 +2948,95 @@
         }
       });
 
-      // Context menu to unpin
+      // Context menu for pinned item
       el.addEventListener('contextmenu', function(e) {
         e.preventDefault();
         e.stopPropagation();
-        if (typeof showCtx === 'function') {
-          showCtx(e.clientX, e.clientY, [
-            {
-              label: typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar',
-              action: async function() {
-                if (window.Pins) {
-                  await Pins.unpinItem(item);
-                  sbLoadPinned(true);
-                }
+        var showFn = window.showCtx || (typeof showCtx === 'function' ? showCtx : null);
+        if (!showFn) return;
+
+        var menuItems = [];
+        var pTarget = null;
+        var pRelPath = null;
+        var isDir = false;
+
+        if (item.type === 'mindmap') {
+          pTarget = item.target || 'mindmaps';
+          pRelPath = item.relativePath;
+          menuItems.push({
+            label: typeof t === 'function' ? (t('rfOpenInBoard') || 'Open in Board') : 'Open in Board',
+            action: function() {
+              Desktop.openTool('board.html', { query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath } });
+            }
+          });
+          menuItems.push({
+            label: typeof t === 'function' ? (t('rfOpenInNewWindow') || 'Open in New Window') : 'Open in New Window',
+            action: function() {
+              Desktop.openTool('board.html', { query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath }, forceNewWindow: true });
+            }
+          });
+        } else if (item.type === 'doc') {
+          pTarget = item.target || 'docEditorDocs';
+          pRelPath = item.relativePath;
+          menuItems.push({
+            label: typeof t === 'function' ? (t('sbOpenInDocEditor') || 'Open in Doc Editor') : 'Open in Doc Editor',
+            action: function() {
+              Desktop.openTool('document-editor.html', { query: { editTarget: pTarget, editRelPath: pRelPath } });
+            }
+          });
+        } else if (item.type === 'schedule') {
+          pTarget = 'user';
+          pRelPath = (item.relativePath || '').startsWith('schedules/') ? item.relativePath : ('schedules/' + item.relativePath);
+          menuItems.push({
+            label: typeof t === 'function' ? (t('sbOpenInScheduleMaker') || 'Open in Schedule Maker') : 'Open in Schedule Maker',
+            action: function() {
+              Desktop.openTool('schedule-maker.html', { query: { openSchedule: item.relativePath.split('/').pop() } });
+            }
+          });
+        } else if (item.type === 'folder') {
+          isDir = true;
+          pTarget = item.target || 'user';
+          pRelPath = item.relativePath;
+          menuItems.push({
+            label: typeof t === 'function' ? (t('fmOpenInFileManager') || 'Open in File Manager') : 'Open in File Manager',
+            action: function() {
+              Desktop.openTool('file-manager.html', { query: { openTarget: pTarget, openRelPath: pRelPath } });
+            }
+          });
+        }
+
+        if (pTarget && pRelPath && window.Desktop && Desktop.isElectron()) {
+          menuItems.push({
+            label: isDir
+              ? (typeof t === 'function' ? (t('fmOpenFolderInSystem') || 'Open folder in system') : 'Open folder in system')
+              : (typeof t === 'function' ? (t('fmOpenInSystem') || t('fmOpenNative') || 'Open file in system') : 'Open file in system'),
+            action: async function() {
+              var res = await Desktop.openNative(pTarget, pRelPath);
+              if (res && !res.ok && typeof showToast === 'function') {
+                showToast(typeof t === 'function' ? (t('fmOpenNativeFailed') || 'Could not open file.') : 'Could not open file.', true);
               }
             }
-          ]);
+          });
+          menuItems.push({
+            label: typeof t === 'function' ? (t('fmOpenLocation') || t('fmShowInFolder') || 'Open location') : 'Open location',
+            action: function() {
+              Desktop.showInFolder(pTarget, pRelPath);
+            }
+          });
+          menuItems.push('-');
         }
+
+        menuItems.push({
+          label: typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar',
+          action: async function() {
+            if (window.Pins) {
+              await Pins.unpinItem(item);
+              sbLoadPinned(true);
+            }
+          }
+        });
+
+        showFn(e.clientX, e.clientY, menuItems);
       });
 
       fragment.appendChild(el);
@@ -3966,6 +4063,9 @@
     menu.style.top  = top  + 'px';
   }
 
+  window.showCtx = showCtx;
+  window.hideCtx = hideCtx;
+
   /* Wire context menu onto a recent-file row */
   window.rfAttachCtx = function(row, fileObj) {
     row.addEventListener('contextmenu', function(e) {
@@ -3976,7 +4076,8 @@
       var relPath = fileObj.relativePath || fileObj.filename;
 
       var isMm    = target === 'mindmaps' || target === 'data';
-      var isDoc   = target === 'docEditorDocs' || (target === 'user' && relPath.startsWith('document-editor/docs/'));
+      var isDoc   = target === 'docEditorDocs' || (target === 'user' && relPath.startsWith('document-editor/docs/')) || /\.(md|html)$/i.test(fileObj.filename || '');
+      var isPdf   = /\.pdf$/i.test(fileObj.filename || '');
       var pinType = null;
       if (isMm) pinType = 'mindmap';
       else if (isDoc) pinType = 'doc';
@@ -4009,9 +4110,8 @@
           items.push('-');
         }
 
-        // Open in Board (session files only)
-        var isSess = target === 'mindmaps' || target === 'data';
-        if (isSess) {
+        // Open in Tool
+        if (isMm) {
           items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
             Desktop.openTool('board.html', {
               query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath }
@@ -4023,18 +4123,30 @@
               forceNewWindow: true
             });
           }});
+        } else if (isDoc) {
+          items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {
+            Desktop.openTool('document-editor.html', {
+              query: { editTarget: target, editRelPath: relPath }
+            });
+          }});
+        } else if (isPdf) {
+          items.push({ label: tl('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
+            Desktop.openTool('pdf-viewer.html', {
+              query: { openTarget: target, openRelPath: relPath }
+            });
+          }});
         }
 
-      items.push({ label: tl('fmOpenNative', 'Open with default app'), action: async function() {
-        var res = await Desktop.openNative(target, relPath);
-        if (res && !res.ok) showToast(tl('fmOpenNativeFailed', 'Could not open file.'), true);
-      }});
+        items.push({ label: tl('fmOpenInSystem', 'Open file in system'), action: async function() {
+          var res = await Desktop.openNative(target, relPath);
+          if (res && !res.ok) showToast(tl('fmOpenNativeFailed', 'Could not open file.'), true);
+        }});
 
-      items.push({ label: tl('fmShowInFolder', 'Show in folder'), action: function() {
-        Desktop.showInFolder(target, relPath);
-      }});
+        items.push({ label: tl('fmOpenLocation', 'Open location'), action: function() {
+          Desktop.showInFolder(target, relPath);
+        }});
 
-      items.push('-');
+        items.push('-');
 
       items.push({ label: tl('fmRename', 'Rename'), action: async function() {
         var base = (fileObj.filename || '').replace(/\.(js|json|cstz|zip)$/i, '');
@@ -4168,22 +4280,29 @@
           items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
             Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } });
           }});
+          items.push({ label: tl('rfOpenInNewWindow', 'Open in New Window'), action: function() {
+            Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath }, forceNewWindow: true });
+          }});
+        } else if (/\.pdf$/i.test(fileData.filename || '')) {
+          items.push({ label: tl('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
+            Desktop.openTool('pdf-viewer.html', { query: { openTarget: target, openRelPath: relPath } });
+          }});
         } else {
           items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {
             Desktop.openTool('document-editor.html', { query: { editTarget: 'docEditorDocs', editRelPath: relPath } });
           }});
         }
 
-      items.push({ label: tl('fmOpenNative', 'Open with default app'), action: async function() {
-        var res = await Desktop.openNative(target, relPath);
-        if (res && !res.ok) showToast(tl('fmOpenNativeFailed', 'Could not open file.'), true);
-      }});
+        items.push({ label: tl('fmOpenInSystem', 'Open file in system'), action: async function() {
+          var res = await Desktop.openNative(target, relPath);
+          if (res && !res.ok) showToast(tl('fmOpenNativeFailed', 'Could not open file.'), true);
+        }});
 
-      items.push({ label: tl('fmShowInFolder', 'Show in folder'), action: function() {
-        Desktop.showInFolder(target, relPath);
-      }});
+        items.push({ label: tl('fmOpenLocation', 'Open location'), action: function() {
+          Desktop.showInFolder(target, relPath);
+        }});
 
-      items.push('-');
+        items.push('-');
 
       items.push({ label: tl('fmRename', 'Rename'), action: async function() {
         var base = isMm
@@ -4828,6 +4947,38 @@
             ueLoadTagsList(chip.textContent.trim());
           });
         });
+
+        var rPath = item.relativePath || (item.meta && item.meta.relativePath) || '';
+        var tgt = item.target || (item.meta && item.meta.target) || 'user';
+        if (rPath && window.Desktop && Desktop.isElectron()) {
+          card.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var showFn = window.showCtx || (typeof showCtx === 'function' ? showCtx : null);
+            if (!showFn) return;
+            var isDir = !!(item.type === 'folder' || item.isDirectory);
+            var cItems = [
+              {
+                label: isDir
+                  ? (typeof t === 'function' ? (t('fmOpenFolderInSystem') || 'Open folder in system') : 'Open folder in system')
+                  : (typeof t === 'function' ? (t('fmOpenInSystem') || t('fmOpenNative') || 'Open file in system') : 'Open file in system'),
+                action: async function() {
+                  var res = await Desktop.openNative(tgt, rPath);
+                  if (res && !res.ok && typeof showToast === 'function') {
+                    showToast(typeof t === 'function' ? (t('fmOpenNativeFailed') || 'Could not open file.') : 'Could not open file.', true);
+                  }
+                }
+              },
+              {
+                label: typeof t === 'function' ? (t('fmOpenLocation') || t('fmShowInFolder') || 'Open location') : 'Open location',
+                action: function() {
+                  Desktop.showInFolder(tgt, rPath);
+                }
+              }
+            ];
+            showFn(e.clientX, e.clientY, cItems);
+          });
+        }
 
         frag.appendChild(card);
       }

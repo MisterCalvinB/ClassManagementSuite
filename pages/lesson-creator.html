@@ -7858,14 +7858,15 @@
             pdfHtml = await ExportStylesService.injectStyleIntoHtml(pdfHtml, ExportStylesService.getSelectedStyle('lessonCreator'));
           }
           var pdfFilename = safeSeqName + '_booklet.pdf';
-          var isLandscape = (cssTheme === 'horizontal_table' || options.lessonLayout === 'horizontal_table');
+          var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
+          var isLandscape = (cssTheme === 'horizontal_table' || options.lessonLayout === 'horizontal_table') || pdfSettings.isLandscape;
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
             try {
               var pRes = await Desktop.printPdf({
                 html: pdfHtml,
                 title: 'Save Unit PDF Booklet',
                 defaultPath: pdfFilename,
-                pdfOptions: { landscape: isLandscape }
+                pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: isLandscape }
               });
               if (pRes && pRes.ok) {
                 lcCloseModal('sequenceExportModal');
@@ -9393,6 +9394,7 @@
         var isForPrint = !!options.forPrint;
         var layoutModeEl = document.querySelector('input[name="exportPlanLayoutMode"]:checked');
         var isHorizTable = !!(layoutModeEl && layoutModeEl.value === 'horizontal_table');
+        var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', orientation: 'portrait', margin: '12mm 10mm' });
 
         var phases = (currentPlan.sections || []).filter(function (_, i) {
           return activeSelectedPhaseIndices.has(i);
@@ -9954,7 +9956,7 @@
           '      .plan-footer { border-top: 1.5px solid #333333 !important; }\n' +
           '      .col-resizer { display: none !important; }\n' +
           '      .lesson-horiz-table th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }\n' +
-          '      @page { margin: ' + (isHorizTable ? '6mm 8mm' : '12mm 10mm') + '; size: A4 ' + (isHorizTable ? 'landscape' : 'portrait') + '; }\n' +
+          '      @page { margin: ' + (isHorizTable ? '6mm 8mm' : (pdfSettings.margin || '12mm 10mm')) + '; size: ' + (pdfSettings.pageSize || 'A4') + ' ' + (isHorizTable ? 'landscape' : (pdfSettings.orientation || 'portrait')) + '; }\n' +
           '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
           '    }\n' +
           '  </style>\n' +
@@ -9974,7 +9976,7 @@
             '    body.horiz-table-mode #lessonPlanHorizTable th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: break-word !important; line-height: 1.18 !important; }\n' +
             '    body.horiz-table-mode #lessonPlanHorizTable td { padding: 4px 5px !important; font-size: 0.74rem !important; line-height: 1.28 !important; overflow-wrap: break-word !important; word-break: normal !important; }\n' +
             '    body.horiz-table-mode .plan-footer { margin-top: 8px !important; padding-top: 6px !important; font-size: 0.68rem !important; }\n' +
-            '    @page { size: A4 landscape !important; margin: 6mm 8mm !important; }\n' +
+            '    @page { size: ' + (pdfSettings.pageSize || 'A4') + ' landscape !important; margin: 6mm 8mm !important; }\n' +
             '    @media print {\n' +
             '      html, body.horiz-table-mode { width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }\n' +
             '      body.horiz-table-mode .plan-hero { padding: 6px 10px !important; margin-bottom: 6px !important; page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
@@ -10639,14 +10641,16 @@
 
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function' && dest !== 'browser') {
           try {
+            var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
             var isHorizPdf = !!(document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table');
+            var isLandscape = isHorizPdf || pdfSettings.isLandscape;
             var req = {
               html: html,
               defaultName: filename,
-              landscape: isHorizPdf,
+              landscape: isLandscape,
               pdfOptions: {
-                pageSize: 'A4',
-                landscape: isHorizPdf,
+                pageSize: pdfSettings.pageSize || 'A4',
+                landscape: isLandscape,
                 marginsType: 1,
                 preferCSSPageSize: true,
                 printBackground: true

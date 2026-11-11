@@ -513,6 +513,276 @@
         }
 
         /* ------------------------------------------------------------
+           3b. UNIFIED SETTINGS MODAL (#settings-modal) - Neobrutalist
+           ------------------------------------------------------------ */
+        #settings-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.55);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .settings-modal-content {
+            max-width: 980px;
+            width: min(96vw, 980px);
+            height: min(90vh, 780px);
+            display: flex;
+            flex-direction: column;
+            padding: 0 !important;
+            overflow: hidden;
+            border: 2px solid #333333 !important;
+            border-radius: 12px !important;
+            box-shadow: 5px 5px 0 #333333 !important;
+            background: #ffffff !important;
+        }
+
+        .settings-modal-header {
+            background: #f5f5f0;
+            border-bottom: 2px solid #333333;
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .settings-modal-header-left {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .settings-modal-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #111111;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .settings-modal-title .btn-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        .settings-modal-subtitle {
+            font-size: 0.78rem;
+            color: #666666;
+            font-weight: 600;
+        }
+
+        .settings-modal-body {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            background: #ffffff;
+        }
+
+        .settings-sidebar {
+            width: 195px;
+            flex-shrink: 0;
+            background: #fbfbf9;
+            border-right: 2px solid #333333;
+            padding: 12px 8px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .settings-tab-btn {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 9px 12px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            background: transparent;
+            color: #222222;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+            user-select: none;
+        }
+
+        .settings-tab-btn .btn-icon {
+            width: 16px;
+            height: 16px;
+            flex-shrink: 0;
+        }
+
+        .settings-tab-btn:hover {
+            background: #ecece6;
+            border-color: #dcdcd6;
+        }
+
+        .settings-tab-btn.active {
+            background: #111111;
+            color: #ffffff;
+            border-color: #111111;
+            box-shadow: 2px 2px 0 #555555;
+        }
+
+        .settings-tab-btn.active .btn-icon {
+            filter: brightness(0) invert(1);
+        }
+
+        .settings-content {
+            flex: 1;
+            padding: 20px 22px;
+            overflow-y: auto;
+            background: #ffffff;
+        }
+
+        .settings-tab-pane {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .settings-tab-pane.active {
+            display: flex;
+        }
+
+        .settings-content .config-section {
+            background: #ffffff;
+            border: 2px solid #333333;
+            border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: 3px 3px 0 #555555;
+            margin-bottom: 0;
+        }
+
+        .settings-content .config-section h2,
+        .settings-content .config-section h3 {
+            font-size: 0.96rem;
+            font-weight: 800;
+            color: #111111;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+
+        .settings-content .config-section p.section-desc {
+            font-size: 0.80rem;
+            color: #555555;
+            font-weight: 500;
+            margin-bottom: 12px;
+            line-height: 1.45;
+        }
+
+        .settings-grid-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .settings-nav-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: #fdfdfc;
+            border: 2px solid #333333;
+            border-radius: 8px;
+            box-shadow: 2px 2px 0 #555555;
+            cursor: pointer;
+            text-align: left;
+            font-family: inherit;
+            transition: background 0.12s ease, transform 0.08s ease, box-shadow 0.08s ease;
+        }
+
+        .settings-nav-card:hover {
+            background: #111111;
+            color: #ffffff;
+            transform: translate(-1px, -1px);
+            box-shadow: 3px 3px 0 #555555;
+        }
+
+        .settings-nav-card:hover .btn-icon {
+            filter: brightness(0) invert(1);
+        }
+
+        .settings-nav-card:active {
+            transform: translate(1px, 1px);
+            box-shadow: 1px 1px 0 #555555;
+        }
+
+        .settings-nav-card-text strong {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .settings-nav-card-text small {
+            display: block;
+            font-size: 0.72rem;
+            opacity: 0.8;
+            line-height: 1.2;
+            margin-top: 2px;
+        }
+
+        .btn-highlight {
+            background: #ffffff !important;
+            border: 1.5px solid #333333 !important;
+            border-radius: 4px !important;
+            cursor: pointer;
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 5px !important;
+            transition: background 0.1s ease, transform 0.08s ease;
+        }
+
+        .btn-highlight:hover {
+            background: #e2c96e !important;
+            transform: scale(1.08);
+        }
+
+        .empty-team-dropzone {
+            transition: background-color 0.15s ease, border-color 0.15s ease;
+        }
+
+        .empty-team-dropzone.rpc-dragover {
+            background-color: #fef08a !important;
+            border-color: #eab308 !important;
+        }
+
+        .empty-team-btn {
+            background: #fdfdfc !important;
+            border: 2px solid #333333 !important;
+            box-shadow: 2px 2px 0 #555555 !important;
+            font-weight: 700 !important;
+            cursor: pointer;
+            border-radius: 6px !important;
+            padding: 8px 0 !important;
+            transition: all 0.12s ease !important;
+        }
+
+        .empty-team-btn:hover {
+            background: #111111 !important;
+            color: #ffffff !important;
+            transform: translate(-1px, -1px) !important;
+            box-shadow: 3px 3px 0 #555555 !important;
+        }
+
+        /* ------------------------------------------------------------
            4. ROSTER SETTINGS, CLASS SELECTION & TIMER POPUPS
            ------------------------------------------------------------ */
         .popup-close-x-btn {
@@ -818,12 +1088,12 @@
         }
 
         /* Keyboard Shortcuts Manager Modal */
-        #edit-shortcuts-modal .skm-editor-table {
+        #settings-modal .skm-editor-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.85rem;
         }
-        #edit-shortcuts-modal .skm-editor-table th {
+        #settings-modal .skm-editor-table th {
             position: sticky;
             top: 0;
             background: #f8fafc;
@@ -837,15 +1107,15 @@
             border-bottom: 2px solid #e2e8f0;
             z-index: 2;
         }
-        #edit-shortcuts-modal .skm-editor-table td {
+        #settings-modal .skm-editor-table td {
             padding: 7px 12px;
             vertical-align: middle;
             border-bottom: 1px solid #f1f5f9;
         }
-        #edit-shortcuts-modal .skm-editor-table tr:hover td {
+        #settings-modal .skm-editor-table tr:hover td {
             background: #f8fafc;
         }
-        #edit-shortcuts-modal .skm-cat-tag {
+        #settings-modal .skm-cat-tag {
             display: inline-block;
             font-size: 0.7rem;
             font-weight: 700;
@@ -854,11 +1124,11 @@
             border-radius: 4px;
             letter-spacing: 0.4px;
         }
-        #edit-shortcuts-modal .skm-cat-roster { background: #e0e7ff; color: #3730a3; }
-        #edit-shortcuts-modal .skm-cat-presentation { background: #dbeafe; color: #1e40af; }
-        #edit-shortcuts-modal .skm-cat-grouping { background: #fef3c7; color: #92400e; }
-        #edit-shortcuts-modal .skm-cat-actions { background: #f1f5f9; color: #334155; }
-        #edit-shortcuts-modal .skm-btn-key {
+        #settings-modal .skm-cat-roster { background: #e0e7ff; color: #3730a3; }
+        #settings-modal .skm-cat-presentation { background: #dbeafe; color: #1e40af; }
+        #settings-modal .skm-cat-grouping { background: #fef3c7; color: #92400e; }
+        #settings-modal .skm-cat-actions { background: #f1f5f9; color: #334155; }
+        #settings-modal .skm-btn-key {
             display: inline-flex;
             align-items: center;
             gap: 4px;
@@ -873,11 +1143,11 @@
             transition: all 0.15s ease;
             min-height: 28px;
         }
-        #edit-shortcuts-modal .skm-btn-key:hover {
+        #settings-modal .skm-btn-key:hover {
             border-color: #94a3b8;
             background: #f1f5f9;
         }
-        #edit-shortcuts-modal .skm-btn-key.recording {
+        #settings-modal .skm-btn-key.recording {
             background: #eff6ff;
             border-color: #3b82f6;
             color: #1d4ed8;
@@ -888,7 +1158,7 @@
             0%, 100% { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3); }
             50% { box-shadow: 0 0 0 5px rgba(59, 130, 246, 0.5); }
         }
-        #edit-shortcuts-modal .skm-btn-key kbd {
+        #settings-modal .skm-btn-key kbd {
             display: inline-block;
             background: #fff;
             border: 1px solid #94a3b8;
@@ -899,7 +1169,7 @@
             font-family: inherit;
             color: #0f172a;
         }
-        #edit-shortcuts-modal .skm-btn-icon-action {
+        #settings-modal .skm-btn-icon-action {
             background: none;
             border: none;
             padding: 4px 6px;
@@ -910,11 +1180,11 @@
             line-height: 1;
             transition: color 0.15s, background 0.15s;
         }
-        #edit-shortcuts-modal .skm-btn-icon-action:hover {
+        #settings-modal .skm-btn-icon-action:hover {
             color: #0f172a;
             background: #e2e8f0;
         }
-        #edit-shortcuts-modal .skm-conflict-tag {
+        #settings-modal .skm-conflict-tag {
             display: inline-flex;
             align-items: center;
             gap: 3px;
@@ -2195,6 +2465,103 @@
         /* ------------------------------------------------------------
            7. NARROW SCREENS (<= 600px & 340px) RESPONSIVE OPTIMIZATIONS
            ------------------------------------------------------------ */
+        /* ------------------------------------------------------------
+           TOP MENU BAR (#menu) - Responsive for Narrow Windows
+           ------------------------------------------------------------ */
+        @media (max-width: 680px) {
+            #menu {
+                flex-direction: row !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                flex-wrap: nowrap !important;
+                padding: 2px 6px !important;
+                gap: 4px !important;
+                height: 38px !important;
+                min-height: 38px !important;
+                box-sizing: border-box !important;
+                overflow: visible !important;
+            }
+
+            #menu > div:first-child {
+                flex: 0 1 auto !important;
+                min-width: 0 !important;
+                overflow: hidden !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            #datetime {
+                font-size: 0.68rem !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+                max-width: 140px !important;
+                cursor: pointer !important;
+                flex-shrink: 1 !important;
+            }
+
+            .floating-buttons {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                flex-wrap: nowrap !important;
+                gap: 3px !important;
+                margin-left: auto !important;
+                flex-shrink: 0 !important;
+            }
+
+            #menu .floating-buttons button,
+            #menu .floating-buttons .tut-trigger-btn,
+            #menu .floating-buttons .hm-btn {
+                padding: 4px 6px !important;
+                font-size: 0.74rem !important;
+                height: 28px !important;
+                min-width: 28px !important;
+                border-radius: 6px !important;
+                gap: 0 !important;
+                justify-content: center !important;
+                flex-shrink: 0 !important;
+            }
+
+            #menu .floating-buttons button .btn-icon,
+            #menu .floating-buttons .tut-trigger-btn .btn-icon,
+            #menu .floating-buttons .hm-btn .btn-icon {
+                margin: 0 !important;
+                width: 14px !important;
+                height: 14px !important;
+            }
+
+            /* Hide verbose button text labels to keep a neat single-row icon bar */
+            #menu .floating-buttons button span[data-i18n],
+            #menu .floating-buttons .tut-trigger-btn span,
+            #menu .floating-buttons #cms-tour-btn span,
+            #menu .floating-buttons #remote-settings-btn span span {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 360px) {
+            #datetime {
+                max-width: 70px !important;
+                font-size: 0.62rem !important;
+            }
+
+            #menu .floating-buttons button,
+            #menu .floating-buttons .tut-trigger-btn,
+            #menu .floating-buttons .hm-btn {
+                padding: 2px 4px !important;
+                min-width: 25px !important;
+                height: 26px !important;
+            }
+
+            #menu .floating-buttons button .btn-icon,
+            #menu .floating-buttons .tut-trigger-btn .btn-icon,
+            #menu .floating-buttons .hm-btn .btn-icon {
+                width: 12px !important;
+                height: 12px !important;
+            }
+        }
+
         @media (max-width: 600px) {
             body {
                 padding: 0 4px 6px 4px !important;
@@ -2448,19 +2815,86 @@
             #timer-popup,
             .roster-settings-popup,
             #settings-popup,
+            #db-hub-popup,
             #mp3-picker-popup {
                 position: fixed !important;
-                top: 48px !important;
+                top: 44px !important;
                 left: 8px !important;
                 right: 8px !important;
                 margin: 0 auto !important;
                 width: auto !important;
-                max-width: min(360px, calc(100vw - 16px)) !important;
-                max-height: calc(100vh - 56px) !important;
+                max-width: min(340px, calc(100vw - 16px)) !important;
+                max-height: calc(100vh - 54px) !important;
                 overflow-y: auto !important;
+                overscroll-behavior: contain !important;
                 z-index: 99999 !important;
                 box-sizing: border-box !important;
                 transform: none !important;
+            }
+        }
+
+        /* Responsive Context Menu & Settings Modal on Narrow Windows */
+        .roster-context-menu {
+            max-width: calc(100vw - 16px) !important;
+            max-height: calc(100vh - 20px) !important;
+            overflow-y: auto !important;
+            overscroll-behavior: contain !important;
+            box-sizing: border-box !important;
+        }
+
+        @media (max-width: 640px) {
+            .settings-modal-content {
+                width: 98vw !important;
+                height: 94vh !important;
+                max-height: 94vh !important;
+                border-radius: 8px !important;
+            }
+
+            .settings-modal-header {
+                padding: 8px 12px !important;
+            }
+
+            .settings-modal-title {
+                font-size: 0.95rem !important;
+            }
+
+            .settings-modal-subtitle {
+                display: none !important;
+            }
+
+            .settings-modal-body {
+                flex-direction: column !important;
+            }
+
+            .settings-sidebar {
+                width: 100% !important;
+                flex-direction: row !important;
+                overflow-x: auto !important;
+                overflow-y: hidden !important;
+                border-right: none !important;
+                border-bottom: 2px solid #333333 !important;
+                padding: 6px 6px !important;
+                gap: 4px !important;
+                flex-shrink: 0 !important;
+                white-space: nowrap !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+
+            .settings-tab-btn {
+                padding: 6px 10px !important;
+                font-size: 0.78rem !important;
+                border-radius: 6px !important;
+                flex-shrink: 0 !important;
+                white-space: nowrap !important;
+            }
+
+            .settings-content {
+                padding: 12px 10px !important;
+                flex: 1 1 auto !important;
+            }
+
+            .settings-content .config-section {
+                padding: 12px 10px !important;
             }
         }
 
@@ -2653,7 +3087,7 @@
         <!-- Floating buttons -->
         <div class="floating-buttons">
             <button class="tut-trigger-btn" onclick="toggleObjectivesBar()"
-                data-i18n="btn_objectives">Objectives</button>
+                title="Objectives" data-i18n-title="btn_objectives"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> <span data-i18n="btn_objectives">Objectives</span></button>
             <button class="tut-trigger-btn" onclick="toggleDbPopup()" id="db-hub-btn" data-i18n-title="btn_db_title"
                 title="Database &amp; Time Machine"><img src="../assets/icons/manage-database.svg" class="btn-icon"
                     alt="" /> <span data-i18n="btn_db_label">DB</span></button>
@@ -2682,6 +3116,10 @@
 
     <!-- Roster Context Menu -->
     <div id="roster-context-menu" class="roster-context-menu">
+        <button type="button" data-action="highlight" onclick="handleRosterContextAction('highlight')"
+            title="Highlight student with blinking spotlight effect" data-i18n-title="ctx_highlight_title">
+            <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
+            <span data-i18n="ctx_highlight_student">Highlight Student</span></button>
         <button type="button" data-action="absent" onclick="handleRosterContextAction('absent')"
             data-i18n="ctx_absent">Absent</button>
         <button type="button" data-action="exam-session" onclick="handleRosterContextAction('exam-session')"
@@ -2689,6 +3127,22 @@
             data-i18n-title="ctx_exam_session_title"><img
                 src="../assets/icons/test-creator.svg" class="btn-icon" alt="" />
             <span id="ctx-exam-session-text" data-i18n="ctx_exam_session">Exam Session</span></button>
+        <details id="ctx-team-assign-details" class="ctx-flags-details"
+            style="display:none; border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
+            <summary
+                style="padding: 8px 10px; font-size: 0.85rem; font-weight: 600; color: #222; cursor: pointer; display: flex; justify-content: space-between; align-items: center; user-select: none; list-style: none; outline: none; border-radius: 6px; transition: background 0.1s ease;">
+                <span style="display: inline-flex; align-items: center; gap: 6px;">
+                    <img src="../assets/icons/palette.svg" class="btn-icon" alt="" />
+                    <span data-i18n="ctx_team_assignment">Assign to Team</span>
+                    <span id="ctx-team-summary-label" style="font-size: 0.75rem; color: #555; font-weight: 700;"></span>
+                </span>
+                <span class="ctx-flags-arrow"
+                    style="font-size: 0.7rem; color: #777; transition: transform 0.15s ease;">▼</span>
+            </summary>
+            <div id="ctx-team-palette" style="padding: 6px 10px; background: #fafafa; border-top: 1px solid #eee; display: flex; flex-direction: column; gap: 4px;">
+                <!-- Populated dynamically -->
+            </div>
+        </details>
         <details id="ctx-flags-details" class="ctx-flags-details"
             style="border-top: 1px solid #e0e0e0; border-bottom: 1px solid #e0e0e0; margin: 3px 0;">
             <summary
@@ -2857,136 +3311,332 @@
         </button>
     </div>
 
-    <div id="settings-popup">
-        <div class="db-popup-header">
-            <span class="db-popup-title" data-i18n="settings_popup_title"><img src="../assets/icons/gear.svg"
-                    class="btn-icon" alt="" /> Settings</span>
-            <button class="db-popup-close" onclick="closeSettingsPopup()"><img src="../assets/icons/close.svg"
-                    class="btn-icon" alt="" /></button>
-        </div>
-        <div class="settings-option-row">
-            <span class="settings-option-label" data-i18n="settings_show_name">Show name</span>
-            <div class="settings-option-group">
-                <label>
-                    <input type="radio" name="nameDisplayMode" value="full" onchange="saveNameDisplayMode(this.value)"
-                        checked> <span data-i18n="settings_name_full">Full</span>
-                </label>
-                <label>
-                    <input type="radio" name="nameDisplayMode" value="first" onchange="saveNameDisplayMode(this.value)">
-                    <span data-i18n="settings_name_first">First</span>
-                </label>
-                <label>
-                    <input type="radio" name="nameDisplayMode" value="last" onchange="saveNameDisplayMode(this.value)">
-                    <span data-i18n="settings_name_last">Last</span>
-                </label>
-                <label>
-                    <input type="radio" name="nameDisplayMode" value="custom" onchange="saveNameDisplayMode(this.value)">
-                    <span data-i18n="cmsNameModeCustom">Custom</span>
-                </label>
+    <!-- UNIFIED GENERAL SETTINGS MODAL -->
+    <div class="modal-overlay" id="settings-modal" onclick="if(event.target===this)closeSettingsModal()">
+        <div class="modal-content settings-modal-content" onclick="event.stopPropagation()">
+            <div class="settings-modal-header">
+                <div class="settings-modal-header-left">
+                    <span class="settings-modal-title">
+                        <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+                        <span data-i18n="cms_settings_modal_title">Class Settings</span>
+                    </span>
+                    <span class="settings-modal-subtitle" data-i18n="cms_settings_modal_desc">Configure class presentation, teams, badges, audio, roles, and rules</span>
+                </div>
+                <button type="button" class="close-modal" onclick="closeSettingsModal()">&times;</button>
+            </div>
+
+            <div class="settings-modal-body">
+                <!-- Sidebar tabs -->
+                <div class="settings-sidebar">
+                    <button type="button" class="settings-tab-btn active" data-tab="general" onclick="switchSettingsTab('general')">
+                        <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_general">General</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="teams" onclick="switchSettingsTab('teams')">
+                        <img src="../assets/icons/palette.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_teams">Teams</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="badges" onclick="switchSettingsTab('badges')">
+                        <img src="../assets/icons/award.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_badges">Badges</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="sounds" onclick="switchSettingsTab('sounds')">
+                        <img src="../assets/icons/volume.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_sounds">Sounds</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="roles" onclick="switchSettingsTab('roles')">
+                        <img src="../assets/icons/user-check.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_roles">Roles</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="autoflag" onclick="switchSettingsTab('autoflag')">
+                        <img src="../assets/icons/flag.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_autoflag">Auto-Flag</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="shortcuts" onclick="switchSettingsTab('shortcuts')">
+                        <img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_shortcuts">Shortcuts</span>
+                    </button>
+                </div>
+
+                <!-- Content Area -->
+                <div class="settings-content">
+                    <!-- Tab Pane: General -->
+                    <div class="settings-tab-pane active" data-pane="general">
+                        <!-- Student Name Display -->
+                        <section class="config-section">
+                            <h2 data-i18n="settings_show_name">Show name</h2>
+                            <p class="section-desc">Choose how student names are displayed across the classroom views.</p>
+                            <div class="settings-option-group" style="display:flex; gap:14px; flex-wrap:wrap;">
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="nameDisplayMode" value="full" onchange="saveNameDisplayMode(this.value)" checked>
+                                    <span data-i18n="settings_name_full">Full name</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="nameDisplayMode" value="first" onchange="saveNameDisplayMode(this.value)">
+                                    <span data-i18n="settings_name_first">First name</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="nameDisplayMode" value="last" onchange="saveNameDisplayMode(this.value)">
+                                    <span data-i18n="settings_name_last">Last name</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="nameDisplayMode" value="custom" onchange="saveNameDisplayMode(this.value)">
+                                    <span data-i18n="cmsNameModeCustom">Custom</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <!-- Sort names -->
+                        <section class="config-section">
+                            <h2 data-i18n="settings_sort_roster">Sort names</h2>
+                            <p class="section-desc">Order of students in the main roster and seat lists.</p>
+                            <div class="settings-option-group" style="display:flex; gap:14px; flex-wrap:wrap;">
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="rosterSortOrderRadio" value="first" onchange="setRosterSortOrder(this.value)" checked>
+                                    <span data-i18n="settings_sort_first">First name</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="rosterSortOrderRadio" value="last" onchange="setRosterSortOrder(this.value)">
+                                    <span data-i18n="settings_sort_last">Last name</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <!-- Lesson Plan Layout -->
+                        <section class="config-section">
+                            <h2 data-i18n="settings_lr_layout">Lesson Plan View</h2>
+                            <p class="section-desc">Display density for running lesson plans linked to Planner.</p>
+                            <div class="settings-option-group" style="display:flex; gap:14px; flex-wrap:wrap;">
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="lessonRunnerLayoutMode" value="compact" onchange="setLessonRunnerLayout(this.value)" checked>
+                                    <span data-i18n="settings_lr_compact">Compact</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="lessonRunnerLayoutMode" value="collapsible" onchange="setLessonRunnerLayout(this.value)">
+                                    <span data-i18n="settings_lr_collapsible">Collapsible</span>
+                                </label>
+                                <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:700;">
+                                    <input type="radio" name="lessonRunnerLayoutMode" value="single" onchange="setLessonRunnerLayout(this.value)">
+                                    <span data-i18n="settings_lr_single">Single Row</span>
+                                </label>
+                            </div>
+                        </section>
+
+                        <!-- Quick Tools & Navigation -->
+                        <section class="config-section">
+                            <h2><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> Quick Tools &amp; Data Links</h2>
+                            <p class="section-desc">Open related tools or edit roster groups and seating layouts.</p>
+                            <div class="settings-grid-buttons">
+                                <button type="button" class="settings-nav-card" onclick="closeSettingsModal(); openAppLink('import-tool.html');">
+                                    <img src="../assets/icons/import-tool.svg" class="btn-icon" style="width:22px;height:22px;" alt="" />
+                                    <div class="settings-nav-card-text">
+                                        <strong data-i18n="importShortcutBtn">Import Tool</strong>
+                                        <small data-i18n="importDestClassGroupsDesc">Import students to groups</small>
+                                    </div>
+                                </button>
+                                <button type="button" class="settings-nav-card" onclick="closeSettingsModal(); openAppLink('group-editor.html');">
+                                    <img src="../assets/icons/group-editor.svg" class="btn-icon" style="width:22px;height:22px;" alt="" />
+                                    <div class="settings-nav-card-text">
+                                        <strong data-i18n="settings_edit_groups">Edit Groups</strong>
+                                        <small data-i18n="settings_edit_groups_small">Add or reorganise classes</small>
+                                    </div>
+                                </button>
+                                <button type="button" class="settings-nav-card" onclick="closeSettingsModal(); Desktop.openTool('class-plan.html', selectedGroupName ? { query: { classId: selectedGroupName } } : undefined);">
+                                    <img src="../assets/icons/class-plan.svg" class="btn-icon" style="width:22px;height:22px;" alt="" />
+                                    <div class="settings-nav-card-text">
+                                        <strong data-i18n="settings_class_plan">Class Plan</strong>
+                                        <small data-i18n="settings_class_plan_small">Seating layouts &amp; rooms</small>
+                                    </div>
+                                </button>
+                                <button type="button" class="settings-nav-card" onclick="closeSettingsModal(); openManageDatabase();">
+                                    <img src="../assets/icons/manage-database.svg" class="btn-icon" style="width:22px;height:22px;" alt="" />
+                                    <div class="settings-nav-card-text">
+                                        <strong>Manage Database</strong>
+                                        <small>Vocab and badge databases</small>
+                                    </div>
+                                </button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Teams -->
+                    <div class="settings-tab-pane" data-pane="teams">
+                        <section class="config-section">
+                            <h2 data-i18n="et_title"><img src="../assets/icons/palette.svg" class="btn-icon" alt="" /> Edit Teams</h2>
+                            <p class="section-desc" data-i18n="et_desc">Set display names and colours for the team palette used in this class, add or remove teams, and reorder them so the top ones are assigned first when needed.</p>
+                            <div id="edit-teams-body" style="display:flex; flex-direction:column; gap:10px;"></div>
+                            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+                                <button type="button" onclick="addTeamDefinitionRow()" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="et_add_btn">+ Add Team</button>
+                                <button type="button" onclick="saveTeamSettings()" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;" data-i18n="et_save_btn">Save to config.js</button>
+                                <button type="button" onclick="resetTeamSettings()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="et_reset_btn">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Badges -->
+                    <div class="settings-tab-pane" data-pane="badges">
+                        <section class="config-section">
+                            <h2 data-i18n="eb_title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /> Edit Badges</h2>
+                            <p class="section-desc" data-i18n="eb_desc">Update badge logo, name, connotation, and meaning. These changes affect the badge picker immediately.</p>
+                            <div class="badge-set-header-bar" id="eb-set-bar" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;">
+                                <span class="badge-set-label" data-i18n="eb_set_label" style="font-weight:700; font-size:0.85rem;">Badge Set:</span>
+                                <select id="eb-set-select" class="badge-set-select" onchange="onEditBadgesSetChange(this.value)" style="max-width:240px;"></select>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333;">
+                                    <input type="checkbox" id="eb-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;">
+                                    <span data-i18n="eb_set_use_default_all">Use as default for all classes</span>
+                                </label>
+                                <button type="button" class="btn btn-outline" onclick="openManageDatabaseForBadges()" style="margin-left:auto; font-size:0.80rem; padding:6px 12px; display:inline-flex; align-items:center; gap:6px;">
+                                    <img src="../assets/icons/award.svg" class="btn-icon" alt="" />
+                                    <span data-i18n="eb_set_manage">Manage sets…</span>
+                                </button>
+                            </div>
+                            <!-- Dynamic Classes Assigned Section -->
+                            <div id="eb-classes-section" class="badge-set-classes-section" style="display:none; margin-bottom:14px;">
+                                <div class="badge-set-classes-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                    <span class="badge-set-classes-title" data-i18n="eb_classes_assigned_title" style="font-weight:700; font-size:0.82rem;">Assigned Classes:</span>
+                                    <div style="display:flex;gap:6px;align-items:center;">
+                                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(true)" data-i18n="eb_classes_assigned_all">Select All</button>
+                                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(false)" data-i18n="eb_classes_assigned_none">Clear All</button>
+                                    </div>
+                                </div>
+                                <div class="badge-set-link-notice" id="eb-link-notice">
+                                    <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+                                    <span id="eb-link-notice-text">Linked to user/custom-data/badges/</span>
+                                </div>
+                                <div id="eb-classes-grid" class="badge-set-classes-grid"></div>
+                            </div>
+                            <div id="edit-badges-body" style="display:flex; flex-direction:column; gap:10px;"></div>
+                            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+                                <button type="button" onclick="addBadgeDefinitionRow()" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="eb_add_btn">+ Add Badge</button>
+                                <button type="button" id="eb-save-btn" onclick="saveBadgeSettings()" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;" data-i18n="eb_save_btn">Save to config.js</button>
+                                <button type="button" onclick="resetBadgeSettings()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="eb_reset_btn">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Sounds -->
+                    <div class="settings-tab-pane" data-pane="sounds">
+                        <section class="config-section">
+                            <h2 data-i18n="es_title"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Edit Sounds</h2>
+                            <p class="section-desc" data-i18n="es_desc">Choose built-in sounds, load audio files from user/custom-data/sounds, or write your own tune in JS.</p>
+                            <div style="background:#f7f7f0; border:2px solid #333333; border-radius:8px; padding:10px 14px; color:#444; font-size:0.82rem; margin-bottom:14px; line-height:1.45;">
+                                <strong>Tips:</strong> put any audio files in <strong>user/custom-data/sounds</strong> (subfolders supported), click <strong>Refresh Sound Files</strong>, then pick one from the list. The <strong>Timer background audio</strong> slot powers the MP3 button in the timer. For JS tunes, you can use helpers like <strong>playTone(...)</strong>, <strong>playToneSequence(...)</strong>, or <strong>gavelHit()</strong>.
+                            </div>
+                            <div id="edit-sounds-body" style="display:flex; flex-direction:column; gap:12px;"></div>
+                            <hr style="border:none; border-top:2px solid #333333; margin:18px 0 14px;">
+                            <h3 style="text-transform:uppercase; letter-spacing:1.5px; font-size:0.85rem; margin:0 0 4px;" data-i18n="es_btns_title">Sound Buttons</h3>
+                            <p style="color:#666; font-size:0.82rem; margin:0 0 10px;" data-i18n="es_btns_desc">Add one-tap sound buttons that appear in the main panel.</p>
+                            <div id="custom-buttons-modal-section" class="settings-custom-buttons"></div>
+                            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+                                <button type="button" onclick="importSoundFiles()" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px;" data-i18n="es_import_btn">+ Import Audio Files</button>
+                                <button type="button" onclick="refreshSoundFileList(true)" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px;" data-i18n="es_refresh_btn">↻ Refresh Sound Files</button>
+                                <button type="button" onclick="saveSoundSettings()" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;" data-i18n="es_save_btn">Save to config.js</button>
+                                <button type="button" onclick="resetSoundSettings()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="es_reset_btn">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Roles -->
+                    <div class="settings-tab-pane" data-pane="roles">
+                        <section class="config-section">
+                            <h2 data-i18n="settings_edit_roles"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" /> Edit Roles</h2>
+                            <p class="section-desc" data-i18n="settings_edit_roles_small">Manage classroom role titles and explanations.</p>
+                            <div id="roles-settings-editor-section" style="display:flex; flex-direction:column; gap:10px; margin-bottom:14px;"></div>
+                            <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+                                <button type="button" onclick="addLibraryRole()" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;">+ Add Role</button>
+                                <button type="button" onclick="saveRolesLibrary(); showToast('Roles saved');" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;">Save Roles</button>
+                                <button type="button" onclick="resetRolesToDefault()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Auto-Flag -->
+                    <div class="settings-tab-pane" data-pane="autoflag">
+                        <section class="config-section">
+                            <h2 data-i18n="af_title"><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /> Edit Auto-Flag Rules</h2>
+                            <p class="section-desc" data-i18n="af_desc">Configure automatic flag rules with customizable colors, metrics, operators, and random picker weights.</p>
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px 14px; background:#f7f9fc; border:2px solid #333333; border-radius:8px;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <input type="checkbox" id="af-enabled" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
+                                    <label for="af-enabled" style="font-weight:700; font-size:0.95rem; cursor:pointer; margin:0;" data-i18n="af_enable">Enable auto-flag rules</label>
+                                </div>
+                                <span style="font-size:0.8rem; color:#666;">Evaluation engine: Participation Tracker Metrics</span>
+                            </div>
+                            <div style="margin-bottom:16px;">
+                                <label style="display:block; font-weight:700; font-size:0.82rem; margin-bottom:6px; color:#333;" data-i18n="af_timeline">Timeline Range:</label>
+                                <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:0.85rem;">
+                                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="radio" name="af-timeline" value="all" id="af-tl-all" style="width:15px;height:15px;">
+                                        <span data-i18n="af_all_sessions">All sessions</span>
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks" style="width:15px;height:15px;">
+                                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1" max="52" value="4" style="width:4em; font-size:0.9rem; padding:3px 5px; border:2px solid #333; border-radius:4px; text-align:center;" onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span data-i18n="af_weeks">weeks</span>
+                                    </label>
+                                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                        <input type="radio" name="af-timeline" value="date" id="af-tl-date" style="width:15px;height:15px;">
+                                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value" style="font-size:0.88rem; padding:3px 6px; border:2px solid #333; border-radius:4px;" onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
+                                    </label>
+                                </div>
+                            </div>
+                            <div style="margin-bottom:16px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                    <strong style="font-size:0.9rem; color:#222;">Flag Rules &amp; Color Assignments</strong>
+                                    <button type="button" onclick="addAutoFlagRule()" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.78rem; padding:6px 12px; text-transform:uppercase;">+ Add Rule</button>
+                                </div>
+                                <div style="overflow-x:auto; border:2px solid #333333; border-radius:8px; background:#fff;">
+                                    <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                                        <thead>
+                                            <tr style="background:#f6f8fa; border-bottom:2px solid #333333; text-align:left; color:#555;">
+                                                <th style="padding:8px 6px; width:30px; text-align:center;">On</th>
+                                                <th style="padding:8px 6px; width:130px;">Rule Name</th>
+                                                <th style="padding:8px 6px; width:150px;">Color</th>
+                                                <th style="padding:8px 6px; width:190px;">Metric</th>
+                                                <th style="padding:8px 6px; width:60px;">Op</th>
+                                                <th style="padding:8px 6px;">Value / Formula</th>
+                                                <th style="padding:8px 6px; width:60px;" title="Pick weight multiplier: >1.0 increases chance, <1.0 decreases chance, 1.0 = normal chance." data-i18n-title="af_weight_tooltip" data-i18n="af_weight_col">Weight</th>
+                                                <th style="padding:8px 6px; width:30px;"></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="af-rules-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:2px solid #333333; padding-top:14px;">
+                                <button type="button" onclick="saveAutoFlagSettings()" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;" data-i18n="btn_save">Save Rules &amp; Settings</button>
+                                <button type="button" onclick="resetAutoFlagRules()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="af_btn_reset">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Shortcuts -->
+                    <div class="settings-tab-pane" data-pane="shortcuts">
+                        <section class="config-section">
+                            <h2 data-i18n="shortcuts_manager_title"><img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" /> Keyboard Shortcuts</h2>
+                            <p class="section-desc" data-i18n="shortcuts_manager_desc">Click on any shortcut to rebind it by pressing the desired key combination. Press Esc to cancel.</p>
+                            <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
+                                <input type="text" id="shortcuts-search-input" oninput="filterShortcutsTable()" placeholder="Search actions or shortcuts…" data-i18n-placeholder="shortcuts_search_placeholder" style="flex:1; min-width:200px; padding:7px 12px; border:2px solid #333; border-radius:6px; font-size:0.85rem;">
+                                <select id="shortcuts-category-filter" onchange="filterShortcutsTable()" style="padding:7px 12px; border:2px solid #333; border-radius:6px; font-size:0.85rem; background:#fff; cursor:pointer;">
+                                    <option value="all" data-i18n="shortcuts_cat_all">All Categories</option>
+                                    <option value="roster" data-i18n="shortcuts_cat_roster">Roster Toggles</option>
+                                    <option value="presentation" data-i18n="shortcuts_cat_presentation">Presentation</option>
+                                    <option value="grouping" data-i18n="shortcuts_cat_grouping">Grouping & Roles</option>
+                                    <option value="actions" data-i18n="shortcuts_cat_actions">Classroom Actions</option>
+                                </select>
+                                <button type="button" onclick="resetCmsShortcutsToDefault()" class="btn btn-outline" style="padding:6px 12px; font-size:0.8rem; border:2px solid #333;" data-i18n="shortcuts_btn_reset_all">Reset to Defaults</button>
+                            </div>
+                            <div id="shortcuts-conflict-banner" style="display:none; background:#fffbeb; border:2px solid #f59e0b; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:0.82rem; color:#92400e; align-items:center; gap:8px;">
+                                <img src="../assets/icons/error.svg" class="btn-icon" alt="" /> <span id="shortcuts-conflict-text">One or more shortcuts have conflicts.</span>
+                            </div>
+                            <div id="shortcuts-table-container" style="max-height:420px; overflow-y:auto; border:2px solid #333333; border-radius:8px; background:#fff;"></div>
+                        </section>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="settings-option-row">
-            <span class="settings-option-label" data-i18n="settings_sort_roster">Sort names</span>
-            <div class="settings-option-group">
-                <label>
-                    <input type="radio" name="rosterSortOrderRadio" value="first" onchange="setRosterSortOrder(this.value)"
-                        checked> <span data-i18n="settings_sort_first">First name</span>
-                </label>
-                <label>
-                    <input type="radio" name="rosterSortOrderRadio" value="last" onchange="setRosterSortOrder(this.value)">
-                    <span data-i18n="settings_sort_last">Last name</span>
-                </label>
-            </div>
-        </div>
-        <div class="settings-option-row settings-option-divider">
-            <span class="settings-option-label" data-i18n="settings_lr_layout">Lesson Plan</span>
-            <div class="settings-option-group">
-                <label>
-                    <input type="radio" name="lessonRunnerLayoutMode" value="compact" onchange="setLessonRunnerLayout(this.value)"
-                        checked> <span data-i18n="settings_lr_compact">Compact</span>
-                </label>
-                <label>
-                    <input type="radio" name="lessonRunnerLayoutMode" value="collapsible" onchange="setLessonRunnerLayout(this.value)">
-                    <span data-i18n="settings_lr_collapsible">Collapsible</span>
-                </label>
-                <label>
-                    <input type="radio" name="lessonRunnerLayoutMode" value="single" onchange="setLessonRunnerLayout(this.value)">
-                    <span data-i18n="settings_lr_single">Single Row</span>
-                </label>
-            </div>
-        </div>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('import-tool.html');">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/import-tool.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="importShortcutBtn">Import</strong>
-                <small data-i18n="importDestClassGroupsDesc">Import students and assign them to a class group</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openAppLink('group-editor.html');">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/group-editor.svg" class="btn-icon"
-                    alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_groups">Edit Groups</strong>
-                <small data-i18n="settings_edit_groups_small">Add, rename, or reorganise class groups</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditTeamsModal();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/palette.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_teams">Edit Teams</strong>
-                <small data-i18n="settings_edit_teams_small">Change team names and colours</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditBadgesModal();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_badges">Edit Badges</strong>
-                <small data-i18n="settings_edit_badges_small">Customise badge names, meaning, tone, and logo</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditSoundsModal();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_sounds">Edit Sounds</strong>
-                <small data-i18n="settings_edit_sounds_small">Timer alarm, +/− sounds, files, and JS tunes</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openRolesModal('settings');">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_roles">Edit Roles</strong>
-                <small data-i18n="settings_edit_roles_small">Manage role titles and descriptions</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditAutoflagModal();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/flag.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_autoflag">Edit Autoflag</strong>
-                <small data-i18n="settings_edit_autoflag_small">Auto-flag low-participation students</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openModeManager();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/theater.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_modes">Edit Modes</strong>
-                <small data-i18n="settings_edit_modes_small">Customise working modes (sound, picture, text)</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); openEditShortcutsModal();">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_edit_shortcuts">Edit Keyboard Shortcuts</strong>
-                <small data-i18n="settings_edit_shortcuts_small">Customise shortcuts for roster toggles and classroom actions</small>
-            </span>
-        </button>
-        <button class="db-popup-btn" onclick="closeSettingsPopup(); Desktop.openTool('class-plan.html', selectedGroupName ? { query: { classId: selectedGroupName } } : undefined);">
-            <span class="db-popup-btn-icon"><img src="../assets/icons/class-plan.svg" class="btn-icon" alt="" /></span>
-            <span class="db-popup-btn-text">
-                <strong data-i18n="settings_class_plan">Class Plan</strong>
-                <small data-i18n="settings_class_plan_small">Seating layouts with room and weekly schedule</small>
-            </span>
-        </button>
     </div>
+    <!-- Legacy stub for #settings-popup -->
+    <div id="settings-popup" style="display:none !important;"></div>
 
     <div id="startup-load-banner">
         <span class="startup-banner-icon"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /></span>
@@ -3749,46 +4399,87 @@
         </div>
     </div>
     <div class="modal-overlay" id="team-modal" onclick="closeTeamModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 480px; text-align: center;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 520px; text-align: center; border: 2px solid #333333; border-radius: 12px; box-shadow: 4px 4px 0 #333333; padding: 22px 24px;">
             <button class="close-modal" onclick="closeTeamModal()">&times;</button>
-            <h2 style="color: #111; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; font-weight: 900;"
-                data-i18n="team_maker_title">Team Maker</h2>
+            <h2 style="color: #111; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; font-weight: 900; display:flex; align-items:center; justify-content:center; gap:8px;"
+                data-i18n="team_maker_title">
+                <img src="../assets/icons/palette.svg" class="btn-icon" alt="" />
+                Team Maker
+            </h2>
 
             <div
-                style="margin-bottom: 20px; background: #f5f5f5; padding: 15px; border-radius: 5px; border: 1px solid #ccc;">
+                style="margin-bottom: 12px; background: #ffffff; padding: 12px 14px; border-radius: 8px; border: 2px solid #333333; box-shadow: 2px 2px 0 #555555; text-align: left;">
                 <label
-                    style="display: block; margin-bottom: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem;"
+                    style="display: block; margin-bottom: 8px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.82rem;"
                     data-i18n="team_option_a">Option A: Total Number of Teams</label>
-                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;">
-                    <script>
-                        for (let i = 1; i <= 12; i++) {
-                            document.write(`<button class="team-sel-btn" onclick="processTeamCreation(${i}, 'total')">${i}</button>`);
-                        }
-                    </script>
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(1, 'total')">1</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(2, 'total')">2</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(3, 'total')">3</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(4, 'total')">4</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(5, 'total')">5</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(6, 'total')">6</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(7, 'total')">7</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(8, 'total')">8</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(9, 'total')">9</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(10, 'total')">10</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(11, 'total')">11</button>
+                    <button type="button" class="team-sel-btn" onclick="processTeamCreation(12, 'total')">12</button>
                 </div>
             </div>
 
             <div
-                style="margin-bottom: 10px; background: #f0f0f0; padding: 15px; border-radius: 5px; border: 1px solid #bbb;">
+                style="margin-bottom: 12px; background: #ffffff; padding: 12px 14px; border-radius: 8px; border: 2px solid #333333; box-shadow: 2px 2px 0 #555555; text-align: left;">
                 <label
-                    style="display: block; margin-bottom: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem;"
+                    style="display: block; margin-bottom: 8px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.82rem;"
                     data-i18n="team_option_b">Option B: Students Per Team</label>
-                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px;">
-                    <script>
-                        for (let i = 1; i <= 12; i++) {
-                            document.write(`<button class="team-sel-btn per-student-btn" onclick="processTeamCreation(${i}, 'perTeam')">${i}</button>`);
-                        }
-                    </script>
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(1, 'perTeam')">1</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(2, 'perTeam')">2</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(3, 'perTeam')">3</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(4, 'perTeam')">4</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(5, 'perTeam')">5</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(6, 'perTeam')">6</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(7, 'perTeam')">7</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(8, 'perTeam')">8</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(9, 'perTeam')">9</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(10, 'perTeam')">10</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(11, 'perTeam')">11</button>
+                    <button type="button" class="team-sel-btn per-student-btn" onclick="processTeamCreation(12, 'perTeam')">12</button>
+                </div>
+            </div>
+
+            <!-- Option D: Create Empty Teams -->
+            <div
+                style="margin-bottom: 12px; background: #ffffff; padding: 12px 14px; border-radius: 8px; border: 2px solid #333333; box-shadow: 2px 2px 0 #555555; text-align: left;">
+                <label
+                    style="display: block; margin-bottom: 3px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.82rem;"
+                    data-i18n="team_option_empty">Option D: Create Empty Teams (Manual Fill)</label>
+                <p style="font-size: 0.77rem; color: #555; margin-bottom: 8px; font-weight: 500; line-height: 1.35;"
+                    data-i18n="team_option_empty_desc">Generate empty team slots without assigning students, so you can manually assign students by dragging and dropping them into teams.</p>
+                <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;">
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(1)">1</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(2)">2</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(3)">3</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(4)">4</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(5)">5</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(6)">6</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(7)">7</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(8)">8</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(9)">9</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(10)">10</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(11)">11</button>
+                    <button type="button" class="empty-team-btn" onclick="processEmptyTeamCreation(12)">12</button>
                 </div>
             </div>
 
             <div
-                style="margin-bottom: 10px; background: #f9f9f9; padding: 15px; border-radius: 5px; border: 1px solid #ccc;">
+                style="margin-bottom: 10px; background: #ffffff; padding: 12px 14px; border-radius: 8px; border: 2px solid #333333; box-shadow: 2px 2px 0 #555555; text-align: left;">
                 <label
-                    style="display: block; margin-bottom: 10px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.85rem;"
+                    style="display: block; margin-bottom: 8px; font-weight: 800; color: #111; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.82rem;"
                     data-i18n="team_option_c">Option C: Saved Setups</label>
                 <div id="saved-teams-container"
-                    style="display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; margin-bottom: 10px; padding-right: 4px;">
+                    style="display: flex; flex-direction: column; gap: 6px; max-height: 120px; overflow-y: auto; margin-bottom: 8px; padding-right: 4px;">
                     <!-- Saved setups will be loaded here dynamically -->
                 </div>
                 <div style="display: flex; gap: 8px; justify-content: center;">
@@ -3800,7 +4491,7 @@
             </div>
 
             <div id="team-modal-actions"
-                style="display:none; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cfcfcf;">
+                style="display:none; margin-top: 14px; padding-top: 12px; border-top: 2px dashed #cfcfcf;">
                 <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
                     <button id="team-modal-reshuffle-btn" class="team-sel-btn" style="min-width:150px;"
                         onclick="closeTeamModal(); reshuffleTeams()" data-i18n="btn_reshuffle_teams">Reshuffle
@@ -4006,222 +4697,11 @@
         </div>
     </div>
 
-    <!-- EDIT TEAMS MODAL -->
-    <div class="modal-overlay" id="edit-teams-modal" onclick="closeEditTeamsModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:760px; width:min(96vw, 760px);">
-            <button class="close-modal" onclick="closeEditTeamsModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="et_title">Edit Teams
-            </h2>
-            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="et_desc">Set display
-                names and colours for the team palette used in this class, add or remove teams, and reorder them so the
-                top ones are assigned first when needed.</p>
-            <div id="edit-teams-body" style="display:flex; flex-direction:column; gap:10px;"></div>
-            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
-                <button onclick="addTeamDefinitionRow()"
-                    style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="et_add_btn">+ Add Team</button>
-                <button onclick="saveTeamSettings()"
-                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="et_save_btn">Save to config.js</button>
-                <button onclick="resetTeamSettings()"
-                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="et_reset_btn">Reset Defaults</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- EDIT BADGES MODAL -->
-    <div class="modal-overlay" id="edit-badges-modal" onclick="closeEditBadgesModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:860px; width:min(96vw, 860px);">
-            <button class="close-modal" onclick="closeEditBadgesModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="eb_title">Edit
-                Badges</h2>
-            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:14px;" data-i18n="eb_desc">Update badge
-                logo, name, connotation, and meaning. These changes affect the badge picker immediately.</p>
-            <div class="badge-set-header-bar" id="eb-set-bar">
-                <span class="badge-set-label" data-i18n="eb_set_label">Badge Set:</span>
-                <select id="eb-set-select" class="badge-set-select" onchange="onEditBadgesSetChange(this.value)"></select>
-                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333;">
-                    <input type="checkbox" id="eb-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;">
-                    <span data-i18n="eb_set_use_default_all">Use as default for all classes</span>
-                </label>
-                <button type="button" class="badge-set-action-btn" onclick="openManageDatabaseForBadges()" style="margin-left:auto;">
-                    <img src="../assets/icons/award.svg" class="btn-icon" alt="" />
-                    <span data-i18n="eb_set_manage">Manage sets…</span>
-                </button>
-            </div>
-            <!-- Dynamic Classes Assigned Section (visible when custom non-default set is chosen) -->
-            <div id="eb-classes-section" class="badge-set-classes-section" style="display:none;">
-                <div class="badge-set-classes-header">
-                    <span class="badge-set-classes-title" data-i18n="eb_classes_assigned_title">Assigned Classes:</span>
-                    <div style="display:flex;gap:6px;align-items:center;">
-                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(true)" data-i18n="eb_classes_assigned_all">Select All</button>
-                        <button type="button" class="btn-mini" onclick="selectAllClassesForBadgeSet(false)" data-i18n="eb_classes_assigned_none">Clear All</button>
-                    </div>
-                </div>
-                <div class="badge-set-link-notice" id="eb-link-notice">
-                    <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
-                    <span id="eb-link-notice-text">Linked to user/custom-data/badges/</span>
-                </div>
-                <div id="eb-classes-grid" class="badge-set-classes-grid"></div>
-            </div>
-            <div id="edit-badges-body" style="display:flex; flex-direction:column; gap:10px;"></div>
-            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
-                <button onclick="addBadgeDefinitionRow()"
-                    style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="eb_add_btn">+ Add Badge</button>
-                <button id="eb-save-btn" onclick="saveBadgeSettings()"
-                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="eb_save_btn">Save to config.js</button>
-                <button onclick="resetBadgeSettings()"
-                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="eb_reset_btn">Reset Defaults</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- EDIT SOUNDS MODAL -->
-    <div class="modal-overlay" id="edit-sounds-modal" onclick="closeEditSoundsModal()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:860px; width:min(96vw, 860px);">
-            <button class="close-modal" onclick="closeEditSoundsModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="es_title">Edit
-                Sounds</h2>
-            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:12px;" data-i18n="es_desc">Choose
-                built-in sounds, load audio files from the user/custom-data/sounds folder, or write your own tune in JS.
-            </p>
-            <div
-                style="background:#f7f7f7; border:1px solid #ddd; border-radius:8px; padding:10px 12px; color:#555; font-size:0.82rem; margin-bottom:14px; line-height:1.45;">
-                <strong>Tips:</strong> put any audio files in <strong>user/custom-data/sounds</strong> (subfolders supported), click
-                <strong>Refresh Sound Files</strong>, then pick one from the list. The <strong>Timer background
-                    audio</strong> slot powers the new <strong>MP3</strong> button in the timer. For JS tunes, you can
-                use helpers like <strong>playTone(...)</strong>, <strong>playToneSequence(...)</strong>, or
-                <strong>gavelHit()</strong>.
-            </div>
-            <div id="edit-sounds-body" style="display:flex; flex-direction:column; gap:12px;"></div>
-            <hr style="border:none; border-top:2px solid #e0e0e0; margin:18px 0 14px;">
-            <h3 style="text-transform:uppercase; letter-spacing:1.5px; font-size:0.85rem; margin:0 0 4px;"
-                data-i18n="es_btns_title">Sound Buttons</h3>
-            <p style="color:#666; font-size:0.82rem; margin:0 0 10px;" data-i18n="es_btns_desc">Add one-tap sound
-                buttons that appear in the main panel.</p>
-            <div id="custom-buttons-modal-section" class="settings-custom-buttons"></div>
-            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
-                <button onclick="importSoundFiles()"
-                    style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="es_import_btn">⊕ Import Audio Files</button>
-                <button onclick="refreshSoundFileList(true)"
-                    style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="es_refresh_btn">↻ Refresh Sound Files</button>
-                <button onclick="saveSoundSettings()"
-                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="es_save_btn">Save to config.js</button>
-                <button onclick="resetSoundSettings()"
-                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="es_reset_btn">Reset Defaults</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- EDIT AUTOFLAG MODAL -->
-    <div class="modal-overlay" id="edit-autoflag-modal" onclick="closeEditAutoflagModal()">
-        <div class="modal-content" onclick="event.stopPropagation()"
-            style="max-width:820px; width:min(96vw,820px); max-height:88vh; overflow-y:auto;">
-            <button class="close-modal" onclick="closeEditAutoflagModal()">&times;</button>
-            <h2 style="text-transform:uppercase; letter-spacing:2px; margin-bottom:4px;" data-i18n="af_title">Edit
-                Auto-Flag Rules & Colors</h2>
-            <p style="color:#666; font-size:0.82rem; margin-top:0; margin-bottom:16px;" data-i18n="af_desc">
-                Configure automatic flag rules with customizable colors, metrics (including all badges), operators, and
-                random picker weights.</p>
-
-            <!-- Enable toggle -->
-            <div
-                style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; padding:12px 14px; background:#f7f9fc; border:1px solid #d0d7de; border-radius:8px;">
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" id="af-enabled" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;">
-                    <label for="af-enabled" style="font-weight:700; font-size:0.95rem; cursor:pointer; margin:0;"
-                        data-i18n="af_enable">Enable auto-flag rules</label>
-                </div>
-                <span style="font-size:0.8rem; color:#666;">Evaluation engine: Participation Tracker Metrics</span>
-            </div>
-
-            <!-- Timeline -->
-            <div
-                style="margin-bottom:20px; background:#fff; padding:12px; border:1px solid #e1e4e8; border-radius:6px;">
-                <div style="font-weight:700; font-size:0.85rem; margin-bottom:8px; color:#333;" data-i18n="af_timeline">
-                    Timeline Range</div>
-                <div style="display:flex; gap:20px; flex-wrap:wrap;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="all" id="af-tl-all"
-                            style="width:15px;height:15px;">
-                        <span data-i18n="af_all_sessions">All sessions</span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="weeks" id="af-tl-weeks"
-                            style="width:15px;height:15px;">
-                        <span data-i18n="af_last">Last</span>&nbsp;<input type="number" id="af-tl-weeks-value" min="1"
-                            max="52" value="4"
-                            style="width:4em; font-size:0.9rem; padding:3px 5px; border:1px solid #ccc; border-radius:4px; text-align:center;"
-                            onclick="event.stopPropagation(); document.getElementById('af-tl-weeks').checked=true;">&nbsp;<span
-                            data-i18n="af_weeks">weeks</span>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:0.88rem;">
-                        <input type="radio" name="af-timeline" value="date" id="af-tl-date"
-                            style="width:15px;height:15px;">
-                        <span data-i18n="af_since">Since</span>&nbsp;<input type="date" id="af-tl-date-value"
-                            style="font-size:0.88rem; padding:3px 6px; border:1px solid #ccc; border-radius:4px;"
-                            onclick="event.stopPropagation(); document.getElementById('af-tl-date').checked=true;">
-                    </label>
-                </div>
-            </div>
-
-            <!-- Rules Table -->
-            <div style="margin-bottom:20px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <strong style="font-size:0.9rem; color:#222;">Flag Rules & Color Assignments</strong>
-                    <button type="button" onclick="addAutoFlagRule()"
-                        style="background:#2ecc71; color:#fff; border:none; border-radius:4px; padding:6px 12px; font-weight:700; font-size:0.78rem; cursor:pointer; text-transform:uppercase;">+
-                        Add Rule</button>
-                </div>
-
-                <div style="overflow-x:auto; border:1px solid #e1e4e8; border-radius:6px; background:#fff;">
-                    <table style="width:100%; border-collapse:collapse; font-size:0.82rem;">
-                        <thead>
-                            <tr
-                                style="background:#f6f8fa; border-bottom:1px solid #e1e4e8; text-align:left; color:#555;">
-                                <th style="padding:8px 6px; width:30px; text-align:center;">On</th>
-                                <th style="padding:8px 6px; width:130px;">Rule Name</th>
-                                <th style="padding:8px 6px; width:150px;">Color</th>
-                                <th style="padding:8px 6px; width:190px;">Metric</th>
-                                <th style="padding:8px 6px; width:60px;">Op</th>
-                                <th style="padding:8px 6px;">Value / Formula</th>
-                                <th style="padding:8px 6px; width:60px;" title="Pick weight multiplier: >1.0 increases chance, <1.0 decreases chance, 1.0 = normal chance." data-i18n-title="af_weight_tooltip" data-i18n="af_weight_col">Weight</th>
-                                <th style="padding:8px 6px; width:30px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="af-rules-tbody">
-                            <!-- Rule rows rendered dynamically -->
-                        </tbody>
-                    </table>
-                </div>
-                <div style="font-size:0.75rem; color:#777; margin-top:6px;">
-                    Formula Tips: Use variables like <code>netPoints</code>, <code>picks</code>,
-                    <code>attendanceRate</code>, <code>participationGrade</code>, <code>pluses</code>, <code>minuses</code>, or badge icons (e.g.
-                    <code>💎</code>, <code>⭐</code>).
-                </div>
-                <div style="font-size:0.75rem; color:#333; background:#f4f7fb; border:1px solid #d0d7de; border-radius:5px; padding:7px 10px; margin-top:8px; line-height:1.4;" data-i18n-html="af_weight_guide">
-                    <strong>Weight guide:</strong> <strong>&gt; 1.0</strong> (e.g. 2.0×, 3.0×) increases pick chance &bull; <strong>&lt; 1.0</strong> (e.g. 0.5×) decreases pick chance &bull; <strong>1.0</strong> = standard/normal chance.
-                </div>
-            </div>
-
-            <div style="display:flex; gap:8px; flex-wrap:wrap; border-top:1px solid #eee; padding-top:14px;">
-                <button onclick="saveAutoFlagSettings()"
-                    style="flex:1; background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:10px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="btn_save">Save Rules & Settings</button>
-                <button onclick="closeEditAutoflagModal()"
-                    style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:10px 16px; font-weight:700; font-size:0.82rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;"
-                    data-i18n="btn_cancel">Cancel</button>
-            </div>
-        </div>
-    </div>
+    <!-- Backward-compatibility modal stubs (managed via unified #settings-modal) -->
+    <div class="modal-overlay" id="edit-teams-modal" style="display:none !important;"></div>
+    <div class="modal-overlay" id="edit-badges-modal" style="display:none !important;"></div>
+    <div class="modal-overlay" id="edit-sounds-modal" style="display:none !important;"></div>
+    <div class="modal-overlay" id="edit-autoflag-modal" style="display:none !important;"></div>
 
     <!-- MODE PICKER MODAL -->
     <div class="modal-overlay" id="mode-picker-modal" onclick="closeModePicker()">
@@ -4233,17 +4713,17 @@
                 display for students</p>
             <div class="mode-options" id="mode-picker-options-container">
                 <button class="mode-option-btn" onclick="activateMode('quiet')">
-                    <span class="mode-icon">🤫</span>
+                    <span class="mode-icon"><img src="../assets/icons/shush.svg" class="btn-icon" alt="" /></span>
                     <span data-i18n="mode_quiet">Quiet</span>
                     <span class="mode-kbd">1</span>
                 </button>
                 <button class="mode-option-btn" onclick="activateMode('conversation')">
-                    <span class="mode-icon">💬</span>
+                    <span class="mode-icon"><img src="../assets/icons/speech-bubbles.svg" class="btn-icon" alt="" /></span>
                     <span data-i18n="mode_conversation">Conversation</span>
                     <span class="mode-kbd">2</span>
                 </button>
                 <button class="mode-option-btn" onclick="activateMode('group')">
-                    <span class="mode-icon">👥</span>
+                    <span class="mode-icon"><img src="../assets/icons/people-group.svg" class="btn-icon" alt="" /></span>
                     <span data-i18n="mode_group">Group Work</span>
                     <span class="mode-kbd">3</span>
                 </button>
@@ -4251,7 +4731,7 @@
             <div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px;">
                 <button onclick="closeModePicker(); openModeManager();"
                     style="width:100%; padding:10px; font-weight:700; background:#f0f4f8; color:#1a5fb4; border:1px solid #c3d7f0; border-radius:6px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-                    <span>⚙️</span> <span data-i18n="btn_edit_modes">Edit Modes</span>
+                    <img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="btn_edit_modes">Edit Modes</span>
                 </button>
             </div>
         </div>
@@ -4301,67 +4781,8 @@
         </div>
     </div>
 
-    <!-- KEYBOARD SHORTCUTS MANAGER MODAL -->
-    <div class="modal-overlay" id="edit-shortcuts-modal" onclick="if(event.target===this)closeEditShortcutsModal()">
-        <div class="modal-content" onclick="event.stopPropagation()"
-            style="max-width:760px; width:95%; max-height:88vh; display:flex; flex-direction:column; padding:22px 24px; box-sizing:border-box;">
-            <button class="close-modal" onclick="closeEditShortcutsModal()">&times;</button>
-
-            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; gap:12px; flex-wrap:wrap;">
-                <div>
-                    <h2 style="margin:0; text-transform:uppercase; letter-spacing:1.2px; font-size:1.2rem; display:flex; align-items:center; gap:8px;"
-                        data-i18n="shortcuts_manager_title">
-                        <span>⌨️</span> Keyboard Shortcuts Manager
-                    </h2>
-                    <p style="color:#666; font-size:0.82rem; margin:4px 0 0;" data-i18n="shortcuts_manager_desc">
-                        Click on any shortcut to rebind it by pressing the desired key combination. Press Esc to cancel.
-                    </p>
-                </div>
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <button onclick="resetCmsShortcutsToDefault()" class="btn-mini"
-                        style="padding:6px 12px; font-size:0.8rem; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:5px; cursor:pointer; font-weight:600; color:#334155;"
-                        data-i18n="shortcuts_btn_reset_all">
-                        🔄 Reset to Defaults
-                    </button>
-                </div>
-            </div>
-
-            <!-- Filter and Category toolbar -->
-            <div style="display:flex; gap:10px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
-                <input type="text" id="shortcuts-search-input" oninput="filterShortcutsTable()"
-                    placeholder="Search actions or shortcuts…" data-i18n-placeholder="shortcuts_search_placeholder"
-                    style="flex:1; min-width:200px; padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem;">
-                <select id="shortcuts-category-filter" onchange="filterShortcutsTable()"
-                    style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:0.85rem; background:#fff; cursor:pointer;">
-                    <option value="all" data-i18n="shortcuts_cat_all">All Categories</option>
-                    <option value="roster" data-i18n="shortcuts_cat_roster">Roster Toggles</option>
-                    <option value="presentation" data-i18n="shortcuts_cat_presentation">Presentation</option>
-                    <option value="grouping" data-i18n="shortcuts_cat_grouping">Grouping & Roles</option>
-                    <option value="actions" data-i18n="shortcuts_cat_actions">Classroom Actions</option>
-                </select>
-            </div>
-
-            <!-- Conflict Banner (hidden by default) -->
-            <div id="shortcuts-conflict-banner"
-                style="display:none; background:#fffbeb; border:1px solid #fde68a; border-radius:6px; padding:8px 12px; margin-bottom:10px; font-size:0.82rem; color:#92400e; align-items:center; gap:8px;">
-                <span>⚠️</span> <span id="shortcuts-conflict-text">One or more shortcuts have conflicts.</span>
-            </div>
-
-            <!-- Shortcuts Table Container -->
-            <div id="shortcuts-table-container"
-                style="flex:1; overflow-y:auto; border:1px solid #e2e8f0; border-radius:6px; background:#fff; max-height:55vh;">
-                <!-- Dynamically rendered table -->
-            </div>
-
-            <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
-                <span id="shortcuts-status-msg" style="font-size:0.8rem; color:#64748b;"></span>
-                <button onclick="closeEditShortcutsModal()"
-                    style="background:#111; color:#fff; border:none; border-radius:6px; padding:8px 24px; font-weight:700; font-size:0.88rem; cursor:pointer;">
-                    Done
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- Backward-compatibility stub for #edit-shortcuts-modal (now in #settings-modal) -->
+    <div class="modal-overlay" id="edit-shortcuts-modal" style="display:none !important;"></div>
 
     <!-- MODE EDITOR MODAL -->
     <div class="modal-overlay" id="mode-editor-modal" onclick="closeModeEditor()">
@@ -4376,13 +4797,10 @@
             <div class="mode-editor-tabs"
                 style="display:flex; gap:6px; border-bottom:2px solid #ddd; margin-bottom:16px;">
                 <button class="mode-editor-tab active" id="tab-btn-gen"
-                    onclick="switchModeEditorTab('general', event)">⚙️ General</button>
-                <button class="mode-editor-tab" id="tab-btn-txt" onclick="switchModeEditorTab('text', event)">🔤
-                    Text</button>
-                <button class="mode-editor-tab" id="tab-btn-pic" onclick="switchModeEditorTab('picture', event)">🖼️
-                    Picture</button>
-                <button class="mode-editor-tab" id="tab-btn-snd" onclick="switchModeEditorTab('sound', event)">🔊
-                    Sound</button>
+                    onclick="switchModeEditorTab('general', event)"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> General</button>
+                <button class="mode-editor-tab" id="tab-btn-txt" onclick="switchModeEditorTab('text', event)"><img src="../assets/icons/text.svg" class="btn-icon" alt="" /> Text</button>
+                <button class="mode-editor-tab" id="tab-btn-pic" onclick="switchModeEditorTab('picture', event)"><img src="../assets/icons/media.svg" class="btn-icon" alt="" /> Picture</button>
+                <button class="mode-editor-tab" id="tab-btn-snd" onclick="switchModeEditorTab('sound', event)"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Sound</button>
             </div>
 
             <!-- Tab 1: General -->
@@ -5148,6 +5566,36 @@
 
             applyBlink();
             setTimeout(applyBlink, 40);
+        }
+
+        function highlightStudentManually(studentId) {
+            if (!selectedGroupName || !studentGroups[selectedGroupName]) return;
+            const student = studentGroups[selectedGroupName].find(s => s.id === studentId);
+            if (!student) return;
+
+            const dn = document.getElementById('display-name');
+            if (dn) {
+                dn.innerText = getDisplayName(student);
+                dn.style.color = '';
+                dn.classList.remove('blinking');
+                void dn.offsetWidth;
+                dn.classList.add('blinking');
+                clearTimeout(dn._blinkTimeout);
+                dn._blinkTimeout = setTimeout(() => {
+                    dn.classList.remove('blinking');
+                    dn.style.color = '';
+                }, 4000);
+            }
+
+            _activeBlinkStudentId = student.id;
+            _activeBlinkTime = Date.now();
+            triggerStudentPickBlink(student.id);
+            logHistory('pick', student.name, 'Highlighted manually', { studentId: student.id });
+
+            if (!PRESENTATION_MODE) {
+                _broadcastAnimation('pick-blink', { studentId: student.id });
+                _broadcastPresentationState();
+            }
         }
 
         function _applyPresentationState(data) {
@@ -6858,6 +7306,9 @@
                     presSettings: { ...presSettings }
                 },
                 launcherSettings: loadedConfig.launcherSettings || {},
+                export: (overrides && overrides.export !== undefined)
+                    ? overrides.export
+                    : (loadedConfig.export || {}),
                 shortcuts: (overrides && overrides.shortcuts !== undefined)
                     ? overrides.shortcuts
                     : (typeof getCmsCustomShortcutsMap === 'function' ? getCmsCustomShortcutsMap() : (loadedConfig.shortcuts || {})),
@@ -7632,12 +8083,11 @@
         }
 
         function openEditTeamsModal() {
-            renderEditTeamsModal();
-            document.getElementById('edit-teams-modal').style.display = 'flex';
+            openSettingsModal('teams');
         }
 
         function closeEditTeamsModal() {
-            document.getElementById('edit-teams-modal').style.display = 'none';
+            closeSettingsModal();
         }
 
         function syncTeamSettingsDraftFromModal() {
@@ -8019,23 +8469,11 @@
         }
 
         async function openEditBadgesModal() {
-            const curClassSet = selectedGroupName && badgeSetSettings?.classSets
-                ? (badgeSetSettings.classSets[selectedGroupName] || badgeSetSettings.defaultSetId || 'default')
-                : (badgeSetSettings?.defaultSetId || 'default');
-            await populateEditBadgesSetSelector(curClassSet);
-            const loaded = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
-                ? await BadgeSets.loadSet(modalEditingSetId, getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
-                : null;
-            if (loaded && Array.isArray(loaded)) {
-                badgeDefinitions.length = 0;
-                badgeDefinitions.push(...loaded);
-            }
-            renderEditBadgesModal();
-            document.getElementById('edit-badges-modal').style.display = 'flex';
+            await openSettingsModal('badges');
         }
 
         function closeEditBadgesModal() {
-            document.getElementById('edit-badges-modal').style.display = 'none';
+            closeSettingsModal();
         }
 
         function renderEditBadgesModal() {
@@ -8849,18 +9287,11 @@
         }
 
         async function openEditSoundsModal() {
-            await refreshSoundFileList(false);
-            renderEditSoundsModal();
-            renderCustomButtonsModalEditor();
-            document.getElementById('edit-sounds-modal').style.display = 'flex';
-            startSoundFileAutoRefresh();
+            await openSettingsModal('sounds');
         }
 
         function closeEditSoundsModal() {
-            stopSoundFileAutoRefresh();
-            stopAllTestSounds();
-            const modal = document.getElementById('edit-sounds-modal');
-            if (modal) modal.style.display = 'none';
+            closeSettingsModal();
         }
 
         async function saveSoundSettings() {
@@ -9791,6 +10222,41 @@
             renderRoster();
         }
 
+        function processEmptyTeamCreation(teamCount) {
+            if (!selectedGroupName) {
+                showToast((window.i18n ? i18n.t('toast_select_class_first') : null) || 'Please select a group first!');
+                return;
+            }
+            const val = parseInt(teamCount, 10);
+            if (!val || val < 1) return;
+            const allStudents = studentGroups[selectedGroupName] || [];
+            allStudents.forEach(s => { delete s.teamId; });
+            currentTeamsActive = true;
+            currentRequestedTeamCount = val;
+            logHistory('teams', selectedGroupName, `Created ${val} empty teams for manual assignment`);
+            closeTeamModal();
+            updateUtilityButtons();
+            renderRoster();
+            showToast((window.i18n ? i18n.t('teams_empty_created_toast', { count: val }) : null) || `${val} empty teams created. Drag students into teams or use context menu.`);
+        }
+
+        function assignStudentToTeam(studentId, teamId) {
+            if (!selectedGroupName || !studentGroups[selectedGroupName]) return;
+            const student = studentGroups[selectedGroupName].find(s => s.id === studentId);
+            if (!student) return;
+            const oldTeam = student.teamId;
+            if (teamId == null) {
+                delete student.teamId;
+                logHistory('teams', student.name, `Removed from Team ${oldTeam || '-'}`);
+            } else {
+                student.teamId = parseInt(teamId, 10);
+                logHistory('teams', student.name, `Assigned to Team ${teamId}`);
+            }
+            closeRosterContextMenu();
+            renderRoster();
+            renderRanking();
+        }
+
         let teamRoles = [];
         const ROLES_FILE_TARGET = 'user';
         const ROLES_FILE_NAME = 'roles.js';
@@ -9921,7 +10387,11 @@
         }
 
         async function openRolesModal(mode = 'assignment') {
-            if (mode !== 'settings' && !selectedGroupName) {
+            if (mode === 'settings') {
+                await openSettingsModal('roles');
+                return;
+            }
+            if (!selectedGroupName) {
                 showToast('Please select a group first!');
                 return;
             }
@@ -10359,6 +10829,51 @@
                 await persistRolesLibrary();
             }
             renderRolesLibrary();
+        }
+
+        function renderRolesLibraryInSettings() {
+            const editorHost = document.getElementById('roles-settings-editor-section');
+            if (!editorHost) return;
+            syncRoleCollections();
+            if (!roleDefinitions.length) {
+                editorHost.innerHTML = `<div style="font-size:0.85rem; color:#666; font-style:italic; padding:10px 0;">No roles defined. Click "+ Add Role" below to create one.</div>`;
+                return;
+            }
+            editorHost.innerHTML = roleDefinitions.map((entry, index) => `
+                <div class="role-editor-row" style="border:2px solid #333; border-radius:8px; background:#fafafa; padding:10px 12px; box-shadow:2px 2px 0 #555;">
+                    <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+                        <input type="text" value="${escapeRoleHtml(entry.role)}" placeholder="Role title"
+                               onchange="updateRoleDefinition(${index}, 'role', this.value); renderRolesLibraryInSettings();"
+                               style="flex:1; padding:7px 10px; border:2px solid #333; border-radius:6px; font-weight:700; font-size:0.9rem;">
+                        <button type="button" onclick="removeLibraryRole(${index}).then(() => renderRolesLibraryInSettings())"
+                                class="btn-mini"
+                                style="padding:6px 12px; border:2px solid #b33; border-radius:6px; background:#fff; color:#b33; font-weight:700; cursor:pointer;">Remove</button>
+                    </div>
+                    <textarea placeholder="Role explanation or expectations"
+                              onchange="updateRoleDefinition(${index}, 'explanation', this.value)"
+                              style="width:100%; min-height:48px; padding:7px 10px; border:2px solid #333; border-radius:6px; box-sizing:border-box; resize:vertical; font-family:inherit; font-size:0.84rem;">${escapeRoleHtml(entry.explanation || '')}</textarea>
+                </div>
+            `).join('');
+        }
+
+        async function addLibraryRole() {
+            roleDefinitions.push({ role: 'New Role', explanation: '' });
+            syncRoleCollections();
+            renderRolesLibraryInSettings();
+            await persistRolesLibrary();
+        }
+
+        async function saveRolesLibrary() {
+            await persistRolesLibrary();
+            showToast('Roles saved successfully');
+        }
+
+        async function resetRolesToDefault() {
+            roleDefinitions = [];
+            syncRoleCollections();
+            await persistRolesLibrary();
+            renderRolesLibraryInSettings();
+            showToast('Roles reset to defaults');
         }
 
         function getShuffledArray(items) {
@@ -10832,7 +11347,7 @@
 
                 li.innerHTML = `
     <div class="student-info">
-        <span class="student-name" onclick="toggleStrike(${student.id})">
+        <span class="student-name" onclick="if (event.altKey || event.shiftKey) { event.stopPropagation(); highlightStudentManually(${student.id}); } else { toggleStrike(${student.id}); }" title="${student.name}">
             ${getDisplayName(student)}${senStarHtml}${renderStudentFlagsHtml(student)}${examBadgeHtml}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})" title="Click to change role" style="color: #444; font-size: var(--student-role-size, 0.81rem); margin-left: 8px; cursor: pointer; border-bottom: 1px dashed #aaa;">(${student.role})</i>` : ''}
         </span>
@@ -10847,6 +11362,7 @@
         </div>
     </div>
     <div class="roster-controls">
+        <button type="button" class="btn-mini btn-highlight" onclick="event.stopPropagation(); highlightStudentManually(${student.id})" title="${window.i18n ? i18n.t('btn_highlight_student') : 'Highlight student'}" data-i18n-title="btn_highlight_student" ${student.isAbsent ? 'style="display:none"' : ''}><img src="../assets/icons/eye.svg" class="btn-icon" style="width:13px;height:13px;vertical-align:middle;" alt="" /></button>
         <button class="btn-mini btn-badge-open" onclick="toggleBadgePopup(event, ${student.id}, 'individual')" title="Award a badge" ${student.isAbsent || !buildBadgePopupButtons(student.id, 'individual') ? 'style="display:none"' : ''}>★</button>
         <div class="badge-popup" id="${_badgePopupElementId(student.id, 'individual')}">
             ${buildBadgePopupButtons(student.id, 'individual')}
@@ -10903,6 +11419,15 @@
                     divider.addEventListener('dragleave', dragLeave);
                     divider.addEventListener('drop', dropOnTeam);
                     listEl.appendChild(divider);
+
+                    const dropzone = document.createElement('li');
+                    dropzone.className = 'empty-team-dropzone';
+                    dropzone.setAttribute('data-team-id', tid);
+                    dropzone.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;font-style:italic;"><img src="../assets/icons/arrow-down.svg" class="btn-icon" style="width:14px;height:14px;opacity:0.6;" alt="" /> ${window.i18n ? i18n.t('team_empty_drop_hint') : 'Drop students here to assign to team'}</span>`;
+                    dropzone.addEventListener('dragover', dragOver);
+                    dropzone.addEventListener('dragleave', dragLeave);
+                    dropzone.addEventListener('drop', dropOnTeam);
+                    listEl.appendChild(dropzone);
                 }
             }
 
@@ -10958,10 +11483,44 @@
                     : (window.i18n ? i18n.t('ctx_exam_session') : 'Exam Session');
             }
 
-            // Collapse flags details on fresh open
+            // Collapse flags and team details on fresh open
             const flagsDetails = document.getElementById('ctx-flags-details');
             if (flagsDetails && event !== null) {
                 flagsDetails.removeAttribute('open');
+            }
+            const teamDetails = document.getElementById('ctx-team-assign-details');
+            if (teamDetails && event !== null) {
+                teamDetails.removeAttribute('open');
+            }
+
+            // Populate team assignment details if teams are active
+            const teamPalette = document.getElementById('ctx-team-palette');
+            const teamSummary = document.getElementById('ctx-team-summary-label');
+            if (currentTeamsActive && currentRequestedTeamCount > 0) {
+                if (teamDetails) teamDetails.style.display = 'block';
+                if (teamSummary) {
+                    teamSummary.textContent = student && student.teamId ? ` (Team ${student.teamId})` : ' (None)';
+                }
+                if (teamPalette) {
+                    let paletteHtml = '';
+                    if (student && student.teamId) {
+                        paletteHtml += `<button type="button" onclick="assignStudentToTeam(${student.id}, null)" style="padding:5px 8px; border-radius:4px; background:#f0f0f0; color:#b33; border:1px solid #ccc; cursor:pointer; font-size:0.75rem; text-align:left; font-weight:700; display:flex; align-items:center; gap:6px;"><span>✕</span> <span>${window.i18n ? i18n.t('ctx_remove_from_team') : 'Remove from team'}</span></button>`;
+                    }
+                    for (let tid = 1; tid <= currentRequestedTeamCount; tid++) {
+                        const color = teamColors[(tid - 1) % teamColors.length];
+                        const teamName = (color && color.customName) ? color.customName : `Team ${tid} (${color ? color.name : ''})`;
+                        const isCurrent = student && student.teamId === tid;
+                        paletteHtml += `
+                            <button type="button" onclick="assignStudentToTeam(${student.id}, ${tid})" style="padding:5px 8px; border-radius:4px; background:${isCurrent ? '#333' : '#fff'}; color:${isCurrent ? '#fff' : '#222'}; border:1.5px solid ${color ? color.hex : '#333'}; cursor:pointer; font-size:0.76rem; text-align:left; font-weight:700; display:flex; align-items:center; gap:7px;">
+                                <span style="display:inline-block; width:12px; height:12px; border-radius:50%; background:${color ? color.hex : '#888'}; border:1px solid #333;"></span>
+                                <span style="flex:1;">${teamName}</span>
+                                ${isCurrent ? '<span>✓</span>' : ''}
+                            </button>`;
+                    }
+                    teamPalette.innerHTML = paletteHtml;
+                }
+            } else {
+                if (teamDetails) teamDetails.style.display = 'none';
             }
 
             // Populate multi-color flag palette
@@ -11099,6 +11658,12 @@
             const student = studentGroups[selectedGroupName].find(s => s.id === rosterContextStudentId);
             if (!student) {
                 closeRosterContextMenu();
+                return;
+            }
+
+            if (action === 'highlight') {
+                closeRosterContextMenu();
+                highlightStudentManually(rosterContextStudentId);
                 return;
             }
 
@@ -13785,27 +14350,11 @@
         let tempFlagRules = [];
 
         function openEditAutoflagModal() {
-            const s = participationSettings;
-            const tl = s.autoFlagTimeline || {};
-
-            document.getElementById('af-enabled').checked = !!s.autoFlagLowParticipation;
-
-            const tlMode = ['all', 'weeks', 'date'].includes(tl.mode) ? tl.mode : 'all';
-            document.querySelector(`input[name="af-timeline"][value="${tlMode}"]`).checked = true;
-            document.getElementById('af-tl-weeks-value').value = tl.weeks ?? 4;
-            document.getElementById('af-tl-date-value').value = tl.sinceDate ?? '';
-
-            tempFlagRules = (s.flagRules && s.flagRules.length > 0)
-                ? JSON.parse(JSON.stringify(s.flagRules))
-                : getDefaultFlagRules();
-
-            renderAutoFlagRulesTable();
-            document.getElementById('edit-autoflag-modal').style.display = 'flex';
+            openSettingsModal('autoflag');
         }
 
         function closeEditAutoflagModal() {
-            const modal = document.getElementById('edit-autoflag-modal');
-            if (modal) modal.style.display = 'none';
+            closeSettingsModal();
         }
 
         function renderAutoFlagRulesTable() {
@@ -19112,16 +19661,11 @@ syncState();
         }
 
         function openEditShortcutsModal() {
-            _cancelRecording();
-            const modal = document.getElementById('edit-shortcuts-modal');
-            if (modal) modal.style.display = 'flex';
-            renderEditShortcutsTable();
+            openSettingsModal('shortcuts');
         }
 
         function closeEditShortcutsModal() {
-            _cancelRecording();
-            const modal = document.getElementById('edit-shortcuts-modal');
-            if (modal) modal.style.display = 'none';
+            closeSettingsModal();
         }
 
         function filterShortcutsTable() {
@@ -20813,30 +21357,151 @@ syncState();
             document.title = label + ': Class Management';
         }
 
+        async function openSettingsModal(tabName = 'general') {
+            const modal = document.getElementById('settings-modal');
+            if (!modal) return;
+            closeDbPopup();
+            closeRosterSettingsPopup();
+            closeLinksPopup();
+            closeClassSelectionPopup();
+            modal.style.display = 'flex';
+            const btn = document.getElementById('settings-btn');
+            if (btn) btn.classList.add('active');
+            await switchSettingsTab(tabName);
+        }
+
+        function closeSettingsModal() {
+            const modal = document.getElementById('settings-modal');
+            if (modal) modal.style.display = 'none';
+            const btn = document.getElementById('settings-btn');
+            if (btn) btn.classList.remove('active');
+            if (typeof stopSoundFileAutoRefresh === 'function') stopSoundFileAutoRefresh();
+            if (typeof stopAllTestSounds === 'function') stopAllTestSounds();
+            if (typeof _cancelRecording === 'function') _cancelRecording();
+            // Sync compatibility stubs
+            const stubs = ['edit-teams-modal', 'edit-badges-modal', 'edit-sounds-modal', 'edit-autoflag-modal', 'edit-shortcuts-modal'];
+            stubs.forEach(id => {
+                const s = document.getElementById(id);
+                if (s) s.style.display = 'none';
+            });
+        }
+
         function toggleSettingsPopup(event) {
             if (event) {
                 event.stopPropagation();
                 event.preventDefault();
             }
-
-            const popup = document.getElementById('settings-popup');
-            const btn = document.getElementById('settings-btn');
-            const isOpen = popup.classList.contains('open');
-
+            const modal = document.getElementById('settings-modal');
+            const isOpen = modal && modal.style.display === 'flex';
             if (isOpen) {
-                closeSettingsPopup();
+                closeSettingsModal();
             } else {
-                closeDbPopup();
-                popup.classList.add('open');
-                if (btn) btn.classList.add('active');
+                openSettingsModal('general');
             }
         }
 
         function closeSettingsPopup() {
-            const popup = document.getElementById('settings-popup');
-            const btn = document.getElementById('settings-btn');
-            if (popup) popup.classList.remove('open');
-            if (btn) btn.classList.remove('active');
+            closeSettingsModal();
+        }
+
+        async function switchSettingsTab(tabName) {
+            if (!tabName) tabName = 'general';
+            const validTabs = ['general', 'teams', 'badges', 'sounds', 'roles', 'autoflag', 'shortcuts'];
+            if (!validTabs.includes(tabName)) tabName = 'general';
+
+            // Cleanup previous tab if leaving sounds or shortcuts
+            if (typeof stopSoundFileAutoRefresh === 'function') stopSoundFileAutoRefresh();
+            if (typeof stopAllTestSounds === 'function') stopAllTestSounds();
+            if (typeof _cancelRecording === 'function') _cancelRecording();
+
+            // Toggle tab buttons
+            document.querySelectorAll('#settings-modal .settings-tab-btn').forEach(btn => {
+                const isActive = btn.getAttribute('data-tab') === tabName;
+                btn.classList.toggle('active', isActive);
+            });
+
+            // Toggle tab panes
+            document.querySelectorAll('#settings-modal .settings-tab-pane').forEach(pane => {
+                const isActive = pane.getAttribute('data-pane') === tabName;
+                pane.classList.toggle('active', isActive);
+            });
+
+            // Update compatibility stub displays so listeners know which sub-section is active
+            const stubMap = {
+                'teams': 'edit-teams-modal',
+                'badges': 'edit-badges-modal',
+                'sounds': 'edit-sounds-modal',
+                'autoflag': 'edit-autoflag-modal',
+                'shortcuts': 'edit-shortcuts-modal'
+            };
+            Object.keys(stubMap).forEach(key => {
+                const el = document.getElementById(stubMap[key]);
+                if (el) el.style.display = (tabName === key) ? 'flex' : 'none';
+            });
+
+            // Initialize tab specific content
+            if (tabName === 'teams') {
+                if (typeof renderEditTeamsModal === 'function') renderEditTeamsModal();
+            } else if (tabName === 'badges') {
+                try {
+                    const curClassSet = selectedGroupName && badgeSetSettings?.classSets
+                        ? (badgeSetSettings.classSets[selectedGroupName] || badgeSetSettings.defaultSetId || 'default')
+                        : (badgeSetSettings?.defaultSetId || 'default');
+                    if (typeof populateEditBadgesSetSelector === 'function') await populateEditBadgesSetSelector(curClassSet);
+                    const loaded = (typeof BadgeSets !== 'undefined' && typeof BadgeSets.loadSet === 'function')
+                        ? await BadgeSets.loadSet(modalEditingSetId, getLoadedConfig()?.badgeDefinitions, participationSettings?.plusMinusCoefficient)
+                        : null;
+                    if (loaded && Array.isArray(loaded)) {
+                        badgeDefinitions.length = 0;
+                        badgeDefinitions.push(...loaded);
+                    }
+                    if (typeof renderEditBadgesModal === 'function') renderEditBadgesModal();
+                } catch (err) {
+                    console.warn('Error initializing badges tab:', err);
+                }
+            } else if (tabName === 'sounds') {
+                try {
+                    if (typeof refreshSoundFileList === 'function') await refreshSoundFileList(false);
+                    if (typeof renderEditSoundsModal === 'function') renderEditSoundsModal();
+                    if (typeof renderCustomButtonsModalEditor === 'function') renderCustomButtonsModalEditor();
+                    if (typeof startSoundFileAutoRefresh === 'function') startSoundFileAutoRefresh();
+                } catch (err) {
+                    console.warn('Error initializing sounds tab:', err);
+                }
+            } else if (tabName === 'roles') {
+                try {
+                    if (typeof loadRolesLibrary === 'function') await loadRolesLibrary();
+                    renderRolesLibraryInSettings();
+                } catch (err) {
+                    console.warn('Error initializing roles tab:', err);
+                }
+            } else if (tabName === 'autoflag') {
+                try {
+                    const s = participationSettings || {};
+                    const tl = s.autoFlagTimeline || {};
+                    const afEn = document.getElementById('af-enabled');
+                    if (afEn) afEn.checked = !!s.autoFlagLowParticipation;
+                    const tlMode = ['all', 'weeks', 'date'].includes(tl.mode) ? tl.mode : 'all';
+                    const r = document.querySelector(`input[name="af-timeline"][value="${tlMode}"]`);
+                    if (r) r.checked = true;
+                    const w = document.getElementById('af-tl-weeks-value');
+                    if (w) w.value = tl.weeks ?? 4;
+                    const d = document.getElementById('af-tl-date-value');
+                    if (d) d.value = tl.sinceDate ?? '';
+                    tempFlagRules = (s.flagRules && s.flagRules.length > 0)
+                        ? JSON.parse(JSON.stringify(s.flagRules))
+                        : (typeof getDefaultFlagRules === 'function' ? getDefaultFlagRules() : []);
+                    if (typeof renderAutoFlagRulesTable === 'function') renderAutoFlagRulesTable();
+                } catch (err) {
+                    console.warn('Error initializing autoflag tab:', err);
+                }
+            } else if (tabName === 'shortcuts') {
+                try {
+                    if (typeof renderEditShortcutsTable === 'function') renderEditShortcutsTable();
+                } catch (err) {
+                    console.warn('Error initializing shortcuts tab:', err);
+                }
+            }
         }
 
         function toggleRosterSettingsPopup(event) {
@@ -23112,7 +23777,7 @@ ${body}
                         const flagsHtml = renderStudentFlagsHtml(student);
 
                         li.innerHTML = `
-                    <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
+                    <span class="student-name rpc-name" onclick="if (event.altKey || event.shiftKey) { event.stopPropagation(); highlightStudentManually(${student.id}); } else { toggleStrike(${student.id}); }" title="${student.name}">
                         ${abbrev}${senStarHtml}
                         ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
                     </span>
@@ -23215,7 +23880,7 @@ ${body}
             const senStarHtml = (senVisible && !PRESENTATION_MODE && isSen) ? '<span class="sen-indicator" title="SEN" style="color:#e11d48;font-weight:bold;margin-left:2px;">*</span>' : '';
             const flagsHtml = renderStudentFlagsHtml(student);
             li.innerHTML = `
-        <span class="student-name rpc-name" onclick="toggleStrike(${student.id})" title="${student.name}">
+        <span class="student-name rpc-name" onclick="if (event.altKey || event.shiftKey) { event.stopPropagation(); highlightStudentManually(${student.id}); } else { toggleStrike(${student.id}); }" title="${student.name}">
             ${abbrev}${senStarHtml}
             ${student.role && rolesVisible ? `<i class="student-role-tag" onclick="event.stopPropagation(); changeStudentRole(${student.id})">${student.role}</i>` : ''}
         </span>

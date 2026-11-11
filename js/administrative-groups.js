@@ -2359,13 +2359,15 @@
           : { destination: 'to-print', filename: defaultName };
         if (!destRes || !destRes.destination) return;
         var finalPdfName = destRes.filename || defaultName;
+        var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
         var pdfReq = {
           html: fullHtml,
           defaultName: finalPdfName,
           title: title || 'Administrative Report',
+          landscape: pdfSettings.isLandscape,
           pdfOptions: {
-            landscape: false,
-            pageSize: 'A4',
+            landscape: pdfSettings.isLandscape,
+            pageSize: pdfSettings.pageSize || 'A4',
             marginsType: 1,
             preferCSSPageSize: true,
             printBackground: true

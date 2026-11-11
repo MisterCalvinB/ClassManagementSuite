@@ -15119,11 +15119,12 @@
           // Exact PDF.js rendering if running in Electron
           if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
             try {
+              var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
               var req = {
                 html: previewHtml,
                 pdfOptions: {
-                  landscape: false,
-                  pageSize: 'A4',
+                  landscape: pdfSettings.isLandscape,
+                  pageSize: pdfSettings.pageSize || 'A4',
                   marginsType: 1,
                   preferCSSPageSize: true,
                   printBackground: true
@@ -15260,12 +15261,13 @@
         var defaultName = fileNameBase + (isTeacher ? '_Solution_Key' : '') + '.pdf';
 
         if (window.Desktop && Desktop.isElectron && typeof Desktop.printPdf === 'function') {
+          var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
           var res = await Desktop.printPdf({
             html: exportHtml,
             defaultName: defaultName,
             pdfOptions: {
-              landscape: false,
-              pageSize: 'A4',
+              landscape: pdfSettings.isLandscape,
+              pageSize: pdfSettings.pageSize || 'A4',
               marginsType: 1,
               preferCSSPageSize: true,
               printBackground: true
@@ -15536,12 +15538,13 @@
             : { destination: 'to-print', filename: filename };
           if (!destRes || !destRes.destination) return;
           var finalPdfName = destRes.filename || filename;
+          var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
           var pdfReq = {
             html: outContent,
             defaultName: finalPdfName,
             pdfOptions: {
-              landscape: false,
-              pageSize: 'A4',
+              landscape: pdfSettings.isLandscape,
+              pageSize: pdfSettings.pageSize || 'A4',
               marginsType: 1,
               preferCSSPageSize: true,
               printBackground: true

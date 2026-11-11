@@ -5582,9 +5582,14 @@
 
     var pageBreakLabel = _t('tcPageBreakLabel', 'Page Break', lang);
 
-    customCssRules.push('@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
-    customCssRules.push('@page portrait-page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
-    customCssRules.push('@page landscape-page { size: A4 landscape; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
+    var pdfExportSettings = (typeof getPdfExportSettings === 'function')
+      ? getPdfExportSettings()
+      : ((typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.getPdfExportSettings === 'function') ? window.Desktop.getPdfExportSettings() : null);
+    var resolvedPageSize = (globalStyle && globalStyle.pageSize) || (pdfExportSettings && pdfExportSettings.pageSize) || 'A4';
+
+    customCssRules.push('@page { size: ' + resolvedPageSize + ' portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
+    customCssRules.push('@page portrait-page { size: ' + resolvedPageSize + ' portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
+    customCssRules.push('@page landscape-page { size: ' + resolvedPageSize + ' landscape; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }');
     customCssRules.push('@media print { body { margin: 0 !important; padding: 0 !important; background: transparent !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; box-shadow: none !important; border-radius: 0 !important; } }');
     customCssRules.push('@media screen { body { background: #e2e8f0; padding: 24px 0; margin: 0; } .exam-sheet { width: 210mm; min-height: 297mm; margin: 0 auto 30px auto; background: #ffffff; box-shadow: 0 4px 14px rgba(0,0,0,0.18), 3px 3px 0 #555555; border-radius: 4px; box-sizing: border-box; } .page-break-before, .class-page-break { display: block; height: 24px; border-top: 2px dashed #94a3b8; margin: 32px 0 20px 0; position: relative; } .page-break-before::after, .class-page-break::after { content: "— ' + pageBreakLabel + ' —"; position: absolute; top: -11px; left: 50%; transform: translateX(-50%); background: #e2e8f0; padding: 0 10px; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; } }');
     customCssRules.push('.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }');
@@ -6652,13 +6657,18 @@
     });
 
     var batchTitle = test.title || _t('tcDefaultExamTitle', 'Classroom Examination', lang);
+    var pdfExportSettings = (typeof getPdfExportSettings === 'function')
+      ? getPdfExportSettings()
+      : ((typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.getPdfExportSettings === 'function') ? window.Desktop.getPdfExportSettings() : null);
+    var resolvedPageSize = (pdfExportSettings && pdfExportSettings.pageSize) || 'A4';
+
     return [
       '<!DOCTYPE html>',
       '<html lang="' + lang + '">',
       '<head><meta charset="UTF-8"><title>' + escapeHtml(batchTitle) + '</title>',
       '<style>',
       TestCreatorService.getThemeCss(themeName),
-      '@page { size: A4 portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }',
+      '@page { size: ' + resolvedPageSize + ' portrait; margin: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; }',
       '@media print { body { margin: 0 !important; padding: 0 !important; } .exam-sheet { padding: 0 !important; max-width: 100% !important; margin: 0 !important; width: 100% !important; } }',
       '.exam-sheet { padding: ' + mTop + ' ' + mRight + ' ' + mBottom + ' ' + mLeft + '; box-sizing: border-box; }',
       '</style>',

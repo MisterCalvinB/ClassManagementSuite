@@ -593,7 +593,7 @@
       if (!seen && !initialQuery) setTimeout(function () { window.startDictionaryTour(); }, 500);
     });
 
-    // Reactive listener for word lookups dispatched from other CMT windows (e.g. Document Editor, PDF Studio)
+    // Reactive listener for word lookups dispatched from other CMT windows (e.g. Document Editor, PDF Viewer)
     function handleExternalQuery(word) {
       if (typeof word !== 'string') return;
       var trimmed = word.trim();

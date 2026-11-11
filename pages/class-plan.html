@@ -1191,10 +1191,19 @@ async function doSave(showFeedback) {
 async function syncToConfigJs() {
   let cfg = {};
   try {
-    if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) {
-      cfg = JSON.parse(JSON.stringify(CLASS_MANAGEMENT_CONFIG));
+    if (window.Desktop && typeof Desktop.readJson === 'function') {
+      const diskRes = await Desktop.readJson('user', 'config.js');
+      if (diskRes && diskRes.ok && diskRes.data && typeof diskRes.data === 'object') {
+        cfg = diskRes.data;
+      }
     }
   } catch (e) {}
+
+  if (!Object.keys(cfg).length && typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) {
+    try {
+      cfg = JSON.parse(JSON.stringify(CLASS_MANAGEMENT_CONFIG));
+    } catch (e) {}
+  }
 
   // Build config-compatible classPlans (grid plans use {row,col,studentName})
   const configPlans = {};

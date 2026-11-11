@@ -10776,6 +10776,9 @@ Rules:
         })
         .join(' &nbsp;·&nbsp; ');
       const filterLine = filterDesc ? `<p class="filters">Filters: ${filterDesc}</p>` : '';
+      const pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function')
+        ? Desktop.getPdfExportSettings()
+        : ((typeof getPdfExportSettings === 'function') ? getPdfExportSettings() : { pageSize: 'A4', orientation: 'portrait', isLandscape: false, margin: '12mm 10mm' });
 
       const html = `<!doctype html>
 <html>
@@ -10784,7 +10787,7 @@ Rules:
   <title>${escHtml(label)}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #1e293b; background: #fff; padding: 16mm 14mm; line-height: 1.4; }
+    body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #1e293b; background: #fff; padding: ${pdfSettings.margin || '16mm 14mm'}; line-height: 1.4; }
     h1 { font-size: 20px; font-weight: 800; color: #1e293b; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
     .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #1e293b; background: #ffffff; border: 2px solid #333333; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 2px 2px 0 #555555; }
     .meta-item { display: flex; gap: 6px; align-items: center; }
@@ -10804,7 +10807,7 @@ Rules:
     .threshold-tag, .badge-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f4f4f5; }
     .color-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f8fafc; }
     .color-dot { width: 9px; height: 9px; border: 1px solid #333333; border-radius: 2px; display: inline-block; }
-    @page { margin: 12mm 10mm; size: auto; }
+    @page { margin: ${pdfSettings.margin || '12mm 10mm'}; size: ${pdfSettings.pageSize || 'A4'} ${pdfSettings.orientation || 'portrait'}; }
     @media print {
       *, *:before, *:after {
         -webkit-print-color-adjust: exact !important;
@@ -10847,7 +10850,15 @@ Rules:
           if (!destRes || !destRes.destination) return;
           const finalFilename = destRes.filename || filename;
           const dest = destRes.destination;
-          const pdfReq = { html, defaultName: finalFilename };
+          const pdfReq = {
+            html,
+            defaultName: finalFilename,
+            landscape: pdfSettings.isLandscape,
+            pdfOptions: {
+              pageSize: pdfSettings.pageSize || 'A4',
+              landscape: pdfSettings.isLandscape
+            }
+          };
           if (dest === 'to-print') {
             pdfReq.target = 'toPrint';
             pdfReq.filename = finalFilename;

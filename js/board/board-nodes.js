@@ -51,13 +51,31 @@
     window.conSetAttachmentPreloadMap = function (map) {
       if (map && typeof map === 'object') {
         Object.assign(_conMirrorAttachmentPreload, map);
-        if (document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1')) {
+        if (typeof conAttachments !== 'undefined' && Array.isArray(conAttachments)) {
+          conAttachments.forEach(att => {
+            if (!att) return;
+            const src = (att.id && _conMirrorAttachmentPreload[att.id]) ||
+              (att.attachmentId && _conMirrorAttachmentPreload[att.attachmentId]) ||
+              (att.name && _conMirrorAttachmentPreload[att.name]) || '';
+            if (src) {
+              att._cachedDataUrl = src;
+              if (!att.base64 && src.startsWith('data:')) {
+                att.base64 = src.split(',')[1] || '';
+              }
+            }
+          });
+        }
+        if (document.documentElement.classList.contains('con-mirror-mode') || location.search.includes('mirror=1') || window._isPageWindow || location.search.includes('pageWindow=1')) {
           document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(function (wrap) {
             var itemId = wrap.dataset.id;
             var item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(function (m) { return String(m.id) === String(itemId); }) : null;
             if (!item) return;
             var key = item.attachmentId || item.id || '';
-            var preloadSrc = (key && _conMirrorAttachmentPreload[key]) || '';
+            var preloadSrc = (key && _conMirrorAttachmentPreload[key])
+              || (item.attachmentId && _conMirrorAttachmentPreload[item.attachmentId])
+              || (item.id && _conMirrorAttachmentPreload[item.id])
+              || (item.name && _conMirrorAttachmentPreload[item.name])
+              || '';
             if (!preloadSrc) return;
             item._cachedDataUrl = preloadSrc;
 
@@ -741,12 +759,14 @@
       const kind = String((att && att.kind) || '').trim();
       const name = String((att && att.name) || '').trim();
       if (kind && name) {
-        if (_conCurrentFolderName) {
-          pushPath(_conCurrentFolderName + '/' + kind + '/' + name);
-          if (kind === 'sounds') pushPath(_conCurrentFolderName + '/audio/' + name);
-          if (kind === 'videos') pushPath(_conCurrentFolderName + '/video/' + name);
+        const activeFolder = _conCurrentFolderName || (typeof window !== 'undefined' ? window._conPageWindowSourceFolder : '') || '';
+        const activeFile = _conCurrentFileName || (typeof window !== 'undefined' ? window._conPageWindowSourceFile : '') || '';
+        if (activeFolder) {
+          pushPath(activeFolder + '/' + kind + '/' + name);
+          if (kind === 'sounds') pushPath(activeFolder + '/audio/' + name);
+          if (kind === 'videos') pushPath(activeFolder + '/video/' + name);
         }
-        const fileBase = _conCurrentFileName ? boardStripJsonExt(_conCurrentFileName) : '';
+        const fileBase = activeFile ? boardStripJsonExt(activeFile) : '';
         if (fileBase) {
           pushPath(fileBase + '/' + kind + '/' + name);
           if (kind === 'sounds') pushPath(fileBase + '/audio/' + name);
@@ -2079,6 +2099,36 @@
         try { await Promise.all(promises); } catch (e) { console.warn('[PDF Export] Error awaiting PDF renders:', e); }
       }
     }
+    window.conAwaitAllPdfRendersOnBoard = global.conAwaitAllPdfRendersOnBoard = conAwaitAllPdfRendersOnBoard;
+
+    async function conAwaitAllMediaRendersOnBoard() {
+      const board = document.getElementById('constellation-board');
+      if (!board) return;
+      const mediaWraps = Array.from(board.querySelectorAll('.con-media-item'));
+      const promises = [];
+      const mItems = (typeof conMediaItems !== 'undefined' && Array.isArray(conMediaItems)) ? conMediaItems : [];
+      mediaWraps.forEach(wrap => {
+        const itemId = wrap.dataset.id;
+        const item = mItems.find(m => String(m.id) === String(itemId));
+        if (item && item._renderPromise) {
+          promises.push(item._renderPromise);
+        }
+        const img = wrap.querySelector('img');
+        if (img) {
+          if (!img.complete && img.src) {
+            promises.push(new Promise(r => {
+              img.onload = r;
+              img.onerror = r;
+              setTimeout(r, 1500);
+            }));
+          }
+        }
+      });
+      if (promises.length > 0) {
+        try { await Promise.all(promises); } catch (e) { console.warn('[Media Await] Error awaiting media renders:', e); }
+      }
+    }
+    window.conAwaitAllMediaRendersOnBoard = global.conAwaitAllMediaRendersOnBoard = conAwaitAllMediaRendersOnBoard;
 
     async function conRenderPdfNative(item, frameEl) {
       if (!item || !frameEl) return;
@@ -2455,7 +2505,7 @@
           content.appendChild(timelineWrap);
         }
 
-        conGetAttachmentDataUrl(item).then(src => {
+        item._renderPromise = conGetAttachmentDataUrl(item).then(src => {
           if (!src) {
             if (isMirrorMode) {
               content.classList.add('con-media-load-failed');
@@ -2501,6 +2551,17 @@
                   } catch (_) {}
                 }
               };
+              if (!mediaEl.complete) {
+                return new Promise(resolve => {
+                  const origOnload = mediaEl.onload;
+                  mediaEl.onload = function (e) {
+                    if (typeof origOnload === 'function') origOnload.call(this, e);
+                    resolve();
+                  };
+                  mediaEl.onerror = resolve;
+                  setTimeout(resolve, 1500);
+                });
+              }
             }
             if (isMirrorMode && typeof mediaEl._applyMirrorMediaSync === 'function') {
               mediaEl._applyMirrorMediaSync();
@@ -23212,6 +23273,7 @@
   window.taGetTitle = global.taGetTitle = taGetTitle;
   window.conSanitizeAttachmentName = global.conSanitizeAttachmentName = conSanitizeAttachmentName;
   window.conAwaitAllPdfRendersOnBoard = global.conAwaitAllPdfRendersOnBoard = conAwaitAllPdfRendersOnBoard;
+  window.conAwaitAllMediaRendersOnBoard = global.conAwaitAllMediaRendersOnBoard = conAwaitAllMediaRendersOnBoard;
   window.conSetAttachmentsFromSession = global.conSetAttachmentsFromSession = conSetAttachmentsFromSession;
   window.conRestoreMediaItems = global.conRestoreMediaItems = conRestoreMediaItems;
   window.conRenderPdfForItem = global.conRenderPdfForItem = conRenderPdfForItem;

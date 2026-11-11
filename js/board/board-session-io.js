@@ -2528,6 +2528,9 @@
         query.openRelPath = historyEntryRelativePath(entry);
         query.openSection = entry.section || historySectionFromTarget(entry.target);
       }
+      if (request.openPlannerRelink) {
+        query.openPlannerRelink = '1';
+      }
 
       try {
         if (typeof closeSessionLoadPopup === 'function') closeSessionLoadPopup();
@@ -2553,7 +2556,7 @@
       const search = params instanceof URLSearchParams ? params : new URLSearchParams(location.search);
       [
         'openSession', 'openTarget', 'openFilename', 'openRelPath', 'openSection',
-        'openLocalSession', 'openLocalMode', 'openLocalEntryId'
+        'openLocalSession', 'openLocalMode', 'openLocalEntryId', 'openPlannerRelink'
       ].forEach(key => search.delete(key));
       const nextQuery = search.toString();
       const nextUrl = location.pathname + (nextQuery ? ('?' + nextQuery) : '') + (location.hash || '');
@@ -2575,6 +2578,17 @@
         } catch (e) {
           console.warn('Could not read page window payload from localStorage', e);
         }
+        if (!payload && window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
+          try {
+            const res = await Desktop.readJson('mindmaps', '.cmt_board_pw_' + token + '.json');
+            if (res && res.ok && res.data) {
+              payload = res.data;
+              if (typeof Desktop.deleteFile === 'function') {
+                Desktop.deleteFile('mindmaps', '.cmt_board_pw_' + token + '.json').catch(() => {});
+              }
+            }
+          } catch (_) {}
+        }
       }
 
       window._isPageWindow = true;
@@ -2585,10 +2599,22 @@
         navTo('constellation-section');
       }
 
+      if (payload && (payload.sourceFileName || payload.sourceFolderName)) {
+        window._conPageWindowSourceFile = payload.sourceFileName || '';
+        window._conPageWindowSourceFolder = payload.sourceFolderName || '';
+      }
+
+      if (payload && payload.attachmentDataUrls && typeof window.conSetAttachmentPreloadMap === 'function') {
+        window.conSetAttachmentPreloadMap(payload.attachmentDataUrls);
+      }
+
       if (payload && payload.session) {
         try {
           if (typeof _conRestoreSession === 'function') {
             _conRestoreSession(payload.session);
+          }
+          if (payload.attachmentDataUrls && typeof window.conSetAttachmentPreloadMap === 'function') {
+            window.conSetAttachmentPreloadMap(payload.attachmentDataUrls);
           }
           if (typeof window.conGoToPage === 'function') {
             window.conGoToPage(targetPageIdx);
@@ -2702,6 +2728,7 @@
         const filename = params.get('openFilename') || params.get('open') || params.get('file') || '';
         const relativePath = params.get('openRelPath') || filename;
         const section = params.get('openSection') || historySectionFromTarget(target);
+        const wantsRelink = params.get('openPlannerRelink') === '1';
         boardClearPendingOpenQueryParams(params);
         if (!target || !filename) {
           mdbToast('⚠️ Missing file details for opening this session.');
@@ -2711,6 +2738,18 @@
           sessionStorage.setItem('cmt-board-active-open-request', JSON.stringify({ target, filename, relativePath, section, nodeId: pendingNodeId }));
         } catch (_) { }
         await historyLoadSavedFile({ target, filename, relativePath, section });
+        if (wantsRelink) {
+          setTimeout(() => {
+            _conPendingDuplicateRelinkRename = true;
+            if (typeof bpShowAll === 'function') {
+              bpShowAll();
+              const chooseMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+                ? i18n.t('boardDuplicateChooseTimeslot')
+                : 'Choose a class timeslot to link this duplicate file.';
+              mdbToast('📅 ' + chooseMsg);
+            }
+          }, 400);
+        }
         if (pendingNodeId) {
           setTimeout(() => {
             if (typeof conFocusAndHighlightNode === 'function') {
