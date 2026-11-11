@@ -4351,6 +4351,8 @@
           labelBg: !!e.labelBgActive,
           anchorA: e.anchorA || null,
           anchorB: e.anchorB || null,
+          points: (Array.isArray(e.points) && e.points.length > 0) ? e.points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) : [],
+          avoidObstacles: !!e.avoidObstacles,
           colorMode: (e.colorMode === 'auto' || e.colorMode === 'manual') ? e.colorMode : undefined,
           strokeColor: e.strokeColor || null
         })),
@@ -11643,6 +11645,8 @@
             existing.anchorB = e.anchorB || null;
             existing.colorMode = (e.colorMode === 'auto' || e.colorMode === 'manual') ? e.colorMode : undefined;
             existing.strokeColor = e.strokeColor || null;
+            existing.points = Array.isArray(e.points) ? e.points.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) : [];
+            existing.avoidObstacles = !!e.avoidObstacles;
             if (existing.labelEl) {
               existing.labelEl.textContent = existing.label;
             }
@@ -11652,7 +11656,7 @@
             }
             keepEdges.add(existing);
           } else {
-            const restored = _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, edgeId, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor);
+            const restored = _conRestoreEdge(e.a, e.b, e.type, e.label || '', e.labelSize, e.labelColor, e.labelWeight, e.thickness, e.dashStyle || null, edgeId, e.strokeType, e.routing, e.curvature, e.opacity, e.terminator, e.animated, e.labelBg, e.anchorA, e.anchorB, e.colorMode, e.strokeColor, e.points, e.avoidObstacles);
             const targetEdge = restored || existingEdges[existingEdges.length - 1];
             if (targetEdge) keepEdges.add(targetEdge);
           }
@@ -12385,7 +12389,7 @@
   }
 
     // Helper: restore a single edge (mirrors conAddEdge inside IIFE)
-    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle, existingId, strokeType, routing, curvature, opacity, terminator, animated, labelBg, anchorA, anchorB, colorMode, strokeColor) {
+    function _conRestoreEdge(aId, bId, type, label, labelSize, labelColor, labelWeight, thickness, dashStyle, existingId, strokeType, routing, curvature, opacity, terminator, animated, labelBg, anchorA, anchorB, colorMode, strokeColor, points, avoidObstacles) {
       if (window.conEnsureSvgDefs) window.conEnsureSvgDefs();
       const svgEl = document.getElementById('constellation-svg');
       const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -12486,6 +12490,10 @@
         // legacy saves so conApplyEdgeLabelStyle can infer it once both endpoints exist.
         colorMode: (colorMode === 'auto' || colorMode === 'manual') ? colorMode : undefined,
         strokeColor: strokeColor || null,
+        points: Array.isArray(points) ? points.map(p => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })) : [],
+        avoidObstacles: !!avoidObstacles,
+        pointHandles: [],
+        splitHandles: [],
         line,
         hit,
         labelEl,

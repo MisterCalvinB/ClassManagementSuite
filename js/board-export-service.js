@@ -636,7 +636,7 @@
    * Helper: Generate SVG path 'd', midpoint (mx, my), and label rotation angle for edges
    * Supports 'straight', 'curved', 'orthogonal', 'double', and 'wavy' styles with terminator spacing.
    */
-  function computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator) {
+  function computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator, points, avoidObstacles, idA, idB, data) {
     var dx = x2 - x1;
     var dy = y2 - y1;
     var dist = Math.hypot(dx, dy);
@@ -660,6 +660,229 @@
     var scale = (dist > 2 && neededLen > 0 && dist < neededLen + 4) ? Math.max(0.1, (dist - 4) / neededLen) : 1;
     var startLen = hasStartArrow ? (rawTermLen * scale) : 0;
     var endLen = hasEndArrow ? (rawTermLen * scale) : 0;
+
+    // Multi-point spline helper
+    function computeMultiPointSpline(rawPts) {
+      var N = rawPts.length;
+      if (N < 2) return { d: '', mx: 0, my: 0, angle: 0, cx: 0, cy: 0 };
+      if (N === 2) {
+        var p0 = rawPts[0], p1 = rawPts[1];
+        var pmx = (p0.x + p1.x) / 2, pmy = (p0.y + p1.y) / 2;
+        var pAngle = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
+        return { d: 'M ' + p0.x.toFixed(1) + ' ' + p0.y.toFixed(1) + ' L ' + p1.x.toFixed(1) + ' ' + p1.y.toFixed(1), mx: pmx, my: pmy, angle: pAngle, cx: pmx, cy: pmy };
+      }
+      var segments = [];
+      var totalChordLen = 0;
+      var chordLens = [];
+      for (var i = 0; i < N - 1; i++) {
+        var p1 = rawPts[i];
+        var p2 = rawPts[i + 1];
+        var p0 = (i === 0) ? { x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y } : rawPts[i - 1];
+        var p3 = (i + 2 >= N) ? { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y } : rawPts[i + 2];
+        var cp1x = p1.x + (p2.x - p0.x) / 6;
+        var cp1y = p1.y + (p2.y - p0.y) / 6;
+        var cp2x = p2.x - (p3.x - p1.x) / 6;
+        var cp2y = p2.y - (p3.y - p1.y) / 6;
+        var segDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+        totalChordLen += segDist;
+        chordLens.push(segDist);
+        segments.push({ p1: p1, cp1: { x: cp1x, y: cp1y }, cp2: { x: cp2x, y: cp2y }, p2: p2 });
+      }
+      var sD = 'M ' + rawPts[0].x.toFixed(1) + ' ' + rawPts[0].y.toFixed(1);
+      segments.forEach(function (seg) {
+        sD += ' C ' + seg.cp1.x.toFixed(1) + ' ' + seg.cp1.y.toFixed(1) + ', ' + seg.cp2.x.toFixed(1) + ' ' + seg.cp2.y.toFixed(1) + ', ' + seg.p2.x.toFixed(1) + ' ' + seg.p2.y.toFixed(1);
+      });
+      if (isDouble) {
+        var off = Math.max(2, sw * 0.9);
+        var d1 = '', d2 = '';
+        for (var j = 0; j < segments.length; j++) {
+          var sg = segments[j];
+          var segDx = sg.p2.x - sg.p1.x, segDy = sg.p2.y - sg.p1.y;
+          var segL = Math.hypot(segDx, segDy) || 1;
+          var segNx = -segDy / segL, segNy = segDx / segL;
+          if (j === 0) {
+            d1 = 'M ' + (sg.p1.x + segNx * off).toFixed(1) + ' ' + (sg.p1.y + segNy * off).toFixed(1);
+            d2 = 'M ' + (sg.p1.x - segNx * off).toFixed(1) + ' ' + (sg.p1.y - segNy * off).toFixed(1);
+          }
+          d1 += ' C ' + (sg.cp1.x + segNx * off).toFixed(1) + ' ' + (sg.cp1.y + segNy * off).toFixed(1) + ', ' + (sg.cp2.x + segNx * off).toFixed(1) + ' ' + (sg.cp2.y + segNy * off).toFixed(1) + ', ' + (sg.p2.x + segNx * off).toFixed(1) + ' ' + (sg.p2.y + segNy * off).toFixed(1);
+          d2 += ' C ' + (sg.cp1.x - segNx * off).toFixed(1) + ' ' + (sg.cp1.y - segNy * off).toFixed(1) + ', ' + (sg.cp2.x - segNx * off).toFixed(1) + ' ' + (sg.cp2.y - segNy * off).toFixed(1) + ', ' + (sg.p2.x - segNx * off).toFixed(1) + ' ' + (sg.p2.y - segNy * off).toFixed(1);
+        }
+        sD = d1 + ' ' + d2;
+      }
+      var halfDist = totalChordLen / 2;
+      var smx = rawPts[0].x, smy = rawPts[0].y;
+      var sAngle = 0;
+      var accum = 0;
+      for (var k = 0; k < segments.length; k++) {
+        var cDist = chordLens[k];
+        if (accum + cDist >= halfDist || k === segments.length - 1) {
+          var rem = halfDist - accum;
+          var st = cDist > 0 ? Math.max(0, Math.min(1, rem / cDist)) : 0.5;
+          var sSeg = segments[k];
+          var smt = 1 - st;
+          smx = smt * smt * smt * sSeg.p1.x + 3 * smt * smt * st * sSeg.cp1.x + 3 * smt * st * st * sSeg.cp2.x + st * st * st * sSeg.p2.x;
+          smy = smt * smt * smt * sSeg.p1.y + 3 * smt * smt * st * sSeg.cp1.y + 3 * smt * st * st * sSeg.cp2.y + st * st * st * sSeg.p2.y;
+          var stdx = 3 * smt * smt * (sSeg.cp1.x - sSeg.p1.x) + 6 * smt * st * (sSeg.cp2.x - sSeg.cp1.x) + 3 * st * st * (sSeg.p2.x - sSeg.cp2.x);
+          var stdy = 3 * smt * smt * (sSeg.cp1.y - sSeg.p1.y) + 6 * smt * st * (sSeg.cp2.y - sSeg.cp1.y) + 3 * st * st * (sSeg.p2.y - sSeg.cp2.y);
+          sAngle = Math.atan2(stdy, stdx) * 180 / Math.PI;
+          break;
+        }
+        accum += cDist;
+      }
+      var midIndex = Math.floor(rawPts.length / 2);
+      var scx = rawPts[midIndex] ? rawPts[midIndex].x : smx;
+      var scy = rawPts[midIndex] ? rawPts[midIndex].y : smy;
+      return { d: sD, mx: smx, my: smy, angle: sAngle, cx: scx, cy: scy };
+    }
+
+    // Check effective waypoints (manual waypoints + obstacle avoidance)
+    var effectivePts = Array.isArray(points) ? points.slice() : [];
+    if (avoidObstacles && data) {
+      function computeExportObstacleAvoidance(sx, sy, ex, ey) {
+        var pad = 28, colClear = 14;
+        var obs = [];
+        var seen = new Set();
+        function addObs(id, ox, oy, ow, oh) {
+          if (!id || seen.has(String(id))) return;
+          if (String(id) === String(idA) || String(id) === String(idB)) return;
+          var numX = Number(ox), numY = Number(oy);
+          if (!Number.isFinite(numX) || !Number.isFinite(numY)) return;
+          var w = Math.max(20, Number(ow) || 80);
+          var h = Math.max(16, Number(oh) || 32);
+          if ((sx >= numX && sx <= numX + w && sy >= numY && sy <= numY + h) ||
+              (ex >= numX && ex <= numX + w && ey >= numY && ey <= numY + h)) return;
+          seen.add(String(id));
+          obs.push({
+            colMinX: numX - colClear, colMinY: numY - colClear,
+            colMaxX: numX + w + colClear, colMaxY: numY + h + colClear,
+            wpMinX: numX - pad, wpMinY: numY - pad,
+            wpMaxX: numX + w + pad, wpMaxY: numY + h + pad
+          });
+        }
+        (data.nodes || []).forEach(function (n) {
+          if (n && n.id != idA && n.id != idB) addObs(n.id, n.x, n.y, n.w || n.width || 80, n.h || n.height || 32);
+        });
+        (data.notes || []).forEach(function (n) {
+          if (n && n.id != idA && n.id != idB) addObs(n.id, n.x, n.y, n.w || n.width || 120, n.h || n.height || 80);
+        });
+        (data.media || data.mediaItems || []).forEach(function (m) {
+          if (m && m.id != idA && m.id != idB) addObs(m.id, m.x, m.y, m.w || 120, m.h || 100);
+        });
+        (data.tables || []).forEach(function (t) {
+          if (t && t.id != idA && t.id != idB) addObs(t.id, t.x, t.y, t.w || 200, t.h || 120);
+        });
+        if (obs.length === 0) return null;
+
+        function segIntersects(p1x, p1y, p2x, p2y, b) {
+          var t0 = 0, t1 = 1;
+          var pdx = p2x - p1x, pdy = p2y - p1y;
+          var p = [-pdx, pdx, -pdy, pdy];
+          var q = [p1x - b.colMinX, b.colMaxX - p1x, p1y - b.colMinY, b.colMaxY - p1y];
+          for (var i = 0; i < 4; i++) {
+            if (p[i] === 0) {
+              if (q[i] <= 0) return false;
+            } else {
+              var r = q[i] / p[i];
+              if (p[i] < 0) {
+                if (r > t1) return false;
+                if (r > t0) t0 = r;
+              } else {
+                if (r < t0) return false;
+                if (r < t1) t1 = r;
+              }
+            }
+          }
+          return t0 < t1 - 1e-4;
+        }
+
+        var colliding = obs.filter(function (b) { return segIntersects(sx, sy, ex, ey, b); });
+        if (colliding.length === 0) return null;
+
+        var corners = [];
+        colliding.forEach(function (b) {
+          corners.push({ x: b.wpMinX, y: b.wpMinY });
+          corners.push({ x: b.wpMaxX, y: b.wpMinY });
+          corners.push({ x: b.wpMaxX, y: b.wpMaxY });
+          corners.push({ x: b.wpMinX, y: b.wpMaxY });
+        });
+
+        var gNodes = [{ x: sx, y: sy }].concat(corners).concat([{ x: ex, y: ey }]);
+        var sIdx = 0, tIdx = gNodes.length - 1;
+        var dists = new Array(gNodes.length).fill(Infinity);
+        var prevs = new Array(gNodes.length).fill(-1);
+        var vstd = new Array(gNodes.length).fill(false);
+        dists[sIdx] = 0;
+
+        for (var it = 0; it < gNodes.length; it++) {
+          var u = -1, best = Infinity;
+          for (var gi = 0; gi < gNodes.length; gi++) {
+            if (!vstd[gi] && dists[gi] < best) { best = dists[gi]; u = gi; }
+          }
+          if (u === -1 || u === tIdx) break;
+          vstd[u] = true;
+          for (var vi = 0; vi < gNodes.length; vi++) {
+            if (vstd[vi] || u === vi) continue;
+            var clear = true;
+            for (var ci = 0; ci < colliding.length; ci++) {
+              if (segIntersects(gNodes[u].x, gNodes[u].y, gNodes[vi].x, gNodes[vi].y, colliding[ci])) { clear = false; break; }
+            }
+            if (clear) {
+              var step = Math.hypot(gNodes[vi].x - gNodes[u].x, gNodes[vi].y - gNodes[u].y);
+              if (dists[u] + step < dists[vi]) {
+                dists[vi] = dists[u] + step;
+                prevs[vi] = u;
+              }
+            }
+          }
+        }
+        if (prevs[tIdx] === -1) return null;
+        var res = [];
+        var cur = prevs[tIdx];
+        while (cur !== -1 && cur !== sIdx) {
+          res.unshift({ x: Math.round(gNodes[cur].x), y: Math.round(gNodes[cur].y) });
+          cur = prevs[cur];
+        }
+        return res.length > 0 ? res : null;
+      }
+
+      if (effectivePts.length === 0) {
+        var av = computeExportObstacleAvoidance(x1, y1, x2, y2);
+        if (av && av.length > 0) effectivePts = av;
+      }
+    }
+    if (effectivePts.length > 0) {
+      var fPt = effectivePts[0];
+      var lPt = effectivePts[effectivePts.length - 1];
+      var fDx = fPt.x - x1, fDy = fPt.y - y1;
+      var fDist = Math.hypot(fDx, fDy) || 1;
+      var psx = x1 + (fDx / fDist) * startLen;
+      var psy = y1 + (fDy / fDist) * startLen;
+      var lDx = x2 - lPt.x, lDy = y2 - lPt.y;
+      var lDist = Math.hypot(lDx, lDy) || 1;
+      var pex = x2 - (lDx / lDist) * endLen;
+      var pey = y2 - (lDy / lDist) * endLen;
+
+      var allPts = [{ x: psx, y: psy }].concat(effectivePts).concat([{ x: pex, y: pey }]);
+      if (routing === 'orthogonal') {
+        var orthD = 'M ' + allPts[0].x.toFixed(1) + ' ' + allPts[0].y.toFixed(1);
+        for (var oi = 0; oi < allPts.length - 1; oi++) {
+          var oA = allPts[oi], oB = allPts[oi + 1];
+          var omX = (oA.x + oB.x) / 2;
+          orthD += ' L ' + omX.toFixed(1) + ' ' + oA.y.toFixed(1) + ' L ' + omX.toFixed(1) + ' ' + oB.y.toFixed(1) + ' L ' + oB.x.toFixed(1) + ' ' + oB.y.toFixed(1);
+        }
+        var oMid = Math.floor(allPts.length / 2);
+        return { d: orthD, mx: allPts[oMid].x, my: allPts[oMid].y, angle: 0, cx: allPts[oMid].x, cy: allPts[oMid].y };
+      }
+      if (routing === 'straight' && !avoidObstacles) {
+        var strD = 'M ' + allPts[0].x.toFixed(1) + ' ' + allPts[0].y.toFixed(1);
+        for (var si = 1; si < allPts.length; si++) {
+          strD += ' L ' + allPts[si].x.toFixed(1) + ' ' + allPts[si].y.toFixed(1);
+        }
+        var sMid = Math.floor(allPts.length / 2);
+        return { d: strD, mx: allPts[sMid].x, my: allPts[sMid].y, angle: 0, cx: allPts[sMid].x, cy: allPts[sMid].y };
+      }
+      return computeMultiPointSpline(allPts);
+    }
 
     var d = '';
     var mx = (x1 + x2) / 2;
@@ -1114,7 +1337,7 @@
       var t = e.type || 'none';
       var term = e.terminator || 'arrow';
 
-      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term);
+      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term, e.points, e.avoidObstacles, e.a, e.b, data);
 
       // Stroke Color & Gradients
       var edgeColor = e.strokeColor || e.color || '#333333';
@@ -2287,7 +2510,7 @@
       var t = e.type || 'none';
       var term = e.terminator || 'arrow';
 
-      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term);
+      var geo = computeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, edgeThick, t, term, e.points, e.avoidObstacles, e.a, e.b, data);
 
       ctx.save();
       var edgeColor = e.strokeColor || e.color || '#333333';

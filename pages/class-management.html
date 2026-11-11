@@ -9644,7 +9644,7 @@
                     }
 
                     btn.onclick = () => {
-                        selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), halfGroup: slot.halfGroup || '' };
+                        selectedPlannerSlot = { day: slot.day, time: (slot.time || '').slice(0, 5), timeEnd: (slot.timeEnd || '').slice(0, 5), halfGroup: slot.halfGroup || '' };
                         selectGroup(groupName, slot.halfGroup || null, btn);
                     };
                     container.appendChild(btn);
@@ -20106,6 +20106,7 @@ syncState();
                 sessionHistory: activeGroupHistory,
                 teamCustomNames: getSessionTeamCustomNames(),
                 plannerEntryId: currentPlannerEntryId || '',
+                plannerSlot: selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : null,
                 lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : ''
             };
         }
@@ -20541,6 +20542,7 @@ syncState();
                 sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
                 teamCustomNames: getSessionTeamCustomNames(),
                 plannerEntryId: currentPlannerEntryId || (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                plannerSlot: selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : (existingIdx !== -1 ? sessions[existingIdx].plannerSlot || null : null),
                 lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
             };
 
@@ -20625,6 +20627,7 @@ syncState();
                     sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
                     teamCustomNames: getSessionTeamCustomNames(),
                     plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                    plannerSlot: gName === selectedGroupName ? (selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : null) : (existingIdx !== -1 ? sessions[existingIdx].plannerSlot || null : null),
                     lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
                 };
 
@@ -20708,6 +20711,7 @@ syncState();
                     sessionHistory: groupHistory,
                     ...(sessionTeamNames ? { teamCustomNames: sessionTeamNames } : {}),
                     plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
+                    plannerSlot: gName === selectedGroupName ? (selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : null) : (existingIdx !== -1 ? sessions[existingIdx].plannerSlot || null : null),
                     lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
                 };
 

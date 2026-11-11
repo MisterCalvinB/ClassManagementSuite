@@ -52,6 +52,7 @@
             window.__ptUserBootstrapPromise = (async function () {
                 try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
                 try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
+                try { await loadUserScript('planner-config.js'); } catch (e) { /* planner-config may not exist yet */ }
                 try { await loadUserScript('participation-tracker-config.js'); } catch (e) { /* config may not exist yet */ }
                 try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
             })();
@@ -291,13 +292,24 @@
             <!-- Toolbar & Filter Controls -->
             <div class="pt-timeline-toolbar">
                 <div class="pt-timeline-controls-left">
+                    <div class="pt-timeline-control-group" id="ptPlannerSlotGroup">
+                        <label for="ptPlannerSlotSelect" data-i18n="ptTimelinePlannerSlot">
+                            <img src="../assets/icons/planner.svg" class="btn-icon" style="width:12px;height:12px;vertical-align:-1px;" alt="" />
+                            <span data-i18n="ptTimelinePlannerSlot">Planner Slot</span>
+                        </label>
+                        <select id="ptPlannerSlotSelect" class="pt-timeline-select" onchange="onTimelinePlannerSlotChange(this.value, false)">
+                            <option value="none" data-i18n="ptTimelineNoSlot">No Planner Slot</option>
+                        </select>
+                    </div>
+
                     <div class="pt-timeline-control-group">
                         <label for="ptSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
                         <select id="ptSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value)">
+                            <option value="slot" id="ptSlotOptionDuration" data-i18n="ptTimelineSlotOption" selected>Planner Slot</option>
                             <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
                             <option value="45">45 min</option>
                             <option value="50">50 min</option>
-                            <option value="55" selected>55 min</option>
+                            <option value="55">55 min</option>
                             <option value="60">60 min</option>
                             <option value="90">90 min</option>
                             <option value="custom">Custom...</option>
@@ -1085,13 +1097,24 @@
             <!-- Modal Toolbar Controls -->
             <div class="pt-timeline-toolbar" style="margin-bottom: 8px;">
                 <div class="pt-timeline-controls-left">
+                    <div class="pt-timeline-control-group" id="modalPlannerSlotGroup">
+                        <label for="modalPlannerSlotSelect" data-i18n="ptTimelinePlannerSlot">
+                            <img src="../assets/icons/planner.svg" class="btn-icon" style="width:12px;height:12px;vertical-align:-1px;" alt="" />
+                            <span data-i18n="ptTimelinePlannerSlot">Planner Slot</span>
+                        </label>
+                        <select id="modalPlannerSlotSelect" class="pt-timeline-select" onchange="onTimelinePlannerSlotChange(this.value, true)">
+                            <option value="none" data-i18n="ptTimelineNoSlot">No Planner Slot</option>
+                        </select>
+                    </div>
+
                     <div class="pt-timeline-control-group">
                         <label for="modalSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
                         <select id="modalSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value, true)">
+                            <option value="slot" id="modalSlotOptionDuration" data-i18n="ptTimelineSlotOption" selected>Planner Slot</option>
                             <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
                             <option value="45">45 min</option>
                             <option value="50">50 min</option>
-                            <option value="55" selected>55 min</option>
+                            <option value="55">55 min</option>
                             <option value="60">60 min</option>
                             <option value="90">90 min</option>
                             <option value="custom">Custom...</option>
@@ -4492,11 +4515,12 @@
         let _timelineState = {
             session: null,
             sessionId: null,
-            slotDuration: '55',
+            slotDuration: 'slot',
             timeDisplay: 'elapsed',
             activeFilters: new Set(['points', 'picks', 'timers', 'teams', 'badges', 'attendance']),
             selectedStudentId: '',
             selectedStudentName: '',
+            connectedSlot: null,
             events: [],
             rawEvents: [],
             timeBounds: { startMs: 0, endMs: 0, durationMs: 0 },
@@ -4972,14 +4996,277 @@
             }).sort((a, b) => a.timestampMs - b.timestampMs || a.rawIndex - b.rawIndex);
         }
 
+        async function reloadPlannerConfig() {
+            if (window.Desktop && typeof Desktop.readText === 'function') {
+                try {
+                    const pr = await Desktop.readText('user', 'planner-config.js');
+                    if (pr?.ok && pr.content) {
+                        const fn = new Function('window', pr.content + '; return window.PLANNER_CONFIG || null;');
+                        const pcfg = fn({});
+                        if (pcfg) window.PLANNER_CONFIG = pcfg;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            if (_timelineState.session) {
+                renderSessionTimeline(_timelineState.session, { openModal: _timelineState.isModalOpen });
+            }
+            const dateRange = getDateRange();
+            const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+            updateHistoryTable(sessions);
+        }
+
+        function getPlannerClassSchedule(groupId) {
+            const pcfg = (typeof PLANNER_CONFIG !== 'undefined' && PLANNER_CONFIG) ? PLANNER_CONFIG : {};
+            const classes = pcfg.classes || {};
+            if (!groupId) return [];
+            if (classes[groupId] && Array.isArray(classes[groupId].schedule)) {
+                return classes[groupId].schedule;
+            }
+            const dName = groupDisplayName(groupId);
+            if (dName && classes[dName] && Array.isArray(classes[dName].schedule)) {
+                return classes[dName].schedule;
+            }
+            const cleanGid = String(groupId).trim().toLowerCase();
+            const cleanDname = dName ? String(dName).trim().toLowerCase() : '';
+            for (const [k, v] of Object.entries(classes)) {
+                const cleanK = String(k).trim().toLowerCase();
+                if (cleanK === cleanGid || (cleanDname && cleanK === cleanDname)) {
+                    if (v && Array.isArray(v.schedule)) return v.schedule;
+                }
+            }
+            return [];
+        }
+
+        function getPlannerEntriesForClassAndDate(groupId, dateStr) {
+            if (!groupId || !dateStr) return [];
+            const results = [];
+            const dName = groupDisplayName(groupId);
+            const cleanGid = String(groupId).trim().toLowerCase();
+            const cleanDname = dName ? String(dName).trim().toLowerCase() : '';
+
+            if (window.PLANNER_ENTRIES_BY_CLASS) {
+                const list = window.PLANNER_ENTRIES_BY_CLASS[groupId] || (dName && window.PLANNER_ENTRIES_BY_CLASS[dName]) || [];
+                list.forEach(e => {
+                    if (e && e.date === dateStr) results.push(e);
+                });
+            }
+
+            if (typeof PLANNER_CONFIG !== 'undefined' && PLANNER_CONFIG && Array.isArray(PLANNER_CONFIG.entries)) {
+                PLANNER_CONFIG.entries.forEach(e => {
+                    if (!e || e.date !== dateStr) return;
+                    const cIds = Array.isArray(e.classIds) ? e.classIds : (e.classId ? [e.classId] : []);
+                    const matched = cIds.some(cid => {
+                        const cleanC = String(cid).trim().toLowerCase();
+                        return cleanC === cleanGid || (cleanDname && cleanC === cleanDname);
+                    });
+                    if (matched && !results.some(r => r.id === e.id)) {
+                        results.push(e);
+                    }
+                });
+            }
+            return results;
+        }
+
+        function _calcTimeEnd(timeStr, durationMins = 55) {
+            if (!timeStr) return '';
+            const parts = String(timeStr).trim().split(':');
+            if (parts.length < 2) return '';
+            const h = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10);
+            if (Number.isNaN(h) || Number.isNaN(m)) return '';
+            const total = (h * 60 + m + durationMins) % (24 * 60);
+            const eh = String(Math.floor(total / 60)).padStart(2, '0');
+            const em = String(total % 60).padStart(2, '0');
+            return `${eh}:${em}`;
+        }
+
+        function _findClosestTimeItem(items, targetTimeStr) {
+            if (!items || !items.length || !targetTimeStr) return (items && items[0]) || null;
+            const tParts = targetTimeStr.split(':');
+            const targetMins = parseInt(tParts[0], 10) * 60 + parseInt(tParts[1], 10);
+            let closest = null;
+            let minDiff = Infinity;
+            items.forEach(item => {
+                if (!item || !item.time) return;
+                const iParts = item.time.split(':');
+                const itemMins = parseInt(iParts[0], 10) * 60 + parseInt(iParts[1], 10);
+                const diff = Math.abs(targetMins - itemMins);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = item;
+                }
+            });
+            return closest;
+        }
+
+        function resolveSessionPlannerSlot(session, groupId) {
+            if (!session) return null;
+            const targetGroupId = groupId || currentGroupId || (session.groups && Object.keys(session.groups)[0]) || session.activeGroup || '';
+
+            // 1. Explicit plannerSlot on session
+            if (session.plannerSlot && session.plannerSlot.time) {
+                const ps = session.plannerSlot;
+                const timeEnd = ps.timeEnd || _calcTimeEnd(ps.time, 55);
+                return {
+                    day: ps.day,
+                    time: ps.time.slice(0, 5),
+                    timeEnd: timeEnd.slice(0, 5),
+                    halfGroup: ps.halfGroup || '',
+                    label: ps.label || `${ps.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}`,
+                    isExplicit: true,
+                    entryId: session.plannerEntryId || ps.entryId || ''
+                };
+            }
+
+            // 2. Linked plannerEntryId
+            if (session.plannerEntryId) {
+                const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+                const entries = getPlannerEntriesForClassAndDate(targetGroupId, sessionDate);
+                const matchedEntry = entries.find(e => e.id === session.plannerEntryId) ||
+                    (typeof PLANNER_CONFIG !== 'undefined' && Array.isArray(PLANNER_CONFIG.entries) && PLANNER_CONFIG.entries.find(e => e.id === session.plannerEntryId));
+                if (matchedEntry && matchedEntry.time) {
+                    const timeEnd = matchedEntry.timeEnd || _calcTimeEnd(matchedEntry.time, 55);
+                    return {
+                        time: matchedEntry.time.slice(0, 5),
+                        timeEnd: timeEnd.slice(0, 5),
+                        label: `${matchedEntry.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${matchedEntry.topic ? ' (' + matchedEntry.topic + ')' : ''}`,
+                        entryId: matchedEntry.id,
+                        topic: matchedEntry.topic || '',
+                        isEntry: true,
+                        isExplicit: true
+                    };
+                }
+            }
+
+            // 3. Auto-detection from class weekly schedule & planner entries on that day
+            const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+            if (!sessionDate) return null;
+            const dt = new Date(sessionDate + 'T12:00:00');
+            if (Number.isNaN(dt.getTime())) return null;
+            const dow = dt.getDay(); // 0 = Sun, 1 = Mon ...
+
+            const schedule = getPlannerClassSchedule(targetGroupId);
+            const daySlots = schedule.filter(s => s && parseInt(s.day, 10) === dow);
+            const entries = getPlannerEntriesForClassAndDate(targetGroupId, sessionDate);
+
+            // Extract session's approximate start time from events or session.time
+            let sessionTimeStr = '';
+            if (Array.isArray(session.sessionHistory) && session.sessionHistory.length > 0) {
+                const firstTs = session.sessionHistory[0].timestamp || session.sessionHistory[0].time;
+                if (firstTs && firstTs.includes('T')) {
+                    const d = new Date(firstTs);
+                    if (!Number.isNaN(d.getTime())) sessionTimeStr = d.toTimeString().slice(0, 5);
+                } else if (firstTs && firstTs.includes(':')) {
+                    sessionTimeStr = firstTs.slice(0, 5);
+                }
+            }
+            if (!sessionTimeStr && session.time && session.time.includes(':')) {
+                sessionTimeStr = session.time.slice(0, 5);
+            }
+
+            // A. If entries exist for this date and time matches, or 1 entry exists
+            if (entries.length > 0) {
+                let bestEntry = null;
+                if (entries.length === 1 && entries[0].time) {
+                    bestEntry = entries[0];
+                } else if (sessionTimeStr) {
+                    bestEntry = _findClosestTimeItem(entries, sessionTimeStr);
+                }
+                if (bestEntry && bestEntry.time) {
+                    const timeEnd = bestEntry.timeEnd || _calcTimeEnd(bestEntry.time, 55);
+                    return {
+                        time: bestEntry.time.slice(0, 5),
+                        timeEnd: timeEnd.slice(0, 5),
+                        label: `${bestEntry.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${bestEntry.topic ? ' (' + bestEntry.topic + ')' : ''}`,
+                        entryId: bestEntry.id,
+                        topic: bestEntry.topic || '',
+                        isEntry: true,
+                        isAutoMatched: true
+                    };
+                }
+            }
+
+            // B. Match from daySlots
+            if (daySlots.length === 1 && daySlots[0].time) {
+                const s = daySlots[0];
+                const timeEnd = s.timeEnd || _calcTimeEnd(s.time, 55);
+                return {
+                    day: s.day,
+                    time: s.time.slice(0, 5),
+                    timeEnd: timeEnd.slice(0, 5),
+                    halfGroup: s.halfGroup || '',
+                    label: `${s.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${s.halfGroup ? ' ½' + s.halfGroup : ''}`,
+                    isAutoMatched: true
+                };
+            }
+
+            if (daySlots.length > 1 && sessionTimeStr) {
+                const closestSlot = _findClosestTimeItem(daySlots, sessionTimeStr);
+                if (closestSlot && closestSlot.time) {
+                    const timeEnd = closestSlot.timeEnd || _calcTimeEnd(closestSlot.time, 55);
+                    return {
+                        day: closestSlot.day,
+                        time: closestSlot.time.slice(0, 5),
+                        timeEnd: timeEnd.slice(0, 5),
+                        halfGroup: closestSlot.halfGroup || '',
+                        label: `${closestSlot.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${closestSlot.halfGroup ? ' ½' + closestSlot.halfGroup : ''}`,
+                        isAutoMatched: true
+                    };
+                }
+            } else if (daySlots.length > 1) {
+                const s = daySlots[0];
+                const timeEnd = s.timeEnd || _calcTimeEnd(s.time, 55);
+                return {
+                    day: s.day,
+                    time: s.time.slice(0, 5),
+                    timeEnd: timeEnd.slice(0, 5),
+                    halfGroup: s.halfGroup || '',
+                    label: `${s.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${s.halfGroup ? ' ½' + s.halfGroup : ''}`,
+                    isAutoMatched: true
+                };
+            }
+
+            return null;
+        }
+
         function getSessionTimeBounds(session, slotDuration, events) {
             const defaultDurationMinutes = 55;
-            let startMs = NaN;
+            const targetGroupId = currentGroupId || (session && session.activeGroup) || '';
+            const slot = _timelineState.connectedSlot || resolveSessionPlannerSlot(session, targetGroupId);
+
             const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
                 ? String(session.id).slice(0, 10)
-                : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
+                : (session && session.date && String(session.date).match(/^\d{4}-\d{2}-\d{2}/) ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
 
-            if (session) {
+            // If slotDuration is 'slot' (the default when a planner slot is connected), limit x-axis strictly by planner slot
+            const useSlot = (slotDuration === 'slot' || (!slotDuration && slot)) && slot && slot.time;
+            if (useSlot) {
+                const parts = slot.time.split(':');
+                const startDt = new Date(`${baseDate}T${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`);
+                let startMs = startDt.getTime();
+
+                let endMs = NaN;
+                if (slot.timeEnd) {
+                    const endParts = slot.timeEnd.split(':');
+                    const endDt = new Date(`${baseDate}T${endParts[0].padStart(2, '0')}:${endParts[1].padStart(2, '0')}:00`);
+                    endMs = endDt.getTime();
+                }
+                if (Number.isNaN(endMs) || endMs <= startMs) {
+                    endMs = startMs + (defaultDurationMinutes * 60 * 1000);
+                }
+                const durationMs = endMs - startMs;
+                return { startMs, endMs, durationMs, isPlannerSlot: true, slot };
+            }
+
+            // Fallback / Auto / Numeric durations
+            let startMs = NaN;
+            if (slot && slot.time) {
+                const parts = slot.time.split(':');
+                const startDt = new Date(`${baseDate}T${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}:00`);
+                if (!Number.isNaN(startDt.getTime())) startMs = startDt.getTime();
+            }
+
+            if (Number.isNaN(startMs) && session) {
                 if (session.time) {
                     const parts = String(session.time).trim().split(':');
                     if (parts.length >= 2) {
@@ -4999,27 +5286,23 @@
                 const firstEventMs = events[0].timestampMs;
                 const lastEventMs = events[events.length - 1].timestampMs;
 
-                // Ensure at least 1 minute padding before first event
                 if (Number.isNaN(startMs) || Math.abs(startMs - firstEventMs) > 12 * 3600 * 1000) {
                     startMs = firstEventMs - 60000;
                 } else if (firstEventMs < startMs) {
                     startMs = firstEventMs - 60000;
-                } else if (firstEventMs - startMs < 60000) {
+                } else if (firstEventMs - startMs < 60000 && !slot) {
                     startMs = firstEventMs - 60000;
                 }
 
-                if (slotDuration && slotDuration !== 'auto') {
+                if (slotDuration && slotDuration !== 'auto' && slotDuration !== 'slot') {
                     const mins = Math.max(5, parseInt(slotDuration, 10) || defaultDurationMinutes);
                     const requestedDurationMs = mins * 60 * 1000;
-                    // Ensure timeline comfortably accommodates all events without squeezing at the right margin
-                    const neededMs = (lastEventMs - startMs) + 2 * 60 * 1000;
-                    const durationMs = Math.max(requestedDurationMs, neededMs);
-                    return { startMs, endMs: startMs + durationMs, durationMs };
+                    return { startMs, endMs: startMs + requestedDurationMs, durationMs: requestedDurationMs, slot };
                 }
 
                 // Auto fit: span of events + 3 min padding
                 const span = Math.max(10 * 60 * 1000, (lastEventMs - startMs) + 3 * 60 * 1000);
-                return { startMs, endMs: startMs + span, durationMs: span };
+                return { startMs, endMs: startMs + span, durationMs: span, slot };
             }
 
             if (Number.isNaN(startMs)) {
@@ -5027,7 +5310,7 @@
             }
 
             const durationMs = defaultDurationMinutes * 60 * 1000;
-            return { startMs, endMs: startMs + durationMs, durationMs };
+            return { startMs, endMs: startMs + durationMs, durationMs, slot };
         }
 
         function computeTimelineIntervals(events, bounds) {
@@ -5534,9 +5817,11 @@
             ctx.font = '700 9.5px Lexend, sans-serif';
             ctx.textAlign = 'center';
 
+            let lastDrawnTickMs = bounds.startMs;
             for (let ti = 0; ti <= totalTicks; ti++) {
                 const tickMs = bounds.startMs + (ti * tickMins * 60 * 1000);
                 if (tickMs > bounds.endMs) break;
+                lastDrawnTickMs = tickMs;
                 const tx = getX(tickMs);
 
                 // Tick mark
@@ -5558,6 +5843,27 @@
                 // Time label
                 const label = formatTimelineTimeLabel(tickMs, bounds.startMs, _timelineState.timeDisplay);
                 ctx.fillText(label, tx, stemBaselineY + 33);
+            }
+
+            // Always render final boundary tick if gap is significant
+            if (bounds.endMs - lastDrawnTickMs >= 2 * 60 * 1000) {
+                const endTx = getX(bounds.endMs);
+                ctx.strokeStyle = '#333333';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(endTx, stemBaselineY + 18);
+                ctx.lineTo(endTx, stemBaselineY + 23);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#eaeae4';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(endTx, track1Top);
+                ctx.lineTo(endTx, stemBaselineY + 18);
+                ctx.stroke();
+
+                const label = formatTimelineTimeLabel(bounds.endMs, bounds.startMs, _timelineState.timeDisplay);
+                ctx.fillText(label, endTx, stemBaselineY + 33);
             }
             ctx.restore();
 
@@ -5830,7 +6136,25 @@
                 : (session.activeGroup || (session.groups && Object.keys(session.groups)[0]) || currentGroupId || '');
             const groupName = session.activeGroupTitle || groupDisplayName(rawGroupId) || rawGroupId;
             const sessionDate = session.id ? session.id.slice(0, 10) : (session.date || '');
-            const subtitleText = `${groupName ? groupName + ' — ' : ''}${sessionDate}${session.time ? ' ' + session.time : ''}`;
+
+            // Resolve planner slot connection
+            const connectedSlot = resolveSessionPlannerSlot(session, rawGroupId);
+            _timelineState.connectedSlot = connectedSlot;
+
+            // Default to 'slot' if a slot is available
+            if (connectedSlot && (!_timelineState.slotDuration || _timelineState.slotDuration === '55')) {
+                _timelineState.slotDuration = 'slot';
+            } else if (!connectedSlot && _timelineState.slotDuration === 'slot') {
+                _timelineState.slotDuration = 'auto';
+            }
+
+            // Populate planner slot select controls
+            populateTimelineSlotSelect('ptPlannerSlotSelect', session, rawGroupId);
+            populateTimelineSlotSelect('modalPlannerSlotSelect', session, rawGroupId);
+            syncSlotDurationInputs(_timelineState.slotDuration);
+
+            const slotLabel = connectedSlot ? ` • ${connectedSlot.time}${connectedSlot.timeEnd ? ' – ' + connectedSlot.timeEnd : ''}` : '';
+            const subtitleText = `${groupName ? groupName + ' — ' : ''}${sessionDate}${slotLabel || (session.time ? ' ' + session.time : '')}`;
 
             const subEl = document.getElementById('sessionTimelineSubtitle');
             if (subEl) subEl.textContent = subtitleText;
@@ -5841,6 +6165,18 @@
             _timelineState.rawEvents = Array.isArray(session.sessionHistory) ? session.sessionHistory : [];
             _timelineState.events = normalizeTimelineEvents(_timelineState.rawEvents, session);
             _timelineState.timeBounds = getSessionTimeBounds(session, _timelineState.slotDuration, _timelineState.events);
+
+            let outOfBoundsCount = 0;
+            if (_timelineState.timeBounds.isPlannerSlot && _timelineState.events.length > 0) {
+                _timelineState.events.forEach(ev => {
+                    if (ev.timestampMs < _timelineState.timeBounds.startMs || ev.timestampMs > _timelineState.timeBounds.endMs) {
+                        outOfBoundsCount++;
+                    }
+                });
+            }
+            const outOfBoundsHint = outOfBoundsCount > 0 ? ` <span class="pt-timeline-out-of-bounds-hint" title="${(t('ptTimelineOutOfBoundsHint') || '{0} event(s) outside slot').replace('{0}', outOfBoundsCount)}">${outOfBoundsCount} ${t('ptTimelineOutOfBoundsShort') || 'outside slot'}</span>` : '';
+            if (subEl) subEl.innerHTML = `${escapeHtml(subtitleText)}${outOfBoundsHint}`;
+            if (modalSubEl) modalSubEl.innerHTML = `${escapeHtml(subtitleText)}${outOfBoundsHint}`;
 
             const intervals = computeTimelineIntervals(_timelineState.events, _timelineState.timeBounds);
             _timelineState.timerIntervals = intervals.timerIntervals;
@@ -5899,6 +6235,7 @@
             _timelineState.isModalOpen = true;
 
             // Sync controls into modal toolbar
+            populateTimelineSlotSelect('modalPlannerSlotSelect', _timelineState.session, currentGroupId);
             syncSlotDurationInputs(_timelineState.slotDuration);
             const timeSel = document.getElementById('modalTimeDisplaySelect');
             if (timeSel) timeSel.value = _timelineState.timeDisplay;
@@ -5948,6 +6285,13 @@
         }
 
         function onTimelineSlotDurationChange(durationVal, isModal) {
+            if (durationVal === 'slot') {
+                _timelineState.slotDuration = 'slot';
+                syncSlotDurationInputs('slot');
+                refreshTimelineBoundsAndRedraw();
+                return;
+            }
+
             if (durationVal === 'custom') {
                 const promptFn = typeof showPrompt === 'function' ? showPrompt : prompt;
                 const res = promptFn('Enter slot duration in minutes (e.g. 75):', '75');
@@ -5972,8 +6316,258 @@
         function syncSlotDurationInputs(val) {
             const el1 = document.getElementById('ptSlotDurationSelect');
             const el2 = document.getElementById('modalSlotDurationSelect');
+            const slotOpt1 = document.getElementById('ptSlotOptionDuration');
+            const slotOpt2 = document.getElementById('modalSlotOptionDuration');
+            if (_timelineState.connectedSlot && _timelineState.connectedSlot.time) {
+                const s = _timelineState.connectedSlot;
+                const slotLabel = `${t('ptTimelineSlotOption') || 'Planner Slot'} (${s.time}${s.timeEnd ? ' – ' + s.timeEnd : ''})`;
+                if (slotOpt1) { slotOpt1.textContent = slotLabel; slotOpt1.style.display = ''; }
+                if (slotOpt2) { slotOpt2.textContent = slotLabel; slotOpt2.style.display = ''; }
+            } else {
+                if (slotOpt1) slotOpt1.style.display = 'none';
+                if (slotOpt2) slotOpt2.style.display = 'none';
+            }
             if (el1) el1.value = val;
             if (el2) el2.value = val;
+        }
+
+        function populateTimelineSlotSelect(selectId, session, groupId) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+
+            const targetGroupId = groupId || currentGroupId || (session && session.activeGroup) || '';
+            const schedule = getPlannerClassSchedule(targetGroupId);
+            const sessionDate = session && session.id ? session.id.slice(0, 10) : (session && session.date ? session.date.slice(0, 10) : '');
+            let dow = null;
+            if (sessionDate) {
+                const dt = new Date(sessionDate + 'T12:00:00');
+                if (!Number.isNaN(dt.getTime())) dow = dt.getDay();
+            }
+
+            const entries = sessionDate ? getPlannerEntriesForClassAndDate(targetGroupId, sessionDate) : [];
+            const connectedSlot = resolveSessionPlannerSlot(session, targetGroupId);
+
+            select.innerHTML = '';
+
+            const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dowName = dow !== null ? dayNames[dow] : '';
+
+            // Group 1: Matching Day Slots & Entries
+            const daySlots = (dow !== null) ? schedule.filter(s => parseInt(s.day, 10) === dow) : [];
+
+            if (daySlots.length > 0 || entries.length > 0) {
+                const optGroup = document.createElement('optgroup');
+                optGroup.label = dowName ? `${dowName} Schedule` : 'Scheduled Slots';
+
+                entries.forEach(e => {
+                    const opt = document.createElement('option');
+                    opt.value = `entry:${e.id}`;
+                    const timeEnd = e.timeEnd || _calcTimeEnd(e.time, 55);
+                    const topicStr = e.topic ? ` (${e.topic})` : '';
+                    opt.textContent = `📅 ${e.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${topicStr}`;
+                    if (connectedSlot && (connectedSlot.entryId === e.id || (connectedSlot.time === e.time.slice(0, 5) && connectedSlot.isEntry))) {
+                        opt.selected = true;
+                    }
+                    optGroup.appendChild(opt);
+                });
+
+                daySlots.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = `slot:${s.day}:${s.time.slice(0, 5)}:${(s.timeEnd || '').slice(0, 5)}:${s.halfGroup || ''}`;
+                    const timeEnd = s.timeEnd || _calcTimeEnd(s.time, 55);
+                    const halfStr = s.halfGroup ? ` ½${s.halfGroup}` : '';
+                    opt.textContent = `⏱️ ${s.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${halfStr}`;
+                    if (connectedSlot && !connectedSlot.isEntry && connectedSlot.time === s.time.slice(0, 5)) {
+                        opt.selected = true;
+                    }
+                    optGroup.appendChild(opt);
+                });
+
+                select.appendChild(optGroup);
+            }
+
+            // Group 2: All Other Schedule Slots (if any)
+            const otherSlots = (dow !== null) ? schedule.filter(s => parseInt(s.day, 10) !== dow) : schedule;
+            if (otherSlots.length > 0) {
+                const optGroupOther = document.createElement('optgroup');
+                optGroupOther.label = 'Other Weekday Slots';
+                otherSlots.forEach(s => {
+                    const opt = document.createElement('option');
+                    opt.value = `slot:${s.day}:${s.time.slice(0, 5)}:${(s.timeEnd || '').slice(0, 5)}:${s.halfGroup || ''}`;
+                    const timeEnd = s.timeEnd || _calcTimeEnd(s.time, 55);
+                    const dayLabel = dayNames[s.day] ? dayNames[s.day].slice(0, 3) + ' ' : '';
+                    const halfStr = s.halfGroup ? ` ½${s.halfGroup}` : '';
+                    opt.textContent = `${dayLabel}${s.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${halfStr}`;
+                    if (connectedSlot && !connectedSlot.isEntry && parseInt(connectedSlot.day, 10) === parseInt(s.day, 10) && connectedSlot.time === s.time.slice(0, 5)) {
+                        opt.selected = true;
+                    }
+                    optGroupOther.appendChild(opt);
+                });
+                select.appendChild(optGroupOther);
+            }
+
+            // Custom slot option
+            const optCustom = document.createElement('option');
+            optCustom.value = 'custom_slot';
+            optCustom.textContent = t('ptTimelineCustomSlot') || 'Custom Lesson Slot...';
+            select.appendChild(optCustom);
+
+            // None option
+            const optNone = document.createElement('option');
+            optNone.value = 'none';
+            optNone.textContent = t('ptTimelineNoSlot') || 'No Planner Slot (Manual / Event Span)';
+            if (!connectedSlot) {
+                optNone.selected = true;
+            }
+            select.appendChild(optNone);
+        }
+
+        async function onTimelinePlannerSlotChange(val, isModal) {
+            if (!_timelineState.session) return;
+            const session = _timelineState.session;
+            const targetGroupId = currentGroupId || session.activeGroup || (session.groups && Object.keys(session.groups)[0]) || '';
+
+            if (val === 'none') {
+                session.plannerSlot = null;
+                session.plannerEntryId = '';
+                _timelineState.connectedSlot = null;
+                _timelineState.slotDuration = 'auto';
+                syncSlotDurationInputs('auto');
+                syncPlannerSlotInputs('none');
+                await persistEditedGroupSessionsToDisk(targetGroupId);
+                showMessage(t('ptMsgSlotUnlinked') || 'Planner slot unlinked from session.', 'info');
+                refreshTimelineBoundsAndRedraw();
+                updateHistoryTableSlotCells();
+                return;
+            }
+
+            if (val === 'custom_slot') {
+                const promptFn = typeof showPrompt === 'function' ? showPrompt : prompt;
+                const promptMsg = t('ptTimelinePromptSlot') || 'Enter slot start and end times (HH:MM - HH:MM, e.g. 08:30 - 09:25):';
+                const defaultVal = _timelineState.connectedSlot ? `${_timelineState.connectedSlot.time} - ${_timelineState.connectedSlot.timeEnd}` : '08:30 - 09:25';
+                const res = await Promise.resolve(promptFn(promptMsg, defaultVal));
+                if (!res) {
+                    syncPlannerSlotInputs(_timelineState.connectedSlot ? `slot:${_timelineState.connectedSlot.day}:${_timelineState.connectedSlot.time}:${_timelineState.connectedSlot.timeEnd}:` : 'none');
+                    return;
+                }
+                const m = String(res).match(/(\d{1,2}:\d{2})\s*[-–—to]+\s*(\d{1,2}:\d{2})/i);
+                if (m) {
+                    const time = m[1].padStart(5, '0');
+                    const timeEnd = m[2].padStart(5, '0');
+                    session.plannerSlot = {
+                        time,
+                        timeEnd,
+                        label: `${time} – ${timeEnd}`
+                    };
+                    session.plannerEntryId = '';
+                    _timelineState.connectedSlot = session.plannerSlot;
+                    _timelineState.slotDuration = 'slot';
+                    syncSlotDurationInputs('slot');
+                    await persistEditedGroupSessionsToDisk(targetGroupId);
+                    const msg = (t('ptMsgSlotConnected') || 'Session connected to planner slot: {0}').replace('{0}', `${time} – ${timeEnd}`);
+                    showMessage(msg, 'success');
+                    populateTimelineSlotSelect('ptPlannerSlotSelect', session, targetGroupId);
+                    populateTimelineSlotSelect('modalPlannerSlotSelect', session, targetGroupId);
+                    refreshTimelineBoundsAndRedraw();
+                    updateHistoryTableSlotCells();
+                    return;
+                } else {
+                    showMessage('Invalid time format. Please use HH:MM - HH:MM (e.g. 08:30 - 09:25)', 'error');
+                    return;
+                }
+            }
+
+            if (val.startsWith('entry:')) {
+                const entryId = val.slice(6);
+                const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+                const entries = getPlannerEntriesForClassAndDate(targetGroupId, sessionDate);
+                const matchedEntry = entries.find(e => e.id === entryId) ||
+                    (typeof PLANNER_CONFIG !== 'undefined' && Array.isArray(PLANNER_CONFIG.entries) && PLANNER_CONFIG.entries.find(e => e.id === entryId));
+                if (matchedEntry) {
+                    const timeEnd = matchedEntry.timeEnd || _calcTimeEnd(matchedEntry.time, 55);
+                    session.plannerEntryId = matchedEntry.id;
+                    session.plannerSlot = {
+                        time: matchedEntry.time.slice(0, 5),
+                        timeEnd: timeEnd.slice(0, 5),
+                        label: `${matchedEntry.time.slice(0, 5)} – ${timeEnd.slice(0, 5)}${matchedEntry.topic ? ' (' + matchedEntry.topic + ')' : ''}`,
+                        entryId: matchedEntry.id,
+                        topic: matchedEntry.topic || ''
+                    };
+                    _timelineState.connectedSlot = session.plannerSlot;
+                    _timelineState.slotDuration = 'slot';
+                    syncSlotDurationInputs('slot');
+                    syncPlannerSlotInputs(val);
+                    await persistEditedGroupSessionsToDisk(targetGroupId);
+                    const msg = (t('ptMsgSlotConnected') || 'Session connected to planner slot: {0}').replace('{0}', session.plannerSlot.label);
+                    showMessage(msg, 'success');
+                    refreshTimelineBoundsAndRedraw();
+                    updateHistoryTableSlotCells();
+                    return;
+                }
+            }
+
+            if (val.startsWith('slot:')) {
+                const parts = val.split(':');
+                const day = parseInt(parts[1], 10);
+                const time = parts[2];
+                const timeEnd = parts[3] || _calcTimeEnd(time, 55);
+                const halfGroup = parts[4] || '';
+                session.plannerSlot = {
+                    day,
+                    time,
+                    timeEnd,
+                    halfGroup,
+                    label: `${time} – ${timeEnd}${halfGroup ? ' ½' + halfGroup : ''}`
+                };
+                session.plannerEntryId = '';
+                _timelineState.connectedSlot = session.plannerSlot;
+                _timelineState.slotDuration = 'slot';
+                syncSlotDurationInputs('slot');
+                syncPlannerSlotInputs(val);
+                await persistEditedGroupSessionsToDisk(targetGroupId);
+                const msg = (t('ptMsgSlotConnected') || 'Session connected to planner slot: {0}').replace('{0}', session.plannerSlot.label);
+                showMessage(msg, 'success');
+                refreshTimelineBoundsAndRedraw();
+                updateHistoryTableSlotCells();
+            }
+        }
+
+        function syncPlannerSlotInputs(val) {
+            const el1 = document.getElementById('ptPlannerSlotSelect');
+            const el2 = document.getElementById('modalPlannerSlotSelect');
+            if (el1) el1.value = val;
+            if (el2) el2.value = val;
+        }
+
+        function updateHistoryTableSlotCells() {
+            const rows = document.querySelectorAll('#historyTableBody tr.expandable-row');
+            rows.forEach(row => {
+                const timeCell = row.querySelector('td[data-col="time"]');
+                if (!timeCell) return;
+                const btn = row.querySelector('.btn-timeline-row');
+                const sessionId = btn ? btn.getAttribute('data-session-id') : null;
+                if (!sessionId) return;
+                const session = DB_EXPORT.find(s => s && (s.id === sessionId || s.date === sessionId));
+                if (!session) return;
+                const slot = resolveSessionPlannerSlot(session, currentGroupId);
+                if (slot && slot.time) {
+                    const isExplicit = !!session.plannerSlot || !!session.plannerEntryId;
+                    const pillClass = isExplicit ? 'pt-slot-explicit' : 'pt-slot-auto';
+                    const pillTitle = isExplicit
+                        ? (t('ptSlotExplicitTitle') || 'Explicitly linked planner slot')
+                        : (t('ptSlotAutoTitle') || 'Auto-matched planner slot');
+                    const rawTime = session.time || '';
+                    timeCell.innerHTML = `
+                        <div class="pt-slot-cell" onclick="event.stopPropagation(); openSessionTimeline('${escapeHtml(session.id)}', { openModal: false });" title="${escapeHtml(pillTitle)}: ${escapeHtml(slot.time)} – ${escapeHtml(slot.timeEnd)}">
+                            <span class="pt-slot-pill ${pillClass}">
+                                <img src="../assets/icons/planner.svg" class="btn-icon" style="width:11px;height:11px;vertical-align:-1px;" alt="" />
+                                <span>${escapeHtml(slot.time)}–${escapeHtml(slot.timeEnd)}</span>
+                            </span>
+                            ${rawTime && rawTime.slice(0, 5) !== slot.time ? `<span class="pt-slot-raw-time" title="Session logged at ${escapeHtml(rawTime)}">${escapeHtml(rawTime)}</span>` : ''}
+                        </div>
+                    `;
+                }
+            });
         }
 
         function onTimelineTimeDisplayChange(displayVal, isModal) {
@@ -6269,14 +6863,24 @@
             const tickM = durationM > 65 ? 10 : (durationM > 30 ? 5 : 2);
             const totalT = Math.floor(durationM / tickM);
 
+            let lastSvgTickMs = bounds.startMs;
             for (let ti = 0; ti <= totalT; ti++) {
                 const tickMs = bounds.startMs + (ti * tickM * 60 * 1000);
                 if (tickMs > bounds.endMs) break;
+                lastSvgTickMs = tickMs;
                 const tx = getSvgX(tickMs);
                 svg += `<line x1="${tx.toFixed(1)}" y1="${stemBaselineY + 18}" x2="${tx.toFixed(1)}" y2="${stemBaselineY + 23}" stroke="#333333" stroke-width="1.5" />\n`;
                 svg += `<line x1="${tx.toFixed(1)}" y1="${track1Top}" x2="${tx.toFixed(1)}" y2="${stemBaselineY + 18}" class="grid-line" stroke-dasharray="3,3" />\n`;
                 const lbl = formatTimelineTimeLabel(tickMs, bounds.startMs, _timelineState.timeDisplay);
                 svg += `<text x="${tx.toFixed(1)}" y="${stemBaselineY + 34}" class="tick-label">${lbl}</text>\n`;
+            }
+
+            if (bounds.endMs - lastSvgTickMs >= 2 * 60 * 1000) {
+                const endTx = getSvgX(bounds.endMs);
+                svg += `<line x1="${endTx.toFixed(1)}" y1="${stemBaselineY + 18}" x2="${endTx.toFixed(1)}" y2="${stemBaselineY + 23}" stroke="#333333" stroke-width="1.5" />\n`;
+                svg += `<line x1="${endTx.toFixed(1)}" y1="${track1Top}" x2="${endTx.toFixed(1)}" y2="${stemBaselineY + 18}" class="grid-line" stroke-dasharray="3,3" />\n`;
+                const lbl = formatTimelineTimeLabel(bounds.endMs, bounds.startMs, _timelineState.timeDisplay);
+                svg += `<text x="${endTx.toFixed(1)}" y="${stemBaselineY + 34}" class="tick-label">${lbl}</text>\n`;
             }
 
             svg += `</svg>`;
@@ -6393,10 +6997,28 @@
                 const objectives = getSessionObjectives(session);
                 const objectivesPreview = objectives ? objectives.replace(/\s+/g, ' ').substring(0, 60) : '';
                 const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
+                const slot = resolveSessionPlannerSlot(session, currentGroupId);
+                let timeCellContent = escapeHtml(metric.time || '-');
+                if (slot && slot.time) {
+                    const isExplicit = !!(session && (session.plannerSlot || session.plannerEntryId));
+                    const pillClass = isExplicit ? 'pt-slot-explicit' : 'pt-slot-auto';
+                    const pillTitle = isExplicit
+                        ? (t('ptSlotExplicitTitle') || 'Explicitly linked planner slot')
+                        : (t('ptSlotAutoTitle') || 'Auto-matched planner slot');
+                    timeCellContent = `
+                        <div class="pt-slot-cell" onclick="event.stopPropagation(); openSessionTimeline('${escapeHtml(session ? session.id : metric.date)}', { openModal: false });" title="${escapeHtml(pillTitle)}: ${escapeHtml(slot.time)} – ${escapeHtml(slot.timeEnd)}">
+                            <span class="pt-slot-pill ${pillClass}">
+                                <img src="../assets/icons/planner.svg" class="btn-icon" style="width:11px;height:11px;vertical-align:-1px;" alt="" />
+                                <span>${escapeHtml(slot.time)}–${escapeHtml(slot.timeEnd)}</span>
+                            </span>
+                            ${metric.time && metric.time.slice(0, 5) !== slot.time ? `<span class="pt-slot-raw-time" title="Session logged at ${escapeHtml(metric.time)}">${escapeHtml(metric.time)}</span>` : ''}
+                        </div>
+                    `;
+                }
 
                 const cells = {
                     date: `<td>${dateStr}${examBadge}</td>`,
-                    time: `<td>${metric.time || '-'}</td>`,
+                    time: `<td>${timeCellContent}</td>`,
                     picks: `<td>${metric.picks}</td>`,
                     pluses: `<td>${metric.pluses}</td>`,
                     minuses: `<td>${metric.minuses}</td>`,
@@ -6430,6 +7052,7 @@
                     const timelineBtn = document.createElement('button');
                     timelineBtn.type = 'button';
                     timelineBtn.className = 'btn-timeline-row';
+                    timelineBtn.setAttribute('data-session-id', session ? session.id : metric.date);
                     timelineBtn.title = t('ptTimelineBtnTitle') || 'View detailed interaction timeline for this session';
                     timelineBtn.innerHTML = `<img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> <span>${t('ptTimelineBtn') || 'Timeline'}</span>`;
                     timelineBtn.addEventListener('click', (e) => {
@@ -12502,6 +13125,8 @@ function closeCreditsModal(){var o=document.getElementById('credits-overlay');if
   Desktop.onDataChanged(function (data) {
     if (data && data.filename === 'class-groups.js') {
       showDataChangedBanner(data);
+    } else if (data && data.filename === 'planner-config.js') {
+      if (typeof reloadPlannerConfig === 'function') reloadPlannerConfig();
     }
   });
 })();

@@ -2338,6 +2338,23 @@
         </div>
       </div>
 
+      <!-- Obstacle avoidance & Curve points row -->
+      <div style="padding:2px 0 4px; display:flex; align-items:center; justify-content:space-between; gap:4px;">
+        <label style="font-size:0.65rem; font-weight:700; display:flex; align-items:center; gap:3px; cursor:pointer; color:#333;" title="Route link automatically around other nodes and notes" data-i18n-title="conEdgeAvoidObstaclesTip">
+          <input type="checkbox" id="con-edge-ctx-avoid" onchange="if(window.conEdgeCtxApplyLive)window.conEdgeCtxApplyLive()" style="accent-color:#111; cursor:pointer;">
+          <span data-i18n="conEdgeAvoidObstacles">Avoid Obstacles</span>
+        </label>
+        <div style="display:flex; align-items:center; gap:3px;">
+          <button type="button" class="con-edge-ctx-btn" id="con-edge-ctx-add-point-btn" style="padding:1px 6px; font-size:0.62rem; height:18px; display:inline-flex; align-items:center; gap:2px;" onclick="if(window.conEdgeCtxAddWaypoint)window.conEdgeCtxAddWaypoint()" title="Add a bend point to curve" data-i18n-title="conEdgeAddWaypoint">
+            <img src="../assets/icons/plus.svg" width="9" height="9" alt="" style="vertical-align:middle; pointer-events:none;">
+            <span data-i18n="conEdgeAddWaypoint">Add Point</span>
+          </button>
+          <button type="button" class="con-edge-ctx-btn" id="con-edge-ctx-clear-points-btn" style="padding:1px 5px; font-size:0.62rem; height:18px; display:inline-flex; align-items:center; gap:2px;" onclick="if(window.conEdgeCtxClearWaypoints)window.conEdgeCtxClearWaypoints()" title="Reset Points" data-i18n-title="conEdgeClearWaypoints">
+            <span data-i18n="conEdgeClearWaypoints">Reset Points</span>
+          </button>
+        </div>
+      </div>
+
       <div class="con-ctx-sep"></div>
 
       <!-- SECTION: Colour, Swatches & Thickness/Opacity -->
@@ -4242,15 +4259,18 @@
                 </div>
                 <label data-i18n="bcEntityNumberBg">Badge background</label>
                 <div class="bc-field-row">
-                  <input type="color" id="bc-entity-num-bg" value="#fef08a" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                  <input type="color" id="bc-entity-num-bg-picker" value="#fef08a" class="bc-color-picker" title="Pick colour" oninput="if(typeof bcSyncColorInput==='function')bcSyncColorInput('bc-entity-num-bg', this.value)">
+                  <input type="text" id="bc-entity-num-bg" value="#fef08a" class="bc-palette-color-input" style="width:170px; font-size:0.78rem;" placeholder="#hex or rgba(...)" oninput="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-bg-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()" onchange="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-bg-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
                 </div>
                 <label data-i18n="bcEntityNumberColor">Badge text colour</label>
                 <div class="bc-field-row">
-                  <input type="color" id="bc-entity-num-color" value="#111111" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                  <input type="color" id="bc-entity-num-color-picker" value="#111111" class="bc-color-picker" title="Pick colour" oninput="if(typeof bcSyncColorInput==='function')bcSyncColorInput('bc-entity-num-color', this.value)">
+                  <input type="text" id="bc-entity-num-color" value="#111111" class="bc-palette-color-input" style="width:170px; font-size:0.78rem;" placeholder="#hex or rgba(...)" oninput="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-color-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()" onchange="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-color-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
                 </div>
                 <label data-i18n="bcEntityNumberBorder">Badge border colour</label>
                 <div class="bc-field-row">
-                  <input type="color" id="bc-entity-num-border" value="#333333" class="bc-color-picker" onchange="if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
+                  <input type="color" id="bc-entity-num-border-picker" value="#333333" class="bc-color-picker" title="Pick colour" oninput="if(typeof bcSyncColorInput==='function')bcSyncColorInput('bc-entity-num-border', this.value)">
+                  <input type="text" id="bc-entity-num-border" value="#333333" class="bc-palette-color-input" style="width:170px; font-size:0.78rem;" placeholder="#hex or rgba(...)" oninput="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-border-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()" onchange="if(typeof bcSyncColorPicker==='function')bcSyncColorPicker('bc-entity-num-border-picker', this.value); if(typeof bcUpdateNumberBadgePreview==='function')bcUpdateNumberBadgePreview()">
                 </div>
                 <label data-i18n="bcEntityNumberBorderWidth">Badge border width</label>
                 <div class="bc-field-row">

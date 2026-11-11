@@ -8745,7 +8745,268 @@
         });
       }
 
-      function conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator) {
+      // Multi-point Catmull-Rom to Cubic Bézier spline helper
+      function conComputeMultiPointSpline(rawPts, strokeType, sw, isDouble, isWavy, hasStartArrow, hasEndArrow) {
+        const N = rawPts.length;
+        if (N < 2) return { d: '', mx: 0, my: 0, angle: 0, cx: 0, cy: 0 };
+        if (N === 2) {
+          const p0 = rawPts[0], p1 = rawPts[1];
+          const mx = (p0.x + p1.x) / 2, my = (p0.y + p1.y) / 2;
+          const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x) * 180 / Math.PI;
+          return {
+            d: `M ${p0.x.toFixed(1)} ${p0.y.toFixed(1)} L ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`,
+            mx, my, angle, cx: mx, cy: my
+          };
+        }
+
+        // Catmull-Rom to Cubic Bézier conversion
+        const segments = [];
+        let totalChordLen = 0;
+        const chordLens = [];
+
+        for (let i = 0; i < N - 1; i++) {
+          const p1 = rawPts[i];
+          const p2 = rawPts[i + 1];
+          const p0 = (i === 0) ? { x: 2 * p1.x - p2.x, y: 2 * p1.y - p2.y } : rawPts[i - 1];
+          const p3 = (i + 2 >= N) ? { x: 2 * p2.x - p1.x, y: 2 * p2.y - p1.y } : rawPts[i + 2];
+
+          const cp1x = p1.x + (p2.x - p0.x) / 6;
+          const cp1y = p1.y + (p2.y - p0.y) / 6;
+          const cp2x = p2.x - (p3.x - p1.x) / 6;
+          const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+          const segDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+          totalChordLen += segDist;
+          chordLens.push(segDist);
+          segments.push({ p1, cp1: { x: cp1x, y: cp1y }, cp2: { x: cp2x, y: cp2y }, p2 });
+        }
+
+        let d = `M ${rawPts[0].x.toFixed(1)} ${rawPts[0].y.toFixed(1)}`;
+        segments.forEach(seg => {
+          d += ` C ${seg.cp1.x.toFixed(1)} ${seg.cp1.y.toFixed(1)}, ${seg.cp2.x.toFixed(1)} ${seg.cp2.y.toFixed(1)}, ${seg.p2.x.toFixed(1)} ${seg.p2.y.toFixed(1)}`;
+        });
+
+        if (isDouble) {
+          const off = Math.max(2, sw * 0.9);
+          let d1 = '', d2 = '';
+          for (let i = 0; i < segments.length; i++) {
+            const seg = segments[i];
+            const dx = seg.p2.x - seg.p1.x, dy = seg.p2.y - seg.p1.y;
+            const dist = Math.hypot(dx, dy) || 1;
+            const nx = -dy / dist, ny = dx / dist;
+            if (i === 0) {
+              d1 = `M ${(seg.p1.x + nx * off).toFixed(1)} ${(seg.p1.y + ny * off).toFixed(1)}`;
+              d2 = `M ${(seg.p1.x - nx * off).toFixed(1)} ${(seg.p1.y - ny * off).toFixed(1)}`;
+            }
+            d1 += ` C ${(seg.cp1.x + nx * off).toFixed(1)} ${(seg.cp1.y + ny * off).toFixed(1)}, ${(seg.cp2.x + nx * off).toFixed(1)} ${(seg.cp2.y + ny * off).toFixed(1)}, ${(seg.p2.x + nx * off).toFixed(1)} ${(seg.p2.y + ny * off).toFixed(1)}`;
+            d2 += ` C ${(seg.cp1.x - nx * off).toFixed(1)} ${(seg.cp1.y - ny * off).toFixed(1)}, ${(seg.cp2.x - nx * off).toFixed(1)} ${(seg.cp2.y - ny * off).toFixed(1)}, ${(seg.p2.x - nx * off).toFixed(1)} ${(seg.p2.y - ny * off).toFixed(1)}`;
+          }
+          d = d1 + ' ' + d2;
+        }
+
+        // Find midpoint (50% arc-length) for label positioning
+        const halfDist = totalChordLen / 2;
+        let mx = rawPts[0].x, my = rawPts[0].y;
+        let angle = 0;
+        let accum = 0;
+        for (let i = 0; i < segments.length; i++) {
+          const segDist = chordLens[i];
+          if (accum + segDist >= halfDist || i === segments.length - 1) {
+            const rem = halfDist - accum;
+            const t = segDist > 0 ? Math.max(0, Math.min(1, rem / segDist)) : 0.5;
+            const seg = segments[i];
+            const mt = 1 - t;
+            mx = mt * mt * mt * seg.p1.x + 3 * mt * mt * t * seg.cp1.x + 3 * mt * t * t * seg.cp2.x + t * t * t * seg.p2.x;
+            my = mt * mt * mt * seg.p1.y + 3 * mt * mt * t * seg.cp1.y + 3 * mt * t * t * seg.cp2.y + t * t * t * seg.p2.y;
+            const tdx = 3 * mt * mt * (seg.cp1.x - seg.p1.x) + 6 * mt * t * (seg.cp2.x - seg.cp1.x) + 3 * t * t * (seg.p2.x - seg.cp2.x);
+            const tdy = 3 * mt * mt * (seg.cp1.y - seg.p1.y) + 6 * mt * t * (seg.cp2.y - seg.cp1.y) + 3 * t * t * (seg.p2.y - seg.cp2.y);
+            angle = Math.atan2(tdy, tdx) * 180 / Math.PI;
+            break;
+          }
+          accum += segDist;
+        }
+
+        const midIdx = Math.floor(rawPts.length / 2);
+        const cx = rawPts[midIdx] ? rawPts[midIdx].x : mx;
+        const cy = rawPts[midIdx] ? rawPts[midIdx].y : my;
+
+        return { d, mx, my, angle, cx, cy };
+      }
+
+      // Obstacle detection and A* avoidance router
+      function conComputeEdgeObstacleAvoidance(x1, y1, x2, y2, idA, idB, pad, clearance) {
+        const padding = typeof pad === 'number' ? pad : 28;
+        const colClearance = typeof clearance === 'number' ? clearance : 14;
+        const obstacles = [];
+        const seenIds = new Set();
+
+        function addObstacleBox(id, x, y, w, h) {
+          if (!id || seenIds.has(String(id))) return;
+          if (String(id) === String(idA) || String(id) === String(idB)) return;
+          const nx = Number(x);
+          const ny = Number(y);
+          if (!Number.isFinite(nx) || !Number.isFinite(ny)) return;
+          const bw = Math.max(20, Number(w) || 80);
+          const bh = Math.max(16, Number(h) || 32);
+
+          // If source or target endpoint is physically inside this obstacle's core box, skip it to avoid self-blocking
+          if ((x1 >= nx && x1 <= nx + bw && y1 >= ny && y1 <= ny + bh) ||
+              (x2 >= nx && x2 <= nx + bw && y2 >= ny && y2 <= ny + bh)) return;
+
+          seenIds.add(String(id));
+          obstacles.push({
+            id: String(id),
+            // Forbidden core collision boundary
+            colMinX: nx - colClearance,
+            colMinY: ny - colClearance,
+            colMaxX: nx + bw + colClearance,
+            colMaxY: ny + bh + colClearance,
+            // Detour waypoints boundary
+            wpMinX: nx - padding,
+            wpMinY: ny - padding,
+            wpMaxX: nx + bw + padding,
+            wpMaxY: ny + bh + padding
+          });
+        }
+
+        // 1. Nodes in conNodes
+        if (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) {
+          conNodes.forEach(n => {
+            if (!n || String(n.id) === String(idA) || String(n.id) === String(idB)) return;
+            const anchor = (typeof conResolveLinkAnchor === 'function') ? conResolveLinkAnchor(n.id) : null;
+            if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+              addObstacleBox(n.id, anchor.x, anchor.y, anchor.w, anchor.h);
+            } else {
+              const nx = typeof n.x === 'number' ? n.x : (n.el ? parseFloat(n.el.style.left) || 0 : 0);
+              const ny = typeof n.y === 'number' ? n.y : (n.el ? parseFloat(n.el.style.top) || 0 : 0);
+              const nw = n.w || (n.el ? (n.el.offsetWidth || 80) : 80);
+              const nh = n.h || (n.el ? (n.el.offsetHeight || 32) : 32);
+              addObstacleBox(n.id, nx, ny, nw, nh);
+            }
+          });
+        }
+
+        // 2. Word Notes in conNotes
+        const noteArr = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : ((typeof conNotes !== 'undefined') ? conNotes : []);
+        noteArr.forEach(n => {
+          if (!n || n.hidden || String(n.id) === String(idA) || String(n.id) === String(idB)) return;
+          const anchor = (typeof conResolveLinkAnchor === 'function') ? conResolveLinkAnchor(n.id) : null;
+          if (anchor && Number.isFinite(anchor.x) && Number.isFinite(anchor.y)) {
+            addObstacleBox(n.id, anchor.x, anchor.y, anchor.w, anchor.h);
+          } else {
+            const el = document.querySelector(`.con-word-note[data-id="${n.id}"]`);
+            const nx = typeof n.x === 'number' ? n.x : (el ? parseFloat(el.style.left) || 0 : 0);
+            const ny = typeof n.y === 'number' ? n.y : (el ? parseFloat(el.style.top) || 0 : 0);
+            const nw = Number(n.width) || (el ? el.offsetWidth : 140);
+            const nh = Number(n.height) || (el ? el.offsetHeight : 80);
+            addObstacleBox(n.id, nx, ny, nw, nh);
+          }
+        });
+
+        // 3. Media Items
+        const mediaArr = (typeof window.conGetMediaItems === 'function') ? window.conGetMediaItems() : ((typeof conMediaItems !== 'undefined') ? conMediaItems : []);
+        mediaArr.forEach(m => {
+          if (!m || m.hidden || String(m.id) === String(idA) || String(m.id) === String(idB)) return;
+          addObstacleBox(m.id, m.x, m.y, m.w || 120, m.h || 100);
+        });
+
+        // 4. Tables
+        const tableArr = (typeof window.conGetTables === 'function') ? window.conGetTables() : ((typeof conTables !== 'undefined') ? conTables : []);
+        tableArr.forEach(t => {
+          if (!t || String(t.id) === String(idA) || String(t.id) === String(idB)) return;
+          addObstacleBox(t.id, t.x, t.y, t.w || 200, t.h || 120);
+        });
+
+        if (obstacles.length === 0) return null;
+
+        function segmentIntersectsBox(p1x, p1y, p2x, p2y, b, eps = 1e-4) {
+          let t0 = 0, t1 = 1;
+          const dx = p2x - p1x, dy = p2y - p1y;
+          const p = [-dx, dx, -dy, dy];
+          const q = [p1x - b.colMinX, b.colMaxX - p1x, p1y - b.colMinY, b.colMaxY - p1y];
+          for (let i = 0; i < 4; i++) {
+            if (p[i] === 0) {
+              if (q[i] <= 0) return false;
+            } else {
+              const r = q[i] / p[i];
+              if (p[i] < 0) {
+                if (r > t1) return false;
+                if (r > t0) t0 = r;
+              } else {
+                if (r < t0) return false;
+                if (r < t1) t1 = r;
+              }
+            }
+          }
+          return t0 < t1 - eps;
+        }
+
+        const colliding = obstacles.filter(b => segmentIntersectsBox(x1, y1, x2, y2, b));
+        if (colliding.length === 0) return null;
+
+        const cornerPoints = [];
+        colliding.forEach(b => {
+          cornerPoints.push({ x: b.wpMinX, y: b.wpMinY });
+          cornerPoints.push({ x: b.wpMaxX, y: b.wpMinY });
+          cornerPoints.push({ x: b.wpMaxX, y: b.wpMaxY });
+          cornerPoints.push({ x: b.wpMinX, y: b.wpMaxY });
+        });
+
+        const nodes = [{ x: x1, y: y1 }, ...cornerPoints, { x: x2, y: y2 }];
+        const startIdx = 0;
+        const targetIdx = nodes.length - 1;
+
+        function isPathClear(na, nb) {
+          for (let i = 0; i < colliding.length; i++) {
+            if (segmentIntersectsBox(na.x, na.y, nb.x, nb.y, colliding[i])) return false;
+          }
+          return true;
+        }
+
+        const dist = new Array(nodes.length).fill(Infinity);
+        const prev = new Array(nodes.length).fill(-1);
+        const visited = new Array(nodes.length).fill(false);
+        dist[startIdx] = 0;
+
+        for (let iter = 0; iter < nodes.length; iter++) {
+          let u = -1, bestD = Infinity;
+          for (let i = 0; i < nodes.length; i++) {
+            if (!visited[i] && dist[i] < bestD) {
+              bestD = dist[i];
+              u = i;
+            }
+          }
+          if (u === -1 || u === targetIdx) break;
+          visited[u] = true;
+
+          const uNode = nodes[u];
+          for (let v = 0; v < nodes.length; v++) {
+            if (visited[v] || u === v) continue;
+            const vNode = nodes[v];
+            if (isPathClear(uNode, vNode)) {
+              const dStep = Math.hypot(vNode.x - uNode.x, vNode.y - uNode.y);
+              const alt = dist[u] + dStep;
+              if (alt < dist[v]) {
+                dist[v] = alt;
+                prev[v] = u;
+              }
+            }
+          }
+        }
+
+        if (prev[targetIdx] === -1) return null;
+
+        const path = [];
+        let curr = prev[targetIdx];
+        while (curr !== -1 && curr !== startIdx) {
+          path.unshift({ x: Math.round(nodes[curr].x), y: Math.round(nodes[curr].y) });
+          curr = prev[curr];
+        }
+
+        return path.length > 0 ? path : null;
+      }
+
+      function conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, thickness, type, terminator, points, avoidObstacles, idA, idB) {
         const dx = x2 - x1;
         const dy = y2 - y1;
         const dist = Math.hypot(dx, dy);
@@ -8774,6 +9035,70 @@
         const scale = (dist > 2 && neededLen > 0 && dist < neededLen + 4) ? Math.max(0.1, (dist - 4) / neededLen) : 1;
         const startLen = hasStartArrow ? (rawTermLen * scale) : 0;
         const endLen = hasEndArrow ? (rawTermLen * scale) : 0;
+
+        // Determine effective waypoints (combining manual points and obstacle avoidance)
+        let effectivePts = Array.isArray(points) ? points.slice() : [];
+        if (avoidObstacles) {
+          if (effectivePts.length === 0) {
+            const avoidPts = conComputeEdgeObstacleAvoidance(x1, y1, x2, y2, idA, idB);
+            if (avoidPts && avoidPts.length > 0) {
+              effectivePts = avoidPts;
+            }
+          } else {
+            // Route around obstacles between consecutive waypoints
+            const combined = [];
+            const legs = [{ x: x1, y: y1 }, ...effectivePts, { x: x2, y: y2 }];
+            for (let l = 0; l < legs.length - 1; l++) {
+              if (l > 0) combined.push(legs[l]);
+              const legAvoid = conComputeEdgeObstacleAvoidance(legs[l].x, legs[l].y, legs[l + 1].x, legs[l + 1].y, idA, idB);
+              if (legAvoid && legAvoid.length > 0) {
+                combined.push(...legAvoid);
+              }
+            }
+            effectivePts = combined;
+          }
+        }
+
+        // Multi-point path handling
+        if (effectivePts.length > 0) {
+          const firstPt = effectivePts[0];
+          const lastPt = effectivePts[effectivePts.length - 1];
+
+          const sDx = firstPt.x - x1, sDy = firstPt.y - y1;
+          const sDist = Math.hypot(sDx, sDy) || 1;
+          const sx = x1 + (sDx / sDist) * startLen;
+          const sy = y1 + (sDy / sDist) * startLen;
+
+          const eDx = x2 - lastPt.x, eDy = y2 - lastPt.y;
+          const eDist = Math.hypot(eDx, eDy) || 1;
+          const ex = x2 - (eDx / eDist) * endLen;
+          const ey = y2 - (eDy / eDist) * endLen;
+
+          const allPts = [{ x: sx, y: sy }, ...effectivePts, { x: ex, y: ey }];
+
+          if (routing === 'orthogonal') {
+            let d = `M ${allPts[0].x.toFixed(1)} ${allPts[0].y.toFixed(1)}`;
+            for (let i = 0; i < allPts.length - 1; i++) {
+              const pA = allPts[i], pB = allPts[i + 1];
+              const midX = (pA.x + pB.x) / 2;
+              d += ` L ${midX.toFixed(1)} ${pA.y.toFixed(1)} L ${midX.toFixed(1)} ${pB.y.toFixed(1)} L ${pB.x.toFixed(1)} ${pB.y.toFixed(1)}`;
+            }
+            const midIdx = Math.floor(allPts.length / 2);
+            return { d, mx: allPts[midIdx].x, my: allPts[midIdx].y, angle: 0, cx: allPts[midIdx].x, cy: allPts[midIdx].y };
+          }
+
+          if (routing === 'straight' && !avoidObstacles) {
+            let d = `M ${allPts[0].x.toFixed(1)} ${allPts[0].y.toFixed(1)}`;
+            for (let i = 1; i < allPts.length; i++) {
+              d += ` L ${allPts[i].x.toFixed(1)} ${allPts[i].y.toFixed(1)}`;
+            }
+            const midIdx = Math.floor(allPts.length / 2);
+            return { d, mx: allPts[midIdx].x, my: allPts[midIdx].y, angle: 0, cx: allPts[midIdx].x, cy: allPts[midIdx].y };
+          }
+
+          // Default: Curved smooth spline through all waypoints
+          return conComputeMultiPointSpline(allPts, strokeType, sw, isDouble, isWavy, hasStartArrow, hasEndArrow);
+        }
 
         let d = '';
         let mx = (x1 + x2) / 2;
@@ -9057,6 +9382,150 @@
         });
       }
 
+      function _conInitPointHandle(edge, ph) {
+        if (!ph) return;
+
+        function removeThisPoint(idx) {
+          if (!Array.isArray(edge.points) || idx < 0 || idx >= edge.points.length) return;
+          edge.points.splice(idx, 1);
+          conPushUndo();
+          conUpdateEdge(edge);
+          conRedrawEdges();
+          if (typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({ type: 'edge-update', edge: { id: edge.id, points: edge.points } });
+          }
+        }
+
+        ph.addEventListener('contextmenu', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const idx = parseInt(ph.dataset.idx, 10);
+          removeThisPoint(idx);
+        });
+
+        ph.addEventListener('dblclick', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const idx = parseInt(ph.dataset.idx, 10);
+          removeThisPoint(idx);
+        });
+
+        ph.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          if (e.altKey) {
+            e.preventDefault();
+            e.stopPropagation();
+            const idx = parseInt(ph.dataset.idx, 10);
+            removeThisPoint(idx);
+            return;
+          }
+          e.preventDefault();
+          e.stopPropagation();
+          const pIdx = parseInt(ph.dataset.idx, 10);
+          if (isNaN(pIdx) || !Array.isArray(edge.points) || !edge.points[pIdx]) return;
+
+          const brdEl = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+          if (!brdEl) return;
+
+          let animFrame = null;
+          function onMM(ev) {
+            if (animFrame) return;
+            animFrame = requestAnimationFrame(() => {
+              animFrame = null;
+              const brdRect = brdEl.getBoundingClientRect();
+              const curX = Math.round((ev.clientX - brdRect.left) / conCurrentZoom);
+              const curY = Math.round((ev.clientY - brdRect.top) / conCurrentZoom);
+              if (edge.points && edge.points[pIdx]) {
+                edge.points[pIdx].x = curX;
+                edge.points[pIdx].y = curY;
+                conUpdateEdge(edge);
+                if (typeof window._conMirrorSend === 'function') {
+                  window._conMirrorSend({
+                    type: 'edge-update',
+                    edge: { id: edge.id, points: edge.points }
+                  });
+                }
+              }
+            });
+          }
+
+          function onMU() {
+            if (animFrame) cancelAnimationFrame(animFrame);
+            document.removeEventListener('mousemove', onMM);
+            document.removeEventListener('mouseup', onMU);
+            conPushUndo();
+            conRedrawEdges();
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({
+                type: 'edge-update',
+                edge: { id: edge.id, points: edge.points }
+              });
+            }
+          }
+
+          document.addEventListener('mousemove', onMM);
+          document.addEventListener('mouseup', onMU);
+        });
+      }
+
+      function _conInitSplitHandle(edge, sh) {
+        if (!sh) return;
+        sh.addEventListener('mousedown', function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const splitIdx = parseInt(sh.dataset.splitIdx, 10) || 0;
+          const clickX = Math.round(parseFloat(sh.getAttribute('cx')) || 0);
+          const clickY = Math.round(parseFloat(sh.getAttribute('cy')) || 0);
+          if (!Array.isArray(edge.points)) edge.points = [];
+          edge.points.splice(splitIdx, 0, { x: clickX, y: clickY });
+          edge.routing = 'curved';
+          conUpdateEdge(edge);
+
+          const brdEl = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+          if (!brdEl) return;
+
+          let animFrame = null;
+          function onMM(ev) {
+            if (animFrame) return;
+            animFrame = requestAnimationFrame(() => {
+              animFrame = null;
+              const brdRect = brdEl.getBoundingClientRect();
+              const curX = Math.round((ev.clientX - brdRect.left) / conCurrentZoom);
+              const curY = Math.round((ev.clientY - brdRect.top) / conCurrentZoom);
+              if (edge.points && edge.points[splitIdx]) {
+                edge.points[splitIdx].x = curX;
+                edge.points[splitIdx].y = curY;
+                conUpdateEdge(edge);
+                if (typeof window._conMirrorSend === 'function') {
+                  window._conMirrorSend({
+                    type: 'edge-update',
+                    edge: { id: edge.id, points: edge.points }
+                  });
+                }
+              }
+            });
+          }
+
+          function onMU() {
+            if (animFrame) cancelAnimationFrame(animFrame);
+            document.removeEventListener('mousemove', onMM);
+            document.removeEventListener('mouseup', onMU);
+            conPushUndo();
+            conRedrawEdges();
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({
+                type: 'edge-update',
+                edge: { id: edge.id, points: edge.points }
+              });
+            }
+          }
+
+          document.addEventListener('mousemove', onMM);
+          document.addEventListener('mouseup', onMU);
+        });
+      }
+
       const _CON_NEUTRAL = new Set(['', 'transparent', '#111', '#111111', '#333', '#333333', '#000', '#000000']);
       const _CON_NEUTRAL_BG = new Set(['', 'transparent', '#fff', '#ffffff']);
 
@@ -9261,6 +9730,24 @@
             }
           }
           window._conSelectedEdgeId = nextSelected;
+          if (window._conSelectedEdgeId === edgeId && (e.shiftKey || e.altKey)) {
+            const brdEl = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+            if (brdEl) {
+              const rect = brdEl.getBoundingClientRect();
+              const clickX = Math.round((e.clientX - rect.left) / conCurrentZoom);
+              const clickY = Math.round((e.clientY - rect.top) / conCurrentZoom);
+              const edgeRef = conEdges.find(ed => ed && ed.id === edgeId);
+              if (edgeRef) {
+                if (!Array.isArray(edgeRef.points)) edgeRef.points = [];
+                edgeRef.points.push({ x: clickX, y: clickY });
+                edgeRef.routing = 'curved';
+                conPushUndo();
+                conUpdateEdge(edgeRef);
+                conRedrawEdges();
+                return;
+              }
+            }
+          }
           if (typeof window.conMirrorSyncSelection === 'function') window.conMirrorSyncSelection();
           conRedrawEdges();
         });
@@ -9393,6 +9880,10 @@
           labelBgActive: _defLinkLabelBg,
           anchorA: null,
           anchorB: null,
+          points: [],
+          avoidObstacles: false,
+          pointHandles: [],
+          splitHandles: [],
           line,
           hit,
           labelEl,
@@ -9431,7 +9922,9 @@
               anchorA: edge.anchorA,
               anchorB: edge.anchorB,
               colorMode: edge.colorMode,
-              strokeColor: edge.strokeColor
+              strokeColor: edge.strokeColor,
+              points: edge.points,
+              avoidObstacles: edge.avoidObstacles
             }
           });
         }
@@ -9647,7 +10140,7 @@
         const sw = Number.isFinite(edge.thickness) && edge.thickness > 0 ? edge.thickness : 2;
 
         const term = edge.terminator || 'arrow';
-        const geo = conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, sw, t, term);
+        const geo = conComputeEdgeGeometry(x1, y1, x2, y2, routing, strokeType, curvature, sw, t, term, edge.points, edge.avoidObstacles, edge.a, edge.b);
 
         if (edge.line) {
           edge.line.setAttribute('d', geo.d);
@@ -9759,12 +10252,10 @@
           edge.endHandleB = hb;
           _conInitEndHandle(edge, 'b');
         }
+        if (!edge.pointHandles) edge.pointHandles = [];
+        if (!edge.splitHandles) edge.splitHandles = [];
 
         if (isSelected) {
-          edge.midHandle.setAttribute('cx', geo.cx);
-          edge.midHandle.setAttribute('cy', geo.cy);
-          edge.midHandle.style.display = 'block';
-
           edge.endHandleA.setAttribute('cx', x1);
           edge.endHandleA.setAttribute('cy', y1);
           edge.endHandleA.style.display = 'block';
@@ -9772,10 +10263,76 @@
           edge.endHandleB.setAttribute('cx', x2);
           edge.endHandleB.setAttribute('cy', y2);
           edge.endHandleB.style.display = 'block';
+
+          const curPts = Array.isArray(edge.points) ? edge.points : [];
+          const hasManualPoints = curPts.length > 0;
+          if (!hasManualPoints && !edge.avoidObstacles && edge.routing === 'curved') {
+            edge.midHandle.setAttribute('cx', geo.cx);
+            edge.midHandle.setAttribute('cy', geo.cy);
+            edge.midHandle.style.display = 'block';
+          } else {
+            edge.midHandle.style.display = 'none';
+          }
+
+          // Point handles for manual waypoints
+          while (edge.pointHandles.length > curPts.length) {
+            const h = edge.pointHandles.pop();
+            if (h && h.el) h.el.remove();
+          }
+          while (edge.pointHandles.length < curPts.length) {
+            const ph = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            ph.setAttribute('class', 'con-edge-point-handle');
+            ph.setAttribute('r', '6');
+            edge.g.appendChild(ph);
+            _conInitPointHandle(edge, ph);
+            edge.pointHandles.push({ el: ph });
+          }
+          for (let i = 0; i < curPts.length; i++) {
+            const ph = edge.pointHandles[i];
+            if (ph && ph.el) {
+              ph.el.setAttribute('cx', curPts[i].x);
+              ph.el.setAttribute('cy', curPts[i].y);
+              ph.el.style.display = 'block';
+              ph.el.dataset.idx = String(i);
+            }
+          }
+
+          // Split handles at segment midpoints
+          const fullPts = [{ x: x1, y: y1 }, ...curPts, { x: x2, y: y2 }];
+          const neededSplits = fullPts.length - 1;
+          while (edge.splitHandles.length > neededSplits) {
+            const sh = edge.splitHandles.pop();
+            if (sh && sh.el) sh.el.remove();
+          }
+          while (edge.splitHandles.length < neededSplits) {
+            const sh = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            sh.setAttribute('class', 'con-edge-split-handle');
+            sh.setAttribute('r', '4.5');
+            edge.g.appendChild(sh);
+            _conInitSplitHandle(edge, sh);
+            edge.splitHandles.push({ el: sh });
+          }
+          for (let s = 0; s < neededSplits; s++) {
+            const sh = edge.splitHandles[s];
+            if (sh && sh.el) {
+              const smx = (fullPts[s].x + fullPts[s + 1].x) / 2;
+              const smy = (fullPts[s].y + fullPts[s + 1].y) / 2;
+              sh.el.setAttribute('cx', smx);
+              sh.el.setAttribute('cy', smy);
+              sh.el.style.display = 'block';
+              sh.el.dataset.splitIdx = String(s);
+            }
+          }
         } else {
           if (edge.midHandle) edge.midHandle.style.display = 'none';
           if (edge.endHandleA) edge.endHandleA.style.display = 'none';
           if (edge.endHandleB) edge.endHandleB.style.display = 'none';
+          if (edge.pointHandles) {
+            edge.pointHandles.forEach(h => { if (h && h.el) h.el.style.display = 'none'; });
+          }
+          if (edge.splitHandles) {
+            edge.splitHandles.forEach(sh => { if (sh && sh.el) sh.el.style.display = 'none'; });
+          }
         }
       }
 
@@ -11273,7 +11830,9 @@
           opacity: (typeof edge.opacity === 'number') ? edge.opacity : 1,
           animated: !!edge.animated,
           labelBg: !!edge.labelBgActive,
-          curvature: (typeof edge.curvature === 'number') ? edge.curvature : 0
+          curvature: (typeof edge.curvature === 'number') ? edge.curvature : 0,
+          avoidObstacles: !!(edge && edge.avoidObstacles),
+          points: (edge && Array.isArray(edge.points)) ? edge.points.map(p => ({ x: p.x, y: p.y })) : []
         };
       }
 
@@ -11296,6 +11855,8 @@
         edge.animated = !!snap.animated;
         edge.labelBgActive = !!snap.labelBg;
         if (typeof snap.curvature === 'number') edge.curvature = snap.curvature;
+        if (snap.avoidObstacles !== undefined) edge.avoidObstacles = !!snap.avoidObstacles;
+        if (Array.isArray(snap.points)) edge.points = snap.points.map(p => ({ x: p.x, y: p.y }));
 
         if (edge.line) edge.line.style.strokeWidth = String(t);
         if (edge.hit) edge.hit.style.strokeWidth = String(Math.max(16, t + 10));
@@ -11313,6 +11874,7 @@
         const labelBgInput = document.getElementById('con-edge-ctx-label-bg');
         const animatedInput = document.getElementById('con-edge-ctx-animated');
         const terminatorSelect = document.getElementById('con-edge-ctx-terminator');
+        const avoidInput = document.getElementById('con-edge-ctx-avoid');
 
         const strokeBtn = document.querySelector('#con-edge-ctx-stroke-group .con-edge-ctx-btn.active');
         const routingBtn = document.querySelector('#con-edge-ctx-routing-group .con-edge-ctx-btn.active');
@@ -11339,7 +11901,9 @@
           opacity: Math.max(0.1, Math.min(1, opVal)),
           animated: animatedInput ? !!animatedInput.checked : false,
           labelBg: labelBgInput ? !!labelBgInput.checked : false,
-          curvature: (activeEdge && typeof activeEdge.curvature === 'number') ? activeEdge.curvature : 30
+          curvature: (activeEdge && typeof activeEdge.curvature === 'number') ? activeEdge.curvature : 30,
+          avoidObstacles: avoidInput ? !!avoidInput.checked : false,
+          points: (activeEdge && Array.isArray(activeEdge.points)) ? activeEdge.points.slice() : []
         };
       }
 
@@ -11349,6 +11913,7 @@
         if (!edge) return;
         const snap = conEdgeCtxReadForm();
         conEdgeCtxApplySnapshot(edge, snap);
+        conRedrawEdges();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({
             type: 'edge-update',
@@ -11373,7 +11938,9 @@
               anchorA: edge.anchorA,
               anchorB: edge.anchorB,
               colorMode: edge.colorMode,
-              strokeColor: edge.strokeColor
+              strokeColor: edge.strokeColor,
+              points: edge.points,
+              avoidObstacles: edge.avoidObstacles
             }
           });
         }
@@ -11382,6 +11949,57 @@
       window.conEdgeCtxReadForm = conEdgeCtxReadForm;
       window.conEdgeCtxApplySnapshot = conEdgeCtxApplySnapshot;
       window.conEdgeCtxCapture = conEdgeCtxCapture;
+
+      function conEdgeCtxAddWaypoint() {
+        if (!_conEdgeCtxId) return;
+        const edge = conEdges.find(e => e && e.id == _conEdgeCtxId);
+        if (!edge) return;
+        const na = conResolveLinkAnchor(edge.a);
+        const nb = conResolveLinkAnchor(edge.b);
+        if (!na || !nb) return;
+        if (!Array.isArray(edge.points)) edge.points = [];
+        if (edge.points.length === 0) {
+          const midX = Math.round((na.cx + nb.cx) / 2);
+          const midY = Math.round((na.cy + nb.cy) / 2);
+          edge.points.push({ x: midX, y: midY });
+        } else {
+          const lastPt = edge.points[edge.points.length - 1];
+          const nextX = Math.round((lastPt.x + nb.cx) / 2);
+          const nextY = Math.round((lastPt.y + nb.cy) / 2);
+          edge.points.push({ x: nextX, y: nextY });
+        }
+        edge.routing = 'curved';
+        const routingGroup = document.getElementById('con-edge-ctx-routing-group');
+        if (routingGroup) {
+          routingGroup.querySelectorAll('.con-edge-ctx-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.routing === 'curved');
+          });
+        }
+        conPushUndo();
+        conUpdateEdge(edge);
+        conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'edge-update', edge: { id: edge.id, points: edge.points, routing: edge.routing } });
+        }
+      }
+      window.conEdgeCtxAddWaypoint = conEdgeCtxAddWaypoint;
+
+      function conEdgeCtxClearWaypoints() {
+        if (!_conEdgeCtxId) return;
+        const edge = conEdges.find(e => e && e.id == _conEdgeCtxId);
+        if (!edge) return;
+        edge.points = [];
+        edge.avoidObstacles = false;
+        const avoidInput = document.getElementById('con-edge-ctx-avoid');
+        if (avoidInput) avoidInput.checked = false;
+        conPushUndo();
+        conUpdateEdge(edge);
+        conRedrawEdges();
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend({ type: 'edge-update', edge: { id: edge.id, points: edge.points, avoidObstacles: false } });
+        }
+      }
+      window.conEdgeCtxClearWaypoints = conEdgeCtxClearWaypoints;
 
       function conEdgeCtxSetPreset(text) {
         const inp = document.getElementById('con-edge-ctx-input');
@@ -11486,6 +12104,8 @@
 
         if (labelBgInput) labelBgInput.checked = !!(edge && edge.labelBgActive);
         if (animatedInput) animatedInput.checked = !!(edge && edge.animated);
+        const avoidInput = document.getElementById('con-edge-ctx-avoid');
+        if (avoidInput) avoidInput.checked = !!(edge && edge.avoidObstacles);
 
         const excerptsRow = document.getElementById('con-edge-ctx-excerpts-row');
         if (excerptsRow) {
@@ -11565,6 +12185,26 @@
         }
         if (terminatorSelect) {
           terminatorSelect.onchange = function () { conEdgeCtxApplyLive(); };
+        }
+        if (avoidInput) {
+          avoidInput.onchange = function () {
+            conEdgeCtxApplyLive();
+            if (this.checked && typeof showToast === 'function') {
+              const activeEdge = _conEdgeCtxId ? conEdges.find(e => e && e.id == _conEdgeCtxId) : null;
+              if (activeEdge) {
+                const na = conResolveLinkAnchor(activeEdge.a);
+                const nb = conResolveLinkAnchor(activeEdge.b);
+                if (na && nb) {
+                  const avoidPts = conComputeEdgeObstacleAvoidance(na.cx, na.cy, nb.cx, nb.cy, activeEdge.a, activeEdge.b);
+                  if (avoidPts && avoidPts.length > 0) {
+                    showToast((typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('conEdgeAvoidObstaclesActive') : 'Avoid Obstacles active: link routed around obstacles');
+                  } else {
+                    showToast((typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('conEdgeAvoidObstaclesEnabled') : 'Avoid Obstacles enabled: link will dynamically curve around words or notes placed in its path');
+                  }
+                }
+              }
+            }
+          };
         }
 
         // Build / refresh colour swatches with wrapping palette

@@ -700,6 +700,18 @@
     }
 
     function wnGetActiveEditor() {
+      if (!_wnActiveNote) {
+        const ae = document.activeElement;
+        const noteEl = ae ? ae.closest('.con-word-note, .ta-word-note') : null;
+        if (noteEl && noteEl.dataset.id) {
+          const found = (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === noteEl.dataset.id) : null) ||
+                        (typeof taWordNotes !== 'undefined' ? taWordNotes.find(n => n.id === noteEl.dataset.id) : null);
+          if (found) {
+            _wnActiveNote = found;
+            if (typeof window !== 'undefined') window._wnActiveNote = found;
+          }
+        }
+      }
       if (!_wnActiveNote) return null;
       const noteEl = wnGetNoteElementById(_wnActiveNote.id);
       if (!noteEl) return null;
@@ -4525,11 +4537,35 @@
     }
 
     function wnStyleClearSelectedFormat() {
+      if (!_wnActiveNote) {
+        const ed = wnGetActiveEditor();
+        if (ed) {
+          const noteEl = ed.closest('.con-word-note, .ta-word-note');
+          if (noteEl && noteEl.dataset.id) {
+            _wnActiveNote = (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === noteEl.dataset.id) : null) ||
+                            (typeof taWordNotes !== 'undefined' ? taWordNotes.find(n => n.id === noteEl.dataset.id) : null) || null;
+            if (_wnActiveNote && typeof window !== 'undefined') window._wnActiveNote = _wnActiveNote;
+          }
+        }
+      }
       if (!_wnActiveNote) return;
-      const cleared = wnClearSelectionFormattingPreserveFontSize();
-      if (!cleared) { const editor = wnGetActiveEditor(); if (editor) wnNoteHandleCtrlSpace(editor); }
+      const editor = wnGetActiveEditor();
+      if (editor) {
+        wnNoteHandleCtrlSpace(editor);
+      }
     }
     function wnClearSelectionFormattingPreserveFontSize() {
+      if (!_wnActiveNote) {
+        const ed = wnGetActiveEditor();
+        if (ed) {
+          const noteEl = ed.closest('.con-word-note, .ta-word-note');
+          if (noteEl && noteEl.dataset.id) {
+            _wnActiveNote = (typeof conNotes !== 'undefined' ? conNotes.find(n => n.id === noteEl.dataset.id) : null) ||
+                            (typeof taWordNotes !== 'undefined' ? taWordNotes.find(n => n.id === noteEl.dataset.id) : null) || null;
+            if (_wnActiveNote && typeof window !== 'undefined') window._wnActiveNote = _wnActiveNote;
+          }
+        }
+      }
       if (!_wnActiveNote) return false;
       const editor = wnGetActiveEditor();
       if (!editor || editor.tagName === 'TEXTAREA') return false;
@@ -4543,6 +4579,8 @@
       wnSyncNoteDataFromEditor(_wnActiveNote, editor);
       const savedFontSize = _wnActiveNote.fontSize;
       document.execCommand('styleWithCSS', false, true);
+      document.execCommand('removeFormat', false, null);
+      document.execCommand('unlink', false, null);
       if (document.queryCommandState('bold')) document.execCommand('bold', false, null);
       if (document.queryCommandState('italic')) document.execCommand('italic', false, null);
       if (document.queryCommandState('underline')) document.execCommand('underline', false, null);
@@ -4716,6 +4754,205 @@
       else if (s === 'a)') list.classList.add('wn-list-alpha-paren');
     }
 
+    function wnGetCaretCharacterOffset(container) {
+      if (!container) return 0;
+      if (container.tagName === 'TEXTAREA') {
+        return container.selectionStart || 0;
+      }
+      let caretOffset = 0;
+      const sel = window.getSelection && window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        if (container.contains(range.startContainer)) {
+          const preCaretRange = range.cloneRange();
+          preCaretRange.selectNodeContents(container);
+          preCaretRange.setEnd(range.startContainer, range.startOffset);
+          caretOffset = preCaretRange.toString().length;
+        }
+      }
+      return caretOffset;
+    }
+
+    function wnSetCaretCharacterOffset(container, offset) {
+      if (offset == null || !container) return;
+      if (container.tagName === 'TEXTAREA') {
+        try {
+          container.setSelectionRange(offset, offset);
+          container.focus();
+        } catch (_) { }
+        return;
+      }
+      const sel = window.getSelection && window.getSelection();
+      if (!sel) return;
+      let charCount = 0;
+      const treeWalker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, null, false);
+      let found = false;
+      let textNode;
+      while ((textNode = treeWalker.nextNode())) {
+        const nextCount = charCount + textNode.length;
+        if (!found && offset <= nextCount) {
+          try {
+            const range = document.createRange();
+            const nodeOffset = Math.max(0, Math.min(textNode.length, offset - charCount));
+            range.setStart(textNode, nodeOffset);
+            range.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            found = true;
+          } catch (_) { }
+          break;
+        }
+        charCount = nextCount;
+      }
+      if (!found) {
+        try {
+          const range = document.createRange();
+          range.selectNodeContents(container);
+          range.collapse(false);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) { }
+      }
+      try { container.focus(); } catch (_) { }
+    }
+
+    function wnCaptureNoteFormattingSnapshot(noteData, editor) {
+      if (!noteData || !editor) return null;
+      wnSyncNoteDataFromEditor(noteData, editor);
+      return {
+        html: editor.tagName === 'TEXTAREA' ? '' : editor.innerHTML,
+        text: noteData.text,
+        color: noteData.color,
+        bg: noteData.bg,
+        fontSize: noteData.fontSize,
+        bold: !!noteData.bold,
+        italic: !!noteData.italic,
+        underline: !!noteData.underline,
+        wavy: !!noteData.wavy,
+        strike: !!noteData.strike,
+        fontFamily: noteData.fontFamily || '',
+        casing: noteData.casing || '',
+        textAlign: noteData.textAlign || '',
+        borderWidth: noteData.borderWidth || 0,
+        borderStyle: noteData.borderStyle || '',
+        borderColor: noteData.borderColor || '',
+        caretOffset: wnGetCaretCharacterOffset(editor)
+      };
+    }
+
+    function wnRestoreNoteFormattingSnapshot(noteData, editor, snap) {
+      if (!noteData || !editor || !snap) return;
+      noteData.color = snap.color;
+      noteData.bg = snap.bg;
+      noteData.fontSize = snap.fontSize;
+      noteData.bold = snap.bold;
+      noteData.italic = snap.italic;
+      noteData.underline = snap.underline;
+      noteData.wavy = snap.wavy;
+      noteData.strike = snap.strike;
+      noteData.fontFamily = snap.fontFamily;
+      noteData.casing = snap.casing;
+      noteData.textAlign = snap.textAlign;
+      noteData.borderWidth = snap.borderWidth;
+      noteData.borderStyle = snap.borderStyle;
+      noteData.borderColor = snap.borderColor;
+      noteData.html = snap.html;
+      noteData.text = snap.text;
+
+      if (editor.tagName === 'TEXTAREA') {
+        editor.value = snap.text || '';
+      } else {
+        editor.innerHTML = snap.html;
+      }
+
+      if (typeof noteData._applyStyle === 'function') noteData._applyStyle();
+      if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      wnSyncNoteDataFromEditor(noteData, editor);
+
+      if (snap.caretOffset != null) {
+        wnSetCaretCharacterOffset(editor, snap.caretOffset);
+      }
+
+      const styleOverlay = document.getElementById('wn-style-overlay');
+      if (styleOverlay && styleOverlay.classList.contains('active') && typeof wnStyleRefresh === 'function') {
+        wnStyleRefresh();
+      }
+
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-text',
+          id: String(noteData.id),
+          html: noteData.html,
+          text: noteData.text,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
+        });
+        window._conMirrorSend({
+          type: 'note-style',
+          id: String(noteData.id),
+          bg: noteData.bg,
+          color: noteData.color,
+          fontSize: noteData.fontSize,
+          bold: !!noteData.bold,
+          italic: !!noteData.italic,
+          underline: !!noteData.underline,
+          wavy: !!noteData.wavy,
+          strike: !!noteData.strike,
+          fontFamily: noteData.fontFamily || '',
+          casing: noteData.casing || '',
+          textAlign: noteData.textAlign || '',
+          borderWidth: noteData.borderWidth || 0,
+          borderStyle: noteData.borderStyle || '',
+          borderColor: noteData.borderColor || '',
+          hidden: !!noteData.hidden,
+          blink: !!noteData.blink,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
+        });
+      }
+    }
+
+    function wnNoteUndoFormatting(editor, noteData) {
+      if (!editor || !noteData) return false;
+      if (!noteData._formattingUndoStack || noteData._formattingUndoStack.length === 0) return false;
+      const preSnap = noteData._formattingUndoStack.pop();
+      noteData._formattingRedoStack = noteData._formattingRedoStack || [];
+      noteData._formattingRedoStack.push(wnCaptureNoteFormattingSnapshot(noteData, editor));
+      wnRestoreNoteFormattingSnapshot(noteData, editor, preSnap);
+
+      if (typeof _conUndoStack !== 'undefined' && _conUndoStack.length > 0) {
+        _conUndoStack.pop();
+        if (typeof _conRedoStack !== 'undefined' && typeof conBuildPageSnapshot === 'function') {
+          _conRedoStack.push(conBuildPageSnapshot());
+        }
+      }
+      return true;
+    }
+
+    function wnNoteRedoFormatting(editor, noteData) {
+      if (!editor || !noteData) return false;
+      if (!noteData._formattingRedoStack || noteData._formattingRedoStack.length === 0) return false;
+      const postSnap = noteData._formattingRedoStack.pop();
+      noteData._formattingUndoStack = noteData._formattingUndoStack || [];
+      noteData._formattingUndoStack.push(wnCaptureNoteFormattingSnapshot(noteData, editor));
+      wnRestoreNoteFormattingSnapshot(noteData, editor, postSnap);
+
+      if (typeof _conRedoStack !== 'undefined' && _conRedoStack.length > 0) {
+        _conRedoStack.pop();
+        if (typeof _conUndoStack !== 'undefined' && typeof conBuildPageSnapshot === 'function') {
+          _conUndoStack.push(conBuildPageSnapshot());
+        }
+      }
+      return true;
+    }
+
     function wnNoteHandleCtrlSpace(editor) {
       if (!editor) return;
       const noteEl = editor.closest('.con-word-note, .ta-word-note');
@@ -4724,6 +4961,17 @@
       let noteData = conNotes.find(n => n.id === noteId);
       if (!noteData) noteData = taWordNotes.find(n => n.id === noteId);
       if (!noteData) return;
+      _wnActiveNote = noteData;
+      if (typeof window !== 'undefined') window._wnActiveNote = noteData;
+
+      // Sync and snapshot pre-clear state for both Board-level history and Note-level undo
+      wnSyncNoteDataFromEditor(noteData, editor);
+      if (typeof window.conPushUndo === 'function') window.conPushUndo();
+      const preSnap = wnCaptureNoteFormattingSnapshot(noteData, editor);
+      noteData._formattingUndoStack = noteData._formattingUndoStack || [];
+      noteData._formattingUndoStack.push(preSnap);
+      noteData._formattingRedoStack = [];
+
       const sel = window.getSelection();
       const hasSelection = sel && sel.rangeCount > 0 && !sel.isCollapsed && wnSelectionInside(editor);
       if (hasSelection) {
@@ -4735,10 +4983,60 @@
         });
         wnUnwrapBlinkHlSpans(Array.from(editor.querySelectorAll('.wn-blink-hl')));
         editor.style.color = ''; editor.style.backgroundColor = ''; editor.style.fontSize = '';
-        editor.style.fontWeight = ''; editor.style.fontStyle = '';
+        editor.style.fontWeight = ''; editor.style.fontStyle = ''; editor.style.textDecoration = '';
         noteData.color = '#111111'; noteData.bg = '#ffffff'; noteData.fontSize = 26;
         noteData.bold = false; noteData.italic = false; noteData.underline = false; noteData.wavy = false; noteData.strike = false;
         if (noteData._applyStyle) noteData._applyStyle();
+      }
+
+      wnSyncNoteDataFromEditor(noteData, editor);
+      if (typeof conNoteAutosize === 'function') conNoteAutosize(editor, noteData);
+      preSnap.textAfterClear = noteData.text || editor.textContent || '';
+      preSnap.htmlAfterClear = editor.innerHTML;
+
+      const styleOverlay = document.getElementById('wn-style-overlay');
+      if (styleOverlay && styleOverlay.classList.contains('active') && typeof wnStyleRefresh === 'function') {
+        wnStyleRefresh();
+      }
+
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({
+          type: 'note-text',
+          id: String(noteData.id),
+          html: noteData.html,
+          text: noteData.text,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
+        });
+        window._conMirrorSend({
+          type: 'note-style',
+          id: String(noteData.id),
+          bg: noteData.bg,
+          color: noteData.color,
+          fontSize: noteData.fontSize,
+          bold: !!noteData.bold,
+          italic: !!noteData.italic,
+          underline: !!noteData.underline,
+          wavy: !!noteData.wavy,
+          strike: !!noteData.strike,
+          fontFamily: noteData.fontFamily || '',
+          casing: noteData.casing || '',
+          textAlign: noteData.textAlign || '',
+          borderWidth: noteData.borderWidth || 0,
+          borderStyle: noteData.borderStyle || '',
+          borderColor: noteData.borderColor || '',
+          hidden: !!noteData.hidden,
+          blink: !!noteData.blink,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
+        });
       }
     }
 
@@ -5627,6 +5925,26 @@
             window._conStartLinkMode(noteData.id);
           }
           return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          if (noteData._formattingUndoStack && noteData._formattingUndoStack.length > 0) {
+            const topSnap = noteData._formattingUndoStack[noteData._formattingUndoStack.length - 1];
+            const curText = noteData.text || ta.textContent || '';
+            if (!topSnap.textAfterClear || curText === topSnap.textAfterClear) {
+              e.preventDefault();
+              e.stopPropagation();
+              wnNoteUndoFormatting(ta, noteData);
+              return;
+            }
+          }
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+          if (noteData._formattingRedoStack && noteData._formattingRedoStack.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            wnNoteRedoFormatting(ta, noteData);
+            return;
+          }
         }
         if (e.ctrlKey && (e.code === 'Space' || e.key === ' ')) {
           e.preventDefault();
@@ -7357,6 +7675,9 @@
   window.wnStyleSetBorderStyle = global.wnStyleSetBorderStyle = wnStyleSetBorderStyle;
   window.wnStyleSetBorderColor = global.wnStyleSetBorderColor = wnStyleSetBorderColor;
   window.wnStyleClearSelectedFormat = global.wnStyleClearSelectedFormat = wnStyleClearSelectedFormat;
+  window.wnNoteHandleCtrlSpace = global.wnNoteHandleCtrlSpace = wnNoteHandleCtrlSpace;
+  window.wnNoteUndoFormatting = global.wnNoteUndoFormatting = wnNoteUndoFormatting;
+  window.wnNoteRedoFormatting = global.wnNoteRedoFormatting = wnNoteRedoFormatting;
   window.wnStyleClose = global.wnStyleClose = wnStyleClose;
   window.wnStyleDismiss = global.wnStyleDismiss = wnStyleDismiss;
   window.wnLinkOpen = global.wnLinkOpen = wnLinkOpen;

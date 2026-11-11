@@ -1967,9 +1967,21 @@
       set('bc-node-border-color', bc.nodeDefaultBorderColor || '#111111');
       set('bc-entity-num-format', bc.entityNumberFormat || window._bcEntityNumberFormat || 'arabic');
       set('bc-entity-num-size', bc.entityNumberSize !== undefined ? bc.entityNumberSize : (window._bcEntityNumberSize || 22));
-      set('bc-entity-num-bg', bc.entityNumberBg || window._bcEntityNumberBg || '#fef08a');
-      set('bc-entity-num-color', bc.entityNumberColor || window._bcEntityNumberColor || '#111111');
-      set('bc-entity-num-border', bc.entityNumberBorder || window._bcEntityNumberBorder || '#333333');
+      const entBg = bc.entityNumberBg || window._bcEntityNumberBg || '#fef08a';
+      set('bc-entity-num-bg', entBg);
+      const bgPkr = document.getElementById('bc-entity-num-bg-picker');
+      if (bgPkr && typeof _bcSyncPickerFromText === 'function') _bcSyncPickerFromText(bgPkr, entBg);
+
+      const entColor = bc.entityNumberColor || window._bcEntityNumberColor || '#111111';
+      set('bc-entity-num-color', entColor);
+      const colPkr = document.getElementById('bc-entity-num-color-picker');
+      if (colPkr && typeof _bcSyncPickerFromText === 'function') _bcSyncPickerFromText(colPkr, entColor);
+
+      const entBorder = bc.entityNumberBorder || window._bcEntityNumberBorder || '#333333';
+      set('bc-entity-num-border', entBorder);
+      const bdrPkr = document.getElementById('bc-entity-num-border-picker');
+      if (bdrPkr && typeof _bcSyncPickerFromText === 'function') _bcSyncPickerFromText(bdrPkr, entBorder);
+
       set('bc-entity-num-border-width', bc.entityNumberBorderWidth !== undefined ? bc.entityNumberBorderWidth : 2);
       if (typeof window.bcUpdateNumberBadgePreview === 'function') window.bcUpdateNumberBadgePreview();
       set('bc-pen-color', bc.penDefaultColor || '#e53935');
@@ -2215,9 +2227,9 @@
       window.bcUpdateNumberBadgePreview = function () {
         const fmt = document.getElementById('bc-entity-num-format')?.value || 'arabic';
         const size = parseInt(document.getElementById('bc-entity-num-size')?.value, 10) || 22;
-        const bg = document.getElementById('bc-entity-num-bg')?.value || '#fef08a';
-        const color = document.getElementById('bc-entity-num-color')?.value || '#111111';
-        const border = document.getElementById('bc-entity-num-border')?.value || '#333333';
+        const bg = (document.getElementById('bc-entity-num-bg')?.value || '').trim() || '#fef08a';
+        const color = (document.getElementById('bc-entity-num-color')?.value || '').trim() || '#111111';
+        const border = (document.getElementById('bc-entity-num-border')?.value || '').trim() || '#333333';
         const bw = (document.getElementById('bc-entity-num-border-width')?.value || 2) + 'px';
 
         [1, 2, 3].forEach(i => {
@@ -2499,6 +2511,33 @@
       } catch (e) { }
     }
 
+    function bcSyncColorInput(textInputId, pickerHex) {
+      const textInput = document.getElementById(textInputId);
+      if (!textInput) return;
+      const curText = textInput.value.trim();
+      const rgbaMatch = curText.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i);
+      if (rgbaMatch) {
+        const r = parseInt(pickerHex.slice(1, 3), 16);
+        const g = parseInt(pickerHex.slice(3, 5), 16);
+        const b = parseInt(pickerHex.slice(5, 7), 16);
+        const alpha = rgbaMatch[4];
+        textInput.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      } else {
+        textInput.value = pickerHex;
+      }
+      if (typeof window.bcUpdateNumberBadgePreview === 'function') {
+        window.bcUpdateNumberBadgePreview();
+      }
+    }
+
+    function bcSyncColorPicker(pickerId, textVal) {
+      const picker = document.getElementById(pickerId);
+      if (!picker) return;
+      if (typeof _bcSyncPickerFromText === 'function') {
+        _bcSyncPickerFromText(picker, textVal);
+      }
+    }
+
     function _bcBuildSwatchList(containerId, colors) {
       const container = document.getElementById(containerId);
       if (!container) return;
@@ -2590,7 +2629,7 @@
 
     async function boardCustomiseSave() {
       const getNum = (id, fallback) => { const el = document.getElementById(id); return el ? (parseInt(el.value, 10) || fallback) : fallback; };
-      const getVal = (id, fallback) => { const el = document.getElementById(id); return el ? (el.value || fallback) : fallback; };
+      const getVal = (id, fallback) => { const el = document.getElementById(id); return el ? ((typeof el.value === 'string' ? el.value.trim() : el.value) || fallback) : fallback; };
       const existing = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
       const boardLayout = _bcResolveBoardLayoutSettings({
         boardLayoutPreset: getVal('bc-board-layout-preset', 'flex'),
@@ -3143,6 +3182,8 @@
   Board.shortcuts.boardCustomiseOpen = boardCustomiseOpen;
   Board.shortcuts.boardCustomiseClose = boardCustomiseClose;
   Board.shortcuts.boardCustomiseSave = boardCustomiseSave;
+  Board.shortcuts.bcSyncColorInput = bcSyncColorInput;
+  Board.shortcuts.bcSyncColorPicker = bcSyncColorPicker;
 
   // Backward compatibility exports for HTML attributes & cross-module calls
   window.boardSoundPreviewAction = global.boardSoundPreviewAction = boardSoundPreviewAction;
@@ -3183,6 +3224,8 @@
   window.showBoardTour = global.showBoardTour = showBoardTour;
 
   window._bcSyncPickerFromText = global._bcSyncPickerFromText = _bcSyncPickerFromText;
+  window.bcSyncColorInput = global.bcSyncColorInput = bcSyncColorInput;
+  window.bcSyncColorPicker = global.bcSyncColorPicker = bcSyncColorPicker;
   window.boardDispatchCustomShortcut = global.boardDispatchCustomShortcut = boardDispatchCustomShortcut;
   window._boardNudgeSelected = global._boardNudgeSelected = _boardNudgeSelected;
   window.BOARD_ACTION_DEFINITIONS = global.BOARD_ACTION_DEFINITIONS = BOARD_ACTION_DEFINITIONS;

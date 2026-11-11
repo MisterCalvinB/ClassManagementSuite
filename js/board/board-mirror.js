@@ -1779,7 +1779,9 @@
                 eData.anchorA,
                 eData.anchorB,
                 eData.colorMode,
-                eData.strokeColor
+                eData.strokeColor,
+                eData.points,
+                eData.avoidObstacles
               );
             }
           }
@@ -1834,6 +1836,8 @@
             if (eData2.anchorB !== undefined) ed2.anchorB = eData2.anchorB;
             if (eData2.colorMode !== undefined) ed2.colorMode = eData2.colorMode;
             if (eData2.strokeColor !== undefined) ed2.strokeColor = eData2.strokeColor;
+            if (eData2.points !== undefined) ed2.points = Array.isArray(eData2.points) ? eData2.points.slice() : [];
+            if (eData2.avoidObstacles !== undefined) ed2.avoidObstacles = !!eData2.avoidObstacles;
             if (ed2.labelEl) ed2.labelEl.textContent = ed2.label || '';
             if (typeof window.conApplyEdgeLabelStyle === 'function') window.conApplyEdgeLabelStyle(ed2);
             if (typeof window.conUpdateEdge === 'function') window.conUpdateEdge(ed2);
