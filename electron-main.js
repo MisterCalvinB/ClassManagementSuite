@@ -1344,16 +1344,36 @@ function createToolWindow(pageFile, options = {}) {
 }
 
 function buildMenu() {
-  const toolMenu = Object.values(PAGE_FILES).map((pageFile) => ({
+  const MENU_GROUPS = [
+    { label: 'Classroom', keys: ['launcher', 'classManagement', 'board', 'learningTools', 'oralMarking', 'classPlan'] },
+    { label: 'Planning & Content', keys: ['planner', 'lessonCreator', 'testCreator', 'documentEditor', 'pdfViewer', 'dictionary'] },
+    { label: 'Students & Grades', keys: ['groupEditor', 'administrativeGroups', 'gradeSheet', 'participationTracker', 'competencePortfolio', 'scheduleMaker'] },
+    { label: 'Data & Utilities', keys: ['learningDb', 'databaseConverter', 'importTool', 'fileManager', 'mediaConverter'] },
+    { label: 'App', keys: ['generalConfig', 'setupWizard', 'howTo', 'about'] }
+  ];
+  const makeItem = (pageFile) => ({
     label: PAGE_LABELS[pageFile],
     click: () => {
       createToolWindow(pageFile);
     }
-  }));
+  });
+  const used = new Set();
+  const toolMenu = [];
+  MENU_GROUPS.forEach((group) => {
+    const items = group.keys
+      .map((key) => PAGE_FILES[key])
+      .filter((pageFile) => pageFile && PAGE_LABELS[pageFile])
+      .map((pageFile) => { used.add(pageFile); return makeItem(pageFile); });
+    if (items.length) toolMenu.push({ label: group.label, submenu: items });
+  });
+  const otherItems = Object.values(PAGE_FILES)
+    .filter((pageFile) => !used.has(pageFile) && PAGE_LABELS[pageFile])
+    .map(makeItem);
+  if (otherItems.length) toolMenu.push({ label: 'Other', submenu: otherItems });
 
   const template = [
     {
-      label: 'Tools',
+      label: 'Apps',
       submenu: toolMenu
     },
     {
@@ -9029,6 +9049,34 @@ ipcMain.handle('app:open-external', async (_event, request = {}) => {
   if (!url || !/^https?:\/\//i.test(url)) return { ok: false, error: 'Invalid URL' };
   await shell.openExternal(url);
   return { ok: true };
+});
+
+ipcMain.handle('app:open-web-window', async (_event, request = {}) => {
+  const url = String(request.url || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return { ok: false, error: 'Invalid URL' };
+  const title = request.title ? String(request.title) : 'Web Link';
+
+  const win = new BrowserWindow({
+    width: Number(request.width) || 1100,
+    height: Number(request.height) || 780,
+    title,
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(ROOT_DIR, 'electron-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false,
+      webviewTag: true
+    }
+  });
+
+  const targetFile = path.join(ROOT_DIR, 'pages', 'web-viewer.html');
+  try {
+    await win.loadFile(targetFile, { query: { url, title } });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
 });
 
 ipcMain.handle('app:open-native', async (event, request = {}) => {

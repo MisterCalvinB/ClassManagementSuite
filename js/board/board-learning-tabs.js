@@ -378,15 +378,101 @@
           return w.includes(target) || target.includes(w);
         });
       }
-      if (!node || !node.el) return;
+
+      // If not on active page, search page snapshots and switch page
+      if (!node && typeof window.conGoToPage === 'function') {
+        const snaps = (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots))
+          ? conPageSnapshots
+          : ((typeof window.conPageSnapshots !== 'undefined' && Array.isArray(window.conPageSnapshots)) ? window.conPageSnapshots : []);
+        for (let p = 0; p < snaps.length; p++) {
+          const snap = snaps[p];
+          if (!snap) continue;
+          if (Array.isArray(snap.nodes)) {
+            const foundNode = snap.nodes.find(n => n && (String(n.id).toLowerCase() === target || String(n.baseWord || '').trim().toLowerCase() === target));
+            if (foundNode) {
+              window._conSuppressScrollToTop = true;
+              window.conGoToPage(p);
+              setTimeout(() => {
+                window._conSuppressScrollToTop = false;
+                window.conFocusAndHighlightNode(nodeIdOrText);
+              }, 280);
+              return;
+            }
+          }
+          if (Array.isArray(snap.notes)) {
+            const foundNote = snap.notes.find(nt => nt && (String(nt.id).toLowerCase() === target || (nt.text && nt.text.toLowerCase().includes(target))));
+            if (foundNote) {
+              window._conSuppressScrollToTop = true;
+              window.conGoToPage(p);
+              setTimeout(() => {
+                window._conSuppressScrollToTop = false;
+                window.conFocusAndHighlightNode(nodeIdOrText);
+              }, 280);
+              return;
+            }
+          }
+        }
+      }
+
+      // Also check active notes
+      if (!node) {
+        const allNotes = (typeof conNotes !== 'undefined') ? conNotes : (window.conGetNotes ? window.conGetNotes() : []);
+        const note = allNotes.find(n => n && (String(n.id).toLowerCase() === target || (n.text && n.text.toLowerCase().includes(target))));
+        if (note) {
+          const noteEl = document.querySelector(`.con-word-note[data-id="${note.id}"]`) || note.el || document.getElementById(String(note.id));
+          if (typeof conSelectNote === 'function') conSelectNote(note.id);
+          if (noteEl) {
+            const brd = document.getElementById('constellation-board');
+            const nx = (note.x != null) ? note.x : (parseInt(noteEl.style.left, 10) || 0);
+            const ny = (note.y != null) ? note.y : (parseInt(noteEl.style.top, 10) || 0);
+            const nw = noteEl.offsetWidth || 140;
+            const nh = noteEl.offsetHeight || 90;
+            if (brd && !isNaN(nx) && !isNaN(ny)) {
+              brd.scrollTo({
+                left: Math.max(0, Math.round((nx + nw / 2) - brd.clientWidth / 2)),
+                top: Math.max(0, Math.round((ny + nh / 2) - brd.clientHeight / 2)),
+                behavior: 'smooth'
+              });
+            } else {
+              noteEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            }
+            noteEl.classList.remove('con-link-highlight-pulse', 'con-node-highlight-pulse');
+            void noteEl.offsetWidth;
+            noteEl.classList.add('con-link-highlight-pulse');
+            setTimeout(() => { if (noteEl) noteEl.classList.remove('con-link-highlight-pulse'); }, 2500);
+          }
+          return;
+        }
+      }
+
+      if (!node) return;
+      const targetEl = node.el || document.getElementById(String(node.id));
+      if (!targetEl) return;
 
       if (typeof conSelect === 'function') conSelect(node.id);
       else if (typeof window.conSelect === 'function') window.conSelect(node.id);
 
-      node.el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-      node.el.classList.add('con-node-highlight-pulse');
+      const brd = document.getElementById('constellation-board');
+      const nx = (node.x != null) ? node.x : (parseInt(targetEl.style.left, 10) || targetEl.offsetLeft || 0);
+      const ny = (node.y != null) ? node.y : (parseInt(targetEl.style.top, 10) || targetEl.offsetTop || 0);
+      const nw = targetEl.offsetWidth || 80;
+      const nh = targetEl.offsetHeight || 32;
+
+      if (brd && !isNaN(nx) && !isNaN(ny)) {
+        brd.scrollTo({
+          left: Math.max(0, Math.round((nx + nw / 2) - brd.clientWidth / 2)),
+          top: Math.max(0, Math.round((ny + nh / 2) - brd.clientHeight / 2)),
+          behavior: 'smooth'
+        });
+      } else {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }
+
+      targetEl.classList.remove('con-node-highlight-pulse', 'con-link-highlight-pulse');
+      void targetEl.offsetWidth;
+      targetEl.classList.add('con-node-highlight-pulse');
       setTimeout(() => {
-        if (node && node.el) node.el.classList.remove('con-node-highlight-pulse');
+        if (targetEl) targetEl.classList.remove('con-node-highlight-pulse');
       }, 2500);
     };
 
@@ -2285,6 +2371,85 @@
           conCreateGameLauncherCard(activityPayload, centerX, centerY);
         }
         if (typeof showToast === 'function') showToast(`Created launcher card for ${selectedItems.length} items.`);
+        return;
+      }
+
+      // Output 2.5: Bookmarks / Deep Links Stack & Grid Layouts
+      if (chosenFormat === 'vertical-stack' || chosenFormat === 'grouped-stack' || (meta.domain === 'bookmarks' && (chosenFormat === 'grid' || chosenFormat === 'nodes'))) {
+        const count = selectedItems.length;
+        const isGrid = (chosenFormat === 'grid' || chosenFormat === 'nodes');
+        const isGrouped = (chosenFormat === 'grouped-stack');
+        let cols = isGrid ? (count <= 4 ? Math.max(1, count) : (count <= 12 ? 3 : 4)) : 1;
+        const COL_W = 240;
+        const ROW_H = 58;
+        const startX = centerX - Math.round((cols * COL_W) / 2);
+        const startY = centerY - Math.round((Math.ceil(count / cols) * ROW_H) / 2);
+
+        const nodeIds = [];
+        selectedItems.forEach((it, i) => {
+          const col = i % cols;
+          const row = Math.floor(i / cols);
+          const nx = startX + (col * COL_W);
+          const ny = startY + (row * ROW_H);
+
+          const itemTitle = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.getItemText === 'function')
+            ? UniversalImporter.getItemText(it, importField, nameDisplayMode)
+            : (it.title || 'Link');
+
+          let nid = null;
+          if (typeof conAddLinkNodeAt === 'function') {
+            let lType = 'web';
+            if (it.subType === 'board-canvas') lType = 'canvas';
+            else if (it.subType === 'board-mindmaps') lType = 'board';
+            else if (it.subType === 'doceditor-docs') lType = 'doc';
+            else if (it.domain === 'grades') lType = 'grades';
+            else if (it.domain === 'class' || it.domain === 'assessment' || it.domain === 'participation') lType = 'suite';
+
+            let target = '';
+            if (it.raw && it.raw.url) target = it.raw.url;
+            else if (it.raw && it.raw.filename) target = it.raw.filename;
+            else if (it.raw && it.raw.id) target = (it.raw.itemType ? it.raw.itemType + ':' : '') + it.raw.id;
+            else if (it.id) target = it.id;
+
+            nid = conAddLinkNodeAt({
+              title: itemTitle,
+              linkType: lType,
+              target: target,
+              subtitle: it.subtitle || it.badge || '',
+              urn: it.urn || '',
+              tags: it.tags || []
+            }, nx, ny);
+          } else if (addWordFn) {
+            nid = addWordFn(itemTitle, nx, ny);
+          }
+
+          if (nid) {
+            nodeIds.push(nid);
+            if (typeof conNodes !== 'undefined') {
+              const nodeObj = conNodes.find(n => n && n.id === nid);
+              if (nodeObj) {
+                nodeObj.urn = it.urn;
+                nodeObj.subType = it.subType;
+                nodeObj.domain = it.domain;
+                if (nodeObj.el && it.urn) nodeObj.el.setAttribute('data-urn', it.urn);
+              }
+            }
+          }
+        });
+
+        if (isGrouped && nodeIds.length > 0 && typeof conGroupCreate === 'function') {
+          const groupTitle = selectedItems[0]?.theme || selectedItems[0]?.subtitle || 'Bookmarks';
+          const grp = conGroupCreate(nodeIds, startX - 10, startY - 10, null, null, null, { title: groupTitle });
+          if (grp) {
+            grp.title = groupTitle;
+            if (typeof conGroupRefit === 'function') conGroupRefit(grp);
+            if (typeof conGroupApplyStyle === 'function') conGroupApplyStyle(grp);
+          }
+        }
+
+        if (typeof showToast === 'function') {
+          showToast(`Inserted ${nodeIds.length} link node(s).`);
+        }
         return;
       }
 

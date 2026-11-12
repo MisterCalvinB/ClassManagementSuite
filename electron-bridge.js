@@ -919,6 +919,22 @@
     return getDesktopApi().openExternal({ url });
   }
 
+  async function openWebWindow(url, title = '') {
+    const req = (typeof url === 'object' && url) ? url : { url, title };
+    if (!isElectron()) {
+      window.open(req.url, '_blank');
+      return { ok: true, fallback: true };
+    }
+    const api = getDesktopApi();
+    if (api && typeof api.openWebWindow === 'function') {
+      return api.openWebWindow(req);
+    }
+    return openHtml({
+      page: 'web-viewer.html',
+      query: { url: req.url, title: req.title }
+    });
+  }
+
   async function goToLauncher() {
     if (!isElectron()) return null;
     return getDesktopApi().goToLauncher();
@@ -1339,6 +1355,7 @@
     listByPath,
     listFiles,
     openExternal,
+    openWebWindow,
     openNative,
     openPath: openNative,
     showInFolder,

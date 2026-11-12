@@ -523,6 +523,20 @@
         }
       }
 
+      case 'web-bookmarks': {
+        const title = item.title || '';
+        const url = (raw && raw.url) || item.url || '';
+        const domain = (raw && raw.domain) || item.subtitle || '';
+        switch (fieldChoice) {
+          case 'url': return url || title;
+          case 'domain': return domain || title;
+          case 'both_dash': return domain ? `${title} — ${domain}` : title;
+          case 'title':
+          default:
+            return title || url;
+        }
+      }
+
       default: {
         const primaryTitle = item.title || '';
         const secondaryText = (item.subtitle || '').trim();
@@ -613,7 +627,8 @@
     { id: 'assessment', label: 'Assessment & Curriculum', icon: 'award.svg' },
     { id: 'class', label: 'Class & Rosters', icon: 'groups.svg' },
     { id: 'grades', label: 'Grade Sheet', icon: 'table.svg' },
-    { id: 'participation', label: 'Participation Tracker', icon: 'participation-tracker.svg' }
+    { id: 'participation', label: 'Participation Tracker', icon: 'participation-tracker.svg' },
+    { id: 'bookmarks', label: 'Bookmarks & Links', icon: 'links.svg' }
   ];
 
   const SUB_SOURCES = [
@@ -651,7 +666,13 @@
     // 5. Participation Tracker
     { id: 'pt-summary', domain: 'participation', label: 'Session Stats', icon: 'participation-tracker.svg', special: 'pt-summary' },
     { id: 'pt-notes', domain: 'participation', label: 'Student Notes', icon: 'file-text.svg', special: 'pt-notes' },
-    { id: 'pt-rules', domain: 'participation', label: 'Grading Rules', icon: 'gear.svg', special: 'pt-rules' }
+    { id: 'pt-rules', domain: 'participation', label: 'Grading Rules', icon: 'gear.svg', special: 'pt-rules' },
+
+    // 6. Bookmarks & Deep Links
+    { id: 'web-bookmarks', domain: 'bookmarks', label: 'Web Bookmarks', icon: 'links.svg', special: 'web-bookmarks' },
+    { id: 'board-mindmaps', domain: 'bookmarks', label: 'Other Mindmaps', icon: 'board.svg', special: 'board-mindmaps' },
+    { id: 'doceditor-docs', domain: 'bookmarks', label: 'Documents', icon: 'document-editor.svg', special: 'doceditor-docs' },
+    { id: 'board-canvas', domain: 'bookmarks', label: 'This Board Elements', icon: 'nodes.svg', special: 'board-canvas' }
   ];
 
   // ---------------------------------------------------------------------------
@@ -1949,6 +1970,153 @@
         _cache.fileSetsBySubType.set('pt-rules', [{ filename: 'pt-rules.js', count: ptRules.length, records: ptRules }]);
       } catch (_) {}
 
+      // 6. Index Bookmarks & Links (Web, Mindmaps, Documents, Canvas Elements)
+      try {
+        // A. Web Bookmarks
+        const webBookmarks = [];
+        let rawBms = [];
+        if (typeof window !== 'undefined' && window.BookmarksService && typeof window.BookmarksService.getAll === 'function') {
+          rawBms = await window.BookmarksService.getAll();
+        } else if (isEl && typeof window.Desktop.readJson === 'function') {
+          try {
+            const r = await window.Desktop.readJson('user', 'bookmarks.json');
+            if (r?.ok && Array.isArray(r.data)) rawBms = r.data;
+          } catch (_) {}
+        }
+        if (!rawBms.length && typeof localStorage !== 'undefined') {
+          try {
+            const ls = localStorage.getItem('cmt_bookmarks_registry');
+            if (ls) rawBms = JSON.parse(ls);
+          } catch (_) {}
+        }
+
+        if (Array.isArray(rawBms)) {
+          rawBms.forEach((bm, idx) => {
+            if (!bm || !bm.url) return;
+            const domain = bm.domain || (function (u) { try { return new URL(u).hostname.replace(/^www\./i, ''); } catch (_) { return ''; } })(bm.url);
+            const firstTag = (Array.isArray(bm.tags) && bm.tags.length) ? bm.tags[0].replace(/^#/, '') : (domain || 'Web');
+            webBookmarks.push({
+              id: bm.id || `bm_${idx}`,
+              urn: `cmt:bookmark:${bm.id}`,
+              domain: 'bookmarks',
+              subType: 'web-bookmarks',
+              title: bm.title || bm.url,
+              subtitle: domain || (bm.tags && bm.tags.length ? bm.tags.join(' ') : 'Web Link'),
+              badge: domain || 'WEB',
+              level: '',
+              theme: firstTag,
+              tags: bm.tags || [],
+              starred: !!bm.starred,
+              raw: bm
+            });
+          });
+        }
+        _cache.recordsBySubType.set('web-bookmarks', webBookmarks);
+        _cache.fileSetsBySubType.set('web-bookmarks', [{ filename: 'bookmarks.json', count: webBookmarks.length, records: webBookmarks }]);
+
+        // B. Other Mindmaps
+        const mindmapRecords = [];
+        if (isEl && typeof window.Desktop.listFiles === 'function') {
+          try {
+            const mList = await window.Desktop.listFiles('user', { subFolder: 'constellations', extensions: ['.json'] });
+            const mFiles = mList?.files || (Array.isArray(mList) ? mList : []);
+            mFiles.forEach((f, idx) => {
+              const fname = typeof f === 'string' ? f : f.filename;
+              if (!fname) return;
+              mindmapRecords.push({
+                id: fname,
+                urn: `cmt:board:${fname}`,
+                domain: 'bookmarks',
+                subType: 'board-mindmaps',
+                title: fname.replace(/\.json$/i, ''),
+                subtitle: 'Mindmap Session',
+                badge: 'BOARD',
+                level: '',
+                theme: 'Mindmaps',
+                tags: ['#board', '#mindmap'],
+                raw: { filename: fname, kind: 'board' }
+              });
+            });
+          } catch (_) {}
+        }
+        _cache.recordsBySubType.set('board-mindmaps', mindmapRecords);
+        _cache.fileSetsBySubType.set('board-mindmaps', [{ filename: 'constellations', count: mindmapRecords.length, records: mindmapRecords }]);
+
+        // C. Document Editor Docs
+        const docRecords = [];
+        if (isEl && typeof window.Desktop.listFiles === 'function') {
+          try {
+            const dList = await window.Desktop.listFiles('docEditorDocs', { extensions: ['.md'] });
+            const dFiles = dList?.files || (Array.isArray(dList) ? dList : []);
+            dFiles.forEach((f, idx) => {
+              const fname = typeof f === 'string' ? f : f.filename;
+              if (!fname) return;
+              docRecords.push({
+                id: fname,
+                urn: `cmt:doc:${fname}`,
+                domain: 'bookmarks',
+                subType: 'doceditor-docs',
+                title: fname.replace(/\.md$/i, ''),
+                subtitle: 'Markdown Document',
+                badge: 'DOC',
+                level: '',
+                theme: 'Documents',
+                tags: ['#document', '#markdown'],
+                raw: { filename: fname, kind: 'doc' }
+              });
+            });
+          } catch (_) {}
+        }
+        _cache.recordsBySubType.set('doceditor-docs', docRecords);
+        _cache.fileSetsBySubType.set('doceditor-docs', [{ filename: 'doceditor', count: docRecords.length, records: docRecords }]);
+
+        // D. Board Canvas Elements
+        const canvasRecords = [];
+        if (typeof window !== 'undefined') {
+          const currentNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || []);
+          currentNodes.forEach((n, idx) => {
+            if (!n) return;
+            const nTitle = n.baseWord || (n.el && n.el.textContent.trim()) || `Node ${n.id}`;
+            const pNum = (n.pageNum != null) ? n.pageNum : (typeof window.conCurrentPageIndex !== 'undefined' ? window.conCurrentPageIndex + 1 : 1);
+            canvasRecords.push({
+              id: `node:${n.id}`,
+              urn: `cmt:board_item:node:${n.id}`,
+              domain: 'bookmarks',
+              subType: 'board-canvas',
+              title: nTitle,
+              subtitle: `Canvas Node (Page ${pNum})`,
+              badge: `P${pNum}`,
+              level: `P${pNum}`,
+              theme: 'Nodes',
+              tags: n.tags || ['#node'],
+              raw: { itemType: 'node', id: n.id, pageNum: pNum, title: nTitle }
+            });
+          });
+          const currentNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+          currentNotes.forEach((nt, idx) => {
+            if (!nt) return;
+            const ntTitle = (nt.text || nt.content || 'Note').split('\n')[0].replace(/^#+\s*/, '').trim() || `Note ${nt.id}`;
+            canvasRecords.push({
+              id: `note:${nt.id}`,
+              urn: `cmt:board_item:note:${nt.id}`,
+              domain: 'bookmarks',
+              subType: 'board-canvas',
+              title: ntTitle,
+              subtitle: 'Sticky Note',
+              badge: 'NOTE',
+              level: '',
+              theme: 'Notes',
+              tags: nt.tags || ['#note'],
+              raw: { itemType: 'note', id: nt.id, title: ntTitle }
+            });
+          });
+        }
+        _cache.recordsBySubType.set('board-canvas', canvasRecords);
+        _cache.fileSetsBySubType.set('board-canvas', [{ filename: 'canvas', count: canvasRecords.length, records: canvasRecords }]);
+      } catch (err) {
+        console.warn('[UniversalImporter] Bookmarks indexing error:', err);
+      }
+
       _cache.loaded = true;
       return _cache;
     })();
@@ -2102,6 +2270,21 @@
           { value: 'rule_label', label: 'Rule Label', i18nKey: 'uimpFieldRuleTitle' },
           { value: 'rule_points', label: 'Rule + Point Value', i18nKey: 'uimpFieldRulePoints' }
         ];
+      case 'web-bookmarks':
+        return [
+          { value: 'title', label: 'Bookmark Title', i18nKey: 'uimpFieldTitle' },
+          { value: 'url', label: 'Full Web URL', i18nKey: 'uimpFieldUrl' },
+          { value: 'domain', label: 'Domain Hostname', i18nKey: 'uimpFieldDomain' },
+          { value: 'both_dash', label: 'Title — Domain', i18nKey: 'uimpFieldBothDash' }
+        ];
+      case 'board-mindmaps':
+      case 'doceditor-docs':
+      case 'board-canvas':
+        return [
+          { value: 'title', label: 'Item Name / Title', i18nKey: 'uimpFieldTitle' },
+          { value: 'subtitle', label: 'Subtitle / Description', i18nKey: 'uimpFieldSubtitle' },
+          { value: 'both_dash', label: 'Title — Details', i18nKey: 'uimpFieldBothDash' }
+        ];
       default:
         return [
           { value: 'title', label: 'Primary Title / Item', i18nKey: 'uimpFieldTitle' },
@@ -2180,6 +2363,7 @@
             <button type="button" class="uimp-btn-sm" onclick="UniversalImporter.invertSelection()">
               ${renderSvgIcon('refresh.svg')} <span data-i18n="uimpBtnInvert">Invert</span>
             </button>
+            <span id="uimp-extra-action-buttons" style="display:flex; gap:6px; align-items:center;"></span>
           </div>
           <span id="uimp-counter-text" style="font-size:0.78rem; font-weight:800; color:#64748b;">0 items available</span>
         </div>
@@ -2280,6 +2464,22 @@
     const setSelect = document.getElementById('uimp-filter-fileset');
     const lvlSelect = document.getElementById('uimp-filter-level');
     const thmSelect = document.getElementById('uimp-filter-theme');
+
+    const extraActionEl = document.getElementById('uimp-extra-action-buttons');
+    if (extraActionEl) {
+      if (_state.activeDomain === 'bookmarks' && _state.activeSubType === 'web-bookmarks') {
+        extraActionEl.innerHTML = `
+          <button type="button" class="uimp-btn-sm" onclick="UniversalImporter.importHtmlBookmarks()" title="Import exported browser HTML bookmarks">
+            ${renderSvgIcon('import.svg')} <span data-i18n="uimpImportHtmlBookmarks">Import HTML</span>
+          </button>
+          <button type="button" class="uimp-btn-sm" onclick="UniversalImporter.quickAddBookmark()" title="Add custom URL bookmark">
+            ${renderSvgIcon('plus.svg')} <span data-i18n="uimpAddBookmark">Add Bookmark</span>
+          </button>
+        `;
+      } else {
+        extraActionEl.innerHTML = '';
+      }
+    }
 
     const fileSets = _cache.fileSetsBySubType.get(_state.activeSubType) || [];
     const allRecords = _cache.recordsBySubType.get(_state.activeSubType) || [];
@@ -2407,6 +2607,18 @@
           { value: 'tray', label: 'Drag & Drop Staging Tray', i18nKey: 'uimpFormatTray' },
           { value: 'note', label: 'Sticky Note / Checklist Card', i18nKey: 'uimpFormatNote' },
           { value: 'table', label: 'Editable Table Grid', i18nKey: 'uimpFormatTable' }
+        ];
+      case 'web-bookmarks':
+      case 'board-mindmaps':
+      case 'doceditor-docs':
+      case 'board-canvas':
+        return [
+          { value: 'vertical-stack', label: 'Vertical Stack (Column)', i18nKey: 'uimpFormatVerticalStack' },
+          { value: 'grouped-stack', label: 'Grouped Stack (Container Card)', i18nKey: 'uimpFormatGroupedStack' },
+          { value: 'grid', label: 'Grid Matrix', i18nKey: 'uimpFormatGrid' },
+          { value: 'note', label: 'Sticky Note / Checklist Card', i18nKey: 'uimpFormatNote' },
+          { value: 'table', label: 'Editable Table Grid', i18nKey: 'uimpFormatTable' },
+          { value: 'nodes', label: 'Individual Concept Nodes', i18nKey: 'uimpFormatNodes' }
         ];
       case 'testbanks':
       case 'competences':
@@ -3316,6 +3528,55 @@
       const formatSel = document.getElementById('uimp-output-format-select');
       if (formatSel) {
         _state.outputFormat = formatSel.value;
+      }
+    },
+
+    async importHtmlBookmarks() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.html,.htm';
+      input.onchange = async () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const text = reader.result;
+          if (typeof window !== 'undefined' && window.BookmarksService && typeof window.BookmarksService.importFromHtml === 'function') {
+            const res = await window.BookmarksService.importFromHtml(text);
+            if (typeof showToast === 'function') {
+              showToast(`Imported ${res.added} bookmarks (${res.duplicates} duplicates skipped)`);
+            }
+            _cache.loaded = false;
+            _cache.loadPromise = null;
+            await _loadData(true);
+            _renderFilterOptions();
+            _renderItems();
+            _updateSelectedCount();
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();
+    },
+
+    async quickAddBookmark() {
+      if (typeof showPrompt !== 'function') return;
+      const url = await showPrompt('Enter Web Bookmark URL:', 'https://');
+      if (!url || !url.trim() || url.trim() === 'https://') return;
+      const title = await showPrompt('Enter Bookmark Title (optional):', '');
+      if (typeof window !== 'undefined' && window.BookmarksService && typeof window.BookmarksService.add === 'function') {
+        await window.BookmarksService.add({
+          url: url.trim(),
+          title: title ? title.trim() : '',
+          tags: ['#web']
+        });
+        if (typeof showToast === 'function') showToast('Bookmark added');
+        _cache.loaded = false;
+        _cache.loadPromise = null;
+        await _loadData(true);
+        _renderFilterOptions();
+        _renderItems();
+        _updateSelectedCount();
       }
     },
 

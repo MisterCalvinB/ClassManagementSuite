@@ -146,6 +146,9 @@ const exposedApi = {
   openExternal(request) {
     return invoke('app:open-external', request);
   },
+  openWebWindow(request) {
+    return invoke('app:open-web-window', request);
+  },
   fetchUrl(request) {
     return invoke('app:fetch-url', request);
   },

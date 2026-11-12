@@ -1178,6 +1178,18 @@ th.td-pts .th-label > .score-badge {
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
 }
 
+/* Invisible hit-area extension: hover/active transforms shift the chip by up to 2px,
+   which made mousedown/mouseup land on different targets near the edges and swallowed the click. */
+.note-checklist-chip {
+  position: relative;
+}
+
+.note-checklist-chip::before {
+  content: "";
+  position: absolute;
+  inset: -3px;
+}
+
 .note-checklist-chip:hover {
   border-color: var(--neo-border-color, #333333);
   background: var(--note-chip-hover);

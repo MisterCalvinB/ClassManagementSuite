@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob: *; script-src 'self' 'unsafe-inline' 'unsafe-eval' file: data: blob:; style-src 'self' 'unsafe-inline' file: data:; frame-src * 'self' file: data: blob:; img-src 'self' file: data: blob: *; media-src 'self' file: data: blob: *;">
+  <title>Class Management Tools — Web Viewer</title>
+  <link rel="stylesheet" href="../css/board.css">
+  <style>
+    :root {
+      --wv-bg: #f5f5f0;
+      --wv-bar-bg: #ffffff;
+      --wv-border: 2px solid #333333;
+      --wv-shadow: 3px 3px 0 #555555;
+      --wv-radius: 8px;
+      --wv-text: #222222;
+      --wv-accent: #e2c96e;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+      background-color: var(--wv-bg);
+      color: var(--wv-text);
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .wv-toolbar {
+      height: 48px;
+      background: var(--wv-bar-bg);
+      border-bottom: var(--wv-border);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      user-select: none;
+      z-index: 10;
+    }
+
+    .wv-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .wv-btn {
+      width: 32px;
+      height: 32px;
+      border: var(--wv-border);
+      border-radius: 6px;
+      background: #ffffff;
+      box-shadow: 2px 2px 0 #555555;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+
+    .wv-btn:hover:not(:disabled) {
+      background: #fafaf5;
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #333333;
+    }
+
+    .wv-btn:active:not(:disabled) {
+      transform: translate(1px, 1px);
+      box-shadow: 1px 1px 0 #333333;
+    }
+
+    .wv-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .wv-btn img {
+      width: 16px;
+      height: 16px;
+      pointer-events: none;
+    }
+
+    .wv-url-form {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .wv-url-input {
+      width: 100%;
+      height: 32px;
+      border: var(--wv-border);
+      border-radius: 6px;
+      padding: 0 10px;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--wv-text);
+      background: #fdfdfc;
+      box-shadow: inset 1px 1px 0 rgba(0,0,0,0.1);
+      outline: none;
+    }
+
+    .wv-url-input:focus {
+      border-color: #222222;
+      background: #ffffff;
+      box-shadow: 2px 2px 0 #e2c96e;
+    }
+
+    .wv-content-area {
+      flex: 1;
+      position: relative;
+      background: #ffffff;
+      width: 100%;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .wv-toolbar { flex: 0 0 48px; }
+
+    #wv-webview, #wv-iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: flex;
+    }
+
+    .wv-status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #999999;
+      margin-right: 4px;
+    }
+
+    .wv-status-indicator.loading {
+      background: #e2c96e;
+      animation: wv-pulse 1s infinite alternate;
+    }
+
+    .wv-status-indicator.ready {
+      background: #6abf8e;
+    }
+
+    @keyframes wv-pulse {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+  </style>
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/i18n.js"></script>
+  <script src="../js/dialogs.js"></script>
+  <script src="../js/bookmarks-service.js"></script>
+</head>
+<body>
+  <div class="wv-toolbar" role="toolbar" aria-label="Web Navigation Toolbar">
+    <div class="wv-btn-group">
+      <button type="button" class="wv-btn" id="wv-back-btn" title="Back" disabled>
+        <img src="../assets/icons/arrow-left.svg" alt="Back" />
+      </button>
+      <button type="button" class="wv-btn" id="wv-forward-btn" title="Forward" disabled>
+        <img src="../assets/icons/arrow-right.svg" alt="Forward" />
+      </button>
+      <button type="button" class="wv-btn" id="wv-reload-btn" title="Reload">
+        <img src="../assets/icons/refresh.svg" alt="Reload" />
+      </button>
+    </div>
+
+    <div class="wv-status-indicator" id="wv-status-dot" title="Ready"></div>
+
+    <form class="wv-url-form" id="wv-url-form">
+      <input type="text" class="wv-url-input" id="wv-url-input" placeholder="https://..." autocomplete="off" spellcheck="false" />
+    </form>
+
+    <div class="wv-btn-group">
+      <button type="button" class="wv-btn" id="wv-copy-btn" title="Copy URL">
+        <img src="../assets/icons/copy.svg" alt="Copy" />
+      </button>
+      <button type="button" class="wv-btn" id="wv-bookmark-btn" title="Save to Bookmarks">
+        <img src="../assets/icons/star.svg" alt="Bookmark" />
+      </button>
+      <button type="button" class="wv-btn" id="wv-external-btn" title="Open in Default Browser">
+        <img src="../assets/icons/links.svg" alt="External" />
+      </button>
+    </div>
+  </div>
+
+  <div class="wv-content-area" id="wv-content-area">
+    <!-- Webview tag in Electron or iframe fallback -->
+  </div>
+
+  <script>
+    (function () {
+      const urlParams = new URLSearchParams(window.location.search);
+      let initialUrl = urlParams.get('url') || 'https://www.google.com';
+      const initialTitle = urlParams.get('title') || 'Web Viewer';
+
+      if (initialTitle) document.title = initialTitle + ' — CMT Web Viewer';
+
+      const backBtn = document.getElementById('wv-back-btn');
+      const forwardBtn = document.getElementById('wv-forward-btn');
+      const reloadBtn = document.getElementById('wv-reload-btn');
+      const copyBtn = document.getElementById('wv-copy-btn');
+      const bookmarkBtn = document.getElementById('wv-bookmark-btn');
+      const externalBtn = document.getElementById('wv-external-btn');
+      const urlInput = document.getElementById('wv-url-input');
+      const urlForm = document.getElementById('wv-url-form');
+      const statusDot = document.getElementById('wv-status-dot');
+      const contentArea = document.getElementById('wv-content-area');
+
+      urlInput.value = initialUrl;
+
+      const isElectron = !!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron());
+      let webview = null;
+      let iframe = null;
+
+      function updateNavState() {
+        if (webview) {
+          try {
+            backBtn.disabled = !webview.canGoBack();
+            forwardBtn.disabled = !webview.canGoForward();
+            urlInput.value = webview.getURL() || initialUrl;
+          } catch (_) {}
+        }
+      }
+
+      function setLoading(loading) {
+        statusDot.className = 'wv-status-indicator ' + (loading ? 'loading' : 'ready');
+        statusDot.title = loading ? 'Loading...' : 'Ready';
+      }
+
+      if (isElectron) {
+        webview = document.createElement('webview');
+        webview.id = 'wv-webview';
+        webview.src = initialUrl;
+        webview.setAttribute('allowpopups', 'true');
+        webview.style.width = '100%';
+        webview.style.height = '100%';
+        contentArea.appendChild(webview);
+
+        webview.addEventListener('did-start-loading', () => {
+          setLoading(true);
+        });
+
+        webview.addEventListener('did-stop-loading', () => {
+          setLoading(false);
+          updateNavState();
+        });
+
+        webview.addEventListener('did-navigate', (e) => {
+          if (e && e.url) urlInput.value = e.url;
+          updateNavState();
+        });
+
+        webview.addEventListener('did-navigate-in-page', (e) => {
+          if (e && e.url) urlInput.value = e.url;
+          updateNavState();
+        });
+
+        webview.addEventListener('page-title-updated', (e) => {
+          if (e && e.title) document.title = e.title + ' — CMT Web Viewer';
+        });
+
+        backBtn.addEventListener('click', () => {
+          if (webview && webview.canGoBack()) webview.goBack();
+        });
+
+        forwardBtn.addEventListener('click', () => {
+          if (webview && webview.canGoForward()) webview.goForward();
+        });
+
+        reloadBtn.addEventListener('click', () => {
+          if (webview) webview.reload();
+        });
+      } else {
+        iframe = document.createElement('iframe');
+        iframe.id = 'wv-iframe';
+        iframe.src = initialUrl;
+        iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups');
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        contentArea.appendChild(iframe);
+
+        reloadBtn.addEventListener('click', () => {
+          if (iframe) iframe.src = iframe.src;
+        });
+      }
+
+      urlForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        let target = urlInput.value.trim();
+        if (!target) return;
+        if (!/^https?:\/\//i.test(target) && !/^about:/i.test(target)) {
+          target = 'https://' + target;
+        }
+        urlInput.value = target;
+        if (webview) webview.src = target;
+        else if (iframe) iframe.src = target;
+      });
+
+      copyBtn.addEventListener('click', () => {
+        const cur = urlInput.value.trim();
+        if (cur && navigator.clipboard) {
+          navigator.clipboard.writeText(cur).then(() => {
+            if (typeof showToast === 'function') showToast('URL copied to clipboard');
+          });
+        }
+      });
+
+      externalBtn.addEventListener('click', () => {
+        const cur = urlInput.value.trim();
+        if (!cur) return;
+        if (window.Desktop && typeof Desktop.openExternal === 'function') {
+          Desktop.openExternal(cur);
+        } else {
+          window.open(cur, '_blank');
+        }
+      });
+
+      bookmarkBtn.addEventListener('click', async () => {
+        const cur = urlInput.value.trim();
+        if (!cur) return;
+        const pageTitle = document.title.replace(/ — CMT Web Viewer$/, '') || cur;
+        if (typeof BookmarksService !== 'undefined') {
+          await BookmarksService.add({
+            title: pageTitle,
+            url: cur,
+            tags: ['#web']
+          });
+          if (typeof showToast === 'function') showToast('Saved to Bookmarks library');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

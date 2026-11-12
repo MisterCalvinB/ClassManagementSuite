@@ -199,6 +199,12 @@
     if (type === 'todo' || type === 'todos') {
       return makeUrn('todo', id, p.anchor);
     }
+    if (type === 'bookmark' || type === 'bookmarks') {
+      return makeUrn('bookmark', id, p.anchor);
+    }
+    if (type === 'url' || type === 'link' || type === 'web') {
+      return makeUrn('url', id, p.anchor);
+    }
     if (type === 'period' || type === 'periods') {
       return makeUrn('period', id, p.anchor);
     }
@@ -3541,6 +3547,16 @@
           bQuery.openFilename = p.id;
           if (p.anchor) bQuery.nodeId = p.anchor;
         }
+        // If already in board window and target node is on this board, navigate in-place
+        if (typeof window !== 'undefined' && typeof window.conFocusAndHighlightNode === 'function' && bQuery.nodeId) {
+          const curBoardFile = (typeof window._conCurrentFileName !== 'undefined' && window._conCurrentFileName) ? window._conCurrentFileName : 'untitled.js';
+          const isCurrentFile = !bQuery.openFilename || bQuery.openFilename === 'untitled.js' || bQuery.openFilename === curBoardFile;
+          if (isCurrentFile) {
+            window.conFocusAndHighlightNode(bQuery.nodeId);
+            return true;
+          }
+        }
+
         if (desktop && typeof desktop.openTool === 'function') {
           return desktop.openTool('board.html', { query: bQuery });
         }
@@ -3576,6 +3592,36 @@
         }
         var qsP = new URLSearchParams(pQuery).toString();
         window.open(resolvePageUrl('administrative-groups.html') + '?' + qsP, '_blank');
+        return true;
+      }
+
+      case 'bookmark': {
+        var bm = (typeof root.BookmarksService !== 'undefined') ? await root.BookmarksService.get(p.id) : null;
+        var bUrl = (bm && bm.url) ? bm.url : (p.id.startsWith('http') ? p.id : 'https://' + p.id);
+        var bTitle = (bm && bm.title) ? bm.title : 'Bookmark';
+        if (desktop && typeof desktop.openWebWindow === 'function') {
+          return desktop.openWebWindow(bUrl, bTitle);
+        } else if (desktop && typeof desktop.openExternal === 'function') {
+          return desktop.openExternal(bUrl);
+        }
+        window.open(bUrl, '_blank');
+        return true;
+      }
+
+      case 'url': {
+        var rawUrl = p.id;
+        try {
+          if (rawUrl.includes('%')) rawUrl = decodeURIComponent(rawUrl);
+        } catch (_) {}
+        if (!/^https?:\/\//i.test(rawUrl) && !/^about:/i.test(rawUrl)) {
+          rawUrl = 'https://' + rawUrl;
+        }
+        if (desktop && typeof desktop.openWebWindow === 'function') {
+          return desktop.openWebWindow(rawUrl, 'Web Link');
+        } else if (desktop && typeof desktop.openExternal === 'function') {
+          return desktop.openExternal(rawUrl);
+        }
+        window.open(rawUrl, '_blank');
         return true;
       }
 

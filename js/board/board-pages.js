@@ -1067,7 +1067,7 @@
         conCurrentPageIndex = conPageSnapshots.length - 1;
 
         _conRestorePageToBoard(emptySnap, { scrollToTop: false });
-        if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
+        if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
@@ -1116,7 +1116,7 @@
           _conRestorePageToBoard(targetSnap, { scrollToTop: false });
         }
 
-        if (typeof window.conScrollToTop === 'function') window.conScrollToTop();
+        if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
         conUpdatePageBar();
         if (window._isPageWindow) {
           const textSpan = document.getElementById('con-page-window-badge-text');
@@ -2247,7 +2247,14 @@
             isVideo: !!n.isVideo,
             videoAttachmentId: n.videoAttachmentId || null,
             videoName: n.videoName || null,
-            videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null
+            videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+            isLink: !!(n.isLink || n.isBookmark),
+            linkType: n.linkType || null,
+            linkTarget: n.linkTarget || null,
+            linkTitle: n.linkTitle || null,
+            linkSubTitle: n.linkSubTitle || null,
+            linkUrn: n.linkUrn || null,
+            tags: (Array.isArray(n.tags) && n.tags.length) ? n.tags.slice() : undefined
           })),
           notes: selectedNotes.map(n => ({
             id: n.id,
@@ -2390,7 +2397,14 @@
             isVideo: !!node.isVideo,
             videoAttachmentId: node.videoAttachmentId || null,
             videoName: node.videoName || null,
-            videoDuration: (typeof node.videoDuration === 'number') ? node.videoDuration : null
+            videoDuration: (typeof node.videoDuration === 'number') ? node.videoDuration : null,
+            isLink: !!(node.isLink || node.isBookmark),
+            linkType: node.linkType || null,
+            linkTarget: node.linkTarget || null,
+            linkTitle: node.linkTitle || null,
+            linkSubTitle: node.linkSubTitle || null,
+            linkUrn: node.linkUrn || null,
+            tags: (Array.isArray(node.tags) && node.tags.length) ? node.tags.slice() : undefined
           }],
           notes: attachedNote ? [{
             id: attachedNote.id,
@@ -4325,6 +4339,13 @@
             videoAttachmentId: n.videoAttachmentId || null,
             videoName: n.videoName || null,
             videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+            isLink: !!(n.isLink || n.isBookmark),
+            linkType: n.linkType || null,
+            linkTarget: n.linkTarget || null,
+            linkTitle: n.linkTitle || null,
+            linkSubTitle: n.linkSubTitle || null,
+            linkUrn: n.linkUrn || null,
+            tags: (Array.isArray(n.tags) && n.tags.length) ? n.tags.slice() : undefined,
             competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
             shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
             rotation: (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0,
@@ -11325,6 +11346,13 @@
             existing.videoAttachmentId = n.videoAttachmentId || null;
             existing.videoName = n.videoName || null;
             existing.videoDuration = (typeof n.videoDuration === 'number') ? n.videoDuration : null;
+            existing.isLink = !!(n.isLink || n.isBookmark);
+            existing.linkType = n.linkType || null;
+            existing.linkTarget = n.linkTarget || null;
+            existing.linkTitle = n.linkTitle || null;
+            existing.linkSubTitle = n.linkSubTitle || null;
+            existing.linkUrn = n.linkUrn || null;
+            existing.tags = Array.isArray(n.tags) ? n.tags.slice() : [];
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
             existing.borderStyle = n.borderStyle || null;
@@ -11413,6 +11441,13 @@
               videoAttachmentId: n.videoAttachmentId || null,
               videoName: n.videoName || null,
               videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+              isLink: !!(n.isLink || n.isBookmark),
+              linkType: n.linkType || null,
+              linkTarget: n.linkTarget || null,
+              linkTitle: n.linkTitle || null,
+              linkSubTitle: n.linkSubTitle || null,
+              linkUrn: n.linkUrn || null,
+              tags: Array.isArray(n.tags) ? n.tags.slice() : [],
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
               borderStyle: n.borderStyle || null,
@@ -12170,6 +12205,13 @@
           videoAttachmentId: n.videoAttachmentId || null,
           videoName: n.videoName || null,
           videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+          isLink: !!(n.isLink || n.isBookmark),
+          linkType: n.linkType || null,
+          linkTarget: n.linkTarget || null,
+          linkTitle: n.linkTitle || null,
+          linkSubTitle: n.linkSubTitle || null,
+          linkUrn: n.linkUrn || null,
+          tags: Array.isArray(n.tags) ? n.tags.slice() : [],
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,
           borderStyle: n.borderStyle || null,

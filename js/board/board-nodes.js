@@ -7875,18 +7875,26 @@
             e.preventDefault();
             e.stopPropagation();
             conOpenRandomPopover(_ctxNode);
+          } else if (_ctxNode && (_ctxNode.isLink || _ctxNode.isBookmark || _ctxNode.type === 'link') && typeof window.conLinkStyleOpen === 'function') {
+            e.preventDefault();
+            e.stopPropagation();
+            window.conLinkStyleOpen(e, _ctxNode);
           } else {
             conCtxOpen(e, id);
           }
         });
 
-        // Double-click to make a node visibly blink for attention.
+        // Double-click to make a node visibly blink for attention or activate link.
         el.addEventListener('dblclick', function (e) {
           if (document.body.classList.contains('laser-active')) return;
           e.preventDefault();
           e.stopPropagation();
           const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
             || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
+          if (node && (node.isLink || node.isBookmark || node.type === 'link') && typeof window.conActivateLinkNode === 'function') {
+            window.conActivateLinkNode(node);
+            return;
+          }
           if (node && node.masked) {
             node.masked = false;
             el.classList.remove('con-masked');
@@ -14202,6 +14210,1137 @@
         if (typeof conCtxClose === 'function') conCtxClose();
       };
 
+      // ============================================================
+      // HYPERLINK & DEEP LINK NODE SYSTEM
+      // ============================================================
+      var _conActiveLinkNode = null;
+      var _conLinkOverlayOpenTime = 0;
+      var _conLinkModalTargetNode = null;
+      var _conLinkModalActiveTab = 'web';
+
+      function _conPositionPopupAtEvent(popup, e) {
+        if (!popup) return;
+        popup.style.maxHeight = Math.max(160, window.innerHeight - 16) + 'px';
+        var maxW = Math.min(360, Math.max(280, window.innerWidth - 16));
+        popup.style.maxWidth = maxW + 'px';
+        popup.style.width = Math.min(320, maxW) + 'px';
+        popup.style.overflowY = 'auto';
+        popup.style.overflowX = 'hidden';
+        var pw = popup.offsetWidth || 320;
+        var ph = popup.offsetHeight || 300;
+        var mx = (e && e.clientX != null ? e.clientX : window.innerWidth / 2 - pw / 2) + 10;
+        var my = (e && e.clientY != null ? e.clientY : window.innerHeight / 2 - ph / 2) + 8;
+        if (mx + pw > window.innerWidth - 12) mx = (e && e.clientX != null ? e.clientX : window.innerWidth / 2) - pw - 10;
+        if (my + ph > window.innerHeight - 12) my = window.innerHeight - ph - 12;
+        mx = Math.max(8, Math.min(window.innerWidth - pw - 8, mx));
+        my = Math.max(8, Math.min(window.innerHeight - ph - 8, my));
+        popup.style.left = Math.round(mx) + 'px';
+        popup.style.top = Math.round(my) + 'px';
+        popup.style.maxHeight = Math.max(160, window.innerHeight - my - 8) + 'px';
+      }
+
+      function conAddLinkNodeAt(linkData, x, y, pageNum) {
+        const title = (linkData && (linkData.title || linkData.text || linkData.url)) || 'Link';
+        const id = conAddWordAt(title, x, y, pageNum);
+        const node = conNodes.find(n => n && n.id === id);
+        if (!node) return id;
+
+        node.isLink = true;
+        node.linkType = (linkData && linkData.linkType) || 'web'; // 'web' | 'canvas' | 'board' | 'doc' | 'grades' | 'suite'
+        node.linkTarget = (linkData && (linkData.target || linkData.url || linkData.id)) || '';
+        node.linkTitle = (linkData && linkData.title) || title;
+        node.linkSubTitle = (linkData && (linkData.subtitle || linkData.subTitle || linkData.domain)) || '';
+        node.linkUrn = (linkData && linkData.urn) || '';
+        node.tags = Array.isArray(linkData && linkData.tags) ? [...linkData.tags] : [];
+
+        conRenderNodeLabel(node);
+        if (typeof conPushUndo === 'function') conPushUndo();
+        return id;
+      }
+      window.conAddLinkNodeAt = global.conAddLinkNodeAt = conAddLinkNodeAt;
+
+      function _findPageForEntity(type, id, defaultIdx) {
+        const curPage = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : ((typeof window.conCurrentPageIndex === 'number') ? window.conCurrentPageIndex : 0);
+        if (type === 'node') {
+          const liveNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || []);
+          if (liveNodes.some(n => n && (String(n.id) === String(id) || n.id === id))) return curPage;
+        } else {
+          const liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+          if (liveNotes.some(nt => nt && (String(nt.id) === String(id) || nt.id === id))) return curPage;
+        }
+
+        const snaps = (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots))
+          ? conPageSnapshots
+          : ((typeof window.conPageSnapshots !== 'undefined' && Array.isArray(window.conPageSnapshots)) ? window.conPageSnapshots : []);
+
+        for (let p = 0; p < snaps.length; p++) {
+          const snap = snaps[p];
+          if (!snap) continue;
+          if (type === 'node' && Array.isArray(snap.nodes)) {
+            if (snap.nodes.some(n => n && (String(n.id) === String(id) || n.id === id))) return p;
+          } else if (type === 'note' && Array.isArray(snap.notes)) {
+            if (snap.notes.some(nt => nt && (String(nt.id) === String(id) || nt.id === id))) return p;
+          }
+        }
+        return (defaultIdx != null) ? defaultIdx : curPage;
+      }
+
+      async function conActivateLinkNode(nodeOrId) {
+        const node = (typeof nodeOrId === 'object' && nodeOrId) ? nodeOrId : (conNodes || []).find(n => n && n.id === nodeOrId);
+        if (!node) return;
+
+        const linkType = node.linkType || 'web';
+        const target = String(node.linkTarget || '').trim();
+        const title = node.linkTitle || node.baseWord || 'Link';
+
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('click');
+
+        // 1. Same-board canvas target (current page or across multiple pages)
+        if (linkType === 'canvas' || target.startsWith('node:') || target.startsWith('note:') || target.startsWith('page:')) {
+          let targetPageIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : ((typeof window.conCurrentPageIndex === 'number') ? window.conCurrentPageIndex : 0);
+          let entityType = 'node';
+          let rawId = '';
+
+          const pageMatch = target.match(/^page:(\d+)(?::(node|note):(.+))?$/);
+          if (pageMatch) {
+            targetPageIdx = parseInt(pageMatch[1], 10);
+            if (pageMatch[2] && pageMatch[3]) {
+              entityType = pageMatch[2];
+              rawId = pageMatch[3];
+            } else {
+              // Standalone page switch
+              if (typeof window.conGoToPage === 'function') {
+                window.conGoToPage(targetPageIdx);
+              }
+              return;
+            }
+          } else if (target.startsWith('node:')) {
+            entityType = 'node';
+            rawId = target.slice(5);
+            targetPageIdx = _findPageForEntity('node', rawId, targetPageIdx);
+          } else if (target.startsWith('note:')) {
+            entityType = 'note';
+            rawId = target.slice(5);
+            targetPageIdx = _findPageForEntity('note', rawId, targetPageIdx);
+          } else if (target.startsWith('page:')) {
+            targetPageIdx = parseInt(target.slice(5), 10) || 0;
+            if (typeof window.conGoToPage === 'function') {
+              window.conGoToPage(targetPageIdx);
+            }
+            return;
+          } else if (!rawId && target) {
+            const nP = _findPageForEntity('node', target, -1);
+            if (nP >= 0) {
+              entityType = 'node';
+              rawId = target;
+              targetPageIdx = nP;
+            } else {
+              const ntP = _findPageForEntity('note', target, -1);
+              if (ntP >= 0) {
+                entityType = 'note';
+                rawId = target;
+                targetPageIdx = ntP;
+              }
+            }
+          }
+
+          const doScrollCenterAndPulse = () => {
+            const brd = (typeof board === 'function') ? board() : document.getElementById('constellation-board');
+            if (!brd) return;
+
+            let liveEl = null;
+            let tx = null, ty = null, tw = 80, th = 32;
+
+            if (entityType === 'node') {
+              const liveNodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || conNodes || []);
+              const nodeObj = liveNodes.find(n => n && (String(n.id) === String(rawId) || n.id === rawId));
+              if (nodeObj) {
+                liveEl = nodeObj.el || document.getElementById(String(rawId)) || document.querySelector(`.con-node[data-id="${rawId}"]`);
+                tx = (nodeObj.x != null) ? nodeObj.x : (liveEl ? (parseInt(liveEl.style.left, 10) || liveEl.offsetLeft || 0) : 0);
+                ty = (nodeObj.y != null) ? nodeObj.y : (liveEl ? (parseInt(liveEl.style.top, 10) || liveEl.offsetTop || 0) : 0);
+                tw = (nodeObj.w != null) ? nodeObj.w : (liveEl ? (liveEl.offsetWidth || 80) : 80);
+                th = (nodeObj.h != null) ? nodeObj.h : (liveEl ? (liveEl.offsetHeight || 32) : 32);
+
+                if (typeof conSelect === 'function') conSelect(nodeObj.id);
+                else if (typeof window.conSelect === 'function') window.conSelect(nodeObj.id);
+              }
+            } else if (entityType === 'note') {
+              const liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || conNotes || []);
+              const noteObj = liveNotes.find(nt => nt && (String(nt.id) === String(rawId) || nt.id === rawId));
+              liveEl = document.querySelector(`.con-word-note[data-id="${rawId}"]`) || (noteObj && noteObj.el) || document.getElementById(String(rawId));
+              if (noteObj) {
+                tx = (noteObj.x != null) ? noteObj.x : (liveEl ? (parseInt(liveEl.style.left, 10) || liveEl.offsetLeft || 0) : 0);
+                ty = (noteObj.y != null) ? noteObj.y : (liveEl ? (parseInt(liveEl.style.top, 10) || liveEl.offsetTop || 0) : 0);
+                tw = (noteObj.width != null) ? noteObj.width : (liveEl ? (liveEl.offsetWidth || 140) : 140);
+                th = (noteObj.height != null) ? noteObj.height : (liveEl ? (liveEl.offsetHeight || 90) : 90);
+
+                if (typeof conSelectNote === 'function') conSelectNote(noteObj.id);
+                else if (typeof window.conSelectNote === 'function') window.conSelectNote(noteObj.id);
+              }
+            }
+
+            // Fallback: check DOM directly by id if element wasn't found in memory
+            if (!liveEl && rawId) {
+              liveEl = document.getElementById(String(rawId)) || document.querySelector(`[data-id="${rawId}"]`);
+              if (liveEl) {
+                tx = parseInt(liveEl.style.left, 10) || liveEl.offsetLeft || 0;
+                ty = parseInt(liveEl.style.top, 10) || liveEl.offsetTop || 0;
+                tw = liveEl.offsetWidth || tw;
+                th = liveEl.offsetHeight || th;
+              }
+            }
+
+            if (liveEl) {
+              if (tx != null && ty != null && !isNaN(tx) && !isNaN(ty)) {
+                tw = liveEl.offsetWidth || tw;
+                th = liveEl.offsetHeight || th;
+                const targetScrollX = Math.max(0, Math.round((tx + tw / 2) - brd.clientWidth / 2));
+                const targetScrollY = Math.max(0, Math.round((ty + th / 2) - brd.clientHeight / 2));
+                brd.scrollTo({
+                  left: targetScrollX,
+                  top: targetScrollY,
+                  behavior: 'smooth'
+                });
+              } else {
+                liveEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+              }
+
+              liveEl.classList.remove('con-link-highlight-pulse', 'con-node-highlight-pulse', 'con-search-target-pulse');
+              void liveEl.offsetWidth;
+              liveEl.classList.add('con-link-highlight-pulse');
+              setTimeout(() => {
+                if (liveEl) liveEl.classList.remove('con-link-highlight-pulse');
+              }, 2500);
+            }
+          };
+
+          const curPage = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : ((typeof window.conCurrentPageIndex === 'number') ? window.conCurrentPageIndex : 0);
+          if (typeof window.conGoToPage === 'function' && curPage !== targetPageIdx) {
+            window._conSuppressScrollToTop = true;
+            window.conGoToPage(targetPageIdx);
+            setTimeout(() => {
+              window._conSuppressScrollToTop = false;
+              doScrollCenterAndPulse();
+            }, 280);
+          } else {
+            doScrollCenterAndPulse();
+          }
+          return;
+        }
+
+        // 2. Another board mindmap
+        if (linkType === 'board') {
+          if (node.linkUrn && typeof LinksService !== 'undefined' && typeof LinksService.openUrn === 'function') {
+            await LinksService.openUrn(node.linkUrn);
+          } else {
+            const filename = (target.endsWith('.json') || target.endsWith('.cstz') || target.endsWith('.js')) ? target : target + '.json';
+            const baseFname = filename.split('/').pop();
+            if (window.Desktop && typeof Desktop.openPage === 'function') {
+              Desktop.openPage('board.html', {
+                openSession: '1',
+                openTarget: 'mindmaps',
+                openFilename: baseFname,
+                openRelPath: filename,
+                openSection: 'constellation'
+              });
+            } else {
+              window.open('board.html?openSession=1&openTarget=mindmaps&openFilename=' + encodeURIComponent(baseFname) + '&openRelPath=' + encodeURIComponent(filename), '_blank');
+            }
+          }
+          return;
+        }
+
+        // 3. Document Editor document
+        if (linkType === 'doc') {
+          const docFile = (target.endsWith('.md') || target.endsWith('.markdown')) ? target : target + '.md';
+          if (node.linkUrn && typeof LinksService !== 'undefined' && typeof LinksService.openUrn === 'function') {
+            await LinksService.openUrn(node.linkUrn);
+          } else if (typeof LinksService !== 'undefined' && typeof LinksService.openUrn === 'function') {
+            await LinksService.openUrn('cmt:doc:' + docFile);
+          } else if (window.Desktop && typeof Desktop.openPage === 'function') {
+            Desktop.openPage('document-editor.html', { editTarget: 'docEditorDocs', editRelPath: docFile });
+          } else {
+            window.open('document-editor.html?editTarget=docEditorDocs&editRelPath=' + encodeURIComponent(docFile), '_blank');
+          }
+          return;
+        }
+
+        // 4. Grade Sheet / Suite Tool
+        if (linkType === 'grades' || linkType === 'suite') {
+          if (node.linkUrn && typeof LinksService !== 'undefined' && typeof LinksService.openUrn === 'function') {
+            await LinksService.openUrn(node.linkUrn);
+          } else {
+            window.open(target.startsWith('pages/') ? target : target, '_blank');
+          }
+          return;
+        }
+
+        // 5. Web URL (Default)
+        let url = target;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        if (window.Desktop && typeof Desktop.openWebWindow === 'function') {
+          await Desktop.openWebWindow(url, title);
+        } else if (window.Desktop && typeof Desktop.openExternal === 'function') {
+          await Desktop.openExternal(url);
+        } else {
+          window.open(url, '_blank');
+        }
+      }
+      window.conActivateLinkNode = global.conActivateLinkNode = conActivateLinkNode;
+
+      window.conLinkStyleOpen = function (e, node) {
+        _conActiveLinkNode = node;
+        var overlay = document.getElementById('con-link-style-overlay');
+        var popup = document.getElementById('con-link-style-popup');
+        if (!overlay || !node) return;
+        _conLinkOverlayOpenTime = Date.now();
+
+        var titleEl = document.getElementById('con-link-sp-title');
+        var subtitleEl = document.getElementById('con-link-sp-sub');
+        var iconEl = document.getElementById('con-link-sp-icon');
+        var lockBtn = document.getElementById('con-link-sp-lock-btn');
+
+        const lType = node.linkType || 'web';
+        let iconName = 'links.svg';
+        if (lType === 'canvas') iconName = 'arrow-right.svg';
+        else if (lType === 'board') iconName = 'board.svg';
+        else if (lType === 'doc') iconName = 'document-editor.svg';
+        else if (lType === 'grades') iconName = 'grade-sheet.svg';
+        else if (lType === 'suite') iconName = 'file-text.svg';
+
+        if (iconEl) iconEl.src = '../assets/icons/' + iconName;
+        if (titleEl) titleEl.textContent = node.linkTitle || node.baseWord || 'Link';
+        if (subtitleEl) subtitleEl.textContent = node.linkSubTitle || node.linkTarget || '';
+
+        if (lockBtn) {
+          lockBtn.innerHTML = '<img src="../assets/icons/' + (node.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+          lockBtn.classList.toggle('active', !!node.locked);
+          lockBtn.title = node.locked ? 'Unlock' : 'Lock';
+        }
+
+        var inAppBtn = document.getElementById('con-link-sp-inapp-btn');
+        var browserBtn = document.getElementById('con-link-sp-browser-btn');
+        var jumpBtn = document.getElementById('con-link-sp-jump-btn');
+        var newWinBtn = document.getElementById('con-link-sp-newwin-btn');
+        var loadCurrBtn = document.getElementById('con-link-sp-loadcurr-btn');
+
+        if (inAppBtn) inAppBtn.style.display = (lType === 'web') ? '' : 'none';
+        if (browserBtn) browserBtn.style.display = (lType === 'web') ? '' : 'none';
+        if (jumpBtn) jumpBtn.style.display = (lType === 'canvas') ? '' : 'none';
+        if (newWinBtn) newWinBtn.style.display = (lType === 'board' || lType === 'doc' || lType === 'grades' || lType === 'suite') ? '' : 'none';
+        if (loadCurrBtn) loadCurrBtn.style.display = (lType === 'board') ? '' : 'none';
+
+        overlay.classList.add('active');
+        _conPositionPopupAtEvent(popup, e);
+      };
+
+      window.conLinkStyleClose = function (e) {
+        if (Date.now() - _conLinkOverlayOpenTime < 200) return;
+        if (e && e.target !== document.getElementById('con-link-style-overlay')) return;
+        window.conLinkStyleDismiss();
+      };
+
+      window.conLinkStyleDismiss = function () {
+        var overlay = document.getElementById('con-link-style-overlay');
+        if (overlay) overlay.classList.remove('active');
+        _conActiveLinkNode = null;
+      };
+
+      window.conLinkSpOpenInApp = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node) return;
+        let url = node.linkTarget || '';
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        if (window.Desktop && typeof Desktop.openWebWindow === 'function') {
+          Desktop.openWebWindow(url, node.linkTitle || node.baseWord);
+        } else {
+          window.open(url, '_blank');
+        }
+      };
+
+      window.conLinkSpOpenBrowser = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node) return;
+        let url = node.linkTarget || '';
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        if (window.Desktop && typeof Desktop.openExternal === 'function') {
+          Desktop.openExternal(url);
+        } else {
+          window.open(url, '_blank');
+        }
+      };
+
+      window.conLinkSpJumpCanvas = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node) return;
+        conActivateLinkNode(node);
+      };
+
+      window.conLinkSpOpenNewBoard = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node) return;
+        conActivateLinkNode(node);
+      };
+
+      window.conLinkSpLoadCurrentBoard = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node || !node.linkTarget) return;
+        const targetPath = (node.linkTarget.endsWith('.json') || node.linkTarget.endsWith('.cstz') || node.linkTarget.endsWith('.js'))
+          ? node.linkTarget
+          : node.linkTarget + '.json';
+        const baseFilename = targetPath.split('/').pop();
+        if (typeof window.historyLoadSavedFile === 'function') {
+          window.historyLoadSavedFile({
+            target: 'mindmaps',
+            filename: baseFilename,
+            relativePath: targetPath,
+            section: 'constellation'
+          });
+        } else {
+          window.location.search = '?openSession=1&openTarget=mindmaps&openFilename=' + encodeURIComponent(baseFilename) + '&openRelPath=' + encodeURIComponent(targetPath);
+        }
+      };
+
+      window.conLinkSpCopy = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (!node) return;
+        const target = node.linkTarget || node.linkUrn || '';
+        if (target && navigator.clipboard) {
+          navigator.clipboard.writeText(target).then(() => {
+            if (typeof showToast === 'function') showToast(typeof i18n !== 'undefined' ? i18n.t('conLinkTargetCopied') || 'Target copied to clipboard' : 'Target copied to clipboard');
+          });
+        }
+      };
+
+      window.conLinkSpEdit = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (node && typeof window.conOpenLinkEditModal === 'function') {
+          window.conOpenLinkEditModal(node);
+        }
+      };
+
+      window.conLinkSpToggleLock = function () {
+        if (!_conActiveLinkNode) return;
+        _conActiveLinkNode.locked = !_conActiveLinkNode.locked;
+        if (_conActiveLinkNode.el) _conActiveLinkNode.el.classList.toggle('con-locked', !!_conActiveLinkNode.locked);
+        var btn = document.getElementById('con-link-sp-lock-btn');
+        if (btn) {
+          btn.innerHTML = '<img src="../assets/icons/' + (_conActiveLinkNode.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
+          btn.classList.toggle('active', !!_conActiveLinkNode.locked);
+          btn.title = _conActiveLinkNode.locked ? 'Unlock' : 'Lock';
+        }
+      };
+
+      window.conLinkSpDelete = function () {
+        var node = _conActiveLinkNode;
+        window.conLinkStyleDismiss();
+        if (node && typeof conDeleteNode === 'function') {
+          conDeleteNode(node.id);
+        }
+      };
+
+      // ── Unified Add / Edit Link Modal ──────────────────────────────
+      var _conLinkModalCanvasPageFilter = 'all';
+      var _conLinkModalCanvasFilter = '';
+      var _conLinkModalBoardPath = '';
+      var _conLinkModalDocPath = '';
+      var _conLinkModalBoardFilter = '';
+      var _conLinkModalDocFilter = '';
+      var _conLinkModalBoardRawItems = [];
+      var _conLinkModalDocRawItems = [];
+
+      window.conOpenLinkEditModal = async function (node) {
+        _conLinkModalTargetNode = node || null;
+        var modal = document.getElementById('con-link-edit-modal');
+        if (!modal) return;
+
+        var titleHeader = document.getElementById('cle-modal-header-title');
+        if (titleHeader) {
+          titleHeader.textContent = node ? (typeof i18n !== 'undefined' ? i18n.t('conLinkEditModalTitle') || 'Edit Link / Bookmark' : 'Edit Link / Bookmark') : (typeof i18n !== 'undefined' ? i18n.t('conLinkAddModalTitle') || 'Add Link / Bookmark' : 'Add Link / Bookmark');
+        }
+
+        const initialType = (node && node.linkType) || 'web';
+        window.conLinkModalSwitchTab(initialType);
+
+        var webUrlInput = document.getElementById('cle-web-url');
+        var webTitleInput = document.getElementById('cle-web-title');
+        var webTagsInput = document.getElementById('cle-web-tags');
+
+        if (webUrlInput) webUrlInput.value = (node && node.linkType === 'web' && node.linkTarget) ? node.linkTarget : '';
+        if (webTitleInput) webTitleInput.value = (node && node.linkTitle) ? node.linkTitle : (node && node.baseWord ? node.baseWord : '');
+        if (webTagsInput) webTagsInput.value = (node && Array.isArray(node.tags)) ? node.tags.join(', ') : '';
+
+        // Initialize folder navigation paths
+        if (node && node.linkType === 'board' && node.linkTarget) {
+          const slash = node.linkTarget.lastIndexOf('/');
+          _conLinkModalBoardPath = (slash > -1) ? node.linkTarget.slice(0, slash) : '';
+        } else {
+          _conLinkModalBoardPath = '';
+        }
+
+        if (node && node.linkType === 'doc' && node.linkTarget) {
+          const slash = node.linkTarget.lastIndexOf('/');
+          _conLinkModalDocPath = (slash > -1) ? node.linkTarget.slice(0, slash) : '';
+        } else {
+          _conLinkModalDocPath = '';
+        }
+
+        _conLinkModalBoardFilter = '';
+        _conLinkModalDocFilter = '';
+        var bFilter = document.getElementById('cle-board-filter');
+        if (bFilter) bFilter.value = '';
+        var dFilter = document.getElementById('cle-doc-filter');
+        if (dFilter) dFilter.value = '';
+
+        _conLinkModalCanvasPageFilter = 'all';
+        _conLinkModalCanvasFilter = '';
+        var cFilter = document.getElementById('cle-canvas-filter');
+        if (cFilter) cFilter.value = '';
+
+        _populateLinkModalLists(node);
+        modal.style.display = 'flex';
+      };
+
+      window.conCloseLinkEditModal = function () {
+        var modal = document.getElementById('con-link-edit-modal');
+        if (modal) modal.style.display = 'none';
+        _conLinkModalTargetNode = null;
+      };
+
+      window.conLinkModalSwitchTab = function (tabKey) {
+        _conLinkModalActiveTab = tabKey;
+        var tabBtns = document.querySelectorAll('.cle-tab-btn');
+        tabBtns.forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.tab === tabKey);
+        });
+        var panels = document.querySelectorAll('.cle-tab-panel');
+        panels.forEach(p => {
+          p.style.display = (p.dataset.tab === tabKey) ? 'block' : 'none';
+        });
+      };
+
+      function escHtml(s) {
+        if (!s) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function _updateBreadcrumbs(type, curPath) {
+        const bcContainer = document.getElementById(`cle-${type}-breadcrumbs`);
+        const upBtn = document.getElementById(`cle-${type}-up-btn`);
+        if (!bcContainer) return;
+
+        if (upBtn) {
+          upBtn.disabled = !curPath;
+        }
+
+        const rootLabel = typeof i18n !== 'undefined' ? i18n.t('conLinkBreadcrumbRoot') || 'Root' : 'Root';
+
+        if (!curPath) {
+          bcContainer.innerHTML = `<span class="cle-crumb-current">📁 ${escHtml(rootLabel)}</span>`;
+          return;
+        }
+
+        const parts = curPath.split('/').filter(Boolean);
+        let html = `<span class="cle-crumb-link" onclick="conLinkModalNavToPath('${type}', '')">📁 ${escHtml(rootLabel)}</span>`;
+
+        let cumPath = '';
+        parts.forEach((p, idx) => {
+          cumPath = cumPath ? (cumPath + '/' + p) : p;
+          html += ` <span style="opacity:0.4;">/</span> `;
+          if (idx === parts.length - 1) {
+            html += `<span class="cle-crumb-current">${escHtml(p)}</span>`;
+          } else {
+            const thisPath = cumPath;
+            html += `<span class="cle-crumb-link" onclick="conLinkModalNavToPath('${type}', '${escHtml(thisPath)}')">${escHtml(p)}</span>`;
+          }
+        });
+
+        bcContainer.innerHTML = html;
+      }
+
+      window.conLinkCanvasFilter = function (query) {
+        _conLinkModalCanvasFilter = (query || '').toLowerCase().trim();
+        _renderCanvasList(_conLinkModalTargetNode);
+      };
+
+      window.conLinkCanvasSwitchPage = function (pageKey) {
+        _conLinkModalCanvasPageFilter = pageKey;
+        var bar = document.getElementById('cle-canvas-page-bar');
+        if (bar) {
+          var btns = bar.querySelectorAll('.cle-page-filter-btn');
+          btns.forEach(b => {
+            b.classList.toggle('active', b.dataset.page === String(pageKey));
+          });
+        }
+        _renderCanvasList(_conLinkModalTargetNode);
+      };
+
+      function _populateCanvasList(activeNode) {
+        var pageBar = document.getElementById('cle-canvas-page-bar');
+        var curPageIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : ((typeof window.conCurrentPageIndex === 'number') ? window.conCurrentPageIndex : 0);
+        var totalPages = 1;
+        if (typeof conGetTotalPages === 'function') {
+          totalPages = Math.max(1, conGetTotalPages());
+        } else if (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) {
+          totalPages = Math.max(1, conPageSnapshots.length);
+        }
+
+        if (pageBar) {
+          if (totalPages <= 1) {
+            pageBar.style.display = 'none';
+            pageBar.innerHTML = '';
+          } else {
+            pageBar.style.display = 'flex';
+            var allLabel = typeof i18n !== 'undefined' ? i18n.t('conLinkAllPages') || 'All Pages' : 'All Pages';
+            var pageLabel = typeof i18n !== 'undefined' ? i18n.t('conLinkPageLabel') || 'Page' : 'Page';
+            var curSuffix = typeof i18n !== 'undefined' ? i18n.t('conLinkCurrentPage') || 'current' : 'current';
+
+            var bHtml = `<button type="button" class="cle-page-filter-btn ${_conLinkModalCanvasPageFilter === 'all' ? 'active' : ''}" data-page="all" onclick="conLinkCanvasSwitchPage('all')">${escHtml(allLabel)}</button>`;
+            for (var p = 0; p < totalPages; p++) {
+              var isCur = (p === curPageIdx);
+              var label = `${escHtml(pageLabel)} ${p + 1}${isCur ? ' (' + escHtml(curSuffix) + ')' : ''}`;
+              var isActive = (_conLinkModalCanvasPageFilter === String(p));
+              bHtml += `<button type="button" class="cle-page-filter-btn ${isActive ? 'active' : ''}" data-page="${p}" onclick="conLinkCanvasSwitchPage('${p}')">${label}</button>`;
+            }
+            pageBar.innerHTML = bHtml;
+          }
+        }
+
+        _renderCanvasList(activeNode);
+      }
+
+      function _renderCanvasList(activeNode) {
+        var canvasList = document.getElementById('cle-canvas-list');
+        if (!canvasList) return;
+
+        var curPageIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : ((typeof window.conCurrentPageIndex === 'number') ? window.conCurrentPageIndex : 0);
+        var totalPages = 1;
+        if (typeof conGetTotalPages === 'function') {
+          totalPages = Math.max(1, conGetTotalPages());
+        } else if (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) {
+          totalPages = Math.max(1, conPageSnapshots.length);
+        }
+
+        // Keep current page snapshot up to date if available
+        if (typeof conBuildPageSnapshot === 'function' && typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) {
+          conPageSnapshots[curPageIdx] = conBuildPageSnapshot();
+        }
+
+        var filter = (_conLinkModalCanvasFilter || '').toLowerCase().trim();
+        var selectedPage = _conLinkModalCanvasPageFilter; // 'all' or string page index
+
+        var pagesData = [];
+        for (var p = 0; p < totalPages; p++) {
+          var nodes = [];
+          var notes = [];
+          if (p === curPageIdx) {
+            nodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : (window.conNodes || []);
+            notes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : (window.conNotes || []);
+          } else if (typeof conPageSnapshots !== 'undefined' && conPageSnapshots && conPageSnapshots[p]) {
+            nodes = conPageSnapshots[p].nodes || [];
+            notes = conPageSnapshots[p].notes || [];
+          }
+          pagesData.push({ pageIndex: p, nodes: nodes, notes: notes });
+        }
+
+        var itemsHtml = '';
+        var matchCount = 0;
+
+        pagesData.forEach(pData => {
+          var pIdx = pData.pageIndex;
+          if (selectedPage !== 'all' && String(pIdx) !== String(selectedPage)) return;
+
+          var pageItemsHtml = '';
+          var isCurPage = (pIdx === curPageIdx);
+
+          pData.nodes.forEach(n => {
+            if (!n) return;
+            if (activeNode && n.id === activeNode.id && isCurPage) return;
+            var title = n.baseWord || (n.el && n.el.textContent.trim()) || `Node ${n.id}`;
+            if (filter && !title.toLowerCase().includes(filter) && !String(n.id).includes(filter)) return;
+
+            var targetVal = `page:${pIdx}:node:${n.id}`;
+            var legacyVal = `node:${n.id}`;
+            var isSel = (activeNode && (activeNode.linkTarget === targetVal || (isCurPage && activeNode.linkTarget === legacyVal)));
+            var subBadge = (totalPages > 1) ? `Node • P.${pIdx + 1}` : 'Node';
+
+            pageItemsHtml += `<label class="cle-item-row" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #ddd;cursor:pointer;${isSel ? 'background:#fff9e6;' : ''}">
+              <input type="radio" name="cle-canvas-target" value="${escHtml(targetVal)}" data-title="${escHtml(title)}" data-subtitle="${escHtml(subBadge)}" ${isSel ? 'checked' : ''} />
+              <img src="../assets/icons/arrow-right.svg" style="width:14px;height:14px;opacity:0.75;" alt="" />
+              <strong style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(title)}</strong>
+              <span style="font-size:0.72rem;font-weight:700;color:#64748b;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">${escHtml(subBadge)}</span>
+            </label>`;
+            matchCount++;
+          });
+
+          pData.notes.forEach(nt => {
+            if (!nt) return;
+            var text = nt.text || nt.content || 'Note';
+            var firstLine = text.split('\n')[0].replace(/^#+\s*/, '').trim() || `Note ${nt.id}`;
+            if (filter && !text.toLowerCase().includes(filter) && !String(nt.id).includes(filter)) return;
+
+            var targetVal = `page:${pIdx}:note:${nt.id}`;
+            var legacyVal = `note:${nt.id}`;
+            var isSel = (activeNode && (activeNode.linkTarget === targetVal || (isCurPage && activeNode.linkTarget === legacyVal)));
+            var subBadge = (totalPages > 1) ? `Note • P.${pIdx + 1}` : 'Note';
+
+            pageItemsHtml += `<label class="cle-item-row" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #ddd;cursor:pointer;${isSel ? 'background:#fff9e6;' : ''}">
+              <input type="radio" name="cle-canvas-target" value="${escHtml(targetVal)}" data-title="${escHtml(firstLine)}" data-subtitle="${escHtml(subBadge)}" ${isSel ? 'checked' : ''} />
+              <img src="../assets/icons/file-text.svg" style="width:14px;height:14px;opacity:0.75;" alt="" />
+              <strong style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(firstLine)}</strong>
+              <span style="font-size:0.72rem;font-weight:700;color:#475569;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">${escHtml(subBadge)}</span>
+            </label>`;
+            matchCount++;
+          });
+
+          if (pageItemsHtml) {
+            if (totalPages > 1 && selectedPage === 'all') {
+              var pageHeaderLabel = (typeof i18n !== 'undefined' ? i18n.t('conLinkPageLabel') || 'Page' : 'Page') + ' ' + (pIdx + 1) + (isCurPage ? ' (' + (typeof i18n !== 'undefined' ? i18n.t('conLinkCurrentPage') || 'current' : 'current') + ')' : '');
+              itemsHtml += `<div style="padding:4px 8px;background:#f1f5f9;border-bottom:1.5px solid #cbd5e1;font-size:0.72rem;font-weight:800;color:#334155;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:6px;">
+                <img src="../assets/icons/page-number.svg" style="width:13px;height:13px;opacity:0.7;" alt="" />
+                <span>${escHtml(pageHeaderLabel)}</span>
+              </div>`;
+            }
+            itemsHtml += pageItemsHtml;
+          }
+        });
+
+        if (!matchCount) {
+          itemsHtml = '<div style="padding:14px;font-size:0.84rem;opacity:0.6;text-align:center;">No matching elements found on this board.</div>';
+        }
+
+        canvasList.innerHTML = itemsHtml;
+      }
+
+      window.conLinkModalNavUp = function (type) {
+        if (type === 'board') {
+          if (!_conLinkModalBoardPath) return;
+          const parts = _conLinkModalBoardPath.split('/');
+          parts.pop();
+          _conLinkModalBoardPath = parts.join('/');
+          _populateBoardList(_conLinkModalTargetNode);
+        } else if (type === 'doc') {
+          if (!_conLinkModalDocPath) return;
+          const parts = _conLinkModalDocPath.split('/');
+          parts.pop();
+          _conLinkModalDocPath = parts.join('/');
+          _populateDocList(_conLinkModalTargetNode);
+        }
+      };
+
+      window.conLinkModalNavEnter = function (type, folderName) {
+        if (type === 'board') {
+          _conLinkModalBoardPath = _conLinkModalBoardPath ? (_conLinkModalBoardPath + '/' + folderName) : folderName;
+          _populateBoardList(_conLinkModalTargetNode);
+        } else if (type === 'doc') {
+          _conLinkModalDocPath = _conLinkModalDocPath ? (_conLinkModalDocPath + '/' + folderName) : folderName;
+          _populateDocList(_conLinkModalTargetNode);
+        }
+      };
+
+      window.conLinkModalNavToPath = function (type, targetPath) {
+        if (type === 'board') {
+          _conLinkModalBoardPath = targetPath || '';
+          _populateBoardList(_conLinkModalTargetNode);
+        } else if (type === 'doc') {
+          _conLinkModalDocPath = targetPath || '';
+          _populateDocList(_conLinkModalTargetNode);
+        }
+      };
+
+      window.conLinkModalFilter = function (type, query) {
+        if (type === 'board') {
+          _conLinkModalBoardFilter = query || '';
+          _renderBoardList(_conLinkModalTargetNode);
+        } else if (type === 'doc') {
+          _conLinkModalDocFilter = query || '';
+          _renderDocList(_conLinkModalTargetNode);
+        }
+      };
+
+      async function _populateBoardList(activeNode) {
+        const boardList = document.getElementById('cle-board-list');
+        if (!boardList) return;
+
+        _updateBreadcrumbs('board', _conLinkModalBoardPath);
+        boardList.innerHTML = '<div style="padding:10px;font-size:0.82rem;opacity:0.6;">Loading mindmaps...</div>';
+        _conLinkModalBoardRawItems = [];
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            let res = await Desktop.listByPath('mindmaps', _conLinkModalBoardPath, {
+              extensions: ['.json', '.cstz', '.js'],
+              recursive: false,
+              includeDirectories: true
+            });
+            let files = res?.files || (Array.isArray(res) ? res : []);
+
+            if (files.length === 0 && !_conLinkModalBoardPath) {
+              const fb = await Desktop.listByPath('user', 'constellations', {
+                extensions: ['.json', '.cstz', '.js'],
+                recursive: false,
+                includeDirectories: true
+              });
+              if (fb?.files?.length) files = fb.files;
+            }
+
+            _conLinkModalBoardRawItems = files;
+          } catch (err) {
+            console.warn('[Board] Error listing mindmaps:', err);
+          }
+        }
+
+        _renderBoardList(activeNode);
+      }
+
+      function _renderBoardList(activeNode) {
+        const boardList = document.getElementById('cle-board-list');
+        if (!boardList) return;
+
+        const files = _conLinkModalBoardRawItems || [];
+        const filter = (_conLinkModalBoardFilter || '').toLowerCase().trim();
+
+        const ignoredDirs = new Set(['history', 'node_modules', '.git', 'trash', 'backups', '.cache', '.system_generated']);
+        const dirs = [];
+        const mindmaps = [];
+
+        files.forEach(f => {
+          if (!f) return;
+          const name = (typeof f === 'string') ? f : (f.filename || f.name || '');
+          if (!name || name.startsWith('.')) return;
+
+          const isDir = !!(f.isDirectory || (typeof f !== 'string' && f.type === 'directory'));
+          if (isDir) {
+            if (ignoredDirs.has(name.toLowerCase())) return;
+            if (filter && !name.toLowerCase().includes(filter)) return;
+            dirs.push({ name, isDir: true, raw: f });
+          } else {
+            if (/\.(v\d{8}-\d{6}|tmp|bak)\./i.test(name)) return;
+            if (filter && !name.toLowerCase().includes(filter)) return;
+            mindmaps.push({ name, isDir: false, raw: f });
+          }
+        });
+
+        const sortedDirs = dirs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        const sortedFiles = mindmaps.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+        let bHtml = '';
+
+        if (_conLinkModalBoardPath) {
+          const upText = typeof i18n !== 'undefined' ? i18n.t('conLinkParentFolder') || 'Parent folder' : 'Parent folder';
+          bHtml += `<div class="cle-folder-row" onclick="conLinkModalNavUp('board')" style="background:#f8fafc;font-weight:700;color:#475569;">
+            <img src="../assets/icons/folder.svg" style="width:15px;height:15px;opacity:0.7;" alt="" />
+            <span>.. (${escHtml(upText)})</span>
+            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">⬆</span>
+          </div>`;
+        }
+
+        sortedDirs.forEach(d => {
+          bHtml += `<div class="cle-folder-row" onclick="conLinkModalNavEnter('board', '${escHtml(d.name)}')" title="Open folder">
+            <img src="../assets/icons/folder.svg" style="width:16px;height:16px;" alt="" />
+            <strong>${escHtml(d.name)}</strong>
+            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">Folder ▶</span>
+          </div>`;
+        });
+
+        sortedFiles.forEach(f => {
+          const fname = f.name;
+          const fullRel = _conLinkModalBoardPath ? (_conLinkModalBoardPath + '/' + fname) : fname;
+          const cleanTitle = fname.replace(/\.(json|cstz|js)$/i, '');
+          const isSel = !!(activeNode && (activeNode.linkTarget === fullRel || activeNode.linkTarget === fname));
+          const ext = fname.split('.').pop() || 'json';
+
+          bHtml += `<label class="cle-item-row" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #ddd;cursor:pointer;${isSel ? 'background:#fff9e6;' : ''}">
+            <input type="radio" name="cle-board-target" value="${escHtml(fullRel)}" data-title="${escHtml(cleanTitle)}" ${isSel ? 'checked' : ''} />
+            <img src="../assets/icons/board.svg" style="width:15px;height:15px;opacity:0.8;" alt="" />
+            <strong>${escHtml(cleanTitle)}</strong>
+            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">.${escHtml(ext)}</span>
+          </label>`;
+        });
+
+        if (!sortedDirs.length && !sortedFiles.length) {
+          const emptyText = typeof i18n !== 'undefined' ? i18n.t('conLinkEmptyFolder') || 'This folder is empty.' : 'This folder is empty.';
+          bHtml += `<div style="padding:12px;font-size:0.82rem;opacity:0.6;text-align:center;">${escHtml(emptyText)}</div>`;
+        }
+
+        boardList.innerHTML = bHtml;
+      }
+
+      async function _populateDocList(activeNode) {
+        const docList = document.getElementById('cle-doc-list');
+        if (!docList) return;
+
+        _updateBreadcrumbs('doc', _conLinkModalDocPath);
+        docList.innerHTML = '<div style="padding:10px;font-size:0.82rem;opacity:0.6;">Loading documents...</div>';
+        _conLinkModalDocRawItems = [];
+
+        if (window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron()) {
+          try {
+            let res = await Desktop.listByPath('docEditorDocs', _conLinkModalDocPath, {
+              extensions: ['.md', '.markdown'],
+              recursive: false,
+              includeDirectories: true
+            });
+            let files = res?.files || (Array.isArray(res) ? res : []);
+
+            if (files.length === 0 && !_conLinkModalDocPath) {
+              const fb = await Desktop.listByPath('user', 'doceditor', {
+                extensions: ['.md', '.markdown'],
+                recursive: false,
+                includeDirectories: true
+              });
+              if (fb?.files?.length) files = fb.files;
+            }
+
+            _conLinkModalDocRawItems = files;
+          } catch (err) {
+            console.warn('[Board] Error listing documents:', err);
+          }
+        }
+
+        _renderDocList(activeNode);
+      }
+
+      function _renderDocList(activeNode) {
+        const docList = document.getElementById('cle-doc-list');
+        if (!docList) return;
+
+        const files = _conLinkModalDocRawItems || [];
+        const filter = (_conLinkModalDocFilter || '').toLowerCase().trim();
+
+        const ignoredDirs = new Set(['history', 'node_modules', '.git', 'trash', 'backups', '.cache', '.system_generated']);
+        const dirs = [];
+        const docs = [];
+
+        files.forEach(f => {
+          if (!f) return;
+          const name = (typeof f === 'string') ? f : (f.filename || f.name || '');
+          if (!name || name.startsWith('.')) return;
+
+          const isDir = !!(f.isDirectory || (typeof f !== 'string' && f.type === 'directory'));
+          if (isDir) {
+            if (ignoredDirs.has(name.toLowerCase())) return;
+            if (filter && !name.toLowerCase().includes(filter)) return;
+            dirs.push({ name, isDir: true, raw: f });
+          } else {
+            if (/\.(v\d{8}-\d{6}|tmp|bak)\./i.test(name)) return;
+            if (filter && !name.toLowerCase().includes(filter)) return;
+            docs.push({ name, isDir: false, raw: f });
+          }
+        });
+
+        const sortedDirs = dirs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        const sortedFiles = docs.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+        let dHtml = '';
+
+        if (_conLinkModalDocPath) {
+          const upText = typeof i18n !== 'undefined' ? i18n.t('conLinkParentFolder') || 'Parent folder' : 'Parent folder';
+          dHtml += `<div class="cle-folder-row" onclick="conLinkModalNavUp('doc')" style="background:#f8fafc;font-weight:700;color:#475569;">
+            <img src="../assets/icons/folder.svg" style="width:15px;height:15px;opacity:0.7;" alt="" />
+            <span>.. (${escHtml(upText)})</span>
+            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">⬆</span>
+          </div>`;
+        }
+
+        sortedDirs.forEach(d => {
+          dHtml += `<div class="cle-folder-row" onclick="conLinkModalNavEnter('doc', '${escHtml(d.name)}')" title="Open folder">
+            <img src="../assets/icons/folder.svg" style="width:16px;height:16px;" alt="" />
+            <strong>${escHtml(d.name)}</strong>
+            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">Folder ▶</span>
+          </div>`;
+        });
+
+        sortedFiles.forEach(f => {
+          const fname = f.name;
+          const fullRel = _conLinkModalDocPath ? (_conLinkModalDocPath + '/' + fname) : fname;
+          const cleanTitle = fname.replace(/\.(md|markdown)$/i, '');
+          const isSel = !!(activeNode && (activeNode.linkTarget === fullRel || activeNode.linkTarget === fname));
+
+          dHtml += `<label class="cle-item-row" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #ddd;cursor:pointer;${isSel ? 'background:#fff9e6;' : ''}">
+            <input type="radio" name="cle-doc-target" value="${escHtml(fullRel)}" data-title="${escHtml(cleanTitle)}" ${isSel ? 'checked' : ''} />
+            <img src="../assets/icons/document-editor.svg" style="width:15px;height:15px;opacity:0.8;" alt="" />
+            <strong>${escHtml(cleanTitle)}</strong>
+            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">.md</span>
+          </label>`;
+        });
+
+        if (!sortedDirs.length && !sortedFiles.length) {
+          const emptyText = typeof i18n !== 'undefined' ? i18n.t('conLinkEmptyFolder') || 'This folder is empty.' : 'This folder is empty.';
+          dHtml += `<div style="padding:12px;font-size:0.82rem;opacity:0.6;text-align:center;">${escHtml(emptyText)}</div>`;
+        }
+
+        docList.innerHTML = dHtml;
+      }
+
+      async function _populateLinkModalLists(activeNode) {
+        // 1. Canvas Elements List (Multi-page aware)
+        _populateCanvasList(activeNode);
+
+        // 2. Mindmaps List (with folder navigation)
+        _populateBoardList(activeNode);
+
+        // 3. Document Editor Docs List (with folder navigation)
+        _populateDocList(activeNode);
+
+        // 4. Suite Tool List (Classes & Evaluators)
+        const suiteList = document.getElementById('cle-suite-list');
+        if (suiteList) {
+          let sHtml = '';
+          if (typeof window.CLASS_GROUPS !== 'undefined') {
+            Object.entries(window.CLASS_GROUPS).forEach(([cid, cls]) => {
+              if (!cls) return;
+              const cName = cls.name || cid;
+              const urn = `cmt:class:${cid}`;
+              const isSel = (activeNode && activeNode.linkUrn === urn);
+              sHtml += `<label class="cle-item-row" style="display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #ddd;cursor:pointer;"><input type="radio" name="cle-suite-target" value="${urn}" data-title="${escHtml(cName)}" data-type="grades" ${isSel ? 'checked' : ''} /> <strong>${escHtml(cName)}</strong> <span style="font-size:0.75rem;opacity:0.7;">(Class Grade Sheet)</span></label>`;
+            });
+          }
+          suiteList.innerHTML = sHtml || '<div style="padding:10px;font-size:0.85rem;opacity:0.6;">No class groups found.</div>';
+        }
+      }
+
+      window.conSaveLinkEditModal = async function () {
+        const tab = _conLinkModalActiveTab;
+        let lType = 'web';
+        let target = '';
+        let title = '';
+        let subtitle = '';
+        let urn = '';
+        let tags = [];
+
+        if (tab === 'web') {
+          lType = 'web';
+          const uInput = document.getElementById('cle-web-url');
+          const tInput = document.getElementById('cle-web-title');
+          const tagsInput = document.getElementById('cle-web-tags');
+          target = uInput ? uInput.value.trim() : '';
+          if (!target) {
+            if (typeof showToast === 'function') showToast('Please enter a URL', true);
+            return;
+          }
+          if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
+          let domain = '';
+          try { domain = new URL(target).hostname.replace(/^www\./i, ''); } catch (_) {}
+          title = (tInput && tInput.value.trim()) ? tInput.value.trim() : (domain || target);
+          subtitle = domain;
+          if (tagsInput && tagsInput.value.trim()) {
+            tags = tagsInput.value.split(/[,\s]+/).map(t => t.trim().startsWith('#') ? t.trim() : '#' + t.trim()).filter(Boolean);
+          }
+          if (typeof BookmarksService !== 'undefined') {
+            await BookmarksService.add({ title, url: target, tags });
+          }
+        } else if (tab === 'canvas') {
+          lType = 'canvas';
+          const checked = document.querySelector('input[name="cle-canvas-target"]:checked');
+          if (!checked) {
+            if (typeof showToast === 'function') showToast('Please select a canvas element', true);
+            return;
+          }
+          target = checked.value;
+          title = checked.dataset.title || 'Canvas Element';
+          subtitle = checked.dataset.subtitle || (target.includes(':node:') || target.startsWith('node:') ? 'Board Node' : 'Board Note');
+        } else if (tab === 'board') {
+          lType = 'board';
+          const checked = document.querySelector('input[name="cle-board-target"]:checked');
+          if (!checked) {
+            if (typeof showToast === 'function') showToast('Please select a mindmap file', true);
+            return;
+          }
+          target = checked.value;
+          const fname = target.split('/').pop();
+          title = checked.dataset.title || fname.replace(/\.(json|cstz|js)$/i, '');
+          subtitle = target.includes('/') ? ('Mindmap • ' + target) : 'Mindmap Session';
+          urn = 'cmt:board:' + target;
+        } else if (tab === 'doc') {
+          lType = 'doc';
+          const checked = document.querySelector('input[name="cle-doc-target"]:checked');
+          if (!checked) {
+            if (typeof showToast === 'function') showToast('Please select a document', true);
+            return;
+          }
+          target = checked.value;
+          const fname = target.split('/').pop();
+          title = checked.dataset.title || fname.replace(/\.(md|markdown)$/i, '');
+          subtitle = target.includes('/') ? ('Document • ' + target) : 'Document Editor';
+          urn = 'cmt:doc:' + target;
+        } else if (tab === 'suite') {
+          const checked = document.querySelector('input[name="cle-suite-target"]:checked');
+          if (!checked) {
+            if (typeof showToast === 'function') showToast('Please select a suite item', true);
+            return;
+          }
+          urn = checked.value;
+          target = urn;
+          title = checked.dataset.title || 'Suite Item';
+          lType = checked.dataset.type || 'suite';
+          subtitle = 'Grade Sheet';
+        }
+
+        if (_conLinkModalTargetNode) {
+          const node = _conLinkModalTargetNode;
+          node.isLink = true;
+          node.linkType = lType;
+          node.linkTarget = target;
+          node.linkTitle = title;
+          node.linkSubTitle = subtitle;
+          node.linkUrn = urn;
+          node.tags = tags;
+          conRenderNodeLabel(node);
+          if (typeof conPushUndo === 'function') conPushUndo();
+          if (typeof showToast === 'function') showToast('Link updated');
+        } else {
+          const brd = board();
+          const cx = window._boardCtxX != null ? window._boardCtxX : (brd ? (brd.scrollLeft + brd.clientWidth / 2) : 200);
+          const cy = window._boardCtxY != null ? window._boardCtxY : (brd ? (brd.scrollTop + brd.clientHeight / 2) : 200);
+          conAddLinkNodeAt({
+            title,
+            linkType: lType,
+            target,
+            subtitle,
+            urn,
+            tags
+          }, cx, cy);
+          if (typeof showToast === 'function') showToast('Link node created');
+        }
+
+        window.conCloseLinkEditModal();
+      };
+
+      window.conBoardCtxAddLink = function () {
+        if (typeof window.conOpenLinkEditModal === 'function') {
+          window.conOpenLinkEditModal(null);
+        }
+      };
+
+      window.conCtxOpenLinkEditModal = function () {
+        const allNodes = (typeof window.conGetNodes === 'function')
+          ? window.conGetNodes()
+          : ((typeof conNodes !== 'undefined') ? conNodes : []);
+        const nodeId = (window.conGetCtxNodeId && window.conGetCtxNodeId())
+          || (typeof window.conCtxNodeId !== 'undefined' ? window.conCtxNodeId : null)
+          || (typeof conCtxNodeId !== 'undefined' ? conCtxNodeId : null)
+          || (window.conGetSelected ? window.conGetSelected() : (typeof conSelected !== 'undefined' ? conSelected : null));
+        const node = allNodes.find(n => n && (n.id === nodeId || String(n.id) === String(nodeId)));
+        if (typeof conCtxClose === 'function') conCtxClose();
+        else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        if (node && typeof window.conOpenLinkEditModal === 'function') {
+          window.conOpenLinkEditModal(node);
+        }
+      };
+
       // ---- Multi-node layout preferences & state ----
       let _conBoardLayoutPrefBoard = localStorage.getItem('con-board-layout-pref-board') || 'horizontal';
       let _conBoardLayoutPrefConnected = localStorage.getItem('con-board-layout-pref-connected') || 'circle';
@@ -16105,8 +17244,67 @@
           return;
         }
 
+        // --- Link / Bookmark Node ---
+        if (node && (node.isLink || node.isBookmark || node.type === 'link')) {
+          const linkTitle = node.linkTitle || node.title || node.baseWord || (node.el && (node.el.dataset.baseWord || node.el.textContent.trim())) || 'Link';
+          const subTitle = node.linkSubTitle || '';
+          const linkType = node.linkType || 'web';
+
+          let iconName = 'links.svg';
+          if (linkType === 'canvas') iconName = 'arrow-right.svg';
+          else if (linkType === 'board') iconName = 'board.svg';
+          else if (linkType === 'doc') iconName = 'document-editor.svg';
+          else if (linkType === 'grades') iconName = 'grade-sheet.svg';
+          else if (linkType === 'suite') iconName = 'file-text.svg';
+
+          node.el.classList.add('con-node-link');
+          node.el.classList.remove('con-node-sound', 'con-sound-playing', 'con-sound-paused', 'con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random');
+
+          const iconHtml = `<img src="../assets/icons/${iconName}" class="btn-icon con-link-icon" alt="" style="width:14px;height:14px;margin-right:6px;vertical-align:-2px;pointer-events:none;display:inline-block;" />`;
+          const subTitleHtml = subTitle ? `<span class="con-link-sub-pill" title="${String(subTitle).replace(/"/g,'&quot;')}">${String(subTitle).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>` : '';
+
+          let tagsHtml = '';
+          if (Array.isArray(node.tags) && node.tags.length > 0) {
+            tagsHtml = `<span class="con-link-tags-row" style="display:flex;gap:4px;margin-top:3px;font-size:0.7em;opacity:0.85;">` +
+              node.tags.slice(0, 3).map(t => `<span class="con-link-tag-chip" style="background:#e8f0fe;border:1px solid #555555;padding:0 4px;border-radius:3px;">${String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`).join('') +
+              (node.tags.length > 3 ? `<span style="font-size:0.85em;align-self:center;">+${node.tags.length - 3}</span>` : '') +
+              `</span>`;
+          }
+
+          const launchBtnHtml = `<button type="button" class="con-link-launch-badge" title="Open Link" onclick="event.stopPropagation(); if (typeof window.conActivateLinkNode === 'function') window.conActivateLinkNode('${node.id}');" style="background:#e2c96e;border:1px solid #333333;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;box-shadow:1px 1px 0 #333;"><img src="../assets/icons/arrow-right.svg" style="width:9px;height:9px;pointer-events:none;" alt="" /></button>`;
+
+          const metaRowHtml = (subTitleHtml || launchBtnHtml) ? `<span class="con-link-meta-row">${subTitleHtml}${launchBtnHtml}</span>` : '';
+          const linkHtml = `<span class="con-node-word-row con-link-node-row">${iconHtml}<span class="con-link-title-text">${String(linkTitle).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span></span>${metaRowHtml}${tagsHtml}`;
+
+          const _savedResizer = node.el.querySelector('.con-node-resizer');
+          const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
+          const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
+          const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
+          node.el.innerHTML = linkHtml;
+          if (_savedResizer) node.el.appendChild(_savedResizer);
+          if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
+          if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
+          if (typeof conUpdateNodeCompetenceBadge === 'function') {
+            conUpdateNodeCompetenceBadge(node);
+          } else if (_savedCompBadge) {
+            node.el.appendChild(_savedCompBadge);
+          }
+          if (node.nodeNumber != null && typeof conApplyEntityBadge === 'function') {
+            conApplyEntityBadge(node.el, node.nodeNumber, node.nodeNumberFormat, 'node');
+          }
+          node.el.style.display = 'inline-flex';
+          node.el.style.flexDirection = 'column';
+          node.el.style.alignItems = 'center';
+          node.el.style.justifyContent = 'center';
+          conApplyNodeShape(node, node.shape);
+          return;
+        }
+
         if (node && node.el) {
-          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused');
+          node.el.classList.remove('con-node-timer', 'con-timer-running', 'con-timer-warning', 'con-timer-ended', 'con-node-random', 'con-node-sound', 'con-sound-playing', 'con-sound-paused', 'con-node-link');
         }
 
 
@@ -19361,10 +20559,28 @@
           }
         }
 
-        // 4. External plain text: paste as a new text note
+        // 4. External plain text: check for URL first, otherwise paste as a new text note
         if (plain) {
           e.preventDefault();
           conPushUndo();
+
+          if (/^https?:\/\/[^\s]+$/i.test(plain) && typeof window.conAddLinkNodeAt === 'function') {
+            let domain = '';
+            try { domain = new URL(plain).hostname.replace(/^www\./i, ''); } catch (_) { domain = 'Web Link'; }
+            window.conAddLinkNodeAt({
+              title: domain,
+              url: plain,
+              linkType: 'web',
+              subtitle: domain,
+              tags: ['#web']
+            }, x, y);
+            if (typeof BookmarksService !== 'undefined') {
+              BookmarksService.add({ title: domain, url: plain, tags: ['#web'] });
+            }
+            if (typeof showToast === 'function') showToast('Created link node from URL');
+            return;
+          }
+
           if (window.conCreateTextNote) {
             const note = window.conCreateTextNote(plain, x, y, { fontSize: window._bcNoteFontSizeFree || 24 });
             if (note) {
@@ -20357,6 +21573,30 @@
         });
 
         brd.addEventListener('drop', function (e) {
+          const dropText = (e.dataTransfer && (e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'))) || '';
+          if (dropText && /^https?:\/\/[^\s]+$/i.test(dropText.trim()) && typeof window.conAddLinkNodeAt === 'function') {
+            e.preventDefault();
+            brd.classList.remove('file-drag-over');
+            const cleanUrl = dropText.trim();
+            const brdRect = brd.getBoundingClientRect();
+            const dropX = e.clientX - brdRect.left + brd.scrollLeft;
+            const dropY = e.clientY - brdRect.top + brd.scrollTop;
+            let domain = '';
+            try { domain = new URL(cleanUrl).hostname.replace(/^www\./i, ''); } catch (_) { domain = 'Web Link'; }
+            window.conAddLinkNodeAt({
+              title: domain,
+              url: cleanUrl,
+              linkType: 'web',
+              subtitle: domain,
+              tags: ['#web']
+            }, dropX, dropY);
+            if (typeof BookmarksService !== 'undefined') {
+              BookmarksService.add({ title: domain, url: cleanUrl, tags: ['#web'] });
+            }
+            if (typeof showToast === 'function') showToast('Created link node from dropped URL');
+            return;
+          }
+
           if (!conBoardHasFileDrag(e)) return;
           e.preventDefault();
           brd.classList.remove('file-drag-over');

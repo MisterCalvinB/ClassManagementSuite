@@ -23,6 +23,7 @@
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/competence-aggregator-service.js"></script>
   <script src="../js/links-service.js"></script>
+  <script src="../js/bookmarks-service.js"></script>
   <script src="../js/board-export-service.js"></script>
   <script src="../js/board-units.js"></script>
   <script src="../js/tag-link-modal.js"></script>
@@ -1084,6 +1085,8 @@
           title="Attach competence tags to this element"><img src="../assets/icons/award.svg" class="btn-icon" alt="" /></button>
         <button class="con-ctx-icon-btn" id="con-ctx-links-btn" onclick="conCtxOpenLinksModal()"
           title="Links & Tags for this word"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /></button>
+        <button class="con-ctx-icon-btn" id="con-ctx-bookmark-btn" onclick="conCtxOpenLinkEditModal()"
+          title="Attach Bookmark Link" data-i18n-title="conAddLink"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
         <button class="con-ctx-icon-btn" id="con-ctx-dict-btn" onclick="conCtxOpenDictionary()"
           title="Quick Dictionary lookup" data-i18n-title="conLookUpDictionary"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" /></button>
         <span class="con-ctx-icon-sep" id="con-ctx-relations-sep"></span>
@@ -1637,6 +1640,9 @@
           <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxCreateGroup()" title="Add Group" data-i18n-title="conCtxGroup">
             <img src="../assets/icons/group.svg" class="btn-icon" alt="" />
           </button>
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conBoardCtxAddLink();" title="Add Link / Bookmark" data-i18n-title="conAddLink">
+            <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+          </button>
         </div>
 
         <div class="con-ctx-sep"></div>
@@ -1841,14 +1847,14 @@
     <div id="con-shape-style-popup" class="con-sp-popup">
       <div class="con-board-ctx-header draggable">
         <div class="con-board-ctx-header-left">
-          <img src="../assets/icons/shapes.svg" class="btn-icon" alt="" />
+          <img src="../assets/icons/shape-polygon.svg" class="btn-icon" alt="" />
           <span class="con-ctx-title" data-i18n="conShapeStyleTitle">Shape Style</span>
         </div>
         <button type="button" class="con-board-ctx-close-btn" onclick="conShapeCtxClose()" title="Close" aria-label="Close" data-i18n-title="close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
       </div>
       <div class="con-sp-body">
         <div class="con-board-ctx-section-title">
-          <img src="../assets/icons/shapes.svg" class="btn-icon" alt="" />
+          <img src="../assets/icons/shape-polygon.svg" class="btn-icon" alt="" />
           <span data-i18n="conDrawShapes">Shapes</span>
         </div>
         <div class="wn-sp-row">
@@ -5519,6 +5525,158 @@
           <button type="button" class="con-board-ctx-action-btn danger" onclick="conSoundSpDelete()"
             title="Delete" data-i18n-title="conSpDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Link / Bookmark style popup -->
+  <div id="con-link-style-overlay" class="con-sp-overlay" onclick="conLinkStyleClose(event)">
+    <div id="con-link-style-popup" class="con-sp-popup">
+      <div class="con-board-ctx-header">
+        <div class="con-board-ctx-header-left">
+          <img id="con-link-sp-icon" src="../assets/icons/links.svg" class="btn-icon" alt="" />
+          <div style="display:flex;flex-direction:column;min-width:0;">
+            <span class="con-ctx-title" id="con-link-sp-title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">Link</span>
+            <span id="con-link-sp-sub" style="font-size:0.75rem;opacity:0.75;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;">Target</span>
+          </div>
+        </div>
+        <button type="button" class="con-board-ctx-close-btn" onclick="conLinkStyleDismiss()" title="Close" aria-label="Close" data-i18n-title="close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+      </div>
+
+      <div class="con-sp-body">
+        <div class="con-board-ctx-section-title">
+          <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+          <span data-i18n="conLinkActions">Link Actions</span>
+        </div>
+        <div class="con-board-ctx-action-grid">
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-inapp-btn" onclick="conLinkSpOpenInApp()"
+            title="Open In-App Window" data-i18n-title="conLinkOpenInApp"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-browser-btn" onclick="conLinkSpOpenBrowser()"
+            title="Open in System Browser" data-i18n-title="conLinkOpenBrowser"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-jump-btn" onclick="conLinkSpJumpCanvas()" style="display:none;"
+            title="Jump to Canvas Element" data-i18n-title="conLinkJumpCanvas"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-newwin-btn" onclick="conLinkSpOpenNewBoard()" style="display:none;"
+            title="Open in New Window" data-i18n-title="conLinkOpenNewWindow"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-loadcurr-btn" onclick="conLinkSpLoadCurrentBoard()" style="display:none;"
+            title="Load in This Window" data-i18n-title="conLinkLoadCurrentBoard"><img src="../assets/icons/board.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-copy-btn" onclick="conLinkSpCopy()"
+            title="Copy Target URL/URN" data-i18n-title="conLinkCopyTarget"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-edit-btn" onclick="conLinkSpEdit()"
+            title="Edit Link Target" data-i18n-title="conLinkEditTarget"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn" id="con-link-sp-lock-btn" onclick="conLinkSpToggleLock()"
+            title="Lock" data-i18n-title="conSpLock"><img src="../assets/icons/lock.svg" class="btn-icon" alt="" /></button>
+          <button type="button" class="con-board-ctx-action-btn danger" onclick="conLinkSpDelete()"
+            title="Delete" data-i18n-title="conSpDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Unified Add / Edit Link Modal Dialog -->
+  <div id="con-link-edit-modal" class="con-sp-overlay" style="display:none;position:fixed;inset:0;z-index:13000;background:rgba(0,0,0,0.45);align-items:center;justify-content:center;" onclick="if(event.target===this)conCloseLinkEditModal();">
+    <div class="cle-dialog" style="background:#f5f5f0;border:2px solid #333;border-radius:10px;box-shadow:4px 4px 0 #555;width:560px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;overflow:hidden;" onclick="event.stopPropagation();">
+      <!-- Header -->
+      <div style="background:#ffffff;border-bottom:2px solid #333;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:20px;height:20px;" />
+          <h3 id="cle-modal-header-title" style="margin:0;font-size:1.1rem;font-weight:800;" data-i18n="conLinkModalHeader">Edit Link / Bookmark</h3>
+        </div>
+        <button type="button" class="con-board-ctx-close-btn" onclick="conCloseLinkEditModal()" title="Close" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+      </div>
+
+      <!-- Category Tabs -->
+      <div style="background:#e5e5df;border-bottom:2px solid #333;display:flex;gap:4px;padding:6px 12px;overflow-x:auto;">
+        <button type="button" class="cle-tab-btn active" data-tab="web" onclick="conLinkModalSwitchTab('web')" style="border:2px solid #333;background:#fff;border-radius:6px;padding:5px 10px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+          <img src="../assets/icons/links.svg" class="btn-icon" style="width:14px;height:14px;" alt="" /> <span data-i18n="conLinkTabWeb">Web URL</span>
+        </button>
+        <button type="button" class="cle-tab-btn" data-tab="canvas" onclick="conLinkModalSwitchTab('canvas')" style="border:2px solid #333;background:#fff;border-radius:6px;padding:5px 10px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+          <img src="../assets/icons/arrow-right.svg" class="btn-icon" style="width:14px;height:14px;" alt="" /> <span data-i18n="conLinkTabCanvas">This Board</span>
+        </button>
+        <button type="button" class="cle-tab-btn" data-tab="board" onclick="conLinkModalSwitchTab('board')" style="border:2px solid #333;background:#fff;border-radius:6px;padding:5px 10px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+          <img src="../assets/icons/board.svg" class="btn-icon" style="width:14px;height:14px;" alt="" /> <span data-i18n="conLinkTabBoard">Other Mindmap</span>
+        </button>
+        <button type="button" class="cle-tab-btn" data-tab="doc" onclick="conLinkModalSwitchTab('doc')" style="border:2px solid #333;background:#fff;border-radius:6px;padding:5px 10px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+          <img src="../assets/icons/document-editor.svg" class="btn-icon" style="width:14px;height:14px;" alt="" /> <span data-i18n="conLinkTabDoc">Document</span>
+        </button>
+        <button type="button" class="cle-tab-btn" data-tab="suite" onclick="conLinkModalSwitchTab('suite')" style="border:2px solid #333;background:#fff;border-radius:6px;padding:5px 10px;font-size:0.8rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:5px;">
+          <img src="../assets/icons/grade-sheet.svg" class="btn-icon" style="width:14px;height:14px;" alt="" /> <span data-i18n="conLinkTabSuite">Suite Apps</span>
+        </button>
+      </div>
+
+      <!-- Tab Panels Container -->
+      <div style="flex:1;padding:16px;overflow-y:auto;background:#fafaf7;">
+        <!-- Panel 1: Web URL -->
+        <div class="cle-tab-panel" data-tab="web" style="display:block;">
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.8rem;font-weight:800;margin-bottom:4px;" data-i18n="conLinkFieldUrl">Destination URL:</label>
+            <input type="text" id="cle-web-url" class="uimp-input" style="width:100%;box-sizing:border-box;" placeholder="https://example.com" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block;font-size:0.8rem;font-weight:800;margin-bottom:4px;" data-i18n="conLinkFieldTitle">Display Title (optional):</label>
+            <input type="text" id="cle-web-title" class="uimp-input" style="width:100%;box-sizing:border-box;" placeholder="Auto-detected from domain if blank" />
+          </div>
+          <div>
+            <label style="display:block;font-size:0.8rem;font-weight:800;margin-bottom:4px;" data-i18n="conLinkFieldTags">Tags (comma or space separated):</label>
+            <input type="text" id="cle-web-tags" class="uimp-input" style="width:100%;box-sizing:border-box;" placeholder="#research, #unit2" />
+          </div>
+        </div>
+
+        <!-- Panel 2: Canvas Elements -->
+        <div class="cle-tab-panel" data-tab="canvas" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div style="font-size:0.8rem;font-weight:700;opacity:0.85;" data-i18n="conLinkSelectCanvasElement">Select a node or note to jump to:</div>
+            <input type="text" id="cle-canvas-filter" class="uimp-input" style="font-size:0.75rem;padding:3px 8px;width:140px;box-sizing:border-box;" placeholder="Filter..." oninput="conLinkCanvasFilter(this.value)" data-i18n-placeholder="conLinkFilterPlaceholder" />
+          </div>
+          <!-- Page Filter Buttons (visible when more than 1 page) -->
+          <div id="cle-canvas-page-bar" style="display:none;align-items:center;gap:4px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;border-bottom:1px solid #e2e8f0;"></div>
+          <div id="cle-canvas-list" style="background:#fff;border:1.5px solid #333;border-radius:6px;max-height:220px;overflow-y:auto;padding:4px;"></div>
+        </div>
+
+        <!-- Panel 3: Other Mindmaps -->
+        <div class="cle-tab-panel" data-tab="board" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div style="font-size:0.8rem;font-weight:700;opacity:0.85;" data-i18n="conLinkSelectMindmap">Select a saved constellation session:</div>
+            <input type="text" id="cle-board-filter" class="uimp-input" style="font-size:0.75rem;padding:3px 8px;width:140px;box-sizing:border-box;" placeholder="Filter..." oninput="conLinkModalFilter('board', this.value)" data-i18n-placeholder="conLinkFilterPlaceholder" />
+          </div>
+          <!-- Navigation Breadcrumb & Up Button -->
+          <div id="cle-board-nav" style="display:flex;align-items:center;gap:6px;background:#eef0eb;border:1.5px solid #333;border-bottom:none;border-radius:6px 6px 0 0;padding:5px 8px;font-size:0.75rem;font-weight:700;">
+            <button type="button" id="cle-board-up-btn" onclick="conLinkModalNavUp('board')" class="cle-nav-btn" style="border:1.5px solid #333;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;box-shadow:1px 1px 0 #555;" title="Go Up" data-i18n-title="conLinkNavUp">
+              <img src="../assets/icons/arrow-up.svg" class="btn-icon" style="width:11px;height:11px;" alt="" />
+            </button>
+            <div id="cle-board-breadcrumbs" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0;flex:1;"></div>
+          </div>
+          <div id="cle-board-list" style="background:#fff;border:1.5px solid #333;border-radius:0 0 6px 6px;max-height:220px;overflow-y:auto;padding:4px;"></div>
+        </div>
+
+        <!-- Panel 4: Document Editor -->
+        <div class="cle-tab-panel" data-tab="doc" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+            <div style="font-size:0.8rem;font-weight:700;opacity:0.85;" data-i18n="conLinkSelectDocument">Select a markdown document:</div>
+            <input type="text" id="cle-doc-filter" class="uimp-input" style="font-size:0.75rem;padding:3px 8px;width:140px;box-sizing:border-box;" placeholder="Filter..." oninput="conLinkModalFilter('doc', this.value)" data-i18n-placeholder="conLinkFilterPlaceholder" />
+          </div>
+          <!-- Navigation Breadcrumb & Up Button -->
+          <div id="cle-doc-nav" style="display:flex;align-items:center;gap:6px;background:#eef0eb;border:1.5px solid #333;border-bottom:none;border-radius:6px 6px 0 0;padding:5px 8px;font-size:0.75rem;font-weight:700;">
+            <button type="button" id="cle-doc-up-btn" onclick="conLinkModalNavUp('doc')" class="cle-nav-btn" style="border:1.5px solid #333;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:0.75rem;box-shadow:1px 1px 0 #555;" title="Go Up" data-i18n-title="conLinkNavUp">
+              <img src="../assets/icons/arrow-up.svg" class="btn-icon" style="width:11px;height:11px;" alt="" />
+            </button>
+            <div id="cle-doc-breadcrumbs" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:0;flex:1;"></div>
+          </div>
+          <div id="cle-doc-list" style="background:#fff;border:1.5px solid #333;border-radius:0 0 6px 6px;max-height:220px;overflow-y:auto;padding:4px;"></div>
+        </div>
+
+        <!-- Panel 5: Suite Tool -->
+        <div class="cle-tab-panel" data-tab="suite" style="display:none;">
+          <div style="font-size:0.8rem;font-weight:700;margin-bottom:8px;opacity:0.8;" data-i18n="conLinkSelectSuiteItem">Select a class grade sheet:</div>
+          <div id="cle-suite-list" style="background:#fff;border:1.5px solid #333;border-radius:6px;max-height:220px;overflow-y:auto;padding:4px;"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="background:#ffffff;border-top:2px solid #333;padding:12px 16px;display:flex;align-items:center;justify-content:flex-end;gap:10px;">
+        <button type="button" class="uimp-btn-secondary" onclick="conCloseLinkEditModal()" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="uimp-btn-primary" onclick="conSaveLinkEditModal()" style="display:inline-flex;align-items:center;gap:6px;">
+          <img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span data-i18n="conLinkBtnSave">Save Link</span>
+        </button>
       </div>
     </div>
   </div>

@@ -1436,28 +1436,26 @@
         const board = document.getElementById('constellation-board');
         if (!board) return;
 
-        const itemW = item.w || 60;
-        const itemH = item.h || 32;
-        const targetScrollX = (item.x + itemW / 2) - board.clientWidth / 2;
-        const targetScrollY = (item.y + itemH / 2) - board.clientHeight / 2;
-
-        board.scrollTo({
-          left: Math.max(0, Math.round(targetScrollX)),
-          top: Math.max(0, Math.round(targetScrollY)),
-          behavior: 'smooth'
-        });
-
         let liveEl = null;
+        let itemX = (item.x != null) ? item.x : null;
+        let itemY = (item.y != null) ? item.y : null;
+        let itemW = item.w || 60;
+        let itemH = item.h || 32;
+
         if (item.type === 'node') {
           const nodes = (window.conGetNodes ? window.conGetNodes() : []);
-          const nodeObj = nodes.find(n => n.id === item.id);
+          const nodeObj = nodes.find(n => n && (String(n.id) === String(item.id) || n.id === item.id));
           if (nodeObj) {
-            liveEl = nodeObj.el;
-            if (typeof conSelect === 'function') conSelect(item.id);
-            else if (typeof window.conSelect === 'function') window.conSelect(item.id);
+            liveEl = nodeObj.el || document.getElementById(String(item.id));
+            if (itemX == null && nodeObj.x != null) itemX = nodeObj.x;
+            if (itemY == null && nodeObj.y != null) itemY = nodeObj.y;
+            if (nodeObj.w) itemW = nodeObj.w;
+            if (nodeObj.h) itemH = nodeObj.h;
+            if (typeof conSelect === 'function') conSelect(nodeObj.id);
+            else if (typeof window.conSelect === 'function') window.conSelect(nodeObj.id);
           }
         } else if (item.type === 'note') {
-          liveEl = document.querySelector(`.con-word-note[data-id="${item.id}"]`);
+          liveEl = document.querySelector(`.con-word-note[data-id="${item.id}"]`) || document.getElementById(String(item.id));
           if (typeof conSelectNote === 'function') {
             conSelectNote(item.id);
           } else if (typeof window.conSelectNote === 'function') {
@@ -1477,6 +1475,25 @@
         } else if (item.type === 'group') {
           if (typeof conGroupFocus === 'function') conGroupFocus(item.id);
           liveEl = document.querySelector(`.con-group[data-id="${item.id}"]`);
+        }
+
+        if (liveEl) {
+          if (itemX == null && liveEl.style && liveEl.style.left) itemX = parseInt(liveEl.style.left, 10);
+          if (itemY == null && liveEl.style && liveEl.style.top) itemY = parseInt(liveEl.style.top, 10);
+          itemW = liveEl.offsetWidth || itemW;
+          itemH = liveEl.offsetHeight || itemH;
+        }
+
+        if (itemX != null && itemY != null && !isNaN(itemX) && !isNaN(itemY)) {
+          const targetScrollX = (itemX + itemW / 2) - board.clientWidth / 2;
+          const targetScrollY = (itemY + itemH / 2) - board.clientHeight / 2;
+          board.scrollTo({
+            left: Math.max(0, Math.round(targetScrollX)),
+            top: Math.max(0, Math.round(targetScrollY)),
+            behavior: 'smooth'
+          });
+        } else if (liveEl) {
+          liveEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
         }
 
         if (liveEl) {
@@ -1501,10 +1518,14 @@
         }
       };
 
-      if (typeof conCurrentPageIndex === 'number' && item.pageIndex !== conCurrentPageIndex) {
+      if (typeof conCurrentPageIndex === 'number' && typeof item.pageIndex === 'number' && item.pageIndex !== conCurrentPageIndex) {
         if (typeof window.conGoToPage === 'function') {
+          window._conSuppressScrollToTop = true;
           window.conGoToPage(item.pageIndex);
-          setTimeout(doCenterAndPulse, 240);
+          setTimeout(() => {
+            window._conSuppressScrollToTop = false;
+            doCenterAndPulse();
+          }, 240);
         }
       } else {
         doCenterAndPulse();
