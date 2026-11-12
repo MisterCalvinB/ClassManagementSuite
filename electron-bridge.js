@@ -350,6 +350,21 @@
     return getDesktopApi().resetSyncBaseline();
   }
 
+  async function getSyncLocation() {
+    if (!isElectron()) return { ok: false, syncLocation: null, accessible: false };
+    return getDesktopApi().getSyncLocation();
+  }
+
+  async function checkSyncAccessibility(request) {
+    if (!isElectron()) return { ok: false, accessible: false };
+    return getDesktopApi().checkSyncAccessibility(request);
+  }
+
+  async function setStartupSync(request) {
+    if (!isElectron()) return { ok: false };
+    return getDesktopApi().setStartupSync(request);
+  }
+
   async function runSync(request) {
     if (!isElectron()) return null;
     return getDesktopApi().runSync(request);
@@ -1370,6 +1385,9 @@
     renameFile,
     renameByPath,
     resetSyncBaseline,
+    getSyncLocation,
+    checkSyncAccessibility,
+    setStartupSync,
     runSync,
     statByPath,
     copyByPath,

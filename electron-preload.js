@@ -209,6 +209,12 @@ const exposedApi = {
   getSyncLocation() {
     return invoke('app:get-sync-location');
   },
+  checkSyncAccessibility(request) {
+    return invoke('app:check-sync-accessibility', request);
+  },
+  setStartupSync(request) {
+    return invoke('app:set-startup-sync', request);
+  },
   pickSyncLocation() {
     return invoke('app:pick-sync-location');
   },

@@ -566,7 +566,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
   - Buttons for **Change folder…**, **Reset to default**, and **Check for Updates**.
   - **Migrate Files Wizard**: Automatically copies existing user files when switching data locations.
 - **Local Backup**: Select target directory and backup format (*Folder*, *ZIP Archive (.zip)*, or *TAR.GZ Archive (.tar.gz)*), then click **Backup Now**.
-- **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), enable **Keep target up to date automatically**, reset baseline, or trigger manual **Sync Now**.
+- **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), monitor real-time accessibility status (`Accessible` / `Not accessible`), enable **Keep target up to date automatically**, configure **Check location and offer to sync on startup** (with interactive confirmation banner or automatic background sync upon app launch), reset baseline, or trigger manual **Sync Now**.
 - **Cloud & Server Sync (Dev)**:
   - **WebDAV Sync**: Compatible with kDrive, Nextcloud, ownCloud. Server URL, username, app password, remote path, and interval sync.
   - **FTP / FTPS Sync (beta)**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).

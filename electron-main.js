@@ -2907,6 +2907,49 @@ async function saveAutoSyncEnabled(enabled) {
   }
 }
 
+async function loadStartupSyncConfig() {
+  try {
+    const raw = await fs.readFile(getSyncLocationConfigPath(), 'utf8');
+    const parsed = JSON.parse(raw);
+    return {
+      startupSync: parsed?.startupSync === true,
+      startupSyncMode: (parsed?.startupSyncMode === 'auto') ? 'auto' : 'prompt'
+    };
+  } catch {
+    return { startupSync: false, startupSyncMode: 'prompt' };
+  }
+}
+
+async function saveStartupSyncConfig(enabled, mode) {
+  try {
+    await fs.mkdir(app.getPath('userData'), { recursive: true });
+    let config = {};
+    try {
+      const raw = await fs.readFile(getSyncLocationConfigPath(), 'utf8');
+      config = JSON.parse(raw);
+    } catch {}
+    config.startupSync = enabled === true;
+    if (mode) config.startupSyncMode = (mode === 'auto') ? 'auto' : 'prompt';
+    await fs.writeFile(
+      getSyncLocationConfigPath(),
+      JSON.stringify(config, null, 2),
+      'utf8'
+    );
+  } catch (err) {
+    console.error('Failed to save startupSync setting:', err);
+  }
+}
+
+async function checkSyncLocationAccessible(dirPath) {
+  if (!dirPath || typeof dirPath !== 'string') return false;
+  try {
+    await fs.access(path.resolve(dirPath), fsSync.constants.R_OK | fsSync.constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Sync baseline (FreeFileSync-style last-known-state) ──────────────────────
 // Stored in userData so it never appears as a sync conflict itself.
 // Each entry: relativePath (with sub-dir prefix) → { mtimeMs, size }
@@ -8063,7 +8106,30 @@ ipcMain.handle('app:run-backup', async (_event, request = {}) => {
 
 ipcMain.handle('app:get-sync-location', async () => {
   const syncLocation = await loadSavedSyncLocation();
-  return { ok: true, syncLocation };
+  const accessible = syncLocation ? await checkSyncLocationAccessible(syncLocation) : false;
+  const startupCfg = await loadStartupSyncConfig();
+  const autoSync = await loadAutoSyncEnabled();
+  return {
+    ok: true,
+    syncLocation,
+    accessible,
+    autoSync,
+    startupSync: startupCfg.startupSync,
+    startupSyncMode: startupCfg.startupSyncMode
+  };
+});
+
+ipcMain.handle('app:set-startup-sync', async (_event, { enabled, mode } = {}) => {
+  const startupSync = enabled === true;
+  const startupSyncMode = (mode === 'auto') ? 'auto' : 'prompt';
+  await saveStartupSyncConfig(startupSync, startupSyncMode);
+  return { ok: true, startupSync, startupSyncMode };
+});
+
+ipcMain.handle('app:check-sync-accessibility', async (_event, { path: checkPath } = {}) => {
+  const target = checkPath || (await loadSavedSyncLocation());
+  const accessible = await checkSyncLocationAccessible(target);
+  return { ok: true, syncLocation: target, accessible };
 });
 
 ipcMain.handle('app:pick-sync-location', async () => {
@@ -8086,7 +8152,7 @@ ipcMain.handle('app:pick-sync-location', async () => {
   }
 
   await saveSyncLocation(selected);
-  return { ok: true, canceled: false, syncLocation: selected };
+  return { ok: true, canceled: false, syncLocation: selected, accessible: true };
 });
 
 ipcMain.handle('app:reset-sync-baseline', async () => {

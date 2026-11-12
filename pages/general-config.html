@@ -377,7 +377,10 @@
             <p class="section-desc" style="margin-bottom:4px;" data-i18n="gcSyncDesc">Synchronize the current data
               folder with another saved location.</p>
             <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;" data-i18n="gcSyncUserFolderNote">Sync mirrors the contents of your active user database folder (user/).</p>
-            <div class="path-box" id="syncPath" data-i18n="notSet">Not set</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+              <div class="path-box" id="syncPath" style="margin-bottom:0;flex:1;min-width:200px;" data-i18n="notSet">Not set</div>
+              <span class="sync-status-badge" id="syncAccessibilityBadge" style="display:none;"></span>
+            </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <button class="btn btn-outline" id="pickSyncBtn" type="button" data-i18n="gcChooseFolder">Choose
                 Folder</button>
@@ -392,6 +395,20 @@
                   style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
                 <span data-i18n="gcAutoSync">Keep target up to date automatically</span>
               </label>
+            </div>
+            <div style="margin-top:8px;">
+              <label style="display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-size:0.88rem;">
+                <input type="checkbox" id="startupSyncToggle" disabled
+                  style="width:15px;height:15px;cursor:pointer;accent-color:var(--accent);">
+                <span data-i18n="gcStartupSync">Check location and offer to sync on startup</span>
+              </label>
+            </div>
+            <div id="startupSyncModeRow" style="margin-top:6px;margin-left:22px;display:none;align-items:center;gap:8px;">
+              <label for="startupSyncModeSelect" style="font-size:0.82rem;color:var(--muted);" data-i18n="gcStartupSyncMode">Startup action:</label>
+              <select id="startupSyncModeSelect" style="padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:inherit;font-size:0.82rem;background:#fff;color:var(--text);">
+                <option value="prompt" data-i18n="gcStartupSyncPrompt">Offer to sync (show confirmation)</option>
+                <option value="auto" data-i18n="gcStartupSyncAuto">Sync automatically in background</option>
+              </select>
             </div>
             <div class="status" style="margin-top:8px;" id="syncStatus"></div>
             <div id="syncLastSync" style="font-size:0.83rem;color:var(--muted);margin-top:4px;"></div>
@@ -1784,6 +1801,26 @@
 
     var syncLastSyncEl = document.getElementById('syncLastSync');
     var autoSyncToggle = document.getElementById('autoSyncToggle');
+    var startupSyncToggle = document.getElementById('startupSyncToggle');
+    var startupSyncModeRow = document.getElementById('startupSyncModeRow');
+    var startupSyncModeSelect = document.getElementById('startupSyncModeSelect');
+    var syncAccessibilityBadge = document.getElementById('syncAccessibilityBadge');
+
+    function updateAccessibilityBadge(hasPath, isAccessible) {
+      if (!syncAccessibilityBadge) return;
+      if (!hasPath) {
+        syncAccessibilityBadge.style.display = 'none';
+        return;
+      }
+      syncAccessibilityBadge.style.display = 'inline-flex';
+      if (isAccessible) {
+        syncAccessibilityBadge.className = 'sync-status-badge badge-accessible';
+        syncAccessibilityBadge.textContent = typeof t === 'function' ? t('gcSyncAccessible') : 'Accessible';
+      } else {
+        syncAccessibilityBadge.className = 'sync-status-badge badge-inaccessible';
+        syncAccessibilityBadge.textContent = typeof t === 'function' ? t('gcSyncInaccessible') : 'Not accessible';
+      }
+    }
 
     var _lastSyncTime = parseInt(localStorage.getItem('lastSyncTime') || '0', 10) || 0;
 
@@ -1835,27 +1872,47 @@
       if (!window.electronApi || !window.electronApi.getSyncLocation) return;
       var res = await window.electronApi.getSyncLocation();
       var hasSyncLocation = res && res.ok && res.syncLocation;
+      var isAccessible = res && res.accessible === true;
       var runSyncBtn = document.getElementById('runSyncBtn');
       var runMirrorAppToSyncBtn = document.getElementById('runMirrorAppToSyncBtn');
       var runMirrorSyncToAppBtn = document.getElementById('runMirrorSyncToAppBtn');
       if (hasSyncLocation) {
         document.getElementById('syncPath').textContent = res.syncLocation;
-        if (runSyncBtn) runSyncBtn.disabled = false;
-        if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = false;
-        if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = false;
-        autoSyncToggle.disabled = false;
+        updateAccessibilityBadge(true, isAccessible);
+        if (runSyncBtn) runSyncBtn.disabled = !isAccessible;
+        if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = !isAccessible;
+        if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = !isAccessible;
+        if (autoSyncToggle) autoSyncToggle.disabled = false;
+        if (startupSyncToggle) {
+          startupSyncToggle.disabled = false;
+          startupSyncToggle.checked = res.startupSync === true;
+        }
+        if (startupSyncModeRow) {
+          startupSyncModeRow.style.display = res.startupSync === true ? 'flex' : 'none';
+        }
+        if (startupSyncModeSelect) {
+          startupSyncModeSelect.value = res.startupSyncMode || 'prompt';
+        }
       } else {
         document.getElementById('syncPath').textContent = typeof t === 'function' ? t('notSet') : 'Not set';
+        updateAccessibilityBadge(false, false);
         if (runSyncBtn) runSyncBtn.disabled = true;
         if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = true;
         if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = true;
-        autoSyncToggle.disabled = true;
-        autoSyncToggle.checked = false;
+        if (autoSyncToggle) {
+          autoSyncToggle.disabled = true;
+          autoSyncToggle.checked = false;
+        }
+        if (startupSyncToggle) {
+          startupSyncToggle.disabled = true;
+          startupSyncToggle.checked = false;
+        }
+        if (startupSyncModeRow) startupSyncModeRow.style.display = 'none';
       }
       if (hasSyncLocation && window.electronApi && window.electronApi.getAutoSync) {
         try {
           var asr = await window.electronApi.getAutoSync();
-          autoSyncToggle.checked = asr && asr.autoSync === true;
+          if (autoSyncToggle) autoSyncToggle.checked = asr && asr.autoSync === true;
         } catch (e) { }
       }
     }
@@ -1877,6 +1934,41 @@
       finally { autoSyncToggle.disabled = false; }
     });
 
+    if (startupSyncToggle) {
+      startupSyncToggle.addEventListener('change', async function () {
+        if (!window.electronApi || !window.electronApi.setStartupSync) return;
+        startupSyncToggle.disabled = true;
+        try {
+          var mode = startupSyncModeSelect ? startupSyncModeSelect.value : 'prompt';
+          var res = await window.electronApi.setStartupSync({ enabled: startupSyncToggle.checked, mode: mode });
+          if (!res || !res.ok) {
+            startupSyncToggle.checked = !startupSyncToggle.checked;
+            setSyncStatus(t('gcStartupSyncFailed'), 'err');
+          } else {
+            if (startupSyncModeRow) startupSyncModeRow.style.display = startupSyncToggle.checked ? 'flex' : 'none';
+            setSyncStatus(t('gcStartupSyncUpdated'), 'ok');
+          }
+        } catch (err) {
+          setSyncStatus(String(err && err.message ? err.message : err), 'err');
+        } finally {
+          startupSyncToggle.disabled = false;
+        }
+      });
+    }
+
+    if (startupSyncModeSelect) {
+      startupSyncModeSelect.addEventListener('change', async function () {
+        if (!window.electronApi || !window.electronApi.setStartupSync) return;
+        try {
+          var enabled = startupSyncToggle ? startupSyncToggle.checked : true;
+          await window.electronApi.setStartupSync({ enabled: enabled, mode: startupSyncModeSelect.value });
+          setSyncStatus(t('gcStartupSyncUpdated'), 'ok');
+        } catch (err) {
+          setSyncStatus(String(err && err.message ? err.message : err), 'err');
+        }
+      });
+    }
+
     document.getElementById('pickSyncBtn').addEventListener('click', async function () {
       this.disabled = true;
       setSyncStatus(t('gcPickingFolder'), '');
@@ -1890,13 +1982,7 @@
           setSyncStatus(res.error || t('gcCouldNotSetFolder'), 'err');
         } else {
           setSyncStatus(t('gcSyncFolderUpdated'), 'ok');
-          document.getElementById('syncPath').textContent = res.syncLocation;
-          document.getElementById('runSyncBtn').disabled = false;
-          var runMirrorAppToSyncBtn = document.getElementById('runMirrorAppToSyncBtn');
-          var runMirrorSyncToAppBtn = document.getElementById('runMirrorSyncToAppBtn');
-          if (runMirrorAppToSyncBtn) runMirrorAppToSyncBtn.disabled = false;
-          if (runMirrorSyncToAppBtn) runMirrorSyncToAppBtn.disabled = false;
-          autoSyncToggle.disabled = false;
+          await refreshSyncPath();
         }
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { this.disabled = false; }
@@ -3666,8 +3752,12 @@
     function handleInitialNavigation() {
       var targetTab = sessionStorage.getItem('cmt-config-tab');
       var targetSec = sessionStorage.getItem('cmt-config-section');
+      var autoRun = sessionStorage.getItem('cmt-auto-run-sync');
+      var pendingConflictsRaw = sessionStorage.getItem('cmt-pending-sync-conflicts');
       sessionStorage.removeItem('cmt-config-tab');
       sessionStorage.removeItem('cmt-config-section');
+      sessionStorage.removeItem('cmt-auto-run-sync');
+      sessionStorage.removeItem('cmt-pending-sync-conflicts');
       sessionStorage.removeItem('cmt-auto-sync');
 
       var hash = (window.location.hash || '').replace(/^#/, '').toLowerCase();
@@ -3689,6 +3779,28 @@
             syncSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }, 100);
         }
+      }
+
+      if (pendingConflictsRaw) {
+        try {
+          var parsed = JSON.parse(pendingConflictsRaw);
+          var confList = parsed.conflicts || [];
+          var newList = parsed.newFiles || [];
+          if (confList.length > 0 || newList.length > 0) {
+            var parts = [];
+            if (confList.length > 0) parts.push(tFmt('gcSyncConflictsCount', { n: confList.length }));
+            if (newList.length > 0) parts.push(tFmt('gcSyncNewFilesCount', { n: newList.length }));
+            setSyncStatus(tFmt('gcSyncNeedReview', { items: parts.join(', ') }), '');
+            buildSyncConflictModal(confList, newList);
+            syncConflictOverlay.classList.add('open');
+          }
+        } catch (e) {
+          console.warn('Could not parse pending sync conflicts:', e);
+        }
+      } else if (autoRun === '1' && typeof doSync === 'function') {
+        setTimeout(function () {
+          doSync();
+        }, 250);
       }
     }
 
