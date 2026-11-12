@@ -528,6 +528,10 @@
             align-items: center;
         }
 
+        #mode-editor-modal {
+            z-index: 10005 !important;
+        }
+
         .settings-modal-content {
             max-width: 980px;
             width: min(96vw, 980px);
@@ -3320,7 +3324,7 @@
                         <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
                         <span data-i18n="cms_settings_modal_title">Class Settings</span>
                     </span>
-                    <span class="settings-modal-subtitle" data-i18n="cms_settings_modal_desc">Configure class presentation, teams, badges, audio, roles, and rules</span>
+                    <span class="settings-modal-subtitle" data-i18n="cms_settings_modal_desc">Configure class presentation, teams, badges, audio, modes, roles, and rules</span>
                 </div>
                 <button type="button" class="close-modal" onclick="closeSettingsModal()">&times;</button>
             </div>
@@ -3343,6 +3347,10 @@
                     <button type="button" class="settings-tab-btn" data-tab="sounds" onclick="switchSettingsTab('sounds')">
                         <img src="../assets/icons/volume.svg" class="btn-icon" alt="" />
                         <span data-i18n="settings_tab_sounds">Sounds</span>
+                    </button>
+                    <button type="button" class="settings-tab-btn" data-tab="modes" onclick="switchSettingsTab('modes')">
+                        <img src="../assets/icons/theater.svg" class="btn-icon" alt="" />
+                        <span data-i18n="settings_tab_modes">Modes</span>
                     </button>
                     <button type="button" class="settings-tab-btn" data-tab="roles" onclick="switchSettingsTab('roles')">
                         <img src="../assets/icons/user-check.svg" class="btn-icon" alt="" />
@@ -3532,6 +3540,37 @@
                                 <button type="button" onclick="refreshSoundFileList(true)" class="btn btn-outline" style="border:2px solid #333; font-weight:700; font-size:0.82rem; padding:8px 14px;" data-i18n="es_refresh_btn">↻ Refresh Sound Files</button>
                                 <button type="button" onclick="saveSoundSettings()" class="btn" style="flex:1; background:#111; color:#fff; border:2px solid #111; font-weight:700; font-size:0.85rem; padding:8px 14px; text-transform:uppercase;" data-i18n="es_save_btn">Save to config.js</button>
                                 <button type="button" onclick="resetSoundSettings()" class="btn btn-outline" style="border:2px solid #888; color:#666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="es_reset_btn">Reset Defaults</button>
+                            </div>
+                        </section>
+                    </div>
+
+                    <!-- Tab Pane: Modes -->
+                    <div class="settings-tab-pane" data-pane="modes">
+                        <section class="config-section">
+                            <h2 data-i18n="mode_manager_title"><img src="../assets/icons/theater.svg" class="btn-icon" alt="" /> Manage Class Modes</h2>
+                            <p class="section-desc" data-i18n="mode_manager_desc">Create, reorder, or edit working modes. Assign custom sounds, images, and instructions text.</p>
+
+                            <div class="badge-set-header-bar" id="cm-mode-set-bar" style="margin-bottom:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f9f9f9; padding:8px 12px; border:2px solid #333333; border-radius:6px;">
+                                <span class="badge-set-label" style="font-weight:700; font-size:0.82rem;" data-i18n="cm_mode_set_label">Mode Set:</span>
+                                <select id="cm-mode-set-select" class="badge-set-select" style="padding:4px 8px; border:2px solid #333333; border-radius:4px; font-size:0.82rem; font-weight:600; background:#fff;" onchange="onModeSetChange(this.value)"></select>
+                                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333333;">
+                                    <input type="checkbox" id="cm-mode-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;" onchange="toggleModeSetDefaultAll(this.checked)">
+                                    <span data-i18n="cm_mode_set_use_default_all">Use as default for all classes</span>
+                                </label>
+                                <button type="button" class="btn btn-outline" onclick="openManageDatabaseForModes()" style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.80rem; font-weight:700; border:2px solid #333333; border-radius:4px; cursor:pointer;">
+                                    <img src="../assets/icons/theater.svg" class="btn-icon" alt="" style="width:14px; height:14px;" />
+                                    <span data-i18n="cm_mode_set_manage">Manage in Database…</span>
+                                </button>
+                            </div>
+
+                            <div id="mode-manager-list" class="mode-manager-list"
+                                style="display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto; padding-right:4px;">
+                                <!-- Populated dynamically -->
+                            </div>
+
+                            <div style="display:flex; gap:8px; margin-top:18px; flex-wrap:wrap;">
+                                <button type="button" onclick="createNewMode()" class="btn btn-outline" style="border:2px solid #333333; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="mode_btn_new">+ New Mode</button>
+                                <button type="button" onclick="resetModesToDefault()" class="btn btn-outline" style="border:2px solid #888888; color:#666666; font-weight:700; font-size:0.82rem; padding:8px 14px; text-transform:uppercase;" data-i18n="eb_reset_btn">Reset Defaults</button>
                             </div>
                         </section>
                     </div>
@@ -4737,48 +4776,8 @@
         </div>
     </div>
 
-    <!-- MODE MANAGER MODAL -->
-    <div class="modal-overlay" id="mode-manager-modal" onclick="closeModeManager()">
-        <div class="modal-content" onclick="event.stopPropagation()" style="max-width:580px; width:92%;">
-            <button class="close-modal" onclick="closeModeManager()">&times;</button>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h2 style="margin:0; text-transform:uppercase; letter-spacing:1px; font-size:1.2rem;"
-                    data-i18n="mode_manager_title">Manage Class Modes</h2>
-                <div style="display:flex; gap:8px;">
-                    <button onclick="createNewMode()"
-                        style="padding:6px 12px; font-size:0.82rem; font-weight:bold; background:#111; color:#fff; border:none; border-radius:4px; cursor:pointer;">+
-                        New Mode</button>
-                    <button onclick="resetModesToDefault()"
-                        style="padding:6px 10px; font-size:0.82rem; background:#eee; border:1px solid #ccc; border-radius:4px; cursor:pointer;"
-                        title="Reset built-in modes to default">🔄 Reset</button>
-                </div>
-            </div>
-            <p style="color:#666; font-size:0.85rem; margin-top:0; margin-bottom:12px;" data-i18n="mode_manager_desc">
-                Create, reorder, or edit working modes. Assign custom sounds, images, and instructions text.</p>
-
-            <div class="badge-set-header-bar" id="cm-mode-set-bar" style="margin-bottom:14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; background:#f9f9f9; padding:8px 12px; border:1.5px solid #333; border-radius:6px;">
-                <span class="badge-set-label" style="font-weight:700; font-size:0.82rem;" data-i18n="cm_mode_set_label">Mode Set:</span>
-                <select id="cm-mode-set-select" class="badge-set-select" style="padding:4px 8px; border:1.5px solid #333; border-radius:4px; font-size:0.82rem; font-weight:600; background:#fff;" onchange="onModeSetChange(this.value)"></select>
-                <label style="display:flex;align-items:center;gap:6px;font-size:0.80rem;font-weight:600;cursor:pointer;color:#333;">
-                    <input type="checkbox" id="cm-mode-set-default-all-cb" style="width:15px;height:15px;cursor:pointer;" onchange="toggleModeSetDefaultAll(this.checked)">
-                    <span data-i18n="cm_mode_set_use_default_all">Use as default for all classes</span>
-                </label>
-                <button type="button" class="badge-set-action-btn" onclick="openManageDatabaseForModes()" style="margin-left:auto; display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.80rem; font-weight:700; background:#fff; border:1.5px solid #333; border-radius:4px; cursor:pointer;">
-                    <img src="../assets/icons/theater.svg" class="btn-icon" alt="" style="width:14px; height:14px;" />
-                    <span data-i18n="cm_mode_set_manage">Manage in Database…</span>
-                </button>
-            </div>
-
-            <div id="mode-manager-list" class="mode-manager-list"
-                style="display:flex; flex-direction:column; gap:8px; max-height:50vh; overflow-y:auto; padding-right:4px;">
-                <!-- Populated dynamically -->
-            </div>
-
-            <div style="margin-top:20px; display:flex; justify-content:flex-end;">
-                <button onclick="closeModeManager()"
-                    style="background:#111; color:#fff; border:none; border-radius:4px; padding:8px 24px; font-weight:700; cursor:pointer;">Done</button>
-            </div>
-        </div>
+    <!-- Backward-compatibility stub for #mode-manager-modal (now in #settings-modal) -->
+    <div class="modal-overlay" id="mode-manager-modal" style="display:none !important;"></div>
     </div>
 
     <!-- Backward-compatibility stub for #edit-shortcuts-modal (now in #settings-modal) -->
@@ -18366,13 +18365,11 @@ syncState();
 
         async function openModeManager() {
             closeModePicker();
-            await populateModeSetSelector();
-            renderModeManagerList();
-            document.getElementById('mode-manager-modal').style.display = 'flex';
+            await openSettingsModal('modes');
         }
 
         function closeModeManager() {
-            document.getElementById('mode-manager-modal').style.display = 'none';
+            closeSettingsModal();
         }
 
         function renderModeManagerList() {
@@ -18383,28 +18380,29 @@ syncState();
                 return;
             }
             list.innerHTML = classModes.map((mode, index) => {
-                const icon = mode.icon || '🎭';
-                const key = mode.shortcutKey ? `<span style="background:#eee; border:1px solid #ccc; border-radius:3px; padding:1px 5px; font-size:0.75rem; font-weight:bold;">${mode.shortcutKey}</span>` : '';
+                const icon = mode.icon || '';
+                const iconDisplay = icon ? `<span style="font-size:1.4rem;">${escapeSettingsHtml(icon)}</span>` : `<img src="${getModeSvgIcon(mode)}" class="btn-icon" style="width:24px;height:24px;" alt="" />`;
+                const key = mode.shortcutKey ? `<span style="background:#eee; border:1px solid #ccc; border-radius:3px; padding:1px 5px; font-size:0.75rem; font-weight:bold;">${escapeSettingsHtml(mode.shortcutKey)}</span>` : '';
                 const builtInBadge = mode.isBuiltIn ? '<span style="font-size:0.7rem; color:#888; background:#f0f0f0; border-radius:3px; padding:2px 6px;">Built-in</span>' : '';
                 const isFirst = index === 0;
                 const isLast = index === classModes.length - 1;
 
-                return `<div class="mode-manager-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f9f9f9; border:1px solid #e0e0e0; border-radius:6px;">
+                return `<div class="mode-manager-item" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:#f9f9f9; border:2px solid #333333; border-radius:6px; box-shadow:2px 2px 0 #555555;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div style="display:flex; flex-direction:column; gap:2px;">
-                            <button onclick="reorderMode(${index}, -1)" ${isFirst ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; font-size:0.75rem; padding:0;">▲</button>
-                            <button onclick="reorderMode(${index}, 1)" ${isLast ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; font-size:0.75rem; padding:0;">▼</button>
+                            <button type="button" onclick="reorderMode(${index}, -1)" ${isFirst ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; padding:2px;" title="Move up"><img src="../assets/icons/arrow-up.svg" class="btn-icon" style="width:12px;height:12px;margin:0;" alt="" /></button>
+                            <button type="button" onclick="reorderMode(${index}, 1)" ${isLast ? 'disabled style="opacity:0.3;"' : ''} style="background:none; border:none; cursor:pointer; padding:2px;" title="Move down"><img src="../assets/icons/arrow-down.svg" class="btn-icon" style="width:12px;height:12px;margin:0;" alt="" /></button>
                         </div>
-                        <span style="font-size:1.4rem;">${icon}</span>
+                        ${iconDisplay}
                         <div>
-                            <div style="font-weight:bold; font-size:0.95rem; display:flex; align-items:center; gap:6px;">${mode.name} ${key} ${builtInBadge}</div>
-                            <div style="font-size:0.78rem; color:#666;">${mode.text?.title || ''}</div>
+                            <div style="font-weight:bold; font-size:0.95rem; display:flex; align-items:center; gap:6px;">${escapeSettingsHtml(mode.name || '')} ${key} ${builtInBadge}</div>
+                            <div style="font-size:0.78rem; color:#666;">${escapeSettingsHtml(mode.text?.title || '')}</div>
                         </div>
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <button onclick="openModeEditor('${mode.id}')" title="Edit Mode" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">✏️ Edit</button>
-                        <button onclick="duplicateMode('${mode.id}')" title="Duplicate Mode" style="background:#fff; border:1px solid #ccc; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">📋 Duplicate</button>
-                        <button onclick="deleteMode('${mode.id}')" title="Delete Mode" style="background:#fff; border:1px solid #f9c2c2; color:#c00; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.85rem;">🗑️ Delete</button>
+                        <button type="button" onclick="openModeEditor('${escapeSettingsHtml(mode.id)}')" title="Edit Mode" class="btn btn-outline" style="border:1.5px solid #333333; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.82rem; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/edit.svg" class="btn-icon" style="width:12px;height:12px;margin:0;" alt="" /> Edit</button>
+                        <button type="button" onclick="duplicateMode('${escapeSettingsHtml(mode.id)}')" title="Duplicate Mode" class="btn btn-outline" style="border:1.5px solid #333333; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.82rem; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/copy.svg" class="btn-icon" style="width:12px;height:12px;margin:0;" alt="" /> Duplicate</button>
+                        <button type="button" onclick="deleteMode('${escapeSettingsHtml(mode.id)}')" title="Delete Mode" class="btn btn-outline" style="border:1.5px solid #c96b6b; color:#c96b6b; border-radius:4px; padding:4px 8px; cursor:pointer; font-size:0.82rem; font-weight:700; display:inline-flex; align-items:center; gap:4px;"><img src="../assets/icons/trash.svg" class="btn-icon" style="width:12px;height:12px;margin:0;" alt="" /> Delete</button>
                     </div>
                 </div>`;
             }).join('');
@@ -21410,7 +21408,7 @@ syncState();
 
         async function switchSettingsTab(tabName) {
             if (!tabName) tabName = 'general';
-            const validTabs = ['general', 'teams', 'badges', 'sounds', 'roles', 'autoflag', 'shortcuts'];
+            const validTabs = ['general', 'teams', 'badges', 'sounds', 'modes', 'roles', 'autoflag', 'shortcuts'];
             if (!validTabs.includes(tabName)) tabName = 'general';
 
             // Cleanup previous tab if leaving sounds or shortcuts
@@ -21435,6 +21433,7 @@ syncState();
                 'teams': 'edit-teams-modal',
                 'badges': 'edit-badges-modal',
                 'sounds': 'edit-sounds-modal',
+                'modes': 'mode-manager-modal',
                 'autoflag': 'edit-autoflag-modal',
                 'shortcuts': 'edit-shortcuts-modal'
             };
@@ -21471,6 +21470,13 @@ syncState();
                     if (typeof startSoundFileAutoRefresh === 'function') startSoundFileAutoRefresh();
                 } catch (err) {
                     console.warn('Error initializing sounds tab:', err);
+                }
+            } else if (tabName === 'modes') {
+                try {
+                    await populateModeSetSelector();
+                    renderModeManagerList();
+                } catch (err) {
+                    console.warn('Error initializing modes tab:', err);
                 }
             } else if (tabName === 'roles') {
                 try {
