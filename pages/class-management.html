@@ -15371,6 +15371,7 @@
         let _noiseFileAudio = null;
         let _noiseFileAudioPool = [];
         let _noiseFileUrl = '';
+        let _activeNoiseFile = null;
         let _noiseFileMonitor = null;
         let _noiseFileCrossfading = false;
         const NOISE_FILE_CROSSFADE_MS = 1200;
@@ -15471,6 +15472,7 @@
         }
 
         async function _playNoiseFileAudio(specificFile = null) {
+            if (specificFile) _activeNoiseFile = specificFile;
             const audio = await _ensureNoiseFileAudio(specificFile);
             if (!audio) return false;
 
@@ -15515,7 +15517,7 @@
         async function _ensureNoiseFileAudio(specificFile = null) {
             soundSettings = normalizeSoundSettings(soundSettings);
             const cfg = soundSettings.timerBackground || DEFAULT_SOUND_SETTINGS.timerBackground;
-            const chosen = specificFile || cfg?.file || '';
+            const chosen = specificFile || _activeNoiseFile || cfg?.file || '';
             const filePath = normalizeSoundFilePath(chosen);
             if (!filePath) return null;
 
@@ -15629,7 +15631,7 @@
                 await refreshSoundFileList(false);
             }
 
-            const currentFile = resolveSoundFileMatch(soundSettings?.timerBackground?.file || '');
+            const currentFile = resolveSoundFileMatch(_activeNoiseFile || soundSettings?.timerBackground?.file || '');
 
             if (!availableSoundFiles.length) {
                 list.innerHTML = '<div class="mp3-picker-empty">No sound files found.<br>Add audio files to <strong>user/custom-data/sounds</strong> (subfolders supported) and refresh.</div>';
@@ -15696,30 +15698,27 @@
 
         async function selectMp3File(file) {
             closeMp3Picker();
-            soundSettings = normalizeSoundSettings(soundSettings);
-            soundSettings.timerBackground = Object.assign({}, soundSettings.timerBackground, { mode: 'file', file });
-            if (activeWorkingModeId) {
-                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
-                if (curMode) {
-                    if (!curMode.sound) curMode.sound = { type: 'file', volume: Math.round(whiteNoiseVolume * 100), chime: false };
-                    curMode.sound.type = 'file';
-                    curMode.sound.file = file;
-                }
-            }
-            persistSettingsToUserFile().catch(err => console.warn('selectMp3File: could not save config:', err));
-            // Force reload of audio pool so new file takes effect immediately
+            _activeNoiseFile = file;
             _resetNoiseFilePlayers(true);
-            if (_noiseType === 'file') {
-                // Already in file mode — restart playback with new file
-                if (whiteNoisePlaying && !whiteNoiseMuted) {
-                    _stopNoiseFileAudio();
-                    const ok = await _playNoiseFileAudio(file);
-                    if (!ok) whiteNoisePlaying = false;
-                    _syncWhiteNoiseUI();
-                }
-            } else {
-                await setNoiseType('file');
+            // Mode sound must NOT get persisted when changing sound in-session!
+            // Only Edit Mode settings or manage-database modebanks are sources of truth.
+            if (!activeWorkingModeId) {
+                soundSettings = normalizeSoundSettings(soundSettings);
+                soundSettings.timerBackground = Object.assign({}, soundSettings.timerBackground, { mode: 'file', file });
+                persistSettingsToUserFile().catch(err => console.warn('selectMp3File: could not save config:', err));
             }
+            if (_noiseType !== 'file') {
+                _noiseType = 'file';
+                document.querySelectorAll('.wn-type-btn').forEach(b => b.classList.remove('active'));
+                const activeBtn = document.getElementById('wn-type-file');
+                if (activeBtn) activeBtn.classList.add('active');
+            }
+            whiteNoisePlaying = true;
+            whiteNoiseMuted = false;
+            _stopNoiseFileAudio();
+            const ok = await _playNoiseFileAudio(file);
+            if (!ok) whiteNoisePlaying = false;
+            _syncWhiteNoiseUI();
         }
 
 
@@ -15940,13 +15939,8 @@
                     }
                 }
             }
-            if (activeWorkingModeId) {
-                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
-                if (curMode) {
-                    if (!curMode.sound) curMode.sound = { type: 'none', volume: Math.round(whiteNoiseVolume * 100), chime: false };
-                    curMode.sound.type = (whiteNoisePlaying && !whiteNoiseMuted) ? _noiseType : 'none';
-                }
-            }
+            // Note: Changing active noise in session does NOT mutate or persist curMode.sound!
+            // Edit Mode settings & manage-database modebanks are the only sources of truth.
             _syncWhiteNoiseUI();
         }
 
@@ -15960,12 +15954,8 @@
             const wnSlider = document.getElementById('wn-volume-slider');
             if (wnSlider) wnSlider.value = numVal;
             setWhiteNoiseVolume(numVal);
-            if (activeWorkingModeId) {
-                const curMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === (activeWorkingModeId || '').toLowerCase());
-                if (curMode && curMode.sound) {
-                    curMode.sound.volume = numVal;
-                }
-            }
+            // Note: Adjusting session noise volume does NOT mutate or persist curMode.sound!
+            // Edit Mode settings & manage-database modebanks are the only sources of truth.
         }
 
         function toggleTimerPopup(event) {
@@ -19031,9 +19021,11 @@ syncState();
             if (soundType === 'file') {
                 const targetFile = mode.sound.file ? normalizeSoundFilePath(mode.sound.file) : '';
                 if (!targetFile) {
+                    _activeNoiseFile = null;
                     stopWhiteNoise();
                     return;
                 }
+                _activeNoiseFile = targetFile;
                 ['white', 'pink', 'brown'].forEach(t => {
                     if (_noiseGains[t] && audioContext) {
                         try { _noiseGains[t].gain.setTargetAtTime(0, audioContext.currentTime, 0.05); } catch (e) { }
@@ -19049,6 +19041,7 @@ syncState();
                     whiteNoisePlaying = false;
                 }
             } else if (['white', 'pink', 'brown'].includes(soundType)) {
+                _activeNoiseFile = null;
                 _stopNoiseFileAudio();
                 ['white', 'pink', 'brown'].forEach(t => {
                     if (t !== soundType && _noiseGains[t] && audioContext) {
@@ -19064,6 +19057,7 @@ syncState();
                     _noiseGains[soundType].gain.setTargetAtTime(whiteNoiseVolume, audioContext.currentTime, 0.15);
                 }
             } else {
+                _activeNoiseFile = null;
                 stopWhiteNoise();
                 return;
             }
@@ -19307,6 +19301,7 @@ syncState();
             isModeMinimised = false;
             activeWorkingModeId = null;
             stopWhiteNoise();
+            _activeNoiseFile = null;
             const pill = document.getElementById('mode-minimized-pill');
             if (pill) pill.style.display = 'none';
             document.getElementById('mode-animation-overlay').classList.remove('active');
@@ -20084,7 +20079,7 @@ syncState();
 
             const activeGroupHistory = Array.isArray(sessionHistory)
                 ? sessionHistory
-                    .filter(entry => !entry || !entry.group || entry.group === selectedGroupName)
+                    .filter(entry => entry && entry.group === selectedGroupName)
                     .map(entry => JSON.parse(JSON.stringify(entry)))
                 : [];
 
@@ -20437,7 +20432,20 @@ syncState();
                 }
             });
 
-            return Promise.all(savePromises);
+            return Promise.all(savePromises).then(results => {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    try {
+                        const ptCh = new BroadcastChannel('cmt-participation');
+                        ptCh.postMessage({
+                            action: 'participation-updated',
+                            groups: Object.keys(byClass),
+                            timestamp: Date.now()
+                        });
+                        ptCh.close();
+                    } catch (_) {}
+                }
+                return results;
+            });
         }
 
         function hydrateLiveStateFromLatestTodaySession() {
@@ -20468,7 +20476,7 @@ syncState();
                 restoredGroups++;
             });
 
-            const latestHistorySession = todaySessions.find(s => Array.isArray(s.sessionHistory));
+            const latestHistorySession = todaySessions.find(s => Array.isArray(s.sessionHistory) && s.activeGroup === selectedGroupName) || todaySessions.find(s => Array.isArray(s.sessionHistory));
             if (latestHistorySession && typeof sessionHistory !== 'undefined') {
                 sessionHistory = JSON.parse(JSON.stringify(latestHistorySession.sessionHistory));
                 if (typeof renderHistoryList === 'function') renderHistoryList();
@@ -20529,19 +20537,24 @@ syncState();
             });
             const isoKey = _generateUniqueSessionId(sessions, now);
 
+            const existingSession = existingIdx !== -1 ? sessions[existingIdx] : null;
+            const targetHistory = (Array.isArray(sessionHistory) && selectedGroupName)
+                ? sessionHistory.filter(e => e && e.group === selectedGroupName).map(e => JSON.parse(JSON.stringify(e)))
+                : [];
+
             const session = {
                 id: isoKey,
                 date: dateStr,
-                time: timeStr,
+                time: (existingSession && existingSession.time) ? existingSession.time : timeStr,
                 activeGroup: selectedGroupName,
                 isExam: isExamSessionActive(selectedGroupName),
                 groups: snapshot,
                 lessonObjectives: currentObjectives,
-                sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
+                sessionHistory: targetHistory,
                 teamCustomNames: getSessionTeamCustomNames(),
-                plannerEntryId: currentPlannerEntryId || (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
-                plannerSlot: selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : (existingIdx !== -1 ? sessions[existingIdx].plannerSlot || null : null),
-                lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
+                plannerEntryId: currentPlannerEntryId || (existingSession ? existingSession.plannerEntryId || '' : ''),
+                plannerSlot: selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : (existingSession ? existingSession.plannerSlot || null : null),
+                lessonPlanId: (window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : (existingSession ? existingSession.lessonPlanId || '' : '')
             };
 
             if (existingIdx !== -1) {
@@ -20614,19 +20627,24 @@ syncState();
                     return sDate.toDateString() === todayStr && s.activeGroup === gName;
                 });
 
+                const existingSession = existingIdx !== -1 ? sessions[existingIdx] : null;
+                const groupHistory = (Array.isArray(sessionHistory) && gName)
+                    ? sessionHistory.filter(e => e && e.group === gName).map(e => JSON.parse(JSON.stringify(e)))
+                    : [];
+
                 const session = {
                     id: isoKey,
                     date: dateStr,
-                    time: timeStr,
+                    time: (existingSession && existingSession.time) ? existingSession.time : timeStr,
                     activeGroup: gName,
                     isExam: isExamSessionActive(gName),
                     groups: snapshot,
                     lessonObjectives: currentObjectives,
-                    sessionHistory: typeof sessionHistory !== 'undefined' ? JSON.parse(JSON.stringify(sessionHistory)) : [],
+                    sessionHistory: groupHistory,
                     teamCustomNames: getSessionTeamCustomNames(),
-                    plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingIdx !== -1 ? sessions[existingIdx].plannerEntryId || '' : ''),
-                    plannerSlot: gName === selectedGroupName ? (selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : null) : (existingIdx !== -1 ? sessions[existingIdx].plannerSlot || null : null),
-                    lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingIdx !== -1 ? sessions[existingIdx].lessonPlanId || '' : '')
+                    plannerEntryId: gName === selectedGroupName ? (currentPlannerEntryId || '') : (existingSession ? existingSession.plannerEntryId || '' : ''),
+                    plannerSlot: gName === selectedGroupName ? (selectedPlannerSlot ? JSON.parse(JSON.stringify(selectedPlannerSlot)) : null) : (existingSession ? existingSession.plannerSlot || null : null),
+                    lessonPlanId: gName === selectedGroupName ? ((window.CmsLessonRunner && CmsLessonRunner.activePlan) ? CmsLessonRunner.activePlan.id : '') : (existingSession ? existingSession.lessonPlanId || '' : '')
                 };
 
                 if (existingIdx !== -1) {
@@ -20687,10 +20705,11 @@ syncState();
                     return;
                 }
 
+                const existingSession = existingIdx !== -1 ? sessions[existingIdx] : null;
                 const targetDate = new Date(now.getTime() + i);
                 const isoKey = _generateUniqueSessionId(sessions, targetDate);
-                const groupHistory = Array.isArray(sessionHistory)
-                    ? sessionHistory.filter(e => !e.group || e.group === gName).map(e => JSON.parse(JSON.stringify(e)))
+                const groupHistory = (Array.isArray(sessionHistory) && gName)
+                    ? sessionHistory.filter(e => e && e.group === gName).map(e => JSON.parse(JSON.stringify(e)))
                     : [];
 
                 const existingObjectives = existingIdx !== -1 ? (sessions[existingIdx].lessonObjectives || '') : '';
@@ -20701,7 +20720,7 @@ syncState();
                 const session = {
                     id: existingIdx !== -1 ? sessions[existingIdx].id : isoKey,
                     date: dateStr,
-                    time: timeStr,
+                    time: (existingSession && existingSession.time) ? existingSession.time : timeStr,
                     activeGroup: gName,
                     isExam: isExamSessionActive(gName),
                     groups: { [gName]: _ensureUniqueStudentSessionIds(JSON.parse(JSON.stringify(groupStudents))) },

@@ -157,52 +157,59 @@
         var source = '';
 
         if (global.Desktop && global.Desktop.isElectron() && typeof global.Desktop.readText === 'function') {
-          // Prefer the current writable custom-data location, but allow legacy fallback.
-          var candidates = [
-            ['customWordbanks', 'wordDb.js'],
-            ['customData', 'wordbanks/wordDb.js'],
-            ['data', 'wordDb.js']
-          ];
-          var lastErr = 'File not found';
-          for (var i = 0; i < candidates.length; i++) {
-            var base = candidates[i][0];
-            var rel = candidates[i][1];
-            var r = await global.Desktop.readText(base, rel);
-            if (r && r.ok) {
-              source = String(r.content || '');
-              break;
-            }
-            lastErr = (r && r.error) || lastErr;
+          var hasWordDb = true;
+          if (typeof global.Desktop.listFiles === 'function') {
+            try {
+              var listRes = await global.Desktop.listFiles('customWordbanks', { extensions: ['.js'] });
+              if (listRes && listRes.ok && Array.isArray(listRes.files)) {
+                hasWordDb = listRes.files.some(function (f) {
+                  var fn = String((f && (f.filename || f.name || f)) || '').toLowerCase();
+                  return fn === 'worddb.js' || fn.endsWith('/worddb.js');
+                });
+              }
+            } catch (_) {}
           }
-          if (!source) throw new Error(lastErr + ' while loading wordDb.js');
+          if (hasWordDb) {
+            var candidates = [
+              ['customWordbanks', 'wordDb.js'],
+              ['customData', 'wordbanks/wordDb.js'],
+              ['data', 'wordDb.js']
+            ];
+            for (var i = 0; i < candidates.length; i++) {
+              var base = candidates[i][0];
+              var rel = candidates[i][1];
+              var r = await global.Desktop.readText(base, rel);
+              if (r && r.ok && r.content) {
+                source = String(r.content || '');
+                break;
+              }
+            }
+          }
         } else {
           var webCandidates = [
             'user/custom-data/wordbanks/wordDb.js',
             'data/wordDb.js'
           ];
-          var lastHttp = 'not attempted';
           for (var j = 0; j < webCandidates.length; j++) {
-            var url = webCandidates[j];
-            var res = await fetch(url, { cache: 'no-store' });
-            if (res.ok) {
-              source = await res.text();
-              break;
-            }
-            lastHttp = 'HTTP ' + res.status + ' for ' + url;
+            try {
+              var url = webCandidates[j];
+              var res = await fetch(url, { cache: 'no-store' });
+              if (res.ok) {
+                source = await res.text();
+                break;
+              }
+            } catch (_) {}
           }
-          if (!source) throw new Error(lastHttp);
         }
 
-        var loaded = (new Function(source + '\n; return (typeof vocabBank !== "undefined" ? vocabBank : []);'))();
-        if (Array.isArray(loaded)) {
-          global.vocabBank = loaded;
-        } else {
-          console.warn('wordDb.js did not expose an array vocabBank; using empty fallback.');
+        if (source) {
+          var loaded = (new Function(source + '\n; return (typeof vocabBank !== "undefined" ? vocabBank : []);'))();
+          global.vocabBank = Array.isArray(loaded) ? loaded : [];
+        } else if (!Array.isArray(global.vocabBank)) {
           global.vocabBank = [];
         }
       } catch (err) {
-        console.error('Failed to lazy-load wordDb.js:', err);
-        global.vocabBank = [];
+        if (!Array.isArray(global.vocabBank)) global.vocabBank = [];
       }
 
       return global.vocabBank;

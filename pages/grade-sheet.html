@@ -6,6 +6,7 @@
   <title>Grade Sheet</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
+  <script src="../js/participation-grading.js"></script>
   <script src="../js/student-name-utils.js"></script>
   <script src="../js/i18n.js"></script>
   <script src="../js/dialogs.js"></script>
@@ -56,6 +57,7 @@
       window.__gsUserBootstrapPromise = (async function () {
         try { await loadUserScript('config.js'); } catch (e) { console.warn('Failed to load user/config.js:', e); }
         try { await loadUserScript('class-groups.js'); } catch (e) { console.warn('Failed to load user/class-groups.js:', e); }
+        try { await loadUserScript('planner-config.js'); } catch (e) { /* planner-config may not exist yet */ }
         try { await loadUserScript('students.js'); } catch (e) { /* students.js may not exist yet */ }
         try { await loadUserScript('grade-scale-models.js'); } catch (e) { console.warn('Failed to load user/grade-scale-models.js:', e); }
         try { await loadUserScript('correction-criteria.js'); } catch (e) { console.warn('Failed to load user/correction-criteria.js:', e); }
@@ -392,7 +394,10 @@
     <section id="screen-test" class="screen panel hidden">
       <div class="summary-head">
         <div>
-          <h1 id="test-title" style="margin: 0; font-size: 1.35rem;"></h1>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h1 id="test-title" style="margin: 0; font-size: 1.35rem;"></h1>
+            <button id="test-participation-badge" type="button" class="hidden" onclick="openParticipationLinkModal()" style="background:#6abf8e;color:#111;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;padding:3px 9px;font-size:0.74rem;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" data-i18n="gsParticipationLinkedBadge">Linked: Participation</button>
+          </div>
           <div id="test-meta" class="small"></div>
         </div>
         <div class="btn-row">
@@ -469,6 +474,13 @@
           <div class="dropdown dropdown-hover" id="test-actions-dropdown">
             <button id="btn-test-actions-trigger" class="btn" data-i18n="gsBtnTestActions"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Test Actions ▾</button>
             <div class="dropdown-menu hidden" id="test-actions-menu">
+              <button class="dropdown-item" id="btn-participation-link">
+                <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+                <div class="dropdown-item-text">
+                  <div class="dropdown-item-title" data-i18n="gsOptionParticipationLink">Link to Participation Tracker…</div>
+                  <div class="dropdown-item-desc" data-i18n="gsOptionParticipationLinkDesc">Auto-update grades from live participation records</div>
+                </div>
+              </button>
               <button class="dropdown-item" id="btn-duplicate-test">
                 <img src="../assets/icons/duplicate.svg" class="btn-icon" alt="" />
                 <div class="dropdown-item-text">
@@ -1685,6 +1697,25 @@
           <select id="ig-test-select" class="input" style="width:100%;"></select>
         </div>
       </div>
+      <div id="ig-participation-link-box" class="hidden" style="background:#f5f5f0;border:2px solid #333;border-radius:8px;padding:10px 12px;margin-bottom:12px;">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:0.86rem;cursor:pointer;color:#111;">
+          <input id="ig-link-participation" type="checkbox" style="width:16px;height:16px;cursor:pointer;" />
+          <span data-i18n="gsIgLinkParticipationLabel">Link this test to Participation Tracker (auto-update)</span>
+        </label>
+        <div id="ig-link-scope-row" class="hidden" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid #d4d4c8;">
+          <label style="font-size:0.8rem;font-weight:600;color:#333;" data-i18n="gsPlDateScopeLabel">Date Scope:</label>
+          <select id="ig-link-date-mode" class="input" style="font-size:0.82rem;padding:4px 8px;">
+            <option value="semester" data-i18n="gsPlScopeSemester">Current Term / Semester</option>
+            <option value="custom" data-i18n="gsPlScopeCustom">Custom Date Range</option>
+            <option value="all" data-i18n="gsPlScopeAll">All Recorded Sessions</option>
+          </select>
+          <div id="ig-link-custom-dates" class="hidden" style="display:flex;gap:6px;align-items:center;">
+            <input id="ig-link-date-from" type="date" class="input" style="font-size:0.8rem;padding:3px 6px;" />
+            <span style="font-size:0.8rem;color:#555;">–</span>
+            <input id="ig-link-date-to" type="date" class="input" style="font-size:0.8rem;padding:3px 6px;" />
+          </div>
+        </div>
+      </div>
       <div style="border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:340px;background:#fff;">
         <table style="width:100%;border-collapse:collapse;min-width:480px;font-size:0.88rem;">
           <thead>
@@ -1705,6 +1736,47 @@
         <div class="btn-row">
           <button id="ig-cancel-btn" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
           <button id="ig-apply-btn" class="btn primary" type="button" disabled data-i18n="gsIgBtnApply">Apply Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Participation Link Modal -->
+  <div id="participation-link-overlay" class="crit-popup-overlay hidden">
+    <div class="crit-popup panel" role="dialog" aria-modal="true" style="max-width:520px;width:95%;">
+      <div class="crit-popup-title" data-i18n="gsPlModalTitle">Link Test to Participation Tracker</div>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px 0;" data-i18n="gsPlModalDesc">
+        When linked, this test's grades and rule criteria points automatically recalculate from Participation Tracker and Class Management records. Manual edits will be overwritten on sync.
+      </p>
+      <div id="pl-status-box" style="background:#f5f5f0;border:2px solid #333;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:0.84rem;">
+        <div id="pl-status-text" style="font-weight:700;color:#111;"></div>
+        <div id="pl-last-synced" style="font-size:0.78rem;color:#555;margin-top:3px;"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px;">
+        <label style="display:block;font-size:0.82rem;font-weight:700;margin-bottom:4px;" data-i18n="gsPlDateScopeLabel">Date Scope:</label>
+        <select id="pl-date-mode" class="input" style="width:100%;">
+          <option value="semester" data-i18n="gsPlScopeSemester">Current Term / Semester</option>
+          <option value="custom" data-i18n="gsPlScopeCustom">Custom Date Range</option>
+          <option value="all" data-i18n="gsPlScopeAll">All Recorded Sessions</option>
+        </select>
+      </div>
+      <div id="pl-custom-dates" class="hidden" style="display:flex;gap:10px;margin-bottom:12px;">
+        <div style="flex:1;">
+          <label style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:3px;" data-i18n="gsPlDateFrom">From</label>
+          <input id="pl-date-from" type="date" class="input" style="width:100%;" />
+        </div>
+        <div style="flex:1;">
+          <label style="display:block;font-size:0.78rem;color:var(--muted);margin-bottom:3px;" data-i18n="gsPlDateTo">To</label>
+          <input id="pl-date-to" type="date" class="input" style="width:100%;" />
+        </div>
+      </div>
+      <div class="crit-popup-footer" style="margin-top:14px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <div class="btn-row">
+          <button id="pl-unlink-btn" class="btn danger hidden" type="button" data-i18n="gsPlBtnUnlink">Unlink</button>
+        </div>
+        <div class="btn-row">
+          <button id="pl-cancel-btn" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
+          <button id="pl-save-btn" class="btn primary" type="button" data-i18n="gsPlBtnSaveSync">Save &amp; Sync Now</button>
         </div>
       </div>
     </div>
@@ -12312,6 +12384,9 @@
       const testLabel = config.testName ? config.testName : `T${testNo}`;
       document.getElementById("test-title").textContent = `${classObj.name} - ${sem.toUpperCase()} - ${testLabel}`;
       document.getElementById("test-meta").textContent = t('gsTestMetaDesc');
+      if (typeof updateParticipationLinkBadge === 'function') {
+        updateParticipationLinkBadge(classObj, sem, testIndex);
+      }
       updateGsLinksBadges();
       syncTestAutoLinks(classObj, sem, testIndex);
 
@@ -23343,6 +23418,8 @@
       document.getElementById("edit-class-overlay").addEventListener("click", e => { if (e.target === document.getElementById("edit-class-overlay")) document.getElementById("edit-class-overlay").classList.add("hidden"); });
       document.getElementById("edit-class-name").addEventListener("keydown", e => { if (e.key === "Enter") saveEditClass(); if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); document.getElementById("edit-class-overlay").classList.add("hidden"); } });
       document.getElementById("btn-duplicate-test").addEventListener("click", openDuplicateTestPopup);
+      const btnPartLink = document.getElementById("btn-participation-link");
+      if (btnPartLink) btnPartLink.addEventListener("click", () => openParticipationLinkModal());
       document.getElementById("btn-test-options").addEventListener("click", () => {
         const classObj = getActiveClass();
         if (!classObj || !appState.activeTest) return;
@@ -25293,6 +25370,30 @@ ${blocks}
       const applyBtn = document.getElementById("ig-apply-btn");
       const newTestBtn = document.getElementById("ig-new-test-btn");
 
+      const linkBox = document.getElementById("ig-participation-link-box");
+      const linkCb = document.getElementById("ig-link-participation");
+      const linkScopeRow = document.getElementById("ig-link-scope-row");
+      const linkDateMode = document.getElementById("ig-link-date-mode");
+      const linkCustomDates = document.getElementById("ig-link-custom-dates");
+      const linkDateFrom = document.getElementById("ig-link-date-from");
+      const linkDateTo = document.getElementById("ig-link-date-to");
+
+      const isPtSource = !!(parsed && (parsed.source === 'participation-tracker' || (parsed.testConfig && parsed.testConfig.source === 'participation-tracker') || parsed.linkParticipation != null));
+      if (linkBox && linkCb) {
+        linkBox.classList.toggle("hidden", !isPtSource);
+        linkCb.checked = !!(parsed && parsed.linkParticipation);
+        if (linkDateMode) linkDateMode.value = (parsed && parsed.dateMode) ? parsed.dateMode : 'semester';
+        if (linkDateFrom) linkDateFrom.value = (parsed && parsed.dateFrom) ? parsed.dateFrom : '';
+        if (linkDateTo) linkDateTo.value = (parsed && parsed.dateTo) ? parsed.dateTo : '';
+        const updateLinkScopeUi = () => {
+          if (linkScopeRow) linkScopeRow.classList.toggle("hidden", !linkCb.checked);
+          if (linkCustomDates && linkDateMode) linkCustomDates.classList.toggle("hidden", linkDateMode.value !== 'custom');
+        };
+        linkCb.onchange = updateLinkScopeUi;
+        if (linkDateMode) linkDateMode.onchange = updateLinkScopeUi;
+        updateLinkScopeUi();
+      }
+
       if (newTestBtn) {
         newTestBtn.onclick = async () => {
           const classObj = appState.classes.find(c => c.id === classSelect.value);
@@ -25564,6 +25665,24 @@ ${blocks}
           recalcAllStudentGradesForTest(classObj, sem, ti);
         }
 
+        if (isPtSource && linkCb && linkCb.checked) {
+          const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
+          cfg.source = 'participation-tracker';
+          cfg.type = cfg.type || 'participation';
+          cfg.participationLink = {
+            enabled: true,
+            groupId: classObj.groupId || (parsed && (parsed.groupId || parsed.classGroupId || parsed.classId)) || classObj.id,
+            dateMode: linkDateMode ? linkDateMode.value : 'semester',
+            dateFrom: (linkDateMode && linkDateMode.value === 'custom' && linkDateFrom) ? linkDateFrom.value : '',
+            dateTo: (linkDateMode && linkDateMode.value === 'custom' && linkDateTo) ? linkDateTo.value : '',
+            useGroupRules: true,
+            rulesSnapshot: (parsed && parsed.rulesConfig) ? parsed.rulesConfig : null,
+            lastSyncedAt: new Date().toISOString(),
+            lastDigest: ''
+          };
+          classObj.testConfigs[sem][ti] = cfg;
+        }
+
         saveState();
         appState.activeClassId = classObj.id;
         appState.activeTest = { semester: sem, testIndex: ti };
@@ -25635,6 +25754,273 @@ ${blocks}
       win.print();
     }
 
+    function updateParticipationLinkBadge(classObj, sem, testIndex) {
+      const badge = document.getElementById("test-participation-badge");
+      if (!badge) return;
+      const cfg = classObj && classObj.testConfigs && classObj.testConfigs[sem] && classObj.testConfigs[sem][testIndex];
+      const link = cfg && cfg.participationLink;
+      if (link && link.enabled) {
+        badge.classList.remove("hidden");
+        const scopeLabel = link.dateMode === "custom"
+          ? `${link.dateFrom || "..."} -> ${link.dateTo || "..."}`
+          : (link.dateMode === "all" ? (t('gsPlScopeAll') || 'All Sessions') : (t('gsPlScopeSemester') || 'Current Term'));
+        const syncedStr = link.lastSyncedAt ? new Date(link.lastSyncedAt).toLocaleString() : '—';
+        badge.title = `${scopeLabel} | Last synced: ${syncedStr}`;
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    function applyParticipationPayloadToTest(classObj, sem, ti, payload) {
+      if (!classObj || !payload) return false;
+      ensureClassStructures(classObj);
+      const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
+      const link = cfg.participationLink || {};
+
+      if (link.lastDigest && link.lastDigest === payload.digest) {
+        return false;
+      }
+
+      let changed = false;
+      cfg.source = 'participation-tracker';
+      cfg.type = cfg.type || 'participation';
+      if (!cfg.testName) {
+        cfg.testName = t('ptParticipationTestName') || 'Participation';
+      }
+      cfg.criteria = payload.criteria.map(c => ({
+        id: c.id,
+        name: c.name,
+        minPoints: c.minPoints,
+        maxPoints: c.maxPoints,
+        pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
+        interval: c.interval != null ? c.interval : 0.5,
+        isBonus: !!c.isBonus
+      }));
+      cfg.grading = Object.assign({}, cfg.grading, {
+        mode: 'manual',
+        manualInputMode: 'points',
+        maxGrade: payload.maxGrade,
+        minGrade: 0,
+        interval: 0.5
+      });
+
+      (classObj.students || []).forEach(student => {
+        const sUuid = student.id || student.uuid;
+        let newGrade = null;
+        let critScores = null;
+
+        if (sUuid && payload.gradesByUuid && payload.gradesByUuid[sUuid] != null) {
+          newGrade = payload.gradesByUuid[sUuid];
+          critScores = payload.studentCriteriaScoresByUuid && payload.studentCriteriaScoresByUuid[sUuid];
+        } else {
+          const fullName = `${student.firstName || ''} ${student.lastName || ''}`.trim();
+          const revName = `${student.lastName || ''} ${student.firstName || ''}`.trim();
+          const candidates = [student.customName, fullName, revName, student.firstName].filter(Boolean);
+          for (const cand of candidates) {
+            if (payload.grades && payload.grades[cand] != null) {
+              newGrade = payload.grades[cand];
+              critScores = payload.studentCriteriaScores && payload.studentCriteriaScores[cand];
+              break;
+            }
+          }
+          if (newGrade == null && payload.grades) {
+            const lowerEntries = Object.keys(payload.grades);
+            for (const key of lowerEntries) {
+              if (findStudentByName(classObj, key) === student) {
+                newGrade = payload.grades[key];
+                critScores = payload.studentCriteriaScores && payload.studentCriteriaScores[key];
+                break;
+              }
+            }
+          }
+        }
+
+        if (newGrade != null && !isNaN(newGrade)) {
+          const arr = sem === 'sem1' ? student.sem1Tests : student.sem2Tests;
+          const rounded = Math.round(newGrade * 2) / 2;
+          if (arr[ti] !== rounded) {
+            arr[ti] = rounded;
+            changed = true;
+          }
+        }
+
+        if (critScores && typeof critScores === 'object') {
+          if (!student.criteriaResults) {
+            student.criteriaResults = {
+              sem1: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({})),
+              sem2: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}))
+            };
+          }
+          if (!student.criteriaResults[sem]) {
+            student.criteriaResults[sem] = Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}));
+          }
+          const prevStr = JSON.stringify(student.criteriaResults[sem][ti] || {});
+          const nextStr = JSON.stringify(critScores);
+          if (prevStr !== nextStr) {
+            student.criteriaResults[sem][ti] = Object.assign({}, critScores);
+            changed = true;
+          }
+        }
+      });
+
+      link.lastDigest = payload.digest;
+      link.lastSyncedAt = new Date().toISOString();
+      if (payload.rulesConfig) link.rulesSnapshot = payload.rulesConfig;
+      cfg.participationLink = link;
+      classObj.testConfigs[sem][ti] = cfg;
+      return changed || true;
+    }
+
+    let _ptSyncInFlight = false;
+    async function syncLinkedParticipationGrades(options = {}) {
+      if (_ptSyncInFlight) return 0;
+      if (!window.ParticipationGrading || typeof ParticipationGrading.computeLinkedTestPayload !== 'function') return 0;
+      if (!Array.isArray(appState.classes) || appState.classes.length === 0) return 0;
+
+      const linkedSlots = [];
+      for (const cls of appState.classes) {
+        if (!cls || !cls.testConfigs) continue;
+        if (options.groupId && cls.groupId !== options.groupId && cls.id !== options.groupId && cls.name !== options.groupId) {
+          continue;
+        }
+        for (const sem of ['sem1', 'sem2']) {
+          const count = (cls.testCounts && cls.testCounts[sem]) || 0;
+          const cfgs = cls.testConfigs[sem] || [];
+          for (let ti = 0; ti < count; ti++) {
+            const cfg = cfgs[ti];
+            if (cfg && cfg.participationLink && cfg.participationLink.enabled) {
+              linkedSlots.push({ cls, sem, ti, cfg });
+            }
+          }
+        }
+      }
+      if (linkedSlots.length === 0) return 0;
+
+      _ptSyncInFlight = true;
+      let updatedCount = 0;
+      try {
+        const cachedSessions = await ParticipationGrading.loadAllParticipationSessions();
+        const cachedRules = await ParticipationGrading.loadRulesFromDisk();
+
+        for (const { cls, sem, ti, cfg } of linkedSlots) {
+          const link = cfg.participationLink;
+          const payload = await ParticipationGrading.computeLinkedTestPayload({
+            groupId: link.groupId || cls.groupId || cls.id,
+            className: cls.name,
+            dateMode: link.dateMode || 'semester',
+            dateFrom: link.dateFrom || '',
+            dateTo: link.dateTo || '',
+            semester: sem,
+            useGroupRules: link.useGroupRules !== false,
+            rulesSnapshot: link.rulesSnapshot || null,
+            interval: (cfg.grading && cfg.grading.interval) || 0.5,
+            cachedSessions,
+            cachedRules
+          });
+          if (!payload) continue;
+          if (!options.force && link.lastDigest === payload.digest) continue;
+
+          const didChange = applyParticipationPayloadToTest(cls, sem, ti, payload);
+          if (didChange) {
+            saveState(cls.id, sem, ti);
+            updatedCount++;
+          }
+        }
+
+        if (updatedCount > 0) {
+          if (appState.currentScreen === 'classes') renderClasses();
+          if (appState.activeClassId) {
+            renderSummary();
+            if (appState.currentScreen === 'test' && appState.activeTest) {
+              renderTestSheet();
+            }
+          }
+          if (!options.silent && typeof showToast === 'function') {
+            showToast(tFmt('gsToastParticipationSynced', { n: updatedCount }) || `Updated ${updatedCount} linked participation test(s).`);
+          }
+        }
+      } catch (e) {
+        console.warn('syncLinkedParticipationGrades error:', e);
+      } finally {
+        _ptSyncInFlight = false;
+      }
+      return updatedCount;
+    }
+
+    function openParticipationLinkModal() {
+      const classObj = getActiveClass();
+      if (!classObj || !appState.activeTest) return;
+      const sem = appState.activeTest.semester;
+      const ti = appState.activeTest.testIndex;
+      const cfg = getTestConfig(classObj, sem, ti);
+      const link = (cfg && cfg.participationLink) || {};
+
+      const overlay = document.getElementById("participation-link-overlay");
+      const statusText = document.getElementById("pl-status-text");
+      const lastSynced = document.getElementById("pl-last-synced");
+      const dateModeEl = document.getElementById("pl-date-mode");
+      const customDatesEl = document.getElementById("pl-custom-dates");
+      const dateFromEl = document.getElementById("pl-date-from");
+      const dateToEl = document.getElementById("pl-date-to");
+      const unlinkBtn = document.getElementById("pl-unlink-btn");
+      const cancelBtn = document.getElementById("pl-cancel-btn");
+      const saveBtn = document.getElementById("pl-save-btn");
+      if (!overlay) return;
+
+      const isLinked = !!(link && link.enabled);
+      statusText.textContent = isLinked
+        ? (t('gsPlStatusLinked') || 'Status: Linked (auto-updates enabled)')
+        : (t('gsPlStatusUnlinked') || 'Status: Not linked');
+      lastSynced.textContent = (isLinked && link.lastSyncedAt)
+        ? ((t('gsPlLastSynced') || 'Last synced: ') + new Date(link.lastSyncedAt).toLocaleString())
+        : '';
+
+      dateModeEl.value = link.dateMode || 'semester';
+      dateFromEl.value = link.dateFrom || '';
+      dateToEl.value = link.dateTo || '';
+      const toggleCustom = () => customDatesEl.classList.toggle("hidden", dateModeEl.value !== 'custom');
+      dateModeEl.onchange = toggleCustom;
+      toggleCustom();
+
+      unlinkBtn.classList.toggle("hidden", !isLinked);
+      unlinkBtn.onclick = () => {
+        if (cfg.participationLink) {
+          cfg.participationLink.enabled = false;
+        }
+        saveState(classObj.id, sem, ti);
+        updateParticipationLinkBadge(classObj, sem, ti);
+        overlay.classList.add("hidden");
+        if (typeof showToast === 'function') showToast(t('gsPlToastUnlinked') || 'Participation link removed.');
+      };
+
+      cancelBtn.onclick = () => overlay.classList.add("hidden");
+      overlay.onclick = (e) => { if (e.target === overlay) overlay.classList.add("hidden"); };
+
+      saveBtn.onclick = async () => {
+        cfg.participationLink = {
+          enabled: true,
+          groupId: classObj.groupId || classObj.id,
+          dateMode: dateModeEl.value,
+          dateFrom: dateModeEl.value === 'custom' ? dateFromEl.value : '',
+          dateTo: dateModeEl.value === 'custom' ? dateToEl.value : '',
+          useGroupRules: true,
+          rulesSnapshot: link.rulesSnapshot || null,
+          lastSyncedAt: '',
+          lastDigest: ''
+        };
+        classObj.testConfigs[sem][ti] = cfg;
+        saveState(classObj.id, sem, ti);
+        overlay.classList.add("hidden");
+        const count = await syncLinkedParticipationGrades({ force: true, groupId: classObj.groupId || classObj.id });
+        updateParticipationLinkBadge(classObj, sem, ti);
+        if (count === 0 && typeof showToast === 'function') {
+          showToast(t('gsPlToastLinkedNoRules') || 'Linked! Configure rules in Participation Tracker if grades are empty.');
+        }
+      };
+
+      overlay.classList.remove("hidden");
+    }
+
     function checkForPendingImport() {
       const raw = localStorage.getItem('CMS_PENDING_GRADE_IMPORT');
       if (!raw) return;
@@ -25670,6 +26056,7 @@ ${blocks}
       await loadState();
       if (syncFromClassGroups()) saveState();
       await syncTestsFromPlanner();
+      await syncLinkedParticipationGrades({ silent: true });
       await loadAvailableCriteriaBanks();
       await loadAvailableScaleBanks();
       await loadAvailableChipBanks();
@@ -26015,11 +26402,28 @@ ${blocks}
               checkForPendingImport();
             }
           };
+
+          const ptCh = new BroadcastChannel('cmt-participation');
+          ptCh.onmessage = function (ev) {
+            if (!ev || !ev.data || typeof ev.data !== 'object') return;
+            const msg = ev.data;
+            if (msg.action === 'participation-updated' || msg.action === 'participation-rules-updated') {
+              syncLinkedParticipationGrades({ groupId: msg.groupId || null });
+            }
+          };
         } catch (_) {}
       }
 
       checkForPendingImport();
-      window.addEventListener('focus', checkForPendingImport);
+      let _lastPtFocusSync = 0;
+      window.addEventListener('focus', () => {
+        checkForPendingImport();
+        const now = Date.now();
+        if (now - _lastPtFocusSync > 3000) {
+          _lastPtFocusSync = now;
+          syncLinkedParticipationGrades({ silent: false });
+        }
+      });
       window.addEventListener('storage', (e) => {
         if (e && e.key === 'CMS_PENDING_GRADE_IMPORT' && e.newValue) {
           checkForPendingImport();

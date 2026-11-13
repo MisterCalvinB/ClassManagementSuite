@@ -442,7 +442,7 @@ Saving grades at the end of an oral exam session automatically registers or upda
 
 ### Manage Database ↔ Learning Content, Curriculum & Assessment Central Repository
 
-Vocabulary decks, quotes, dictations, grammar sets, and quizzes managed in [Manage Database](#manage-databasehtml) feed directly into [Learning Tools](#learning-toolshtml) game modes and instant node generation on the [Board](#boardhtml). In addition, curricular standards, lesson phases, evaluation criteria (with linked competences), scale models, and observation chips directly configure and power [Competence Portfolio](#competence-portfoliohtml), [Lesson Creator](#lesson-creatorhtml), [Grade Sheet](#grade-sheethtml), and [Oral Marking](#oral-markinghtml).
+Vocabulary decks (with optional word pictures via upload, drag-and-drop, clipboard paste, or URL), quotes, dictations, grammar sets, and quizzes managed in [Manage Database](#manage-databasehtml) feed directly into [Learning Tools](#learning-toolshtml) game modes and instant node generation on the [Board](#boardhtml). In addition, curricular standards, lesson phases, evaluation criteria (with linked competences), scale models, and observation chips directly configure and power [Competence Portfolio](#competence-portfoliohtml), [Lesson Creator](#lesson-creatorhtml), [Grade Sheet](#grade-sheethtml), and [Oral Marking](#oral-markinghtml).
 
 ---
 
@@ -1192,13 +1192,31 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
 
 ### learning-tools.html
 
-Student-facing activity suite featuring 12 vocabulary and grammar games powered by the central word bank.
+Student-facing activity suite featuring 16 interactive vocabulary, grammar, and text games powered by the central word bank and custom databases.
 
 #### Games & Modes
-- **Vocabulary Games**: Flash Cards 📖, Definition Match 🧩, Hangman 😵, Scrambled Word 🔠, Word Quest 🔍, Sentence Builder 🧩, Quote Analyser 💬, Gap Fill ✏️, Find the Error 🔴, Phonetic Guess 🔉, Synonyms & Antonyms 🔗, Word Search 🔎.
-- **Grammar Games**: Grammar Practice 📐, Choose Your Story 📖, Order Sentences 🔢, Dictation 🎤.
-- **Team Mode & Timer**: Score tracking across custom teams with progressive point deduction timers.
-- **Multiplayer Quiz (beta)**: Live classroom quiz host (Local WiFi or External relay) where students answer synchronously on their mobile devices.
+- **Vocabulary Games**:
+  - **Flash Cards**: Flip cards on click/tap or hover, choose card count (`6`, `8`, `12`), use **Flip All**, play native TTS audio pronunciation, and inspect full Word Cards.
+  - **Definition Match**: Configurable match modes (**Definition**, **Translation**, **Synonym / IPA**), pair count selector (`4`, `6`, `8`), visual error feedback with turn rotation, and per-pair Team Mode scoring.
+  - **Hangman**: Dynamic 12-part Neobrutalist SVG gallows/figure scaling to difficulty (`4` to `12` lives), direct physical keyboard `A–Z` letter guessing or full-word entry, and 3-step progressive clues (POS/Theme/Length → Definition → IPA/Translation).
+  - **Scrambled Word**: Non-identity Fisher-Yates letter shuffling, **Clear** and **+1 Letter** hint controls, and per-tile green/red positional feedback on check.
+  - **Word Quest**: Multi-clue deduction with automatic fallback hints (Synonyms, Antonyms, Category, Letter Pattern) and a live dynamic **Potential Points** badge scaling by clues unlocked.
+  - **Sentence Builder**: Reconstruct shuffled sentences with target vocabulary context/definition banners, preserved `"I"` capitalization, **Clear** button, and per-word positional color feedback.
+  - **Quote Analyser**: Literary quote comprehension with theme/keyword matching and `Enter` key submission.
+  - **Gap Fill**: Context gap exercises with contraction normalization (`isn't` ↔ `is not`, `don't` ↔ `do not`, etc.) and 2-step progressive clues (Meaning/Translation → Letter Pattern).
+  - **Find the Error**: Spot the error or Rewrite mode (pre-filled with the erroneous sentence for fast editing, **Reset Text** button, and contraction-aware checking).
+  - **Phonetic Guess**: Guess words from IPA transcriptions with smart distractor generation (matching part of speech and word length) and Web Speech **Listen** audio playback.
+  - **Synonyms & Antonyms**: Multiple-choice or Type mode (with live auto-check on exact match), optional **Definition** context clue toggle, and TTS audio.
+  - **Word Search**: Configurable grid directions (**Easy → ↓** vs **All 8** directions), **Hint** button flashing the first letter of an unfound word, and clean single-definition clue lists.
+- **Grammar & Text Games**:
+  - **Grammar Practice**: Multiple-choice, Fill-in-the-blank, Transformation, and Light Neobrutalist **Browse by Topic** reference cards.
+  - **Choose Your Story**: Branching interactive stories with a **← Previous Step** history button to explore alternate paths without restarting.
+  - **Order Sentences**: Drag-and-drop, tap-to-swap, or accessible **Up / Down** arrow buttons with cumulative locking of correct positions across attempts.
+  - **Dictation**: Full Web Speech API TTS bar (**Read Full Text**, **Read Current Sentence**, **Stop**, and `0.75x` / `0.9x` / `1.0x` speed control) alongside custom audio files and proportional Team Mode scoring.
+- **Team Mode, Class Roster Picker & Timer**: Score tracking across custom teams (2–6 teams) with a **Pick Student** randomizer drawn from the active class roster in `class-groups.js`, global **Mute / Sound** toggle in the top bar, and progressive point deduction timers.
+- **Presentation Mode & Smooth Sync**: Detached second-screen presentation window using lightweight `requestAnimationFrame` timer micro-messages (`lt-timer-tick`) for 60fps synchronization without full DOM rebuilds.
+- **Multiplayer Quiz (beta)**: Live classroom quiz host (Local WiFi or External relay) with an automatic offline LAN Join URL fallback card when offline.
+- **Export Standards**: Word list (CSV/JSON) and Constellation PNG exports integrate with the Universal Destination Picker (`saveExportWithDestination`) and `showExportSuccessPopup`.
 
 ---
 
@@ -1339,7 +1357,7 @@ Comprehensive analytics dashboard sourcing session data from [Class Management](
 - **Full Localization (i18n)**: Fully translated UI across English, French, German, and Italian.
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
 - **Collision Auto-Healing**: Automatically de-collides session timestamps and student IDs on load and disk persistence, ensuring overlapping saves from multiple classes or devices are never dropped, overwritten, or cross-contaminated.
-- **Provisional Grading Engine**: Custom rule configurator converting participation points into grades, with direct one-click **Export to Grade Sheet**.
+- **Provisional Grading Engine & Live Grade Sheet Link**: Custom rule configurator (`js/participation-grading.js`) converting participation points into grades, with both one-time **Export to Grade Sheet** and persistent **Link & Auto-Update in Grade Sheet**. Once linked (from Participation Tracker or directly inside Grade Sheet's *Test Actions*), any number of participation test slots per class/term automatically recalculate and overwrite scores and rule criteria points whenever Class Management saves sessions or Participation Tracker updates rules, with selectable date scopes (*Current Term/Semester*, *Custom Date Range*, or *All Recorded Sessions*).
 - **Multi-Track Session Interaction Timeline & Flow Visualization**: High-DPI HTML5 Canvas multi-track interactive timeline graph accessible via the **Timeline** button on any Session History row or clicking the row directly:
   - *Track 1 (Intervals & Modes)*: Color-coded Neobrutalist duration blocks for timers, active working modes, and team work sessions with elapsed duration readouts.
   - *Track 2 (Cumulative Pacing)*: Step/area cumulative engagement curve illustrating classroom pedagogical momentum and call-and-response rhythm throughout the lesson.

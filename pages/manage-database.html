@@ -1185,7 +1185,9 @@
       const tokens = [];
       for (const [k, v] of Object.entries(rec)) {
         if (k.startsWith('_')) continue;
-        if (typeof v === 'string') tokens.push(v);
+        if (typeof v === 'string') {
+          if (!v.startsWith('data:image/')) tokens.push(v);
+        }
         else if (Array.isArray(v)) tokens.push(v.join(' '));
         else if (v && typeof v === 'object') tokens.push(Object.values(v).join(' '));
         else if (v !== null && v !== undefined) tokens.push(String(v));
@@ -2008,7 +2010,8 @@
           else if (vals.every(v => typeof v === 'number')) type = 'number';
         }
 
-        const isLong = customDef ? Boolean(customDef.isLong) : (type === 'string' && vals.some(v => String(v).length > 65));
+        const isWordbankPicField = (S.typeKey === 'wordbanks' && key === 'picture');
+        const isLong = isWordbankPicField ? false : (customDef ? Boolean(customDef.isLong) : (type === 'string' && vals.some(v => String(v).length > 65)));
         let longArray = false;
         if (type === 'array') {
           if (customDef && customDef.longArray !== undefined) {
@@ -2026,7 +2029,7 @@
         const isBadgeTextField = (S.typeKey === 'badgebanks' && ['icon', 'label', 'meaning', 'coefficient'].includes(key));
         const isModeTextField = (S.typeKey === 'modebanks' && ['icon', 'name', 'shortcutKey', 'title', 'subtitle', 'pictureSrc', 'soundFile', 'soundVol'].includes(key));
         const isCriteriaType = (S.typeKey === 'criteria');
-        if (!isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
+        if (!isWordbankPicField && !isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
           const valSet = new Set();
           for (let i = 0; i < records.length; i++) {
             const v = records[i]?.[key];
@@ -2071,6 +2074,7 @@
         addArr('hypernym');
         addArr('hyponym');
         addArr('keywords');
+        addStr('picture');
       } else if (typeKey === 'quotebanks') {
         addStr('quote', { isLong: true });
         addStr('author');
@@ -2645,7 +2649,7 @@
   </div>`;
 
       if (S.schema.length) {
-        const filterFields = S.schema.filter(f => (f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key)) && f.type !== 'boolean');
+        const filterFields = S.schema.filter(f => (f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key)) && f.type !== 'boolean' && !(S.typeKey === 'wordbanks' && f.key === 'picture'));
         const selectFields = filterFields.filter(f => f.useSelect && !f.isLong)
           .sort((a, b) => a.uniqueVals.length - b.uniqueVals.length);
         const textFields = filterFields.filter(f => !f.useSelect || f.isLong);
@@ -3005,7 +3009,7 @@
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
         const w = colWidths[f.key];
         const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
-        const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : (f.key === 'detailedDescription' ? t('mdbColDetailedDescription', 'Detailed Description') : cap(f.key))));
+        const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : (f.key === 'detailedDescription' ? t('mdbColDetailedDescription', 'Detailed Description') : ((S.typeKey === 'wordbanks' && f.key === 'picture') ? t('mdbColPicture', 'Picture') : cap(f.key)))));
         const badge = f.isCustom ? `<span class="th-custom-badge">custom</span>` : '';
         return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} onclick="setSort('${f.key}')">
           <span class="th-label">${displayLabel}</span>${badge}
@@ -3067,6 +3071,11 @@
     function renderCell(val, field) {
       if (field.key === 'starred') return val ? '⭐' : '';
       if (val === undefined || val === null || val === '') return '<span class="cell-empty">—</span>';
+      if (S.typeKey === 'wordbanks' && field.key === 'picture') {
+        const picSrc = String(val).trim();
+        if (!picSrc) return '<span class="cell-empty">—</span>';
+        return `<div class="mdb-cell-pic-wrap"><img src="${esc(picSrc)}" class="mdb-cell-pic-thumb" alt="" loading="lazy" onclick="event.stopPropagation();mdbOpenPictureLightbox(this.src)" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline';" /><span class="mdb-cell-pic-err" style="display:none;">[!]</span></div>`;
+      }
       if (field.type === 'boolean') return val ? '✓' : '✗';
       if (field.type === 'number') return String(val);
       if (field.type === 'array') {
@@ -3364,6 +3373,11 @@
       const type = td.dataset.type;
       const isLong = td.dataset.long === '1';
 
+      if (S.typeKey === 'wordbanks' && key === 'picture') {
+        openEdit(fi, ri);
+        return;
+      }
+
       const rec = S.files[fi]?.records[ri];
       if (!rec) return;
 
@@ -3519,6 +3533,11 @@
       const key = td.dataset.key;
       const type = td.dataset.type;
       const isLong = td.dataset.long === '1';
+
+      if (S.typeKey === 'wordbanks' && key === 'picture') {
+        openEdit(fi, ri);
+        return;
+      }
       const rec = S.files[fi]?.records[ri];
 
       const rawVal = input.value;
@@ -4193,11 +4212,13 @@
       container.innerHTML = rows.map(row => {
         const main = String(row[primary.key] ?? '');
         const sub = secondary ? String(row[secondary.key] ?? '') : '';
+        const chipPic = (S.typeKey === 'wordbanks' && row.picture) ? String(row.picture).trim() : '';
         const bk = batchKey(row._fi, row._ri);
         const isSel = S.batchSel.has(bk);
         return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}">
       ${isBatchMode ? `<label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>` : ''}
       <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})">
+        ${chipPic ? `<img src="${esc(chipPic)}" class="mdb-chip-pic-thumb" alt="" loading="lazy" onerror="this.style.display='none'" />` : ''}
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
         ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
       </div>
@@ -4549,6 +4570,8 @@
         <datalist id="mdb-chip-sections-list">
           ${existingSections.map(s => `<option value="${esc(s)}"></option>`).join('')}
         </datalist>`;
+      } else if (S.typeKey === 'wordbanks' && field.key === 'picture') {
+        input = buildWordPictureFieldHtml(id, val);
       } else if (isColorField(field, val)) {
         input = buildSingleColorFieldHtml(id, val);
       } else {
@@ -4569,7 +4592,8 @@
         || (typeof MdbAi !== 'undefined' && field.key === MdbAi.getPrimaryFieldKey(S.typeKey));
       const isCompCriteriaField = S.typeKey === 'criteria' && field.key === 'competenceIds';
       const isCompLinkedField = (S.typeKey === 'competences' || S.typeKey === 'descriptors') && field.key === 'linkedCompetenceIds';
-      const canAiField = !isWordField && !isCompCriteriaField && !isCompLinkedField
+      const isWordbankPicField = S.typeKey === 'wordbanks' && field.key === 'picture';
+      const canAiField = !isWordField && !isCompCriteriaField && !isCompLinkedField && !isWordbankPicField
         && !field.key.startsWith('_') && field.key !== 'id'
         && (field.type === 'string' || field.type === 'array' || field.type === 'number' || field.isLong);
       const actionBtn = isWordField
@@ -4587,7 +4611,8 @@
       }
 
       let fieldLabel = esc(cap(field.key));
-      if (field.key === 'detailedDescription' && (S.typeKey === 'competences' || S.typeKey === 'descriptors')) fieldLabel = t('mdbColDetailedDescription', 'Detailed Description');
+      if (isWordbankPicField) fieldLabel = t('mdbColPicture', 'Picture');
+      else if (field.key === 'detailedDescription' && (S.typeKey === 'competences' || S.typeKey === 'descriptors')) fieldLabel = t('mdbColDetailedDescription', 'Detailed Description');
       else if (isCompCriteriaField) fieldLabel = t('mdbLinkedCompetences');
       else if (isCompLinkedField) fieldLabel = t('mdbLinkedCompetencesField', 'Linked Competences (Cross-Database)');
       else if (field.key === 'scoringDecisions' || field.key === 'markingDecisions') fieldLabel = t('mdbColScoringDecisions', 'Marking Decisions');
@@ -4663,6 +4688,14 @@
         });
       }
 
+      if (S.typeKey === 'wordbanks' && map.has('picture')) {
+        const picItem = map.get('picture');
+        picItem.type = 'string';
+        picItem.isLong = false;
+        picItem.useSelect = false;
+        picItem.uniqueVals = [];
+      }
+
       if (S.typeKey === 'criteria') {
         for (const item of map.values()) {
           item.useSelect = false;
@@ -4687,6 +4720,186 @@
       }
 
       return Array.from(map.values());
+    }
+
+    function buildWordPictureFieldHtml(id, val) {
+      const strVal = String(val ?? '').trim();
+      const hasPic = Boolean(strVal);
+      return `<div class="mdb-pic-field-wrap" id="${id}-wrap">
+        <div class="mdb-pic-controls">
+          <input type="text" id="${id}" value="${esc(strVal)}" placeholder="${esc(t('mdbPictureUrlPlaceholder', 'Paste image URL or upload a file...'))}" oninput="mdbOnWordPictureInput('${id}')">
+          <input type="file" id="${id}-file" accept="image/*" style="display:none" onchange="mdbHandleWordPictureFile('${id}', this)">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('${id}-file')?.click()">
+            <img src="../assets/icons/upload.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbBtnChooseImage">${t('mdbBtnChooseImage', 'Choose Image')}</span>
+          </button>
+          <button type="button" class="btn btn-danger btn-sm" id="${id}-clear" onclick="mdbClearWordPicture('${id}')" style="${hasPic ? '' : 'display:none;'}">
+            <img src="../assets/icons/trash.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbBtnRemoveImage">${t('mdbBtnRemoveImage', 'Remove')}</span>
+          </button>
+        </div>
+        <div class="mdb-pic-dropzone" id="${id}-dropzone" tabindex="0"
+          onclick="if(!event.target.closest('img'))document.getElementById('${id}-file')?.click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over');"
+          ondragleave="this.classList.remove('drag-over');"
+          ondrop="mdbOnWordPictureDrop(event, '${id}')"
+          onpaste="mdbOnWordPicturePaste(event, '${id}')">
+          <img id="${id}-preview" class="mdb-pic-preview-img" src="${hasPic ? esc(strVal) : ''}" alt="" style="${hasPic ? '' : 'display:none;'}" onclick="event.stopPropagation();mdbOpenPictureLightbox(this.src)" onerror="this.style.display='none';" />
+          <div id="${id}-empty" class="mdb-pic-empty" style="${hasPic ? 'display:none;' : ''}">
+            <img src="../assets/icons/media.svg" alt="" />
+            <span data-i18n="mdbPictureDropHint">${t('mdbPictureDropHint', 'Drop an image here, paste (Ctrl+V), or click Choose Image')}</span>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function mdbProcessWordPictureFile(id, file) {
+      if (!file || !file.type || !file.type.startsWith('image/')) {
+        showToast(t('mdbErrInvalidImage', 'Could not read the selected image file.'), true);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onerror = () => showToast(t('mdbErrInvalidImage', 'Could not read the selected image file.'), true);
+      reader.onload = (ev) => {
+        const rawDataUrl = String(ev?.target?.result || '');
+        if (!rawDataUrl) return;
+        if (file.type === 'image/svg+xml' || rawDataUrl.length < 180000) {
+          const inputEl = $(id);
+          if (inputEl) inputEl.value = rawDataUrl;
+          mdbSyncWordPicturePreview(id);
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const maxDim = 640;
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (w > maxDim || h > maxDim) {
+              if (w >= h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+              else { w = Math.round((w * maxDim) / h); h = maxDim; }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, w);
+            canvas.height = Math.max(1, h);
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            const outUrl = canvas.toDataURL('image/webp', 0.84) || rawDataUrl;
+            const inputEl = $(id);
+            if (inputEl) inputEl.value = outUrl;
+            mdbSyncWordPicturePreview(id);
+          } catch (_) {
+            const inputEl = $(id);
+            if (inputEl) inputEl.value = rawDataUrl;
+            mdbSyncWordPicturePreview(id);
+          }
+        };
+        img.onerror = () => {
+          const inputEl = $(id);
+          if (inputEl) inputEl.value = rawDataUrl;
+          mdbSyncWordPicturePreview(id);
+        };
+        img.src = rawDataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function mdbHandleWordPictureFile(id, fileInput) {
+      const file = fileInput?.files?.[0];
+      if (!file) return;
+      mdbProcessWordPictureFile(id, file);
+      fileInput.value = '';
+    }
+
+    function mdbOnWordPictureDrop(event, id) {
+      event.preventDefault();
+      event.currentTarget?.classList.remove('drag-over');
+      const file = event.dataTransfer?.files?.[0];
+      if (file) {
+        mdbProcessWordPictureFile(id, file);
+        return;
+      }
+      const url = event.dataTransfer?.getData('text/uri-list') || event.dataTransfer?.getData('text/plain');
+      if (url && url.trim()) {
+        const inputEl = $(id);
+        if (inputEl) inputEl.value = url.trim();
+        mdbSyncWordPicturePreview(id);
+      }
+    }
+
+    function mdbOnWordPicturePaste(event, id) {
+      const items = event.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type && item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            event.preventDefault();
+            mdbProcessWordPictureFile(id, file);
+            return;
+          }
+        }
+      }
+    }
+
+    function mdbOnWordPictureInput(id) {
+      mdbSyncWordPicturePreview(id);
+    }
+
+    function mdbClearWordPicture(id) {
+      const inputEl = $(id);
+      if (inputEl) inputEl.value = '';
+      mdbSyncWordPicturePreview(id);
+    }
+
+    function mdbSyncWordPicturePreview(id) {
+      const inputEl = $(id);
+      const previewEl = $(`${id}-preview`);
+      const emptyEl = $(`${id}-empty`);
+      const clearBtn = $(`${id}-clear`);
+      const val = String(inputEl?.value || '').trim();
+      const hasPic = Boolean(val);
+      if (previewEl) {
+        if (hasPic) {
+          previewEl.src = val;
+          previewEl.style.display = '';
+        } else {
+          previewEl.removeAttribute('src');
+          previewEl.style.display = 'none';
+        }
+      }
+      if (emptyEl) emptyEl.style.display = hasPic ? 'none' : '';
+      if (clearBtn) clearBtn.style.display = hasPic ? '' : 'none';
+    }
+
+    function mdbOpenPictureLightbox(src) {
+      if (!src) return;
+      mdbClosePictureLightbox();
+      const backdrop = document.createElement('div');
+      backdrop.id = 'mdb-pic-lightbox';
+      backdrop.className = 'mdb-pic-lightbox-backdrop';
+      backdrop.onclick = (e) => {
+        if (e.target === backdrop) mdbClosePictureLightbox();
+      };
+      backdrop.innerHTML = `<div class="mdb-pic-lightbox-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;">
+          <strong style="font-size:0.9rem;color:#111;">${esc(t('mdbPicturePreviewTitle', 'Picture Preview'))}</strong>
+          <button type="button" class="modal-x" onclick="mdbClosePictureLightbox()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+        </div>
+        <img src="${esc(src)}" class="mdb-pic-lightbox-img" alt="" />
+      </div>`;
+      document.body.appendChild(backdrop);
+      const onKey = (e) => {
+        if (e.key === 'Escape') {
+          mdbClosePictureLightbox();
+          document.removeEventListener('keydown', onKey);
+        }
+      };
+      document.addEventListener('keydown', onKey);
+    }
+
+    function mdbClosePictureLightbox() {
+      document.getElementById('mdb-pic-lightbox')?.remove();
     }
 
     function buildAiAutofillBannerHtml() {
@@ -8101,6 +8314,11 @@ Rules:
         return '<div class="tags-cell">' + arr.map(code => '<span class="badge-tag">' + escHtml(code) + '</span>').join(' ') + '</div>';
       }
 
+      // Wordbank picture
+      if (S.typeKey === 'wordbanks' && field.key === 'picture') {
+        return `<img src="${escHtml(String(val))}" class="mdb-export-pic" alt="" />`;
+      }
+
       // Long markdown fields
       if (field.isLong) {
         return renderMdbMarkdown(exportCellValue(val, field));
@@ -8219,6 +8437,7 @@ Rules:
   .threshold-tag, .badge-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f4f4f5; box-shadow: 1px 1px 0 #555555; }
   .color-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f8fafc; box-shadow: 1px 1px 0 #555555; }
   .color-dot { width: 9px; height: 9px; border: 1px solid #333333; border-radius: 2px; display: inline-block; }
+  .mdb-export-pic { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1.5px solid #333333; box-shadow: 2px 2px 0 #555555; background: #ffffff; display: block; }
   .remove-col-btn { background: #fee2e2; border: 1.5px solid #333333; color: #991b1b; font-size: 12px; cursor: pointer; padding: 1px 5px; margin-left: 6px; font-weight: 800; border-radius: 4px; vertical-align: middle; box-shadow: 1px 1px 0 #555555; }
   .remove-col-btn:hover { background: #fca5a5; }
   .toast { position: fixed; bottom: 20px; right: 20px; background: #333333; color: #ffffff; padding: 10px 16px; border-radius: 6px; font-size: 12px; font-weight: 800; opacity: 0; transition: opacity 0.3s; z-index: 1000; border: 2px solid #333333; box-shadow: 3px 3px 0 #555555; }
@@ -10285,6 +10504,10 @@ Rules:
         }).join('') + '</div>';
       }
 
+      if (S.typeKey === 'wordbanks' && col.key === 'picture' && rawVal) {
+        return '<img src="' + esc(String(rawVal)) + '" class="mdb-cell-pic-thumb" alt="" loading="lazy" />';
+      }
+
       // Error / Correction
       if (col.key === 'error') return '<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>';
       if (col.key === 'correction') return '<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>';
@@ -10807,6 +11030,7 @@ Rules:
     .threshold-tag, .badge-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f4f4f5; }
     .color-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1.5px solid #333333; border-radius: 4px; font-size: 10px; font-weight: 700; background: #f8fafc; }
     .color-dot { width: 9px; height: 9px; border: 1px solid #333333; border-radius: 2px; display: inline-block; }
+  .mdb-export-pic { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1.5px solid #333333; box-shadow: 2px 2px 0 #555555; background: #ffffff; display: block; }
     @page { margin: ${pdfSettings.margin || '12mm 10mm'}; size: ${pdfSettings.pageSize || 'A4'} ${pdfSettings.orientation || 'portrait'}; }
     @media print {
       *, *:before, *:after {
