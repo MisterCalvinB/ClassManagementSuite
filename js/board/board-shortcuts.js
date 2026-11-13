@@ -992,8 +992,10 @@
           `;
           item.onclick = (e) => {
             e.stopPropagation();
-            const coords = (def.isLibraryItem && window.conBoardCtxX !== undefined && window.conBoardCtxY !== undefined)
-              ? { x: window.conBoardCtxX, y: window.conBoardCtxY }
+            const ctxX = window._boardCtxNoteX !== undefined ? window._boardCtxNoteX : window._boardCtxX;
+            const ctxY = window._boardCtxNoteY !== undefined ? window._boardCtxNoteY : window._boardCtxY;
+            const coords = (def.isLibraryItem && ctxX !== undefined && ctxY !== undefined)
+              ? { x: ctxX, y: ctxY }
               : null;
             if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
             if (typeof def.fn === 'function') def.fn(coords);

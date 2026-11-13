@@ -1947,8 +1947,17 @@
 
       // ---- Premade Library UI Controller ----
       let _conActiveLibCategory = 'all';
+      let _conPremadeTargetPos = null;
 
-      window.conOpenPremadeLibraryModal = async function () {
+      window.conOpenPremadeLibraryModal = async function (targetPos, targetY) {
+        if (targetPos && typeof targetPos === 'object' && Number.isFinite(Number(targetPos.x)) && Number.isFinite(Number(targetPos.y))) {
+          _conPremadeTargetPos = { x: Number(targetPos.x), y: Number(targetPos.y) };
+        } else if (Number.isFinite(Number(targetPos)) && Number.isFinite(Number(targetY))) {
+          _conPremadeTargetPos = { x: Number(targetPos), y: Number(targetY) };
+        } else {
+          _conPremadeTargetPos = null;
+        }
+        if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
         const overlay = document.getElementById('con-premade-library-overlay');
         if (!overlay) return;
         overlay.classList.add('active');
@@ -1961,6 +1970,7 @@
       };
 
       window.conClosePremadeLibraryModal = function () {
+        _conPremadeTargetPos = null;
         const overlay = document.getElementById('con-premade-library-overlay');
         if (overlay) overlay.classList.remove('active');
       };
@@ -2043,8 +2053,13 @@
           : [];
         const item = items.find(it => it.id === id);
         if (!item) return;
+        const targetPos = _conPremadeTargetPos;
         conClosePremadeLibraryModal();
-        conInsertPremadeItem(item);
+        if (targetPos && Number.isFinite(targetPos.x) && Number.isFinite(targetPos.y)) {
+          conInsertPremadeItem(item, targetPos.x, targetPos.y);
+        } else {
+          conInsertPremadeItem(item);
+        }
       };
 
       window.conDeleteCustomPremadePrompt = async function (id, event) {

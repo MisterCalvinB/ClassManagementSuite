@@ -21496,8 +21496,11 @@
           const px = e.clientX - brdRect.left + brd.scrollLeft;
           const py = e.clientY - brdRect.top + brd.scrollTop;
           _lastBoardPastePoint = { x: px, y: py };
-          window._boardCtxNoteX = px;
-          window._boardCtxNoteY = py;
+          const bmenu = document.getElementById('con-board-ctx-menu');
+          if (!bmenu || !bmenu.classList.contains('visible')) {
+            window._boardCtxNoteX = px;
+            window._boardCtxNoteY = py;
+          }
         });
 
         // Suppress native browser context menu on the board
