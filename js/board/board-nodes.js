@@ -1745,7 +1745,7 @@
           const transBtn = document.createElement('button');
           transBtn.type = 'button';
           transBtn.className = 'con-media-manage-btn';
-          transBtn.innerHTML = '<img src="../assets/icons/dictation.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaTranscribeBtn', 'Transcript') : 'Transcript');
+          transBtn.innerHTML = '<img src="../assets/icons/transcript.svg" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" alt="" />' + (typeof t === 'function' ? t('conMediaTranscribeBtn', 'Transcript') : 'Transcript');
           transBtn.title = 'Audio Transcript Studio';
           transBtn.onclick = () => {
             if (typeof window.conOpenAudioTranscript === 'function') {
@@ -2616,7 +2616,7 @@
             window.conPdfSpToggleFullscreen(item);
           }
         });
-        const emojiMiniBtn = _mkMini('sparkles', 'Add emoji sticker', 'emoji', () => {
+        const emojiMiniBtn = _mkMini('emoji-smile', 'Add emoji sticker', 'emoji', () => {
           if (typeof window._pickerOpenForMedia === 'function') window._pickerOpenForMedia(item);
         });
         const linkMiniBtn = _mkMini('zap', 'Link / Connect (Ctrl+J)', 'link', () => {

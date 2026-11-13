@@ -1736,6 +1736,27 @@ function readSessionTimestampMeta(rawText, ext) {
 
 const _sessionMetaCache = new Map();
 
+function normalizePlannerEntryIds(...sources) {
+  const out = [];
+  const seen = new Set();
+  const addOne = (val) => {
+    if (Array.isArray(val)) {
+      for (const item of val) addOne(item);
+      return;
+    }
+    if (typeof val !== 'string' && typeof val !== 'number') return;
+    const parts = String(val).split(',').map(s => s.trim()).filter(Boolean);
+    for (const p of parts) {
+      if (!seen.has(p)) {
+        seen.add(p);
+        out.push(p);
+      }
+    }
+  };
+  for (const src of sources) addOne(src);
+  return out;
+}
+
 async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 0) {
   const cacheKey = `${filePath}:${knownSize || 0}:${mtimeMs || 0}`;
   if (_sessionMetaCache.has(cacheKey)) {
@@ -1756,7 +1777,7 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 
         const normName = normalizeZipEntryPath(entry.name) || entry.name;
         if (normName === 'manifest.json') {
           try { manifest = JSON.parse(entry.data.toString('utf8')); } catch {}
-          if (manifest && (manifest.classGroup || manifest.plannerEntryId || manifest.createdAt || manifest.updatedAt)) {
+          if (manifest && (manifest.classGroup || manifest.plannerEntryIds || manifest.plannerEntryId || manifest.createdAt || manifest.updatedAt)) {
             break;
           }
         } else if (normName === 'board.json' && !manifest) {
@@ -1766,7 +1787,19 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 
       if (manifest || boardData) {
         meta.sessionType = (manifest && manifest.format) || (boardData && boardData._type) || 'constellation';
         meta.classGroup = (manifest && manifest.classGroup) || (boardData && (boardData._classGroup || boardData.classGroup)) || '';
-        meta.plannerEntryId = (manifest && manifest.plannerEntryId) || (boardData && (boardData._plannerEntryId || (boardData.manifest && boardData.manifest.plannerEntryId))) || '';
+        const pids = normalizePlannerEntryIds(
+          manifest && manifest.plannerEntryIds,
+          manifest && manifest._plannerEntryIds,
+          manifest && manifest.plannerEntryId,
+          boardData && boardData._plannerEntryIds,
+          boardData && boardData.plannerEntryIds,
+          boardData && boardData._plannerEntryId,
+          boardData && boardData.plannerEntryId,
+          boardData && boardData.manifest && boardData.manifest.plannerEntryIds,
+          boardData && boardData.manifest && boardData.manifest.plannerEntryId
+        );
+        meta.plannerEntryIds = pids;
+        meta.plannerEntryId = pids[0] || '';
 
         const createdAt = Number(manifest && (manifest.createdAt || manifest._createdAt))
           || Number(boardData && (boardData._createdAt || boardData.createdAt))
@@ -1806,8 +1839,18 @@ async function readSessionTimestampMetaFast(filePath, ext, knownSize, mtimeMs = 
       const cgMatch = text.match(/"_classGroup"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_classGroup:\s*([^\s]+)\s*$/m);
       if (cgMatch && cgMatch[1] && !meta.classGroup) meta.classGroup = cgMatch[1];
 
+      const pidsMatch = text.match(/"_?plannerEntryIds"\s*:\s*\[([^\]]*)\]/);
+      let parsedPids = [];
+      if (pidsMatch && pidsMatch[1]) {
+        const strMatches = pidsMatch[1].match(/"([^"]+)"/g) || [];
+        parsedPids = strMatches.map(s => s.slice(1, -1).trim()).filter(Boolean);
+      }
       const pidMatch = text.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/) || text.match(/^\s*\/\/\s*_plannerEntryId:\s*([^\s]+)\s*$/m);
-      if (pidMatch && pidMatch[1] && !meta.plannerEntryId) meta.plannerEntryId = pidMatch[1];
+      const mergedPids = normalizePlannerEntryIds(meta.plannerEntryIds, parsedPids, pidMatch && pidMatch[1]);
+      if (mergedPids.length) {
+        meta.plannerEntryIds = mergedPids;
+        meta.plannerEntryId = mergedPids[0] || '';
+      }
 
       if (!meta.createdAt) {
         const createdKey = text.match(/"_createdAt"\s*:\s*(\d+)/);
@@ -5012,13 +5055,23 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       } else if (normName === 'board.json') {
         try {
           rawBoardData = JSON.parse(entry.data.toString('utf8'));
+          const rawPids = normalizePlannerEntryIds(
+            rawBoardData._plannerEntryIds,
+            rawBoardData.plannerEntryIds,
+            rawBoardData._plannerEntryId,
+            rawBoardData.plannerEntryId,
+            rawBoardData.manifest && rawBoardData.manifest.plannerEntryIds,
+            rawBoardData.manifest && rawBoardData.manifest.plannerEntryId
+          );
           boardDataSummary = {
             title: rawBoardData.title,
             _type: rawBoardData._type,
             classGroup: rawBoardData._classGroup || rawBoardData.classGroup || '',
             _classGroup: rawBoardData._classGroup || rawBoardData.classGroup || '',
-            _plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
-            plannerEntryId: rawBoardData._plannerEntryId || (rawBoardData.manifest && rawBoardData.manifest.plannerEntryId),
+            _plannerEntryIds: rawPids,
+            plannerEntryIds: rawPids,
+            _plannerEntryId: rawPids[0] || '',
+            plannerEntryId: rawPids[0] || '',
             lessonId: rawBoardData._lessonId || rawBoardData.lessonId || (rawBoardData.manifest && (rawBoardData.manifest.lessonId || rawBoardData.manifest._lessonId)) || '',
             competences: Array.isArray(rawBoardData.competences) ? rawBoardData.competences : (Array.isArray(rawBoardData.competenceTags) ? rawBoardData.competenceTags : []),
             pageCount: Array.isArray(rawBoardData.pages) ? rawBoardData.pages.length : 1
@@ -5032,6 +5085,18 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
 
     if (manifest && !manifest.classGroup && boardDataSummary && boardDataSummary.classGroup) {
       manifest.classGroup = boardDataSummary.classGroup;
+    }
+
+    const combinedPlannerEntryIds = normalizePlannerEntryIds(
+      manifest && manifest.plannerEntryIds,
+      manifest && manifest._plannerEntryIds,
+      manifest && manifest.plannerEntryId,
+      boardDataSummary && boardDataSummary.plannerEntryIds,
+      boardDataSummary && boardDataSummary._plannerEntryId
+    );
+    if (manifest) {
+      manifest.plannerEntryIds = combinedPlannerEntryIds;
+      manifest.plannerEntryId = combinedPlannerEntryIds[0] || '';
     }
 
     let searchText = '';
@@ -5058,7 +5123,8 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       manifest: manifest || boardDataSummary,
       thumbnail: thumbnail || null,
       classGroup: (manifest && manifest.classGroup) || (boardDataSummary && boardDataSummary.classGroup) || '',
-      plannerEntryId: (manifest && manifest.plannerEntryId) || (boardDataSummary && boardDataSummary._plannerEntryId) || '',
+      plannerEntryIds: combinedPlannerEntryIds,
+      plannerEntryId: combinedPlannerEntryIds[0] || '',
       lessonId: (manifest && (manifest.lessonId || manifest._lessonId)) || (boardDataSummary && boardDataSummary.lessonId) || '',
       competences: (manifest && Array.isArray(manifest.competences)) ? manifest.competences : ((boardDataSummary && Array.isArray(boardDataSummary.competences)) ? boardDataSummary.competences : []),
       createdAt: createdAt || undefined,
@@ -5067,6 +5133,224 @@ ipcMain.handle('app:inspect-board-archive', async (event, request = {}) => {
       size: stat.size,
       searchText: searchText || ''
     };
+  } catch (err) {
+    return { ok: false, error: err && err.message ? err.message : String(err) };
+  }
+});
+
+ipcMain.handle('app:update-board-archive-meta', async (event, request = {}) => {
+  const pageFile = getRequestingPage(event);
+  const target = request.target || 'mindmaps';
+  const relativePath = request.relativePath || request.filename || '';
+  if (!relativePath) return { ok: false, error: 'Missing relativePath' };
+  const { fullPath } = resolveAllowedTargetPath(pageFile, target, relativePath);
+  const ext = path.extname(fullPath).toLowerCase();
+
+  const computeNextPlannerEntryIds = (existingIds) => {
+    let next = normalizePlannerEntryIds(existingIds);
+    if (Array.isArray(request.plannerEntryIds)) {
+      next = normalizePlannerEntryIds(request.plannerEntryIds);
+    } else if (typeof request.plannerEntryId === 'string') {
+      next = normalizePlannerEntryIds(request.plannerEntryId);
+    }
+    if (request.addPlannerEntryIds) {
+      next = normalizePlannerEntryIds(next, request.addPlannerEntryIds);
+    }
+    if (request.removePlannerEntryIds) {
+      const rem = new Set(normalizePlannerEntryIds(request.removePlannerEntryIds));
+      next = next.filter(id => !rem.has(id));
+    }
+    return next;
+  };
+
+  try {
+    if (ext === '.cstz' || ext === '.zip') {
+      const zipBuffer = await fs.readFile(fullPath);
+      const parsedEntries = await parseZipEntries(zipBuffer);
+      let manifestObj = null;
+      let boardObj = null;
+
+      for (const entry of parsedEntries) {
+        const normName = normalizeZipEntryPath(entry.name) || entry.name;
+        if (normName === 'manifest.json') {
+          try { manifestObj = JSON.parse(entry.data.toString('utf8')); } catch {}
+        } else if (normName === 'board.json') {
+          try { boardObj = JSON.parse(entry.data.toString('utf8')); } catch {}
+        }
+      }
+
+      const existingIds = normalizePlannerEntryIds(
+        manifestObj && manifestObj.plannerEntryIds,
+        manifestObj && manifestObj._plannerEntryIds,
+        manifestObj && manifestObj.plannerEntryId,
+        boardObj && boardObj._plannerEntryIds,
+        boardObj && boardObj.plannerEntryIds,
+        boardObj && boardObj._plannerEntryId,
+        boardObj && boardObj.plannerEntryId
+      );
+      const nextIds = computeNextPlannerEntryIds(existingIds);
+      const primaryId = nextIds[0] || '';
+      const now = Date.now();
+
+      const zipEntries = [];
+      let sawManifest = false;
+      for (const entry of parsedEntries) {
+        const normName = normalizeZipEntryPath(entry.name) || entry.name;
+        if (normName === 'manifest.json') {
+          sawManifest = true;
+          const updatedManifest = Object.assign({}, manifestObj || {}, {
+            plannerEntryIds: nextIds,
+            plannerEntryId: primaryId,
+            updatedAt: now,
+            savedAt: now
+          });
+          if (typeof request.classGroup === 'string' && request.classGroup) {
+            updatedManifest.classGroup = request.classGroup;
+          }
+          zipEntries.push({
+            name: 'manifest.json',
+            data: Buffer.from(JSON.stringify(updatedManifest, null, 2), 'utf8'),
+            store: true,
+            compressionMethod: 0,
+            mtimeMs: now
+          });
+        } else if (normName === 'board.json' && boardObj && typeof boardObj === 'object') {
+          boardObj._plannerEntryIds = nextIds;
+          boardObj.plannerEntryIds = nextIds;
+          if (primaryId) {
+            boardObj._plannerEntryId = primaryId;
+            boardObj.plannerEntryId = primaryId;
+          } else {
+            delete boardObj._plannerEntryId;
+            delete boardObj.plannerEntryId;
+          }
+          if (typeof request.classGroup === 'string' && request.classGroup && !boardObj._classGroup) {
+            boardObj._classGroup = request.classGroup;
+          }
+          boardObj._savedAt = now;
+          zipEntries.push({
+            name: 'board.json',
+            data: Buffer.from(JSON.stringify(boardObj, null, 2), 'utf8'),
+            store: true,
+            compressionMethod: 0,
+            mtimeMs: now
+          });
+        } else {
+          zipEntries.push({
+            name: normName,
+            data: entry.data,
+            store: entry.compressionMethod === 0,
+            compressionMethod: entry.compressionMethod || 0,
+            mtimeMs: entry.mtimeMs || now
+          });
+        }
+      }
+
+      if (!sawManifest) {
+        const newManifest = {
+          version: 1,
+          format: 'cstz',
+          title: (boardObj && boardObj.title) || path.basename(fullPath, ext),
+          classGroup: (typeof request.classGroup === 'string' && request.classGroup) || (boardObj && (boardObj._classGroup || boardObj.classGroup)) || '',
+          plannerEntryIds: nextIds,
+          plannerEntryId: primaryId,
+          updatedAt: now,
+          savedAt: now
+        };
+        zipEntries.unshift({
+          name: 'manifest.json',
+          data: Buffer.from(JSON.stringify(newManifest, null, 2), 'utf8'),
+          store: true,
+          compressionMethod: 0,
+          mtimeMs: now
+        });
+      }
+
+      const newZipBuffer = await buildZip(zipEntries);
+      const finalDir = path.dirname(fullPath);
+      const filename = path.basename(fullPath);
+      const randTag = String(now) + '-' + Math.random().toString(36).slice(2, 8);
+      const tmpPath = path.join(finalDir, '.' + filename + '.' + randTag + '.tmp');
+      try {
+        await fs.writeFile(tmpPath, newZipBuffer);
+        let renamed = false;
+        let lastErr = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            await fs.rename(tmpPath, fullPath);
+            renamed = true;
+            break;
+          } catch (renameErr) {
+            lastErr = renameErr;
+            if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST' || renameErr.code === 'EBUSY' || renameErr.code === 'EACCES') {
+              await fs.unlink(fullPath).catch(() => {});
+              await new Promise(r => setTimeout(r, 60));
+            } else {
+              break;
+            }
+          }
+        }
+        if (!renamed) throw lastErr || new Error('Could not rename temp archive');
+      } catch (writeErr) {
+        await fs.unlink(tmpPath).catch(() => {});
+        throw writeErr;
+      }
+
+      _sessionMetaCache.clear();
+      _broadcastDataChanged(event, pageFile, {
+        action: 'save-file',
+        filename,
+        target,
+        relativePath
+      });
+      return { ok: true, filename, relativePath, plannerEntryIds: nextIds, plannerEntryId: primaryId };
+    } else if (ext === '.js' || ext === '.json') {
+      const rawText = await fs.readFile(fullPath, 'utf8');
+      const isJs = ext === '.js' || /^\s*window\.[A-Z0-9_]+\s*=/m.test(rawText);
+      let prefix = 'window.CONSTELLATION_SESSION_EXPORT = ';
+      let jsonStr = rawText.trim();
+      const assignMatch = jsonStr.match(/^(\s*(?:\/\/[^\n]*\n\s*)*window\.[A-Za-z0-9_]+\s*=\s*)/);
+      if (assignMatch) {
+        prefix = assignMatch[1];
+        jsonStr = jsonStr.slice(assignMatch[1].length).replace(/;\s*$/, '').trim();
+      }
+      const parsed = JSON.parse(jsonStr);
+      const existingIds = normalizePlannerEntryIds(
+        parsed._plannerEntryIds,
+        parsed.plannerEntryIds,
+        parsed._plannerEntryId,
+        parsed.plannerEntryId
+      );
+      const nextIds = computeNextPlannerEntryIds(existingIds);
+      const primaryId = nextIds[0] || '';
+      parsed._plannerEntryIds = nextIds;
+      parsed.plannerEntryIds = nextIds;
+      if (primaryId) {
+        parsed._plannerEntryId = primaryId;
+        parsed.plannerEntryId = primaryId;
+      } else {
+        delete parsed._plannerEntryId;
+        delete parsed.plannerEntryId;
+      }
+      if (typeof request.classGroup === 'string' && request.classGroup && !parsed._classGroup) {
+        parsed._classGroup = request.classGroup;
+      }
+      parsed._savedAt = Date.now();
+      const outText = isJs
+        ? (prefix + JSON.stringify(parsed, null, 2) + ';\n')
+        : (JSON.stringify(parsed, null, 2) + '\n');
+      await fs.writeFile(fullPath, outText, 'utf8');
+      _sessionMetaCache.clear();
+      const filename = path.basename(fullPath);
+      _broadcastDataChanged(event, pageFile, {
+        action: 'save-file',
+        filename,
+        target,
+        relativePath
+      });
+      return { ok: true, filename, relativePath, plannerEntryIds: nextIds, plannerEntryId: primaryId };
+    }
+    return { ok: false, error: 'Unsupported board file extension: ' + ext };
   } catch (err) {
     return { ok: false, error: err && err.message ? err.message : String(err) };
   }

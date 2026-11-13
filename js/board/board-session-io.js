@@ -149,6 +149,35 @@
       boardSetSessionFileMeta(section, createdAt, savedAt);
     }
 
+    function _boardGetActivePlannerIds() {
+      if (typeof bpGetEntryIds === 'function') return bpGetEntryIds();
+      if (Array.isArray(window.activePlannerEntryIds) && window.activePlannerEntryIds.length) return window.activePlannerEntryIds.slice();
+      return activePlannerEntryId ? [String(activePlannerEntryId)] : [];
+    }
+
+    function _boardExtractPlannerIdsFromObj(obj) {
+      if (!obj || typeof obj !== 'object') return [];
+      const out = [];
+      const seen = new Set();
+      const addVal = (v) => {
+        if (Array.isArray(v)) { v.forEach(addVal); return; }
+        if (typeof v !== 'string' && typeof v !== 'number') return;
+        String(v).split(',').map(s => s.trim()).filter(Boolean).forEach(p => {
+          if (!seen.has(p)) { seen.add(p); out.push(p); }
+        });
+      };
+      addVal(obj._plannerEntryIds);
+      addVal(obj.plannerEntryIds);
+      addVal(obj._plannerEntryId);
+      addVal(obj.plannerEntryId);
+      if (obj.manifest && typeof obj.manifest === 'object') {
+        addVal(obj.manifest.plannerEntryIds);
+        addVal(obj.manifest._plannerEntryIds);
+        addVal(obj.manifest.plannerEntryId);
+      }
+      return out;
+    }
+
     function boardBuildPersistedSessionData(section, data, now = Date.now()) {
       const meta = boardSessionMeta(section);
       const createdAt = Number(data && (data._createdAt || data.createdAt))
@@ -157,16 +186,20 @@
         || (boardSessionDateCreated[section] ? Date.parse(String(boardSessionDateCreated[section]).replace(/_\d+$/, '')) : 0)
         || now;
       const savedAt = Number(now) || Date.now();
+      const activePids = _boardGetActivePlannerIds();
+      const primaryPid = activePids[0] || activePlannerEntryId || undefined;
       const persisted = Object.assign({
         _type: boardSessionType(section),
         _classGroup: activeClassGroup || undefined,
-        _plannerEntryId: activePlannerEntryId || undefined,
+        _plannerEntryIds: activePids.length ? activePids : undefined,
+        _plannerEntryId: primaryPid,
         _createdAt: createdAt,
         _savedAt: savedAt
       }, data, {
         _createdAt: createdAt,
         _savedAt: savedAt,
-        _plannerEntryId: activePlannerEntryId || undefined,
+        _plannerEntryIds: activePids.length ? activePids : undefined,
+        _plannerEntryId: primaryPid,
         _classGroup: activeClassGroup || undefined
       });
       boardSetSessionFileMeta(section, createdAt, savedAt);
@@ -413,10 +446,12 @@
       const expectedType = boardSessionType(section);
       if (!entry.data || entry.data._type !== expectedType) return null;
       const savedAt = Number(entry.savedAt) || Date.now();
+      const pids = _boardExtractPlannerIdsFromObj(entry);
       return {
         id: String(entry.id || boardMakeSessionId(section)),
         classGroup: String(entry.classGroup || ''),
-        plannerEntryId: String(entry.plannerEntryId || ''),
+        plannerEntryIds: pids,
+        plannerEntryId: String(pids[0] || entry.plannerEntryId || ''),
         source: String(entry.source || 'manual-save'),
         name: String(entry.name || boardDefaultSessionName(section)),
         savedAt,
@@ -637,11 +672,13 @@
       const name = String(options.name || boardDefaultSessionName(section));
       const now = Date.now();
 
+      const activePids = _boardGetActivePlannerIds();
+      const primaryPid = activePids[0] || activePlannerEntryId || '';
       if (source === 'autosave') {
         const existingIdx = list.findIndex(e => e.classGroup === classGroup && e.source === 'autosave');
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const autosaveEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data: sanitizedData };
+        const autosaveEntry = { id, classGroup, plannerEntryIds: activePids, plannerEntryId: primaryPid, source, name, savedAt: now, createdAt, data: sanitizedData };
         if (existingIdx >= 0) list.splice(existingIdx, 1, autosaveEntry);
         else list.push(autosaveEntry);
       } else if (source === 'manual-save') {
@@ -654,14 +691,15 @@
         );
         const id = existingIdx >= 0 ? list[existingIdx].id : boardMakeSessionId(section);
         const createdAt = existingIdx >= 0 ? (Number(list[existingIdx].createdAt) || now) : now;
-        const manualEntry = { id, classGroup, plannerEntryId: activePlannerEntryId, source, name, savedAt: now, createdAt, data: sanitizedData };
+        const manualEntry = { id, classGroup, plannerEntryIds: activePids, plannerEntryId: primaryPid, source, name, savedAt: now, createdAt, data: sanitizedData };
         if (existingIdx >= 0) list.splice(existingIdx, 1, manualEntry);
         else list.push(manualEntry);
       } else {
         list.push({
           id: boardMakeSessionId(section),
           classGroup,
-          plannerEntryId: activePlannerEntryId,
+          plannerEntryIds: activePids,
+          plannerEntryId: primaryPid,
           source,
           name,
           savedAt: now,
@@ -714,8 +752,8 @@
         }
 
         const classGroup = typeof activeClassGroup === 'string' ? activeClassGroup : '';
-        const plannerId = typeof activePlannerEntryId === 'string' ? activePlannerEntryId : '';
-        return JSON.stringify(clean) + '|' + classGroup + '|' + plannerId;
+        const plannerIds = _boardGetActivePlannerIds().join(',');
+        return JSON.stringify(clean) + '|' + classGroup + '|' + plannerIds;
       } catch (e) {
         return String(Date.now());
       }
@@ -1443,13 +1481,15 @@
       }
       const cached = boardHistoryMetaCache[relativePath];
       let classGroup = (file && file.classGroup) || (cached && cached.classGroup) || historyInferClassGroup(baseName);
-      let plannerEntryId = (file && file.plannerEntryId) || (cached && cached.plannerEntryId) || '';
+      let plannerEntryIds = _boardExtractPlannerIdsFromObj(file || {});
+      if (!plannerEntryIds.length && cached) plannerEntryIds = _boardExtractPlannerIdsFromObj(cached);
+      let plannerEntryId = plannerEntryIds[0] || '';
       let competences = (file && file.competences) || (cached && cached.competences) || (file && file.data && file.data.competences) || [];
-      if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
+      if (!classGroup && plannerEntryIds.length && window.PLANNER_ENTRIES_BY_CLASS) {
         const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
         for (const cid of Object.keys(byClass)) {
           const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-          if (arr.some(e => e.id === plannerEntryId)) {
+          if (arr.some(e => plannerEntryIds.includes(e.id))) {
             classGroup = cid;
             break;
           }
@@ -1468,6 +1508,7 @@
         relativePath,
         baseName,
         classGroup,
+        plannerEntryIds,
         plannerEntryId,
         competences: Array.isArray(competences) ? competences : [],
         classLabel: getClassGroupLabel(classGroup),
@@ -1507,12 +1548,13 @@
 
       const now = Date.now();
       let classGroup = (sessionData && (sessionData._classGroup || sessionData.classGroup)) || historyInferClassGroup(baseName);
-      let plannerEntryId = (sessionData && (sessionData._plannerEntryId || sessionData.plannerEntryId)) || '';
-      if (!classGroup && plannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
+      let plannerEntryIds = _boardExtractPlannerIdsFromObj(sessionData || {});
+      let plannerEntryId = plannerEntryIds[0] || '';
+      if (!classGroup && plannerEntryIds.length && window.PLANNER_ENTRIES_BY_CLASS) {
         const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
         for (const cid of Object.keys(byClass)) {
           const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-          if (arr.some(e => e.id === plannerEntryId)) {
+          if (arr.some(e => plannerEntryIds.includes(e.id))) {
             classGroup = cid;
             break;
           }
@@ -1530,6 +1572,7 @@
         relativePath: rel,
         baseName,
         classGroup,
+        plannerEntryIds,
         plannerEntryId,
         competences: (sessionData && (sessionData.competences || sessionData.competenceTags)) || (Array.isArray(_conCurrentCompetences) ? _conCurrentCompetences.slice() : []),
         classLabel: getClassGroupLabel(classGroup),
@@ -1550,10 +1593,11 @@
         historyEntries.unshift(entryData);
       }
 
-      if (rel && (classGroup || plannerEntryId || (entryData.competences && entryData.competences.length))) {
+      if (rel && (classGroup || plannerEntryIds.length || (entryData.competences && entryData.competences.length))) {
         const lessonId = (sessionData && (sessionData._lessonId || sessionData.lessonId)) || '';
         boardHistoryMetaCache[rel] = {
           classGroup: classGroup || '',
+          plannerEntryIds: plannerEntryIds,
           plannerEntryId: plannerEntryId || '',
           lessonId: lessonId || '',
           competences: Array.isArray(entryData.competences) ? entryData.competences : [],
@@ -1564,12 +1608,14 @@
 
         if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
           const bUrn = LinksService.makeUrn('board', rel);
-          if (plannerEntryId) {
-            LinksService.addLink(bUrn, LinksService.makeUrn('planner', plannerEntryId), {
-              relation: 'planner_slot',
-              sourceMeta: { title: baseName, relativePath: rel, target },
-              targetMeta: { classId: classGroup || '' }
-            }).catch(() => {});
+          if (plannerEntryIds.length) {
+            plannerEntryIds.forEach(pid => {
+              LinksService.addLink(bUrn, LinksService.makeUrn('planner', pid), {
+                relation: 'planner_slot',
+                sourceMeta: { title: baseName, relativePath: rel, target },
+                targetMeta: { classId: classGroup || '' }
+              }).catch(() => {});
+            });
           }
           if (classGroup) {
             LinksService.addLink(bUrn, LinksService.makeUrn('class', classGroup), {
@@ -1964,7 +2010,7 @@
         }
 
         menuItem('Open', () => historyLoadSavedFile(entry), false, '../assets/icons/board.svg');
-        menuItem('Open in New Window', () => boardOpenSessionInNewWindow({ type: 'file', entry }), false, '../assets/icons/board.svg');
+        menuItem('Open in New Window', () => boardOpenSessionInNewWindow({ type: 'file', entry }), false, '../assets/icons/external-link.svg');
         if (window.Desktop && Desktop.isElectron()) {
           menuItem('Show in Folder', () => {
             const rel = historyEntryRelativePath(entry);
@@ -1975,7 +2021,7 @@
 
         if (entry.source === 'archived') {
           menuItem('Unarchive', () => historyUnarchiveEntry(entry), false, '../assets/icons/unarchive.svg');
-          menuItem(typeof i18n !== 'undefined' && i18n.t ? i18n.t('historyZipSingle') : 'Zip to Archive', () => historyZipSingleEntry(entry), false, '../assets/icons/archive.svg');
+          menuItem(typeof i18n !== 'undefined' && i18n.t ? i18n.t('historyZipSingle') : 'Zip to Archive', () => historyZipSingleEntry(entry), false, '../assets/icons/zip.svg');
         } else {
           if (entry.target === 'mindmaps') {
             menuItem('Versions', () => conShowVersionHistory(entry), false, '../assets/icons/history.svg');
@@ -2163,13 +2209,15 @@
                     entry.modifiedAt = inspSavedAt;
                     changed = true;
                   }
-                  if (inspectRes.plannerEntryId) {
-                    const pid = inspectRes.plannerEntryId;
+                  const inspPids = _boardExtractPlannerIdsFromObj(inspectRes);
+                  if (inspPids.length) {
+                    const pid = inspPids[0];
+                    entry.plannerEntryIds = inspPids;
                     entry.plannerEntryId = pid;
                     const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
                     for (const cid of Object.keys(byClass)) {
                       const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-                      if (arr.some(e => e.id === pid)) {
+                      if (arr.some(e => inspPids.includes(e.id))) {
                         entry.classGroup = cid;
                         entry.classLabel = getClassGroupLabel(cid);
                         changed = true;
@@ -2177,9 +2225,10 @@
                       }
                     }
                   }
-                  if (entry.classGroup || entry.plannerEntryId) {
+                  if (entry.classGroup || (entry.plannerEntryIds && entry.plannerEntryIds.length) || entry.plannerEntryId) {
                     boardHistoryMetaCache[rel] = {
                       classGroup: entry.classGroup || '',
+                      plannerEntryIds: entry.plannerEntryIds || (entry.plannerEntryId ? [entry.plannerEntryId] : []),
                       plannerEntryId: entry.plannerEntryId || '',
                       createdAt: entry.createdAt || 0,
                       modifiedAt: entry.modifiedAt || 0
@@ -2207,14 +2256,24 @@
                 entry.classLabel = getClassGroupLabel(cgMatch[1]);
                 changed = true;
               }
+              const pidsArrMatch = content.match(/"_?plannerEntryIds"\s*:\s*\[([^\]]*)\]/);
+              let parsedPids = [];
+              if (pidsArrMatch && pidsArrMatch[1]) {
+                const strMatches = pidsArrMatch[1].match(/"([^"]+)"/g) || [];
+                parsedPids = strMatches.map(s => s.slice(1, -1).trim()).filter(Boolean);
+              }
               const pidMatch = content.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
-              if (pidMatch && pidMatch[1]) {
-                const pid = pidMatch[1];
+              if (pidMatch && pidMatch[1] && !parsedPids.includes(pidMatch[1])) {
+                parsedPids.push(pidMatch[1]);
+              }
+              if (parsedPids.length) {
+                const pid = parsedPids[0];
+                entry.plannerEntryIds = parsedPids;
                 entry.plannerEntryId = pid;
                 const byClass = window.PLANNER_ENTRIES_BY_CLASS || {};
                 for (const cid of Object.keys(byClass)) {
                   const arr = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-                  if (arr.some(e => e.id === pid)) {
+                  if (arr.some(e => parsedPids.includes(e.id))) {
                     entry.classGroup = cid;
                     entry.classLabel = getClassGroupLabel(cid);
                     changed = true;
@@ -2222,9 +2281,10 @@
                   }
                 }
               }
-              if (entry.classGroup || entry.plannerEntryId) {
+              if (entry.classGroup || (entry.plannerEntryIds && entry.plannerEntryIds.length) || entry.plannerEntryId) {
                 boardHistoryMetaCache[rel] = {
                   classGroup: entry.classGroup || '',
+                  plannerEntryIds: entry.plannerEntryIds || (entry.plannerEntryId ? [entry.plannerEntryId] : []),
                   plannerEntryId: entry.plannerEntryId || '',
                   createdAt: entry.createdAt || 0,
                   modifiedAt: entry.modifiedAt || 0
@@ -2869,7 +2929,12 @@
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
           setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
-          bpSetFromEntryId(data._plannerEntryId || '');
+          const loadedPlannerIds = _boardExtractPlannerIdsFromObj(data);
+          if (typeof bpSetFromEntryIds === 'function') {
+            bpSetFromEntryIds(loadedPlannerIds);
+          } else {
+            bpSetFromEntryId(loadedPlannerIds[0] || '');
+          }
           // Always update title from loaded filename
           const _conHAutoTitle = boardStripJsonExt(entry.filename || '');
           if (_conHAutoTitle) {
@@ -3258,6 +3323,8 @@
                 + '\nCancel = keep duplicate unlinked'
               );
             }
+            delete parsedData._plannerEntryIds;
+            delete parsedData.plannerEntryIds;
             delete parsedData._plannerEntryId;
             delete parsedData.plannerEntryId;
           }
@@ -3271,6 +3338,7 @@
           const manifest = Object.assign({}, readArch.manifest || {}, {
             title: baseName,
             classGroup: newClassGroup || (readArch.manifest && readArch.manifest.classGroup) || '',
+            plannerEntryIds: [],
             plannerEntryId: '',
             updatedAt: Date.now(),
             savedAt: Date.now()
@@ -3336,6 +3404,8 @@
                   + '\nCancel = keep duplicate unlinked'
                 );
               }
+              delete parsed._plannerEntryIds;
+              delete parsed.plannerEntryIds;
               delete parsed._plannerEntryId;
               delete parsed.plannerEntryId;
               if (newClassGroup) {
@@ -6159,6 +6229,8 @@
         _conCurrentFolderName = null;
         global._conCurrentFileName = null;
         global._conCurrentFolderName = null;
+        if (typeof bpSetFromEntryIds === 'function') bpSetFromEntryIds([]);
+        else if (typeof bpSetFromEntryId === 'function') bpSetFromEntryId('');
         if (typeof boardResetSessionFileMeta === 'function') boardResetSessionFileMeta('constellation');
         if (typeof boardReportActiveFileContext === 'function') boardReportActiveFileContext();
       } else if (section === 'textanalysis') {

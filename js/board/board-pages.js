@@ -133,7 +133,7 @@
         openPageItem.style.alignItems = 'center';
         openPageItem.style.gap = '6px';
         const openPageLabel = (typeof t === 'function' ? t('conOpenPageInNewWindow') : 'Open page in new window');
-        openPageItem.innerHTML = '<img src="../assets/icons/monitor.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openPageLabel) + '</span>';
+        openPageItem.innerHTML = '<img src="../assets/icons/external-link.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openPageLabel) + '</span>';
         openPageItem.onclick = function (evt) {
           evt.stopPropagation();
           conCloseMiniThumbContextMenu();
@@ -150,7 +150,7 @@
         dupItem.style.alignItems = 'center';
         dupItem.style.gap = '6px';
         const dupLabel = (typeof t === 'function' ? t('conDuplicatePage') : 'Duplicate page');
-        dupItem.innerHTML = '<img src="../assets/icons/copy.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(dupLabel) + '</span>';
+        dupItem.innerHTML = '<img src="../assets/icons/duplicate.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(dupLabel) + '</span>';
         dupItem.onclick = function (evt) {
           evt.stopPropagation();
           conCloseMiniThumbContextMenu();
@@ -5110,7 +5110,11 @@
           if (typeof boardSetDirty === 'function') boardSetDirty(false);
           else _boardIsDirty = false;
         }, 200);
-        bpSetFromEntryId(entry.plannerEntryId || '');
+        if (typeof bpSetFromEntryIds === 'function') {
+          bpSetFromEntryIds(entry.plannerEntryIds || entry.plannerEntryId || (entry.data && (entry.data._plannerEntryIds || entry.data._plannerEntryId)) || []);
+        } else {
+          bpSetFromEntryId(entry.plannerEntryId || '');
+        }
         navTo('constellation-section');
       } else {
         mdbToast('⚠️ This section is no longer available.');
@@ -6391,12 +6395,16 @@
         || Date.now();
       const savedAtMs = Number(dataToSave._savedAt || dataToSave.savedAt) || Date.now();
 
+      const savedPlannerIds = (typeof bpNormalizeEntryIds === 'function')
+        ? bpNormalizeEntryIds(dataToSave._plannerEntryIds, dataToSave.plannerEntryIds, dataToSave._plannerEntryId, dataToSave.plannerEntryId)
+        : (Array.isArray(dataToSave._plannerEntryIds) ? dataToSave._plannerEntryIds : (dataToSave._plannerEntryId ? [dataToSave._plannerEntryId] : []));
       const manifest = {
         version: 1,
         format: 'cstz',
         title: dataToSave.title || baseName,
         classGroup: dataToSave._classGroup || dataToSave.classGroup || '',
-        plannerEntryId: dataToSave._plannerEntryId || '',
+        plannerEntryIds: savedPlannerIds,
+        plannerEntryId: savedPlannerIds[0] || dataToSave._plannerEntryId || '',
         lessonId: dataToSave._lessonId || dataToSave.lessonId || '',
         competences: Array.isArray(dataToSave.competences) ? dataToSave.competences : ((typeof _conCurrentCompetences !== 'undefined' && Array.isArray(_conCurrentCompetences)) ? _conCurrentCompetences : []),
         pageCount: pages.length,
@@ -8885,7 +8893,10 @@
         const duplicateFilename = await conSuggestDuplicateFilename(sourceName);
 
         const persistedData = boardBuildPersistedSessionData('constellation', data);
+        delete persistedData._plannerEntryIds;
+        delete persistedData.plannerEntryIds;
         delete persistedData._plannerEntryId;
+        delete persistedData.plannerEntryId;
 
         const saved = await conSaveSessionFolderBundle(duplicateFilename, persistedData, {
           isManualSave: true,
@@ -9142,6 +9153,9 @@
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
           setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
+          if (typeof bpSetFromEntryIds === 'function') {
+            bpSetFromEntryIds((parsed.manifest && (parsed.manifest.plannerEntryIds || parsed.manifest.plannerEntryId)) || data._plannerEntryIds || data.plannerEntryIds || data._plannerEntryId || data.plannerEntryId || []);
+          }
           const _conAutoTitle = boardStripJsonExt(file.name);
           if (window.conSetTitle) window.conSetTitle(_conAutoTitle);
           const _conTitleEl = document.getElementById('con-title-input');
@@ -9190,6 +9204,9 @@
         boardSetSessionFileMetaFromData('constellation', data);
         _conRestoreSession(data);
         setActiveClassGroup(data._classGroup || '', { preserveBoardState: true });
+        if (typeof bpSetFromEntryIds === 'function') {
+          bpSetFromEntryIds(data._plannerEntryIds || data.plannerEntryIds || data._plannerEntryId || data.plannerEntryId || []);
+        }
         // Always update title from the loaded filename (override what _conRestoreSession set from data.title)
         const _conAutoTitle = boardStripJsonExt(file.name);
         if (window.conSetTitle) window.conSetTitle(_conAutoTitle);
@@ -10614,18 +10631,21 @@
         }
       };
 
-      // 1. From linked planner entry
-      if (activePlannerEntryId && window.PLANNER_ENTRIES_BY_CLASS) {
-        let foundEntry = null;
+      // 1. From linked planner entries
+      const activePids = (typeof bpGetEntryIds === 'function')
+        ? bpGetEntryIds()
+        : (activePlannerEntryId ? [activePlannerEntryId] : []);
+      if (activePids.length && window.PLANNER_ENTRIES_BY_CLASS) {
         const byClass = window.PLANNER_ENTRIES_BY_CLASS;
+        const pidSet = new Set(activePids);
         for (const cid of Object.keys(byClass)) {
           const list = Array.isArray(byClass[cid]) ? byClass[cid] : [];
-          const hit = list.find(e => e && e.id === activePlannerEntryId);
-          if (hit) { foundEntry = hit; break; }
-        }
-        if (foundEntry) {
-          if (Array.isArray(foundEntry.competences)) foundEntry.competences.forEach(addComp);
-          if (Array.isArray(foundEntry.competenceIds)) foundEntry.competenceIds.forEach(addComp);
+          list.forEach(e => {
+            if (e && pidSet.has(e.id)) {
+              if (Array.isArray(e.competences)) e.competences.forEach(addComp);
+              if (Array.isArray(e.competenceIds)) e.competenceIds.forEach(addComp);
+            }
+          });
         }
       }
 

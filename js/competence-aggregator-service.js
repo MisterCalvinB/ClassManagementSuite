@@ -1461,6 +1461,12 @@
           // Resolve class of board
           const bClass = String(b._classGroup || b.classGroup || b.activeClassId || b.classId || (b.metadata && b.metadata.classId) || (manifest && manifest.classGroup) || '').trim();
           const pEntryId = String(b._plannerEntryId || (b.manifest && b.manifest.plannerEntryId) || (manifest && manifest.plannerEntryId) || '').trim();
+          const pEntryIds = [];
+          if (Array.isArray(b._plannerEntryIds)) pEntryIds.push(...b._plannerEntryIds);
+          if (Array.isArray(b.plannerEntryIds)) pEntryIds.push(...b.plannerEntryIds);
+          if (b.manifest && Array.isArray(b.manifest.plannerEntryIds)) pEntryIds.push(...b.manifest.plannerEntryIds);
+          if (manifest && Array.isArray(manifest.plannerEntryIds)) pEntryIds.push(...manifest.plannerEntryIds);
+          if (pEntryId) pEntryIds.push(pEntryId);
 
           let matchesBoard = false;
           if (bClass) {
@@ -1469,14 +1475,20 @@
                            (targetClassName && bClass.toLowerCase() === targetClassName);
           }
 
-          // Check planner entry id (e.g. sched:ge-b464b83f:... or by lookup in plannerEntriesMap)
-          if (!matchesBoard && pEntryId) {
-            if (pEntryId.startsWith('sched:') && (pEntryId.includes(':' + targetClassId + ':') || (targetGroupId && pEntryId.includes(':' + targetGroupId + ':')))) {
-              matchesBoard = true;
-            } else if (plannerEntriesMap.has(pEntryId)) {
-              const pe = plannerEntriesMap.get(pEntryId);
-              if (pe && ((pe.classId === targetClassId) || (targetGroupId && pe.classId === targetGroupId) || (targetClassName && String(pe.classId).toLowerCase() === targetClassName))) {
+          // Check planner entry ids (e.g. sched:ge-b464b83f:... or by lookup in plannerEntriesMap)
+          if (!matchesBoard && pEntryIds.length > 0) {
+            for (const rawPid of pEntryIds) {
+              const pid = String(rawPid || '').trim();
+              if (!pid) continue;
+              if (pid.startsWith('sched:') && (pid.includes(':' + targetClassId + ':') || (targetGroupId && pid.includes(':' + targetGroupId + ':')))) {
                 matchesBoard = true;
+                break;
+              } else if (plannerEntriesMap.has(pid)) {
+                const pe = plannerEntriesMap.get(pid);
+                if (pe && ((pe.classId === targetClassId) || (targetGroupId && pe.classId === targetGroupId) || (targetClassName && String(pe.classId).toLowerCase() === targetClassName))) {
+                  matchesBoard = true;
+                  break;
+                }
               }
             }
           }

@@ -319,6 +319,8 @@
             <option value="change_type" data-i18n="pl_batchActionChangeType">🎨 Change entry type</option>
             <option value="apply_lesson_plan" data-i18n="pl_batchApplyLessonPlan">Apply Lesson Plan to selected</option>
             <option value="unlink_lesson_plan" data-i18n="pl_unlinkLessonPlanFromSelected">Unlink Lesson Plan from selected</option>
+            <option value="apply_board_file" data-i18n="pl_batchApplyBoardFile">Apply Board File (.cstz) to selected</option>
+            <option value="unlink_board_file" data-i18n="pl_batchUnlinkBoardFile">Unlink Board File from selected</option>
             <option value="duplicate" data-i18n="pl_batchActionDuplicate">👥 Duplicate entries</option>
           </select>
         </div>
@@ -363,6 +365,14 @@
           <div class="field-group">
             <label data-i18n="pl_batchApplyLessonPlanPrompt">Select saved lesson plan to apply</label>
             <select id="batch-select-lesson-plan" class="field-select"></select>
+          </div>
+        </div>
+
+        <!-- Apply Board File Options -->
+        <div id="batch-opt-board-file" style="display: none; margin-top: 10px;">
+          <div class="field-group">
+            <label data-i18n="pl_batchApplyBoardFilePrompt">Select saved Board file (.cstz) to link</label>
+            <select id="batch-select-board-file" class="field-select"></select>
           </div>
         </div>
 
@@ -640,6 +650,8 @@
           data-i18n="pl_createLessonPlan">Create Lesson Plan</button>
         <button class="tb-btn" id="board-entry-btn" style="display:none" onclick="plannerBoardEntryAction()"
           data-i18n="pl_boardCreate">Create board file</button>
+        <button class="tb-btn" id="board-link-entry-btn" style="display:none" onclick="plannerBoardLinkPickerModalAction()"
+          data-i18n="pl_linkBoardFile">Link Existing Board File…</button>
         <button class="tb-btn" id="dup-entry-btn" style="display:none" onclick="duplicateCurrentEntry()"
           data-i18n="pl_btnDuplicate">Duplicate</button>
         <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
@@ -669,6 +681,41 @@
       data-i18n="pl_deleteLessonPlan">Delete Lesson Plan</button>
     <button type="button" id="planner-board-menu-btn" onclick="plannerBoardEntryAction()"
       data-i18n="pl_boardCreate">Create board file</button>
+    <button type="button" id="planner-board-link-btn" onclick="plannerBoardLinkPickerAction()"
+      data-i18n="pl_linkBoardFile">Link Existing Board File…</button>
+    <button type="button" id="planner-board-unlink-btn" onclick="plannerBoardUnlinkAction()" style="display:none;"
+      data-i18n="pl_unlinkBoardFile">Unlink Board File</button>
+  </div>
+
+  <!-- ════ BOARD FILE LINK MODAL ════ -->
+  <div class="modal-overlay" id="boardLinkModal" onclick="if(event.target===this)closeModal('boardLinkModal')">
+    <div class="modal-box" style="max-width:480px;width:480px" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <h2 id="board-link-modal-title" data-i18n="pl_linkBoardFile">Link Existing Board File…</h2>
+        <button class="modal-close" onclick="closeModal('boardLinkModal')">✕</button>
+      </div>
+      <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
+        <div id="board-link-slot-info" style="font-size:0.84rem;color:#333;background:#f5f5f0;padding:8px 12px;border-radius:6px;border:1.5px solid #333;"></div>
+        <div class="field-group">
+          <label data-i18n="pl_batchApplyBoardFilePrompt">Select saved Board file (.cstz) to link</label>
+          <select id="board-link-file-select" class="field-select" onchange="onBoardLinkFileSelectChange()"></select>
+        </div>
+        <div id="board-link-multi-slots-section" class="field-group" style="display:none;">
+          <label data-i18n="pl_boardLinkedSlots">Planner slots linked to this Board file</label>
+          <div id="board-link-multi-slots-list" style="max-height:180px;overflow-y:auto;border:1.5px solid #333;border-radius:6px;background:#fafaf7;padding:6px;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
+          <button type="button" class="tb-btn" onclick="boardLinkCreateNewAction()" data-i18n="pl_boardCreate">+ Create board file</button>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="tb-btn" id="board-unlink-btn" style="display:none" onclick="boardLinkUnlinkAction()" data-i18n="pl_unlinkBoardFile">Unlink</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="tb-btn" onclick="closeModal('boardLinkModal')" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" onclick="boardLinkConfirmAction()" data-i18n="btnOk">OK</button>
+      </div>
+    </div>
   </div>
 
   <!-- ════ LESSON PLAN LINK MODAL ════ -->
@@ -1167,6 +1214,7 @@
     var classGroupsMeta = {};
     var partDates = {};
     var boardSessionsByEntryId = {};
+    var plannerBoardFilesList = [];
     var _currentSubscribedEvent = null;
     window.PLANNER_SUBSCRIPTION_CACHE = window.PLANNER_SUBSCRIPTION_CACHE || {};
     var plannerKnownClassFiles = window.__plannerKnownClassFiles || {};
@@ -1314,6 +1362,29 @@
           });
         }
       }
+      var bfSel = document.getElementById('batch-select-board-file');
+      if (bfSel) {
+        bfSel.innerHTML = '';
+        if (!plannerBoardFilesList.length) {
+          var optBfEmpty = document.createElement('option');
+          optBfEmpty.value = '';
+          optBfEmpty.textContent = t('pl_noSavedBoardFiles') || '-- No saved Board files found --';
+          bfSel.appendChild(optBfEmpty);
+        } else {
+          var optBfNone = document.createElement('option');
+          optBfNone.value = '';
+          optBfNone.textContent = '-- ' + (t('pl_linkBoardFile') || 'Select saved Board file') + ' --';
+          bfSel.appendChild(optBfNone);
+          plannerBoardFilesList.forEach(function (bf) {
+            var optBf = document.createElement('option');
+            optBf.value = bf.relativePath;
+            var clsPart = bf.classGroup ? (plannerClassDisplayName(bf.classGroup) || bf.classGroup) : '';
+            var slotCount = Array.isArray(bf.plannerEntryIds) ? bf.plannerEntryIds.length : 0;
+            optBf.textContent = (bf.name || bf.filename) + (clsPart ? ' (' + clsPart + ')' : '') + (slotCount > 0 ? ' [' + slotCount + ' slot' + (slotCount > 1 ? 's' : '') + ']' : '');
+            bfSel.appendChild(optBf);
+          });
+        }
+      }
       openModal('batchActionModal');
     }
 
@@ -1325,6 +1396,8 @@
       document.getElementById('batch-opt-type').style.display = (val === 'change_type' ? 'block' : 'none');
       var lpOpt = document.getElementById('batch-opt-lesson-plan');
       if (lpOpt) lpOpt.style.display = (val === 'apply_lesson_plan' ? 'block' : 'none');
+      var bfOpt = document.getElementById('batch-opt-board-file');
+      if (bfOpt) bfOpt.style.display = (val === 'apply_board_file' ? 'block' : 'none');
     }
 
     async function commitBatchAction() {
@@ -1463,6 +1536,42 @@
         await loadSavedLessonPlans();
         render();
         showToast(t('pl_lessonPlanUnlinked') || 'Lesson plan unlinked');
+      }
+      else if (val === 'apply_board_file') {
+        var bfSelect = document.getElementById('batch-select-board-file');
+        var chosenRelPath = bfSelect ? bfSelect.value : '';
+        if (!chosenRelPath) {
+          closeModal('batchActionModal');
+          return;
+        }
+        var targetSlotIds = Array.from(selectedEntryIds).filter(Boolean);
+        if (targetSlotIds.length) {
+          await plannerUpdateBoardFileSlotsOnDisk(chosenRelPath, { addIds: targetSlotIds });
+        }
+        await persistEntries();
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        await loadBoardSessions();
+        render();
+        showToast(t('saved'));
+      }
+      else if (val === 'unlink_board_file') {
+        var unlinkSlotIds = Array.from(selectedEntryIds).filter(Boolean);
+        var filesToUpdate = new Set();
+        unlinkSlotIds.forEach(function (sid) {
+          var sessList = boardSessionsByEntryId[sid] || [];
+          sessList.forEach(function (s) {
+            if (s && s.relativePath) filesToUpdate.add(s.relativePath);
+          });
+        });
+        for (var relP of filesToUpdate) {
+          await plannerUpdateBoardFileSlotsOnDisk(relP, { removeIds: unlinkSlotIds });
+        }
+        exitMultiSelectMode();
+        closeModal('batchActionModal');
+        await loadBoardSessions();
+        render();
+        showToast(t('pl_boardUnlinked') || 'Board file unlinked');
       }
       else if (val === 'duplicate') {
         var newEntries = [];
@@ -1675,6 +1784,7 @@
           var pill = targetEl.closest ? targetEl.closest('.entry-detail-pill') : null;
           var typeBadge = targetEl.closest ? targetEl.closest('.entry-type-badge[draggable="true"]') : null;
           var lpBadge = targetEl.closest ? targetEl.closest('.lesson-plan-badge[draggable="true"]') : null;
+          var boardBadge = targetEl.closest ? targetEl.closest('.board-session-badge[draggable="true"]') : null;
           var srcRow = targetEl.closest ? targetEl.closest('.entry-row[data-entry-id], .at-cell[data-entry-id]') : null;
 
           if (pill) {
@@ -1708,6 +1818,16 @@
               planId: lpBadge.getAttribute('data-plan-id')
             };
             lpBadge.classList.add('badge-dragging');
+          } else if (boardBadge) {
+            var srcId = boardBadge.getAttribute('data-entry-id') || (srcRow ? srcRow.getAttribute('data-entry-id') : null);
+            _dragSourceEntryId = srcId || '__board__';
+            _dragPayload = {
+              type: 'board-session',
+              srcEntryId: srcId,
+              boardRelPath: boardBadge.getAttribute('data-board-relpath') || '',
+              boardName: boardBadge.getAttribute('data-board-name') || ''
+            };
+            boardBadge.classList.add('badge-dragging');
           } else if (srcRow) {
             _dragSourceEntryId = srcRow.getAttribute('data-entry-id');
             _dragPayload = {
@@ -2101,11 +2221,18 @@
     function _plannerCreateBoardBadge(linkId, sessions) {
       if (!sessions || !sessions.length) return null;
       var _bLatest = sessions.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
-      var _bTitle = t('pl_boardLinked') + (sessions.length > 1 ? ' (' + sessions.length + ')' : '') + ': ' + _bLatest.name;
+      var _bTitle = t('pl_boardLinked') + (sessions.length > 1 ? ' (' + sessions.length + ')' : '') + ': ' + _bLatest.name + ' (Click to open · Drag to link to another slot)';
       var span = document.createElement('span');
       span.className = 'board-session-badge';
       span.title = _bTitle;
       span.textContent = t('pl_boardOpen');
+      if (_bLatest.relativePath) {
+        span.setAttribute('draggable', 'true');
+        span.setAttribute('data-drag-type', 'board-session');
+        span.setAttribute('data-board-relpath', _bLatest.relativePath);
+        span.setAttribute('data-board-name', _bLatest.name || '');
+        span.setAttribute('data-entry-id', linkId || '');
+      }
       span.onclick = function (e) { e.stopPropagation(); openLinkedBoard(linkId); };
       return span;
     }
@@ -2349,9 +2476,24 @@
       });
     }
 
+    function _plannerNormalizeEntryIds() {
+      var out = [];
+      var seen = new Set();
+      function addVal(v) {
+        if (Array.isArray(v)) { v.forEach(addVal); return; }
+        if (typeof v !== 'string' && typeof v !== 'number') return;
+        String(v).split(',').map(function (s) { return s.trim(); }).filter(Boolean).forEach(function (p) {
+          if (!seen.has(p)) { seen.add(p); out.push(p); }
+        });
+      }
+      for (var i = 0; i < arguments.length; i++) addVal(arguments[i]);
+      return out;
+    }
+
     async function loadBoardSessions() {
       if (!window.Desktop || !Desktop.isElectron()) return;
       var nextBoardSessionsByEntryId = {};
+      var nextBoardFilesList = [];
 
       function addLinkedBoardSession(linkId, session, dedupe) {
         if (!linkId || !session) return false;
@@ -2359,20 +2501,31 @@
         var key = String(dedupe || session.id || '') + '|' + String(session.openKind || 'local');
         var arr = nextBoardSessionsByEntryId[linkId];
         if (arr.some(function (x) { return (String(x._k || '') === key); })) return false;
-        session._k = key;
-        arr.push(session);
+        var cloned = Object.assign({}, session, { _k: key });
+        arr.push(cloned);
         return true;
       }
 
-      function extractPlannerEntryId(content) {
+      function extractPlannerEntryIds(content) {
         var txt = String(content || '');
+        var ids = [];
+        var arrMatch = txt.match(/"_?plannerEntryIds"\s*:\s*\[([^\]]*)\]/);
+        if (arrMatch && arrMatch[1]) {
+          var strMatches = arrMatch[1].match(/"([^"]+)"/g) || [];
+          strMatches.forEach(function (s) {
+            var clean = s.slice(1, -1).trim();
+            if (clean) ids.push(clean);
+          });
+        }
         var m = txt.match(/"_plannerEntryId"\s*:\s*"([^"]*)"/);
         if (!m) m = txt.match(/"plannerEntryId"\s*:\s*"([^"]*)"/);
-        return m ? String(m[1] || '').trim() : '';
+        if (m && m[1]) ids.push(String(m[1]).trim());
+        return _plannerNormalizeEntryIds(ids);
       }
 
       function isMindmapSessionFile(file) {
         var rel = String((file && (file.relativePath || file.filename)) || '').replace(/\\/g, '/');
+        if (rel.toLowerCase().startsWith('templates/')) return false;
         var parts = rel.split('/').filter(Boolean);
         var filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
         if (!filename) return false;
@@ -2395,15 +2548,23 @@
               // Constellation links in Planner must be file-backed to avoid reopening stale
               // local backup entries that can recreate deleted files via board silent-save.
               if (section === 'constellation') return;
-              var eid = String(e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '').trim();
-              if (!eid) return;
-              addLinkedBoardSession(eid, {
-                id: String(e.id),
-                name: String(e.name || ''),
-                section: section,
-                savedAt: Number(e.savedAt) || 0,
-                openKind: 'local'
-              }, section + ':' + String(e.id));
+              var eids = _plannerNormalizeEntryIds(
+                e.plannerEntryIds,
+                e.plannerEntryId,
+                e.data && e.data._plannerEntryIds,
+                e.data && e.data.plannerEntryIds,
+                e.data && e.data._plannerEntryId,
+                e.data && e.data.plannerEntryId
+              );
+              eids.forEach(function (eid) {
+                addLinkedBoardSession(eid, {
+                  id: String(e.id),
+                  name: String(e.name || ''),
+                  section: section,
+                  savedAt: Number(e.savedAt) || 0,
+                  openKind: 'local'
+                }, section + ':' + String(e.id));
+              });
             });
           });
         }
@@ -2421,51 +2582,76 @@
               var relPath = String((f && (f.relativePath || f.filename)) || '').replace(/\\/g, '/');
               if (!relPath) return;
               var cacheKey = relPath + ':' + (f.mtimeMs || f.size || 0);
-              var peid = '';
+              var peids = _plannerNormalizeEntryIds(f.plannerEntryIds, f.plannerEntryId);
+              var cGroup = String(f.classGroup || '').trim();
 
-              if (_plannerBoardMetaCache && typeof _plannerBoardMetaCache[cacheKey] === 'string') {
-                peid = _plannerBoardMetaCache[cacheKey];
-              } else {
+              if (!peids.length && _plannerBoardMetaCache && typeof _plannerBoardMetaCache[cacheKey] === 'string') {
+                peids = _plannerNormalizeEntryIds(_plannerBoardMetaCache[cacheKey]);
+              } else if (!peids.length) {
                 try {
                   var isArchive = relPath.endsWith('.cstz') || relPath.endsWith('.zip');
                   if (isArchive && typeof Desktop.inspectBoardArchive === 'function') {
                     var inspectRes = await Desktop.inspectBoardArchive('mindmaps', relPath);
                     if (inspectRes && inspectRes.ok) {
-                      peid = inspectRes.plannerEntryId || '';
+                      peids = _plannerNormalizeEntryIds(
+                        inspectRes.plannerEntryIds,
+                        inspectRes.plannerEntryId,
+                        inspectRes.manifest && inspectRes.manifest.plannerEntryIds,
+                        inspectRes.manifest && inspectRes.manifest.plannerEntryId
+                      );
+                      if (!cGroup && inspectRes.classGroup) cGroup = inspectRes.classGroup;
                     }
                   } else if (typeof Desktop.readByPath === 'function') {
                     var fileRes = await Desktop.readByPath('mindmaps', relPath);
                     if (fileRes && fileRes.ok && fileRes.content) {
-                      peid = extractPlannerEntryId(fileRes.content);
+                      peids = extractPlannerEntryIds(fileRes.content);
                     }
                   }
-                  _plannerBoardMetaCache[cacheKey] = peid;
+                  _plannerBoardMetaCache[cacheKey] = peids.join(',');
                   cacheUpdated = true;
                 } catch (_fileErr) { }
+              } else {
+                _plannerBoardMetaCache[cacheKey] = peids.join(',');
               }
 
-              if (!peid) return;
               var label = String(f.filename || relPath.split('/').pop() || relPath).replace(/\.(js|json|cstz|zip)$/i, '');
-              addLinkedBoardSession(peid, {
+              nextBoardFilesList.push({
                 id: 'path:' + relPath,
                 name: label,
-                section: 'constellation',
-                savedAt: Number(f.mtimeMs) || 0,
-                openKind: 'file',
-                target: 'mindmaps',
                 filename: String(f.filename || relPath.split('/').pop() || ''),
-                relativePath: relPath
-              }, 'file:' + relPath);
-              if (peid && typeof LinksService !== 'undefined' && typeof LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
-                var bUrn = LinksService.makeUrn('board', relPath);
-                var pUrn = LinksService.makeUrn('planner', peid);
-                LinksService.cascadeLessonCompetencesToBoardAndPlanner(bUrn, pUrn).catch(function () {});
-              }
+                relativePath: relPath,
+                classGroup: cGroup,
+                plannerEntryIds: peids,
+                savedAt: Number(f.savedAt || f.mtimeMs) || 0
+              });
+
+              if (!peids.length) return;
+              peids.forEach(function (peid) {
+                addLinkedBoardSession(peid, {
+                  id: 'path:' + relPath,
+                  name: label,
+                  section: 'constellation',
+                  savedAt: Number(f.mtimeMs) || 0,
+                  openKind: 'file',
+                  target: 'mindmaps',
+                  filename: String(f.filename || relPath.split('/').pop() || ''),
+                  relativePath: relPath,
+                  plannerEntryIds: peids
+                }, 'file:' + relPath);
+                if (peid && typeof LinksService !== 'undefined' && typeof LinksService.cascadeLessonCompetencesToBoardAndPlanner === 'function') {
+                  var bUrn = LinksService.makeUrn('board', relPath);
+                  var pUrn = LinksService.makeUrn('planner', peid);
+                  LinksService.cascadeLessonCompetencesToBoardAndPlanner(bUrn, pUrn).catch(function () {});
+                }
+              });
             }));
           }
           if (cacheUpdated) _savePlannerBoardMetaCache();
         }
       } catch (_) { }
+
+      nextBoardFilesList.sort(function (a, b) { return (b.savedAt || 0) - (a.savedAt || 0); });
+      plannerBoardFilesList = nextBoardFilesList;
 
       // Compute fine-grained diff of changed link IDs
       var allLinkIds = new Set([].concat(Object.keys(boardSessionsByEntryId || {}), Object.keys(nextBoardSessionsByEntryId)));
@@ -3463,8 +3649,9 @@
       var _bSess = _boardLink.sessions;
       if (_bSess && _bSess.length) {
         var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
-        var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name;
-        r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
+        var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name + ' (Click to open · Drag to link to another slot)';
+        var _bDragAttr = _bLatest.relativePath ? (' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bLatest.relativePath) + '" data-board-name="' + esc(_bLatest.name || '') + '" data-entry-id="' + esc(_boardLink.linkId) + '"') : '';
+        r += '<span class="board-session-badge"' + _bDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
       }
       r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '<div class="entry-actions" onclick="event.stopPropagation()">';
@@ -4563,6 +4750,7 @@
         _version: 1,
         _createdAt: now,
         _savedAt: now,
+        _plannerEntryIds: linkId ? [linkId] : [],
         _plannerEntryId: linkId,
         _classGroup: String(entry && entry.classId || ''),
         dateCreated: new Date(now).toISOString(),
@@ -4625,6 +4813,7 @@
 
     function plannerUpdateBoardEntryControls(entry) {
       var btn = document.getElementById('board-entry-btn');
+      var linkBtn = document.getElementById('board-link-entry-btn');
       var menuBtn = document.getElementById('planner-board-menu-btn');
       var lpBtn = document.getElementById('lp-entry-btn');
       var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
@@ -4635,6 +4824,9 @@
       if (btn) {
         btn.style.display = canCreate ? '' : 'none';
         btn.textContent = label;
+      }
+      if (linkBtn) {
+        linkBtn.style.display = canCreate ? '' : 'none';
       }
       if (menuBtn) menuBtn.textContent = label;
 
@@ -4682,9 +4874,11 @@
         timeEnd: slotDraft.timeEnd
       } : null;
       var menuBtn = document.getElementById('planner-board-menu-btn');
+      var boardUnlinkBtn = document.getElementById('planner-board-unlink-btn');
       var linkId = entry ? String(entry.id) : plannerBoardLinkId(_plannerBoardMenuSlot, null);
       var linked = !!(linkId && boardSessionsByEntryId[linkId] && boardSessionsByEntryId[linkId].length);
       if (menuBtn) menuBtn.textContent = linked ? t('pl_boardOpen') : t('pl_boardCreate');
+      if (boardUnlinkBtn) boardUnlinkBtn.style.display = linked ? 'block' : 'none';
 
       // Update Links & Tags context menu buttons
       var linksMenuBtn = document.getElementById('planner-links-menu-btn');
@@ -5308,6 +5502,7 @@
             version: 1,
             format: 'cstz',
             title: baseName,
+            plannerEntryIds: linkId ? [linkId] : [],
             plannerEntryId: linkId,
             pageCount: 1,
             nodeCount: 0,
@@ -5340,6 +5535,307 @@
         openLinkedBoard(linkId);
       } catch (err) {
         mdbToast('⚠️ ' + (err && err.message ? err.message : t('pl_boardCreateErr')));
+      }
+    }
+
+    async function plannerUpdateBoardFileSlotsOnDisk(relativePath, patch) {
+      if (!relativePath || !window.Desktop || !Desktop.isElectron()) return false;
+      var normRel = String(relativePath).replace(/\\/g, '/');
+      try {
+        var res = null;
+        if (typeof Desktop.updateBoardArchiveMeta === 'function') {
+          res = await Desktop.updateBoardArchiveMeta('mindmaps', normRel, {
+            plannerEntryIds: patch && Array.isArray(patch.setIds) ? patch.setIds : undefined,
+            addPlannerEntryIds: patch && patch.addIds ? patch.addIds : undefined,
+            removePlannerEntryIds: patch && patch.removeIds ? patch.removeIds : undefined,
+            classGroup: patch && patch.classGroup ? patch.classGroup : undefined
+          });
+        }
+        // Invalidate cache keys for this relativePath
+        Object.keys(_plannerBoardMetaCache || {}).forEach(function (k) {
+          if (k === normRel || k.startsWith(normRel + ':')) {
+            delete _plannerBoardMetaCache[k];
+          }
+        });
+        _savePlannerBoardMetaCache();
+
+        if (window.LinksService) {
+          var bUrn = LinksService.makeUrn('board', normRel);
+          if (patch && patch.addIds && typeof LinksService.addLink === 'function') {
+            _plannerNormalizeEntryIds(patch.addIds).forEach(function (sid) {
+              LinksService.addLink(bUrn, LinksService.makeUrn('planner', sid), { relation: 'planner_slot' }).catch(function () {});
+            });
+          }
+          if (patch && patch.removeIds && typeof LinksService.removeLink === 'function') {
+            _plannerNormalizeEntryIds(patch.removeIds).forEach(function (sid) {
+              LinksService.removeLink(bUrn, LinksService.makeUrn('planner', sid)).catch(function () {});
+            });
+          }
+        }
+        return !!(res && res.ok);
+      } catch (err) {
+        console.warn('plannerUpdateBoardFileSlotsOnDisk error:', err);
+        return false;
+      }
+    }
+
+    var _pendingBoardLinkSource = null;
+    var _pendingBoardLinkEntry = null;
+    var _pendingBoardLinkSlotSet = new Set();
+
+    function plannerBoardLinkPickerAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+      openBoardLinkModal(source, entry);
+    }
+
+    function plannerBoardLinkPickerModalAction() {
+      var id = String(editingId || '').trim();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = plannerBoardDraftEntryFromModal();
+      var source = entry || draft;
+      if (!source) return;
+      openBoardLinkModal(source, entry);
+    }
+
+    async function plannerBoardUnlinkAction(entryId) {
+      var id = String(entryId || _plannerBoardMenuEntryId || editingId || '').trim();
+      plannerHideBoardEntryMenu();
+      var entry = id ? entries.find(function (e) { return e.id === id; }) : null;
+      var draft = !entry ? plannerBoardDraftEntryFromModal() : null;
+      var slotDraft = (!entry && !draft) ? plannerBoardDraftEntryFromSlot(_plannerBoardMenuSlot) : null;
+      var source = entry || draft || slotDraft;
+      if (!source) return;
+
+      var linkId = entry && entry.id ? String(entry.id) : plannerBoardLinkId({ classId: source.classId, date: source.date, time: source.time }, null);
+      if (!linkId) return;
+      var sessions = boardSessionsByEntryId[linkId] || [];
+      for (var i = 0; i < sessions.length; i++) {
+        var s = sessions[i];
+        if (s && s.relativePath) {
+          await plannerUpdateBoardFileSlotsOnDisk(s.relativePath, { removeIds: [linkId] });
+        }
+      }
+      await loadBoardSessions();
+      plannerUpdateBoardEntryControls(source);
+      render();
+      showToast(t('pl_boardUnlinked') || 'Board file unlinked');
+    }
+
+    async function openBoardLinkModal(source, entry) {
+      _pendingBoardLinkSource = source;
+      _pendingBoardLinkEntry = entry;
+      if (!plannerBoardFilesList.length) {
+        await loadBoardSessions();
+      }
+      var infoEl = document.getElementById('board-link-slot-info');
+      var clsName = source.classId ? plannerClassDisplayName(source.classId) : t('pl_noClass');
+      var dateStr = source.date || '';
+      var topicStr = source.topic || (entry && entry.topic) || '';
+      if (infoEl) {
+        infoEl.innerHTML = '<strong>' + esc(clsName) + '</strong> &bull; ' + esc(dateStr) + (topicStr ? ' &bull; <em>' + esc(topicStr) + '</em>' : '');
+      }
+
+      var curLinkId = entry && entry.id ? String(entry.id) : plannerBoardLinkId({ classId: source.classId, date: source.date, time: source.time }, null);
+      var existingSessions = (curLinkId && boardSessionsByEntryId[curLinkId]) ? boardSessionsByEntryId[curLinkId] : [];
+      var existingRelPath = (existingSessions.length && existingSessions[0].relativePath) ? existingSessions[0].relativePath : '';
+
+      var sel = document.getElementById('board-link-file-select');
+      if (sel) {
+        sel.innerHTML = '';
+        if (!plannerBoardFilesList.length) {
+          var optEmpty = document.createElement('option');
+          optEmpty.value = '';
+          optEmpty.textContent = t('pl_noSavedBoardFiles') || '-- No saved Board files found --';
+          sel.appendChild(optEmpty);
+        } else {
+          var optNone = document.createElement('option');
+          optNone.value = '';
+          optNone.textContent = '-- ' + (t('pl_linkBoardFile') || 'Select saved Board file') + ' --';
+          sel.appendChild(optNone);
+          plannerBoardFilesList.forEach(function (bf) {
+            var opt = document.createElement('option');
+            opt.value = bf.relativePath;
+            var clsPart = bf.classGroup ? (plannerClassDisplayName(bf.classGroup) || bf.classGroup) : '';
+            var slotCount = Array.isArray(bf.plannerEntryIds) ? bf.plannerEntryIds.length : 0;
+            opt.textContent = (bf.name || bf.filename) + (clsPart ? ' (' + clsPart + ')' : '') + (slotCount > 0 ? ' [' + slotCount + ' slot' + (slotCount > 1 ? 's' : '') + ']' : '');
+            sel.appendChild(opt);
+          });
+        }
+        if (existingRelPath) {
+          sel.value = existingRelPath;
+        }
+      }
+
+      var unlinkBtn = document.getElementById('board-unlink-btn');
+      if (unlinkBtn) unlinkBtn.style.display = existingSessions.length ? 'inline-block' : 'none';
+
+      onBoardLinkFileSelectChange();
+      openModal('boardLinkModal');
+    }
+
+    function onBoardLinkFileSelectChange() {
+      var sel = document.getElementById('board-link-file-select');
+      var sectionEl = document.getElementById('board-link-multi-slots-section');
+      var listEl = document.getElementById('board-link-multi-slots-list');
+      if (!sel || !sectionEl || !listEl) return;
+      var chosenRelPath = sel.value;
+      if (!chosenRelPath) {
+        sectionEl.style.display = 'none';
+        _pendingBoardLinkSlotSet = new Set();
+        return;
+      }
+
+      var bf = plannerBoardFilesList.find(function (x) { return x.relativePath === chosenRelPath; });
+      var currentSlotId = '';
+      if (_pendingBoardLinkEntry && _pendingBoardLinkEntry.id) {
+        currentSlotId = String(_pendingBoardLinkEntry.id);
+      } else if (_pendingBoardLinkSource) {
+        currentSlotId = plannerBoardLinkId({ classId: _pendingBoardLinkSource.classId, date: _pendingBoardLinkSource.date, time: _pendingBoardLinkSource.time }, null);
+      }
+
+      _pendingBoardLinkSlotSet = new Set(bf && Array.isArray(bf.plannerEntryIds) ? bf.plannerEntryIds : []);
+      if (currentSlotId) _pendingBoardLinkSlotSet.add(currentSlotId);
+
+      // Build list of candidate slots (currently linked slots + slots from active/target class)
+      var targetClassId = (_pendingBoardLinkSource && _pendingBoardLinkSource.classId) || (bf && bf.classGroup) || '';
+      var candidateEntries = entries.filter(function (e) {
+        if (!e || !e.id) return false;
+        if (_pendingBoardLinkSlotSet.has(e.id)) return true;
+        if (targetClassId && e.classId === targetClassId) return true;
+        return false;
+      }).slice().sort(function (a, b) {
+        return String(a.date || '').localeCompare(String(b.date || '')) || String(a.time || '').localeCompare(String(b.time || ''));
+      });
+
+      listEl.innerHTML = '';
+      if (!candidateEntries.length && currentSlotId) {
+        var singleRow = document.createElement('label');
+        singleRow.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:0.78rem;font-weight:700;padding:4px 6px;border-radius:4px;background:#e4f2ea;border:1.5px solid #333;cursor:pointer;';
+        var cb0 = document.createElement('input');
+        cb0.type = 'checkbox';
+        cb0.checked = true;
+        cb0.onchange = function () {
+          if (cb0.checked) _pendingBoardLinkSlotSet.add(currentSlotId);
+          else _pendingBoardLinkSlotSet.delete(currentSlotId);
+        };
+        var txt0 = document.createElement('span');
+        txt0.textContent = (_pendingBoardLinkSource && _pendingBoardLinkSource.date ? _pendingBoardLinkSource.date : currentSlotId) + (_pendingBoardLinkSource && _pendingBoardLinkSource.topic ? ' · ' + _pendingBoardLinkSource.topic : '');
+        singleRow.appendChild(cb0);
+        singleRow.appendChild(txt0);
+        listEl.appendChild(singleRow);
+      } else {
+        candidateEntries.forEach(function (e) {
+          var isChecked = _pendingBoardLinkSlotSet.has(e.id);
+          var row = document.createElement('label');
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:0.78rem;font-weight:' + (isChecked ? '800' : '600') + ';padding:4px 6px;border-radius:4px;background:' + (isChecked ? '#e4f2ea' : '#fff') + ';border:1.5px solid ' + (isChecked ? '#333' : '#ccc') + ';cursor:pointer;';
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = isChecked;
+          cb.onchange = function () {
+            if (cb.checked) _pendingBoardLinkSlotSet.add(e.id);
+            else _pendingBoardLinkSlotSet.delete(e.id);
+            row.style.background = cb.checked ? '#e4f2ea' : '#fff';
+            row.style.borderColor = cb.checked ? '#333' : '#ccc';
+            row.style.fontWeight = cb.checked ? '800' : '600';
+          };
+          var clsLbl = e.classId ? plannerClassDisplayName(e.classId) : '';
+          var lblTxt = (e.date || '') + (e.time ? ' ' + e.time : '') + (clsLbl ? ' · ' + clsLbl : '') + (e.topic ? ' · ' + e.topic : '');
+          var span = document.createElement('span');
+          span.textContent = lblTxt;
+          row.appendChild(cb);
+          row.appendChild(span);
+          listEl.appendChild(row);
+        });
+      }
+      sectionEl.style.display = 'block';
+    }
+
+    async function boardLinkConfirmAction() {
+      var sel = document.getElementById('board-link-file-select');
+      var chosenRelPath = sel ? sel.value : '';
+      if (!chosenRelPath) {
+        closeModal('boardLinkModal');
+        return;
+      }
+
+      var ent = _pendingBoardLinkEntry;
+      var src = _pendingBoardLinkSource;
+      if (!ent && src && src.date && src.classId) {
+        var oldSchedId = plannerBoardLinkId({ classId: src.classId, date: src.date, time: src.time }, null);
+        ent = {
+          id: uid(),
+          classId: src.classId || '',
+          date: src.date,
+          time: src.time || '',
+          timeEnd: src.timeEnd || '',
+          type: 'lesson',
+          topic: src.topic || ''
+        };
+        entries.push(ent);
+        await persistEntries();
+        if (oldSchedId && _pendingBoardLinkSlotSet.has(oldSchedId)) {
+          _pendingBoardLinkSlotSet.delete(oldSchedId);
+        }
+        _pendingBoardLinkSlotSet.add(ent.id);
+      }
+
+      var finalIds = Array.from(_pendingBoardLinkSlotSet).filter(Boolean);
+      await plannerUpdateBoardFileSlotsOnDisk(chosenRelPath, {
+        setIds: finalIds,
+        classGroup: (src && src.classId) || undefined
+      });
+
+      closeModal('boardLinkModal');
+      await loadBoardSessions();
+      if (src) plannerUpdateBoardEntryControls(ent || src);
+      render();
+      showToast(t('saved'));
+    }
+
+    async function boardLinkUnlinkAction() {
+      var src = _pendingBoardLinkSource;
+      var ent = _pendingBoardLinkEntry;
+      var linkId = ent && ent.id ? String(ent.id) : (src ? plannerBoardLinkId({ classId: src.classId, date: src.date, time: src.time }, null) : '');
+      closeModal('boardLinkModal');
+      if (!linkId) return;
+      var sessions = boardSessionsByEntryId[linkId] || [];
+      for (var i = 0; i < sessions.length; i++) {
+        if (sessions[i] && sessions[i].relativePath) {
+          await plannerUpdateBoardFileSlotsOnDisk(sessions[i].relativePath, { removeIds: [linkId] });
+        }
+      }
+      await loadBoardSessions();
+      if (src) plannerUpdateBoardEntryControls(ent || src);
+      render();
+      showToast(t('pl_boardUnlinked') || 'Board file unlinked');
+    }
+
+    async function boardLinkCreateNewAction() {
+      var src = _pendingBoardLinkSource;
+      var ent = _pendingBoardLinkEntry;
+      closeModal('boardLinkModal');
+      if (!src) return;
+      if (!ent && src.date && src.classId) {
+        ent = {
+          id: uid(),
+          classId: src.classId,
+          date: src.date,
+          time: src.time || '',
+          timeEnd: src.timeEnd || '',
+          type: 'lesson',
+          topic: src.topic || ''
+        };
+        entries.push(ent);
+        await persistEntries();
+      }
+      if (ent && ent.id) {
+        await plannerBoardEntryAction(ent.id);
       }
     }
 
@@ -7766,6 +8262,14 @@
         } else {
           msg = tFmt('pl_dragCopyLpSlot', { plan: lpTitle });
         }
+      } else if (payload.type === 'board-session') {
+        var bFile = (typeof plannerBoardFilesList !== 'undefined' && plannerBoardFilesList.find(function (f) { return f.relativePath === payload.boardRelPath; })) || null;
+        var bTitle = (bFile && bFile.title) ? bFile.title.slice(0, 40) : (payload.boardRelPath ? payload.boardRelPath.split('/').pop() : t('pl_boardOpen'));
+        if (targetInfo.entryId) {
+          msg = tFmt('pl_dragCopyBoardMsg', { board: bTitle, tgt: tgtLabel }) || ('Link Board "' + bTitle + '" to "' + tgtLabel + '"?');
+        } else {
+          msg = tFmt('pl_dragCopyBoardSlot', { board: bTitle }) || ('Link Board "' + bTitle + '" to this slot?');
+        }
       } else {
         if (targetInfo.entryId) {
           msg = tFmt('pl_dragCopyMsg', { src: srcLabel, tgt: tgtLabel });
@@ -7966,6 +8470,53 @@
         return;
       }
 
+      if (payload.type === 'board-session') {
+        var boardRelPath = payload.boardRelPath || '';
+        if (!boardRelPath && payload.boardLinkId) {
+          var bSessList = plannerBoardSessions[String(payload.boardLinkId)] || [];
+          if (bSessList.length && bSessList[0].relativePath) boardRelPath = bSessList[0].relativePath;
+        }
+        if (!boardRelPath) {
+          showToast(t('pl_noSavedBoardFiles') || 'Board file not found', true);
+          return;
+        }
+
+        if (targetInfo && targetInfo.entryId) {
+          var tgtEntryB = entries.find(function (e) { return e.id === targetInfo.entryId; });
+          if (!tgtEntryB) return;
+          updatedEntry = tgtEntryB;
+        } else if (targetInfo && targetInfo.date) {
+          var bFileInfo = (typeof plannerBoardFilesList !== 'undefined' && plannerBoardFilesList.find(function (f) { return f.relativePath === boardRelPath; })) || null;
+          var newEntryB = {
+            id: uid(),
+            classId: targetInfo.classId || (srcEntry ? srcEntry.classId : '') || activeCls,
+            date: targetInfo.date,
+            time: targetInfo.time || '',
+            timeEnd: targetInfo.timeEnd || '',
+            type: 'lesson',
+            topic: (bFileInfo && bFileInfo.title) ? bFileInfo.title : '',
+            objective: '',
+            notes: '',
+            gsLink: null,
+            lessonPlanId: null
+          };
+          entries.push(newEntryB);
+          updatedEntry = newEntryB;
+        }
+
+        if (updatedEntry) {
+          await plannerUpdateBoardFileSlotsOnDisk(boardRelPath, {
+            addIds: [updatedEntry.id],
+            classGroup: updatedEntry.classId || ''
+          });
+          await persistEntries();
+          await loadBoardSessions();
+          render();
+          showToast(t('pl_dragCopyBoardDone') || 'Board file linked to slot');
+        }
+        return;
+      }
+
       // ── Whole Entry Duplicate (type === 'entry') ─────────────
       if (!srcEntry) return;
 
@@ -8066,6 +8617,30 @@
           }
         } catch (copyErr) {
           console.warn('Failed to duplicate linked lesson plan:', copyErr);
+        }
+      }
+
+      // Check if source entry had linked Board sessions; link them to the new entry too!
+      var srcBoardLink = plannerBoardSessionsForSlot(srcSlot, srcEntry);
+      if (srcBoardLink && Array.isArray(srcBoardLink.sessions) && srcBoardLink.sessions.length > 0 && updatedEntry && updatedEntry.id) {
+        try {
+          var seenBoardRelPaths = new Set();
+          for (var bIdx = 0; bIdx < srcBoardLink.sessions.length; bIdx++) {
+            var bSess = srcBoardLink.sessions[bIdx];
+            var bRel = bSess && bSess.relativePath ? bSess.relativePath : '';
+            if (bRel && !seenBoardRelPaths.has(bRel)) {
+              seenBoardRelPaths.add(bRel);
+              await plannerUpdateBoardFileSlotsOnDisk(bRel, {
+                addIds: [updatedEntry.id],
+                classGroup: updatedEntry.classId || ''
+              });
+            }
+          }
+          if (seenBoardRelPaths.size > 0) {
+            await loadBoardSessions();
+          }
+        } catch (bErr) {
+          console.warn('Failed to link board sessions to duplicated entry:', bErr);
         }
       }
 
@@ -8485,8 +9060,11 @@
         var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
         r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
-      if (_atBSess && _atBSess.length)
-        r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+      if (_atBSess && _atBSess.length) {
+        var _bMRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
+        var _bMDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bMRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+        r += '<span class="board-session-badge"' + _bMDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+      }
       r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
       return r;
@@ -8510,8 +9088,11 @@
           var _lpCEmptyTitle = t('pl_lessonPlanLinked') + ': ' + (_lpCEmpty.title || 'Untitled');
           _empty += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpCEmpty.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'\',\'\')" title="' + esc(_lpCEmptyTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
         }
-        if (_atBSess && _atBSess.length)
-          _empty += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+        if (_atBSess && _atBSess.length) {
+          var _bERel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
+          var _bEDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bERel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id=""';
+          _empty += '<span class="board-session-badge"' + _bEDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+        }
         return _empty + '</div>';
       }
 
@@ -8539,8 +9120,11 @@
         var _lpCDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpC.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
         r += '<span class="lesson-plan-badge"' + _lpCDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpC.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
-      if (_atBSess && _atBSess.length)
-        r += '<span class="board-session-badge" onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + '</span>';
+      if (_atBSess && _atBSess.length) {
+        var _bCRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
+        var _bCDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bCRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+        r += '<span class="board-session-badge"' + _bCDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+      }
       r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
       return r;

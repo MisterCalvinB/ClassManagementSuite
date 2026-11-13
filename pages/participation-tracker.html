@@ -12576,6 +12576,16 @@
             const semNum = _cgd.activeSemester ? String(_cgd.activeSemester) : '1';
             const semester = (semNum === '2' || semNum === 'sem2') ? 'sem2' : 'sem1';
 
+            const totalCritPts = criteria.reduce((sum, c) => sum + (!c.bonus && !c.isBonus ? (Number(c.maxPoints) || 0) : 0), 0);
+            const ptManualThresholds = {};
+            const ptManualPoints = {};
+            for (let g = 0; g <= maxGrade + 0.0001; g = Math.round((g + 0.5) * 100) / 100) {
+                const key = String(g);
+                const ratio = maxGrade > 0 ? Math.max(0, Math.min(1, g / maxGrade)) : 0;
+                ptManualThresholds[key] = Math.round(ratio * 1000) / 10;
+                ptManualPoints[key] = Math.round(ratio * totalCritPts * 100) / 100;
+            }
+
             const testConfig = {
                 testName: (typeof t === 'function' ? t('ptParticipationTestName') : '') || 'Participation',
                 testDate: dateRange.to || new Date().toISOString().split('T')[0],
@@ -12588,7 +12598,8 @@
                     maxGrade: maxGrade,
                     minGrade: 0,
                     interval: 0.5,
-                    manualThresholds: {}
+                    manualThresholds: ptManualThresholds,
+                    manualPoints: ptManualPoints
                 }
             };
 

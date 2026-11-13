@@ -310,10 +310,13 @@ When loading a class group in [Class Management](#class-managementhtml) on a dat
 
 ---
 
-### Board ↔ Planner: Lesson Tagging
+### Board ↔ Planner: Multi-Slot Lesson Tagging
 
-- **Board → Planner**: Click **Planner** in the Board toolbar to tag a constellation session map to a specific Planner lesson, test, or assignment (`_plannerEntryId`).
-- **Planner → Board**: Right-click any entry in [Planner](#plannerhtml) (or click the modal button) to immediately create or open its linked Board mind-map archive (`.cstz`).
+- **Board → Planner (Multi-Slot Selection)**: Click **Planner** in the Board toolbar (or open **Show all lessons**) to tag a constellation session map (`.cstz`) to **one or several** Planner lessons, tests, or assignments (`plannerEntryIds` in `manifest.json` and `_plannerEntryIds` in `board.json`, while preserving backward-compatible `plannerEntryId` / `_plannerEntryId`). Clicking a lesson row toggles its selection in-place without closing the popover; a **Linked slots** chip summary at the top allows unlinking individual slots with 1 click, and the toolbar button displays a `+N` count badge when multiple slots are linked.
+- **Planner → Board (Create, Open, Link Existing, Batch Link & Drag-to-Link)**:
+  - Right-click any entry in [Planner](#plannerhtml) (or use the entry edit modal) to **Create / Open in Board**, **Link Existing Board File…** (opening a multi-slot checklist modal to link any saved `.cstz` archive to one or multiple slots at once), or **Unlink Board File**.
+  - **Batch Actions**: Select multiple entries in Planner and choose **Apply Board File to Selected** or **Unlink Board File from Selected**.
+  - **Drag-and-Drop Board Badge**: Drag a `.board-session-badge` from one Planner slot onto another slot to link the same `.cstz` file to the target slot automatically.
 - **Automatic Lesson Competence Propagation**: When a Board `.cstz` file is linked to a Lesson (via the Links & Tags dialog, Planner link, or session metadata), the link system automatically discovers the lesson's curriculum competences and links them directly to the Board `.cstz` file and to any associated Planner timetable event. The Board top bar displays an active `[LESSON: <TITLE>]` badge with 1-click access to Lesson Creator, while the Board competence menu marks inherited tags with `[From Lesson]`.
 - **Class Data Import Integration**: Opening **CLASS DATA** in Board automatically detects if the current session is associated with a Planner timetable slot, filtering the class picker to that exact class (with an interactive notice and **[SHOW ALL CLASSES]** toggle). All student rosters, seating plan desk labels, and team assignments automatically resolve internal UUIDs to full student names.
 

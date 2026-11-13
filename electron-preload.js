@@ -80,6 +80,9 @@ const exposedApi = {
   inspectBoardArchive(request) {
     return invoke('app:inspect-board-archive', request);
   },
+  updateBoardArchiveMeta(request) {
+    return invoke('app:update-board-archive-meta', request);
+  },
   listFiles(request) {
     return invoke('app:list-files', request);
   },

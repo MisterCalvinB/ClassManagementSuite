@@ -4083,19 +4083,32 @@
 
     function buildManualPointsFromPercents(percentThresholds, totalPossible, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
+      let steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : null;
+      if (!steps) {
+        const extraKeys = percentThresholds && typeof percentThresholds === "object"
+          ? Object.keys(percentThresholds).map(k => toNumber(k)).filter(v => v != null)
+          : [];
+        steps = extraKeys.length ? Array.from(new Set([...GRADE_STEPS, ...extraKeys])).sort((a, b) => b - a) : GRADE_STEPS;
+      }
       const points = {};
       steps.forEach(grade => {
         const key = String(grade);
         const pct = Math.max(0, Math.min(100, toNumber(percentThresholds && percentThresholds[key]) ?? 0));
-        points[key] = safeTotal > 0 ? (pct / 100) * safeTotal : 0;
+        points[key] = safeTotal > 0 ? Math.round(((pct / 100) * safeTotal) * 100) / 100 : 0;
       });
       return points;
     }
 
     function buildManualPercentsFromPoints(pointsThresholds, totalPossible, fallbackPercents, gradeSteps = null) {
       const safeTotal = Math.max(0, toNumber(totalPossible) ?? 0);
-      const steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : GRADE_STEPS;
+      let steps = Array.isArray(gradeSteps) && gradeSteps.length ? gradeSteps : null;
+      if (!steps) {
+        const extraKeys = [
+          ...Object.keys((pointsThresholds && typeof pointsThresholds === "object") ? pointsThresholds : {}),
+          ...Object.keys((fallbackPercents && typeof fallbackPercents === "object") ? fallbackPercents : {})
+        ].map(k => toNumber(k)).filter(v => v != null);
+        steps = extraKeys.length ? Array.from(new Set([...GRADE_STEPS, ...extraKeys])).sort((a, b) => b - a) : GRADE_STEPS;
+      }
       const percents = {};
       steps.forEach(grade => {
         const key = String(grade);
@@ -4104,7 +4117,7 @@
         if (pts == null || safeTotal <= 0) {
           percents[key] = fallback;
         } else {
-          percents[key] = Math.max(0, Math.min(100, (pts / safeTotal) * 100));
+          percents[key] = Math.max(0, Math.min(100, Math.round(((pts / safeTotal) * 100) * 100) / 100));
         }
       });
       return percents;
@@ -8714,6 +8727,68 @@
       };
     }
 
+    function isParticipationTestConfig(cfg) {
+      if (!cfg || typeof cfg !== "object") return false;
+      return cfg.source === "participation-tracker" ||
+        cfg.type === "participation" ||
+        !!(cfg.participationLink && cfg.participationLink.enabled);
+    }
+
+    function syncParticipationGradingScale(cfg, maxGradeHint = null) {
+      if (!cfg || typeof cfg !== "object") return;
+      if (!cfg.grading || typeof cfg.grading !== "object") {
+        cfg.grading = {};
+      }
+      const minGrade = cfg.grading.minGrade != null && !isNaN(Number(cfg.grading.minGrade))
+        ? Number(cfg.grading.minGrade)
+        : 0;
+      const maxGrade = maxGradeHint != null && !isNaN(Number(maxGradeHint)) && Number(maxGradeHint) > 0
+        ? Number(maxGradeHint)
+        : (cfg.grading.maxGrade != null && !isNaN(Number(cfg.grading.maxGrade)) && Number(cfg.grading.maxGrade) > 0
+          ? Number(cfg.grading.maxGrade)
+          : 6);
+      const interval = cfg.grading.interval != null && !isNaN(Number(cfg.grading.interval)) && Number(cfg.grading.interval) > 0
+        ? Number(cfg.grading.interval)
+        : 0.5;
+      const steps = computeScaleGradeSteps(maxGrade, minGrade, interval);
+      const totals = Array.isArray(cfg.criteria) ? calcCriteriaTotals(cfg, {}) : { totalPossible: 0 };
+      const effTotal = totals.totalPossible > 0 ? totals.totalPossible : maxGrade;
+
+      const manualThresholds = {};
+      const manualPoints = {};
+      steps.forEach(g => {
+        const k = String(g);
+        const exactRatio = maxGrade > minGrade ? (g - minGrade) / (maxGrade - minGrade) : 0;
+        manualThresholds[k] = Math.round(exactRatio * 10000) / 100;
+        manualPoints[k] = Math.round(exactRatio * effTotal * 100) / 100;
+      });
+
+      cfg.grading.mode = cfg.grading.mode || "manual";
+      cfg.grading.manualInputMode = cfg.grading.manualInputMode || "points";
+      cfg.grading.minGrade = minGrade;
+      cfg.grading.maxGrade = maxGrade;
+      cfg.grading.interval = interval;
+      cfg.grading.manualThresholds = manualThresholds;
+      cfg.grading.manualPoints = manualPoints;
+    }
+
+    function syncGradingPointsForCriteriaChange(config) {
+      if (!config || !config.grading || typeof config.grading !== "object") return;
+      if (isParticipationTestConfig(config) && !config.grading.customManualScale) {
+        syncParticipationGradingScale(config);
+        return;
+      }
+      const totals = Array.isArray(config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
+      const steps = getTestGradeSteps(config);
+      if (config.grading.manualThresholds && typeof config.grading.manualThresholds === "object") {
+        config.grading.manualPoints = buildManualPointsFromPercents(
+          config.grading.manualThresholds,
+          totals.totalPossible,
+          steps
+        );
+      }
+    }
+
     function ensureClassStructures(classObj) {
       if (!classObj.testConfigs) {
         classObj.testConfigs = createDefaultTestConfigs();
@@ -8732,6 +8807,8 @@
       if (!classObj.chipBank || !classObj.chipBanks.includes(classObj.chipBank)) {
         classObj.chipBank = classObj.chipBanks[0] || 'correction-criteria.js';
       }
+
+      const repairedPtSlots = [];
 
       ["sem1", "sem2"].forEach(sem => {
         if (!Array.isArray(classObj.testConfigs[sem])) classObj.testConfigs[sem] = [];
@@ -8791,7 +8868,7 @@
             }
 
             if (cfg.grading && typeof cfg.grading === "object") {
-              if (cfg.grading.minGrade == null) cfg.grading.minGrade = 1.5;
+              if (cfg.grading.minGrade == null) cfg.grading.minGrade = isParticipationTestConfig(cfg) ? 0 : 1.5;
               if (cfg.grading.maxGrade == null) cfg.grading.maxGrade = 6;
               if (cfg.grading.interval == null) cfg.grading.interval = 0.5;
               if (typeof cfg.grading.equationFormula !== "string" || !cfg.grading.equationFormula) {
@@ -8800,17 +8877,38 @@
               if (!cfg.grading.equationRounding) {
                 cfg.grading.equationRounding = "0.5";
               }
-              if (!cfg.grading.manualThresholds || typeof cfg.grading.manualThresholds !== "object") {
-                cfg.grading.manualThresholds = defaultManualThresholdPercentMap();
-              }
-              const totals = calcCriteriaTotals(cfg, {});
-              const steps = getTestGradeSteps(cfg);
-              if (!cfg.grading.manualPoints || typeof cfg.grading.manualPoints !== "object") {
-                cfg.grading.manualPoints = buildManualPointsFromPercents(
-                  cfg.grading.manualThresholds,
-                  totals.totalPossible,
-                  steps
-                );
+              if (isParticipationTestConfig(cfg)) {
+                const maxGKey = String(cfg.grading.maxGrade != null ? cfg.grading.maxGrade : 6);
+                const hasValidPtThresholds =
+                  cfg.grading.manualThresholds &&
+                  typeof cfg.grading.manualThresholds === "object" &&
+                  Number(cfg.grading.manualThresholds[maxGKey]) > 0 &&
+                  cfg.grading.manualPoints &&
+                  typeof cfg.grading.manualPoints === "object" &&
+                  Number(cfg.grading.manualPoints[maxGKey]) > 0;
+                if (!hasValidPtThresholds) {
+                  syncParticipationGradingScale(cfg);
+                  if (cfg.participationLink && cfg.participationLink.enabled) {
+                    cfg.participationLink.lastDigest = "";
+                  }
+                  repairedPtSlots.push({ sem, testIndex: i, cfg });
+                }
+              } else {
+                if (!cfg.grading.manualThresholds || typeof cfg.grading.manualThresholds !== "object") {
+                  cfg.grading.manualThresholds = defaultManualThresholdPercentMap();
+                }
+                const totals = calcCriteriaTotals(cfg, {});
+                const steps = getTestGradeSteps(cfg);
+                const hasAnyPoints = cfg.grading.manualPoints && typeof cfg.grading.manualPoints === "object" &&
+                  Object.values(cfg.grading.manualPoints).some(v => Number(v) > 0);
+                const hasAnyThresholds = Object.values(cfg.grading.manualThresholds).some(v => Number(v) > 0);
+                if (!cfg.grading.manualPoints || typeof cfg.grading.manualPoints !== "object" || (!hasAnyPoints && hasAnyThresholds && totals.totalPossible > 0)) {
+                  cfg.grading.manualPoints = buildManualPointsFromPercents(
+                    cfg.grading.manualThresholds,
+                    totals.totalPossible,
+                    steps
+                  );
+                }
               }
             }
           }
@@ -8889,6 +8987,14 @@
           }
         });
       });
+
+      if (repairedPtSlots.length > 0) {
+        repairedPtSlots.forEach(({ sem, testIndex, cfg }) => {
+          classObj.students.forEach(student => {
+            recalcStudentGradeFromCriteria(student, sem, testIndex, cfg);
+          });
+        });
+      }
     }
 
     function getTestConfig(classObj, semester, testIndex) {
@@ -9320,6 +9426,13 @@
           rounding: config.grading.equationRounding || "0.5"
         });
         grade = (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, config);
+      } else if (isParticipationTestConfig(config) && (!config.grading || !config.grading.customManualScale) && (!config.grading || config.grading.mode === "manual" || config.grading.mode === "linear")) {
+        const minG = config.grading && config.grading.minGrade != null ? Number(config.grading.minGrade) : 0;
+        const maxG = config.grading && config.grading.maxGrade != null ? Number(config.grading.maxGrade) : 6;
+        const step = (config.grading && Number(config.grading.interval) > 0) ? Number(config.grading.interval) : 0.5;
+        const rawGrade = minG + ratio * (maxG - minG);
+        const rounded = Math.round(rawGrade / step) * step;
+        grade = parseFloat(Math.max(minG, Math.min(maxG, rounded)).toFixed(2));
       } else {
         grade = gradeFromRatio(ratio, config);
       }
@@ -9333,6 +9446,9 @@
 
     function recalcAllStudentGradesForTest(classObj, sem, testIndex) {
       const config = getTestConfig(classObj, sem, testIndex);
+      if (config) {
+        syncGradingPointsForCriteriaChange(config);
+      }
       classObj.students.forEach(student => {
         recalcStudentGradeFromCriteria(student, sem, testIndex, config);
       });
@@ -12874,20 +12990,32 @@
     }
 
     function openGradingPopup(config, classObj, sem, testIndex) {
+      if (isParticipationTestConfig(config) && (!config.grading || !config.grading.customManualScale)) {
+        syncParticipationGradingScale(config);
+      }
       // Draft copy of grading
       const popTotals = calcCriteriaTotals(config, {});
       const totalPossible = Math.max(0, popTotals.totalPossible);
+      const initSteps = getTestGradeSteps(config);
+      const hasValidManualPoints = config.grading.manualInputMode === "points" &&
+        config.grading.manualPoints &&
+        typeof config.grading.manualPoints === "object" &&
+        Object.values(config.grading.manualPoints).some(v => Number(v) > 0);
       const draft = {
         mode: config.grading.mode,
         passPercentGrade4: config.grading.passPercentGrade4,
+        minGrade: config.grading.minGrade,
+        maxGrade: config.grading.maxGrade,
+        interval: config.grading.interval,
+        customManualScale: !!config.grading.customManualScale,
         modelKey: config.grading.modelKey,
         pendingModelKey: config.grading.pendingModelKey,
         scaleBank: config.grading.scaleBank || _activeScaleBankFilename || 'grade-scale-models.js',
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
-          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible),
-          config.grading.manualPoints || {}
+          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible, initSteps),
+          hasValidManualPoints ? config.grading.manualPoints : {}
         )
       };
 
@@ -12980,6 +13108,7 @@
           inp.style.cssText = "width:72px;border:1px solid var(--line);border-radius:6px;padding:3px 5px;font:inherit;";
           inp.dataset.grade = key;
           inp.addEventListener("input", () => {
+            draft.customManualScale = true;
             if (usePoints) {
               draft.manualPoints[key] = Math.max(0, toNumber(inp.value) ?? 0);
             } else {
@@ -13064,10 +13193,11 @@
       overlay.classList.remove("hidden");
 
       document.getElementById("grading-popup-save").onclick = () => {
+        const steps = getTestGradeSteps({ ...config, grading: draft });
         if (draft.manualInputMode === "points") {
-          draft.manualThresholds = buildManualPercentsFromPoints(draft.manualPoints, totalPossible, draft.manualThresholds);
+          draft.manualThresholds = buildManualPercentsFromPoints(draft.manualPoints, totalPossible, draft.manualThresholds, steps);
         } else {
-          draft.manualPoints = buildManualPointsFromPercents(draft.manualThresholds, totalPossible);
+          draft.manualPoints = buildManualPointsFromPercents(draft.manualThresholds, totalPossible, steps);
         }
         Object.assign(config.grading, draft);
         recalcAllStudentGradesForTest(classObj, sem, testIndex);
@@ -13489,8 +13619,17 @@
       });
 
       // ── Grading Scale ──────────────────────────────────────────
-      const totals = calcCriteriaTotals(config, {});
-      const totalPossible = Math.max(0, totals.totalPossible);
+      if (isParticipationTestConfig(config) && (!config.grading || !config.grading.customManualScale)) {
+        syncParticipationGradingScale(config);
+      }
+      const getCurrentTotalPossible = () => Math.max(0, calcCriteriaTotals(config, {}).totalPossible);
+      let totalPossible = getCurrentTotalPossible();
+      let _toptGradingChanged = false;
+      const initSteps = getTestGradeSteps(config);
+      const hasValidManualPoints = config.grading.manualInputMode === "points" &&
+        config.grading.manualPoints &&
+        typeof config.grading.manualPoints === "object" &&
+        Object.values(config.grading.manualPoints).some(v => Number(v) > 0);
       const gradingDraft = {
         mode: config.grading.mode,
         passPercentGrade4: evaluatePass4Formula(config.grading.passPercentGrade4Formula || config.grading.passPercentGrade4, 66.67),
@@ -13498,14 +13637,15 @@
         minGrade: config.grading.minGrade != null ? config.grading.minGrade : 1.5,
         maxGrade: config.grading.maxGrade != null ? config.grading.maxGrade : 6,
         interval: config.grading.interval != null ? config.grading.interval : 0.5,
+        customManualScale: !!config.grading.customManualScale,
         modelKey: config.grading.modelKey,
         pendingModelKey: config.grading.pendingModelKey,
         scaleBank: config.grading.scaleBank || _activeScaleBankFilename || 'grade-scale-models.js',
         manualInputMode: config.grading.manualInputMode === "points" ? "points" : "percent",
         manualThresholds: Object.assign({}, config.grading.manualThresholds),
         manualPoints: Object.assign(
-          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible),
-          config.grading.manualPoints || {}
+          buildManualPointsFromPercents(config.grading.manualThresholds, totalPossible, initSteps),
+          hasValidManualPoints ? config.grading.manualPoints : {}
         ),
         equationFormula: config.grading.equationFormula || "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
         equationRounding: config.grading.equationRounding || "0.5"
@@ -13636,6 +13776,13 @@
               rounding: tmpConfig.grading.equationRounding || "0.5"
             });
             return (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(r, tmpConfig);
+          }
+          if (isParticipationTestConfig(config) && (!tmpConfig.grading || (!tmpConfig.grading.customManualScale && tmpConfig.grading.mode === "manual"))) {
+            const maxG = (tmpConfig.grading && tmpConfig.grading.maxGrade != null) ? Number(tmpConfig.grading.maxGrade) : 6;
+            const minG = (tmpConfig.grading && tmpConfig.grading.minGrade != null) ? Number(tmpConfig.grading.minGrade) : 0;
+            const step = (tmpConfig.grading && tmpConfig.grading.interval != null && Number(tmpConfig.grading.interval) > 0) ? Number(tmpConfig.grading.interval) : 0.5;
+            const rawGrade = minG + r * (maxG - minG);
+            return Math.round(rawGrade / step) * step;
           }
           return gradeFromRatio(r, tmpConfig);
         }
@@ -13839,10 +13986,14 @@
 
       if (gradingEqWrap) {
         gradingEqWrap.querySelectorAll(".eq-chip[data-insert]").forEach(chip => {
-          chip.onclick = () => insertTextAtCursor(gradingEqInput, chip.dataset.insert);
+          chip.onclick = () => {
+            _toptGradingChanged = true;
+            insertTextAtCursor(gradingEqInput, chip.dataset.insert);
+          };
         });
         gradingEqWrap.querySelectorAll(".eq-chip[data-preset]").forEach(chip => {
           chip.onclick = () => {
+            _toptGradingChanged = true;
             const preset = chip.dataset.preset;
             if (preset === "swiss") {
               gradingEqInput.value = "pts >= passPts ? min(maxGrade, passGrade + 2.5 * (pts - passPts) / (totalPts - passPts)) : (minGrade + (passGrade - minGrade) * (pts - minPts) / (passPts - minPts))";
@@ -13856,11 +14007,17 @@
         });
         if (gradingEqInput) {
           gradingEqInput.value = gradingDraft.equationFormula;
-          gradingEqInput.oninput = updateEquationValidation;
+          gradingEqInput.oninput = () => {
+            _toptGradingChanged = true;
+            updateEquationValidation();
+          };
         }
         if (gradingEqRound) {
           gradingEqRound.value = gradingDraft.equationRounding || "0.5";
-          gradingEqRound.onchange = updateEquationValidation;
+          gradingEqRound.onchange = () => {
+            _toptGradingChanged = true;
+            updateEquationValidation();
+          };
         }
         updateEquationValidation();
       }
@@ -13875,6 +14032,7 @@
       if (toptScaleBankSel) {
         populateScaleBankSelectElement(toptScaleBankSel, gradingDraft.scaleBank || 'grade-scale-models.js');
         toptScaleBankSel.onchange = () => {
+          _toptGradingChanged = true;
           gradingDraft.scaleBank = toptScaleBankSel.value;
           rebuildModelChips();
         };
@@ -13890,6 +14048,7 @@
 
       const pass4EvalEl = document.getElementById("topt-grading-pass4-eval");
       function updatePass4Display() {
+        totalPossible = getCurrentTotalPossible();
         const raw = (gradingPass4El.value || "").trim();
         const evaluated = evaluatePass4Formula(raw, gradingDraft.passPercentGrade4 || 66.67);
         gradingDraft.passPercentGrade4 = evaluated;
@@ -13912,6 +14071,7 @@
       if (gradingMinGradeEl) {
         gradingMinGradeEl.value = fmt(gradingDraft.minGrade != null ? gradingDraft.minGrade : 1.5);
         gradingMinGradeEl.oninput = () => {
+          _toptGradingChanged = true;
           gradingDraft.minGrade = toNumber(gradingMinGradeEl.value) ?? 1.5;
           rebuildGradingManualInputs();
           updateEquationValidation();
@@ -13921,6 +14081,7 @@
       if (gradingMaxGradeEl) {
         gradingMaxGradeEl.value = fmt(gradingDraft.maxGrade != null ? gradingDraft.maxGrade : 6);
         gradingMaxGradeEl.oninput = () => {
+          _toptGradingChanged = true;
           gradingDraft.maxGrade = toNumber(gradingMaxGradeEl.value) ?? 6;
           rebuildGradingManualInputs();
           updateEquationValidation();
@@ -13930,6 +14091,7 @@
       if (gradingIntervalEl) {
         gradingIntervalEl.value = String(gradingDraft.interval != null ? gradingDraft.interval : 0.5);
         gradingIntervalEl.onchange = () => {
+          _toptGradingChanged = true;
           gradingDraft.interval = toNumber(gradingIntervalEl.value) ?? 0.5;
           rebuildGradingManualInputs();
           updateEquationValidation();
@@ -13965,6 +14127,7 @@
       }
 
       function refreshGradingManualNote() {
+        totalPossible = getCurrentTotalPossible();
         const noteEl = document.getElementById("topt-grading-manual-note");
         noteEl.textContent = gradingDraft.manualInputMode === "points"
           ? (totalPossible > 0 ? `Total available points: ${fmtN(totalPossible)}.` : "Points mode needs criteria total points.")
@@ -13972,6 +14135,7 @@
       }
 
       function rebuildGradingManualInputs() {
+        totalPossible = getCurrentTotalPossible();
         const usePoints = gradingDraft.manualInputMode === "points";
         gradingThreshWrap.innerHTML = "";
         const steps = getTestGradeSteps({ ...config, grading: gradingDraft });
@@ -13996,6 +14160,8 @@
           inp.style.cssText = "width:72px;border:1px solid var(--line);border-radius:6px;padding:3px 5px;font:inherit;";
           inp.dataset.grade = key;
           inp.addEventListener("input", () => {
+            _toptGradingChanged = true;
+            gradingDraft.customManualScale = true;
             if (usePoints) gradingDraft.manualPoints[key] = Math.max(0, toNumber(inp.value) ?? 0);
             else gradingDraft.manualThresholds[key] = Math.max(0, Math.min(100, toNumber(inp.value) ?? 0));
             updateLiveGradePreview();
@@ -14012,16 +14178,19 @@
       gradingModeEl.addEventListener("click", e => {
         const chip = e.target.closest(".chip[data-value]");
         if (!chip) return;
+        _toptGradingChanged = true;
+        totalPossible = getCurrentTotalPossible();
+        const steps = getTestGradeSteps({ ...config, grading: gradingDraft });
         const sel = chip.dataset.value;
         if (sel === "manual-points") {
           gradingDraft.mode = "manual"; gradingDraft.manualInputMode = "points";
-          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
+          if (!gradingDraft.manualPoints) gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, steps);
           syncGradingModeSelect(); rebuildGradingManualInputs(); refreshGradingVis(); return;
         }
         gradingDraft.mode = sel;
         if (sel === "manual") {
           if (gradingDraft.manualInputMode === "points")
-            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
+            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, steps);
           gradingDraft.manualInputMode = "percent";
           rebuildGradingManualInputs();
         }
@@ -14034,6 +14203,8 @@
       gradingModelChips.addEventListener("click", e => {
         const chip = e.target.closest(".chip[data-value]");
         if (!chip) return;
+        _toptGradingChanged = true;
+        totalPossible = getCurrentTotalPossible();
         const key = chip.dataset.value;
         gradingDraft.pendingModelKey = key;
         if (key === "custom") {
@@ -14050,14 +14221,16 @@
           if (gradingMinGradeEl) gradingMinGradeEl.value = fmt(gradingDraft.minGrade);
           if (gradingMaxGradeEl) gradingMaxGradeEl.value = fmt(gradingDraft.maxGrade);
           if (gradingIntervalEl) gradingIntervalEl.value = String(gradingDraft.interval);
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible);
-          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds);
+          const steps = getTestGradeSteps({ ...config, grading: gradingDraft });
+          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, steps);
+          if (gradingDraft.manualInputMode === "points") gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, totalPossible, gradingDraft.manualThresholds, steps);
           syncGradingModeSelect();
         }
         rebuildModelChips(); rebuildGradingManualInputs(); refreshGradingVis();
       });
 
       gradingPass4El.oninput = () => {
+        _toptGradingChanged = true;
         updatePass4Display();
         updateLiveGradePreview();
       };
@@ -14264,14 +14437,28 @@
               const name = nameInput.value.trim();
               if (name) crit.name = name;
               const rawMin = minInput.value.trim();
-              crit.minPoints = rawMin !== "" && !isNaN(Number(rawMin)) ? Number(rawMin) : null;
+              const nextMin = rawMin !== "" && !isNaN(Number(rawMin)) ? Number(rawMin) : null;
               const rawMax = maxInput.value.trim();
-              crit.maxPoints = rawMax !== "" && !isNaN(Number(rawMax)) ? Number(rawMax) : null;
-              crit.pointCoefficient = Math.max(0, parseFloat(coeffInput.value) || 1);
+              const nextMax = rawMax !== "" && !isNaN(Number(rawMax)) ? Number(rawMax) : null;
+              const nextCoeff = Math.max(0, parseFloat(coeffInput.value) || 1);
               const rawInt = intInput.value.trim();
-              crit.interval = rawInt !== "" && !isNaN(Number(rawInt)) && Number(rawInt) > 0 ? Number(rawInt) : null;
-              crit.isBonus = bonusCheck.checked;
-              crit.showComment = commentYes.checked;
+              const nextInt = rawInt !== "" && !isNaN(Number(rawInt)) && Number(rawInt) > 0 ? Number(rawInt) : null;
+              const nextBonus = !!bonusCheck.checked;
+              const nextComment = commentYes.checked;
+
+              const scoringChanged = (
+                crit.minPoints !== nextMin ||
+                crit.maxPoints !== nextMax ||
+                crit.pointCoefficient !== nextCoeff ||
+                !!crit.isBonus !== nextBonus
+              );
+
+              crit.minPoints = nextMin;
+              crit.maxPoints = nextMax;
+              crit.pointCoefficient = nextCoeff;
+              crit.interval = nextInt;
+              crit.isBonus = nextBonus;
+              crit.showComment = nextComment;
 
               const minMeta = crit.minPoints != null && crit.minPoints !== 0 ? `min ${crit.minPoints}, ` : '';
               const rowName = header.querySelector(".crit-row-name");
@@ -14279,7 +14466,19 @@
               if (rowName) rowName.textContent = crit.name;
               if (rowMeta) rowMeta.textContent = `${minMeta}max ${crit.maxPoints}, c=${crit.pointCoefficient}${crit.isBonus ? ', bonus' : ''}`;
 
-              recalcAllStudentGradesForTest(classObj, sem, testIndex);
+              if (scoringChanged) {
+                syncGradingPointsForCriteriaChange(config);
+                totalPossible = getCurrentTotalPossible();
+                if (!_toptGradingChanged && config.grading) {
+                  gradingDraft.manualThresholds = Object.assign({}, config.grading.manualThresholds);
+                  gradingDraft.manualPoints = Object.assign({}, config.grading.manualPoints);
+                } else {
+                  const steps = getTestGradeSteps({ ...config, grading: gradingDraft });
+                  gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, totalPossible, steps);
+                }
+                rebuildGradingManualInputs();
+                recalcAllStudentGradesForTest(classObj, sem, testIndex);
+              }
               saveState();
               renderTestSheet();
               renderSummary();
@@ -14315,6 +14514,13 @@
                   if (st.criteriaResults?.[sem]) st.criteriaResults[sem][testIndex] = map;
                 });
               }
+              syncGradingPointsForCriteriaChange(config);
+              totalPossible = getCurrentTotalPossible();
+              if (!_toptGradingChanged && config.grading) {
+                gradingDraft.manualThresholds = Object.assign({}, config.grading.manualThresholds);
+                gradingDraft.manualPoints = Object.assign({}, config.grading.manualPoints);
+              }
+              rebuildGradingManualInputs();
               recalcAllStudentGradesForTest(classObj, sem, testIndex);
               saveState(); renderTestSheet(); renderSummary();
               _openCritId = null; rebuildToptCriteriaList();
@@ -14501,6 +14707,13 @@
               compIds
             ));
           });
+          syncGradingPointsForCriteriaChange(config);
+          totalPossible = getCurrentTotalPossible();
+          if (!_toptGradingChanged && config.grading) {
+            gradingDraft.manualThresholds = Object.assign({}, config.grading.manualThresholds);
+            gradingDraft.manualPoints = Object.assign({}, config.grading.manualPoints);
+          }
+          rebuildGradingManualInputs();
           saveState();
           rebuildToptCriteriaList();
           renderTestSheet();
@@ -14553,6 +14766,13 @@
         else { for (let i = 0; i < count; i++) config.criteria.push(makeCriterion(`${name} ${start + i}`, maxPoints, pointCoeff, isBonus, minPoints, null, compIdsToAdd)); }
         _toptPresetCompetenceIds = [];
         nameEl.value = ""; minEl.value = "0"; maxEl.value = "1"; cEl.value = "1"; cntEl.value = "1";
+        syncGradingPointsForCriteriaChange(config);
+        totalPossible = getCurrentTotalPossible();
+        if (!_toptGradingChanged && config.grading) {
+          gradingDraft.manualThresholds = Object.assign({}, config.grading.manualThresholds);
+          gradingDraft.manualPoints = Object.assign({}, config.grading.manualPoints);
+        }
+        rebuildGradingManualInputs();
         saveState(); rebuildToptCriteriaList(); renderTestSheet(); renderSummary();
       };
 
@@ -15150,19 +15370,22 @@
         if (fixed) config.fixedWeight = Math.max(0, Math.min(100, toNumber(document.getElementById("topt-coeff-fixed-input").value) ?? 0));
         else { config.fixedWeight = null; config.coefficient = Math.max(0, toNumber(document.getElementById("topt-coeff-input").value) ?? 1); }
 
-        const curTotals = calcCriteriaTotals(config, {});
-        const curTotalPossible = Math.max(0, curTotals.totalPossible);
-        if (gradingDraft.manualInputMode === "points")
-          gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, curTotalPossible, gradingDraft.manualThresholds);
-        else
-          gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, curTotalPossible);
-        if (gradingEqInput) {
-          gradingDraft.equationFormula = gradingEqInput.value.trim() || gradingDraft.equationFormula;
+        if (_toptGradingChanged) {
+          const curTotals = calcCriteriaTotals(config, {});
+          const curTotalPossible = Math.max(0, curTotals.totalPossible);
+          const curSteps = getTestGradeSteps({ ...config, grading: gradingDraft });
+          if (gradingDraft.manualInputMode === "points")
+            gradingDraft.manualThresholds = buildManualPercentsFromPoints(gradingDraft.manualPoints, curTotalPossible, gradingDraft.manualThresholds, curSteps);
+          else
+            gradingDraft.manualPoints = buildManualPointsFromPercents(gradingDraft.manualThresholds, curTotalPossible, curSteps);
+          if (gradingEqInput) {
+            gradingDraft.equationFormula = gradingEqInput.value.trim() || gradingDraft.equationFormula;
+          }
+          if (gradingEqRound) {
+            gradingDraft.equationRounding = gradingEqRound.value || gradingDraft.equationRounding || "0.5";
+          }
+          Object.assign(config.grading, gradingDraft);
         }
-        if (gradingEqRound) {
-          gradingDraft.equationRounding = gradingEqRound.value || gradingDraft.equationRounding || "0.5";
-        }
-        Object.assign(config.grading, gradingDraft);
 
         if (activeSem !== sem) {
           const moved = moveTestBetweenSems(classObj, sem, testIndex, activeSem);
@@ -15208,7 +15431,9 @@
           };
         }
 
-        recalcAllStudentGradesForTest(classObj, activeSem, activeTestIndex);
+        if (_toptGradingChanged) {
+          recalcAllStudentGradesForTest(classObj, activeSem, activeTestIndex);
+        }
         saveState(); renderTestSheet(); renderSummary();
         overlay.classList.add("hidden");
         syncTestToPlanner(classObj, activeSem, activeTestIndex); // async, non-blocking
@@ -20228,7 +20453,7 @@
         draftCriteria[c.id] = { points: criteriaMap[c.id].points, comment: criteriaMap[c.id].comment };
       });
 
-      _studentModalDraft = { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, modalOpenedAt: Date.now() };
+      _studentModalDraft = { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, criteriaPointsChanged: false, modalOpenedAt: Date.now() };
 
       const heading = document.getElementById("student-modal-heading");
       const studentFormattedName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
@@ -20345,12 +20570,19 @@
             passGrade: 4,
             rounding: config.grading.equationRounding || "0.5"
           });
-          return (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, config);
-        }
-        return gradeFromRatio(ratio, config);
-      };
+            return (res && res.ok && res.grade != null) ? res.grade : gradeFromRatio(ratio, config);
+          }
+          if (isParticipationTestConfig(config) && (!config.grading || (!config.grading.customManualScale && config.grading.mode === "manual"))) {
+            const maxG = (config.grading && config.grading.maxGrade != null) ? Number(config.grading.maxGrade) : 6;
+            const minG = (config.grading && config.grading.minGrade != null) ? Number(config.grading.minGrade) : 0;
+            const step = (config.grading && config.grading.interval != null && Number(config.grading.interval) > 0) ? Number(config.grading.interval) : 0.5;
+            const rawGrade = minG + ratio * (maxG - minG);
+            return Math.round(rawGrade / step) * step;
+          }
+          return gradeFromRatio(ratio, config);
+        };
 
-      const syncGradeEditability = () => {
+      const syncGradeEditability = (recalc = false) => {
         overrideBtn.classList.toggle("active", draftOverrideEnabled);
         overrideBtn.setAttribute("aria-pressed", draftOverrideEnabled ? "true" : "false");
         gradeInput.disabled = !draftOverrideEnabled;
@@ -20359,9 +20591,11 @@
           sanctionCheck.checked = false;
           sanctionGradeInput.disabled = true;
           sanctionGradeInput.style.opacity = "0.5";
-          const autoGrade = computeDraftAutoGrade();
-          draftGrade = autoGrade;
-          gradeInput.value = autoGrade == null ? "" : String(autoGrade);
+          if (recalc || draftGrade == null) {
+            const autoGrade = computeDraftAutoGrade();
+            draftGrade = autoGrade;
+            gradeInput.value = autoGrade == null ? "" : String(autoGrade);
+          }
         }
       };
 
@@ -20374,13 +20608,16 @@
           const sVal = asGrade(sanctionGradeInput.value) ?? 1;
           draftGrade = sVal;
           gradeInput.value = String(sVal);
-          syncGradeEditability();
+          syncGradeEditability(false);
         } else {
           sanctionGradeInput.disabled = true;
           sanctionGradeInput.style.opacity = "0.5";
           draftOverrideEnabled = false;
-          if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = false;
-          syncGradeEditability();
+          if (_studentModalDraft) {
+            _studentModalDraft.draftOverrideEnabled = false;
+            _studentModalDraft.criteriaPointsChanged = true;
+          }
+          syncGradeEditability(true);
         }
         autoSaveStudentModal(false);
       });
@@ -20392,7 +20629,7 @@
           gradeInput.value = String(sVal);
           draftOverrideEnabled = true;
           if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = true;
-          syncGradeEditability();
+          syncGradeEditability(false);
           autoSaveStudentModal(true);
         }
       });
@@ -20404,9 +20641,10 @@
           sanctionCheck.checked = false;
           sanctionGradeInput.disabled = true;
           sanctionGradeInput.style.opacity = "0.5";
+          if (_studentModalDraft) _studentModalDraft.criteriaPointsChanged = true;
         }
         if (_studentModalDraft) _studentModalDraft.draftOverrideEnabled = draftOverrideEnabled;
-        syncGradeEditability();
+        syncGradeEditability(!draftOverrideEnabled);
         autoSaveStudentModal(false);
       });
 
@@ -21620,10 +21858,13 @@
               }
             }
 
-            if (!draftOverrideEnabled) {
-              const autoGrade = computeDraftAutoGrade();
-              draftGrade = autoGrade;
-              gradeInput.value = autoGrade == null ? "" : String(autoGrade);
+            if (!isInitial) {
+              if (_studentModalDraft) _studentModalDraft.criteriaPointsChanged = true;
+              if (!draftOverrideEnabled) {
+                const autoGrade = computeDraftAutoGrade();
+                draftGrade = autoGrade;
+                gradeInput.value = autoGrade == null ? "" : String(autoGrade);
+              }
             }
           }
 
@@ -21740,7 +21981,7 @@
         });
       }
       student.criteriaResults[sem][testIndex] = criteriaMap;
-      if (!student.gradeOverrides[sem][testIndex] && config.criteria && config.criteria.length > 0) {
+      if (!student.gradeOverrides[sem][testIndex] && config.criteria && config.criteria.length > 0 && (_studentModalDraft.criteriaPointsChanged || sourceArray[testIndex] == null)) {
         recalcStudentGradeFromCriteria(student, sem, testIndex, config);
       }
 
@@ -25009,12 +25250,19 @@ ${blocks}
     document.getElementById("crit-popup-save").addEventListener("click", () => {
       if (!_critPopupCtx) return;
       const { criterion, classObj, sem, testIndex } = _critPopupCtx;
+      const config = classObj?.testConfigs?.[sem]?.[testIndex];
       const name = document.getElementById("crit-popup-name").value.trim();
       const minPts = parseFloat(document.getElementById("crit-popup-min").value) || 0;
       const maxPts = Math.max(minPts, parseFloat(document.getElementById("crit-popup-max").value) || 0);
       const coeff = Math.max(0, parseFloat(document.getElementById("crit-popup-coeff").value) || 0);
       const showComment = document.getElementById("crit-popup-comment-yes").checked;
       const isBonus = document.getElementById("crit-popup-bonus").checked;
+      const scoringChanged = (
+        (criterion.minPoints != null ? criterion.minPoints : 0) !== minPts ||
+        criterion.maxPoints !== maxPts ||
+        criterion.pointCoefficient !== coeff ||
+        !!criterion.isBonus !== !!isBonus
+      );
       if (name) criterion.name = name;
       criterion.minPoints = minPts;
       criterion.maxPoints = maxPts;
@@ -25022,12 +25270,15 @@ ${blocks}
       criterion.isBonus = !!isBonus;
       criterion.showComment = showComment;
       criterion.competenceIds = [..._critPopupCompetenceDraft];
-      recalcAllStudentGradesForTest(classObj, sem, testIndex);
+      if (scoringChanged) {
+        if (config) syncGradingPointsForCriteriaChange(config);
+        recalcAllStudentGradesForTest(classObj, sem, testIndex);
+      }
       saveState();
       renderTestSheet();
       renderSummary();
       if (_toptRebuildCriteriaList) _toptRebuildCriteriaList();
-      updateLiveGradePreview();
+      if (_toptUpdateLiveGradePreview) _toptUpdateLiveGradePreview();
       criterionPopupClose();
       showCriterionSavedToast();
     });
@@ -25046,6 +25297,7 @@ ${blocks}
           if (st.criteriaResults?.[sem]) st.criteriaResults[sem][testIndex] = map;
         });
       }
+      syncGradingPointsForCriteriaChange(config);
       recalcAllStudentGradesForTest(classObj, sem, testIndex);
       saveState();
       renderTestSheet();
@@ -25619,6 +25871,9 @@ ${blocks}
           if (parsed.testConfig && parsed.testConfig.grading) {
             cfg.grading = Object.assign({}, cfg.grading, parsed.testConfig.grading);
           }
+          if (isParticipationTestConfig(cfg)) {
+            syncParticipationGradingScale(cfg, parsed.maxGrade || (parsed.testConfig && parsed.testConfig.grading && parsed.testConfig.grading.maxGrade));
+          }
           classObj.testConfigs[sem][ti] = cfg;
         } else if (parsed && parsed.testConfig) {
           const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
@@ -25627,6 +25882,9 @@ ${blocks}
           if (parsed.testConfig.type) cfg.type = parsed.testConfig.type;
           if (parsed.testConfig.source) cfg.source = parsed.testConfig.source;
           if (parsed.testConfig.grading) cfg.grading = Object.assign({}, cfg.grading, parsed.testConfig.grading);
+          if (isParticipationTestConfig(cfg)) {
+            syncParticipationGradingScale(cfg, parsed.maxGrade || (parsed.testConfig && parsed.testConfig.grading && parsed.testConfig.grading.maxGrade));
+          }
           classObj.testConfigs[sem][ti] = cfg;
         }
 
@@ -25787,22 +26045,53 @@ ${blocks}
       if (!cfg.testName) {
         cfg.testName = t('ptParticipationTestName') || 'Participation';
       }
-      cfg.criteria = payload.criteria.map(c => ({
-        id: c.id,
-        name: c.name,
-        minPoints: c.minPoints,
-        maxPoints: c.maxPoints,
-        pointCoefficient: c.pointCoefficient != null ? c.pointCoefficient : 1,
-        interval: c.interval != null ? c.interval : 0.5,
-        isBonus: !!c.isBonus
-      }));
-      cfg.grading = Object.assign({}, cfg.grading, {
-        mode: 'manual',
-        manualInputMode: 'points',
-        maxGrade: payload.maxGrade,
-        minGrade: 0,
-        interval: 0.5
+
+      const prevCriteriaById = new Map();
+      (cfg.criteria || []).forEach(c => {
+        if (c && c.id) prevCriteriaById.set(c.id, c);
       });
+
+      cfg.criteria = payload.criteria.map(c => {
+        const prev = prevCriteriaById.get(c.id);
+        const hasCustomMax = prev && prev._ptBaseMaxPoints != null && prev.maxPoints !== prev._ptBaseMaxPoints;
+        const hasCustomMin = prev && prev._ptBaseMinPoints != null && prev.minPoints !== prev._ptBaseMinPoints;
+        return {
+          id: c.id,
+          name: (prev && prev.name && prev._ptBaseName && prev.name !== prev._ptBaseName) ? prev.name : c.name,
+          _ptBaseName: c.name,
+          minPoints: hasCustomMin ? prev.minPoints : c.minPoints,
+          _ptBaseMinPoints: c.minPoints,
+          maxPoints: hasCustomMax ? prev.maxPoints : c.maxPoints,
+          _ptBaseMaxPoints: c.maxPoints,
+          pointCoefficient: (prev && prev.pointCoefficient != null) ? prev.pointCoefficient : (c.pointCoefficient != null ? c.pointCoefficient : 1),
+          interval: (prev && prev.interval != null) ? prev.interval : (c.interval != null ? c.interval : 0.5),
+          isBonus: prev ? !!prev.isBonus : !!c.isBonus,
+          showComment: prev && prev.showComment !== undefined ? prev.showComment : true,
+          competenceIds: (prev && Array.isArray(prev.competenceIds)) ? prev.competenceIds : []
+        };
+      });
+
+      if (!cfg.grading || !cfg.grading.customManualScale) {
+        cfg.grading = Object.assign({}, cfg.grading, {
+          mode: 'manual',
+          manualInputMode: 'points',
+          maxGrade: payload.maxGrade,
+          minGrade: 0,
+          interval: 0.5
+        });
+        syncParticipationGradingScale(cfg, payload.maxGrade);
+      } else {
+        syncGradingPointsForCriteriaChange(cfg);
+      }
+
+      const hasCustomCriterionWeights = (cfg.criteria || []).some((c, idx) => {
+        const src = payload.criteria[idx];
+        if (!src) return true;
+        return (c.pointCoefficient != null && c.pointCoefficient !== 1) ||
+               !!c.isBonus !== !!src.isBonus ||
+               c.maxPoints !== src.maxPoints ||
+               c.minPoints !== src.minPoints;
+      }) || !!(cfg.grading && cfg.grading.customManualScale);
 
       (classObj.students || []).forEach(student => {
         const sUuid = student.id || student.uuid;
@@ -25835,15 +26124,6 @@ ${blocks}
           }
         }
 
-        if (newGrade != null && !isNaN(newGrade)) {
-          const arr = sem === 'sem1' ? student.sem1Tests : student.sem2Tests;
-          const rounded = Math.round(newGrade * 2) / 2;
-          if (arr[ti] !== rounded) {
-            arr[ti] = rounded;
-            changed = true;
-          }
-        }
-
         if (critScores && typeof critScores === 'object') {
           if (!student.criteriaResults) {
             student.criteriaResults = {
@@ -25859,6 +26139,24 @@ ${blocks}
           if (prevStr !== nextStr) {
             student.criteriaResults[sem][ti] = Object.assign({}, critScores);
             changed = true;
+          }
+        }
+
+        if (hasCustomCriterionWeights && critScores && typeof critScores === 'object') {
+          if (!isGradeOverrideEnabled(student, sem, ti)) {
+            const arr = sem === 'sem1' ? student.sem1Tests : student.sem2Tests;
+            const prevG = arr[ti];
+            recalcStudentGradeFromCriteria(student, sem, ti, cfg);
+            if (arr[ti] !== prevG) changed = true;
+          }
+        } else if (newGrade != null && !isNaN(newGrade)) {
+          if (!isGradeOverrideEnabled(student, sem, ti)) {
+            const arr = sem === 'sem1' ? student.sem1Tests : student.sem2Tests;
+            const rounded = Math.round(newGrade * 2) / 2;
+            if (arr[ti] !== rounded) {
+              arr[ti] = rounded;
+              changed = true;
+            }
           }
         }
       });

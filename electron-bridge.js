@@ -199,6 +199,14 @@
     });
   }
 
+  async function updateBoardArchiveMeta(target, relativePath, patch = {}) {
+    if (!isElectron()) return null;
+    return getDesktopApi().updateBoardArchiveMeta(Object.assign({
+      target: target || 'mindmaps',
+      relativePath
+    }, patch || {}));
+  }
+
   async function listFiles(target, options = {}) {
     if (!isElectron()) {
       return null;
@@ -1418,6 +1426,7 @@
     saveBoardArchive,
     readBoardArchive,
     inspectBoardArchive,
+    updateBoardArchiveMeta,
     saveJson,
     saveText,
     timerCommand,

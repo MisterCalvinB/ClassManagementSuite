@@ -1230,18 +1230,31 @@
         var clean = boardId.split('#')[0];
         var parents = [];
         var classGroup = '';
-        var plannerId = '';
+        var plannerIds = [];
         var lessonId = '';
+
+        function _collectPlannerIds(obj) {
+          if (!obj) return;
+          if (Array.isArray(obj.plannerEntryIds)) {
+            obj.plannerEntryIds.forEach(function (id) {
+              var s = String(id || '').trim();
+              if (s && plannerIds.indexOf(s) === -1) plannerIds.push(s);
+            });
+          }
+          var single = String(obj.plannerEntryId || obj.plannerId || '').trim();
+          if (single && plannerIds.indexOf(single) === -1) plannerIds.push(single);
+        }
 
         if (_registryCache && _registryCache.entities) {
           var meta = _registryCache.entities[makeUrn('board', clean)] || _registryCache.entities[canonicalizeUrn(makeUrn('board', clean))];
           if (meta) {
             classGroup = meta.classGroup || meta.classId || (meta.meta && (meta.meta.classGroup || meta.meta.classId)) || '';
-            plannerId = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId)) || '';
+            _collectPlannerIds(meta);
+            _collectPlannerIds(meta.meta);
             lessonId = meta.lessonId || (meta.meta && (meta.meta.lessonId || meta.meta.lessonPlanId)) || '';
           }
         }
-        if (!classGroup && !plannerId && !lessonId) {
+        if (!classGroup && plannerIds.length === 0 && !lessonId) {
           var metaCache = {};
           if (typeof localStorage !== 'undefined') {
             try { metaCache = JSON.parse(localStorage.getItem('board_history_meta_cache_v1') || '{}') || {}; } catch (_) {}
@@ -1252,7 +1265,7 @@
           var hMeta = metaCache[clean] || metaCache[clean.split('/').pop()];
           if (hMeta) {
             classGroup = hMeta.classGroup || '';
-            plannerId = hMeta.plannerEntryId || '';
+            _collectPlannerIds(hMeta);
             lessonId = hMeta.lessonId || '';
           }
         }
@@ -1261,7 +1274,7 @@
         }
 
         if (lessonId) parents.push(makeUrn('lesson', lessonId));
-        if (plannerId) parents.push(makeUrn('planner', plannerId));
+        plannerIds.forEach(function (pid) { parents.push(makeUrn('planner', pid)); });
         if (classGroup) parents.push(makeUrn('class', classGroup));
         return parents;
       }
@@ -2027,7 +2040,8 @@
           var meta = reg.entities[u];
           var mClass = meta.classGroup || meta.classId || (meta.meta && (meta.meta.classGroup || meta.meta.classId));
           var mSlot = meta.plannerEntryId || (meta.meta && (meta.meta.plannerEntryId || meta.meta.plannerId));
-          if ((classId && mClass === classId) || (slotId && mSlot === slotId)) {
+          var mSlots = Array.isArray(meta.plannerEntryIds) ? meta.plannerEntryIds : (meta.meta && Array.isArray(meta.meta.plannerEntryIds) ? meta.meta.plannerEntryIds : []);
+          if ((classId && mClass === classId) || (slotId && (mSlot === slotId || mSlots.indexOf(slotId) !== -1))) {
             results.add(canonicalizeUrn(u));
           }
         }
@@ -2052,7 +2066,8 @@
     if (typeof window !== 'undefined' && window.boardHistoryMetaCache) {
       Object.keys(window.boardHistoryMetaCache).forEach(function(k) {
         var h = window.boardHistoryMetaCache[k];
-        if (h && ((classId && h.classGroup === classId) || (slotId && h.plannerEntryId === slotId))) {
+        var hSlots = (h && Array.isArray(h.plannerEntryIds)) ? h.plannerEntryIds : [];
+        if (h && ((classId && h.classGroup === classId) || (slotId && (h.plannerEntryId === slotId || hSlots.indexOf(slotId) !== -1)))) {
           var normFile = k.replace(/\\/g, '/');
           results.add(canonicalizeUrn(makeUrn('board', normFile)));
         }
@@ -4055,13 +4070,16 @@
         var baseName = normRel.split('/').pop().replace(/\.(js|json|cstz|zip)$/i, '');
         var bClass = (m && (m.classGroup || m.classId)) || resolveClassGroupFromFilename(normRel) || '';
         var bSlot = (m && (m.plannerEntryId || m.plannerId)) || '';
+        var bSlots = (m && Array.isArray(m.plannerEntryIds)) ? m.plannerEntryIds.slice() : (bSlot ? [bSlot] : []);
+        if (bSlot && bSlots.indexOf(bSlot) === -1) bSlots.unshift(bSlot);
 
         allBoards.push({
           relativePath: normRel,
           baseName: baseName,
           title: (m && m.title) || baseName.replace(/_/g, ' '),
           classGroup: bClass,
-          plannerEntryId: bSlot,
+          plannerEntryId: bSlot || bSlots[0] || '',
+          plannerEntryIds: bSlots,
           meta: m || {},
           source: source || 'mindmaps',
           target: 'mindmaps'
@@ -4084,9 +4102,11 @@
               list.forEach(function(e) {
                 if (!e) return;
                 var fn = e.relativePath || e.filename || (e.id ? (e.id + '.json') : '');
+                var eSlots = Array.isArray(e.plannerEntryIds) ? e.plannerEntryIds : (e.data && Array.isArray(e.data._plannerEntryIds) ? e.data._plannerEntryIds : []);
                 var eMeta = {
                   classGroup: e.classGroup || (e.data && (e.data._classGroup || e.data.classGroup)) || '',
-                  plannerEntryId: e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || '',
+                  plannerEntryId: e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || eSlots[0] || '',
+                  plannerEntryIds: eSlots,
                   title: e.name || e.title || '',
                   competences: e.competences || (e.data && e.data.competences) || []
                 };
@@ -4735,8 +4755,14 @@
       }
 
       // Slot match
-      if (!isMatch && bSlot && classSlotIds.has(bSlot)) {
-        isMatch = true;
+      var bSlotsList = Array.isArray(item.plannerEntryIds) ? item.plannerEntryIds : (bSlot ? [bSlot] : []);
+      if (!isMatch && bSlotsList.length > 0) {
+        for (var bsIdx = 0; bsIdx < bSlotsList.length; bsIdx++) {
+          if (bSlotsList[bsIdx] && classSlotIds.has(bSlotsList[bsIdx])) {
+            isMatch = true;
+            break;
+          }
+        }
       }
 
       if (!isMatch) continue;
@@ -5802,11 +5828,14 @@
           var h = window.boardHistoryMetaCache[k];
           if (!h) return;
           var bUrn = canonicalizeUrn(makeUrn('board', k.replace(/\\/g, '/')));
-          if (h.plannerEntryId) {
-            var slotUrn = canonicalizeUrn(makeUrn('planner', h.plannerEntryId));
-            var eSlot = _createInferredEdge(reg, bUrn, slotUrn, 'auto_sync_board_' + h.plannerEntryId, 'upward_slot');
+          var hSlots = Array.isArray(h.plannerEntryIds) ? h.plannerEntryIds.slice() : [];
+          if (h.plannerEntryId && hSlots.indexOf(h.plannerEntryId) === -1) hSlots.unshift(h.plannerEntryId);
+          hSlots.forEach(function(pid) {
+            if (!pid) return;
+            var slotUrn = canonicalizeUrn(makeUrn('planner', pid));
+            var eSlot = _createInferredEdge(reg, bUrn, slotUrn, 'auto_sync_board_' + pid, 'upward_slot');
             if (eSlot) changed = true;
-          }
+          });
           if (h.classGroup) {
             var classUrn = canonicalizeUrn(makeUrn('class', h.classGroup));
             var eCls = _createInferredEdge(reg, bUrn, classUrn, 'auto_sync_board_cls_' + h.classGroup, 'upward_class');

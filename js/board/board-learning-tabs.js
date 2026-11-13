@@ -855,15 +855,24 @@
     }
 
     async function _conGetAssociatedPlannerClass() {
-      // 1. Direct activePlannerEntryId
+      // 1. Direct activePlannerEntryId / activePlannerEntryIds
       let plannerId = typeof activePlannerEntryId === 'string' ? activePlannerEntryId.trim() : '';
+      if (!plannerId && Array.isArray(window.activePlannerEntryIds) && window.activePlannerEntryIds.length > 0) {
+        plannerId = String(window.activePlannerEntryIds[0] || '').trim();
+      }
 
       // 2. Fallback: check session data in memory
       if (!plannerId && typeof conBuildSessionData === 'function') {
         try {
           const curData = conBuildSessionData();
-          if (curData && (curData._plannerEntryId || curData.plannerEntryId)) {
-            plannerId = String(curData._plannerEntryId || curData.plannerEntryId).trim();
+          if (curData) {
+            if (curData._plannerEntryId || curData.plannerEntryId) {
+              plannerId = String(curData._plannerEntryId || curData.plannerEntryId).trim();
+            } else if (Array.isArray(curData._plannerEntryIds) && curData._plannerEntryIds.length > 0) {
+              plannerId = String(curData._plannerEntryIds[0] || '').trim();
+            } else if (Array.isArray(curData.plannerEntryIds) && curData.plannerEntryIds.length > 0) {
+              plannerId = String(curData.plannerEntryIds[0] || '').trim();
+            }
           }
         } catch (_) {}
       }
