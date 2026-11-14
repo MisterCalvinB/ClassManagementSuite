@@ -5739,61 +5739,144 @@ body.pres-show-roles .picked-blink {
   overflow: hidden !important;
 }
 
-/* Active / selected node highlight in presentation (mirror) mode */
-.con-mirror-mode .con-node.con-mirror-active {
-  outline: 4px solid #ff9800 !important;
+/* Active / selected node highlight in presentation (mirror) mode & optional canvas selection */
+:root {
+  --con-anim-color: #ef4444;
+  --con-anim-color-rgb: 239, 68, 68;
+  --con-anim-duration: 2.4s;
+  --con-anim-intensity: 1;
+  --con-active-color: #ff9800;
+  --con-active-color-rgb: 255, 152, 0;
+  --con-active-width: 4px;
+  --con-active-glow: 1;
+}
+
+.con-mirror-mode .con-node.con-mirror-active,
+body.con-active-scope-canvas .con-node.con-selected,
+body.con-active-scope-both .con-node.con-selected {
+  outline: var(--con-active-width, 4px) solid var(--con-active-color, #ff9800) !important;
   outline-offset: 4px !important;
-  box-shadow: 0 0 0 8px rgba(255, 152, 0, 0.22), 0 0 24px 10px rgba(255, 152, 0, 0.45) !important;
+  box-shadow: 0 0 0 calc(6px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.22 * var(--con-active-glow, 1))),
+              0 0 calc(24px * var(--con-active-glow, 1)) calc(8px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.45 * var(--con-active-glow, 1))) !important;
   z-index: 450 !important;
 }
 
-/* Suppress active-node ring while the attention-blink animation is running */
-.con-mirror-mode .con-node.con-mirror-active.con-attention-blink {
+/* Suppress active-node ring while an attention-blink animation is running */
+.con-mirror-mode .con-node.con-mirror-active.con-attention-blink,
+.con-mirror-mode .con-node.con-mirror-active.con-anim-blink {
   outline: none !important;
   box-shadow: none !important;
 }
 
-/* Active group / phrase-group highlight in presentation (mirror) mode */
-.con-mirror-mode .con-group.con-mirror-active {
-  outline: 4px solid #ff9800 !important;
+/* Active group / phrase-group highlight in presentation (mirror) mode & optional canvas selection */
+.con-mirror-mode .con-group.con-mirror-active,
+body.con-active-scope-canvas .con-group.con-group-selected,
+body.con-active-scope-both .con-group.con-group-selected {
+  outline: var(--con-active-width, 4px) solid var(--con-active-color, #ff9800) !important;
   outline-offset: 4px !important;
-  box-shadow: 0 0 0 8px rgba(255, 152, 0, 0.22), 0 0 24px 10px rgba(255, 152, 0, 0.45) !important;
+  box-shadow: 0 0 0 calc(6px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.22 * var(--con-active-glow, 1))),
+              0 0 calc(24px * var(--con-active-glow, 1)) calc(8px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.45 * var(--con-active-glow, 1))) !important;
   z-index: 30 !important;
 }
 
-/* Active note highlight in presentation (mirror) mode */
-.con-mirror-mode .con-word-note.con-mirror-active {
-  outline: 4px solid #ff9800 !important;
+/* Active note highlight in presentation (mirror) mode & optional canvas selection */
+.con-mirror-mode .con-word-note.con-mirror-active,
+body.con-active-scope-canvas .con-word-note.wn-selected,
+body.con-active-scope-both .con-word-note.wn-selected {
+  outline: var(--con-active-width, 4px) solid var(--con-active-color, #ff9800) !important;
   outline-offset: 4px !important;
-  box-shadow: 0 0 0 8px rgba(255, 152, 0, 0.22), 0 0 24px 10px rgba(255, 152, 0, 0.45) !important;
+  box-shadow: 0 0 0 calc(6px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.22 * var(--con-active-glow, 1))),
+              0 0 calc(24px * var(--con-active-glow, 1)) calc(8px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.45 * var(--con-active-glow, 1))) !important;
   z-index: 550 !important;
 }
 
 /* Suppress active-note ring while the attention-blink animation is running */
-.con-mirror-mode .con-word-note.con-mirror-active.wn-blink {
+.con-mirror-mode .con-word-note.con-mirror-active.wn-blink,
+.con-mirror-mode .con-word-note.con-mirror-active.con-anim-blink {
   outline: none !important;
   box-shadow: none !important;
 }
 
 /* Active drawing highlight in presentation (mirror) mode */
 .con-mirror-mode .con-drawing.con-mirror-active {
-  outline: 4px solid #ff9800 !important;
+  outline: var(--con-active-width, 4px) solid var(--con-active-color, #ff9800) !important;
   outline-offset: 4px !important;
-  box-shadow: 0 0 0 8px rgba(255, 152, 0, 0.22), 0 0 24px 10px rgba(255, 152, 0, 0.45) !important;
+  box-shadow: 0 0 0 calc(6px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.22 * var(--con-active-glow, 1))),
+              0 0 calc(24px * var(--con-active-glow, 1)) calc(8px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.45 * var(--con-active-glow, 1))) !important;
 }
 
 /* Active vector shape highlight in presentation (mirror) mode */
 .con-mirror-mode .con-shape.con-mirror-active {
-  outline: 4px solid #ff9800 !important;
+  outline: var(--con-active-width, 4px) solid var(--con-active-color, #ff9800) !important;
   outline-offset: 4px !important;
-  box-shadow: 0 0 0 8px rgba(255, 152, 0, 0.22), 0 0 24px 10px rgba(255, 152, 0, 0.45) !important;
+  box-shadow: 0 0 0 calc(6px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.22 * var(--con-active-glow, 1))),
+              0 0 calc(24px * var(--con-active-glow, 1)) calc(8px * var(--con-active-glow, 1)) rgba(var(--con-active-color-rgb, 255, 152, 0), calc(0.45 * var(--con-active-glow, 1))) !important;
 }
 
 /* Active edge highlight in presentation (mirror) mode */
 .con-mirror-mode #constellation-svg .con-line-group.con-mirror-active .con-line {
-  stroke: #ff9800 !important;
-  stroke-width: 6px !important;
-  filter: drop-shadow(0 0 8px #ff9800) !important;
+  stroke: var(--con-active-color, #ff9800) !important;
+  stroke-width: calc(var(--con-active-width, 4px) + 2px) !important;
+  filter: drop-shadow(0 0 8px var(--con-active-color, #ff9800)) !important;
+}
+
+/* Active Effect Animation Variants */
+@keyframes conActivePulseRing {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.95; }
+}
+@keyframes conActiveRippleRing {
+  0% { opacity: 0.9; outline-offset: 2px; }
+  100% { opacity: 0; outline-offset: 12px; }
+}
+@keyframes conActiveBreath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.012); }
+}
+
+.con-mirror-mode.con-active-style-pulse .con-mirror-active::before,
+body.con-active-scope-canvas.con-active-style-pulse .con-node.con-selected::before,
+body.con-active-scope-both.con-active-style-pulse .con-node.con-selected::before,
+body.con-active-scope-canvas.con-active-style-pulse .con-group.con-group-selected::before,
+body.con-active-scope-both.con-active-style-pulse .con-group.con-group-selected::before,
+body.con-active-scope-canvas.con-active-style-pulse .con-word-note.wn-selected::before,
+body.con-active-scope-both.con-active-style-pulse .con-word-note.wn-selected::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--con-active-width, 4px) * -1 - 5px);
+  border-radius: inherit;
+  border: 3px solid var(--con-active-color, #ff9800);
+  pointer-events: none;
+  animation: conActivePulseRing 1.8s ease-in-out infinite;
+  z-index: 460;
+}
+
+.con-mirror-mode.con-active-style-ripple .con-mirror-active::before,
+body.con-active-scope-canvas.con-active-style-ripple .con-node.con-selected::before,
+body.con-active-scope-both.con-active-style-ripple .con-node.con-selected::before,
+body.con-active-scope-canvas.con-active-style-ripple .con-group.con-group-selected::before,
+body.con-active-scope-both.con-active-style-ripple .con-group.con-group-selected::before,
+body.con-active-scope-canvas.con-active-style-ripple .con-word-note.wn-selected::before,
+body.con-active-scope-both.con-active-style-ripple .con-word-note.wn-selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  outline: 3px solid var(--con-active-color, #ff9800);
+  outline-offset: 2px;
+  pointer-events: none;
+  animation: conActiveRippleRing 1.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  z-index: 460;
+}
+
+.con-mirror-mode.con-active-style-breath .con-mirror-active,
+body.con-active-scope-canvas.con-active-style-breath .con-node.con-selected,
+body.con-active-scope-both.con-active-style-breath .con-node.con-selected,
+body.con-active-scope-canvas.con-active-style-breath .con-group.con-group-selected,
+body.con-active-scope-both.con-active-style-breath .con-group.con-group-selected,
+body.con-active-scope-canvas.con-active-style-breath .con-word-note.wn-selected,
+body.con-active-scope-both.con-active-style-breath .con-word-note.wn-selected {
+  animation: conActiveBreath 2.2s ease-in-out infinite;
 }
 
 
@@ -27142,4 +27225,259 @@ body.presentation-mode {
   background: #333;
   color: #fff;
   border-color: #777;
+}
+
+/* ================================================================
+   BOARD ENTITY ANIMATIONS (15 Effects — Nodes, Notes, Groups)
+   ================================================================ */
+body.con-anim-paused .con-node[class*="con-anim-"],
+body.con-anim-paused .con-node[class*="con-anim-"]::after,
+body.con-anim-paused .con-node[class*="con-anim-"]::before,
+body.con-anim-paused .con-word-note[class*="con-anim-"],
+body.con-anim-paused .con-word-note[class*="con-anim-"]::after,
+body.con-anim-paused .con-word-note[class*="con-anim-"]::before,
+body.con-anim-paused .con-group[class*="con-anim-"],
+body.con-anim-paused .con-group[class*="con-anim-"]::after,
+body.con-anim-paused .con-group[class*="con-anim-"]::before {
+  animation-play-state: paused !important;
+}
+
+/* 1. Pulse Glow */
+@keyframes conAnimPulse {
+  0%, 100% { opacity: 0.08; }
+  50% { opacity: 1; }
+}
+.con-anim-pulse::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 calc(8px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.78),
+              0 0 calc(16px * var(--con-anim-intensity, 1)) calc(6px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.28);
+  opacity: 0;
+  animation: conAnimPulse calc(var(--con-anim-duration, 2.4s) * 1.15) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: opacity;
+  z-index: 465;
+}
+
+/* 2. Attention Blink */
+@keyframes conAnimBlink {
+  0%, 49.9% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.con-anim-blink::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 3px solid var(--con-anim-color, #ef4444);
+  box-shadow: 0 0 0 calc(4px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.9),
+              0 0 calc(10px * var(--con-anim-intensity, 1)) calc(3px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.35);
+  pointer-events: none;
+  animation: conAnimBlink calc(var(--con-anim-duration, 2.4s) * 0.35) steps(1, end) infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: opacity;
+  z-index: 465;
+}
+
+/* 3. Gentle Float */
+@keyframes conAnimFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(calc(-5px * var(--con-anim-intensity, 1))); }
+}
+.con-anim-float {
+  animation: conAnimFloat var(--con-anim-duration, 2.4s) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 4. Heartbeat */
+@keyframes conAnimHeartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(calc(1 + 0.055 * var(--con-anim-intensity, 1))); }
+  28% { transform: scale(1); }
+  42% { transform: scale(calc(1 + 0.04 * var(--con-anim-intensity, 1))); }
+  56% { transform: scale(1); }
+}
+.con-anim-heartbeat {
+  animation: conAnimHeartbeat calc(var(--con-anim-duration, 2.4s) * 0.85) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 5. Wiggle */
+@keyframes conAnimWiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(calc(2.2deg * var(--con-anim-intensity, 1))); }
+  75% { transform: rotate(calc(-2.2deg * var(--con-anim-intensity, 1))); }
+}
+.con-anim-wiggle {
+  animation: conAnimWiggle calc(var(--con-anim-duration, 2.4s) * 0.45) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 6. Bounce */
+@keyframes conAnimBounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(calc(-9px * var(--con-anim-intensity, 1))); }
+  60% { transform: translateY(calc(-4px * var(--con-anim-intensity, 1))); }
+}
+.con-anim-bounce {
+  animation: conAnimBounce calc(var(--con-anim-duration, 2.4s) * 0.8) ease infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 7. Beacon Ripple */
+@keyframes conAnimRipple {
+  0% { opacity: 0.9; outline-offset: 0px; }
+  100% { opacity: 0; outline-offset: calc(10px * var(--con-anim-intensity, 1)); }
+}
+.con-anim-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  outline: 3px solid var(--con-anim-color, #ef4444);
+  outline-offset: 0px;
+  pointer-events: none;
+  animation: conAnimRipple calc(var(--con-anim-duration, 2.4s) * 0.85) cubic-bezier(0.22, 1, 0.36, 1) infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: opacity;
+  z-index: 465;
+}
+
+/* 8. Spotlight Aura */
+@keyframes conAnimSpotlight {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(calc(1 + 0.025 * var(--con-anim-intensity, 1))); }
+}
+.con-anim-spotlight {
+  box-shadow: 0 0 0 calc(4px * var(--con-anim-intensity, 1)) var(--con-anim-color, #ef4444),
+              0 0 calc(26px * var(--con-anim-intensity, 1)) calc(8px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.52) !important;
+  animation: conAnimSpotlight var(--con-anim-duration, 2.4s) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 9. Shimmer Sheen */
+@keyframes conAnimShimmer {
+  0% { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  35% { opacity: 0.7; }
+  65% { opacity: 0.7; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+}
+.con-anim-shimmer {
+  overflow: hidden !important;
+}
+.con-anim-shimmer::after {
+  content: '';
+  position: absolute;
+  top: -10%;
+  left: 0;
+  width: 45%;
+  height: 120%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(var(--con-anim-color-rgb, 239, 68, 68), calc(0.45 * var(--con-anim-intensity, 1))), transparent);
+  animation: conAnimShimmer calc(var(--con-anim-duration, 2.4s) * 1.1) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform, opacity;
+  z-index: 465;
+}
+
+/* 10. Tada Callout */
+@keyframes conAnimTada {
+  0%, 60%, 100% { transform: scale(1) rotate(0deg); }
+  10%, 20% { transform: scale(0.96) rotate(calc(-2.5deg * var(--con-anim-intensity, 1))); }
+  30%, 50% { transform: scale(calc(1 + 0.05 * var(--con-anim-intensity, 1))) rotate(calc(2.5deg * var(--con-anim-intensity, 1))); }
+  40% { transform: scale(calc(1 + 0.05 * var(--con-anim-intensity, 1))) rotate(calc(-2.5deg * var(--con-anim-intensity, 1))); }
+}
+.con-anim-tada {
+  animation: conAnimTada calc(var(--con-anim-duration, 2.4s) * 1.2) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 11. Inverse Colours */
+@keyframes conAnimInvert {
+  0%, 49.9% { filter: invert(0); }
+  50%, 100% { filter: invert(1); }
+}
+.con-anim-invert {
+  animation: conAnimInvert calc(var(--con-anim-duration, 2.4s) * 0.75) steps(1, end) infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: filter;
+}
+
+/* 12. Orbiting Point (dot circling the element perimeter) */
+@keyframes conAnimOrbit {
+  0% { offset-distance: 0%; }
+  100% { offset-distance: 100%; }
+}
+.con-anim-orbit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(11px * var(--con-anim-intensity, 1));
+  height: calc(11px * var(--con-anim-intensity, 1));
+  border-radius: 50%;
+  background: var(--con-anim-color, #ef4444);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 8px 2px rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.75);
+  offset-path: inset(-6px round 10px);
+  offset-distance: 0%;
+  pointer-events: none;
+  animation: conAnimOrbit calc(var(--con-anim-duration, 2.4s) * 1.1) linear infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: offset-distance;
+  z-index: 470;
+}
+
+/* 13. Elastic Pop */
+@keyframes conAnimElastic {
+  0%, 100% { transform: scale(1); }
+  30% { transform: scale(calc(1 + 0.065 * var(--con-anim-intensity, 1)), calc(1 - 0.03 * var(--con-anim-intensity, 1))); }
+  55% { transform: scale(calc(1 - 0.025 * var(--con-anim-intensity, 1)), calc(1 + 0.045 * var(--con-anim-intensity, 1))); }
+  75% { transform: scale(calc(1 + 0.02 * var(--con-anim-intensity, 1)), calc(1 - 0.01 * var(--con-anim-intensity, 1))); }
+}
+.con-anim-elastic {
+  animation: conAnimElastic var(--con-anim-duration, 2.4s) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 14. Pendulum Tilt */
+@keyframes conAnimPendulum {
+  0%, 100% { transform: rotate(calc(-3deg * var(--con-anim-intensity, 1))); }
+  50% { transform: rotate(calc(3deg * var(--con-anim-intensity, 1))); }
+}
+.con-anim-pendulum {
+  transform-origin: 50% 0%;
+  animation: conAnimPendulum var(--con-anim-duration, 2.4s) ease-in-out infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: transform;
+}
+
+/* 15. Spectrum Glow */
+@keyframes conAnimHueGlow {
+  0% { filter: hue-rotate(0deg); opacity: 0.9; }
+  50% { filter: hue-rotate(180deg); opacity: 1; }
+  100% { filter: hue-rotate(360deg); opacity: 0.9; }
+}
+.con-anim-hue_glow::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  pointer-events: none;
+  border: 3px solid var(--con-anim-color, #ef4444);
+  box-shadow: 0 0 calc(14px * var(--con-anim-intensity, 1)) calc(4px * var(--con-anim-intensity, 1)) rgba(var(--con-anim-color-rgb, 239, 68, 68), 0.65);
+  animation: conAnimHueGlow calc(var(--con-anim-duration, 2.4s) * 1.4) linear infinite;
+  animation-delay: var(--con-anim-delay, 0s);
+  will-change: filter, opacity;
+  z-index: 465;
 }

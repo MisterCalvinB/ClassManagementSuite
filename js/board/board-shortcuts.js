@@ -574,6 +574,45 @@
       { id: 'rotate_node_90', name: 'Rotate Node 90°', desc: 'Rotate selected node(s) 90 degrees clockwise', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/refresh.svg', defaultShortcut: null, fn: () => { if (typeof window.conRotateSelectedNodes === 'function') window.conRotateSelectedNodes(90); } },
       { id: 'node_set_page', name: 'Set Page Number', desc: 'Set or edit page number for selected node', category: 'selection', categoryName: 'Selection & Edit', icon: '../assets/icons/page-number.svg', defaultShortcut: null, fn: () => { if (typeof window.conCtxSetPage === 'function') window.conCtxSetPage(); else if (typeof conCtxSetPage === 'function') conCtxSetPage(); } },
 
+      // Animations
+      { id: 'anim_toggle_default', name: 'Toggle Default Animation', desc: 'Toggle the configured default animation on selected node, note, or group', category: 'animations', categoryName: 'Animations', icon: '../assets/icons/blink.svg', defaultShortcut: null, fn: () => {
+        if (typeof window.conSetSelectedAnimation === 'function') {
+          const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+          window.conSetSelectedAnimation(defAnim, true);
+        }
+      } },
+      { id: 'anim_clear_selected', name: 'Clear Animation', desc: 'Remove animation from selected node, note, or group', category: 'animations', categoryName: 'Animations', icon: '../assets/icons/clear-format.svg', defaultShortcut: null, fn: () => {
+        if (typeof window.conSetSelectedAnimation === 'function') window.conSetSelectedAnimation('', false);
+      } },
+      ...[
+        ['pulse', 'Pulse Glow'],
+        ['blink', 'Attention Blink'],
+        ['float', 'Gentle Float'],
+        ['heartbeat', 'Heartbeat'],
+        ['wiggle', 'Wiggle'],
+        ['bounce', 'Bounce'],
+        ['ripple', 'Beacon Ripple'],
+        ['spotlight', 'Spotlight Aura'],
+        ['shimmer', 'Shimmer Sheen'],
+        ['tada', 'Tada Callout'],
+        ['invert', 'Inverse Colours'],
+        ['orbit', 'Orbiting Point'],
+        ['elastic', 'Elastic Pop'],
+        ['pendulum', 'Pendulum Tilt'],
+        ['hue_glow', 'Spectrum Glow']
+      ].map(([key, label]) => ({
+        id: 'anim_' + key,
+        name: 'Animate: ' + label,
+        desc: 'Toggle "' + label + '" animation on selected node, note, or group',
+        category: 'animations',
+        categoryName: 'Animations',
+        icon: '../assets/icons/blink.svg',
+        defaultShortcut: null,
+        fn: () => {
+          if (typeof window.conSetSelectedAnimation === 'function') window.conSetSelectedAnimation(key, true);
+        }
+      })),
+
       // Clipboard
       { id: 'clipboard_copy', name: 'Copy', desc: 'Copy selected nodes, notes, or pictures', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/copy.svg', defaultShortcut: { ctrl: true, key: 'c' }, fn: () => { if (typeof window.conClipboardCopy === 'function') return window.conClipboardCopy({ allowWhileTyping: false }); return false; } },
       { id: 'clipboard_cut', name: 'Cut', desc: 'Cut selected nodes, notes, or pictures', category: 'clipboard', categoryName: 'Clipboard', icon: '../assets/icons/scissors.svg', defaultShortcut: { ctrl: true, key: 'x' }, fn: () => { if (typeof window.conClipboardCut === 'function') return window.conClipboardCut({ allowWhileTyping: false }); return false; } },
@@ -2033,6 +2072,42 @@
       const linkLabelInput = document.getElementById('bc-link-label-size');
       if (linkLabelInput) linkLabelInput.dataset.lastUnit = linkLabelUnit;
 
+      // Animation & Active Effect settings
+      const animCfg = (bc.animation && typeof bc.animation === 'object') ? bc.animation : {};
+      const animColor = /^#[0-9a-fA-F]{6}$/i.test(animCfg.color || '') ? animCfg.color : '#ef4444';
+      set('bc-anim-color', animColor);
+      set('bc-anim-color-picker', animColor);
+      set('bc-anim-default', animCfg.defaultEffect || 'pulse');
+      const animDur = animCfg.durationSec !== undefined ? Number(animCfg.durationSec) : 2.4;
+      set('bc-anim-duration', animDur);
+      const animDurVal = document.getElementById('bc-anim-duration-val');
+      if (animDurVal) animDurVal.textContent = animDur.toFixed(1) + 's';
+      const animInt = animCfg.intensity !== undefined ? Number(animCfg.intensity) : 1.0;
+      set('bc-anim-intensity', animInt);
+      const animIntVal = document.getElementById('bc-anim-intensity-val');
+      if (animIntVal) animIntVal.textContent = Math.round(animInt * 100) + '%';
+      const animPausedEl = document.getElementById('bc-anim-paused');
+      if (animPausedEl) animPausedEl.checked = !!animCfg.paused;
+      set('bc-anim-dblclick-sec', animCfg.doubleClickDurationSec !== undefined ? Number(animCfg.doubleClickDurationSec) : 3.0);
+
+      const activeCfg = (animCfg.activeEffect && typeof animCfg.activeEffect === 'object') ? animCfg.activeEffect : {};
+      set('bc-active-scope', activeCfg.scope || 'mirror');
+      set('bc-active-style', activeCfg.style || 'solid');
+      const activeColor = /^#[0-9a-fA-F]{6}$/i.test(activeCfg.color || '') ? activeCfg.color : '#ff9800';
+      set('bc-active-color', activeColor);
+      set('bc-active-color-picker', activeColor);
+      const activeWidth = activeCfg.width !== undefined ? Number(activeCfg.width) : 4;
+      set('bc-active-width', activeWidth);
+      const activeWidthVal = document.getElementById('bc-active-width-val');
+      if (activeWidthVal) activeWidthVal.textContent = activeWidth + 'px';
+      const activeGlow = activeCfg.glow !== undefined ? Number(activeCfg.glow) : 1.0;
+      set('bc-active-glow', activeGlow);
+      const activeGlowVal = document.getElementById('bc-active-glow-val');
+      if (activeGlowVal) activeGlowVal.textContent = Math.round(activeGlow * 100) + '%';
+
+      if (typeof window._bcBuildAnimPreviewChips === 'function') window._bcBuildAnimPreviewChips();
+      if (typeof window.bcUpdateAnimPreview === 'function') window.bcUpdateAnimPreview();
+
       // Bind unit conversion helpers for customisation controls
       function _bindUnitConversion(selectId, inputId, isFont) {
         const sel = document.getElementById(selectId);
@@ -2745,6 +2820,21 @@
         })(),
         fontUnit: document.getElementById('bc-font-unit-select')?.value || window.conFontUnit || 'pt',
         thicknessUnit: document.getElementById('bc-thickness-unit-select')?.value || window.conThicknessUnit || 'mm',
+        animation: {
+          color: (() => { const el = document.getElementById('bc-anim-color'); return el && /^#[0-9a-fA-F]{6}$/i.test(el.value) ? el.value : '#ef4444'; })(),
+          defaultEffect: getVal('bc-anim-default', 'pulse'),
+          durationSec: Math.max(0.6, Math.min(5.0, parseFloat(document.getElementById('bc-anim-duration')?.value || '2.4') || 2.4)),
+          intensity: Math.max(0.4, Math.min(1.6, parseFloat(document.getElementById('bc-anim-intensity')?.value || '1.0') || 1.0)),
+          paused: !!document.getElementById('bc-anim-paused')?.checked,
+          doubleClickDurationSec: Math.max(0.5, Math.min(15, parseFloat(document.getElementById('bc-anim-dblclick-sec')?.value || '3.0') || 3.0)),
+          activeEffect: {
+            scope: getVal('bc-active-scope', 'mirror'),
+            style: getVal('bc-active-style', 'solid'),
+            color: (() => { const el = document.getElementById('bc-active-color'); return el && /^#[0-9a-fA-F]{6}$/i.test(el.value) ? el.value : '#ff9800'; })(),
+            width: Math.max(2, Math.min(8, parseInt(document.getElementById('bc-active-width')?.value || '4', 10) || 4)),
+            glow: Math.max(0, Math.min(1.6, parseFloat(document.getElementById('bc-active-glow')?.value || '1.0') || 0))
+          }
+        }
       };
 
       window.BOARD_CONFIG = bc;
@@ -2773,6 +2863,13 @@
 
     function _boardCustomiseApply(bc) {
       if (!bc) return;
+
+      if (bc.animation && typeof window.conApplyBoardAnimationConfig === 'function') {
+        window.conApplyBoardAnimationConfig(bc.animation);
+        if (window._conMirrorSend) {
+          window._conMirrorSend({ type: 'board-anim-config', animation: bc.animation });
+        }
+      }
 
       if (bc.fontUnit && typeof window.conSwitchFontUnit === 'function') {
         window.conSwitchFontUnit(bc.fontUnit);
@@ -3005,6 +3102,54 @@
         _boardScheduleSave('constellation');
       }
     }
+
+    window._bcAnimPreviewKey = null;
+    window._bcBuildAnimPreviewChips = function () {
+      const wrap = document.getElementById('bc-anim-preview-chips');
+      if (!wrap || !Array.isArray(window.CON_ANIMATIONS)) return;
+      const t = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t.bind(i18n) : (k, fb) => fb || k;
+      const cur = window._bcAnimPreviewKey || document.getElementById('bc-anim-default')?.value || 'pulse';
+      wrap.innerHTML = '';
+      window.CON_ANIMATIONS.forEach(a => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'bc-anim-chip' + (a.key === cur ? ' active' : '');
+        const translated = t(a.i18nKey);
+        btn.textContent = (translated && translated !== a.i18nKey) ? translated : a.label;
+        btn.onclick = () => {
+          window._bcAnimPreviewKey = a.key;
+          wrap.querySelectorAll('.bc-anim-chip').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          window.bcUpdateAnimPreview();
+        };
+        wrap.appendChild(btn);
+      });
+    };
+
+    window.bcUpdateAnimPreview = function () {
+      const stage = document.getElementById('bc-anim-preview-stage');
+      if (!stage) return;
+      const color = document.getElementById('bc-anim-color')?.value || '#ef4444';
+      const dur = parseFloat(document.getElementById('bc-anim-duration')?.value || '2.4') || 2.4;
+      const intensity = parseFloat(document.getElementById('bc-anim-intensity')?.value || '1.0') || 1.0;
+      const paused = !!document.getElementById('bc-anim-paused')?.checked;
+      const animKey = window._bcAnimPreviewKey || document.getElementById('bc-anim-default')?.value || 'pulse';
+
+      const m = String(color).trim().match(/^#?([0-9a-fA-F]{6})$/);
+      const rgb = m ? [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)].join(', ') : '239, 68, 68';
+      stage.style.setProperty('--con-anim-color', color);
+      stage.style.setProperty('--con-anim-color-rgb', rgb);
+      stage.style.setProperty('--con-anim-duration', dur + 's');
+      stage.style.setProperty('--con-anim-intensity', String(intensity));
+
+      ['bc-anim-preview-node', 'bc-anim-preview-note', 'bc-anim-preview-group'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (typeof window.conApplyEntityAnimClass === 'function') {
+          window.conApplyEntityAnimClass(el, paused ? '' : animKey, false);
+        }
+      });
+    };
 
     // Auto-apply saved customise settings on load
     (async function () {

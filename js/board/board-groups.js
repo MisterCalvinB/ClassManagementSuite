@@ -1033,7 +1033,12 @@
         const addInp = document.getElementById('con-group-ctx-add-input');
         if (addInp) addInp.value = '';
         const blinkBtn = document.getElementById('con-group-ctx-blink-btn');
-        if (blinkBtn) blinkBtn.classList.toggle('active', !!group.blink);
+        const activeAnim = group.anim || (group.blink ? 'pulse' : '');
+        if (blinkBtn) blinkBtn.classList.toggle('active', !!activeAnim);
+        const animSel = document.getElementById('con-group-ctx-anim-select');
+        if (animSel && typeof window.conPopulateAnimSelect === 'function') {
+          window.conPopulateAnimSelect(animSel, activeAnim);
+        }
 
         // Build swatches once
         const swContainer = document.getElementById('con-group-ctx-swatches');
@@ -1148,7 +1153,12 @@
         const invBtn = document.getElementById('con-group-ctx-invisible-btn');
         if (invBtn) invBtn.classList.toggle('active', !!group.invisible);
         const blinkBtn = document.getElementById('con-group-ctx-blink-btn');
-        if (blinkBtn) blinkBtn.classList.toggle('active', !!group.blink);
+        const activeAnim = group.anim || (group.blink ? 'pulse' : '');
+        if (blinkBtn) blinkBtn.classList.toggle('active', !!activeAnim);
+        const animSel = document.getElementById('con-group-ctx-anim-select');
+        if (animSel && typeof window.conPopulateAnimSelect === 'function') {
+          window.conPopulateAnimSelect(animSel, activeAnim);
+        }
       }
 
       window.conGroupCtxToggleInvisible = function () {
@@ -1270,14 +1280,40 @@
         }
       };
 
+      window.conGroupApplyAnimation = function (group, animKey) {
+        if (!group) return;
+        const resolved = String(animKey || '');
+        group.anim = resolved;
+        group.blink = !!resolved;
+        if (group.el) {
+          group.el.classList.remove('con-group-blink');
+          if (typeof window.conApplyEntityAnimClass === 'function') {
+            window.conApplyEntityAnimClass(group.el, resolved, false);
+          } else if (resolved) {
+            group.el.classList.add('con-group-blink');
+          }
+        }
+        if (window._conMirrorSend) window._conMirrorSend({ type: 'group-anim', groupId: group.id, anim: resolved });
+      };
+
+      window.conGroupCtxSetAnimation = function (animKey) {
+        const group = conGroups.find(g => g.id === _conGroupCtxId);
+        if (!group) return;
+        window.conGroupApplyAnimation(group, animKey);
+        const blinkBtn = document.getElementById('con-group-ctx-blink-btn');
+        if (blinkBtn) blinkBtn.classList.toggle('active', !!group.anim);
+        const animSel = document.getElementById('con-group-ctx-anim-select');
+        if (animSel && animSel.value !== group.anim) animSel.value = group.anim;
+        if (typeof conSave === 'function') conSave();
+      };
+
       window.conGroupCtxBlink = function () {
         const group = conGroups.find(g => g.id === _conGroupCtxId);
         if (!group) return;
-        group.blink = !group.blink;
-        group.el.classList.toggle('con-group-blink', !!group.blink);
-        const blinkBtn = document.getElementById('con-group-ctx-blink-btn');
-        if (blinkBtn) blinkBtn.classList.toggle('active', !!group.blink);
-        if (window._conMirrorSend) window._conMirrorSend({ type: 'blink-update', groupId: group.id, blink: !!group.blink });
+        const cur = group.anim || (group.blink ? 'pulse' : '');
+        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+        const next = cur ? '' : defAnim;
+        window.conGroupCtxSetAnimation(next);
       };
 
       window.conGroupCtxSaveToLibrary = function () {

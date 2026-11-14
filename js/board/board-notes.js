@@ -1474,8 +1474,13 @@
         hideBtn.classList.toggle('active', !!noteData.hidden);
         hideBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
       }
+      const activeAnim = noteData.anim || (noteData.blink ? 'pulse' : '');
       const blinkBtn = document.getElementById('wn-sp-blink-btn');
-      if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
+      if (blinkBtn) blinkBtn.classList.toggle('active', !!activeAnim);
+      const spAnimSel = document.getElementById('wn-sp-anim-select');
+      if (spAnimSel && typeof window.conPopulateAnimSelect === 'function') {
+        window.conPopulateAnimSelect(spAnimSel, activeAnim);
+      }
       const libBtn = document.getElementById('wn-sp-save-library-btn');
       if (libBtn) {
         const isMulti = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1)
@@ -2040,26 +2045,46 @@
       if (!_wnActiveNote) return;
       const nd = _wnActiveNote; wnStyleDismiss(); wnFocusNoteData(nd);
     }
+    function wnApplyAnimationToNote(nd, animKey) {
+      if (!nd) return;
+      const resolved = String(animKey || '');
+      nd.anim = resolved;
+      nd.blink = !!resolved;
+      const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : null;
+      if (noteEl) {
+        noteEl.classList.remove('wn-blink');
+        if (typeof window.conApplyEntityAnimClass === 'function') {
+          window.conApplyEntityAnimClass(noteEl, resolved, false);
+        } else {
+          noteEl.classList.toggle('wn-blink', !!resolved);
+        }
+        const quickBlink = noteEl.querySelector('.wn-note-mini-btn[data-action="blink"]');
+        if (quickBlink) quickBlink.classList.toggle('active', !!resolved);
+      }
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({ type: 'note-anim', noteId: String(nd.id), anim: resolved });
+      }
+    }
+    window.wnApplyAnimationToNote = wnApplyAnimationToNote;
+
+    function wnStyleSetAnimation(animKey) {
+      if (!_wnActiveNote) return;
+      const resolved = String(animKey || '');
+      const targetNotes = wnGetTargetNotes(_wnActiveNote);
+      targetNotes.forEach(nd => wnApplyAnimationToNote(nd, resolved));
+      const blinkBtn = document.getElementById('wn-sp-blink-btn');
+      if (blinkBtn) blinkBtn.classList.toggle('active', !!resolved);
+      const spAnimSel = document.getElementById('wn-sp-anim-select');
+      if (spAnimSel && spAnimSel.value !== resolved) spAnimSel.value = resolved;
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+    }
+    window.wnStyleSetAnimation = wnStyleSetAnimation;
+
     function wnStyleBlink() {
       if (!_wnActiveNote) return;
-      const targetNotes = wnGetTargetNotes(_wnActiveNote);
-
-      const newBlink = !_wnActiveNote.blink;
-      targetNotes.forEach(nd => {
-        nd.blink = newBlink;
-        const noteEl = (typeof wnGetNoteElementById === 'function') ? wnGetNoteElementById(nd.id) : null;
-        if (noteEl) {
-          noteEl.classList.toggle('wn-blink', !!newBlink);
-          const quickBlink = noteEl.querySelector('.wn-note-mini-btn[data-action="blink"]');
-          if (quickBlink) quickBlink.classList.toggle('active', !!newBlink);
-        }
-        if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({ type: 'note-blink', noteId: String(nd.id), blink: !!newBlink });
-        }
-      });
-      const blinkBtn = document.getElementById('wn-sp-blink-btn');
-      if (blinkBtn) blinkBtn.classList.toggle('active', !!newBlink);
-      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+      const cur = _wnActiveNote.anim || (_wnActiveNote.blink ? 'pulse' : '');
+      const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+      wnStyleSetAnimation(cur ? '' : defAnim);
     }
     function wnStyleDeleteNote() {
       if (!_wnActiveNote) return;
@@ -4910,6 +4935,7 @@
           borderColor: noteData.borderColor || '',
           hidden: !!noteData.hidden,
           blink: !!noteData.blink,
+          anim: noteData.anim || (noteData.blink ? 'pulse' : ''),
           baseWidth: noteData.liveBaseWidth,
           baseHeight: noteData.liveBaseHeight,
           width: noteData.width || noteData.liveBaseWidth,
@@ -5031,6 +5057,7 @@
           borderColor: noteData.borderColor || '',
           hidden: !!noteData.hidden,
           blink: !!noteData.blink,
+          anim: noteData.anim || (noteData.blink ? 'pulse' : ''),
           baseWidth: noteData.liveBaseWidth,
           baseHeight: noteData.liveBaseHeight,
           width: noteData.width || noteData.liveBaseWidth,
@@ -5671,9 +5698,15 @@
           note.style.borderColor = '';
         }
         wnApplyHiddenState(noteData, note);
-        note.classList.toggle('wn-blink', !!noteData.blink);
+        const _activeNoteAnim = noteData.anim || (noteData.blink ? 'pulse' : '');
+        note.classList.remove('wn-blink');
+        if (typeof window.conApplyEntityAnimClass === 'function') {
+          window.conApplyEntityAnimClass(note, _activeNoteAnim, false);
+        } else {
+          note.classList.toggle('wn-blink', !!noteData.blink);
+        }
         note.classList.toggle('student-input', !!noteData.studentInput);
-        blinkQuickBtn.classList.toggle('active', !!noteData.blink);
+        blinkQuickBtn.classList.toggle('active', !!_activeNoteAnim);
         hideQuickBtn.classList.toggle('active', !!noteData.hidden);
         hideQuickBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
         lockQuickBtn.innerHTML = noteData.locked ? '<img src="../assets/icons/unlock.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/lock.svg" class="btn-icon" alt="" />';
@@ -5718,6 +5751,7 @@
             borderColor: noteData.borderColor || '',
             hidden: !!noteData.hidden,
             blink: !!noteData.blink,
+            anim: noteData.anim || (noteData.blink ? 'pulse' : ''),
             baseWidth: noteData.liveBaseWidth,
             baseHeight: noteData.liveBaseHeight,
             width: noteData.width || noteData.liveBaseWidth,
@@ -6064,16 +6098,16 @@
       blinkQuickBtn.addEventListener('click', e => {
         e.preventDefault();
         e.stopPropagation();
-        noteData.blink = !noteData.blink;
-        note.classList.toggle('wn-blink', !!noteData.blink);
-        blinkQuickBtn.classList.toggle('active', !!noteData.blink);
+        const cur = noteData.anim || (noteData.blink ? 'pulse' : '');
+        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+        const next = cur ? '' : defAnim;
+        wnApplyAnimationToNote(noteData, next);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (_wnActiveNote && _wnActiveNote.id === noteData.id) {
           const blinkBtn = document.getElementById('wn-sp-blink-btn');
-          if (blinkBtn) blinkBtn.classList.toggle('active', !!noteData.blink);
-        }
-        if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({ type: 'note-blink', noteId: String(noteData.id), blink: !!noteData.blink });
+          if (blinkBtn) blinkBtn.classList.toggle('active', !!next);
+          const spAnimSel = document.getElementById('wn-sp-anim-select');
+          if (spAnimSel) spAnimSel.value = next;
         }
       });
       miniActions.appendChild(blinkQuickBtn);

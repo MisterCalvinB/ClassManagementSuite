@@ -6205,7 +6205,11 @@
               'con-linking', 'con-link-mode',
               'draw-mode', 'connect-mode',
               'con-random-rolling',
-              'con-node-video', 'con-video-playing', 'con-video-paused'
+              'con-node-video', 'con-video-playing', 'con-video-paused',
+              'con-anim-pulse', 'con-anim-blink', 'con-anim-float', 'con-anim-heartbeat',
+              'con-anim-wiggle', 'con-anim-bounce', 'con-anim-ripple', 'con-anim-spotlight',
+              'con-anim-shimmer', 'con-anim-tada', 'con-anim-invert', 'con-anim-orbit',
+              'con-anim-elastic', 'con-anim-pendulum', 'con-anim-hue_glow'
             ]);
             new MutationObserver(function (mutations) {
               if (window._conSuppressMirrorObserver || window._conMirrorDragging || (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1)) return;
@@ -6269,9 +6273,9 @@
                   } else if (m.attributeName === 'style') {
                     if (t.classList && (t.classList.contains('wn-emoji-sticker') || t.classList.contains('con-drop-target') || t.classList.contains('con-drawing') || t.classList.contains('con-shape') || t.classList.contains('con-mask-rect') || t.classList.contains('con-mask-resizer') || t.classList.contains('con-eraser-outline'))) return true;
                     if (t.closest && (t.closest('.con-drawing') || t.closest('.con-shape') || t.closest('.con-mask-rect') || t.closest('#con-draw-overlay') || t.closest('.con-eraser-outline'))) return true;
-                    // Ignore transient CSS variables used for attention blinking (--con-blink-delay, --con-node-border, --con-group-blink-delay)
+                    // Ignore transient CSS variables used for attention blinking and animations
                     // and transient selection styles like z-index, cursor, pointer-events
-                    const cleanStyle = s => (s || '').replace(/(?:--con-(?:blink-delay|node-border|group-blink-delay)|z-index|cursor|pointer-events)\s*:[^;]+;?/gi, '').trim();
+                    const cleanStyle = s => (s || '').replace(/(?:--con-(?:blink-delay|node-border|group-blink-delay|anim-delay)|--wn-blink-delay|z-index|cursor|pointer-events)\s*:[^;]+;?/gi, '').trim();
                     const currentStyle = (t.getAttribute && t.getAttribute('style')) || '';
                     if (cleanStyle(m.oldValue) === cleanStyle(currentStyle)) return true;
                   }
@@ -7839,9 +7843,208 @@
       // END CONSTELLATION → WORD DB MODAL
       // ================================================================
 
+      // ================================================================
+      // SHARED BOARD ANIMATIONS (15 Effects — Nodes, Notes, Groups)
+      // ================================================================
+      const CON_ANIMATIONS = [
+        { key: 'pulse',     i18nKey: 'conAnimPulse',     label: 'Pulse Glow' },
+        { key: 'blink',     i18nKey: 'conAnimBlink',     label: 'Attention Blink' },
+        { key: 'float',     i18nKey: 'conAnimFloat',     label: 'Gentle Float' },
+        { key: 'heartbeat', i18nKey: 'conAnimHeartbeat', label: 'Heartbeat' },
+        { key: 'wiggle',    i18nKey: 'conAnimWiggle',    label: 'Wiggle' },
+        { key: 'bounce',    i18nKey: 'conAnimBounce',    label: 'Bounce' },
+        { key: 'ripple',    i18nKey: 'conAnimRipple',    label: 'Beacon Ripple' },
+        { key: 'spotlight', i18nKey: 'conAnimSpotlight', label: 'Spotlight Aura' },
+        { key: 'shimmer',   i18nKey: 'conAnimShimmer',   label: 'Shimmer Sheen' },
+        { key: 'tada',      i18nKey: 'conAnimTada',      label: 'Tada Callout' },
+        { key: 'invert',    i18nKey: 'conAnimInvert',    label: 'Inverse Colours' },
+        { key: 'orbit',     i18nKey: 'conAnimOrbit',     label: 'Orbiting Point' },
+        { key: 'elastic',   i18nKey: 'conAnimElastic',   label: 'Elastic Pop' },
+        { key: 'pendulum',  i18nKey: 'conAnimPendulum',  label: 'Pendulum Tilt' },
+        { key: 'hue_glow',  i18nKey: 'conAnimHueGlow',   label: 'Spectrum Glow' }
+      ];
+      window.CON_ANIMATIONS = global.CON_ANIMATIONS = CON_ANIMATIONS;
+
+      function _conHexToRgbStr(hex, fallback) {
+        const m = String(hex || '').trim().match(/^#?([0-9a-fA-F]{6})$/);
+        if (!m) return fallback || '239, 68, 68';
+        const n = parseInt(m[1], 16);
+        return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255);
+      }
+
+      function conGetDefaultAnim() {
+        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        return (cfg && cfg.defaultEffect) ? String(cfg.defaultEffect) : 'pulse';
+      }
+      window.conGetDefaultAnim = global.conGetDefaultAnim = conGetDefaultAnim;
+
+      function conApplyEntityAnimClass(el, animKey, legacyBlink) {
+        if (!el || !el.classList) return;
+        CON_ANIMATIONS.forEach(a => el.classList.remove('con-anim-' + a.key));
+        const resolved = animKey ? String(animKey) : (legacyBlink ? 'pulse' : '');
+        if (resolved && CON_ANIMATIONS.some(a => a.key === resolved)) {
+          const dur = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation && Number(BOARD_CONFIG.animation.durationSec)) || 2.4;
+          el.style.setProperty('--con-anim-delay', '-' + ((Date.now() / 1000) % dur).toFixed(3) + 's');
+          el.classList.add('con-anim-' + resolved);
+        } else {
+          el.style.removeProperty('--con-anim-delay');
+        }
+      }
+      window.conApplyEntityAnimClass = global.conApplyEntityAnimClass = conApplyEntityAnimClass;
+
+      function conPopulateAnimSelect(selectEl, currentVal) {
+        if (!selectEl) return;
+        const t = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t.bind(i18n) : (k, fb) => fb || k;
+        const prev = currentVal !== undefined ? String(currentVal || '') : (selectEl.value || '');
+        selectEl.innerHTML = '';
+        const noneOpt = document.createElement('option');
+        noneOpt.value = '';
+        noneOpt.textContent = t('conAnimNone', 'No Animation');
+        selectEl.appendChild(noneOpt);
+        CON_ANIMATIONS.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.key;
+          const translated = t(a.i18nKey);
+          opt.textContent = (translated && translated !== a.i18nKey) ? translated : a.label;
+          selectEl.appendChild(opt);
+        });
+        selectEl.value = prev;
+      }
+      window.conPopulateAnimSelect = global.conPopulateAnimSelect = conPopulateAnimSelect;
+
+      function conApplyBoardAnimationConfig(animCfg) {
+        const cfg = animCfg && typeof animCfg === 'object' ? animCfg : {};
+        const root = document.documentElement;
+        if (root && root.style) {
+          const color = /^#[0-9a-fA-F]{6}$/i.test(cfg.color || '') ? cfg.color : '#ef4444';
+          const dur = Math.max(0.5, Math.min(8, Number(cfg.durationSec) || 2.4));
+          const intensity = Math.max(0.3, Math.min(2, Number(cfg.intensity) || 1.0));
+          root.style.setProperty('--con-anim-color', color);
+          root.style.setProperty('--con-anim-color-rgb', _conHexToRgbStr(color, '239, 68, 68'));
+          root.style.setProperty('--con-anim-duration', dur + 's');
+          root.style.setProperty('--con-anim-intensity', String(intensity));
+
+          const activeCfg = cfg.activeEffect && typeof cfg.activeEffect === 'object' ? cfg.activeEffect : {};
+          const activeColor = /^#[0-9a-fA-F]{6}$/i.test(activeCfg.color || '') ? activeCfg.color : '#ff9800';
+          const activeWidth = Math.max(1, Math.min(12, Number(activeCfg.width) || 4));
+          const activeGlow = activeCfg.glow !== undefined ? Math.max(0, Math.min(2, Number(activeCfg.glow))) : 1.0;
+          root.style.setProperty('--con-active-color', activeColor);
+          root.style.setProperty('--con-active-color-rgb', _conHexToRgbStr(activeColor, '255, 152, 0'));
+          root.style.setProperty('--con-active-width', activeWidth + 'px');
+          root.style.setProperty('--con-active-glow', String(activeGlow));
+        }
+
+        if (document.body) {
+          document.body.classList.toggle('con-anim-paused', !!cfg.paused);
+          const activeCfg = cfg.activeEffect && typeof cfg.activeEffect === 'object' ? cfg.activeEffect : {};
+          const scope = activeCfg.scope || 'mirror';
+          const style = activeCfg.style || 'solid';
+          document.body.classList.remove('con-active-scope-mirror', 'con-active-scope-canvas', 'con-active-scope-both');
+          document.body.classList.add('con-active-scope-' + scope);
+          document.body.classList.remove('con-active-style-solid', 'con-active-style-pulse', 'con-active-style-ripple', 'con-active-style-breath');
+          document.body.classList.add('con-active-style-' + style);
+        }
+      }
+      window.conApplyBoardAnimationConfig = global.conApplyBoardAnimationConfig = conApplyBoardAnimationConfig;
+
+      function _conGetTargetNodeIdsForAnim() {
+        const ids = new Set();
+        if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) {
+          conMultiSelected.forEach(id => ids.add(String(id)));
+        }
+        if (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) {
+          ids.add(String(conCtxNodeId));
+        } else if (typeof conSelected !== 'undefined' && conSelected) {
+          ids.add(String(conSelected));
+        }
+        return Array.from(ids);
+      }
+
+      function conCtxSetAnimation(animKey) {
+        const resolved = String(animKey || '');
+        const ids = _conGetTargetNodeIdsForAnim();
+        ids.forEach(nid => {
+          const n = conNodes.find(x => x && String(x.id) === nid);
+          if (!n) return;
+          n.anim = resolved;
+          conApplyEntityAnimClass(n.el, n.anim, false);
+          if (window._conMirrorSend) window._conMirrorSend({ type: 'node-anim', nodeId: String(n.id), anim: n.anim });
+        });
+        const btn = document.getElementById('con-ctx-blink-btn');
+        if (btn) btn.classList.toggle('active', !!resolved);
+        const sel = document.getElementById('con-ctx-anim-select');
+        if (sel && sel.value !== resolved) sel.value = resolved;
+        if (typeof conSave === 'function') conSave();
+      }
+      window.conCtxSetAnimation = global.conCtxSetAnimation = conCtxSetAnimation;
+
+      function conCtxToggleAnim() {
+        const primaryId = (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) ? String(conCtxNodeId) : (typeof conSelected !== 'undefined' && conSelected ? String(conSelected) : null);
+        const primary = primaryId ? conNodes.find(x => x && String(x.id) === primaryId) : null;
+        const next = (primary && primary.anim) ? '' : conGetDefaultAnim();
+        conCtxSetAnimation(next);
+      }
+      window.conCtxToggleAnim = global.conCtxToggleAnim = conCtxToggleAnim;
+
+      function conSetSelectedAnimation(animKey, toggleIfSame) {
+        const requested = String(animKey || '');
+        let applied = false;
+
+        // 1. Selected nodes
+        const selNodeIds = [];
+        if (typeof conMultiSelected !== 'undefined' && conMultiSelected && conMultiSelected.size > 0) {
+          conMultiSelected.forEach(id => selNodeIds.push(String(id)));
+        } else if (typeof conSelected !== 'undefined' && conSelected) {
+          selNodeIds.push(String(conSelected));
+        }
+        if (selNodeIds.length > 0) {
+          selNodeIds.forEach(nid => {
+            const n = conNodes.find(x => x && String(x.id) === nid);
+            if (!n) return;
+            const next = (toggleIfSame && n.anim === requested) ? '' : requested;
+            n.anim = next;
+            conApplyEntityAnimClass(n.el, n.anim, false);
+            if (window._conMirrorSend) window._conMirrorSend({ type: 'node-anim', nodeId: String(n.id), anim: n.anim });
+            applied = true;
+          });
+        }
+
+        // 2. Selected or active notes
+        const liveNotes = (typeof window.conGetNotes === 'function') ? window.conGetNotes() : [];
+        const targetNotes = liveNotes.filter(nd => {
+          if (!nd) return false;
+          const nel = (typeof window.wnGetNoteElementById === 'function') ? window.wnGetNoteElementById(nd.id) : null;
+          return (nel && nel.classList.contains('wn-selected')) || (window._wnActiveNote && String(window._wnActiveNote.id) === String(nd.id));
+        });
+        if (targetNotes.length > 0 && typeof window.wnApplyAnimationToNote === 'function') {
+          targetNotes.forEach(nd => {
+            const cur = nd.anim || (nd.blink ? 'pulse' : '');
+            const next = (toggleIfSame && cur === requested) ? '' : requested;
+            window.wnApplyAnimationToNote(nd, next);
+            applied = true;
+          });
+        }
+
+        // 3. Focused group
+        const grp = (typeof window.conGetGroupFocused === 'function') ? window.conGetGroupFocused() : null;
+        if (grp && typeof window.conGroupApplyAnimation === 'function') {
+          const cur = grp.anim || (grp.blink ? 'pulse' : '');
+          const next = (toggleIfSame && cur === requested) ? '' : requested;
+          window.conGroupApplyAnimation(grp, next);
+          applied = true;
+        }
+
+        if (applied && typeof conSave === 'function') conSave();
+        return applied;
+      }
+      window.conSetSelectedAnimation = global.conSetSelectedAnimation = conSetSelectedAnimation;
+
       function conBlinkNodeAttention(el, durationMs) {
         if (!el) return;
-        const totalMs = Math.max(250, Number(durationMs) || 3000);
+        const cfgDur = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation && Number(BOARD_CONFIG.animation.doubleClickDurationSec))
+          ? BOARD_CONFIG.animation.doubleClickDurationSec * 1000
+          : 3000;
+        const totalMs = Math.max(250, Number(durationMs) || cfgDur);
         const node = conNodes.find(n => n.id === el.id);
         const baseBorderColor = (node && (node.border || (node.el && node.el.style && node.el.style.borderColor))) || '#111111';
 
@@ -7903,7 +8106,7 @@
               window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: false });
             }
           }
-          conBlinkNodeAttention(el, 3000);
+          conBlinkNodeAttention(el);
         });
 
         // Resize handle (bottom-right corner) — scales font-size proportionally
@@ -10992,6 +11195,13 @@
         const rmGroupVisible = !!conGroupOfNode(id);
         if (rmGroupBtn) rmGroupBtn.style.display = rmGroupVisible ? '' : 'none';
         if (rmGroupSep) rmGroupSep.style.display = rmGroupVisible ? '' : 'none';
+
+        // Animation state sync
+        const nodeAnim = (node && node.anim) ? String(node.anim) : '';
+        const ctxBlinkBtn = document.getElementById('con-ctx-blink-btn');
+        if (ctxBlinkBtn) ctxBlinkBtn.classList.toggle('active', !!nodeAnim);
+        const ctxAnimSel = document.getElementById('con-ctx-anim-select');
+        if (ctxAnimSel) conPopulateAnimSelect(ctxAnimSel, nodeAnim);
 
         // Base-word row: show when node is a synonym/antonym/related word/other form.
         // Priority 1 — metadata stamped at creation time (conCtxAddRelated).
@@ -17940,6 +18150,8 @@
             newNode.fontFamily = node.fontFamily || null;
             newNode.textStrokeColor = node.textStrokeColor || null;
             newNode.textStrokeWidth = node.textStrokeWidth || null;
+            newNode.anim = node.anim || '';
+            conApplyEntityAnimClass(newNode.el, newNode.anim, false);
             conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
             conRenderNodeLabel(newNode);
           }
@@ -18933,7 +19145,8 @@
             shape: conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)),
             rotation: (typeof n.rotation === 'number') ? conNormalizeNodeRotation(n.rotation) : 0,
             textStrokeColor: n.textStrokeColor || null,
-            textStrokeWidth: n.textStrokeWidth || null
+            textStrokeWidth: n.textStrokeWidth || null,
+            anim: n.anim || ''
           }));
 
         const _liveNotes = (typeof window.conGetNotes === 'function')
@@ -19326,6 +19539,8 @@
           newNode.preset = n.preset || null;
           newNode.textStrokeColor = n.textStrokeColor || null;
           newNode.textStrokeWidth = n.textStrokeWidth || null;
+          newNode.anim = n.anim || '';
+          conApplyEntityAnimClass(newNode.el, newNode.anim, false);
 
           if (n.bg) newNode.el.style.background = n.bg;
           if (n.color) newNode.el.style.color = n.color;

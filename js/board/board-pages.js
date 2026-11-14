@@ -4332,6 +4332,7 @@
             fontSize: ((window.conGetNodeBaseFontSize ? window.conGetNodeBaseFontSize(n) : parseFloat((n.el && n.el.style && n.el.style.fontSize) || '16')) || 16) + 'px',
             textStrokeColor: n.textStrokeColor || null,
             textStrokeWidth: n.textStrokeWidth || null,
+            anim: n.anim || '',
             fmt: n.fmt ? { ...n.fmt } : {},
             masked: n.masked || false,
             locked: !!n.locked,
@@ -11398,6 +11399,8 @@
             existing.fontSize = n.fontSize || '16px';
             existing.textStrokeColor = n.textStrokeColor || null;
             existing.textStrokeWidth = n.textStrokeWidth || null;
+            existing.anim = n.anim || '';
+            if (typeof window.conApplyEntityAnimClass === 'function') window.conApplyEntityAnimClass(existing.el, existing.anim, false);
             existing.competences = Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []);
             if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(existing);
             existing.nodeNumber = n.nodeNumber != null ? n.nodeNumber : null;
@@ -11495,8 +11498,12 @@
               textStrokeWidth: n.textStrokeWidth || null,
               competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []),
               nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
-              nodeNumberFormat: n.nodeNumberFormat || null
+              nodeNumberFormat: n.nodeNumberFormat || null,
+              anim: n.anim || ''
             };
+            if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
+              window.conApplyEntityAnimClass(el, nodeObj.anim, false);
+            }
             if (nodeObj.isTimer && nodeObj.timerState === 'running') {
               nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
             }
@@ -12259,8 +12266,12 @@
           textStrokeWidth: n.textStrokeWidth || null,
           competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])),
           nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
-          nodeNumberFormat: n.nodeNumberFormat || null
+          nodeNumberFormat: n.nodeNumberFormat || null,
+          anim: n.anim || ''
         };
+        if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
+          window.conApplyEntityAnimClass(el, nodeObj.anim, false);
+        }
         if (nodeObj.isTimer && nodeObj.timerState === 'running') {
           nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
         }
@@ -12667,7 +12678,13 @@
       if (groupObj.groupNumber != null && typeof window.conApplyEntityBadge === 'function') {
         window.conApplyEntityBadge(el, groupObj.groupNumber, groupObj.groupNumberFormat, 'group');
       }
-      if (groupObj.blink) el.classList.add('con-group-blink');
+      if (groupObj.anim || groupObj.blink) {
+        if (typeof window.conApplyEntityAnimClass === 'function') {
+          window.conApplyEntityAnimClass(el, groupObj.anim, !!groupObj.blink);
+        } else if (groupObj.blink) {
+          el.classList.add('con-group-blink');
+        }
+      }
       if (groupObj.phraseGroup) {
         requestAnimationFrame(() => {
           if (window.conPhraseGroupLayout) window.conPhraseGroupLayout(groupObj);

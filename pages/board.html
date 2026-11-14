@@ -1378,6 +1378,9 @@
         <button type="button" class="con-board-ctx-action-btn" id="con-ctx-edit-btn" onclick="conCtxEditWord()" title="Edit word" data-i18n-title="conEditWord">
           <img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" />
         </button>
+        <button type="button" class="con-board-ctx-action-btn" id="con-ctx-blink-btn" onclick="conCtxToggleAnim()" title="Animate node" data-i18n-title="conAnimate">
+          <img src="../assets/icons/blink.svg" class="btn-icon" alt="" />
+        </button>
         <button type="button" class="con-board-ctx-action-btn" id="con-ctx-number-btn" onclick="conTriggerEntityNumbering(); conCtxClose();" title="Number selected elements (Alt+N)" data-i18n-title="conTbNumberTitle">
           <img src="../assets/icons/number-badge.svg" class="btn-icon" alt="" />
         </button>
@@ -1387,6 +1390,9 @@
         <button type="button" class="con-board-ctx-action-btn danger" onclick="conCtxRemove()" title="Remove word" data-i18n-title="conCtxRemove">
           <img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
         </button>
+      </div>
+      <div class="con-anim-picker-row">
+        <select id="con-ctx-anim-select" class="con-anim-select" onchange="conCtxSetAnimation(this.value)" title="Animation effect" data-i18n-title="conAnimEffectLabel"></select>
       </div>
     </div>
   </div>
@@ -2065,6 +2071,9 @@
         <button type="button" class="con-board-ctx-action-btn danger" onclick="conGroupCtxDissolve()" title="Dissolve Group" data-i18n-title="conGroupDissolve">
           <img src="../assets/icons/ungroup.svg" class="btn-icon" alt="" />
         </button>
+      </div>
+      <div class="con-anim-picker-row">
+        <select id="con-group-ctx-anim-select" class="con-anim-select" onchange="conGroupCtxSetAnimation(this.value)" title="Animation effect" data-i18n-title="conAnimEffectLabel"></select>
       </div>
     </div>
   </div>
@@ -3637,6 +3646,9 @@
               <img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
             </button>
           </div>
+          <div class="con-anim-picker-row">
+            <select id="wn-sp-anim-select" class="con-anim-select" onchange="wnStyleSetAnimation(this.value)" title="Animation effect" data-i18n-title="conAnimEffectLabel"></select>
+          </div>
         </div>
       </div>
 
@@ -4121,6 +4133,7 @@
           </div>
           <div class="bc-sidebar-item" data-tab="shortcuts" onclick="boardCustomiseSetTab('shortcuts')">Shortcuts &amp; Quick Actions</div>
           <div class="bc-sidebar-item" data-tab="sounds" onclick="boardCustomiseSetTab('sounds')"><span data-i18n="bcTabSounds">Sound Effects</span></div>
+          <div class="bc-sidebar-item" data-tab="animation" onclick="boardCustomiseSetTab('animation')"><span data-i18n="bcTabAnimation">Animation</span></div>
         </div>
         <div class="bc-content">
           <div class="bc-collapse-controls"
@@ -4720,6 +4733,119 @@
 
               <!-- Sound Actions Table Container -->
               <div id="bc-sound-table-container" style="max-height:420px; overflow-y:auto; border:1.5px solid #111; border-radius:6px; background:#fff;"></div>
+            </div>
+          </div>
+
+          <!-- Animation Tab -->
+          <div class="bc-tab-pane" data-pane="animation">
+            <!-- 1. Global Animation Appearance & Tuning -->
+            <div class="bc-section">
+              <div class="bc-section-title" data-i18n="bcAnimSectionAppearance">Animation Appearance &amp; Tuning</div>
+              <div class="bc-section-hint" data-i18n="bcAnimSectionAppearanceHint">Configure the global animation colour, speed, intensity, and default effect for Nodes, Notes, and Groups.</div>
+              <div class="bc-fields-grid">
+                <label for="bc-anim-color" data-i18n="bcAnimColorLabel">Animation Colour</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="color" id="bc-anim-color-picker" value="#ef4444" oninput="document.getElementById('bc-anim-color').value=this.value; bcUpdateAnimPreview();" />
+                  <input type="text" id="bc-anim-color" value="#ef4444" style="width:90px;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)) document.getElementById('bc-anim-color-picker').value=this.value; bcUpdateAnimPreview();" />
+                </div>
+
+                <label for="bc-anim-default" data-i18n="bcAnimDefaultLabel">Default Animation</label>
+                <select id="bc-anim-default" onchange="bcUpdateAnimPreview()">
+                  <option value="pulse" data-i18n="conAnimPulse">Pulse Glow</option>
+                  <option value="blink" data-i18n="conAnimBlink">Attention Blink</option>
+                  <option value="float" data-i18n="conAnimFloat">Gentle Float</option>
+                  <option value="heartbeat" data-i18n="conAnimHeartbeat">Heartbeat</option>
+                  <option value="wiggle" data-i18n="conAnimWiggle">Wiggle</option>
+                  <option value="bounce" data-i18n="conAnimBounce">Bounce</option>
+                  <option value="ripple" data-i18n="conAnimRipple">Beacon Ripple</option>
+                  <option value="spotlight" data-i18n="conAnimSpotlight">Spotlight Aura</option>
+                  <option value="shimmer" data-i18n="conAnimShimmer">Shimmer Sheen</option>
+                  <option value="tada" data-i18n="conAnimTada">Tada Callout</option>
+                  <option value="invert" data-i18n="conAnimInvert">Inverse Colours</option>
+                  <option value="orbit" data-i18n="conAnimOrbit">Orbiting Point</option>
+                  <option value="elastic" data-i18n="conAnimElastic">Elastic Pop</option>
+                  <option value="pendulum" data-i18n="conAnimPendulum">Pendulum Tilt</option>
+                  <option value="hue_glow" data-i18n="conAnimHueGlow">Spectrum Glow</option>
+                </select>
+
+                <label for="bc-anim-duration" data-i18n="bcAnimDurationLabel">Duration (Speed)</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input type="range" id="bc-anim-duration" min="0.6" max="5.0" step="0.1" value="2.4" oninput="document.getElementById('bc-anim-duration-val').textContent=parseFloat(this.value).toFixed(1)+'s'; bcUpdateAnimPreview();" />
+                  <span id="bc-anim-duration-val" class="bc-unit">2.4s</span>
+                </div>
+
+                <label for="bc-anim-intensity" data-i18n="bcAnimIntensityLabel">Intensity / Scale</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input type="range" id="bc-anim-intensity" min="0.4" max="1.6" step="0.1" value="1.0" oninput="document.getElementById('bc-anim-intensity-val').textContent=Math.round(parseFloat(this.value)*100)+'%'; bcUpdateAnimPreview();" />
+                  <span id="bc-anim-intensity-val" class="bc-unit">100%</span>
+                </div>
+
+                <label for="bc-anim-paused" data-i18n="bcAnimPausedLabel">Pause All Animations</label>
+                <label class="bc-checkbox-label">
+                  <input type="checkbox" id="bc-anim-paused" onchange="bcUpdateAnimPreview()" />
+                  <span data-i18n="bcAnimPausedDesc">Temporarily freeze all board animations</span>
+                </label>
+              </div>
+
+              <div class="bc-anim-preview-stage" id="bc-anim-preview-stage">
+                <div class="bc-anim-preview-card bc-anim-preview-node" id="bc-anim-preview-node">Node</div>
+                <div class="bc-anim-preview-card bc-anim-preview-note" id="bc-anim-preview-note">Note</div>
+                <div class="bc-anim-preview-card bc-anim-preview-group" id="bc-anim-preview-group">Group</div>
+              </div>
+              <div class="bc-anim-preview-bar" id="bc-anim-preview-chips"></div>
+            </div>
+
+            <!-- 2. Node & Entity Active Effect -->
+            <div class="bc-section">
+              <div class="bc-section-title" data-i18n="bcActiveEffectTitle">Node &amp; Entity Active Effect</div>
+              <div class="bc-section-hint" data-i18n="bcActiveEffectHint">Customise the highlight ring shown when a node, note, or group is active in Presentation/Mirror mode or selected on the canvas.</div>
+              <div class="bc-fields-grid">
+                <label for="bc-active-scope" data-i18n="bcActiveScopeLabel">Apply Active Effect To</label>
+                <select id="bc-active-scope">
+                  <option value="mirror" data-i18n="bcActiveScopeMirror">Presentation / Mirror Mode Only</option>
+                  <option value="canvas" data-i18n="bcActiveScopeCanvas">Main Canvas Selection Only</option>
+                  <option value="both" data-i18n="bcActiveScopeBoth">Both Mirror &amp; Main Canvas</option>
+                </select>
+
+                <label for="bc-active-style" data-i18n="bcActiveStyleLabel">Active Effect Style</label>
+                <select id="bc-active-style">
+                  <option value="solid" data-i18n="bcActiveStyleSolid">Solid Ring</option>
+                  <option value="pulse" data-i18n="bcActiveStylePulse">Pulse Glow</option>
+                  <option value="ripple" data-i18n="bcActiveStyleRipple">Beacon Ripple</option>
+                  <option value="breath" data-i18n="bcActiveStyleBreath">Soft Breathing</option>
+                </select>
+
+                <label for="bc-active-color" data-i18n="bcActiveColorLabel">Active Highlight Colour</label>
+                <div style="display:flex;align-items:center;gap:6px;">
+                  <input type="color" id="bc-active-color-picker" value="#ff9800" oninput="document.getElementById('bc-active-color').value=this.value;" />
+                  <input type="text" id="bc-active-color" value="#ff9800" style="width:90px;" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)) document.getElementById('bc-active-color-picker').value=this.value;" />
+                </div>
+
+                <label for="bc-active-width" data-i18n="bcActiveWidthLabel">Outline Thickness</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input type="range" id="bc-active-width" min="2" max="8" step="1" value="4" oninput="document.getElementById('bc-active-width-val').textContent=this.value+'px';" />
+                  <span id="bc-active-width-val" class="bc-unit">4px</span>
+                </div>
+
+                <label for="bc-active-glow" data-i18n="bcActiveGlowLabel">Glow Intensity</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input type="range" id="bc-active-glow" min="0" max="1.6" step="0.1" value="1.0" oninput="document.getElementById('bc-active-glow-val').textContent=Math.round(parseFloat(this.value)*100)+'%';" />
+                  <span id="bc-active-glow-val" class="bc-unit">100%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Behaviour & Double-Click Attention -->
+            <div class="bc-section">
+              <div class="bc-section-title" data-i18n="bcAnimBehaviourTitle">Behaviour &amp; Attention Trigger</div>
+              <div class="bc-section-hint" data-i18n="bcAnimBehaviourHint">Configure double-click attention blink duration on nodes. You can also bind any of the 15 animations to a custom keyboard shortcut in the Shortcuts tab.</div>
+              <div class="bc-fields-grid">
+                <label for="bc-anim-dblclick-sec" data-i18n="bcAnimDblClickDur">Double-Click Attention Duration</label>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <input type="number" id="bc-anim-dblclick-sec" min="0.5" max="15" step="0.5" value="3.0" style="width:76px;" />
+                  <span class="bc-unit">s</span>
+                </div>
+              </div>
             </div>
           </div>
 

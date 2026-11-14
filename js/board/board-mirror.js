@@ -175,6 +175,12 @@
           el.style.removeProperty('--wn-blink-delay');
           el.classList.remove('wn-blink-hl');
         });
+        if (Array.isArray(window.CON_ANIMATIONS)) {
+          document.querySelectorAll('#constellation-board [class*="con-anim-"]').forEach(function (el) {
+            window.CON_ANIMATIONS.forEach(function (a) { el.classList.remove('con-anim-' + a.key); });
+            el.style.removeProperty('--con-anim-delay');
+          });
+        }
         Object.keys(_activeNodeBlinks).forEach(function (nodeId) {
           var info = _activeNodeBlinks[nodeId];
           if (info && info.cleanupTimer) clearTimeout(info.cleanupTimer);
@@ -182,19 +188,35 @@
         });
       }
       function _reapplyMirrorBlinks() {
+        var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+        _liveNodes.forEach(function (n) {
+          if (n && n.anim && n.el && typeof window.conApplyEntityAnimClass === 'function') {
+            window.conApplyEntityAnimClass(n.el, n.anim, false);
+          }
+        });
         var _liveGroups = window.conGetGroups ? window.conGetGroups() : [];
         _liveGroups.forEach(function (g) {
-          if (g.blink && g.el) {
-            g.el.classList.add('con-group-blink');
+          if ((g.anim || g.blink) && g.el) {
+            if (typeof window.conApplyEntityAnimClass === 'function') {
+              window.conApplyEntityAnimClass(g.el, g.anim, !!g.blink);
+            } else if (g.blink) {
+              g.el.classList.add('con-group-blink');
+            }
           }
         });
         var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
         _liveNotes.forEach(function (n) {
-          if (n.blink) {
+          if (n.anim || n.blink) {
             var nEl = (typeof wnGetNoteElementById === 'function')
               ? wnGetNoteElementById(n.id)
               : document.querySelector('#constellation-board [data-id="' + n.id + '"]');
-            if (nEl) nEl.classList.add('wn-blink');
+            if (nEl) {
+              if (typeof window.conApplyEntityAnimClass === 'function') {
+                window.conApplyEntityAnimClass(nEl, n.anim, !!n.blink);
+              } else if (n.blink) {
+                nEl.classList.add('wn-blink');
+              }
+            }
           }
         });
         _syncBlinkPhase();
@@ -1126,6 +1148,43 @@
           return;
         }
 
+        if (d.type === 'board-anim-config') {
+          if (typeof window.conApplyBoardAnimationConfig === 'function') {
+            window.conApplyBoardAnimationConfig(d.animation);
+          }
+          return;
+        }
+
+        if (d.type === 'node-anim') {
+          if (_mirrorIsFrozen) return;
+          var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+          var nodeObj = _liveNodes.find(function (n) { return String(n.id) === String(d.nodeId); });
+          if (nodeObj) nodeObj.anim = d.anim || '';
+          var nel = document.getElementById(d.nodeId);
+          if (nel && typeof window.conApplyEntityAnimClass === 'function') {
+            window.conApplyEntityAnimClass(nel, d.anim, false);
+          }
+          return;
+        }
+
+        if (d.type === 'group-anim') {
+          if (_mirrorIsFrozen) return;
+          var _liveGroups = window.conGetGroups ? window.conGetGroups() : [];
+          var grpObj = _liveGroups.find(function (g) { return String(g.id) === String(d.groupId); });
+          if (grpObj) {
+            grpObj.anim = d.anim || '';
+            grpObj.blink = !!d.anim;
+          }
+          var gel = document.querySelector('#constellation-board [data-gid="' + d.groupId + '"]');
+          if (gel) {
+            gel.classList.remove('con-group-blink');
+            if (typeof window.conApplyEntityAnimClass === 'function') {
+              window.conApplyEntityAnimClass(gel, d.anim, false);
+            }
+          }
+          return;
+        }
+
         if (d.type === 'node-blink') {
           if (_mirrorIsFrozen) return;
           var blinkInfo = { durationMs: d.durationMs, startTime: performance.now(), borderColor: d.borderColor, cleanupTimer: null };
@@ -1358,6 +1417,26 @@
               nd.emojiStickers = nd.emojiStickers.filter(function (s) { return s.id !== d.id; });
             }
           });
+          return;
+        }
+
+        if (d.type === 'note-anim') {
+          if (_mirrorIsFrozen) return;
+          var nEl = (typeof wnGetNoteElementById === 'function')
+            ? wnGetNoteElementById(d.noteId)
+            : document.querySelector('#constellation-board .con-word-note[data-id="' + d.noteId + '"], #constellation-board .ta-word-note[data-id="' + d.noteId + '"]');
+          if (nEl) {
+            nEl.classList.remove('wn-blink');
+            if (typeof window.conApplyEntityAnimClass === 'function') {
+              window.conApplyEntityAnimClass(nEl, d.anim, false);
+            }
+          }
+          var _liveNotes = window.conGetNotes ? window.conGetNotes() : [];
+          var noteObj = _liveNotes.find(function (n) { return String(n.id) === String(d.noteId); });
+          if (noteObj) {
+            noteObj.anim = d.anim || '';
+            noteObj.blink = !!d.anim;
+          }
           return;
         }
 

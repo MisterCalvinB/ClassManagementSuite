@@ -214,6 +214,7 @@
 
       <div id="classes-grid" class="classes-grid"></div>
       <div id="all-tests-panel" class="all-tests-panel hidden"></div>
+      <div id="all-tests-stats-panel" class="all-tests-stats-panel hidden"></div>
       <input id="import-file" type="file" accept="application/json,.js" class="hidden" />
       <input id="import-grades-file" type="file" accept="application/json" class="hidden" />
     </section>
@@ -1234,7 +1235,7 @@
                   <button type="button" class="chip" data-value="manual-points" data-i18n="gsGradingModeManualPts">Manual pts</button>
                   <button type="button" class="chip" data-value="equation" data-i18n="gsToptModeEquation">Equation</button>
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px;">
+                <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:10px;">
                   <div class="form-group" style="margin:0;">
                     <label for="topt-grading-min-grade" data-i18n="gsGradingLabelMinGrade">Min Grade</label>
                     <input id="topt-grading-min-grade" class="input" type="number" step="0.1" value="1.5" />
@@ -1250,6 +1251,16 @@
                       <option value="0.25">0.25</option>
                       <option value="0.1">0.1</option>
                       <option value="1">1.0</option>
+                    </select>
+                  </div>
+                  <div id="topt-grading-points-round-wrap" class="form-group" style="margin:0;">
+                    <label for="topt-grading-points-round" data-i18n="gsGradingLabelPointsRounding">Points Rounding</label>
+                    <select id="topt-grading-points-round" class="input">
+                      <option value="0.5">0.5</option>
+                      <option value="0.25">0.25</option>
+                      <option value="0.1">0.1</option>
+                      <option value="1">1.0</option>
+                      <option value="none" data-i18n="gsGradingPointsRoundingNone">None</option>
                     </select>
                   </div>
                 </div>
@@ -8702,7 +8713,8 @@
           manualThresholds,
           manualPoints: buildManualPointsFromPercents(manualThresholds, 0, steps),
           equationFormula: "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
-          equationRounding: "0.5"
+          equationRounding: "0.5",
+          pointsRounding: "0.5"
         }
       };
     }
@@ -8877,6 +8889,14 @@
               if (!cfg.grading.equationRounding) {
                 cfg.grading.equationRounding = "0.5";
               }
+              if (cfg.grading.pointsRounding == null || cfg.grading.pointsRounding === "") {
+                const isSlotUsed = !!(cfg.testName || cfg.testDate || cfg.scope || cfg.type || (Array.isArray(cfg.criteria) && cfg.criteria.length > 0) ||
+                  (Array.isArray(classObj.students) && classObj.students.some(s => {
+                    const arr = sem === "sem1" ? s.sem1Tests : s.sem2Tests;
+                    return Array.isArray(arr) && arr[i] != null;
+                  })));
+                cfg.grading.pointsRounding = isSlotUsed ? "none" : "0.5";
+              }
               if (isParticipationTestConfig(cfg)) {
                 const maxGKey = String(cfg.grading.maxGrade != null ? cfg.grading.maxGrade : 6);
                 const hasValidPtThresholds =
@@ -8930,6 +8950,12 @@
             sem2: Array(TEST_COUNT_PER_SEM).fill(null)
           };
         }
+        if (!student.correctedAt) {
+          student.correctedAt = {
+            sem1: Array(TEST_COUNT_PER_SEM).fill(null),
+            sem2: Array(TEST_COUNT_PER_SEM).fill(null)
+          };
+        }
         if (!student.gradeOverrides) {
           student.gradeOverrides = {
             sem1: Array(TEST_COUNT_PER_SEM).fill(false),
@@ -8939,6 +8965,12 @@
         ["sem1", "sem2"].forEach(sem => {
           if (!Array.isArray(student.correctionTime[sem])) student.correctionTime[sem] = [];
           while (student.correctionTime[sem].length < TEST_COUNT_PER_SEM) student.correctionTime[sem].push(null);
+
+          if (!Array.isArray(student.correctedAt[sem])) student.correctedAt[sem] = [];
+          if (student.correctedAt[sem].length > TEST_COUNT_PER_SEM) {
+            student.correctedAt[sem].length = TEST_COUNT_PER_SEM;
+          }
+          while (student.correctedAt[sem].length < TEST_COUNT_PER_SEM) student.correctedAt[sem].push(null);
 
           if (!Array.isArray(student.gradeOverrides[sem])) student.gradeOverrides[sem] = [];
           if (student.gradeOverrides[sem].length > TEST_COUNT_PER_SEM) {
@@ -9134,6 +9166,26 @@
 
 
 
+    function applyPointsRoundingToThresholds(thresholds, config) {
+      const grading = config && config.grading;
+      const pr = grading && grading.pointsRounding;
+      if (!pr || pr === "none") return thresholds;
+      const step = Number(pr);
+      if (!Number.isFinite(step) || step <= 0) return thresholds;
+      const totals = Array.isArray(config && config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
+      const totalPossible = Math.max(0, totals.totalPossible);
+      if (totalPossible <= 0) return thresholds;
+      return thresholds.map(item => {
+        const rawPts = Math.max(0, Math.min(1, item.ratio || 0)) * totalPossible;
+        const roundedPts = Math.max(0, Math.min(totalPossible, Math.round(rawPts / step) * step));
+        const cleanPts = Math.round(roundedPts * 10000) / 10000;
+        return {
+          grade: item.grade,
+          ratio: Math.max(0, Math.min(1, cleanPts / totalPossible))
+        };
+      });
+    }
+
     function getThresholds(config) {
       const steps = getTestGradeSteps(config);
       const minG = config && config.grading && config.grading.minGrade != null ? Number(config.grading.minGrade) : 1.5;
@@ -9145,7 +9197,7 @@
         const totals = Array.isArray(config && config.criteria) ? calcCriteriaTotals(config, {}) : { totalPossible: 0 };
         const totalPossible = Math.max(0, totals.totalPossible);
         const usePoints = grading.manualInputMode === "points";
-        return steps.map(grade => {
+        const manualList = steps.map(grade => {
           const key = String(grade);
           let ratio;
           if (usePoints) {
@@ -9161,6 +9213,7 @@
           }
           return { grade, ratio };
         }).sort((a, b) => b.grade - a.grade);
+        return usePoints ? manualList : applyPointsRoundingToThresholds(manualList, config);
       }
 
       if (grading.mode === "equation") {
@@ -9200,16 +9253,18 @@
 
       if (grading.mode === "linear") {
         const spanGrade = maxG - minG;
-        return steps.map(grade => {
+        const linearList = steps.map(grade => {
           const ratio = spanGrade > 0 ? Math.max(0, Math.min(1, (grade - minG) / spanGrade)) : 0;
           return { grade, ratio };
         }).sort((a, b) => b.grade - a.grade);
+        return applyPointsRoundingToThresholds(linearList, config);
       }
 
-      return steps.map(grade => ({
+      const formulaList = steps.map(grade => ({
         grade,
         ratio: formulaThresholdForGrade(grade, grading.passPercentGrade4, minG, maxG, 4, interval)
       })).sort((a, b) => b.grade - a.grade);
+      return applyPointsRoundingToThresholds(formulaList, config);
     }
 
     function getScaleModel(key, bankFilename = null) {
@@ -9466,6 +9521,9 @@
       });
       if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
         student.correctionTime[sem][testIndex] = null;
+      }
+      if (student.correctedAt && Array.isArray(student.correctedAt[sem])) {
+        student.correctedAt[sem][testIndex] = null;
       }
       if (student.testNotes && Array.isArray(student.testNotes[sem]) && Array.isArray(student.testNotes[sem][testIndex])) {
         student.testNotes[sem][testIndex].forEach(s => {
@@ -10540,6 +10598,10 @@
           sem1: Array(TEST_COUNT_PER_SEM).fill(null),
           sem2: Array(TEST_COUNT_PER_SEM).fill(null)
         },
+        correctedAt: {
+          sem1: Array(TEST_COUNT_PER_SEM).fill(null),
+          sem2: Array(TEST_COUNT_PER_SEM).fill(null)
+        },
         criteriaResults: {
           sem1: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({})),
           sem2: Array(TEST_COUNT_PER_SEM).fill(null).map(() => ({}))
@@ -10677,6 +10739,7 @@
               const notes = s.testNotes ? (sem === 'sem1' ? s.testNotes.sem1 : s.testNotes.sem2) : [];
               const criteria = s.criteriaResults ? (sem === 'sem1' ? s.criteriaResults.sem1 : s.criteriaResults.sem2) : [];
               const corrTimes = s.correctionTime ? (sem === 'sem1' ? s.correctionTime.sem1 : s.correctionTime.sem2) : [];
+              const corrAts = s.correctedAt ? (sem === 'sem1' ? s.correctedAt.sem1 : s.correctedAt.sem2) : [];
               const overrides = s.gradeOverrides ? (sem === 'sem1' ? s.gradeOverrides.sem1 : s.gradeOverrides.sem2) : [];
               return {
                 studentId: s.id,
@@ -10684,6 +10747,7 @@
                 testNotes: (Array.isArray(notes) ? notes[i] : null) || [],
                 criteriaResults: (Array.isArray(criteria) ? criteria[i] : null) || {},
                 correctionTime: (Array.isArray(corrTimes) ? corrTimes[i] : null) ?? null,
+                correctedAt: (Array.isArray(corrAts) ? corrAts[i] : null) ?? null,
                 gradeOverride: !!((Array.isArray(overrides) ? overrides[i] : null) ?? false)
               };
             });
@@ -10781,6 +10845,10 @@
               correctionTime: {
                 sem1: Array(TEST_COUNT_PER_SEM).fill(null),
                 sem2: Array(TEST_COUNT_PER_SEM).fill(null)
+              },
+              correctedAt: {
+                sem1: Array(TEST_COUNT_PER_SEM).fill(null),
+                sem2: Array(TEST_COUNT_PER_SEM).fill(null)
               }
             })),
             testConfigs: createDefaultTestConfigs()
@@ -10832,11 +10900,13 @@
             const notes = sem === 'sem1' ? student.testNotes.sem1 : student.testNotes.sem2;
             const criteria = sem === 'sem1' ? student.criteriaResults.sem1 : student.criteriaResults.sem2;
             const corrTimes = sem === 'sem1' ? student.correctionTime.sem1 : student.correctionTime.sem2;
+            const corrAts = sem === 'sem1' ? student.correctedAt.sem1 : student.correctedAt.sem2;
             const overrides = sem === 'sem1' ? student.gradeOverrides.sem1 : student.gradeOverrides.sem2;
             tests[idx] = result.score ?? null;
             notes[idx] = result.testNotes || [];
             criteria[idx] = result.criteriaResults || {};
             corrTimes[idx] = result.correctionTime ?? null;
+            corrAts[idx] = result.correctedAt ?? null;
             overrides[idx] = !!result.gradeOverride;
           }
         } catch (err) {
@@ -10865,6 +10935,7 @@
               const notes = s.testNotes ? (sem === 'sem1' ? s.testNotes.sem1 : s.testNotes.sem2) : [];
               const criteria = s.criteriaResults ? (sem === 'sem1' ? s.criteriaResults.sem1 : s.criteriaResults.sem2) : [];
               const corrTimes = s.correctionTime ? (sem === 'sem1' ? s.correctionTime.sem1 : s.correctionTime.sem2) : [];
+              const corrAts = s.correctedAt ? (sem === 'sem1' ? s.correctedAt.sem1 : s.correctedAt.sem2) : [];
               const overrides = s.gradeOverrides ? (sem === 'sem1' ? s.gradeOverrides.sem1 : s.gradeOverrides.sem2) : [];
               return {
                 studentId: s.id,
@@ -10872,6 +10943,7 @@
                 testNotes: (Array.isArray(notes) ? notes[i] : null) || [],
                 criteriaResults: (Array.isArray(criteria) ? criteria[i] : null) || {},
                 correctionTime: (Array.isArray(corrTimes) ? corrTimes[i] : null) ?? null,
+                correctedAt: (Array.isArray(corrAts) ? corrAts[i] : null) ?? null,
                 gradeOverride: !!((Array.isArray(overrides) ? overrides[i] : null) ?? false)
               };
             });
@@ -11073,6 +11145,18 @@
           while (o1.length < TEST_COUNT_PER_SEM) o1.push(false);
           while (o2.length < TEST_COUNT_PER_SEM) o2.push(false);
 
+          const ct = s.correctionTime || {};
+          const ct1 = Array.isArray(ct.sem1) ? ct.sem1.slice(0, TEST_COUNT_PER_SEM) : [];
+          const ct2 = Array.isArray(ct.sem2) ? ct.sem2.slice(0, TEST_COUNT_PER_SEM) : [];
+          while (ct1.length < TEST_COUNT_PER_SEM) ct1.push(null);
+          while (ct2.length < TEST_COUNT_PER_SEM) ct2.push(null);
+
+          const ca = s.correctedAt || {};
+          const ca1 = Array.isArray(ca.sem1) ? ca.sem1.slice(0, TEST_COUNT_PER_SEM) : [];
+          const ca2 = Array.isArray(ca.sem2) ? ca.sem2.slice(0, TEST_COUNT_PER_SEM) : [];
+          while (ca1.length < TEST_COUNT_PER_SEM) ca1.push(null);
+          while (ca2.length < TEST_COUNT_PER_SEM) ca2.push(null);
+
           return {
             id: s.id || uid(),
             index: idx + 1,
@@ -11084,6 +11168,8 @@
             comments: s.comments || "",
             gradeOverrides: { sem1: o1.map(v => !!v), sem2: o2.map(v => !!v) },
             testNotes: { sem1: n1, sem2: n2 },
+            correctionTime: { sem1: ct1, sem2: ct2 },
+            correctedAt: { sem1: ca1, sem2: ca2 },
             criteriaResults: {
               sem1: c1.map(v => (v && typeof v === "object") ? v : {}),
               sem2: c2.map(v => (v && typeof v === "object") ? v : {})
@@ -11472,6 +11558,9 @@
       Object.values(screens).forEach(el => el && el.classList.add("hidden"));
       if (screens[name]) screens[name].classList.remove("hidden");
       updateNavTabs(name);
+      if (name === "classes" && typeof renderAllTestsStats === "function") {
+        renderAllTestsStats();
+      }
     }
 
     document.addEventListener("DOMContentLoaded", () => {
@@ -11591,6 +11680,10 @@
             const [movedTime] = student.correctionTime[fromSem].splice(fromIdx, 1);
             student.correctionTime[fromSem].splice(toIdx, 0, movedTime);
           }
+          if (student.correctedAt && Array.isArray(student.correctedAt[fromSem])) {
+            const [movedAt] = student.correctedAt[fromSem].splice(fromIdx, 1);
+            student.correctedAt[fromSem].splice(toIdx, 0, movedAt);
+          }
         });
       } else {
         // Cross-semester reorder in same class
@@ -11636,6 +11729,12 @@
             student.correctionTime[fromSem].push(null);
             (student.correctionTime[toSem] || []).splice(toIdx, 0, movedTime ?? null);
             student.correctionTime[toSem].pop();
+          }
+          if (student.correctedAt) {
+            const [movedAt] = (student.correctedAt[fromSem] || []).splice(fromIdx, 1);
+            student.correctedAt[fromSem].push(null);
+            (student.correctedAt[toSem] || []).splice(toIdx, 0, movedAt ?? null);
+            student.correctedAt[toSem].pop();
           }
         });
 
@@ -11701,6 +11800,10 @@
           if (!student.correctionTime[destSem]) student.correctionTime[destSem] = [];
           while (student.correctionTime[destSem].length <= destTestIdx) student.correctionTime[destSem].push(null);
         }
+        if (student.correctedAt) {
+          if (!student.correctedAt[destSem]) student.correctedAt[destSem] = [];
+          while (student.correctedAt[destSem].length <= destTestIdx) student.correctedAt[destSem].push(null);
+        }
       });
 
       saveState();
@@ -11722,6 +11825,8 @@
 
       if (!hasAnyTests) {
         panel.classList.add("hidden");
+        const statsPanel = document.getElementById("all-tests-stats-panel");
+        if (statsPanel) statsPanel.classList.add("hidden");
         return;
       }
       panel.classList.remove("hidden");
@@ -12098,6 +12203,1020 @@
         group.appendChild(rows);
         panel.appendChild(group);
       });
+
+      renderAllTestsStats();
+    }
+
+    // ── All Tests: Correction Statistics & Interactive Timeline ──
+    const _gsCorrState = {
+      range: '14d',       // 'today' | 'week' | 'month' | 'year' | '7d' | '14d' | '30d' | 'all'
+      classId: '',        // '' = all classes
+      viewMode: 'daily',  // 'daily' | 'hourly'
+      selectedDay: null,  // 'YYYY-MM-DD'
+      showCumulative: true,
+      showPaceLine: true,
+      hiddenClasses: new Set(),
+      collapsed: false,
+      hitTargets: [],
+      lastStats: null
+    };
+    let _gsCorrResizeObserver = null;
+    let _gsCorrRafId = null;
+
+    const _GS_CORR_PALETTE = ['#5b8fcc', '#6abf8e', '#e2c96e', '#8b7cc2', '#c96b6b', '#e59a5a', '#4ea8a6'];
+
+    function _gsToLocalYmd(dateInput) {
+      const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+      if (isNaN(d.getTime())) return '';
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    }
+
+    function _gsAddDaysYmd(ymd, deltaDays) {
+      const [y, m, d] = ymd.split('-').map(Number);
+      const dt = new Date(y, m - 1, d);
+      dt.setDate(dt.getDate() + deltaDays);
+      return _gsToLocalYmd(dt);
+    }
+
+    function _gsGetPeriodStarts(now = new Date()) {
+      const todayStr = _gsToLocalYmd(now);
+      const dayOfWeek = (now.getDay() + 6) % 7; // Mon=0 .. Sun=6
+      const weekStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+      const monthStartDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const yearStartDate = new Date(now.getFullYear(), 0, 1);
+      return {
+        todayStr,
+        weekStartStr: _gsToLocalYmd(weekStartDate),
+        monthStartStr: _gsToLocalYmd(monthStartDate),
+        yearStartStr: _gsToLocalYmd(yearStartDate)
+      };
+    }
+
+    function computeAllTestsCorrectionStats(classIdFilter = '') {
+      const now = new Date();
+      const { todayStr, weekStartStr, monthStartStr, yearStartStr } = _gsGetPeriodStarts(now);
+
+      const classes = (appState.classes || []).filter(c => !classIdFilter || c.id === classIdFilter);
+      const classColorMap = new Map();
+      (appState.classes || []).forEach((c, idx) => {
+        classColorMap.set(c.id, _GS_CORR_PALETTE[idx % _GS_CORR_PALETTE.length]);
+      });
+
+      let totalEligible = 0;
+      let totalScored = 0;
+      let totalRemaining = 0;
+      let totalEstRemainingMin = 0;
+      let overdueTestsCount = 0;
+      const pendingTests = [];
+
+      const events = [];
+      const dailyMap = new Map(); // ymd -> { dateStr, count, timeMin, byClass: Map<classId, count>, events: [] }
+
+      const makePeriodAcc = () => ({
+        count: 0,
+        timeMin: 0,
+        timedCount: 0,
+        testsSet: new Set(),
+        completedTestsSet: new Set()
+      });
+      const periods = {
+        day: makePeriodAcc(),
+        week: makePeriodAcc(),
+        month: makePeriodAcc(),
+        year: makePeriodAcc()
+      };
+
+      classes.forEach(c => {
+        ensureClassStructures(c);
+        const testCounts = c.testCounts || { sem1: 0, sem2: 0 };
+        const classSem = c.semester ? Number(c.semester) : 0;
+        const sems = [];
+        if (classSem !== 2) sems.push('sem1');
+        if (classSem !== 1) sems.push('sem2');
+        const multiSem = sems.length > 1;
+
+        sems.forEach(sem => {
+          const cnt = testCounts[sem] || 0;
+          for (let i = 0; i < cnt; i++) {
+            const cfg = getTestConfig(c, sem, i);
+            const testName = (cfg && cfg.testName) ? cfg.testName : `Test ${i + 1}`;
+            const badge = multiSem ? (sem === 'sem1' ? `S1·T${i + 1}` : `S2·T${i + 1}`) : `T${i + 1}`;
+            const date = (cfg && cfg.testDate) ? cfg.testDate : '';
+            const prog = computeScoringProgress(c, sem, i, cfg);
+            const isTaken = !!(date && date <= todayStr);
+            const testKey = `${c.id}:${sem}:${i}`;
+            const isTestCompleted = !!(cfg && cfg.markingCompleted) || (prog.totalCount > 0 && prog.remainingCount === 0);
+
+            if (isTaken) {
+              totalEligible += prog.totalCount;
+              totalScored += prog.scoredCount;
+              totalRemaining += prog.remainingCount;
+              if (prog.remainingCount > 0 && !(cfg && cfg.markingCompleted)) {
+                const estMin = (prog.hasEta && prog.avgMin > 0)
+                  ? Math.round(prog.remainingCount * prog.avgMin)
+                  : (prog.remainingCount * 15);
+                totalEstRemainingMin += estMin;
+
+                let dlDate = (cfg && cfg.correctionDeadline) ? cfg.correctionDeadline : '';
+                if (!dlDate && cfg && cfg.correctionDeadlineDaysAfter && date) {
+                  try {
+                    const d = new Date(date + 'T00:00:00');
+                    d.setDate(d.getDate() + Number(cfg.correctionDeadlineDaysAfter));
+                    dlDate = _gsToLocalYmd(d);
+                  } catch (_) {}
+                }
+                const isOverdue = !!(dlDate && dlDate < todayStr);
+                const isDueToday = !!(dlDate && dlDate === todayStr);
+                if (isOverdue) overdueTestsCount++;
+                pendingTests.push({
+                  classObj: c,
+                  sem,
+                  testIndex: i,
+                  testName,
+                  badge,
+                  remainingCount: prog.remainingCount,
+                  estMinutes: estMin,
+                  dlDate,
+                  isOverdue,
+                  isDueToday
+                });
+              }
+            }
+
+            // Collect per-student correction timestamps
+            (c.students || []).forEach(st => {
+              const ts = st && st.correctedAt && Array.isArray(st.correctedAt[sem]) ? st.correctedAt[sem][i] : null;
+              if (!ts) return;
+              const dt = new Date(ts);
+              if (isNaN(dt.getTime())) return;
+              const ymd = _gsToLocalYmd(dt);
+              if (!ymd) return;
+              const rawCt = st.correctionTime && Array.isArray(st.correctionTime[sem]) ? Number(st.correctionTime[sem][i]) : 0;
+              const corrMin = (!isNaN(rawCt) && rawCt > 0) ? rawCt : 0;
+              const grade = getTestDisplayGrade(st, c, sem, i);
+              const studentName = `${st.firstName || ''} ${st.lastName || ''}`.trim() || st.customName || `#${st.index}`;
+
+              const ev = {
+                ts,
+                timeMs: dt.getTime(),
+                localYmd: ymd,
+                classId: c.id,
+                className: c.name,
+                color: classColorMap.get(c.id) || '#5b8fcc',
+                sem,
+                testIndex: i,
+                testName,
+                badge,
+                studentId: st.id,
+                studentName,
+                grade,
+                corrMin
+              };
+              events.push(ev);
+
+              if (!dailyMap.has(ymd)) {
+                dailyMap.set(ymd, { dateStr: ymd, count: 0, timeMin: 0, byClass: new Map(), events: [] });
+              }
+              const dayObj = dailyMap.get(ymd);
+              dayObj.count++;
+              dayObj.timeMin += corrMin;
+              dayObj.byClass.set(c.id, (dayObj.byClass.get(c.id) || 0) + 1);
+              dayObj.events.push(ev);
+
+              const addToPeriod = (p) => {
+                p.count++;
+                if (corrMin > 0) {
+                  p.timeMin += corrMin;
+                  p.timedCount++;
+                }
+                p.testsSet.add(testKey);
+                if (isTestCompleted) p.completedTestsSet.add(testKey);
+              };
+              if (ymd === todayStr) addToPeriod(periods.day);
+              if (ymd >= weekStartStr && ymd <= todayStr) addToPeriod(periods.week);
+              if (ymd >= monthStartStr && ymd <= todayStr) addToPeriod(periods.month);
+              if (ymd >= yearStartStr && ymd <= todayStr) addToPeriod(periods.year);
+            });
+          }
+        });
+      });
+
+      pendingTests.sort((a, b) => {
+        if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+        if (a.isDueToday !== b.isDueToday) return a.isDueToday ? -1 : 1;
+        return (a.dlDate || '9999-99-99').localeCompare(b.dlDate || '9999-99-99');
+      });
+
+      let peakDay = null;
+      let totalTimedEvents = 0;
+      dailyMap.forEach(d => {
+        if (!peakDay || d.count > peakDay.count || (d.count === peakDay.count && d.dateStr > peakDay.dateStr)) {
+          peakDay = { dateStr: d.dateStr, count: d.count };
+        }
+        totalTimedEvents += d.count;
+      });
+      const activeDays = dailyMap.size;
+      const avgPace = activeDays > 0 ? Math.round((totalTimedEvents / activeDays) * 10) / 10 : 0;
+      const completionPct = totalEligible > 0 ? Math.round((totalScored / totalEligible) * 100) : 0;
+
+      return {
+        todayStr,
+        weekStartStr,
+        monthStartStr,
+        yearStartStr,
+        totalEligible,
+        totalScored,
+        totalRemaining,
+        totalEstRemainingMin,
+        overdueTestsCount,
+        pendingTests,
+        completionPct,
+        periods,
+        events,
+        dailyMap,
+        peakDay,
+        avgPace,
+        activeDays,
+        classColorMap
+      };
+    }
+
+    function _gsGetTimelineDayList(stats) {
+      const todayStr = stats.todayStr;
+      let startYmd = todayStr;
+      if (_gsCorrState.range === 'today') {
+        startYmd = todayStr;
+      } else if (_gsCorrState.range === 'week') {
+        startYmd = stats.weekStartStr;
+      } else if (_gsCorrState.range === 'month') {
+        startYmd = stats.monthStartStr;
+      } else if (_gsCorrState.range === 'year') {
+        startYmd = stats.yearStartStr;
+      } else if (_gsCorrState.range === '7d') {
+        startYmd = _gsAddDaysYmd(todayStr, -6);
+      } else if (_gsCorrState.range === '14d') {
+        startYmd = _gsAddDaysYmd(todayStr, -13);
+      } else if (_gsCorrState.range === '30d') {
+        startYmd = _gsAddDaysYmd(todayStr, -29);
+      } else if (_gsCorrState.range === 'all') {
+        const keys = [...stats.dailyMap.keys()].sort();
+        startYmd = keys.length ? keys[0] : _gsAddDaysYmd(todayStr, -13);
+      }
+
+      const days = [];
+      let cur = startYmd;
+      let guard = 0;
+      while (cur <= todayStr && guard < 400) {
+        days.push(cur);
+        cur = _gsAddDaysYmd(cur, 1);
+        guard++;
+      }
+      return days;
+    }
+
+    function renderAllTestsStats() {
+      const panel = document.getElementById("all-tests-stats-panel");
+      if (!panel) return;
+      const hasAnyTests = (appState.classes || []).some(c => {
+        const tc = c.testCounts || { sem1: 0, sem2: 0 };
+        return (tc.sem1 || 0) + (tc.sem2 || 0) > 0;
+      });
+      if (!hasAnyTests) {
+        panel.classList.add("hidden");
+        return;
+      }
+      panel.classList.remove("hidden");
+
+      const stats = computeAllTestsCorrectionStats(_gsCorrState.classId);
+      _gsCorrState.lastStats = stats;
+      if (!_gsCorrState.selectedDay) _gsCorrState.selectedDay = stats.todayStr;
+
+      const dayP = stats.periods.day;
+      const weekP = stats.periods.week;
+      const monthP = stats.periods.month;
+      const yearP = stats.periods.year;
+
+      const fmtPeriodAvg = (p) => p.timedCount > 0 ? formatCorrectionTime(Math.round((p.timeMin / p.timedCount) * 10) / 10) : '—';
+      const fmtPeriodTime = (p) => p.timeMin > 0 ? formatCorrectionTime(Math.round(p.timeMin * 10) / 10) : '—';
+
+      const pendingChipsHtml = stats.pendingTests.length > 0 ? `
+        <div class="gs-corr-pending-strip">
+          <span class="gs-corr-pending-label">${escapeHtml(t('gsCorrPendingTestsLabel') || 'Unmarked Tests')}:</span>
+          ${stats.pendingTests.map(pt => {
+            const dlHint = pt.dlDate ? (pt.isOverdue ? ` · ${tFmt('gsAllTestsOverdue', { date: pt.dlDate })}` : (pt.isDueToday ? ` · ${t('gsAllTestsDueToday')}` : ` · ${pt.dlDate}`)) : '';
+            return `<button type="button" class="gs-corr-pending-chip ${pt.isOverdue ? 'is-overdue' : ''}" data-class-id="${escapeHtml(pt.classObj.id)}" data-sem="${escapeHtml(pt.sem)}" data-test-idx="${pt.testIndex}" title="${escapeHtml(pt.classObj.name + ' · ' + pt.testName)}">
+              <strong>${escapeHtml(pt.classObj.name)}</strong> · ${escapeHtml(pt.badge)} (${pt.remainingCount} · ~${escapeHtml(formatCorrectionTime(pt.estMinutes))}${escapeHtml(dlHint)})
+            </button>`;
+          }).join('')}
+        </div>
+      ` : '';
+
+      const classOptionsHtml = `<option value="">${escapeHtml(t('gsCorrAllClasses') || 'All Classes')}</option>` +
+        (appState.classes || []).map(c => `<option value="${escapeHtml(c.id)}" ${_gsCorrState.classId === c.id ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('');
+
+      const classChipsHtml = (appState.classes || []).map(c => {
+        const col = stats.classColorMap.get(c.id) || '#5b8fcc';
+        const isActive = !_gsCorrState.hiddenClasses.has(c.id);
+        return `<button type="button" class="gs-corr-filter-chip ${isActive ? 'active' : ''}" data-filter-class="${escapeHtml(c.id)}">
+          <span class="gs-corr-chip-dot" style="background:${col};"></span>
+          <span>${escapeHtml(c.name)}</span>
+        </button>`;
+      }).join('');
+
+      const periodCardHtml = (key, rangeVal, titleText, p) => `
+        <button type="button" class="gs-corr-period-card ${_gsCorrState.range === rangeVal ? 'active' : ''}" data-period-range="${rangeVal}">
+          <div class="gs-corr-period-head">
+            <span class="gs-corr-period-title">${escapeHtml(titleText)}</span>
+          </div>
+          <div class="gs-corr-period-count">${p.count} <span style="font-size:0.78rem;font-weight:600;color:#555555;">${escapeHtml(p.count === 1 ? (t('gsCorrStudentSingular') || 'student') : (t('gsCorrStudentsPlural') || 'students'))}</span></div>
+          <div class="gs-corr-period-meta">
+            <span>${escapeHtml(t('gsCorrTimeSpent') || 'Time')}: <strong>${escapeHtml(fmtPeriodTime(p))}</strong></span>
+            <span>${escapeHtml(t('gsCorrAvgPerStudent') || 'Avg')}: <strong>${escapeHtml(fmtPeriodAvg(p))}</strong></span>
+            <span><strong>${p.testsSet.size}</strong> ${escapeHtml(t('gsCorrTestsTouched') || 'tests')} (${p.completedTestsSet.size} ${escapeHtml(t('gsCorrDoneShort') || 'done')})</span>
+          </div>
+        </button>
+      `;
+
+      const peakText = stats.peakDay
+        ? `${stats.peakDay.count} (${stats.peakDay.dateStr})`
+        : '—';
+
+      panel.innerHTML = `
+        <div class="gs-corr-header">
+          <div class="gs-corr-title-wrap">
+            <img src="../assets/icons/clock.svg" class="btn-icon" alt="" />
+            <h3 class="gs-corr-title">${escapeHtml(t('gsCorrStatsTitle') || 'Correction Activity & Statistics')}</h3>
+            <span class="gs-corr-subtitle">${escapeHtml(t('gsCorrStatsSubtitle') || 'Track daily marking pace, time spent, and remaining unmarked exams')}</span>
+          </div>
+          <div class="gs-corr-header-actions">
+            <button type="button" class="btn" id="gsCorrToggleCollapseBtn" title="${escapeHtml(t('gsCorrToggleCollapse') || 'Collapse / Expand')}">
+              <img src="../assets/icons/chevron-down.svg" class="btn-icon" alt="" style="transform:${_gsCorrState.collapsed ? 'rotate(-90deg)' : 'rotate(0deg)'};transition:transform 0.15s ease;" />
+            </button>
+          </div>
+        </div>
+        <div id="gsCorrBody" class="${_gsCorrState.collapsed ? 'hidden' : ''}">
+          <div class="gs-corr-kpi-bar">
+            <div class="gs-corr-kpi-pill is-accent-sage">
+              <span class="gs-corr-kpi-label">${escapeHtml(t('gsCorrKpiToday') || 'Corrected Today')}</span>
+              <span class="gs-corr-kpi-value">${dayP.count}</span>
+              <span class="gs-corr-kpi-sub">${escapeHtml(dayP.timeMin > 0 ? `${fmtPeriodTime(dayP)} ${t('gsCorrLogged') || 'logged'}` : (t('gsCorrNoTimeLogged') || 'No time logged yet'))}</span>
+            </div>
+            <div class="gs-corr-kpi-pill ${stats.overdueTestsCount > 0 ? 'is-accent-rose' : (stats.totalRemaining > 0 ? 'is-accent-amber' : 'is-accent-sage')}">
+              <span class="gs-corr-kpi-label">${escapeHtml(t('gsCorrKpiUnmarked') || 'Unmarked Exams')}</span>
+              <span class="gs-corr-kpi-value">${stats.totalRemaining}</span>
+              <span class="gs-corr-kpi-sub">${escapeHtml(tFmt('gsCorrUnmarkedSub', { tests: stats.pendingTests.length, overdue: stats.overdueTestsCount }) || `${stats.pendingTests.length} tests · ${stats.overdueTestsCount} overdue`)}</span>
+            </div>
+            <div class="gs-corr-kpi-pill">
+              <span class="gs-corr-kpi-label">${escapeHtml(t('gsCorrKpiEta') || 'Est. Time Left')}</span>
+              <span class="gs-corr-kpi-value">${stats.totalRemaining > 0 ? escapeHtml(formatCorrectionTime(stats.totalEstRemainingMin)) : '0m'}</span>
+              <span class="gs-corr-kpi-sub">${escapeHtml(stats.totalRemaining > 0 ? (t('gsCorrEtaSub') || 'Across pending taken tests') : (t('gsCorrAllMarked') || 'All taken tests marked'))}</span>
+            </div>
+            <div class="gs-corr-kpi-pill">
+              <span class="gs-corr-kpi-label">${escapeHtml(t('gsCorrKpiCompletion') || 'Marking Progress')}</span>
+              <span class="gs-corr-kpi-value">${stats.totalScored} / ${stats.totalEligible} (${stats.completionPct}%)</span>
+              <div class="gs-corr-progress-track"><div class="gs-corr-progress-fill" style="width:${stats.completionPct}%;"></div></div>
+            </div>
+            <div class="gs-corr-kpi-pill">
+              <span class="gs-corr-kpi-label">${escapeHtml(t('gsCorrKpiPacePeak') || 'Daily Pace & Peak')}</span>
+              <span class="gs-corr-kpi-value">${stats.avgPace} / ${escapeHtml(t('gsCorrDayUnit') || 'day')}</span>
+              <span class="gs-corr-kpi-sub">${escapeHtml(t('gsCorrPeakLabel') || 'Peak')}: ${escapeHtml(peakText)}</span>
+            </div>
+          </div>
+
+          <div class="gs-corr-period-grid">
+            ${periodCardHtml('day', 'today', t('gsCorrThisDay') || 'Corrected this Day', dayP)}
+            ${periodCardHtml('week', 'week', t('gsCorrThisWeek') || 'Corrected this Week', weekP)}
+            ${periodCardHtml('month', 'month', t('gsCorrThisMonth') || 'Corrected this Month', monthP)}
+            ${periodCardHtml('year', 'year', t('gsCorrThisYear') || 'Corrected this Year', yearP)}
+          </div>
+
+          ${pendingChipsHtml}
+
+          <div class="gs-corr-timeline-toolbar">
+            <div class="gs-corr-controls-left">
+              <div class="gs-corr-control-group">
+                <label for="gsCorrRangeSelect">${escapeHtml(t('gsCorrRangeLabel') || 'Range')}</label>
+                <select id="gsCorrRangeSelect" class="gs-corr-select">
+                  <option value="today" ${_gsCorrState.range === 'today' ? 'selected' : ''}>${escapeHtml(t('gsCorrRangeToday') || 'Today')}</option>
+                  <option value="week" ${_gsCorrState.range === 'week' ? 'selected' : ''}>${escapeHtml(t('gsCorrRangeWeek') || 'This Week')}</option>
+                  <option value="month" ${_gsCorrState.range === 'month' ? 'selected' : ''}>${escapeHtml(t('gsCorrRangeMonth') || 'This Month')}</option>
+                  <option value="year" ${_gsCorrState.range === 'year' ? 'selected' : ''}>${escapeHtml(t('gsCorrRangeYear') || 'This Year')}</option>
+                  <option value="7d" ${_gsCorrState.range === '7d' ? 'selected' : ''}>${escapeHtml(t('gsCorrRange7d') || 'Last 7 days')}</option>
+                  <option value="14d" ${_gsCorrState.range === '14d' ? 'selected' : ''}>${escapeHtml(t('gsCorrRange14d') || 'Last 14 days')}</option>
+                  <option value="30d" ${_gsCorrState.range === '30d' ? 'selected' : ''}>${escapeHtml(t('gsCorrRange30d') || 'Last 30 days')}</option>
+                  <option value="all" ${_gsCorrState.range === 'all' ? 'selected' : ''}>${escapeHtml(t('gsCorrRangeAll') || 'All recorded days')}</option>
+                </select>
+              </div>
+              <div class="gs-corr-control-group">
+                <label for="gsCorrClassSelect">${escapeHtml(t('gsCorrClassLabel') || 'Class')}</label>
+                <select id="gsCorrClassSelect" class="gs-corr-select">${classOptionsHtml}</select>
+              </div>
+              <div class="gs-corr-control-group">
+                <label for="gsCorrViewSelect">${escapeHtml(t('gsCorrViewLabel') || 'View')}</label>
+                <select id="gsCorrViewSelect" class="gs-corr-select">
+                  <option value="daily" ${_gsCorrState.viewMode === 'daily' ? 'selected' : ''}>${escapeHtml(t('gsCorrViewDaily') || 'Daily Bars + Cumulative')}</option>
+                  <option value="hourly" ${_gsCorrState.viewMode === 'hourly' ? 'selected' : ''}>${escapeHtml(t('gsCorrViewHourly') || 'Intra-day Hourly')}</option>
+                </select>
+              </div>
+            </div>
+            <div class="gs-corr-controls-right">
+              <button type="button" class="btn" id="gsCorrExportPngBtn" title="${escapeHtml(t('gsCorrExportPng') || 'Export Timeline (PNG)')}">
+                <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
+              </button>
+              <button type="button" class="btn" id="gsCorrExportSvgBtn" title="${escapeHtml(t('gsCorrExportSvg') || 'Export Timeline (SVG)')}">
+                <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="gs-corr-filter-chips">
+            <button type="button" class="gs-corr-filter-chip ${_gsCorrState.showCumulative ? 'active' : ''}" id="gsCorrToggleCumBtn">
+              <span class="gs-corr-chip-dot" style="background:#333333;"></span>
+              <span>${escapeHtml(t('gsCorrFilterCumulative') || 'Cumulative')}</span>
+            </button>
+            <button type="button" class="gs-corr-filter-chip ${_gsCorrState.showPaceLine ? 'active' : ''}" id="gsCorrTogglePaceBtn">
+              <span class="gs-corr-chip-dot" style="background:#e2c96e;"></span>
+              <span>${escapeHtml(t('gsCorrFilterPace') || 'Avg Pace')}</span>
+            </button>
+            ${classChipsHtml}
+          </div>
+
+          <div class="gs-corr-canvas-wrap" id="gsCorrCanvasWrap">
+            <canvas id="gsCorrCanvas" class="gs-corr-canvas" height="240"></canvas>
+            <div id="gsCorrTooltip" class="gs-corr-tooltip"></div>
+            <div id="gsCorrEmptyState" class="gs-corr-empty-state hidden">
+              <img src="../assets/icons/clock.svg" class="btn-icon" style="width:28px;height:28px;opacity:0.6;" alt="" />
+              <h4>${escapeHtml(t('gsCorrEmptyTitle') || 'No correction timestamps recorded in this range yet.')}</h4>
+              <p>${escapeHtml(t('gsCorrEmptyDesc') || 'Correction dates are recorded automatically whenever you grade or update a student in a test sheet.')}</p>
+            </div>
+          </div>
+
+          <div id="gsCorrDayDetail" class="gs-corr-day-detail hidden"></div>
+        </div>
+      `;
+
+      // Bind panel events
+      document.getElementById("gsCorrToggleCollapseBtn")?.addEventListener("click", () => {
+        _gsCorrState.collapsed = !_gsCorrState.collapsed;
+        renderAllTestsStats();
+      });
+
+      panel.querySelectorAll(".gs-corr-period-card").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const r = btn.dataset.periodRange;
+          if (r) {
+            _gsCorrState.range = r;
+            if (r === 'today') {
+              _gsCorrState.selectedDay = stats.todayStr;
+            }
+            renderAllTestsStats();
+          }
+        });
+      });
+
+      panel.querySelectorAll(".gs-corr-pending-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          const cid = chip.dataset.classId;
+          const sem = chip.dataset.sem;
+          const ti = Number(chip.dataset.testIdx);
+          const targetClass = (appState.classes || []).find(cl => cl.id === cid);
+          if (!targetClass) return;
+          appState.activeClassId = targetClass.id;
+          ensureClassStructures(targetClass);
+          renderSummary();
+          appState.activeTest = { semester: sem, testIndex: ti };
+          renderTestSheet();
+          showScreen("test");
+        });
+      });
+
+      document.getElementById("gsCorrRangeSelect")?.addEventListener("change", (e) => {
+        _gsCorrState.range = e.target.value;
+        renderAllTestsStats();
+      });
+      document.getElementById("gsCorrClassSelect")?.addEventListener("change", (e) => {
+        _gsCorrState.classId = e.target.value;
+        renderAllTestsStats();
+      });
+      document.getElementById("gsCorrViewSelect")?.addEventListener("change", (e) => {
+        _gsCorrState.viewMode = e.target.value;
+        if (_gsCorrState.viewMode === 'hourly' && !_gsCorrState.selectedDay) {
+          _gsCorrState.selectedDay = stats.todayStr;
+        }
+        _scheduleDrawCorrectionTimeline();
+        _renderCorrectionDayDetail();
+      });
+
+      document.getElementById("gsCorrToggleCumBtn")?.addEventListener("click", () => {
+        _gsCorrState.showCumulative = !_gsCorrState.showCumulative;
+        renderAllTestsStats();
+      });
+      document.getElementById("gsCorrTogglePaceBtn")?.addEventListener("click", () => {
+        _gsCorrState.showPaceLine = !_gsCorrState.showPaceLine;
+        renderAllTestsStats();
+      });
+
+      panel.querySelectorAll("[data-filter-class]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const cid = btn.dataset.filterClass;
+          if (_gsCorrState.hiddenClasses.has(cid)) {
+            _gsCorrState.hiddenClasses.delete(cid);
+          } else {
+            _gsCorrState.hiddenClasses.add(cid);
+          }
+          renderAllTestsStats();
+        });
+      });
+
+      document.getElementById("gsCorrExportPngBtn")?.addEventListener("click", exportCorrectionTimelinePng);
+      document.getElementById("gsCorrExportSvgBtn")?.addEventListener("click", exportCorrectionTimelineSvg);
+
+      if (!_gsCorrState.collapsed) {
+        _initCorrectionCanvasEvents();
+        _setupCorrectionResizeObserver();
+        _scheduleDrawCorrectionTimeline();
+        _renderCorrectionDayDetail();
+      }
+    }
+
+    function _setupCorrectionResizeObserver() {
+      const wrap = document.getElementById("gsCorrCanvasWrap");
+      if (!wrap || typeof ResizeObserver === 'undefined') return;
+      if (_gsCorrResizeObserver) {
+        _gsCorrResizeObserver.disconnect();
+      }
+      _gsCorrResizeObserver = new ResizeObserver(() => {
+        if (!_gsCorrState.collapsed) {
+          _scheduleDrawCorrectionTimeline();
+        }
+      });
+      _gsCorrResizeObserver.observe(wrap);
+    }
+
+    function _scheduleDrawCorrectionTimeline() {
+      if (_gsCorrRafId) cancelAnimationFrame(_gsCorrRafId);
+      _gsCorrRafId = requestAnimationFrame(() => {
+        _gsCorrRafId = null;
+        const canvas = document.getElementById("gsCorrCanvas");
+        if (canvas) drawCorrectionTimeline(canvas);
+      });
+    }
+
+    function drawCorrectionTimeline(canvas) {
+      if (!canvas) return;
+      const stats = _gsCorrState.lastStats;
+      if (!stats) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const width = rect.width || canvas.offsetWidth || 860;
+      const height = rect.height || canvas.offsetHeight || 240;
+
+      canvas.width = Math.round(width * dpr);
+      canvas.height = Math.round(height * dpr);
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      const emptyEl = document.getElementById("gsCorrEmptyState");
+      _gsCorrState.hitTargets = [];
+
+      const visibleEvents = stats.events.filter(ev => !_gsCorrState.hiddenClasses.has(ev.classId));
+
+      if (_gsCorrState.viewMode === 'hourly') {
+        const targetDay = _gsCorrState.selectedDay || stats.todayStr;
+        const dayEvents = visibleEvents
+          .filter(ev => ev.localYmd === targetDay)
+          .sort((a, b) => a.timeMs - b.timeMs);
+
+        if (dayEvents.length === 0) {
+          if (emptyEl) emptyEl.classList.remove("hidden");
+          return;
+        }
+        if (emptyEl) emptyEl.classList.add("hidden");
+
+        const padLeft = 48;
+        const padRight = 24;
+        const padTop = 26;
+        const padBottom = 34;
+        const plotW = Math.max(100, width - padLeft - padRight);
+        const plotH = Math.max(80, height - padTop - padBottom);
+        const baseY = padTop + plotH;
+
+        const [y, m, d] = targetDay.split('-').map(Number);
+        const dayStartMs = new Date(y, m - 1, d, 0, 0, 0).getTime();
+        const dayEndMs = new Date(y, m - 1, d, 23, 59, 59).getTime();
+        const spanMs = dayEndMs - dayStartMs;
+
+        // Grid lines every 3 hours
+        ctx.strokeStyle = '#ecece5';
+        ctx.lineWidth = 1;
+        ctx.font = '600 10px Lexend, sans-serif';
+        ctx.fillStyle = '#666666';
+        ctx.textAlign = 'center';
+        for (let hr = 0; hr <= 24; hr += 3) {
+          const x = padLeft + (hr / 24) * plotW;
+          ctx.beginPath();
+          ctx.moveTo(x, padTop);
+          ctx.lineTo(x, baseY);
+          ctx.stroke();
+          ctx.fillText(`${String(hr).padStart(2, '0')}:00`, x, baseY + 16);
+        }
+
+        // Baseline
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(padLeft, baseY);
+        ctx.lineTo(padLeft + plotW, baseY);
+        ctx.stroke();
+
+        // Title label
+        ctx.fillStyle = '#333333';
+        ctx.font = '800 11px Lexend, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${targetDay} · ${dayEvents.length} ${dayEvents.length === 1 ? 'student' : 'students'}`, padLeft, 16);
+
+        // Stems & dots (staggered vertically if close in time)
+        const placedXs = [];
+        dayEvents.forEach((ev) => {
+          const ratio = Math.max(0, Math.min(1, (ev.timeMs - dayStartMs) / spanMs));
+          const x = padLeft + ratio * plotW;
+          let tier = 0;
+          for (let px of placedXs) {
+            if (Math.abs(px.x - x) < 16 && px.tier === tier) tier++;
+          }
+          placedXs.push({ x, tier });
+          const dotY = Math.max(padTop + 12, baseY - 26 - (tier % 5) * 24);
+
+          ctx.strokeStyle = '#555555';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x, baseY);
+          ctx.lineTo(x, dotY);
+          ctx.stroke();
+
+          ctx.fillStyle = '#555555';
+          ctx.beginPath();
+          ctx.arc(x + 1.5, dotY + 1.5, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = ev.color;
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x, dotY, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          _gsCorrState.hitTargets.push({
+            type: 'event',
+            x: x - 9,
+            y: dotY - 9,
+            w: 18,
+            h: 18,
+            ev
+          });
+        });
+        return;
+      }
+
+      // Daily Bars + Cumulative View
+      const days = _gsGetTimelineDayList(stats);
+      const dayBuckets = days.map(ymd => {
+        const dayEvs = visibleEvents.filter(ev => ev.localYmd === ymd);
+        const byClass = new Map();
+        let timeMin = 0;
+        dayEvs.forEach(ev => {
+          byClass.set(ev.classId, (byClass.get(ev.classId) || 0) + 1);
+          timeMin += ev.corrMin || 0;
+        });
+        return { dateStr: ymd, count: dayEvs.length, timeMin, byClass, events: dayEvs };
+      });
+
+      const hasAnyVisible = dayBuckets.some(b => b.count > 0);
+      if (!hasAnyVisible) {
+        if (emptyEl) emptyEl.classList.remove("hidden");
+        return;
+      }
+      if (emptyEl) emptyEl.classList.add("hidden");
+
+      const padLeft = 44;
+      const padRight = _gsCorrState.showCumulative ? 44 : 20;
+      const padTop = 24;
+      const padBottom = 34;
+      const plotW = Math.max(100, width - padLeft - padRight);
+      const plotH = Math.max(80, height - padTop - padBottom);
+      const baseY = padTop + plotH;
+
+      const maxDayCount = Math.max(1, ...dayBuckets.map(b => b.count));
+      const yMax = Math.max(2, Math.ceil(maxDayCount * 1.18));
+      const cumTotal = dayBuckets.reduce((acc, b) => acc + b.count, 0);
+
+      // Horizontal grid lines
+      ctx.strokeStyle = '#ecece5';
+      ctx.lineWidth = 1;
+      ctx.font = '600 10px Lexend, sans-serif';
+      ctx.fillStyle = '#666666';
+      ctx.textAlign = 'right';
+      const gridSteps = Math.min(5, yMax);
+      for (let g = 0; g <= gridSteps; g++) {
+        const val = Math.round((g / gridSteps) * yMax);
+        const y = baseY - (val / yMax) * plotH;
+        ctx.beginPath();
+        ctx.moveTo(padLeft, y);
+        ctx.lineTo(padLeft + plotW, y);
+        ctx.stroke();
+        ctx.fillText(String(val), padLeft - 6, y + 3);
+      }
+
+      // Baseline
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padLeft, baseY);
+      ctx.lineTo(padLeft + plotW, baseY);
+      ctx.stroke();
+
+      const slotW = plotW / Math.max(1, dayBuckets.length);
+      const barW = Math.max(6, Math.min(36, slotW * 0.66));
+      const labelStep = Math.max(1, Math.ceil(dayBuckets.length / 10));
+
+      dayBuckets.forEach((b, idx) => {
+        const cx = padLeft + idx * slotW + slotW / 2;
+        const bx = cx - barW / 2;
+        const isToday = b.dateStr === stats.todayStr;
+        const isSelected = b.dateStr === _gsCorrState.selectedDay;
+
+        if (isToday || isSelected) {
+          ctx.fillStyle = isToday ? 'rgba(226, 201, 110, 0.16)' : 'rgba(91, 143, 204, 0.12)';
+          ctx.fillRect(bx - 3, padTop, barW + 6, plotH);
+        }
+
+        if (b.count > 0) {
+          const totalBarH = (b.count / yMax) * plotH;
+          const topY = baseY - totalBarH;
+
+          // Offset shadow
+          ctx.fillStyle = '#555555';
+          ctx.fillRect(bx + 2, topY + 2, barW, totalBarH);
+
+          // Stacked class segments
+          let curBottom = baseY;
+          const entries = [...b.byClass.entries()];
+          entries.forEach(([cid, cnt]) => {
+            const segH = (cnt / yMax) * plotH;
+            const segTop = curBottom - segH;
+            ctx.fillStyle = stats.classColorMap.get(cid) || '#5b8fcc';
+            ctx.fillRect(bx, segTop, barW, segH);
+            curBottom = segTop;
+          });
+
+          // Border
+          ctx.strokeStyle = '#333333';
+          ctx.lineWidth = isToday ? 2 : 1.5;
+          ctx.strokeRect(bx, topY, barW, totalBarH);
+
+          // Count label above bar
+          ctx.fillStyle = '#222222';
+          ctx.font = '800 10px Lexend, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(String(b.count), cx, Math.max(padTop - 4, topY - 5));
+        }
+
+        // X-axis date label
+        if (idx % labelStep === 0 || idx === dayBuckets.length - 1 || isToday) {
+          ctx.fillStyle = isToday ? '#222222' : '#666666';
+          ctx.font = isToday ? '800 10px Lexend, sans-serif' : '600 10px Lexend, sans-serif';
+          ctx.textAlign = 'center';
+          const shortLbl = b.dateStr.slice(5); // MM-DD
+          ctx.fillText(shortLbl, cx, baseY + 16);
+        }
+
+        _gsCorrState.hitTargets.push({
+          type: 'day',
+          x: bx - 4,
+          y: padTop,
+          w: barW + 8,
+          h: plotH,
+          dayData: b
+        });
+      });
+
+      // Average Pace Dashed Line
+      if (_gsCorrState.showPaceLine && stats.avgPace > 0 && stats.avgPace <= yMax) {
+        const paceY = baseY - (stats.avgPace / yMax) * plotH;
+        ctx.save();
+        ctx.strokeStyle = '#c89b19';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padLeft, paceY);
+        ctx.lineTo(padLeft + plotW, paceY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Cumulative Line
+      if (_gsCorrState.showCumulative && cumTotal > 0) {
+        let running = 0;
+        ctx.save();
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        dayBuckets.forEach((b, idx) => {
+          running += b.count;
+          const cx = padLeft + idx * slotW + slotW / 2;
+          const cy = baseY - (running / cumTotal) * plotH;
+          if (idx === 0) ctx.moveTo(cx, cy);
+          else ctx.lineTo(cx, cy);
+        });
+        ctx.stroke();
+
+        // Cumulative right-axis label
+        ctx.fillStyle = '#333333';
+        ctx.font = '700 10px Lexend, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText(String(cumTotal), padLeft + plotW + 6, padTop + 4);
+        ctx.restore();
+      }
+    }
+
+    function _initCorrectionCanvasEvents() {
+      const canvas = document.getElementById("gsCorrCanvas");
+      const tooltip = document.getElementById("gsCorrTooltip");
+      if (!canvas || !tooltip) return;
+
+      canvas.onmousemove = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const hit = _gsCorrState.hitTargets.find(t => mx >= t.x && mx <= t.x + t.w && my >= t.y && my <= t.y + t.h);
+        if (!hit) {
+          tooltip.style.display = 'none';
+          return;
+        }
+        if (hit.type === 'day') {
+          const b = hit.dayData;
+          const timeStr = b.timeMin > 0 ? ` · ${formatCorrectionTime(Math.round(b.timeMin * 10) / 10)}` : '';
+          const classLines = [...b.byClass.entries()].map(([cid, cnt]) => {
+            const cls = (appState.classes || []).find(c => c.id === cid);
+            return `<div>${escapeHtml(cls ? cls.name : cid)}: <strong>${cnt}</strong></div>`;
+          }).join('');
+          tooltip.innerHTML = `<div style="font-weight:800;margin-bottom:3px;">${escapeHtml(b.dateStr)}</div>
+            <div><strong>${b.count}</strong> ${escapeHtml(b.count === 1 ? 'student' : 'students')}${escapeHtml(timeStr)}</div>
+            ${classLines}`;
+        } else if (hit.type === 'event') {
+          const ev = hit.ev;
+          const dt = new Date(ev.timeMs);
+          const hhmm = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+          const gradeStr = ev.grade != null ? ` · Grade ${fmtN(ev.grade)}` : '';
+          tooltip.innerHTML = `<div style="font-weight:800;">${escapeHtml(ev.studentName)}</div>
+            <div>${escapeHtml(ev.className)} · ${escapeHtml(ev.badge)} (${escapeHtml(ev.testName)})</div>
+            <div>${escapeHtml(hhmm)}${escapeHtml(gradeStr)}</div>`;
+        }
+        tooltip.style.display = 'block';
+        const left = Math.min(rect.width - 210, Math.max(8, mx + 12));
+        const top = Math.max(8, my - 28);
+        tooltip.style.left = `${left}px`;
+        tooltip.style.top = `${top}px`;
+      };
+
+      canvas.onmouseleave = () => {
+        tooltip.style.display = 'none';
+      };
+
+      canvas.onclick = (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const hit = _gsCorrState.hitTargets.find(t => mx >= t.x && mx <= t.x + t.w && my >= t.y && my <= t.y + t.h);
+        if (hit && hit.type === 'day') {
+          _gsCorrState.selectedDay = hit.dayData.dateStr;
+          _scheduleDrawCorrectionTimeline();
+          _renderCorrectionDayDetail();
+        }
+      };
+    }
+
+    function _renderCorrectionDayDetail() {
+      const box = document.getElementById("gsCorrDayDetail");
+      const stats = _gsCorrState.lastStats;
+      if (!box || !stats || !_gsCorrState.selectedDay) {
+        if (box) box.classList.add("hidden");
+        return;
+      }
+      const dayEvs = stats.events
+        .filter(ev => ev.localYmd === _gsCorrState.selectedDay && !_gsCorrState.hiddenClasses.has(ev.classId))
+        .sort((a, b) => b.timeMs - a.timeMs);
+
+      if (dayEvs.length === 0) {
+        box.classList.add("hidden");
+        return;
+      }
+      box.classList.remove("hidden");
+      const totalMin = dayEvs.reduce((acc, ev) => acc + (ev.corrMin || 0), 0);
+      const timeBadge = totalMin > 0 ? ` · ${formatCorrectionTime(Math.round(totalMin * 10) / 10)}` : '';
+      box.innerHTML = `
+        <div class="gs-corr-day-detail-head">
+          <span>${escapeHtml(_gsCorrState.selectedDay)} — ${dayEvs.length} ${escapeHtml(dayEvs.length === 1 ? (t('gsCorrStudentSingular') || 'student') : (t('gsCorrStudentsPlural') || 'students'))}${escapeHtml(timeBadge)}</span>
+          <button type="button" class="btn btn-xs" id="gsCorrCloseDayDetailBtn">${escapeHtml(t('gsBtnClose') || 'Close')}</button>
+        </div>
+        <div class="gs-corr-day-detail-list">
+          ${dayEvs.slice(0, 40).map(ev => {
+            const dt = new Date(ev.timeMs);
+            const hhmm = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+            const gradeStr = ev.grade != null ? ` (${fmtN(ev.grade)})` : '';
+            return `<span class="gs-corr-day-detail-item"><span class="gs-corr-chip-dot" style="background:${ev.color};margin-right:4px;"></span><strong>${escapeHtml(ev.studentName)}</strong> · ${escapeHtml(ev.className)} ${escapeHtml(ev.badge)}${escapeHtml(gradeStr)} · ${escapeHtml(hhmm)}</span>`;
+          }).join('')}
+        </div>
+      `;
+      document.getElementById("gsCorrCloseDayDetailBtn")?.addEventListener("click", () => {
+        _gsCorrState.selectedDay = null;
+        box.classList.add("hidden");
+        _scheduleDrawCorrectionTimeline();
+      });
+    }
+
+    async function _saveCorrectionTimelineFile(filename, data, format) {
+      if (window.Desktop && Desktop.isElectron()) {
+        try {
+          const res = (format === 'svg')
+            ? await Desktop.saveText('toPrint', filename, data)
+            : await Desktop.saveBlob('toPrint', filename, data);
+          if (res && res.ok && res.path) {
+            if (window.showExportSuccessPopup) {
+              showExportSuccessPopup(res.path, res.name || filename);
+            } else if (typeof showToast === 'function') {
+              showToast(t('gsToastExportSuccess') || 'Exported successfully');
+            }
+            return;
+          }
+        } catch (err) {
+          console.error('Correction timeline export failed:', err);
+        }
+      }
+      const blob = (data instanceof Blob) ? data : new Blob([data], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    function exportCorrectionTimelinePng() {
+      const canvas = document.getElementById("gsCorrCanvas");
+      if (!canvas) return;
+      const dateStr = (_gsCorrState.lastStats && _gsCorrState.lastStats.todayStr) || _gsToLocalYmd(new Date());
+      canvas.toBlob(blob => {
+        if (blob) _saveCorrectionTimelineFile(`Correction_Timeline_${dateStr}.png`, blob, 'png');
+      }, 'image/png');
+    }
+
+    function exportCorrectionTimelineSvg() {
+      const stats = _gsCorrState.lastStats;
+      if (!stats) return;
+      const days = _gsGetTimelineDayList(stats);
+      const visibleEvents = stats.events.filter(ev => !_gsCorrState.hiddenClasses.has(ev.classId));
+      const dayBuckets = days.map(ymd => {
+        const dayEvs = visibleEvents.filter(ev => ev.localYmd === ymd);
+        return { dateStr: ymd, count: dayEvs.length };
+      });
+      const w = 900, h = 260, padL = 44, padR = 24, padT = 26, padB = 34;
+      const plotW = w - padL - padR, plotH = h - padT - padB, baseY = padT + plotH;
+      const yMax = Math.max(2, Math.ceil(Math.max(1, ...dayBuckets.map(b => b.count)) * 1.18));
+      const slotW = plotW / Math.max(1, dayBuckets.length);
+      const barW = Math.max(6, Math.min(36, slotW * 0.66));
+      const barsSvg = dayBuckets.map((b, idx) => {
+        const cx = padL + idx * slotW + slotW / 2;
+        const bx = cx - barW / 2;
+        let rect = '';
+        if (b.count > 0) {
+          const bh = (b.count / yMax) * plotH;
+          const by = baseY - bh;
+          rect = `<rect x="${bx + 2}" y="${by + 2}" width="${barW}" height="${bh}" fill="#555555"/>` +
+                 `<rect x="${bx}" y="${by}" width="${barW}" height="${bh}" fill="#5b8fcc" stroke="#333333" stroke-width="1.5"/>` +
+                 `<text x="${cx}" y="${Math.max(14, by - 5)}" font-family="Lexend, sans-serif" font-size="10" font-weight="800" fill="#222222" text-anchor="middle">${b.count}</text>`;
+        }
+        const lbl = (idx % Math.max(1, Math.ceil(dayBuckets.length / 10)) === 0 || idx === dayBuckets.length - 1)
+          ? `<text x="${cx}" y="${baseY + 16}" font-family="Lexend, sans-serif" font-size="10" fill="#666666" text-anchor="middle">${b.dateStr.slice(5)}</text>`
+          : '';
+        return rect + lbl;
+      }).join('');
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+        <rect width="${w}" height="${h}" fill="#ffffff"/>
+        <line x1="${padL}" y1="${baseY}" x2="${padL + plotW}" y2="${baseY}" stroke="#333333" stroke-width="1.5"/>
+        ${barsSvg}
+      </svg>`;
+      _saveCorrectionTimelineFile(`Correction_Timeline_${stats.todayStr}.svg`, svg, 'svg');
     }
 
     function renderClasses() {
@@ -12300,9 +13419,9 @@
           student.index,
           fnDisplay,
           lnDisplay,
-          ...Array.from({ length: n1 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem1", i))),
+          ...Array.from({ length: n1 }, (_, i) => fmtN(getTestDisplayGrade(student, classObj, "sem1", i))),
           ...(showSem1 ? [fmtAvg(c.sem1Avg)] : []),
-          ...Array.from({ length: n2 }, (_, i) => fmt(getTestDisplayGrade(student, classObj, "sem2", i))),
+          ...Array.from({ length: n2 }, (_, i) => fmtN(getTestDisplayGrade(student, classObj, "sem2", i))),
           ...(showSem2 ? [fmtAvg(c.sem2Avg)] : []),
           ...(showSem1 && showSem2 ? [fmtAvg(c.yearAvg)] : []),
           fmtAvg(c.roundedFinal),
@@ -13648,7 +14767,8 @@
           hasValidManualPoints ? config.grading.manualPoints : {}
         ),
         equationFormula: config.grading.equationFormula || "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
-        equationRounding: config.grading.equationRounding || "0.5"
+        equationRounding: config.grading.equationRounding || "0.5",
+        pointsRounding: config.grading.pointsRounding || "0.5"
       };
 
       const gradingModeEl = document.getElementById("topt-grading-mode");
@@ -13656,6 +14776,8 @@
       const gradingMinGradeEl = document.getElementById("topt-grading-min-grade");
       const gradingMaxGradeEl = document.getElementById("topt-grading-max-grade");
       const gradingIntervalEl = document.getElementById("topt-grading-interval");
+      const gradingPointsRoundEl = document.getElementById("topt-grading-points-round");
+      const gradingPointsRoundWrap = document.getElementById("topt-grading-points-round-wrap");
       const gradingModelChips = document.getElementById("topt-grading-model");
       const gradingThreshWrap = document.getElementById("topt-grading-thresholds");
       const gradingEqWrap = document.getElementById("topt-grading-equation-wrap");
@@ -14098,6 +15220,14 @@
           updateLiveGradePreview();
         };
       }
+      if (gradingPointsRoundEl) {
+        gradingPointsRoundEl.value = gradingDraft.pointsRounding || "0.5";
+        gradingPointsRoundEl.onchange = () => {
+          _toptGradingChanged = true;
+          gradingDraft.pointsRounding = gradingPointsRoundEl.value || "0.5";
+          updateLiveGradePreview();
+        };
+      }
 
       rebuildModelChips();
       const gradSum = document.getElementById("topt-grading-summary");
@@ -14123,6 +15253,9 @@
         document.getElementById("topt-grading-formula-wrap").classList.toggle("hidden", !isFormula);
         if (gradingEqWrap) gradingEqWrap.classList.toggle("hidden", !isEquation);
         document.getElementById("topt-grading-model-wrap").classList.toggle("hidden", !isManualPercent);
+        const pointsRoundApplies = isFormula || isLinear || isManualPercent;
+        if (gradingPointsRoundEl) gradingPointsRoundEl.disabled = !pointsRoundApplies;
+        if (gradingPointsRoundWrap) gradingPointsRoundWrap.style.opacity = pointsRoundApplies ? "" : "0.5";
         updateLiveGradePreview();
       }
 
@@ -15383,6 +16516,9 @@
           }
           if (gradingEqRound) {
             gradingDraft.equationRounding = gradingEqRound.value || gradingDraft.equationRounding || "0.5";
+          }
+          if (gradingPointsRoundEl) {
+            gradingDraft.pointsRounding = gradingPointsRoundEl.value || gradingDraft.pointsRounding || "0.5";
           }
           Object.assign(config.grading, gradingDraft);
         }
@@ -19822,6 +20958,42 @@
 
 
     // ── Scoring Progress & Deadlines Controller ──────────────────────
+    function isStudentScoredForTest(student, sem, testIndex, config) {
+      if (!student) return false;
+      const tests = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
+      const score = Array.isArray(tests) ? tests[testIndex] : null;
+      const critResults = student.criteriaResults?.[sem]?.[testIndex];
+      const hasValidScore = score !== null && score !== undefined && score !== "" && !Number.isNaN(Number(score));
+
+      let hasAllCriteriaScored = false;
+      if (config && Array.isArray(config.criteria) && config.criteria.length > 0) {
+        hasAllCriteriaScored = config.criteria.every(cr => {
+          const c = critResults && critResults[cr.id];
+          return c && c.points !== null && c.points !== undefined && c.points !== "" && !Number.isNaN(Number(c.points));
+        });
+      }
+      return hasValidScore || hasAllCriteriaScored;
+    }
+
+    function recordStudentCorrectionTimestamp(student, classObj, sem, testIndex, config) {
+      if (!student || !sem || testIndex == null) return;
+      if (!student.correctedAt) {
+        student.correctedAt = { sem1: Array(TEST_COUNT_PER_SEM).fill(null), sem2: Array(TEST_COUNT_PER_SEM).fill(null) };
+      }
+      if (!Array.isArray(student.correctedAt[sem])) {
+        student.correctedAt[sem] = Array(TEST_COUNT_PER_SEM).fill(null);
+      }
+      while (student.correctedAt[sem].length < TEST_COUNT_PER_SEM) {
+        student.correctedAt[sem].push(null);
+      }
+      const cfg = config || (classObj ? getTestConfig(classObj, sem, testIndex) : null);
+      if (isStudentScoredForTest(student, sem, testIndex, cfg)) {
+        student.correctedAt[sem][testIndex] = new Date().toISOString();
+      } else {
+        student.correctedAt[sem][testIndex] = null;
+      }
+    }
+
     function computeScoringProgress(classObj, sem, testIndex, config) {
       if (!classObj || !Array.isArray(classObj.students)) {
         return {
@@ -20507,9 +21679,15 @@
         if (sanctionCheck.checked && draftGrade != null) {
           sanctionGradeInput.value = String(draftGrade);
         }
+        updateSmodGradeIndicators();
         autoSaveStudentModal(true);
       });
       gradeInput.addEventListener("blur", flushStudentModalAutoSave);
+
+      const nextDeltaPill = document.createElement("span");
+      nextDeltaPill.className = "smod-next-delta-pill";
+      nextDeltaPill.textContent = "—";
+      nextDeltaPill.title = t('gsColNextGradeDelta');
 
       const overrideBtn = document.createElement("button");
       overrideBtn.type = "button";
@@ -20597,6 +21775,7 @@
             gradeInput.value = autoGrade == null ? "" : String(autoGrade);
           }
         }
+        updateSmodGradeIndicators();
       };
 
       sanctionCheck.addEventListener("change", () => {
@@ -20650,11 +21829,104 @@
 
       gradeRow.appendChild(gradeLabel);
       gradeRow.appendChild(gradeInput);
+      gradeRow.appendChild(nextDeltaPill);
       gradeRow.appendChild(overrideBtn);
       gradeRow.appendChild(sanctionWrap);
       gradeRow.appendChild(sanctionGradeInput);
+
+      const scaleStrip = document.createElement("div");
+      scaleStrip.className = "smod-scale-strip";
+      const scaleLabel = document.createElement("span");
+      scaleLabel.className = "smod-scale-label";
+      scaleLabel.textContent = t('gsGradingTitle');
+      scaleStrip.appendChild(scaleLabel);
+
+      const scaleDefaultTotal = calcCriteriaTotals(config, {});
+      const scaleTotalPossible = scaleDefaultTotal.totalPossible;
+      const scaleThresholds = getThresholds(config);
+      const scaleChips = [];
+      scaleThresholds.forEach(th => {
+        const chip = document.createElement("span");
+        chip.className = "smod-scale-chip";
+        const pctStr = fmtN(th.ratio * 100);
+        const gradeSpan = document.createElement("span");
+        gradeSpan.className = "smod-scale-chip-grade";
+        gradeSpan.textContent = `${fmtN(th.grade)}:`;
+        const valSpan = document.createElement("span");
+        if (scaleTotalPossible > 0) {
+          const ptsStr = fmtN(th.ratio * scaleTotalPossible);
+          valSpan.textContent = `${ptsStr}`;
+          chip.title = `${fmtN(th.grade)} = ${pctStr}% (${ptsStr} pts)`;
+        } else {
+          valSpan.textContent = `${pctStr}%`;
+          chip.title = `${fmtN(th.grade)} = ${pctStr}%`;
+        }
+        chip.appendChild(gradeSpan);
+        chip.appendChild(valSpan);
+        scaleStrip.appendChild(chip);
+        scaleChips.push({ grade: th.grade, el: chip });
+      });
+
+      const updateSmodGradeIndicators = () => {
+        const currentGrade = asGrade(draftGrade);
+        scaleChips.forEach(sc => {
+          sc.el.classList.toggle("active", currentGrade != null && Math.abs(sc.grade - currentGrade) < 1e-9);
+        });
+
+        nextDeltaPill.classList.remove("is-close-below", "is-close-above", "is-max");
+        nextDeltaPill.textContent = "—";
+        nextDeltaPill.title = t('gsColNextGradeDelta');
+
+        const draftMap = {};
+        let hasAnyScored = false;
+        (config.criteria || []).forEach(c => {
+          if (draftCriteria[c.id]) {
+            draftMap[c.id] = draftCriteria[c.id];
+            if (draftCriteria[c.id].points !== null && draftCriteria[c.id].points !== undefined && draftCriteria[c.id].points !== "" && !Number.isNaN(Number(draftCriteria[c.id].points))) {
+              hasAnyScored = true;
+            }
+          }
+        });
+        const totals = calcCriteriaTotals(config, draftMap);
+        if (!config || totals.totalPossible <= 0 || (!hasAnyScored && currentGrade == null)) return;
+
+        const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
+        const deltaInfo = getNextGradeDelta(scored, totals.totalPossible, config, currentGrade);
+        if (!deltaInfo) {
+          if (currentGrade != null) {
+            nextDeltaPill.textContent = t('gsSmodNextGradeMax');
+            nextDeltaPill.classList.add("is-max");
+          }
+          return;
+        }
+
+        const below = deltaInfo.delta < -1e-9 ? Math.abs(deltaInfo.delta) : null;
+        const above = deltaInfo.delta >= 1e-9 ? deltaInfo.delta : null;
+        const signedDelta = below != null ? `-${fmtN(below)}` : (above != null ? `+${fmtN(above)}` : "0");
+
+        nextDeltaPill.textContent = tFmt('gsSmodNextGradeDelta', {
+          grade: fmtN(deltaInfo.nextGrade),
+          delta: signedDelta
+        });
+        nextDeltaPill.title = tFmt('gsNextGradeDeltaTitle', {
+          grade: fmtN(deltaInfo.nextGrade),
+          target: fmtN(deltaInfo.targetPoints),
+          delta: fmtN(Math.abs(deltaInfo.delta))
+        });
+
+        const highlightThreshold = Math.max(0, toNumber(config && config.nextGradeHighlightPoints) ?? 0);
+        if (highlightThreshold > 0) {
+          if (below != null && below <= highlightThreshold + 1e-9) {
+            nextDeltaPill.classList.add("is-close-below");
+          } else if (above != null && above <= highlightThreshold + 1e-9) {
+            nextDeltaPill.classList.add("is-close-above");
+          }
+        }
+      };
+
       gradeSection.appendChild(gradeTitle);
       gradeSection.appendChild(gradeRow);
+      gradeSection.appendChild(scaleStrip);
       body.appendChild(gradeSection);
 
       // — Teacher observations —
@@ -21865,6 +23137,7 @@
                 draftGrade = autoGrade;
                 gradeInput.value = autoGrade == null ? "" : String(autoGrade);
               }
+              updateSmodGradeIndicators();
             }
           }
 
@@ -22009,6 +23282,9 @@
         const prev = student.correctionTime[sem][testIndex];
         student.correctionTime[sem][testIndex] = prev != null ? parseFloat((prev + elapsedMin).toFixed(2)) : elapsedMin;
       }
+
+      // Record/update correction timestamp to latest edit when scored
+      recordStudentCorrectionTimestamp(student, classObj, sem, testIndex, config);
 
       saveState(classObj ? classObj.id : null, sem, testIndex);
 
@@ -23248,6 +24524,10 @@
           student.correctionTime[sem].splice(ti, 1);
           student.correctionTime[sem].push(null);
         }
+        if (student.correctedAt && Array.isArray(student.correctedAt[sem])) {
+          student.correctedAt[sem].splice(ti, 1);
+          student.correctedAt[sem].push(null);
+        }
       });
 
       const oldTestCount = classObj.testCounts[sem] || 0;
@@ -23316,6 +24596,9 @@
         }
         if (student.correctionTime && Array.isArray(student.correctionTime[sem])) {
           student.correctionTime[sem][ti] = null;
+        }
+        if (student.correctedAt && Array.isArray(student.correctedAt[sem])) {
+          student.correctedAt[sem][ti] = null;
         }
       });
 
@@ -25923,6 +27206,15 @@ ${blocks}
           recalcAllStudentGradesForTest(classObj, sem, ti);
         }
 
+        const importedCfg = classObj.testConfigs[sem][ti];
+        entries.forEach(entry => {
+          const student = (entry.studentId && classObj.students.find(s => s.id === entry.studentId)) ||
+                          findStudentByName(classObj, entry.name);
+          if (student && isStudentScoredForTest(student, sem, ti, importedCfg)) {
+            recordStudentCorrectionTimestamp(student, classObj, sem, ti, importedCfg);
+          }
+        });
+
         if (isPtSource && linkCb && linkCb.checked) {
           const cfg = classObj.testConfigs[sem][ti] || createDefaultTestConfig();
           cfg.source = 'participation-tracker';
@@ -27582,6 +28874,7 @@ function showGsClassesTour() {
   Tutorial.start([
     { selector: '#screen-classes .title-wrap',  title: t('tutGsC1Title'), text: t('tutGsC1Text') },
     { selector: '#classes-grid',                title: t('tutGsC2Title'), text: t('tutGsC2Text') },
+    { selector: '#all-tests-stats-panel',       title: t('tutGsC6Title'), text: t('tutGsC6Text') },
     { selector: '#btn-add-class',               title: t('tutGsC3Title'), text: t('tutGsC3Text') },
     { selector: '#btn-export',                  title: t('tutGsC4Title'), text: t('tutGsC4Text') },
     { selector: '#btn-edit-reference-data',     title: t('tutGsC5Title'), text: t('tutGsC5Text') }
