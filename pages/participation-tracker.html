@@ -2430,6 +2430,32 @@
             return String(session && session.id ? session.id : '').split('T')[0];
         }
 
+        function getSessionLocalDateStr(session) {
+            if (!session) return new Date().toLocaleDateString('en-CA');
+            const rawId = String(session.id || '').trim();
+            if (rawId.includes('T')) {
+                const dt = new Date(rawId);
+                if (!Number.isNaN(dt.getTime())) {
+                    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+                }
+            }
+            if (/^\d{4}-\d{2}-\d{2}/.test(rawId)) {
+                return rawId.slice(0, 10);
+            }
+            const rawDate = String(session.date || '').trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+                return rawDate.slice(0, 10);
+            }
+            if (rawDate) {
+                const parsed = new Date(rawDate);
+                if (!Number.isNaN(parsed.getTime())) {
+                    return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}-${String(parsed.getDate()).padStart(2, '0')}`;
+                }
+            }
+            const now = new Date();
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+
         function deepSortObject(value) {
             if (Array.isArray(value)) {
                 return value.map(deepSortObject);
@@ -4607,9 +4633,7 @@
         }
 
         function normalizeTimelineEvents(rawHistory, session) {
-            const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
-                ? String(session.id).slice(0, 10)
-                : (session && session.date ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
+            const baseDate = getSessionLocalDateStr(session);
 
             const activeGid = (currentGroupId && session?.groups && session.groups[currentGroupId])
                 ? currentGroupId
@@ -4689,10 +4713,10 @@
                     }
                 }
                 if (typeof timestamp === 'number' && !Number.isNaN(timestamp) && timestamp > 0) {
-                    const tDate = new Date(timestamp).toISOString().slice(0, 10);
+                    const d = new Date(timestamp);
+                    const tDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                     if (tDate === baseDateStr) return timestamp;
                     // Timestamp on different day — extract time-of-day in local and anchor to baseDateStr
-                    const d = new Date(timestamp);
                     const h = String(d.getHours()).padStart(2, '0');
                     const m = String(d.getMinutes()).padStart(2, '0');
                     const s = String(d.getSeconds()).padStart(2, '0');
@@ -4793,7 +4817,12 @@
                         const exType = String(existing.type || '').toLowerCase();
                         if (exType !== 'badge' && exType !== 'plus' && exType !== 'minus') return false;
                         const exStudent = String(existing.studentName || '').trim().toLowerCase();
-                        if (exStudent !== String(student.name).trim().toLowerCase()) return false;
+                        const isDirectStudentMatch = exStudent === String(student.name).trim().toLowerCase();
+                        const isTeamBadgeMatch = exType === 'badge' && (
+                            existing.meta?.targetType === 'team' ||
+                            (existing.meta?.targetId != null && student.teamId != null && existing.meta.targetId === student.teamId)
+                        );
+                        if (!isDirectStudentMatch && !isTeamBadgeMatch) return false;
                         const exIcon = existing.meta?.badgeIcon || (typeof existing.detail === 'string' ? existing.detail.split(/\s+/)[0] : '');
                         const exLabel = existing.meta?.badgeLabel || existing.detail || '';
                         if (bIcon && exIcon === bIcon) {
@@ -4801,6 +4830,7 @@
                             return true;
                         }
                         if (bLabel && exLabel && String(exLabel).toLowerCase().includes(String(bLabel).toLowerCase())) {
+                            if (bTime && existing.time) return bTime === existing.time;
                             return true;
                         }
                         return false;
@@ -5245,6 +5275,7 @@
 
         function resolveSessionPlannerSlot(session, groupId) {
             if (!session) return null;
+            if (session.plannerSlotUnlinked) return null;
             const targetGroupId = groupId || currentGroupId || (session.groups && Object.keys(session.groups)[0]) || session.activeGroup || '';
 
             // 1. Explicit plannerSlot on session
@@ -5267,7 +5298,7 @@
 
                 // Check against class schedule to get the authoritative slot (with true timeEnd & halfGroup)
                 const schedule = getPlannerClassSchedule(targetGroupId);
-                const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+                const sessionDate = getSessionLocalDateStr(session);
                 let dow = null;
                 if (sessionDate) {
                     const dt = new Date(sessionDate + 'T12:00:00');
@@ -5275,12 +5306,13 @@
                 }
                 const targetDay = (ps.day != null) ? parseInt(ps.day, 10) : dow;
 
+                const tt = time.slice(0, 5);
                 const matchedSlot = schedule.find(s => {
                     if (targetDay != null && parseInt(s.day, 10) !== targetDay) return false;
+                    if (halfGroup && s.halfGroup && String(s.halfGroup) !== halfGroup) return false;
                     const st = String(s.time || '').trim().slice(0, 5);
-                    const tt = time.slice(0, 5);
                     if (st === tt) return true;
-                    if (st.slice(0, 2) === tt.slice(0, 2)) return true;
+                    if (!timeEnd && st.slice(0, 2) === tt.slice(0, 2)) return true;
                     return false;
                 });
 
@@ -5312,7 +5344,7 @@
 
             // 2. Linked plannerEntryId
             if (session.plannerEntryId) {
-                const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+                const sessionDate = getSessionLocalDateStr(session);
                 const entries = getPlannerEntriesForClassAndDate(targetGroupId, sessionDate);
                 const matchedEntry = entries.find(e => e.id === session.plannerEntryId) ||
                     (typeof PLANNER_CONFIG !== 'undefined' && Array.isArray(PLANNER_CONFIG.entries) && PLANNER_CONFIG.entries.find(e => e.id === session.plannerEntryId));
@@ -5331,7 +5363,7 @@
             }
 
             // 3. Auto-detection from class weekly schedule & planner entries on that day
-            const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+            const sessionDate = getSessionLocalDateStr(session);
             if (!sessionDate) return null;
             const dt = new Date(sessionDate + 'T12:00:00');
             if (Number.isNaN(dt.getTime())) return null;
@@ -5426,9 +5458,7 @@
             const targetGroupId = currentGroupId || (session && session.activeGroup) || '';
             const slot = _timelineState.connectedSlot || resolveSessionPlannerSlot(session, targetGroupId);
 
-            const baseDate = session && session.id && String(session.id).match(/^\d{4}-\d{2}-\d{2}/)
-                ? String(session.id).slice(0, 10)
-                : (session && session.date && String(session.date).match(/^\d{4}-\d{2}-\d{2}/) ? String(session.date).slice(0, 10) : new Date().toISOString().slice(0, 10));
+            const baseDate = getSessionLocalDateStr(session);
 
             // If slotDuration is 'slot' (the default when a planner slot is connected), limit x-axis strictly by planner slot
             const useSlot = (slotDuration === 'slot' || (!slotDuration && slot)) && slot && slot.time;
@@ -5626,10 +5656,18 @@
                 : (session?.activeGroup || (session?.groups && Object.keys(session.groups)[0]) || '');
             if (session && session.groups && activeGid && Array.isArray(session.groups[activeGid])) {
                 const groupStudents = session.groups[activeGid];
-                const activeNames = new Set(events.map(e => String(e.studentName || '').trim().toLowerCase()));
+                const activeNames = new Set();
+                events.forEach(e => {
+                    if (e.studentName) activeNames.add(String(e.studentName).trim().toLowerCase());
+                    if (Array.isArray(e.teamStudentNames)) {
+                        e.teamStudentNames.forEach(tn => {
+                            if (tn) activeNames.add(String(tn).trim().toLowerCase());
+                        });
+                    }
+                });
                 const uncalled = groupStudents.filter(s => {
                     const name = String(s.name || '').trim().toLowerCase();
-                    const hasPoints = (s.pluses || 0) + (s.minuses || 0) + (s.picks || 0) > 0;
+                    const hasPoints = (s.pluses || 0) + (s.minuses || 0) + (s.teamPluses || 0) + (s.teamMinuses || 0) + (s.picks || 0) + ((s.badges && s.badges.length) || 0) > 0;
                     return !activeNames.has(name) && !hasPoints && !s.isAbsent;
                 });
                 uncalledCount = uncalled.length;
@@ -5763,12 +5801,14 @@
             // Timers & Modes (respects 'timers' filter chip)
             if (_timelineState.activeFilters.has('timers')) {
                 timerIntervals.forEach(ti => {
+                    if (ti.endMs < bounds.startMs || ti.startMs > bounds.endMs) return;
                     const x1 = getX(ti.startMs);
                     const x2 = getX(ti.endMs);
                     drawNeoBand(x1, x2, track1Top + 20, 18, '#fef3c7', '#333333', `${ti.title} (${formatTimelineDuration(ti.endMs - ti.startMs)})`, 'timer');
                 });
 
                 modeIntervals.forEach(mi => {
+                    if (mi.endMs < bounds.startMs || mi.startMs > bounds.endMs) return;
                     const x1 = getX(mi.startMs);
                     const x2 = getX(mi.endMs);
                     drawNeoBand(x1, x2, track1Top + 42, 18, '#ede9fe', '#333333', `${mi.title} (${formatTimelineDuration(mi.endMs - mi.startMs)})`, 'team');
@@ -5778,6 +5818,7 @@
             // Teams (respects 'teams' filter chip)
             if (_timelineState.activeFilters.has('teams')) {
                 teamIntervals.forEach(ti => {
+                    if (ti.endMs < bounds.startMs || ti.startMs > bounds.endMs) return;
                     const x1 = getX(ti.startMs);
                     const x2 = getX(ti.endMs);
                     drawNeoBand(x1, x2, track1Top + 64, 16, '#dbeafe', '#333333', `${ti.title}`, 'team');
@@ -5942,15 +5983,15 @@
                     ctx.fillStyle = '#ffffff';
                     ctx.font = '800 14px Lexend, sans-serif';
                     ctx.fillText('−', nodeCenterX, nodeCenterY);
-                } else if (bIcon && (bIcon.length > 1 && !/\p{Extended_Pictographic}/u.test(bIcon))) {
-                    // Multi-character text badge (e.g. RV, DNF, OM, AT)
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = bIcon.length > 2 ? '800 7.5px Lexend, sans-serif' : '800 8.5px Lexend, sans-serif';
-                    ctx.fillText(bIcon, nodeCenterX, nodeCenterY);
                 } else if (bIcon && /\p{Extended_Pictographic}/u.test(bIcon)) {
                     // Emoji badge: 💎, 👍, 👏, ⭐, 1️⃣, etc.
                     ctx.font = '11px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
                     ctx.fillText(bIcon, nodeCenterX, nodeCenterY + 1);
+                } else if (bIcon && !/\p{Extended_Pictographic}/u.test(bIcon)) {
+                    // Single- or multi-character text/symbol badge (e.g. RV, DNF, OM, AT, ✓, ✗, A, ★)
+                    ctx.fillStyle = (ev.badgeTone === 'negative' || ev.badgeColor === '#c96b6b' || ev.badgeColor === '#5b8fcc' || ev.badgeColor === '#475569') ? '#ffffff' : '#111111';
+                    ctx.font = bIcon.length > 2 ? '800 7.5px Lexend, sans-serif' : (bIcon.length > 1 ? '800 8.5px Lexend, sans-serif' : '800 11px Lexend, sans-serif');
+                    ctx.fillText(bIcon, nodeCenterX, nodeCenterY + 0.5);
                 } else if (ev.iconKey && _timelineIcons[ev.iconKey] && _timelineIcons[ev.iconKey].complete && _timelineIcons[ev.iconKey].naturalWidth > 0) {
                     ctx.drawImage(_timelineIcons[ev.iconKey], nodeCenterX - 6, nodeCenterY - 6, 12, 12);
                 } else {
@@ -6295,8 +6336,9 @@
 
             if (currentVal && Array.from(studentNames).some(n => String(n).trim().toLowerCase() === String(currentVal).trim().toLowerCase())) {
                 select.value = currentVal;
-            } else if (!currentVal) {
+            } else {
                 select.value = '';
+                _timelineState.selectedStudentName = '';
             }
         }
 
@@ -6327,7 +6369,7 @@
                 ? currentGroupId
                 : (session.activeGroup || (session.groups && Object.keys(session.groups)[0]) || currentGroupId || '');
             const groupName = session.activeGroupTitle || groupDisplayName(rawGroupId) || rawGroupId;
-            const sessionDate = session.id ? session.id.slice(0, 10) : (session.date || '');
+            const sessionDate = getSessionLocalDateStr(session);
 
             // Resolve planner slot connection
             const connectedSlot = resolveSessionPlannerSlot(session, rawGroupId);
@@ -6529,7 +6571,7 @@
 
             const targetGroupId = groupId || currentGroupId || (session && session.activeGroup) || '';
             const schedule = getPlannerClassSchedule(targetGroupId);
-            const sessionDate = session && session.id ? session.id.slice(0, 10) : (session && session.date ? session.date.slice(0, 10) : '');
+            const sessionDate = getSessionLocalDateStr(session);
             let dow = null;
             if (sessionDate) {
                 const dt = new Date(sessionDate + 'T12:00:00');
@@ -6622,6 +6664,7 @@
             if (val === 'none') {
                 session.plannerSlot = null;
                 session.plannerEntryId = '';
+                session.plannerSlotUnlinked = true;
                 _timelineState.connectedSlot = null;
                 _timelineState.slotDuration = 'auto';
                 syncSlotDurationInputs('auto');
@@ -6652,6 +6695,7 @@
                         label: `${time} – ${timeEnd}`
                     };
                     session.plannerEntryId = '';
+                    delete session.plannerSlotUnlinked;
                     _timelineState.connectedSlot = session.plannerSlot;
                     _timelineState.slotDuration = 'slot';
                     syncSlotDurationInputs('slot');
@@ -6671,13 +6715,14 @@
 
             if (val.startsWith('entry:')) {
                 const entryId = val.slice(6);
-                const sessionDate = session.id ? session.id.slice(0, 10) : (session.date ? session.date.slice(0, 10) : '');
+                const sessionDate = getSessionLocalDateStr(session);
                 const entries = getPlannerEntriesForClassAndDate(targetGroupId, sessionDate);
                 const matchedEntry = entries.find(e => e.id === entryId) ||
                     (typeof PLANNER_CONFIG !== 'undefined' && Array.isArray(PLANNER_CONFIG.entries) && PLANNER_CONFIG.entries.find(e => e.id === entryId));
                 if (matchedEntry) {
                     const timeEnd = matchedEntry.timeEnd || _calcTimeEnd(matchedEntry.time, 55);
                     session.plannerEntryId = matchedEntry.id;
+                    delete session.plannerSlotUnlinked;
                     session.plannerSlot = {
                         time: matchedEntry.time.slice(0, 5),
                         timeEnd: timeEnd.slice(0, 5),
@@ -6727,6 +6772,7 @@
                     label: `${time} – ${timeEnd}${halfGroup ? ' ½' + halfGroup : ''}`
                 };
                 session.plannerEntryId = '';
+                delete session.plannerSlotUnlinked;
                 _timelineState.connectedSlot = session.plannerSlot;
                 _timelineState.slotDuration = 'slot';
                 syncSlotDurationInputs('slot');
@@ -6810,7 +6856,7 @@
         async function saveTimelineFile(filename, data, format) {
             const rawGid = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || '';
             const groupName = _timelineState.session?.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
-            const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : (_timelineState.session?.date || 'session');
+            const dateStr = _timelineState.session ? getSessionLocalDateStr(_timelineState.session) : 'session';
             const safeName = filename || `Session_Timeline_${groupName}_${dateStr}.${format}`;
 
             if (window.Desktop && Desktop.isElectron()) {
@@ -6858,7 +6904,7 @@
                 if (!blob) return;
                 const rawGid = currentGroupId || (_timelineState.session?.groups && Object.keys(_timelineState.session.groups)[0]) || '';
                 const groupName = _timelineState.session?.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
-                const dateStr = _timelineState.session?.id ? _timelineState.session.id.slice(0, 10) : (_timelineState.session?.date || 'session');
+                const dateStr = _timelineState.session ? getSessionLocalDateStr(_timelineState.session) : 'session';
                 const filename = `Session_Timeline_${groupName}_${dateStr}.png`;
                 saveTimelineFile(filename, blob, 'png');
             }, 'image/png');
@@ -6870,7 +6916,7 @@
 
             const rawGid = currentGroupId || (session.groups && Object.keys(session.groups)[0]) || '';
             const groupName = session.activeGroupTitle || groupDisplayName(rawGid) || 'Class';
-            const dateStr = session.id ? session.id.slice(0, 10) : (session.date || 'session');
+            const dateStr = getSessionLocalDateStr(session);
             const filename = `Session_Timeline_${groupName}_${dateStr}.svg`;
 
             const bounds = _timelineState.timeBounds;
@@ -6919,6 +6965,7 @@
             // Track 1 bands
             if (_timelineState.activeFilters.has('timers')) {
                 _timelineState.timerIntervals.forEach(ti => {
+                    if (ti.endMs < bounds.startMs || ti.startMs > bounds.endMs) return;
                     const x1 = getSvgX(ti.startMs);
                     const x2 = getSvgX(ti.endMs);
                     const bw = Math.max(20, x2 - x1);
@@ -6928,6 +6975,7 @@
                 });
 
                 _timelineState.modeIntervals.forEach(mi => {
+                    if (mi.endMs < bounds.startMs || mi.startMs > bounds.endMs) return;
                     const x1 = getSvgX(mi.startMs);
                     const x2 = getSvgX(mi.endMs);
                     const bw = Math.max(20, x2 - x1);
@@ -6939,6 +6987,7 @@
 
             if (_timelineState.activeFilters.has('teams')) {
                 _timelineState.teamIntervals.forEach(ti => {
+                    if (ti.endMs < bounds.startMs || ti.startMs > bounds.endMs) return;
                     const x1 = getSvgX(ti.startMs);
                     const x2 = getSvgX(ti.endMs);
                     const bw = Math.max(20, x2 - x1);
@@ -7037,13 +7086,13 @@
                     sym = '−';
                     fSize = 14;
                     fill = '#ffffff';
-                } else if (bIcon && bIcon.length > 1 && !/\p{Extended_Pictographic}/u.test(bIcon)) {
-                    sym = bIcon;
-                    fSize = bIcon.length > 2 ? 7.5 : 8.5;
-                    fill = '#ffffff';
                 } else if (bIcon && /\p{Extended_Pictographic}/u.test(bIcon)) {
                     sym = bIcon;
                     fSize = 11;
+                } else if (bIcon && !/\p{Extended_Pictographic}/u.test(bIcon)) {
+                    sym = bIcon;
+                    fSize = bIcon.length > 2 ? 7.5 : (bIcon.length > 1 ? 8.5 : 11);
+                    fill = (ev.badgeTone === 'negative' || ev.badgeColor === '#c96b6b' || ev.badgeColor === '#5b8fcc' || ev.badgeColor === '#475569') ? '#ffffff' : '#111111';
                 }
 
                 svg += `<text x="${nodeCenterX.toFixed(1)}" y="${(nodeCenterY + 3.5).toFixed(1)}" font-weight="${fWeight}" font-size="${fSize}" fill="${fill}" text-anchor="middle">${escapeHtml(sym)}</text>\n`;

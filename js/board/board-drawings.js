@@ -132,6 +132,8 @@
         visPath.setAttribute('stroke-linecap', 'round');
         visPath.setAttribute('stroke-linejoin', 'round');
         visPath.setAttribute('opacity', String(Number.isFinite(d.opacity) ? d.opacity : 1));
+        const _drawDash = (typeof _conShapeDashArr === 'function') ? _conShapeDashArr(d.dashStyle || 'solid', d.thickness) : null;
+        if (_drawDash) visPath.setAttribute('stroke-dasharray', _drawDash);
         visPath.style.pointerEvents = 'none';
 
         const pathD = _conBuildPathD(d.points.map(p => p === null ? null : ({ x: p.x + PAD, y: p.y + PAD })));
@@ -932,6 +934,7 @@
           color: src.color || '#e53935',
           thickness: Number(src.thickness) || 4,
           opacity: Number.isFinite(Number(src.opacity)) && Number(src.opacity) > 0 ? Number(src.opacity) : 1,
+          dashStyle: src.dashStyle || 'solid',
           el: null, hitPath: null, visPath: null, pad: 0
         };
         conDrawings.push(d);

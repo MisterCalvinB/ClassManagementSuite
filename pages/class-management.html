@@ -7647,6 +7647,14 @@
                     var halfGroup = (matchedSlot && matchedSlot.halfGroup) || null;
                     var btn = document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"][data-half="${halfGroup || ''}"]`)
                         || document.querySelector(`.btn-group[data-group="${CSS.escape(matchedId)}"]`);
+                    if (matchedSlot) {
+                        selectedPlannerSlot = {
+                            day: matchedSlot.day,
+                            time: (matchedSlot.time || '').slice(0, 5),
+                            timeEnd: (matchedSlot.timeEnd || '').slice(0, 5),
+                            halfGroup: matchedSlot.halfGroup || ''
+                        };
+                    }
                     if (matchedSlot && matchedSlot.time) {
                         var slotUuid = await resolvePlannerEntryUuid(matchedId, matchedSlot.time);
                         if (slotUuid) currentPlannerEntryId = slotUuid;
@@ -9697,14 +9705,18 @@
         }
 
         async function selectGroup(groupName, halfGroup, activeBtn) {
+            const isGroupSwitch = selectedGroupName && selectedGroupName !== groupName;
             selectedGroupName = groupName;
             selectedHalfGroup = (halfGroup !== undefined) ? halfGroup : null;
+            if (isGroupSwitch) {
+                currentPlannerEntryId = '';
+            }
 
             // Associate today's planner entry UUID automatically if not explicitly set
             if (!currentPlannerEntryId) {
                 var slotTime = (selectedPlannerSlot && selectedPlannerSlot.time) || '';
                 resolvePlannerEntryUuid(groupName, slotTime).then(function (matchedUuid) {
-                    if (matchedUuid && !currentPlannerEntryId) {
+                    if (matchedUuid && !currentPlannerEntryId && selectedGroupName === groupName) {
                         currentPlannerEntryId = matchedUuid;
                     }
                 }).catch(function () {});
@@ -17868,6 +17880,9 @@ syncState();
             if (document.getElementById('history-modal') && document.getElementById('history-modal').style.display === 'flex') {
                 renderHistoryList();
             }
+            if (typeof queueDbAutosave === 'function' && (typeof PRESENTATION_MODE === 'undefined' || !PRESENTATION_MODE)) {
+                queueDbAutosave(type || 'history', 600);
+            }
         }
 
         function openHistoryModal() {
@@ -20147,7 +20162,8 @@ syncState();
                     sessionHistory: typeof sessionHistory !== 'undefined' ? sessionHistory : [],
                     lessonObjectives: currentObjectives,
                     teamCustomNames: getSessionTeamCustomNames(),
-                    plannerEntryId: currentPlannerEntryId || ''
+                    plannerEntryId: currentPlannerEntryId || '',
+                    plannerSlot: selectedPlannerSlot || null
                 });
             } catch (e) {
                 return null;
@@ -20476,10 +20492,32 @@ syncState();
                 restoredGroups++;
             });
 
-            const latestHistorySession = todaySessions.find(s => Array.isArray(s.sessionHistory) && s.activeGroup === selectedGroupName) || todaySessions.find(s => Array.isArray(s.sessionHistory));
-            if (latestHistorySession && typeof sessionHistory !== 'undefined') {
-                sessionHistory = JSON.parse(JSON.stringify(latestHistorySession.sessionHistory));
-                if (typeof renderHistoryList === 'function') renderHistoryList();
+            if (typeof sessionHistory !== 'undefined') {
+                const mergedHistory = [];
+                const seenGroups = new Set();
+                todaySessions.forEach(s => {
+                    if (!s || !Array.isArray(s.sessionHistory)) return;
+                    const gKey = s.activeGroup || '';
+                    if (gKey && seenGroups.has(gKey)) return;
+                    if (gKey) seenGroups.add(gKey);
+                    s.sessionHistory.forEach(entry => {
+                        if (entry) mergedHistory.push(JSON.parse(JSON.stringify(entry)));
+                    });
+                });
+                if (mergedHistory.length > 0) {
+                    sessionHistory = mergedHistory;
+                    if (typeof renderHistoryList === 'function') renderHistoryList();
+                }
+            }
+
+            const activeTodaySession = todaySessions.find(s => s && s.activeGroup === selectedGroupName);
+            if (activeTodaySession) {
+                if (activeTodaySession.plannerEntryId && !currentPlannerEntryId) {
+                    currentPlannerEntryId = activeTodaySession.plannerEntryId;
+                }
+                if (activeTodaySession.plannerSlot && !selectedPlannerSlot) {
+                    selectedPlannerSlot = JSON.parse(JSON.stringify(activeTodaySession.plannerSlot));
+                }
             }
 
             const latestObjectivesSession = todaySessions.find(s => typeof (s && (s.lessonObjectives ?? s.objectives)) === 'string');

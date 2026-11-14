@@ -252,7 +252,7 @@
   var _conBoardRevision = global._conBoardRevision = global._conBoardRevision || 1;
   var _conActiveLibCategory = global._conActiveLibCategory = global._conActiveLibCategory || 'all';
   var _conSearchScope = global._conSearchScope = global._conSearchScope || 'current';
-  var activeSection = global.activeSection = global.activeSection || 'main-menu';
+  var activeSection = global.activeSection = global.activeSection || 'constellation-section';
   var currentGameWord = global.currentGameWord = global.currentGameWord || null;
   var usedWords = global.usedWords = global.usedWords || new Set();
 

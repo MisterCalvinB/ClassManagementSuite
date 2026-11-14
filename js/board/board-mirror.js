@@ -1214,6 +1214,10 @@
           _mirrorLivePath.setAttribute('stroke-width', String(d.thickness || 4));
           _mirrorLivePath.setAttribute('stroke-linecap', 'round');
           _mirrorLivePath.setAttribute('stroke-linejoin', 'round');
+          if (d.dashStyle && d.dashStyle !== 'solid' && typeof window._conShapeDashArr === 'function') {
+            var _mDash = window._conShapeDashArr(d.dashStyle, d.thickness || 4);
+            if (_mDash) _mirrorLivePath.setAttribute('stroke-dasharray', _mDash);
+          }
           _mirrorLivePath.setAttribute('opacity', String(d.opacity || 1));
           _mirrorLivePath.style.pointerEvents = 'none';
           _lsv.appendChild(_mirrorLivePath);
@@ -2294,6 +2298,7 @@
                 color: drData.color,
                 thickness: drData.thickness,
                 opacity: drData.opacity,
+                dashStyle: drData.dashStyle || 'solid',
                 el: null, hitPath: null, visPath: null, pad: 0
               };
               _liveDrawingsAdd.push(newDr);

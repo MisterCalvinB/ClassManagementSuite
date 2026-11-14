@@ -823,6 +823,56 @@
     }
     window.historyOnSectionHover = historyOnSectionHover;
 
+    var _historyModalKeyHandler = null;
+
+    function openHistoryModal() {
+      const overlay = document.getElementById('history-modal-overlay');
+      if (!overlay) return;
+      overlay.style.display = 'flex';
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+      const tabHistory = document.getElementById('bst-tab-history');
+      if (tabHistory) tabHistory.classList.add('bst-active');
+
+      if (!historyHasLoaded && !historyLoading && typeof historyRefreshList === 'function') {
+        historyRefreshList();
+      } else if (_historyNeedsRender && typeof historyRenderList === 'function') {
+        _historyNeedsRender = false;
+        historyRenderList();
+      }
+
+      if (!_historyModalKeyHandler) {
+        _historyModalKeyHandler = function (e) {
+          if (e.key === 'Escape') {
+            closeHistoryModal();
+          }
+        };
+        document.addEventListener('keydown', _historyModalKeyHandler);
+      }
+
+      const filterInput = document.getElementById('history-filter-text');
+      if (filterInput) {
+        setTimeout(() => {
+          try { filterInput.focus(); } catch (_) {}
+        }, 40);
+      }
+    }
+
+    function closeHistoryModal() {
+      const overlay = document.getElementById('history-modal-overlay');
+      if (overlay) {
+        overlay.classList.remove('active');
+        overlay.style.display = 'none';
+        overlay.setAttribute('aria-hidden', 'true');
+      }
+      const tabHistory = document.getElementById('bst-tab-history');
+      if (tabHistory) tabHistory.classList.remove('bst-active');
+      if (_historyModalKeyHandler) {
+        document.removeEventListener('keydown', _historyModalKeyHandler);
+        _historyModalKeyHandler = null;
+      }
+    }
+
     function historyEntryRelativePath(entry) {
       const raw = String((entry && (entry.relativePath || entry.filename)) || '');
       return raw.replace(/\\/g, '/');
@@ -1633,8 +1683,9 @@
       }
 
       _historyNeedsRender = true;
-      const historySec = document.getElementById('history-section') || document.getElementById('main-menu');
-      if (historySec && !historySec.classList.contains('hidden')) {
+      const historyOverlay = document.getElementById('history-modal-overlay');
+      const historyOpen = !!(historyOverlay && historyOverlay.style.display !== 'none' && historyOverlay.classList.contains('active'));
+      if (historyOpen) {
         if (typeof window.requestIdleCallback === 'function') {
           window.requestIdleCallback(() => {
             if (_historyNeedsRender) {
@@ -2968,6 +3019,7 @@
               }
             }
           }, 200);
+          closeHistoryModal();
           navTo('constellation-section');
           return;
         }
@@ -6464,6 +6516,8 @@
   window.historySetViewTab = global.historySetViewTab = historySetViewTab;
   window.historySetSort = global.historySetSort = historySetSort;
   window.historyRefreshList = global.historyRefreshList = historyRefreshList;
+  window.openHistoryModal = global.openHistoryModal = openHistoryModal;
+  window.closeHistoryModal = global.closeHistoryModal = closeHistoryModal;
   window.historyExportSelected = global.historyExportSelected = historyExportSelected;
   window.historyDeleteSelected = global.historyDeleteSelected = historyDeleteSelected;
   window.historyDeleteAll = global.historyDeleteAll = historyDeleteAll;
@@ -6535,6 +6589,8 @@
   window.historyLoadSavedFile = global.historyLoadSavedFile = historyLoadSavedFile;
   window.historyRenderList = global.historyRenderList = historyRenderList;
   window.historyRefreshList = global.historyRefreshList = historyRefreshList;
+  window.openHistoryModal = global.openHistoryModal = openHistoryModal;
+  window.closeHistoryModal = global.closeHistoryModal = closeHistoryModal;
   window.historyEntryRelativePath = global.historyEntryRelativePath = historyEntryRelativePath;
   window.historyFormatSize = global.historyFormatSize = historyFormatSize;
   window.historyHasLoaded = global.historyHasLoaded = historyHasLoaded;

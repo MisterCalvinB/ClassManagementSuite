@@ -729,7 +729,6 @@
     #con-board-ctx-menu button[style*="background:white"] img,
     #con-board-ctx-menu button[style*="background: white"] img,
     #con-board-ctx-menu .con-board-ctx-action-btn img,
-    #con-board-ctx-menu .con-board-ctx-duo-btn img,
     #con-board-ctx-menu .con-board-ctx-sublink img,
     #con-board-ctx-menu .con-board-ctx-close-btn img,
     #con-board-ctx-menu .con-board-ctx-modes-row button img,
@@ -768,28 +767,32 @@
 
     .con-ctx-layout-selector {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 3px;
-      padding: 3px 10px 5px;
+      padding: 3px 0 5px;
       border-bottom: 1px solid #eee;
       margin-bottom: 4px;
+      max-width: 100%;
+      box-sizing: border-box;
     }
 
     .con-ctx-layout-label {
+      flex: 0 0 100%;
       font-size: 0.68rem;
       font-weight: 700;
       color: #777;
-      margin-right: 2px;
-      flex-shrink: 0;
+      margin-bottom: 1px;
     }
 
     .con-ctx-layout-btn {
-      flex: 1;
+      flex: 1 1 0;
+      min-width: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 3px;
-      padding: 3px 5px;
+      padding: 3px 4px;
       background: #f4f4f4;
       color: #333;
       border: 1px solid #ccc;
@@ -798,6 +801,8 @@
       font-weight: 700;
       cursor: pointer;
       font-family: inherit;
+      white-space: nowrap;
+      overflow: hidden;
       transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
@@ -1378,42 +1383,6 @@
       filter: none !important;
     }
 
-    /* Duo row for Spread & Compact */
-    .con-board-ctx-duo-row {
-      display: flex;
-      gap: 5px;
-      margin: 3px 0;
-    }
-
-    .con-board-ctx-duo-btn {
-      flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 4px 6px;
-      border: 1.5px solid #333333;
-      border-radius: 4px;
-      background: #ffffff;
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: #111111;
-      cursor: pointer;
-      font-family: inherit;
-      box-shadow: 1px 1px 0 #555555;
-      transition: background 0.08s ease, transform 0.08s ease;
-    }
-
-    .con-board-ctx-duo-btn:hover {
-      background: #f5f5f0;
-      transform: translate(-0.5px, -0.5px);
-    }
-
-    .con-board-ctx-duo-btn .btn-icon {
-      width: 13px;
-      height: 13px;
-    }
-
     /* Settings block */
     .con-board-ctx-setting-block {
       margin: 3px 0;
@@ -1602,8 +1571,6 @@
 
     body.dark-mode .con-board-ctx-action-btn,
     html.dark .con-board-ctx-action-btn,
-    body.dark-mode .con-board-ctx-duo-btn,
-    html.dark .con-board-ctx-duo-btn,
     body.dark-mode .con-board-ctx-modes-row .con-ctx-icon-btn,
     html.dark .con-board-ctx-modes-row .con-ctx-icon-btn {
       background: #262626;
@@ -1614,8 +1581,6 @@
 
     body.dark-mode .con-board-ctx-action-btn:hover,
     html.dark .con-board-ctx-action-btn:hover,
-    body.dark-mode .con-board-ctx-duo-btn:hover,
-    html.dark .con-board-ctx-duo-btn:hover,
     body.dark-mode .con-board-ctx-modes-row .con-ctx-icon-btn:hover,
     html.dark .con-board-ctx-modes-row .con-ctx-icon-btn:hover {
       background: #333333;
@@ -4379,4 +4344,257 @@
     .con-link-highlight-pulse {
       animation: con-link-pulse 1.2s ease 2;
       border-color: #e2c96e !important;
+    }
+
+    /* ── History Modal ── */
+    .history-modal-dialog {
+      max-width: min(1080px, 95vw);
+      width: 95vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      overflow: hidden;
+      border: 2px solid #333333;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #555555;
+      background: #ffffff;
+    }
+
+    .history-modal-header {
+      background: #f5f5f0;
+      border-bottom: 2px solid #333333;
+      padding: 12px 18px;
+      flex-shrink: 0;
+    }
+
+    #history-section.history-modal-body {
+      padding: 14px 18px 18px;
+      overflow-y: auto;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .history-modal-body #history-toolbar {
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+    }
+
+    .history-modal-body #history-toolbar .action-btn {
+      font-size: 0.74rem;
+      padding: 4px 8px;
+      min-height: 26px;
+      gap: 4px;
+      border-width: 1.5px;
+      box-shadow: 2px 2px 0 #555555;
+    }
+
+    .history-modal-body #history-toolbar .action-btn .btn-icon {
+      width: 13px;
+      height: 13px;
+      margin-right: 3px;
+    }
+
+    .history-modal-body #history-table-wrap {
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+
+    body.dark-mode .history-modal-dialog,
+    html.dark .history-modal-dialog {
+      background: #1e1e1e;
+      border-color: #555555;
+      box-shadow: 4px 4px 0 #111111;
+    }
+
+    body.dark-mode .history-modal-header,
+    html.dark .history-modal-header {
+      background: #262626;
+      border-bottom-color: #555555;
+      color: #eeeeee;
+    }
+
+    /* ── Board Customise Modal Layout & Readability ── */
+    #board-customise-modal {
+      width: 1020px;
+      max-width: 95vw;
+      max-height: calc(100vh - 36px);
+      padding: 16px 22px;
+      border: 2px solid #333333;
+      border-radius: 10px;
+      box-shadow: 4px 4px 0 #555555;
+    }
+
+    #board-customise-modal .bc-header {
+      font-size: 0.95rem;
+      font-weight: 900;
+      letter-spacing: 0.4px;
+      color: #1f1f1f;
+      padding-bottom: 2px;
+    }
+
+    #board-customise-modal .bc-body {
+      height: 70vh;
+      max-height: calc(100vh - 165px);
+      margin: 6px -22px 0;
+      border-top: 2px solid #333333;
+      border-bottom: 2px solid #333333;
+    }
+
+    #board-customise-modal .bc-sidebar {
+      width: 210px;
+      background-color: #f5f5f0;
+      border-right: 2px solid #333333;
+      padding: 14px 10px;
+      gap: 6px;
+    }
+
+    #board-customise-modal .bc-sidebar-item {
+      padding: 9px 12px;
+      font-size: 0.84rem;
+      line-height: 1.25;
+      border-radius: 6px;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    #board-customise-modal .bc-sidebar-item.active {
+      background-color: #e2c96e;
+      color: #111111;
+      border-color: #333333;
+      box-shadow: 2px 2px 0 #555555;
+    }
+
+    #board-customise-modal .bc-content {
+      padding: 18px 22px;
+      background-color: #ffffff;
+    }
+
+    #board-customise-modal .bc-tab-pane {
+      gap: 14px;
+    }
+
+    #board-customise-modal .bc-section {
+      background-color: #fafaf7;
+      border: 1.5px solid #d6d6d0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      gap: 10px;
+    }
+
+    #board-customise-modal .bc-section.collapsed {
+      padding: 10px 16px;
+    }
+
+    #board-customise-modal .bc-section-title {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #222222;
+      padding: 5px 8px;
+      margin: -4px -8px;
+    }
+
+    #board-customise-modal .bc-section-hint {
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: #555555;
+      margin-top: 0;
+    }
+
+    #board-customise-modal .bc-fields-grid {
+      grid-template-columns: minmax(12rem, 15rem) 1fr;
+      gap: 10px 14px;
+      margin-top: 4px;
+    }
+
+    #board-customise-modal .bc-fields-grid label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #2d2d2d;
+      line-height: 1.35;
+    }
+
+    #board-customise-modal .bc-num-input,
+    #board-customise-modal .bc-select {
+      font-size: 0.82rem;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      padding: 4px 8px;
+    }
+
+    #board-customise-modal .bc-unit {
+      font-size: 0.76rem;
+      color: #555555;
+    }
+
+    #board-customise-modal .bc-palette-labels span {
+      font-size: 0.68rem;
+      color: #555555;
+    }
+
+    #board-customise-modal .bc-palette-row {
+      padding: 5px 8px;
+      background: #ffffff;
+      border: 1.5px solid #333333;
+      border-radius: 6px;
+    }
+
+    #board-customise-modal .bc-palette-name {
+      font-size: 0.78rem;
+      padding: 3px 6px;
+    }
+
+    body.dark-mode #board-customise-modal,
+    html.dark #board-customise-modal {
+      border-color: #555555;
+      box-shadow: 4px 4px 0 #111111;
+    }
+
+    body.dark-mode #board-customise-modal .bc-header,
+    html.dark #board-customise-modal .bc-header {
+      color: #eeeeee;
+    }
+
+    body.dark-mode #board-customise-modal .bc-body,
+    html.dark #board-customise-modal .bc-body {
+      border-color: #555555;
+    }
+
+    body.dark-mode #board-customise-modal .bc-sidebar,
+    html.dark #board-customise-modal .bc-sidebar {
+      background-color: #222222;
+      border-right-color: #555555;
+    }
+
+    body.dark-mode #board-customise-modal .bc-content,
+    html.dark #board-customise-modal .bc-content {
+      background-color: #1b1b1b;
+    }
+
+    body.dark-mode #board-customise-modal .bc-section,
+    html.dark #board-customise-modal .bc-section {
+      background-color: #242424;
+      border-color: #444444;
+    }
+
+    body.dark-mode #board-customise-modal .bc-section-title,
+    html.dark #board-customise-modal .bc-section-title,
+    body.dark-mode #board-customise-modal .bc-fields-grid label,
+    html.dark #board-customise-modal .bc-fields-grid label {
+      color: #e5e5e5;
+    }
+
+    body.dark-mode #board-customise-modal .bc-section-hint,
+    html.dark #board-customise-modal .bc-section-hint,
+    body.dark-mode #board-customise-modal .bc-unit,
+    html.dark #board-customise-modal .bc-unit {
+      color: #aaaaaa;
+    }
+
+    body.dark-mode #board-customise-modal .bc-palette-row,
+    html.dark #board-customise-modal .bc-palette-row {
+      background-color: #1e1e1e;
+      border-color: #555555;
     }

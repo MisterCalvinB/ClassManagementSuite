@@ -63,18 +63,18 @@
 <body>
   <nav id="app-nav">
     <div class="nav-left">
-      <button id="nav-btn-back" class="action-btn btn-grey" onclick="navTo('main-menu')" style="display:none;" title="Back" data-i18n-title="back">
+      <button id="nav-btn-back" class="action-btn btn-grey" onclick="navTo('constellation-section')" style="display:none;" title="Back" data-i18n-title="back">
         <img src="../assets/icons/arrow-left.svg" alt="" class="btn-icon" /> <span data-i18n="back">Back</span>
       </button>
       <span class="nav-brand"></span>
       <div class="board-section-tabs" id="app-nav-board-tabs">
-        <button id="bst-tab-board" class="bst-tab" onclick="navTo('constellation-section')" title="Board" data-i18n-title="btnConstellation">
+        <button id="bst-tab-board" class="bst-tab bst-active" onclick="navTo('constellation-section')" title="Board" data-i18n-title="btnConstellation">
           <img src="../assets/icons/board.svg" class="btn-icon" alt="" /> <span data-i18n="btnConstellation">Board</span>
         </button>
         <button id="bst-tab-search" class="bst-tab" onclick="navTo('search-section')" title="Search" data-i18n-title="btnSearch">
           <img src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="btnSearch">Search</span>
         </button>
-        <button id="bst-tab-history" class="bst-tab bst-active" onclick="navTo('main-menu')" title="Save History" data-i18n-title="historySectionTitle">
+        <button id="bst-tab-history" class="bst-tab" onclick="openHistoryModal()" title="Save History" data-i18n-title="historySectionTitle">
           <img src="../assets/icons/history.svg" class="btn-icon" alt="" /> <span data-i18n="historySectionTitle">History</span>
         </button>
       </div>
@@ -1650,25 +1650,19 @@
 
         <div class="con-ctx-sep"></div>
 
-        <!-- Region Arrange: Spread & Compact side by side -->
-        <div class="con-board-ctx-duo-row">
-          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();" title="Spread this region">
+        <!-- Region Arrange & Numbering (Icon row: Spread, Compact, Number, Clear Numbers) -->
+        <div class="con-ctx-icon-row con-board-ctx-modes-row">
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conBoardCtxSpreadRegion();" title="Spread Region" data-i18n-title="conCtxSpreadRegion">
             <img src="../assets/icons/spread.svg" class="btn-icon" alt="" />
-            <span data-i18n="conCtxSpreadRegion">Spread Region</span>
           </button>
-          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conBoardCtxCompactRegion();" title="Compact this region">
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conBoardCtxCompactRegion();" title="Compact Region" data-i18n-title="conCtxCompactRegion">
             <img src="../assets/icons/compact.svg" class="btn-icon" alt="" />
-            <span data-i18n="conCtxCompactRegion">Compact Region</span>
           </button>
-        </div>
-        <div class="con-board-ctx-duo-row" style="margin-top:4px;">
-          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conTriggerEntityNumbering();" title="Number elements (Alt+N)">
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conTriggerEntityNumbering();" title="Number" data-i18n-title="conTbNumberBtn">
             <img src="../assets/icons/number-badge.svg" class="btn-icon" alt="" />
-            <span data-i18n="conTbNumberBtn">Number</span>
           </button>
-          <button type="button" class="con-board-ctx-duo-btn" onclick="conBoardCtxClose();conClearEntityNumbers('all');" title="Clear all numbers">
+          <button type="button" class="con-ctx-icon-btn" onclick="conBoardCtxClose();conClearEntityNumbers('all');" title="Clear All Numbers" data-i18n-title="conCtxClearAllNumbers">
             <img src="../assets/icons/clear-numbers.svg" class="btn-icon" alt="" />
-            <span data-i18n="conCtxClearAllNumbers">Clear All Numbers</span>
           </button>
         </div>
 
@@ -2633,116 +2627,106 @@
 
   <h1 id="site-title" data-i18n="boardTitle" style="display:none;">Board</h1>
 
-  <div id="main-menu" class="game">
-    <h3 class="section-label" data-i18n="sectionVisualTools"><img src="../assets/icons/visual-tools.svg"
-        class="main-hdr-icon" alt="" /> Visual Tools</h3>
-    <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('constellation-section')"
-        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
-        <span data-i18n="btnConstellation"
-          style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; justify-content: center;"><img
-            src="../assets/icons/board.svg" class="main-btn-icon" alt="" /> Board</span>
-        <span data-i18n="btnConstellationDesc"
-          style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Interactive
-          visual board workspace to layout, group, link, and structure words.</span>
-      </button>
-      <button class="menu-btn btn-grey" onclick="navTo('search-section')"
-        style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; min-height: 110px;">
-        <span data-i18n="btnSearch"
-          style="font-size: 1.15rem; font-weight: 800; display: flex; align-items: center; justify-content: center;"><img
-            src="../assets/icons/search.svg" class="main-btn-icon" alt="" /> Search</span>
-        <span data-i18n="btnSearchDesc"
-          style="font-size: 0.8rem; font-weight: 400; opacity: 0.7; line-height: 1.4; display: block; max-width: 320px;">Search
-          for words and view their context within loaded books and texts.</span>
-      </button>
-    </div>
+  <!-- History Modal -->
+  <div id="history-modal-overlay" class="con-modal-overlay" style="display:none;" aria-hidden="true"
+    onclick="if(event.target===this)closeHistoryModal()">
+    <div id="history-modal-dialog" class="con-modal-dialog history-modal-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="history-modal-title">
+      <div class="con-modal-header history-modal-header">
+        <h2 id="history-modal-title" data-i18n="historySectionTitle"
+          style="display:flex;align-items:center;gap:8px;margin:0;font-size:1.05rem;font-weight:900;">
+          <span id="history-spinner-slot"></span>
+          <img src="../assets/icons/history.svg" class="main-hdr-icon" alt="" style="margin:0;" />
+          <span data-i18n="historySectionTitle">Save History</span>
+        </h2>
+        <button type="button" class="action-btn btn-grey" onclick="closeHistoryModal()"
+          style="padding:4px 8px;display:inline-flex;align-items:center;justify-content:center;"
+          aria-label="Close" title="Close" data-i18n-title="btnClose" data-i18n-aria="btnClose">
+          <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="margin:0;width:12px;height:12px;" />
+        </button>
+      </div>
 
-    <!-- HISTORY SECTION MERGED -->
-    <div id="history-section" style="margin-top: 32px; border-top: 2px solid #eee; padding-top: 24px;" onmouseenter="window.historyOnSectionHover && window.historyOnSectionHover()">
-      <h2 data-i18n="historySectionTitle" style="display:flex;align-items:center;">
-        <span id="history-spinner-slot"></span>
-        <img src="../assets/icons/history.svg" class="main-hdr-icon" alt="" /> Save History
-      </h2>
-
-      <div id="history-toolbar">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()"
-            data-i18n="historyExportSelected"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export
-            Selected</button>
-          <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyArchiveSelected()" data-i18n="historyArchiveSelected"><img src="../assets/icons/archive.svg"
-              class="btn-icon" alt="" /> Archive Selected</button>
-          <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyUnarchiveSelected()" data-i18n="historyUnarchiveSelected"><img
-              src="../assets/icons/unarchive.svg" class="btn-icon" alt="" /> Unarchive Selected</button>
-          <button id="history-zip-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyZipSelected()" data-i18n="historyZipArchivedSelected"><img src="../assets/icons/zip.svg"
-              class="btn-icon" alt="" /> Zip Selected</button>
-          <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button"
-            onclick="historyDeleteSelected()" data-i18n="historyDeleteSelected"><img src="../assets/icons/delete.svg"
-              class="btn-icon" alt="" /> Delete Selected</button>
-          <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()"
-            data-i18n="btnDeleteAll"><img src="../assets/icons/delete-all.svg" class="btn-icon" alt="" /> Delete
-            All</button>
-          <button class="action-btn btn-grey" onclick="historyRefreshList()" data-i18n="btnRefresh"><img
-              src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Refresh</button>
+      <div id="history-section" class="history-modal-body"
+        onmouseenter="window.historyOnSectionHover && window.historyOnSectionHover()">
+        <div id="history-toolbar">
+          <div id="history-view-tabs" style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+            <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')"
+              data-i18n="historyTabManual"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Saved
+              files</button>
+            <button id="history-tab-archived" class="action-btn btn-grey" type="button"
+              onclick="historySetViewTab('archived')" data-i18n="historyTabArchived"><img src="../assets/icons/archive.svg"
+                class="btn-icon" alt="" /> Archived</button>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <button id="history-export-btn" class="action-btn btn-grey" type="button" onclick="historyExportSelected()"
+              data-i18n="historyExportSelected"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export
+              Selected</button>
+            <button id="history-archive-selected-btn" class="action-btn btn-grey" type="button"
+              onclick="historyArchiveSelected()" data-i18n="historyArchiveSelected"><img src="../assets/icons/archive.svg"
+                class="btn-icon" alt="" /> Archive Selected</button>
+            <button id="history-unarchive-selected-btn" class="action-btn btn-grey" type="button"
+              onclick="historyUnarchiveSelected()" data-i18n="historyUnarchiveSelected"><img
+                src="../assets/icons/unarchive.svg" class="btn-icon" alt="" /> Unarchive Selected</button>
+            <button id="history-zip-selected-btn" class="action-btn btn-grey" type="button"
+              onclick="historyZipSelected()" data-i18n="historyZipArchivedSelected"><img src="../assets/icons/zip.svg"
+                class="btn-icon" alt="" /> Zip Selected</button>
+            <button id="history-delete-selected-btn" class="action-btn btn-grey" type="button"
+              onclick="historyDeleteSelected()" data-i18n="historyDeleteSelected"><img src="../assets/icons/delete.svg"
+                class="btn-icon" alt="" /> Delete Selected</button>
+            <button id="history-delete-all-btn" class="action-btn btn-grey" type="button" onclick="historyDeleteAll()"
+              data-i18n="btnDeleteAll"><img src="../assets/icons/delete-all.svg" class="btn-icon" alt="" /> Delete
+              All</button>
+            <button class="action-btn btn-grey" onclick="historyRefreshList()" data-i18n="btnRefresh"><img
+                src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Refresh</button>
+          </div>
         </div>
-      </div>
 
-      <div id="history-view-tabs" style="display:flex; gap:8px; margin:8px 0 10px; flex-wrap:wrap;">
-        <button id="history-tab-manual" class="action-btn" type="button" onclick="historySetViewTab('manual')"
-          data-i18n="historyTabManual"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /> Saved
-          files</button>
-        <button id="history-tab-archived" class="action-btn btn-grey" type="button"
-          onclick="historySetViewTab('archived')" data-i18n="historyTabArchived"><img src="../assets/icons/archive.svg"
-            class="btn-icon" alt="" /> Archived</button>
-      </div>
+        <div id="history-filter-bar">
+          <label class="history-filter-label"><span data-i18n="historyFilterFrom">From</span> <input type="date"
+              id="history-filter-date-from" onchange="historySetFilterDate('from', this.value)"></label>
+          <label class="history-filter-label"><span data-i18n="historyFilterTo">to</span> <input type="date"
+              id="history-filter-date-to" onchange="historySetFilterDate('to', this.value)"></label>
+          <label class="history-filter-label"><span data-i18n="historyFilterClass">Class</span>
+            <select id="history-filter-class" onchange="historySetFilterClass(this.value)">
+              <option value="" data-i18n="historyAllClasses">All classes</option>
+            </select>
+          </label>
+          <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()"
+            data-i18n="historyClearFilters"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Clear</button>
+        </div>
+        <div id="history-search-bar" style="margin-bottom:8px;">
+          <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…"
+            data-i18n-placeholder="historySearchPlaceholder" oninput="historySetFilterText(this.value)"
+            style="width:100%;border:2px solid #000;border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.87rem;color:#000;background:#fff;">
+        </div>
 
-      <div id="history-filter-bar">
-        <label class="history-filter-label"><span data-i18n="historyFilterFrom">From</span> <input type="date"
-            id="history-filter-date-from" onchange="historySetFilterDate('from', this.value)"></label>
-        <label class="history-filter-label"><span data-i18n="historyFilterTo">to</span> <input type="date"
-            id="history-filter-date-to" onchange="historySetFilterDate('to', this.value)"></label>
-        <label class="history-filter-label"><span data-i18n="historyFilterClass">Class</span>
-          <select id="history-filter-class" onchange="historySetFilterClass(this.value)">
-            <option value="" data-i18n="historyAllClasses">All classes</option>
-          </select>
-        </label>
-        <button class="action-btn btn-grey history-filter-clear-btn" onclick="historyClearFilters()"
-          data-i18n="historyClearFilters"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Clear</button>
-      </div>
-      <div id="history-search-bar" style="margin-bottom:8px;">
-        <input type="search" id="history-filter-text" placeholder="Search file content (words, notes)…"
-          data-i18n-placeholder="historySearchPlaceholder" oninput="historySetFilterText(this.value)"
-          style="width:100%;border:2px solid #000;border-radius:6px;padding:6px 10px;font-family:inherit;font-size:0.87rem;color:#000;background:#fff;">
-      </div>
-
-      <div id="history-table-wrap">
-        <table id="history-table">
-          <thead>
-            <tr>
-              <th class="history-row-check"><input type="checkbox" id="history-select-all" title="Select all"
-                  data-i18n-title="conSelectAll" onchange="historySelectAll(this.checked)"></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('name')"><span
-                    data-i18n="historyColName">Name</span> <span id="history-sort-name"
-                    class="history-sort-indicator">↓</span></button></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('classGroup')"><span
-                    data-i18n="historyColClassGroup">Class/Group</span>
-                  <span id="history-sort-classGroup" class="history-sort-indicator"></span></button></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('date')"><span
-                    data-i18n="historyColCreated">Created</span> <span id="history-sort-date"
-                    class="history-sort-indicator"></span></button></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('modified')"><span
-                    data-i18n="historyColSaved">Saved</span> <span id="history-sort-modified"
-                    class="history-sort-indicator"></span></button></th>
-              <th><button type="button" class="history-sort-btn" onclick="historySetSort('size')"><span
-                    data-i18n="historyColSize">Size</span> <span id="history-sort-size"
-                    class="history-sort-indicator"></span></button></th>
-              <th data-i18n="historyColActions">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="history-list"></tbody>
-        </table>
+        <div id="history-table-wrap">
+          <table id="history-table">
+            <thead>
+              <tr>
+                <th class="history-row-check"><input type="checkbox" id="history-select-all" title="Select all"
+                    data-i18n-title="conSelectAll" onchange="historySelectAll(this.checked)"></th>
+                <th><button type="button" class="history-sort-btn" onclick="historySetSort('name')"><span
+                      data-i18n="historyColName">Name</span> <span id="history-sort-name"
+                      class="history-sort-indicator">↓</span></button></th>
+                <th><button type="button" class="history-sort-btn" onclick="historySetSort('classGroup')"><span
+                      data-i18n="historyColClassGroup">Class/Group</span>
+                    <span id="history-sort-classGroup" class="history-sort-indicator"></span></button></th>
+                <th><button type="button" class="history-sort-btn" onclick="historySetSort('date')"><span
+                      data-i18n="historyColCreated">Created</span> <span id="history-sort-date"
+                      class="history-sort-indicator"></span></button></th>
+                <th><button type="button" class="history-sort-btn" onclick="historySetSort('modified')"><span
+                      data-i18n="historyColSaved">Saved</span> <span id="history-sort-modified"
+                      class="history-sort-indicator"></span></button></th>
+                <th><button type="button" class="history-sort-btn" onclick="historySetSort('size')"><span
+                      data-i18n="historyColSize">Size</span> <span id="history-sort-size"
+                      class="history-sort-indicator"></span></button></th>
+                <th data-i18n="historyColActions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="history-list"></tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
@@ -2778,7 +2762,7 @@
     <div id="search-results"></div>
   </div>
 
-  <div id="constellation-section" class="game hidden" style="max-width:100%;padding:0;border:none;background:transparent;box-shadow:none;margin:0;">
+  <div id="constellation-section" class="game" style="max-width:100%;padding:0;border:none;background:transparent;box-shadow:none;margin:0;">
     <div id="con-sticky-wrapper" class="is-pinned">
       <div id="con-toolbar-drawer">
         <!-- Toolbar -->
@@ -4118,9 +4102,13 @@
   <div id="board-customise-overlay" onclick="if(event.target===this)boardCustomiseClose()">
     <div id="board-customise-modal">
       <div class="bc-header">
+        <img src="../assets/icons/palette.svg" class="btn-icon" alt="" style="width:18px;height:18px;margin:0;" />
         <span>Customise Board</span>
         <button class="action-btn btn-grey" onclick="boardCustomiseClose()"
-          style="padding:3px 9px;font-size:0.8rem;margin-left:auto;">✕</button>
+          style="padding:4px 8px;margin-left:auto;display:inline-flex;align-items:center;justify-content:center;"
+          aria-label="Close" title="Close" data-i18n-title="btnClose" data-i18n-aria="btnClose">
+          <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="margin:0;width:12px;height:12px;" />
+        </button>
       </div>
       <div class="bc-body">
         <div class="bc-sidebar">

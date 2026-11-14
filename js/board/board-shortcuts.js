@@ -3072,25 +3072,18 @@
     function startTourChoice(tourType) {
       closeTourChoice();
       var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
-      if (tourType === 'main') {
-        Tutorial.start([
-          { selector: '#main-menu .menu-grid', title: t('tutMv1Title'), text: t('tutMv1Text') },
-          { selector: '#history-section h2', title: t('tutMv2Title'), text: t('tutMv2Text') },
-          { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
-          { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
-          { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
-          { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
-          { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
-        ], labels);
-      } else if (tourType === 'history') {
-        Tutorial.start([
-          { selector: '#history-section h2', title: t('tutHi1Title'), text: t('tutHi1Text') },
-          { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
-          { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
-          { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
-          { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
-          { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
-        ], labels);
+      if (tourType === 'main' || tourType === 'history') {
+        if (typeof window.openHistoryModal === 'function') window.openHistoryModal();
+        setTimeout(function () {
+          Tutorial.start([
+            { selector: '#history-modal-dialog .history-modal-header', title: t('tutHi1Title'), text: t('tutHi1Text') },
+            { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
+            { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
+            { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
+            { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
+            { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
+          ], labels);
+        }, 120);
       } else if (tourType === 'board') {
         navTo('constellation-section');
         setTimeout(function () {
@@ -3121,8 +3114,16 @@
 
       var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
 
-      if (active === 'main-menu') {
-        showTourChoice();
+      var historyOverlay = document.getElementById('history-modal-overlay');
+      if (historyOverlay && historyOverlay.style.display !== 'none' && historyOverlay.classList.contains('active')) {
+        Tutorial.start([
+          { selector: '#history-modal-dialog .history-modal-header', title: t('tutHi1Title'), text: t('tutHi1Text') },
+          { selector: '#history-toolbar', title: t('tutHi2Title'), text: t('tutHi2Text') },
+          { selector: '#history-view-tabs', title: t('tutHi3Title'), text: t('tutHi3Text') },
+          { selector: '#history-filter-bar', title: t('tutHi4Title'), text: t('tutHi4Text') },
+          { selector: '#history-search-bar', title: t('tutHi5Title'), text: t('tutHi5Text') },
+          { selector: '#history-table-wrap', title: t('tutHi6Title'), text: t('tutHi6Text') }
+        ], labels);
         return;
       }
 

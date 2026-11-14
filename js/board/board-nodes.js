@@ -19008,6 +19008,7 @@
             color: d.color || '#111111',
             thickness: Number(d.thickness) || 3,
             opacity: d.opacity != null ? Number(d.opacity) : 1,
+            dashStyle: d.dashStyle || 'solid',
             pad: d.pad || 16
           }));
 
@@ -22411,6 +22412,7 @@
                     color: d.color,
                     thickness: d.thickness,
                     opacity: d.opacity,
+                    dashStyle: d.dashStyle || 'solid',
                     el: null, hitPath: null, visPath: null, pad: 0
                   };
                   toAdd.push(newD);
@@ -22450,7 +22452,8 @@
                     points: newD.points,
                     color: newD.color,
                     thickness: newD.thickness,
-                    opacity: newD.opacity
+                    opacity: newD.opacity,
+                    dashStyle: newD.dashStyle || 'solid'
                   })),
                   groupDrawingLinks: toAdd.map(newD => {
                     const parentGroup = conGroups.find(g => (g.drawingIds || []).includes(newD.id));
@@ -22702,13 +22705,15 @@
             livePath.setAttribute('stroke-linecap', 'round');
             livePath.setAttribute('stroke-linejoin', 'round');
             livePath.setAttribute('opacity', String(_conDrawOpacity));
+            const _liveDash = (typeof _conShapeDashArr === 'function') ? _conShapeDashArr(_conDrawShapeDash || 'solid', _conDrawThickness) : null;
+            if (_liveDash) livePath.setAttribute('stroke-dasharray', _liveDash);
             livePath.style.pointerEvents = 'none';
             livePath.setAttribute('d', `M ${pos.x} ${pos.y}`);
             liveSvg.appendChild(livePath);
             _liveMirrorThrottle = 0;
             if (window._conMirrorSend) window._conMirrorSend({
               type: 'live-path-start',
-              color: _conDrawColor, thickness: _conDrawThickness, opacity: _conDrawOpacity
+              color: _conDrawColor, thickness: _conDrawThickness, opacity: _conDrawOpacity, dashStyle: _conDrawShapeDash || 'solid'
             });
           }
 
@@ -22819,6 +22824,7 @@
                 color: _conDrawColor,
                 thickness: _conDrawThickness,
                 opacity: _conDrawOpacity,
+                dashStyle: _conDrawShapeDash || 'solid',
                 el: null, hitPath: null, visPath: null, pad: 0
               };
               const targetDrawings = (typeof window.conGetDrawings === 'function') ? window.conGetDrawings() : (global.conDrawings || conDrawings);
@@ -22839,7 +22845,8 @@
                     points: d.points,
                     color: d.color,
                     thickness: d.thickness,
-                    opacity: d.opacity
+                    opacity: d.opacity,
+                    dashStyle: d.dashStyle || 'solid'
                   }]
                 });
               }
@@ -24734,7 +24741,7 @@
 
         // Shape selector
         const shapeSelect = document.createElement('select');
-        shapeSelect.className = 'bc-select';
+        shapeSelect.className = 'bc-select pe-pen-shape';
         shapeSelect.title = 'Shape tool';
         shapeSelect.style.cssText = 'font-size:0.72rem;padding:2px 4px;';
         _BC_PEN_SHAPE_OPTIONS.forEach(opt => {
@@ -24745,9 +24752,26 @@
         });
         shapeSelect.value = p.shape || '';
 
+        // Line type selector (solid / dashed / dotted)
+        const dashSelect = document.createElement('select');
+        dashSelect.className = 'bc-select pe-pen-dash';
+        dashSelect.title = 'Line type';
+        dashSelect.style.cssText = 'font-size:0.72rem;padding:2px 4px;';
+        [
+          { value: 'solid', label: 'Solid' },
+          { value: 'dashed', label: 'Dashed' },
+          { value: 'dotted', label: 'Dotted' }
+        ].forEach(opt => {
+          const o = document.createElement('option');
+          o.value = opt.value;
+          o.textContent = opt.label;
+          dashSelect.appendChild(o);
+        });
+        dashSelect.value = p.dashStyle || 'solid';
+
         // Icon selector
         const iconSelect = document.createElement('select');
-        iconSelect.className = 'bc-select';
+        iconSelect.className = 'bc-select pe-pen-icon';
         iconSelect.title = 'Preset icon';
         iconSelect.style.cssText = 'font-size:0.72rem;padding:2px 4px;';
         const ICON_OPTS = [
@@ -24790,6 +24814,7 @@
         row.appendChild(thVal);
         row.appendChild(thUnitSel);
         row.appendChild(shapeSelect);
+        row.appendChild(dashSelect);
         row.appendChild(iconSelect);
         row.appendChild(removeBtn);
         return row;
@@ -24801,7 +24826,7 @@
       addBtn.textContent = '\uff0b Add preset';
       addBtn.className = 'action-btn btn-grey bc-add-btn';
       addBtn.onclick = () => {
-        container.insertBefore(makeRow({ name: '', color: '#111111', opacity: 1, thickness: 4, shape: '', icon: '' }), addBtn);
+        container.insertBefore(makeRow({ name: '', color: '#111111', opacity: 1, thickness: 4, shape: '', dashStyle: 'solid', icon: '' }), addBtn);
         _bcEnableDragReorder(container, '.bc-swatch-row');
       };
       container.appendChild(addBtn);
@@ -24816,8 +24841,9 @@
         const opInput = row.querySelectorAll('input[type="range"]')[0];
         const thInput = row.querySelector('.pe-pen-thickness') || row.querySelectorAll('input[type="range"]')[1];
         const thUnitSel = row.querySelector('.pe-pen-unit');
-        const shapeSelect = row.querySelector('.pe-pen-shape') || row.querySelectorAll('select')[row.querySelectorAll('select').length - 2];
-        const iconSelect = row.querySelector('.pe-pen-icon') || row.querySelectorAll('select')[row.querySelectorAll('select').length - 1];
+        const shapeSelect = row.querySelector('.pe-pen-shape');
+        const dashSelect = row.querySelector('.pe-pen-dash');
+        const iconSelect = row.querySelector('.pe-pen-icon');
 
         const unit = thUnitSel ? thUnitSel.value : 'mm';
         const rawSliderVal = thInput ? parseFloat(thInput.value) : 4;
@@ -24830,6 +24856,7 @@
           thickness: Math.round(thicknessPx * 10) / 10,
           thicknessUnit: unit,
           shape: shapeSelect ? shapeSelect.value : '',
+          dashStyle: dashSelect ? dashSelect.value : 'solid',
           icon: iconSelect ? iconSelect.value : '',
         };
       }).filter(p => p.name || p.color !== '#111111');
@@ -24883,10 +24910,11 @@
         btn.dataset.presetIdx = String(idx);
         const iconName = _conGetPresetIconName(p);
         const shapeLabel = p.shape ? (p.shape.charAt(0).toUpperCase() + p.shape.slice(1)) : 'Freehand';
+        const dashLabel = (p.dashStyle && p.dashStyle !== 'solid') ? (' · ' + p.dashStyle.charAt(0).toUpperCase() + p.dashStyle.slice(1)) : '';
         const thickVal = p.thickness || 4;
         const thickUnit = p.thicknessUnit || window.conThicknessUnit || 'mm';
         const opVal = Math.round((p.opacity !== undefined ? p.opacity : 1) * 100);
-        const titleText = (p.name || 'Preset') + ' (' + shapeLabel + ' · ' + ((typeof conFormatThickness === 'function') ? conFormatThickness(thickVal, thickUnit) : (thickVal + 'px')) + ' · ' + opVal + '%)';
+        const titleText = (p.name || 'Preset') + ' (' + shapeLabel + dashLabel + ' · ' + ((typeof conFormatThickness === 'function') ? conFormatThickness(thickVal, thickUnit) : (thickVal + 'px')) + ' · ' + opVal + '%)';
         btn.title = titleText;
         btn.setAttribute('aria-label', titleText);
 
@@ -24897,7 +24925,14 @@
 
         const swatch = document.createElement('span');
         swatch.className = 'con-draw-preset-swatch';
-        swatch.style.background = p.color || '#111111';
+        const swatchCol = p.color || '#111111';
+        if (p.dashStyle === 'dashed') {
+          swatch.style.background = `repeating-linear-gradient(90deg, ${swatchCol} 0 4px, transparent 4px 6px)`;
+        } else if (p.dashStyle === 'dotted') {
+          swatch.style.background = `repeating-linear-gradient(90deg, ${swatchCol} 0 2px, transparent 2px 4px)`;
+        } else {
+          swatch.style.background = swatchCol;
+        }
         swatch.style.opacity = p.opacity !== undefined ? p.opacity : 1;
         const barH = Math.min(5, Math.max(2, Math.round(thickVal / 3)));
         swatch.style.height = barH + 'px';
@@ -24927,6 +24962,7 @@
       const oSlider = document.getElementById('con-draw-opacity');
       if (oSlider) oSlider.value = p.opacity !== undefined ? p.opacity : 1;
       if (typeof window.conDrawSetShapeDirect === 'function') window.conDrawSetShapeDirect(p.shape || null);
+      if (typeof window.conShapeSetDrawDash === 'function') window.conShapeSetDrawDash(p.dashStyle || 'solid');
 
       const container = document.getElementById('con-draw-preset-btns');
       if (container) {

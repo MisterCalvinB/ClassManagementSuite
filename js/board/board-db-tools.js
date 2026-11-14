@@ -43,7 +43,7 @@
       }
     };
 
-    let activeSection = 'main-menu';
+    let activeSection = 'constellation-section';
     let currentGameWord = null; // The vocab word object currently active in any game
     let _wordDbLoadPromise = null;
 
@@ -1126,6 +1126,13 @@
     }
 
     function navTo(sectionId) {
+      if (sectionId === 'history-section') {
+        if (typeof window.openHistoryModal === 'function') window.openHistoryModal();
+        return;
+      }
+      if (sectionId === 'main-menu') {
+        sectionId = 'constellation-section';
+      }
       const oldSection = document.getElementById(activeSection);
       if (oldSection) {
         const lvls = oldSection.querySelector('.level-picker-wrap') ? themePickerGetSelected(oldSection.querySelector('.level-picker-wrap')) : ['all'];
@@ -1163,15 +1170,19 @@
       // Update nav back button and section tabs in app-nav
       const navBackBtn = document.getElementById('nav-btn-back');
       if (navBackBtn) {
-        navBackBtn.style.display = (sectionId === 'main-menu') ? 'none' : 'inline-flex';
+        navBackBtn.style.display = (sectionId === 'constellation-section') ? 'none' : 'inline-flex';
       }
       const tabBoard = document.getElementById('bst-tab-board');
       const tabSearch = document.getElementById('bst-tab-search');
       const tabHistory = document.getElementById('bst-tab-history');
-      if (tabBoard && tabSearch && tabHistory) {
+      if (tabBoard && tabSearch) {
         tabBoard.classList.toggle('bst-active', sectionId === 'constellation-section');
         tabSearch.classList.toggle('bst-active', sectionId === 'search-section');
-        tabHistory.classList.toggle('bst-active', sectionId === 'main-menu' || sectionId === 'history-section');
+      }
+      if (tabHistory) {
+        const histOverlay = document.getElementById('history-modal-overlay');
+        const histOpen = !!(histOverlay && histOverlay.style.display !== 'none' && histOverlay.classList.contains('active'));
+        tabHistory.classList.toggle('bst-active', histOpen);
       }
       if (typeof boardUpdateLinkedLessonBadge === 'function') {
         boardUpdateLinkedLessonBadge();

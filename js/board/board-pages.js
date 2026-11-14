@@ -2304,6 +2304,7 @@
             color: d.color || '#e53935',
             thickness: Number(d.thickness) || 4,
             opacity: Number.isFinite(Number(d.opacity)) ? Number(d.opacity) : 1,
+            dashStyle: d.dashStyle || 'solid',
             pad: d.pad || 16
           })),
           shapes: selectedShapes.map(s => ({
