@@ -127,6 +127,84 @@ body {
   color: #f07;
 }
 
+#doc-type-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+#doc-type-popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 175px;
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 6px;
+  box-shadow: 3px 3px 0 #555;
+  padding: 4px;
+  z-index: 1200;
+  flex-direction: column;
+  gap: 2px;
+}
+
+#doc-type-popover.open {
+  display: flex;
+}
+
+.doc-type-opt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  color: #333;
+  cursor: pointer;
+  text-align: left;
+}
+
+.doc-type-opt:hover {
+  background: #f5f5f0;
+  border-color: #333;
+}
+
+.doc-type-opt.active {
+  background: #e2c96e;
+  border-color: #333;
+  font-weight: 700;
+}
+
+.doc-type-opt .dt-badge {
+  font-family: monospace;
+  font-size: .68rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border: 1.5px solid #333;
+  border-radius: 3px;
+  background: #fff;
+  color: #333;
+  min-width: 34px;
+  text-align: center;
+}
+
+.doc-type-opt .dt-badge.html {
+  border-color: #c94b6b;
+  color: #c94b6b;
+}
+
+.doc-type-opt .dt-badge.typ {
+  border-color: #239dad;
+  color: #239dad;
+}
+
 #btn-doc-type.typ-mode {
   border-color: #239dad;
   color: #239dad;
@@ -160,7 +238,7 @@ body {
   font-size: 0.88rem;
   line-height: 1.5;
   white-space: pre-wrap;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   margin: 16px;
 }
 
@@ -446,6 +524,7 @@ body {
   display: none;
   flex-direction: column;
 }
+
 #css-panel.open {
   display: flex;
 }
@@ -1007,7 +1086,9 @@ body {
 }
 
 @keyframes fp-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 #btn-full-preview-export {
@@ -1075,6 +1156,7 @@ body {
 }
 
 @media print {
+
   .de-page-break,
   .page-break {
     height: 0 !important;
@@ -1084,6 +1166,7 @@ body {
     page-break-after: always !important;
     break-after: page !important;
   }
+
   .de-page-break::after,
   .page-break::after {
     display: none !important;
@@ -2580,12 +2663,36 @@ html.de-pres-mode body>*:not(#de-pres-view) {
   white-space: nowrap;
 }
 
-.syntax-badge.badge-math { background: #3b0764; color: #d8b4fe; }
-.syntax-badge.badge-table { background: #064e3b; color: #6ee7b7; }
-.syntax-badge.badge-layout { background: #451a03; color: #fdba74; }
-.syntax-badge.badge-exam { background: #4c0519; color: #fda4af; }
-.syntax-badge.badge-setup { background: #1e293b; color: #94a3b8; }
-.syntax-badge.badge-custom { background: #1e1b4b; color: #a5b4fc; border: 1px solid #4338ca; }
+.syntax-badge.badge-math {
+  background: #3b0764;
+  color: #d8b4fe;
+}
+
+.syntax-badge.badge-table {
+  background: #064e3b;
+  color: #6ee7b7;
+}
+
+.syntax-badge.badge-layout {
+  background: #451a03;
+  color: #fdba74;
+}
+
+.syntax-badge.badge-exam {
+  background: #4c0519;
+  color: #fda4af;
+}
+
+.syntax-badge.badge-setup {
+  background: #1e293b;
+  color: #94a3b8;
+}
+
+.syntax-badge.badge-custom {
+  background: #1e1b4b;
+  color: #a5b4fc;
+  border: 1px solid #4338ca;
+}
 
 .syntax-card.syntax-card-custom {
   border-color: #3730a3;
@@ -2825,22 +2932,10 @@ html.de-pres-mode body>*:not(#de-pres-view) {
   box-shadow: 0 0 0 2px #3b82f6, 4px 4px 0 #000;
 }
 
-#preview-content table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 1em 0;
-}
-
-#preview-content th,
-#preview-content td {
-  border: 1px solid #cbd5e1;
-  padding: 8px 12px;
+/* Table look comes from .doc-preview rules (same as print output) so custom CSS always wins. */
+#preview-content[contenteditable="true"] th,
+#preview-content[contenteditable="true"] td {
   min-width: 40px;
-}
-
-#preview-content th {
-  background: #f8fafc;
-  font-weight: 700;
 }
 
 .mp-token-chip {
@@ -2893,6 +2988,7 @@ html.de-pres-mode body>*:not(#de-pres-view) {
     break-after: page !important;
     margin: 0 !important;
   }
+
   .cmt-page-break::after {
     display: none !important;
   }
@@ -2964,6 +3060,7 @@ html.de-pres-mode body>*:not(#de-pres-view) {
     transform: translateY(12px);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -3033,4 +3130,125 @@ html.de-pres-mode body>*:not(#de-pres-view) {
 .de-pill-close:hover {
   color: #000;
   background: #fee2e2;
+}
+
+/* -- Script Editor (HTML documents) ----------------------- */
+#btn-toggle-script-editor {
+  display: none;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 3px 9px;
+  font-size: .77rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  color: #555;
+}
+
+#btn-toggle-script-editor:hover {
+  border-color: #000;
+  color: #000;
+}
+
+body.de-doc-html #btn-toggle-script-editor {
+  display: inline-block;
+}
+
+#script-editor-wrapper {
+  display: none;
+  height: 200px;
+  border-top: 1px solid #e0e0e0;
+  flex-shrink: 0;
+  flex-direction: column;
+}
+
+#script-editor-wrapper.visible {
+  display: flex;
+}
+
+body:not(.de-doc-html) #script-editor-wrapper {
+  display: none;
+}
+
+#script-editor-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 5px 10px;
+  background: #f5f5f0;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: .77rem;
+}
+
+#script-helper-preset,
+#script-helper-trigger,
+#script-helper-target {
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: .76rem;
+  font-family: inherit;
+  color: #333;
+}
+
+#script-helper-trigger,
+#script-helper-target {
+  width: 120px;
+  font-family: monospace;
+}
+
+#btn-script-insert {
+  background: #333;
+  color: #fff;
+  border: 2px solid #333;
+  border-radius: 4px;
+  padding: 2px 9px;
+  font-weight: 700;
+  font-family: inherit;
+  font-size: .76rem;
+  cursor: pointer;
+}
+
+#btn-script-insert:hover {
+  background: #111;
+}
+
+#btn-script-run {
+  background: #fff;
+  border: 2px solid #333;
+  border-radius: 4px;
+  padding: 2px 10px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #555;
+}
+
+#script-editor-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+#script-editor-container {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+#script-run-frame {
+  display: none;
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  border-left: 2px solid #333;
+  background: #fff;
+}
+
+#script-run-frame.visible {
+  display: block;
 }

@@ -439,6 +439,7 @@ Saving grades at the end of an oral exam session automatically registers or upda
 
 ### Document Editor ↔ Grade Sheet: Mailposting Batch Student Reports
 
+- **Script Editor (HTML documents)**: a Monaco JavaScript editor in the default-open CSS & Script panel (`{ } CSS / JS`), including a **Quick Script** helper (toggle visibility, toggle CSS class, fade/slide/pulse animations, countdown timer, click message). The script is persisted in the HTML file as a managed `<script data-cmt-inline-script>` block and can be tested with "Run in sandbox" (isolated iframe).
 [Document Editor](#document-editorhtml)'s batch Mailposting service pulls student evaluations, grades, class averages, ranking, and attendance metrics directly from Grade Sheet files to generate personalized report cards, letters, or certificates.
 
 ---
@@ -672,6 +673,7 @@ Comprehensive offline-first **Database & Table Converter** enabling seamless bid
 Offline-first **Video & Sound Converter** with visual waveform trimming, audio extraction, loudness normalization, tempo adjustment, and teacher quick presets.
 
 #### Key Features & Architecture
+- **Streamlined Exercise Cards**: Every block card shares one compact header (grip, type, title, points, **Settings**, and a more-actions menu for move/duplicate/delete). Options and export Style live in a single collapsed Settings panel, and one floating formatting toolbar follows the focused title or instructions field.
 - **Hybrid Engine Architecture (Approach E)**:
   - **Tier 1 (Built-in Web Engine — <500 KB build footprint)**: Pure Web Audio API + PCM WAV encoding + LameJS MP3 encoding + Canvas-to-WebP generator. Converts speech, music, and waveforms directly in-browser/Electron without external dependencies.
   - **Tier 2 (Native FFmpeg Engine)**: Automatically discovers system FFmpeg or prebuilt binary in `user/tools/ffmpeg/` to unlock hardware-accelerated video encoding (H.264/HEVC/VP9), instant lossless cuts (`-c copy`), and two-pass EBU R128 volume normalization.

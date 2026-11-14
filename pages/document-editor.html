@@ -253,7 +253,7 @@
           </div>
         </div><!-- /page-layout-wrap -->
         <hr class="nav-pop-sep">
-        <button class="nav-pop-item" id="btn-toggle-css-panel-menu" onclick="deToggleCssPanel()"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deToggleCssPanel">Toggle Stylesheet Panel ({ } CSS)</span></button>
+        <button class="nav-pop-item" id="btn-toggle-css-panel-menu" onclick="deToggleCssPanel()"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deToggleCssPanel">Toggle Stylesheet &amp; Script Panel ({ } CSS / JS)</span></button>
       </div><!-- /Layout popup -->
     </div><!-- /Layout group -->
 
@@ -295,21 +295,20 @@
       <button class="de-view-btn" id="btn-view-wysiwyg" data-mode="wysiwyg" data-i18n="deViewWysiwyg" data-i18n-title="deWysiwygOnlyHtmlTooltip" title="WYSIWYG Editor (HTML only)" disabled>WYSIWYG</button>
     </div>
 
-    <button class="nav-btn" id="btn-toggle-css-panel" onclick="deToggleCssPanel()" title="Toggle Stylesheet Panel ({ } CSS)" data-i18n-title="deBtnToggleCssPanelTitle" style="font-family:monospace;font-weight:700;">{ } CSS</button>
+    <button class="nav-btn active" id="btn-toggle-css-panel" onclick="deToggleCssPanel()" title="Toggle Stylesheet &amp; Script Panel (CSS / JS)" data-i18n-title="deBtnToggleCssPanelTitle" style="font-family:monospace;font-weight:700;">{ } CSS / JS</button>
 
     <button class="nav-btn" id="btn-preview" data-i18n="dePreview">Preview</button>
-    <button class="nav-btn" id="btn-pres-mode" data-i18n="dePresMode">Presentation Mode</button>
 
     <div class="nav-sep"></div>
 
-    <div id="de-pres-status">
-      <span class="de-pres-dot"></span>
-      <span class="de-pres-label" data-i18n="dePresentingBadge">Presenting</span>
-      <button class="de-pres-stop-btn" onclick="deClosePresentation()" data-i18n="btnStop">Stop</button>
+    <div id="doc-type-wrap">
+      <button id="btn-doc-type" title="Document type — click to choose Markdown, HTML, or Typst" data-i18n-title="deDocTypeToggleTitle">MD</button>
+      <div id="doc-type-popover" role="menu">
+        <button type="button" class="doc-type-opt active" data-doc-type="md"><span class="dt-badge">MD</span> Markdown</button>
+        <button type="button" class="doc-type-opt" data-doc-type="html"><span class="dt-badge html">HTML</span> HTML / CSS / JS</button>
+        <button type="button" class="doc-type-opt" data-doc-type="typ"><span class="dt-badge typ">TYP</span> Typst</button>
+      </div>
     </div>
-    <div class="nav-sep" id="de-pres-sep" style="display:none"></div>
-
-    <button id="btn-doc-type" title="Document type — click to toggle between Markdown, HTML, and Typst" data-i18n-title="deDocTypeToggleTitle">MD</button>
     <span id="doc-name-indicator">Untitled</span>
 
     <!-- Mailposting active badges (compact) -->
@@ -356,17 +355,6 @@
     </div>
   </div>
 
-  <!-- ── Presentation view (receiver window) ───────────────── -->
-  <div id="de-pres-view">
-    <div id="de-pres-scroll">
-      <div id="de-pres-doc-wrapper">
-        <style id="de-pres-page-layout-css"></style>
-        <style id="de-pres-custom-css"></style>
-        <div id="de-pres-doc" class="doc-preview"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- ── Book text picker modal ───────────────────────────── -->
   <div id="de-book-overlay" onclick="if(event.target===this)deBookCloseModal()">
     <div id="de-book-modal">
@@ -387,18 +375,9 @@
     </div>
   </div>
 
-  <!-- ── CSS Panel ────────────────────────────────────────── -->
-  <div id="css-panel">
+  <!-- ── CSS & Script Panel ──────────────────────────────── -->
+  <div id="css-panel" class="open">
     <div id="css-panel-header">
-      <span class="cp-label">Stylesheet</span>
-      <select id="stylesheet-select" title="Active stylesheet">
-        <option value="">— none —</option>
-      </select>
-      <button class="cp-btn" id="btn-new-ss" title="New stylesheet">New</button>
-      <button class="cp-btn" id="btn-save-ss" title="Save stylesheet">Save</button>
-      <button class="cp-btn cp-btn-danger" id="btn-delete-ss" title="Delete stylesheet">Delete</button>
-
-      <span class="cp-sep"></span>
       <span class="cp-label">Quick Rule</span>
       <input id="rule-selector" type="text" placeholder=".selector" title="CSS selector (e.g. .my-class, h1, #id)">
       <select id="rule-property" title="CSS property">
@@ -436,9 +415,34 @@
       <button class="cp-btn" id="btn-add-rule" style="background:#111;color:#fff;border-color:#111">+ Add</button>
 
       <button id="btn-toggle-css-editor">CSS Editor ▾</button>
+      <button id="btn-toggle-script-editor" type="button" data-i18n="deScriptEditor">Script Editor</button>
     </div>
     <div id="css-editor-wrapper">
       <div id="css-editor-container"></div>
+    </div>
+    <div id="script-editor-wrapper">
+      <div id="script-editor-bar">
+        <span class="cp-label" data-i18n="deScriptHelperLabel">Quick Script</span>
+        <select id="script-helper-preset" title="Script helper preset">
+          <option value="toggle" data-i18n="deScriptPresetToggle">Toggle visibility</option>
+          <option value="toggleClass" data-i18n="deScriptPresetToggleClass">Toggle CSS class</option>
+          <option value="fadeIn" data-i18n="deScriptPresetFadeIn">Fade in animation</option>
+          <option value="slideDown" data-i18n="deScriptPresetSlideDown">Slide reveal animation</option>
+          <option value="pulse" data-i18n="deScriptPresetPulse">Pulse animation</option>
+          <option value="countdown" data-i18n="deScriptPresetCountdown">Countdown timer</option>
+          <option value="clickMessage" data-i18n="deScriptPresetClickMsg">Click message</option>
+        </select>
+        <input id="script-helper-trigger" type="text" placeholder="#btn (trigger)" title="Trigger selector (e.g. #btn)" data-i18n-placeholder="deScriptTriggerPh">
+        <input id="script-helper-target" type="text" placeholder="#box (target)" title="Target selector (e.g. #box)" data-i18n-placeholder="deScriptTargetPh">
+        <button id="btn-script-insert" type="button" data-i18n="deScriptInsert">+ Insert</button>
+        <span class="cp-sep"></span>
+        <button id="btn-script-run" type="button" data-i18n="deScriptRun">Run in sandbox</button>
+        <span id="script-editor-hint" data-i18n="deScriptHint">Saved inside the HTML file. Preview runs in an isolated sandbox.</span>
+      </div>
+      <div id="script-editor-body">
+        <div id="script-editor-container"></div>
+        <iframe id="script-run-frame" sandbox="allow-scripts" title="Script sandbox"></iframe>
+      </div>
     </div>
   </div>
 
@@ -1020,6 +1024,11 @@
     let currentDocStoredInDocs = false;
     let currentOpenedDiskPath = null;
     let cssEditorVisible = false;
+    let scriptEditor = null;
+    let scriptEditorVisible = false;
+    let scriptModified = false;
+    let deScriptSetting = false;
+    let deScriptTextCache = '';
     let splitFraction = 0.5;
     let renderTimer = null;
     let saveModalCallback = null;
@@ -1214,9 +1223,13 @@
         btn.classList.toggle('html-mode', type === 'html');
         btn.classList.toggle('typ-mode', type === 'typ');
       }
+      document.querySelectorAll('#doc-type-popover .doc-type-opt').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.docType === type);
+      });
       if (typeof deUpdateViewSwitcherState === 'function') {
         deUpdateViewSwitcherState();
       }
+      deUpdateScriptEditorUi();
       deClearInspectorHighlights();
       renderPreview();
     }
@@ -1271,7 +1284,6 @@
               '<div class="render-error">Typst service initializing…</div>';
           }
           updatePreviewFooter();
-          deBroadcastState();
           return;
         }
 
@@ -1292,7 +1304,6 @@
           '<div class="render-error">Render error: ' + escHtml(String(e.message)) + '</div>';
       }
       updatePreviewFooter();
-      deBroadcastState();
     }
 
     function scheduleRender() {
@@ -1494,7 +1505,42 @@
       deSetCssEditorValue(nextCss, preserveModified);
     }
 
-    function deExtractStyleBlocks(content) {
+    // ── Managed inline script (Script Editor) ──────────────
+    const DE_INLINE_SCRIPT_ATTR = 'data-cmt-inline-script="true"';
+    let dePendingScriptText = '';
+
+    function deExtractScriptBlocks(content) {
+      const scripts = [];
+      const stripped = String(content || '').replace(/<script\b[^>]*data-cmt-inline-script="true"[^>]*>([\s\S]*?)<\/script>\s*/gi, function (m, js) {
+        const text = String(js || '').split('<\\' + '/script').join('<' + '/script').trim();
+        if (text) scripts.push(text);
+        return '';
+      });
+      return { content: stripped, scriptText: scripts.join('\n\n') };
+    }
+
+    function deInjectInlineScript(content, scriptText) {
+      const text = String(scriptText || '').trim();
+      if (!text) return content;
+      const tag = '<' + 'script ' + DE_INLINE_SCRIPT_ATTR + '>\n' + text.split('<' + '/script').join('<\\' + '/script') + '\n<' + '/script>';
+      if (/<\/body>/i.test(content)) return content.replace(/<\/body>/i, function () { return tag + '\n</body>'; });
+      return content + '\n' + tag;
+    }
+
+    function deSetScriptEditorValue(text) {
+      deScriptTextCache = String(text || '');
+      if (scriptEditor) { deScriptSetting = true; scriptEditor.setValue(deScriptTextCache); deScriptSetting = false; }
+      scriptModified = false;
+    }
+
+    function deUpdateScriptEditorUi() {
+      document.body.classList.toggle('de-doc-html', currentDocType === 'html');
+    }
+
+    function deExtractStyleBlocks(rawContent) {
+      const scriptSplit = deExtractScriptBlocks(rawContent);
+      dePendingScriptText = scriptSplit.scriptText;
+      const content = scriptSplit.content;
       const styles = [];
       const stripped = String(content || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>\s*/gi, function (match, css) {
         const text = String(css || '').trim();
@@ -1561,9 +1607,13 @@
       if (!trimmed) return original;
       if (trimmed.startsWith(scopeSelector)) return trimmed;
 
-      const rootPrefix = /^(?:(?:html|body|:root)\b\s*)+/i;
-      if (rootPrefix.test(trimmed)) {
-        return scopeSelector + trimmed.replace(rootPrefix, '');
+      // The scope element IS .doc-preview, so root-like tokens map onto it.
+      const rootPrefix = /^(?:(?:html|body|:root|\.doc-preview)(?![\w-])\s*)+/i;
+      const rm = trimmed.match(rootPrefix);
+      if (rm) {
+        const rest = trimmed.slice(rm[0].length);
+        if (!rest) return scopeSelector + ', ' + scopeSelector + ' .doc-page-body';
+        return scopeSelector + (/\s$/.test(rm[0]) ? ' ' : '') + rest;
       }
 
       return scopeSelector + ' ' + trimmed;
@@ -1687,9 +1737,17 @@
       if (currentViewMode === 'wysiwyg' && currentDocType === 'html' && typeof deSyncWysiwygToEditor === 'function') {
         deSyncWysiwygToEditor();
       }
+      const savedPending = dePendingScriptText;
       const extracted = deExtractStyleBlocks(mdEditor ? mdEditor.getValue() : '');
+      const embeddedScript = dePendingScriptText;
+      dePendingScriptText = savedPending;
       const mergedCss = deMergeCssText(cssEditor ? cssEditor.getValue() : '', extracted.cssText);
-      return deInjectInlineStyles(extracted.content, currentDocType, mergedCss);
+      let out = deInjectInlineStyles(extracted.content, currentDocType, mergedCss);
+      if (currentDocType === 'html') {
+        const js = [embeddedScript, scriptEditor ? scriptEditor.getValue() : ''].filter(s => String(s).trim()).join('\n\n');
+        out = deInjectInlineScript(out, js);
+      }
+      return out;
     }
 
     async function deLoadLegacyManagedDocState(relativePath) {
@@ -1734,13 +1792,16 @@
         pageLayout.margins = { ...fallback.margins };
       }
       deSetCssEditorValue(deComposeManagedStylesheet(cssText), false);
+      deSetScriptEditorValue(dePendingScriptText);
+      dePendingScriptText = '';
+      deUpdateScriptEditorUi();
     }
 
     async function deSaveManagedDocSnapshot(target, filename, subdir) {
       const content = deBuildPersistedCurrentDocContent();
       const result = await Desktop.saveText(target, filename, content, subdir || null);
       if (result && result.ok) {
-        cssModified = false;
+        cssModified = false; scriptModified = false;
         document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : '', '#preview-content');
       }
       return result;
@@ -2464,6 +2525,28 @@
         }
       );
 
+      scriptEditor = monaco.editor.create(
+        document.getElementById('script-editor-container'),
+        {
+          value: deScriptTextCache || '',
+          language: 'javascript',
+          theme: 'vs',
+          minimap: { enabled: false },
+          fontSize: 13,
+          lineNumbers: 'on',
+          scrollBeyondLastLine: false,
+          automaticLayout: true,
+          tabSize: 2,
+        }
+      );
+      scriptEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
+      scriptEditor.onDidChangeModelContent(function () {
+        if (deScriptSetting) return;
+        scriptModified = true;
+        docModified = true;
+        if (typeof updateDocIndicator === 'function') updateDocIndicator();
+      });
+
       mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
       mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyL, () => openSyntaxHelpModal());
       mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyN, newDoc);
@@ -2554,6 +2637,9 @@
         currentStylesheetName = '@inline@';
         const cssText = cssEditor.getValue();
         document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssText, '#preview-content');
+        const fpCss = document.getElementById('full-preview-custom-css');
+        if (fpCss) fpCss.textContent = deBuildScopedPreviewCss(cssText, '#full-preview-content');
+        scheduleRender();
         if (!deSyncingLayoutCss) {
           const parsed = deParsePageLayoutFromCss(cssText);
           if (parsed.found) {
@@ -3598,7 +3684,7 @@
       try {
         const r = await Desktop.saveText(currentEditTarget, filename, content, subdir);
         if (r && r.ok) {
-          cssModified = false;
+          cssModified = false; scriptModified = false;
           docModified = false;
           updateDocIndicator();
           showToast('Saved: ' + filename);
@@ -3628,7 +3714,7 @@
             orientation: pageLayout.orientation
           });
           if (r && r.ok) {
-            cssModified = false;
+            cssModified = false; scriptModified = false;
             docModified = false;
             updateDocIndicator();
             showToast('Saved: ' + (currentDocName || currentOpenedDiskPath));
@@ -3640,7 +3726,7 @@
         const content = deBuildPersistedCurrentDocContent();
         const r = await Desktop.writeDiskFile(currentOpenedDiskPath, content);
         if (r && r.ok) {
-          cssModified = false;
+          cssModified = false; scriptModified = false;
           docModified = false;
           updateDocIndicator();
           showToast('Saved: ' + (currentDocName || currentOpenedDiskPath));
@@ -3741,7 +3827,7 @@
       if (docSaveInProgress) return;
       if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
       const needsManagedSave = currentDocStoredInDocs && (docModified || cssModified);
-      if (!needsManagedSave && !(docModified || cssModified)) return;
+      if (!needsManagedSave && !(docModified || cssModified || scriptModified)) return;
       try {
         if (currentDocStoredInDocs) {
           const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
@@ -3812,7 +3898,7 @@
           currentEditRelPath = targetSubdir ? (targetSubdir + '/' + filename) : filename;
           currentOpenedDiskPath = null;
           docModified = false;
-          cssModified = false;
+          cssModified = false; scriptModified = false;
           updateDocIndicator();
           hideModal('file-modal');
           await deDeleteLegacyManagedArtifacts(filename, targetSubdir);
@@ -4105,6 +4191,7 @@
 
     function clearPairedSSOptions() {
       const sel = document.getElementById('stylesheet-select');
+      if (!sel) return;
       for (let i = sel.options.length - 1; i >= 0; i--) {
         if (sel.options[i].value.startsWith('@docs@')) sel.remove(i);
       }
@@ -4113,6 +4200,7 @@
     function injectPairedSSOption(cssFilename) {
       clearPairedSSOptions();
       const sel = document.getElementById('stylesheet-select');
+      if (!sel) return;
       const opt = document.createElement('option');
       opt.value = '@docs@' + cssFilename;
       opt.textContent = cssFilename + ' (with doc)';
@@ -4141,7 +4229,7 @@
       if (currentDocStoredInDocs && currentDocName) {
         const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
         if (r && r.ok) {
-          cssModified = false;
+          cssModified = false; scriptModified = false;
           docModified = false;
           updateDocIndicator();
           showToast('Styles saved in document');
@@ -4356,9 +4444,10 @@
         'body { margin: 0; padding: 0; background: #fff; }\n' +
         '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
         '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
-        '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 1px solid #eee; }\n' +
+        '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 2px solid #111; }\n' +
         '.doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }\n' +
         '.doc-preview h4 { font-size: 1em; font-weight: 700; margin: .8em 0 .3em; }\n' +
+        '.doc-preview h5, .doc-preview h6 { font-size: .9em; font-weight: 700; margin: .8em 0 .3em; color: #444; }\n' +
         '.doc-preview p { margin: 0 0 1em; }\n' +
         '.doc-preview ul, .doc-preview ol { padding-left: 2em; margin: 0 0 1em; }\n' +
         '.doc-preview li { margin: .25em 0; }\n' +
@@ -4369,6 +4458,7 @@
         '.doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }\n' +
         '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
         '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
+        '.doc-preview tr:nth-child(even) td { background: #fafbfc; }\n' +
         '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
         '.de-page-break, .page-break { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
         '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
@@ -4541,27 +4631,552 @@
 
     function extractDocxStylesFromCss(css) {
       if (!css || !css.trim()) return {};
-      function blockOf(sel) {
-        const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const m = css.match(new RegExp(esc + '\\s*\\{([^}]*)\\}', 'is'));
-        return m ? m[1] : '';
+      const cleanCss = String(css).replace(/\/\*[\s\S]*?\*\//g, '');
+      const rules = [];
+      const ruleRe = /([^{}]+)\{([^{}]*)\}/g;
+      let m;
+      while ((m = ruleRe.exec(cleanCss)) !== null) {
+        const sels = m[1].split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+        const props = {};
+        for (const decl of m[2].split(';')) {
+          const idx = decl.indexOf(':');
+          if (idx === -1) continue;
+          const k = decl.slice(0, idx).trim().toLowerCase();
+          const v = decl.slice(idx + 1).trim().replace(/\s*!important\s*$/, '').trim();
+          if (k && v) props[k] = v;
+        }
+        rules.push({ sels, props });
       }
-      function prop(block, name) {
-        if (!block) return null;
-        const m = block.match(new RegExp('(?:^|;)\\s*' + name + '\\s*:\\s*([^;\\n}]+)', 'i'));
-        return m ? m[1].trim().replace(/\s*!important\s*$/, '').trim() : null;
+      function collectFor(targets) {
+        const merged = {};
+        const set = new Set(targets.map(t => t.toLowerCase()));
+        for (const r of rules) {
+          if (r.sels.some(s => set.has(s))) Object.assign(merged, r.props);
+        }
+        return merged;
       }
-      const blocks = [blockOf('.doc-preview'), blockOf('body'), blockOf('p')];
-      function first(propName) {
-        for (const b of blocks) { const v = prop(b, propName); if (v) return v; }
-        return null;
-      }
-      return {
-        fontFamily: first('font-family'),
-        color: first('color'),
-        lineHeight: first('line-height'),
-        fontSize: first('font-size'),
+      const base = Object.assign({}, collectFor(['body']), collectFor(['p']), collectFor(['.doc-preview']));
+      const toPtStr = (val, refPt) => {
+        if (!val) return null;
+        const s = String(val).trim().toLowerCase();
+        const n = parseFloat(s);
+        if (isNaN(n)) return null;
+        if (s.endsWith('em') || s.endsWith('rem')) return (n * refPt).toFixed(2).replace(/\.00$/, '') + 'pt';
+        if (s.endsWith('px')) return (n * 0.75).toFixed(2).replace(/\.00$/, '') + 'pt';
+        if (s.endsWith('pt')) return n + 'pt';
+        return val;
       };
+      const basePt = parseFloat(toPtStr(base['font-size'], 12)) || (typeof currentPageLayout !== 'undefined' && parseFloat(currentPageLayout.fontSize)) || 12;
+      const headings = {};
+      for (let i = 1; i <= 6; i++) {
+        const h = collectFor(['h' + i]);
+        if (Object.keys(h).length) {
+          headings[i] = {
+            color: h.color || null,
+            fontFamily: h['font-family'] || null,
+            fontSize: toPtStr(h['font-size'], basePt) || null,
+            borderBottomColor: (h['border-bottom'] || h['border-bottom-color'] || '').match(/(#[0-9a-f]{3,8}|rgba?\([^)]+\)|[a-z]+)$/i)?.[1] || null,
+            textAlign: h['text-align'] || null
+          };
+        }
+      }
+      const bq = collectFor(['blockquote']);
+      const tbl = collectFor(['table', 'td', 'th']);
+      const th = collectFor(['th', 'thead th']);
+      const code = collectFor(['pre', 'code']);
+      const link = collectFor(['a']);
+      const hr = collectFor(['hr']);
+      const borderCol = (val) => (val || '').match(/(#[0-9a-f]{3,8}|rgba?\([^)]+\))/i)?.[1] || null;
+      return {
+        fontFamily: base['font-family'] || null,
+        color: base.color || null,
+        lineHeight: base['line-height'] || null,
+        fontSize: base['font-size'] || null,
+        backgroundColor: base['background-color'] || null,
+        headings,
+        blockquote: {
+          color: bq.color || null,
+          backgroundColor: bq['background-color'] || bq.background || null,
+          borderColor: borderCol(bq['border-left'] || bq['border-left-color'])
+        },
+        table: {
+          thBg: th['background-color'] || th.background || null,
+          thColor: th.color || null,
+          borderColor: borderCol(tbl.border || tbl['border-color'] || th.border)
+        },
+        code: {
+          bg: code['background-color'] || code.background || null,
+          color: code.color || null,
+          fontFamily: code['font-family'] || null
+        },
+        link: { color: link.color || null },
+        hr: { color: borderCol(hr['border-top'] || hr['border-bottom'] || hr.border || hr['background-color']) }
+      };
+    }
+
+    function deBuildExportBlocksFromHtml(rawSource) {
+      const pc = document.getElementById('preview-content');
+      let root = null;
+      let isLiveDom = false;
+      if (pc && pc.innerHTML && pc.innerHTML.trim()) {
+        root = pc;
+        isLiveDom = true;
+      } else {
+        let html = '';
+        if (currentDocType === 'html') {
+          const extracted = deExtractStyleBlocks(rawSource || '');
+          html = extracted.content || '';
+        } else {
+          html = (typeof marked !== 'undefined' && marked.parse) ? marked.parse(rawSource || '') : (rawSource || '');
+        }
+        const doc = new DOMParser().parseFromString('<div id="de-exp-root">' + html + '</div>', 'text/html');
+        root = doc.getElementById('de-exp-root');
+      }
+      if (!root) return [];
+
+      const baseFontPt = (typeof currentPageLayout !== 'undefined' && parseFloat(currentPageLayout.fontSize)) || 12;
+      const counters = {};
+
+      function cssColorToHex(val) {
+        if (!val) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === 'transparent' || s === 'none' || s === 'inherit' || s === 'initial') return null;
+        if (s.startsWith('#')) {
+          if (s.length === 4) return '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+          return s.slice(0, 7);
+        }
+        const m = s.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+        if (!m) return null;
+        const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+        if (a <= 0.01) return null;
+        const blend = (c) => Math.round(parseFloat(c) * a + 255 * (1 - a));
+        const toHex = (n) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0');
+        return '#' + toHex(blend(m[1])) + toHex(blend(m[2])) + toHex(blend(m[3]));
+      }
+
+      function pxToPt(pxStr) {
+        const n = parseFloat(pxStr);
+        if (isNaN(n) || Math.abs(n) < 0.05) return 0;
+        return Math.round(n * 0.75 * 100) / 100;
+      }
+
+      function applyCounters(el) {
+        if (!isLiveDom || !el || el.nodeType !== 1) return '';
+        const cs = getComputedStyle(el);
+        const beforeCs = getComputedStyle(el, '::before');
+
+        const parseCounterOps = (str, isReset) => {
+          if (!str || str === 'none') return;
+          const parts = str.trim().split(/\s+/);
+          for (let i = 0; i < parts.length; i++) {
+            const name = parts[i];
+            if (!name || /^-?\d+$/.test(name)) continue;
+            const nextVal = parts[i + 1] && /^-?\d+$/.test(parts[i + 1]) ? parseInt(parts[++i], 10) : (isReset ? 0 : 1);
+            if (isReset) counters[name] = nextVal;
+            else counters[name] = (counters[name] || 0) + nextVal;
+          }
+        };
+        parseCounterOps(cs.counterReset, true);
+        parseCounterOps(cs.counterIncrement, false);
+        parseCounterOps(beforeCs.counterIncrement, false);
+
+        const rawContent = beforeCs.content;
+        if (!rawContent || rawContent === 'none' || rawContent === 'normal' || rawContent === '""' || rawContent === "''") return '';
+        // Evaluate counter(name) expressions and strip CSS string quotes
+        let resolved = '';
+        const tokenRe = /counter\(\s*([a-zA-Z0-9_-]+)(?:\s*,\s*[^)]+)?\s*\)|"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g;
+        let tm;
+        while ((tm = tokenRe.exec(rawContent)) !== null) {
+          if (tm[1]) {
+            resolved += String(counters[tm[1]] ?? 0);
+          } else {
+            const lit = (tm[2] !== undefined ? tm[2] : tm[3] || '')
+              .replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+              .replace(/\\(.)/g, '$1');
+            resolved += lit;
+          }
+        }
+        return resolved;
+      }
+
+      if (isLiveDom) {
+        applyCounters(root);
+      }
+
+      function getCs(el) {
+        return isLiveDom && el && el.nodeType === 1 ? getComputedStyle(el) : null;
+      }
+
+      function isPageBreakEl(el) {
+        if (!el || el.nodeType !== 1) return false;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'pbr') return true;
+        const cls = (el.className || '').toString();
+        const st = (el.getAttribute('style') || '').toLowerCase();
+        if (cls.includes('page-break') || cls.includes('pagebreak') ||
+          /page-break-(before|after)\s*:\s*always/.test(st) || /break-(before|after)\s*:\s*page/.test(st)) {
+          return true;
+        }
+        const cs = getCs(el);
+        return !!(cs && (cs.pageBreakBefore === 'always' || cs.breakBefore === 'page'));
+      }
+
+      function parseInlineStyle(el, inherited) {
+        const st = Object.assign({}, inherited || {});
+        if (!el || el.nodeType !== 1) return st;
+        const tag = el.tagName.toLowerCase();
+        if (tag === 'strong' || tag === 'b') st.bold = true;
+        if (tag === 'em' || tag === 'i') st.italic = true;
+        if (tag === 'u' || tag === 'ins') st.underline = true;
+        if (tag === 's' || tag === 'del' || tag === 'strike') st.strike = true;
+        if (tag === 'code' || tag === 'kbd' || tag === 'samp') st.code = true;
+        if (tag === 'sup') st.sup = true;
+        if (tag === 'sub') st.sub = true;
+        if (tag === 'mark') st.bg = '#fff59d';
+
+        const cs = getCs(el);
+        if (cs) {
+          const fw = parseInt(cs.fontWeight, 10);
+          if (cs.fontWeight === 'bold' || (!isNaN(fw) && fw >= 600)) st.bold = true;
+          if (cs.fontStyle === 'italic') st.italic = true;
+          const td = cs.textDecorationLine || cs.textDecoration || '';
+          if (td.includes('underline')) st.underline = true;
+          if (td.includes('line-through')) st.strike = true;
+          const colHex = cssColorToHex(cs.color);
+          if (colHex && colHex !== '#222222' && colHex !== '#000000') st.color = colHex;
+          const fsPt = pxToPt(cs.fontSize);
+          if (fsPt > 0 && Math.abs(fsPt - baseFontPt) > 0.4) st.fontSize = fsPt + 'pt';
+        }
+
+        const s = el.style;
+        if (s) {
+          if (s.fontWeight && (s.fontWeight === 'bold' || parseInt(s.fontWeight, 10) >= 600)) st.bold = true;
+          if (s.fontStyle === 'italic') st.italic = true;
+          if (s.textDecoration && s.textDecoration.includes('underline')) st.underline = true;
+          if (s.textDecoration && s.textDecoration.includes('line-through')) st.strike = true;
+          if (s.color) st.color = cssColorToHex(s.color) || s.color;
+          if (s.backgroundColor) st.bg = cssColorToHex(s.backgroundColor) || s.backgroundColor;
+          if (s.fontFamily) st.font = s.fontFamily;
+          if (s.fontSize) st.fontSize = s.fontSize;
+        }
+        return st;
+      }
+
+      function normalizeInlineText(t, preserveWs) {
+        if (!t) return '';
+        if (preserveWs) return t;
+        return t.replace(/[\r\n\t ]+/g, ' ');
+      }
+
+      function trimRuns(runs) {
+        if (!runs.length) return runs;
+        const out = runs.map(r => Object.assign({}, r));
+        while (out.length && out[0].type === 'text') {
+          out[0].text = out[0].text.replace(/^\s+/, '');
+          if (!out[0].text) out.shift();
+          else break;
+        }
+        while (out.length && out[out.length - 1].type === 'text') {
+          out[out.length - 1].text = out[out.length - 1].text.replace(/\s+$/, '');
+          if (!out[out.length - 1].text) out.pop();
+          else break;
+        }
+        return out;
+      }
+
+      function collectRuns(node, inherited, preserveWs = false, skipSelfCounters = true) {
+        const runs = [];
+        if (!node) return runs;
+        for (const ch of node.childNodes) {
+          if (ch.nodeType === 3) {
+            const t = normalizeInlineText(ch.nodeValue, preserveWs);
+            if (t) runs.push(Object.assign({ type: 'text', text: t }, inherited || {}));
+          } else if (ch.nodeType === 1) {
+            const tag = ch.tagName.toLowerCase();
+            if (tag === 'style' || tag === 'script') continue;
+            if (tag === 'br') { runs.push({ type: 'br' }); continue; }
+            if (tag === 'img') {
+              runs.push({
+                type: 'image',
+                src: ch.getAttribute('src') || '',
+                alt: ch.getAttribute('alt') || '',
+                width: ch.getAttribute('width') || ch.style.width || '',
+                height: ch.getAttribute('height') || ch.style.height || ''
+              });
+              continue;
+            }
+            const beforeText = applyCounters(ch);
+            const nextStyle = parseInlineStyle(ch, inherited);
+            if (tag === 'a') {
+              const href = ch.getAttribute('href') || '#';
+              const linkRuns = collectRuns(ch, nextStyle, preserveWs, true);
+              if (beforeText) linkRuns.unshift(Object.assign({ type: 'text', text: beforeText }, nextStyle));
+              runs.push({ type: 'link', href, runs: linkRuns });
+              continue;
+            }
+            if (beforeText) runs.push(Object.assign({ type: 'text', text: beforeText }, nextStyle));
+            runs.push(...collectRuns(ch, nextStyle, preserveWs, true));
+          }
+        }
+        return runs;
+      }
+
+      function blockAlign(el) {
+        const cs = getCs(el);
+        const a = (el?.style?.textAlign) || el?.getAttribute?.('align') || (cs ? cs.textAlign : null);
+        if (!a || a === 'start') return null;
+        return a;
+      }
+
+      function extractBlockBoxStyle(el) {
+        const cs = getCs(el);
+        if (!cs) return {};
+        const box = {};
+        const bg = cssColorToHex(cs.backgroundColor);
+        if (bg && bg !== '#ffffff') box.bg = bg;
+        const bbw = pxToPt(cs.borderBottomWidth);
+        if (bbw > 0 && cs.borderBottomStyle && cs.borderBottomStyle !== 'none') {
+          box.borderBottom = {
+            widthPt: bbw,
+            style: cs.borderBottomStyle,
+            color: cssColorToHex(cs.borderBottomColor) || '#888888'
+          };
+        }
+        const mt = pxToPt(cs.marginTop);
+        const mb = pxToPt(cs.marginBottom);
+        const ml = pxToPt(cs.marginLeft);
+        const mr = pxToPt(cs.marginRight);
+        if (mt > 0) box.marginTop = mt;
+        if (mb > 0) box.marginBottom = mb;
+        if (ml > 0) box.marginLeft = ml;
+        if (mr > 0) box.marginRight = mr;
+        const pt = pxToPt(cs.paddingTop);
+        const pb = pxToPt(cs.paddingBottom);
+        const pl = pxToPt(cs.paddingLeft);
+        if (pt > 0 || pb > 0 || pl > 0) box.padding = { top: pt, bottom: pb, left: pl };
+        return box;
+      }
+
+      const BLOCK_TAGS = new Set(['div', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr', 'ul', 'ol', 'table', 'section', 'article', 'header', 'footer', 'main', 'page', 'pbr', 'instruction', 'question', 'item', 'nbline', 'line']);
+
+      function isBlockElement(el) {
+        if (!el || el.nodeType !== 1) return false;
+        const tag = el.tagName.toLowerCase();
+        if (BLOCK_TAGS.has(tag)) return true;
+        const cs = getCs(el);
+        return !!(cs && (cs.display === 'block' || cs.display === 'flex' || cs.display === 'grid' || cs.display === 'table' || cs.display === 'list-item'));
+      }
+
+      function hasBlockChildren(el) {
+        for (const ch of el.children) {
+          const tag = ch.tagName.toLowerCase();
+          if (tag === 'style' || tag === 'script') continue;
+          if (isBlockElement(ch)) return true;
+        }
+        return false;
+      }
+
+      function collectListItems(container, inherited) {
+        const items = [];
+        for (const ch of container.children) {
+          const tag = ch.tagName.toLowerCase();
+          if (tag === 'li') {
+            const liStyle = parseInlineStyle(ch, inherited);
+            const subLists = [];
+            const clone = ch.cloneNode(true);
+            Array.from(clone.children).forEach(c => {
+              const ct = c.tagName.toLowerCase();
+              if (ct === 'ul' || ct === 'ol') { subLists.push(c); c.remove(); }
+            });
+            // Collect runs from live ch excluding nested ul/ol so computed styles work!
+            const runs = [];
+            for (const lc of ch.childNodes) {
+              if (lc.nodeType === 3) {
+                const t = normalizeInlineText(lc.nodeValue, false);
+                if (t) runs.push(Object.assign({ type: 'text', text: t }, liStyle));
+              } else if (lc.nodeType === 1) {
+                const lct = lc.tagName.toLowerCase();
+                if (lct === 'ul' || lct === 'ol') continue;
+                if (lct === 'br') { runs.push({ type: 'br' }); continue; }
+                const nextSt = parseInlineStyle(lc, liStyle);
+                runs.push(...collectRuns(lc, nextSt, false, true));
+              }
+            }
+            const parsedSubLists = subLists.map(sl => parseListEl(sl, liStyle));
+            items.push({ runs: trimRuns(runs), lists: parsedSubLists, children: parsedSubLists });
+          } else if (tag !== 'ul' && tag !== 'ol') {
+            // Handle wrappers like <b><li>...</li></b>
+            items.push(...collectListItems(ch, parseInlineStyle(ch, inherited)));
+          }
+        }
+        return items;
+      }
+
+      function parseListEl(listEl, inherited) {
+        const cs = getCs(listEl);
+        const listStyle = parseInlineStyle(listEl, inherited);
+        let bulletChar = null;
+        if (cs && cs.listStyleType) {
+          const lst = cs.listStyleType.trim();
+          if (lst.startsWith('"') || lst.startsWith("'")) {
+            bulletChar = lst.slice(1, -1).replace(/\\([0-9a-fA-F]{1,6})\s?/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16))).trim();
+          }
+        }
+        return {
+          type: 'list',
+          ordered: listEl.tagName.toLowerCase() === 'ol',
+          bulletChar,
+          items: collectListItems(listEl, listStyle)
+        };
+      }
+
+      function walkBlocks(container) {
+        const blocks = [];
+        let inlineBuf = [];
+        let inlineFlexGroup = [];
+
+        function flushInlineFlex() {
+          if (inlineFlexGroup.length >= 2) {
+            const cells = inlineFlexGroup.map(el => ({
+              align: blockAlign(el),
+              runs: trimRuns(collectRuns(el, parseInlineStyle(el)))
+            }));
+            blocks.push({ type: 'table', borderless: true, header: [], rows: [cells] });
+            inlineFlexGroup = [];
+            return true;
+          }
+          if (inlineFlexGroup.length === 1) {
+            const el = inlineFlexGroup[0];
+            inlineBuf.push(...collectRuns(el, parseInlineStyle(el)));
+            inlineFlexGroup = [];
+          }
+          return false;
+        }
+
+        function flushInline() {
+          flushInlineFlex();
+          const trimmed = trimRuns(inlineBuf);
+          const nonWs = trimmed.some(r => r.type !== 'text' || r.text.trim() !== '');
+          if (nonWs) blocks.push({ type: 'paragraph', runs: trimmed });
+          inlineBuf = [];
+        }
+
+        for (const ch of container.childNodes) {
+          if (ch.nodeType === 8) {
+            if (/page-?break/i.test(ch.nodeValue || '')) { flushInline(); blocks.push({ type: 'pagebreak' }); }
+            continue;
+          }
+          if (ch.nodeType === 3) {
+            const t = normalizeInlineText(ch.nodeValue, false);
+            if (t) {
+              if (inlineFlexGroup.length && t.trim() === '') continue;
+              flushInlineFlex();
+              inlineBuf.push({ type: 'text', text: t });
+            }
+            continue;
+          }
+          if (ch.nodeType !== 1) continue;
+          const tag = ch.tagName.toLowerCase();
+          if (tag === 'style' || tag === 'script' || ch.classList?.contains('de-fp-ruler')) continue;
+
+          const hasPageBreak = isPageBreakEl(ch);
+          if (hasPageBreak) {
+            flushInline();
+            blocks.push({ type: 'pagebreak' });
+            if (tag === 'pbr' || (ch.children.length === 0 && ch.textContent.trim() === '')) continue;
+          }
+
+          const cs = getCs(ch);
+          if (cs && (cs.display === 'inline-flex' || cs.display === 'inline-block') && cs.width && cs.width !== 'auto' && !isBlockElement(ch)) {
+            if (!inlineBuf.some(r => r.type !== 'text' || r.text.trim() !== '')) {
+              inlineBuf = [];
+              inlineFlexGroup.push(ch);
+              continue;
+            }
+          }
+
+          if (/^h[1-6]$/.test(tag)) {
+            flushInline();
+            const d = parseInt(tag[1], 10);
+            const beforeText = applyCounters(ch);
+            const hRuns = collectRuns(ch, parseInlineStyle(ch));
+            if (beforeText) hRuns.unshift(Object.assign({ type: 'text', text: beforeText }, parseInlineStyle(ch)));
+            blocks.push({ type: 'heading', depth: d, level: d, align: blockAlign(ch), runs: trimRuns(hRuns) });
+          } else if (tag === 'p') {
+            flushInline();
+            const beforeText = applyCounters(ch);
+            const pStyle = parseInlineStyle(ch);
+            const runs = collectRuns(ch, pStyle);
+            if (beforeText) runs.unshift(Object.assign({ type: 'text', text: beforeText }, pStyle));
+            const trimmed = trimRuns(runs);
+            if (trimmed.length || ch.innerHTML.trim() === '') {
+              blocks.push(Object.assign({ type: 'paragraph', align: blockAlign(ch), runs: trimmed }, extractBlockBoxStyle(ch)));
+            }
+          } else if (tag === 'blockquote') {
+            flushInline();
+            blocks.push({ type: 'blockquote', blocks: walkBlocks(ch) });
+          } else if (tag === 'pre') {
+            flushInline();
+            blocks.push({ type: 'code', text: ch.textContent || '' });
+          } else if (tag === 'hr') {
+            flushInline();
+            blocks.push({ type: 'hr' });
+          } else if (tag === 'ul' || tag === 'ol') {
+            flushInline();
+            blocks.push(parseListEl(ch));
+          } else if (tag === 'table') {
+            flushInline();
+            const header = [];
+            const rows = [];
+            const theadTrs = Array.from(ch.querySelectorAll('thead > tr'));
+            const tbodyTrs = Array.from(ch.querySelectorAll('tbody > tr'));
+            const directTrs = Array.from(ch.children).filter(c => c.tagName.toLowerCase() === 'tr');
+            const allTrs = theadTrs.length || tbodyTrs.length ? [...theadTrs, ...tbodyTrs] : directTrs;
+            allTrs.forEach((tr, idx) => {
+              const cells = Array.from(tr.children).filter(c => c.tagName.toLowerCase() === 'th' || c.tagName.toLowerCase() === 'td');
+              const mapped = cells.map(c => ({
+                align: blockAlign(c),
+                bg: cssColorToHex(getCs(c)?.backgroundColor || c.style?.backgroundColor) || null,
+                runs: trimRuns(collectRuns(c, parseInlineStyle(c)))
+              }));
+              if (idx === 0 && (theadTrs.length > 0 || cells.every(c => c.tagName.toLowerCase() === 'th'))) {
+                header.push(...mapped);
+              } else {
+                rows.push(mapped);
+              }
+            });
+            blocks.push({ type: 'table', header, rows });
+          } else if (isBlockElement(ch)) {
+            flushInline();
+            const beforeText = applyCounters(ch);
+            if (hasBlockChildren(ch)) {
+              if (beforeText) {
+                const st = parseInlineStyle(ch);
+                blocks.push(Object.assign({ type: 'paragraph', align: blockAlign(ch), runs: [{ type: 'text', text: beforeText, ...st }] }, extractBlockBoxStyle(ch)));
+              }
+              blocks.push(...walkBlocks(ch));
+            } else {
+              const st = parseInlineStyle(ch);
+              const box = extractBlockBoxStyle(ch);
+              const runs = collectRuns(ch, st);
+              if (beforeText) runs.unshift(Object.assign({ type: 'text', text: beforeText }, st));
+              const trimmed = trimRuns(runs);
+              if (trimmed.length || box.borderBottom || box.bg) {
+                blocks.push(Object.assign({ type: 'paragraph', align: blockAlign(ch), runs: trimmed }, box));
+              }
+            }
+          } else {
+            flushInlineFlex();
+            const beforeText = applyCounters(ch);
+            const nextSt = parseInlineStyle(ch);
+            if (beforeText) inlineBuf.push(Object.assign({ type: 'text', text: beforeText }, nextSt));
+            inlineBuf.push(...collectRuns(ch, nextSt));
+          }
+        }
+        flushInline();
+        return blocks;
+      }
+      return walkBlocks(root);
     }
 
     async function collectDocxImages(markdown) {
@@ -4633,12 +5248,15 @@
       deSyncCssEditorWithLayout(true);
       showToast('Preparing DOCX…');
       const markdown = mdEditor.getValue();
+      const blocks = deBuildExportBlocksFromHtml(markdown);
       const [cssStyles, images] = await Promise.all([
         Promise.resolve(extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '')),
         collectDocxImages(markdown)
       ]);
       const result = await Desktop.exportDocx({
         markdown,
+        blocks,
+        styles: cssStyles,
         defaultName: currentDocName || 'document',
         fontFamily: cssStyles.fontFamily || pageLayout.fontFamily,
         fontSize: cssStyles.fontSize || pageLayout.fontSize,
@@ -4646,8 +5264,15 @@
         lineHeight: cssStyles.lineHeight || null,
         margins: pageLayout.margins,
         size: pageLayout.size,
+        customW: pageLayout.customW,
+        customH: pageLayout.customH,
         orientation: pageLayout.orientation,
         imageWidth: pageLayout.imageWidth || 'auto',
+        pageNumbers: !!pageLayout.pageNumbers,
+        pageNumbersPos: pageLayout.pageNumbersPos || 'center',
+        footer: !!pageLayout.footer,
+        footerText: pageLayout.footerText || '',
+        footerAlign: pageLayout.footerAlign || 'center',
         images
       });
       if (result && result.ok) {
@@ -4669,15 +5294,32 @@
       deSyncCssEditorWithLayout(true);
       showToast(t('dePreparingOdt') || 'Preparing ODT…');
       const markdown = mdEditor.getValue();
-      const cssStyles = extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '');
+      const blocks = deBuildExportBlocksFromHtml(markdown);
+      const [cssStyles, images] = await Promise.all([
+        Promise.resolve(extractDocxStylesFromCss(cssEditor ? cssEditor.getValue() : '')),
+        collectDocxImages(markdown)
+      ]);
       const result = await Desktop.exportOdt({
         markdown,
+        blocks,
+        styles: cssStyles,
         defaultName: currentDocName || 'document',
         fontFamily: cssStyles.fontFamily || pageLayout.fontFamily,
         fontSize: cssStyles.fontSize || pageLayout.fontSize,
+        color: cssStyles.color || null,
+        lineHeight: cssStyles.lineHeight || null,
         margins: pageLayout.margins,
         size: pageLayout.size,
-        orientation: pageLayout.orientation
+        customW: pageLayout.customW,
+        customH: pageLayout.customH,
+        orientation: pageLayout.orientation,
+        imageWidth: pageLayout.imageWidth || 'auto',
+        pageNumbers: !!pageLayout.pageNumbers,
+        pageNumbersPos: pageLayout.pageNumbersPos || 'center',
+        footer: !!pageLayout.footer,
+        footerText: pageLayout.footerText || '',
+        footerAlign: pageLayout.footerAlign || 'center',
+        images
       });
       if (result && result.ok) {
         showToast(t('deOdtExported') || 'ODT exported successfully');
@@ -4800,8 +5442,8 @@
         '.doc-preview:not(.paged-mode) {\n' +
         '  max-width: ' + pageWPx + 'px !important;\n' +
         '  padding: ' + padTopPx + 'px ' + padRightPx + 'px ' + padBottomPx + 'px ' + padLeftPx + 'px !important;\n' +
-        '  font-family: ' + ff + ' !important;\n' +
-        '  font-size: ' + fs + 'px !important;\n' +
+        '  font-family: ' + ff + ';\n' +
+        '  font-size: ' + fs + 'px;\n' +
         '}\n' +
         '.doc-page-sheet {\n' +
         '  width: ' + pageWPx + 'px;\n' +
@@ -4810,15 +5452,14 @@
         '}\n' +
         '.doc-page-body {\n' +
         '  padding: ' + padTopPx + 'px ' + padRightPx + 'px ' + padBottomPx + 'px ' + padLeftPx + 'px !important;\n' +
-        '  font-family: ' + ff + ' !important;\n' +
-        '  font-size: ' + fs + 'px !important;\n' +
+        '  font-family: ' + ff + ';\n' +
+        '  font-size: ' + fs + 'px;\n' +
         '}\n' +
         imgCss;
 
       if (currentDocType !== 'typ') {
         renderPreview();
       }
-      deBroadcastState();
     }
 
     function deSyncPageLayoutFromControls() {
@@ -4846,293 +5487,6 @@
       pageLayout.footerAlign = getEl('pl-footer-left') && getEl('pl-footer-left').classList.contains('active')
         ? 'left'
         : (getEl('pl-footer-right') && getEl('pl-footer-right').classList.contains('active') ? 'right' : 'center');
-    }
-
-    // ── Presentation mode ─────────────────────────────────────
-    let _dePresCh = null;
-    let _dePresOpen = false;
-    let _lastBroadcastW = 0;
-    let _lastBroadcastH = 0;
-
-    function _deGetPresLayout() {
-      const MM2PX = 3.7795;
-      const dims = getPageDims();
-      const m = pageLayout.margins;
-      const previewEl = document.getElementById('preview-content');
-      const w = previewEl ? previewEl.getBoundingClientRect().width : (dims.w * MM2PX);
-      return {
-        width: w + 'px',
-        minHeight: (dims.h * MM2PX) + 'px',
-        padding: (m.top * MM2PX) + 'px ' + (m.right * MM2PX) + 'px ' + (m.bottom * MM2PX) + 'px ' + (m.left * MM2PX) + 'px',
-        fontFamily: pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif",
-        fontSize: ((pageLayout.fontSize || 11) * 1.3333) + 'px',
-        margin: '0 auto',
-        maxWidth: '100%'
-      };
-    }
-
-    function deBroadcastState() {
-      if (!_dePresCh || !_dePresOpen || _dePresFrozen) return;
-      const previewEl = document.getElementById('preview-content');
-      if (!previewEl) return;
-      
-      // Filter out editor-only helpers (like page-break rulers) from the HTML string before broadcasting
-      let html = previewEl.innerHTML;
-      html = html.replace(/<div class="de-fp-ruler"[\s\S]*?<\/div>/g, '');
-
-      const cssEl = document.getElementById('custom-css-style');
-      const css = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : (cssEl ? cssEl.textContent : ''));
-      
-      const pageLayoutCssEl = document.getElementById('page-layout-style');
-      const pageLayoutCss = pageLayoutCssEl ? pageLayoutCssEl.textContent : '';
-
-      const docName = currentDocName ? currentDocName.replace(/\.(md|html)$/, '') : 'Untitled';
-      
-      const scrollEl = document.getElementById('preview-scroll');
-      const scrollX = scrollEl ? scrollEl.scrollLeft : 0;
-      const scrollY = scrollEl ? scrollEl.scrollTop : 0;
-      const viewW = scrollEl ? scrollEl.clientWidth : 0;
-      const viewH = scrollEl ? scrollEl.clientHeight : 0;
-
-      try {
-        _lastBroadcastW = viewW;
-        _lastBroadcastH = viewH;
-        _dePresCh.postMessage({
-          type: 'de-state',
-          html: html,
-          css,
-          pageLayoutCss,
-          layoutStyle: _deGetPresLayout(),
-          docName,
-          scrollX,
-          scrollY,
-          viewW,
-          viewH
-        });
-      } catch (e) { }
-    }
-
-    function deBroadcastScroll() {
-      if (!_dePresCh || !_dePresOpen || _dePresFrozen) return;
-      const scrollEl = document.getElementById('preview-scroll');
-      if (!scrollEl) return;
-      const viewW = scrollEl.clientWidth;
-      const viewH = scrollEl.clientHeight;
-      if (viewW !== _lastBroadcastW || viewH !== _lastBroadcastH) {
-        deBroadcastState();
-        return;
-      }
-      try {
-        _dePresCh.postMessage({
-          type: 'de-scroll',
-          scrollX: scrollEl.scrollLeft,
-          scrollY: scrollEl.scrollTop,
-          viewW: viewW,
-          viewH: viewH
-        });
-      } catch (e) { }
-    }
-
-    let _dePresFrozen = false;
-
-    function toggleFreezePresentation() {
-      _dePresFrozen = !_dePresFrozen;
-      syncPresentationFreezeButtons();
-      if (_dePresCh) {
-        try {
-          _dePresCh.postMessage({ type: 'de-pres-frozen-state', on: _dePresFrozen });
-        } catch (_) {}
-      }
-      if (!_dePresFrozen) {
-        deBroadcastState();
-      }
-    }
-
-    function syncPresentationFreezeButtons() {
-      const popupBtn = document.querySelector('#de-pres-popup [data-pres-action="freeze"]');
-      if (popupBtn) {
-        const title = _dePresFrozen ? (translate('pres_unfreeze_title') || translate('pres_unfreeze')) : (translate('pres_freeze_title') || translate('pres_freeze'));
-        popupBtn.title = title;
-        popupBtn.setAttribute('data-tooltip', title);
-        popupBtn.setAttribute('aria-label', title);
-        popupBtn.classList.toggle('is-frozen', !!_dePresFrozen);
-      }
-    }
-
-    function translate(key) {
-      const lang = (window.getLang && typeof window.getLang === 'function') ? window.getLang() : 'fr';
-      const localStrings = {
-        en: {
-          pres_menu_title: 'Presentation Menu',
-          pres_stop: 'Stop',
-          pres_stop_title: 'Stop presentation mode',
-          pres_freeze: 'Freeze',
-          pres_unfreeze: 'Unfreeze',
-          pres_freeze_title: 'Freeze presentation display',
-          pres_unfreeze_title: 'Unfreeze presentation display',
-          pres_resize: 'Fit Screen',
-          pres_resize_title: 'Resize presentation display',
-          pres_left: 'Left',
-          pres_left_title: 'Dock to left half',
-          pres_right: 'Right',
-          pres_right_title: 'Dock to right half'
-        },
-        fr: {
-          pres_menu_title: 'Menu de présentation',
-          pres_stop: 'Arrêter',
-          pres_stop_title: 'Arrêter le mode présentation',
-          pres_freeze: 'Figer',
-          pres_unfreeze: 'Libérer',
-          pres_freeze_title: 'Figer l\'écran de présentation',
-          pres_unfreeze_title: 'Libérer l\'écran de présentation',
-          pres_resize: 'Ajuster',
-          pres_resize_title: 'Redimensionner la fenêtre de présentation',
-          pres_left: 'Gauche',
-          pres_left_title: 'Ancrer sur la moitié gauche',
-          pres_right: 'Droite',
-          pres_right_title: 'Ancrer sur la moitié droite'
-        }
-      };
-      const map = localStrings[lang] || localStrings.en;
-      return map[key] || key;
-    }
-
-    function ensurePresentationPopupMenu() {
-      let popup = document.getElementById('de-pres-popup');
-      if (popup) return;
-      popup = document.createElement('div');
-      popup.id = 'de-pres-popup';
-      popup.className = 'pres-control-menu tooltip-top';
-      popup.style.cssText = 'position:fixed;bottom:12px;right:12px;z-index:100000;display:none;';
-      popup.innerHTML = ''
-        + '<div class="pres-drag-handle" title="Drag to move">⋮⋮</div>'
-        + `<button type="button" class="pres-btn" data-pres-action="close" data-tooltip="${translate('pres_stop_title') || translate('pres_stop')}" title="${translate('pres_stop_title') || translate('pres_stop')}" aria-label="${translate('pres_stop_title') || translate('pres_stop')}"><img src="../assets/icons/stop.svg" alt="" /></button>`
-        + `<button type="button" class="pres-btn" data-pres-action="freeze" data-tooltip="${translate('pres_freeze_title') || translate('pres_freeze')}" title="${translate('pres_freeze_title') || translate('pres_freeze')}" aria-label="${translate('pres_freeze_title') || translate('pres_freeze')}"><img src="../assets/icons/pause.svg" alt="" /></button>`
-        + `<button type="button" class="pres-btn" data-pres-action="resize" data-tooltip="${translate('pres_resize_title') || translate('pres_resize')}" title="${translate('pres_resize_title') || translate('pres_resize')}" aria-label="${translate('pres_resize_title') || translate('pres_resize')}"><img src="../assets/icons/compact.svg" alt="" /></button>`
-        + `<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="${translate('pres_left_title') || translate('pres_left')}" title="${translate('pres_left_title') || translate('pres_left')}" aria-label="${translate('pres_left_title') || translate('pres_left')}"><img src="../assets/icons/triangle-left.svg" alt="" /></button>`
-        + `<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="${translate('pres_right_title') || translate('pres_right')}" title="${translate('pres_right_title') || translate('pres_right')}" aria-label="${translate('pres_right_title') || translate('pres_right')}"><img src="../assets/icons/triangle-right.svg" alt="" /></button>`;
-      popup.addEventListener('click', (event) => {
-        const btn = event.target.closest('[data-pres-action]');
-        if (!btn) return;
-        event.preventDefault();
-        event.stopPropagation();
-        const action = btn.getAttribute('data-pres-action');
-        if (action === 'close') deClosePresentation();
-        else if (action === 'freeze') toggleFreezePresentation();
-        else if (action === 'resize') {
-          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('resize-window');
-        }
-        else if (action === 'right') {
-          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('dock-right');
-        }
-        else if (action === 'left') {
-          if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('dock-left');
-        }
-      });
-
-      // Make the popup draggable
-      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
-      popup.addEventListener('mousedown', dragMouseDown);
-      popup.addEventListener('touchstart', dragMouseDown, { passive: false });
-
-      function dragMouseDown(e) {
-        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-        e = e || window.event;
-        if (e.type !== 'touchstart') {
-          e.preventDefault();
-        }
-        if (e.type === 'touchstart') {
-          pos3 = e.touches[0].clientX;
-          pos4 = e.touches[0].clientY;
-        } else {
-          pos3 = e.clientX;
-          pos4 = e.clientY;
-        }
-        document.addEventListener('mouseup', closeDragElement);
-        document.addEventListener('mousemove', elementDrag);
-        document.addEventListener('touchend', closeDragElement);
-        document.addEventListener('touchmove', elementDrag, { passive: false });
-      }
-
-      function elementDrag(e) {
-        e = e || window.event;
-        let clientX, clientY;
-        if (e.type === 'touchmove') {
-          clientX = e.touches[0].clientX;
-          clientY = e.touches[0].clientY;
-        } else {
-          clientX = e.clientX;
-          clientY = e.clientY;
-        }
-        pos1 = pos3 - clientX;
-        pos2 = pos4 - clientY;
-        pos3 = clientX;
-        pos4 = clientY;
-
-        let newTop = popup.offsetTop - pos2;
-        let newLeft = popup.offsetLeft - pos1;
-
-        const rect = popup.getBoundingClientRect();
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-
-        if (newTop < 0) newTop = 0;
-        if (newTop + rect.height > viewportHeight) newTop = viewportHeight - rect.height;
-        if (newLeft < 0) newLeft = 0;
-        if (newLeft + rect.width > viewportWidth) newLeft = viewportWidth - rect.width;
-
-        popup.style.top = newTop + 'px';
-        popup.style.left = newLeft + 'px';
-        popup.style.right = 'auto';
-        popup.style.bottom = 'auto';
-      }
-
-      function closeDragElement() {
-        document.removeEventListener('mouseup', closeDragElement);
-        document.removeEventListener('mousemove', elementDrag);
-        document.removeEventListener('touchend', closeDragElement);
-        document.removeEventListener('touchmove', elementDrag);
-      }
-
-      document.body.appendChild(popup);
-      syncPresentationFreezeButtons();
-    }
-
-    async function deOpenPresentation() {
-      if (!window.Desktop || !Desktop.isElectron()) return;
-      _dePresOpen = true; // Set immediately so incoming de-ready messages are handled
-      _dePresFrozen = false;
-      if (!_dePresCh) {
-        _dePresCh = new BroadcastChannel('de-presentation');
-        _dePresCh.onmessage = function (e) {
-          if (e.data && e.data.type === 'de-ready') deBroadcastState();
-        };
-      }
-      const res = await Desktop.openDocPresentation();
-      if (res && (res.ok || res.alreadyOpen)) {
-        document.documentElement.classList.add('de-pres-active');
-        document.getElementById('de-pres-sep').style.display = '';
-        deBroadcastState();
-        ensurePresentationPopupMenu();
-        const popup = document.getElementById('de-pres-popup');
-        if (popup) popup.style.display = 'flex';
-      } else {
-        _dePresOpen = false;
-      }
-    }
-
-    function deClosePresentation() {
-      if (window.Desktop && Desktop.isElectron()) Desktop.docPresentationCommand('close');
-      _dePresOpen = false;
-      _dePresFrozen = false;
-      if (_dePresCh) {
-        try { _dePresCh.close(); } catch (_) {}
-        _dePresCh = null;
-      }
-      document.documentElement.classList.remove('de-pres-active');
-      document.getElementById('de-pres-sep').style.display = 'none';
-      const popup = document.getElementById('de-pres-popup');
-      if (popup) popup.style.display = 'none';
     }
 
     /**
@@ -5309,6 +5663,70 @@
 
         currentSheet.content.appendChild(el);
 
+        const isBrk = v => /^(always|page|left|right)$/.test(v || '');
+        const elCs = window.getComputedStyle(el);
+        // CSS break-before / page-break-before
+        if ((isBrk(elCs.breakBefore) || isBrk(elCs.pageBreakBefore)) && currentSheet.content.children.length > 1) {
+          currentSheet.content.removeChild(el);
+          currentSheet = createSheet(sheets.length + 1);
+          sheets.push(currentSheet);
+          container.appendChild(currentSheet.sheet);
+          currentSheet.content.appendChild(el);
+        }
+        const forceBreakAfter = isBrk(elCs.breakAfter) || isBrk(elCs.pageBreakAfter);
+
+        // Split tables across pages by rows (matches print-to-PDF), unless break-inside: avoid
+        const avoidInside = /avoid/.test(elCs.breakInside || '') || /avoid/.test(elCs.pageBreakInside || '');
+        if (el.tagName === 'TABLE' && !avoidInside && el.tBodies.length === 1 &&
+          el.tBodies[0].rows.length > 1 && currentSheet.content.offsetHeight > usableH) {
+          const rows = Array.from(el.tBodies[0].rows);
+          rows.forEach(r => r.remove());
+          let curTable = el;
+          let curBody = el.tBodies[0];
+          for (const row of rows) {
+            curBody.appendChild(row);
+            if (currentSheet.content.offsetHeight <= usableH) continue;
+            if (curBody.rows.length === 1 && currentSheet.content.children.length > 1 && curTable === el) {
+              // Not even header + first row fits: move the whole table (with preceding heading)
+              currentSheet.content.removeChild(curTable);
+              const lastEl2 = currentSheet.content.lastElementChild;
+              let hd = null;
+              if (lastEl2 && /^H[1-6]$/.test(lastEl2.tagName) && currentSheet.content.children.length > 1) {
+                hd = lastEl2;
+                currentSheet.content.removeChild(hd);
+              }
+              currentSheet = createSheet(sheets.length + 1);
+              sheets.push(currentSheet);
+              container.appendChild(currentSheet.sheet);
+              if (hd) currentSheet.content.appendChild(hd);
+              currentSheet.content.appendChild(curTable);
+              continue;
+            }
+            if (curBody.rows.length > 1) {
+              curBody.removeChild(row);
+              currentSheet = createSheet(sheets.length + 1);
+              sheets.push(currentSheet);
+              container.appendChild(currentSheet.sheet);
+              const next = el.cloneNode(false);
+              Array.from(el.children).forEach(ch => {
+                if (ch.tagName === 'COLGROUP' || ch.tagName === 'THEAD') next.appendChild(ch.cloneNode(true));
+              });
+              next.removeAttribute('data-source-line');
+              curBody = document.createElement('tbody');
+              next.appendChild(curBody);
+              curBody.appendChild(row);
+              currentSheet.content.appendChild(next);
+              curTable = next;
+            }
+          }
+          if (forceBreakAfter && i < blocks.length - 1) {
+            currentSheet = createSheet(sheets.length + 1);
+            sheets.push(currentSheet);
+            container.appendChild(currentSheet.sheet);
+          }
+          continue;
+        }
+
         // Check overflow against usable height
         if (currentSheet.content.offsetHeight > usableH) {
           if (currentSheet.content.childNodes.length === 1) {
@@ -5337,6 +5755,11 @@
             currentSheet.content.appendChild(orphanHeading);
           }
           currentSheet.content.appendChild(el);
+        }
+        if (forceBreakAfter && i < blocks.length - 1) {
+          currentSheet = createSheet(sheets.length + 1);
+          sheets.push(currentSheet);
+          container.appendChild(currentSheet.sheet);
         }
       }
 
@@ -5447,6 +5870,8 @@
       }
 
       // Fallback: render using DOM paginator
+      const fpCssEl = document.getElementById('full-preview-custom-css');
+      if (fpCssEl) fpCssEl.textContent = deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : '', '#full-preview-content');
       const sourceHtml = document.getElementById('preview-content').innerHTML;
       const pageCount = await deRenderPagedPreview(content, sourceHtml);
       document.getElementById('full-preview-bar-title').textContent =
@@ -5463,7 +5888,8 @@
     /** Check if an element represents a manual page break */
     function _deIsManualPageBreak(el) {
       if (!el || el.nodeType !== 1) return false;
-      if (el.classList.contains('de-page-break') || el.classList.contains('page-break')) return true;
+      if (el.classList.contains('de-page-break') || el.classList.contains('page-break') ||
+        el.classList.contains('cmt-page-break') || el.classList.contains('mailposting-page-break-hr')) return true;
       const s = el.style;
       if (s && (s.pageBreakAfter === 'always' || s.pageBreakBefore === 'always' ||
         s.breakAfter === 'page' || s.breakBefore === 'page')) return true;
@@ -5485,7 +5911,7 @@
           const r = await deSaveManagedDocSnapshot('docEditorDocs', currentDocName, currentDocSubdir || null);
           if (r && r.ok) {
             docModified = false;
-            cssModified = false;
+            cssModified = false; scriptModified = false;
             updateDocIndicator();
             await deDeleteLegacyManagedArtifacts(currentDocName, currentDocSubdir || null);
           }
@@ -5697,7 +6123,6 @@
         document.body.style.userSelect = '';
         document.body.style.cursor = '';
         saveSplitState();
-        deBroadcastState();
       });
     }
 
@@ -5907,7 +6332,6 @@
         if (wysiwygSyncTimer) clearTimeout(wysiwygSyncTimer);
         wysiwygSyncTimer = setTimeout(() => {
           deSyncWysiwygToEditor();
-          deBroadcastState();
         }, 300);
       });
 
@@ -5976,6 +6400,9 @@
       if (isOpen && cssEditorVisible && cssEditor) {
         setTimeout(() => cssEditor.layout(), 30);
       }
+      if (isOpen && scriptEditorVisible && scriptEditor) {
+        setTimeout(() => scriptEditor.layout(), 30);
+      }
     }
     window.deToggleCssPanel = deToggleCssPanel;
 
@@ -5988,6 +6415,67 @@
       btn.textContent = cssEditorVisible ? 'CSS Editor ▲' : 'CSS Editor ▾';
       if (cssEditorVisible && cssEditor) {
         setTimeout(() => cssEditor.layout(), 30);
+      }
+    }
+
+    function toggleScriptEditor() {
+      scriptEditorVisible = !scriptEditorVisible;
+      document.getElementById('script-editor-wrapper').classList.toggle('visible', scriptEditorVisible);
+      document.getElementById('btn-toggle-script-editor').classList.toggle('active', scriptEditorVisible);
+      if (scriptEditorVisible && scriptEditor) setTimeout(() => scriptEditor.layout(), 30);
+    }
+
+    function deRunScriptInSandbox() {
+      const frame = document.getElementById('script-run-frame');
+      if (!frame || !mdEditor) return;
+      const extracted = deExtractStyleBlocks(mdEditor.getValue());
+      dePendingScriptText = '';
+      const css = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+      let html = extracted.content;
+      if (css.trim()) html = '<style>\n' + css + '\n</style>\n' + html;
+      html = deInjectInlineScript(html, scriptEditor ? scriptEditor.getValue() : '');
+      frame.classList.add('visible');
+      frame.srcdoc = html;
+    }
+
+    function deBuildScriptHelperSnippet(preset, triggerSel, targetSel) {
+      const trig = JSON.stringify(triggerSel || '#my-btn');
+      const targ = JSON.stringify(targetSel || '#my-box');
+      switch (preset) {
+        case 'toggle':
+          return `document.querySelector(${trig})?.addEventListener('click', () => {\n  const el = document.querySelector(${targ});\n  if (!el) return;\n  el.style.display = el.style.display === 'none' ? '' : 'none';\n});`;
+        case 'toggleClass':
+          return `document.querySelector(${trig})?.addEventListener('click', () => {\n  document.querySelector(${targ})?.classList.toggle('active');\n});`;
+        case 'fadeIn':
+          return `document.querySelector(${targ})?.animate(\n  [{ opacity: 0 }, { opacity: 1 }],\n  { duration: 400, easing: 'ease-out', fill: 'forwards' }\n);`;
+        case 'slideDown':
+          return `document.querySelector(${targ})?.animate(\n  [{ opacity: 0, transform: 'translateY(-12px)' }, { opacity: 1, transform: 'translateY(0)' }],\n  { duration: 350, easing: 'ease-out', fill: 'forwards' }\n);`;
+        case 'pulse':
+          return `document.querySelector(${trig})?.addEventListener('click', () => {\n  document.querySelector(${targ})?.animate(\n    [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }],\n    { duration: 300, easing: 'ease-in-out' }\n  );\n});`;
+        case 'countdown':
+          return `(() => {\n  const el = document.querySelector(${targ});\n  if (!el) return;\n  let sec = 60;\n  el.textContent = sec;\n  const id = setInterval(() => {\n    sec -= 1;\n    el.textContent = sec;\n    if (sec <= 0) clearInterval(id);\n  }, 1000);\n})();`;
+        case 'clickMessage':
+          return `document.querySelector(${trig})?.addEventListener('click', () => {\n  const el = document.querySelector(${targ});\n  if (el) el.textContent = 'Clicked!';\n});`;
+        default:
+          return '';
+      }
+    }
+
+    function deInsertScriptHelperSnippet() {
+      if (!scriptEditor) return;
+      const preset = document.getElementById('script-helper-preset')?.value || 'toggle';
+      const triggerVal = (document.getElementById('script-helper-trigger')?.value || '').trim();
+      const targetVal = (document.getElementById('script-helper-target')?.value || '').trim();
+      const snippet = deBuildScriptHelperSnippet(preset, triggerVal, targetVal);
+      if (!snippet) return;
+      const current = scriptEditor.getValue();
+      const next = current.trim() ? current.replace(/\s+$/, '') + '\n\n' + snippet + '\n' : snippet + '\n';
+      scriptEditor.setValue(next);
+      scriptEditor.focus();
+      const model = scriptEditor.getModel();
+      if (model) {
+        const lastLine = model.getLineCount();
+        scriptEditor.setPosition({ lineNumber: lastLine, column: model.getLineMaxColumn(lastLine) });
       }
     }
 
@@ -11168,17 +11656,37 @@
       setupMarked();
       initSplitDivider();
       mpInit();
-      const previewScroll = document.getElementById('preview-scroll');
-      if (previewScroll) {
-        previewScroll.addEventListener('scroll', deBroadcastScroll);
-      }
-      window.addEventListener('resize', deBroadcastState);
       initPageLayoutPopup();
       initDocumentInspector();
 
-      document.getElementById('btn-doc-type').addEventListener('click', () => {
-        const next = currentDocType === 'md' ? 'html' : (currentDocType === 'html' ? 'typ' : 'md');
-        setDocType(next);
+      const docTypeWrap = document.getElementById('doc-type-wrap');
+      const docTypePop = document.getElementById('doc-type-popover');
+      document.getElementById('btn-doc-type').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!docTypePop) return;
+        const willOpen = !docTypePop.classList.contains('open');
+        if (willOpen) {
+          docTypePop.querySelectorAll('.doc-type-opt').forEach(opt => {
+            opt.classList.toggle('active', opt.dataset.docType === currentDocType);
+          });
+        }
+        docTypePop.classList.toggle('open', willOpen);
+      });
+      if (docTypePop) {
+        docTypePop.addEventListener('click', (e) => {
+          const opt = e.target.closest('.doc-type-opt');
+          if (!opt) return;
+          setDocType(opt.dataset.docType);
+          docTypePop.classList.remove('open');
+        });
+      }
+      document.addEventListener('click', (e) => {
+        if (docTypePop && docTypeWrap && !docTypeWrap.contains(e.target)) {
+          docTypePop.classList.remove('open');
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && docTypePop) docTypePop.classList.remove('open');
       });
       document.getElementById('btn-new-doc').addEventListener('click', newDoc);
       const btnNewWin = document.getElementById('btn-new-window');
@@ -11227,7 +11735,6 @@
       document.getElementById('btn-export-docx').addEventListener('click', exportDocx);
       document.getElementById('btn-export-odt').addEventListener('click', exportOdt);
       document.getElementById('btn-preview').addEventListener('click', showFullPreview);
-      document.getElementById('btn-pres-mode').addEventListener('click', deOpenPresentation);
       document.getElementById('btn-syntax-help').addEventListener('click', () => openSyntaxHelpModal());
       document.getElementById('syntax-help-close').addEventListener('click', () => hideModal('syntax-help-modal'));
       document.getElementById('syntax-help-modal').addEventListener('click', function (e) {
@@ -11240,14 +11747,12 @@
       });
       document.getElementById('btn-close-preview').addEventListener('click', hideFullPreview);
       document.getElementById('btn-toggle-css-editor').addEventListener('click', toggleCssEditor);
-      document.getElementById('btn-new-ss').addEventListener('click', newStylesheet);
-      document.getElementById('btn-save-ss').addEventListener('click', saveStylesheet);
-      document.getElementById('btn-delete-ss').addEventListener('click', deleteStylesheet);
-      document.getElementById('stylesheet-select').addEventListener('change', function () {
-        const val = this.value;
-        if (val) localStorage.setItem('cmt-doceditor-last-ss', val);
-        else localStorage.removeItem('cmt-doceditor-last-ss');
-        onStylesheetChange();
+      document.getElementById('btn-toggle-script-editor').addEventListener('click', toggleScriptEditor);
+      document.getElementById('btn-script-run').addEventListener('click', deRunScriptInSandbox);
+      document.getElementById('btn-script-insert').addEventListener('click', deInsertScriptHelperSnippet);
+      ['script-helper-trigger', 'script-helper-target'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') deInsertScriptHelperSnippet(); });
       });
       document.getElementById('btn-add-rule').addEventListener('click', addCssRule);
       document.getElementById('rule-value').addEventListener('keydown', function (e) {
@@ -11487,105 +11992,6 @@
 
       updateDocIndicator();
     });
-  </script>
-  <script>
-    // Presentation receiver — runs only in the presentation window (?presentation=1)
-    (function () {
-      if (new URLSearchParams(location.search).get('presentation') !== '1') return;
-      document.documentElement.classList.add('de-pres-mode');
-
-      const ch = new BroadcastChannel('de-presentation');
-
-      var _viewW = 0;
-      var _viewH = 0;
-      var _scrollX = 0;
-      var _scrollY = 0;
-      var _presFrozen = false;
-
-      function _mirrorApplyViewport() {
-        var docWrapper = document.getElementById('de-pres-doc-wrapper');
-        var scrollEl = document.getElementById('de-pres-scroll');
-        if (!docWrapper || !scrollEl || !_viewW || !_viewH) return;
-
-        var mW = window.innerWidth;
-        var mH = window.innerHeight;
-        var s = Math.min(mW / _viewW, mH / _viewH);
-
-        var displayW = _viewW * s;
-        var displayH = _viewH * s;
-        var ox = (mW - displayW) / 2;
-        var oy = (mH - displayH) / 2;
-
-        scrollEl.style.left = ox + 'px';
-        scrollEl.style.top = oy + 'px';
-        scrollEl.style.width = displayW + 'px';
-        scrollEl.style.height = displayH + 'px';
-
-        docWrapper.style.width = _viewW + 'px';
-
-        docWrapper.style.transformOrigin = '0 0';
-        docWrapper.style.transform = 'scale(' + s + ') translate(' + (-_scrollX) + 'px, ' + (-_scrollY) + 'px)';
-      }
-
-      function applyScroll(scrollX, scrollY, viewW, viewH) {
-        if (typeof viewW === 'number') _viewW = viewW;
-        if (typeof viewH === 'number') _viewH = viewH;
-        if (typeof scrollX === 'number') _scrollX = scrollX;
-        if (typeof scrollY === 'number') _scrollY = scrollY;
-        _mirrorApplyViewport();
-      }
-
-      function applyState(data) {
-        var doc = document.getElementById('de-pres-doc');
-        var css = document.getElementById('de-pres-custom-css');
-        var layoutCss = document.getElementById('de-pres-page-layout-css');
-        if (!layoutCss && doc) {
-          layoutCss = document.createElement('style');
-          layoutCss.id = 'de-pres-page-layout-css';
-          doc.parentNode.insertBefore(layoutCss, doc);
-        }
-        if (!doc) return;
-        if (typeof data.html === 'string') doc.innerHTML = data.html;
-        if (css && typeof data.css === 'string') css.textContent = deScopeCssForContainer(data.css, '#de-pres-doc');
-        if (layoutCss && typeof data.pageLayoutCss === 'string') {
-          layoutCss.textContent = data.pageLayoutCss;
-        }
-        if (data.layoutStyle) Object.assign(doc.style, data.layoutStyle);
-        if (data.docName) document.title = data.docName + ' – Presentation';
-        
-        if (typeof data.viewW === 'number') _viewW = data.viewW;
-        if (typeof data.viewH === 'number') _viewH = data.viewH;
-        if (typeof data.scrollX === 'number') _scrollX = data.scrollX;
-        if (typeof data.scrollY === 'number') _scrollY = data.scrollY;
-        
-        _mirrorApplyViewport();
-      }
-
-      ch.onmessage = function (e) {
-        if (e.data && e.data.type === 'de-pres-frozen-state') {
-          _presFrozen = e.data.on;
-        }
-        if (_presFrozen) return;
-        if (e.data && e.data.type === 'de-state') applyState(e.data);
-        if (e.data && e.data.type === 'de-scroll') applyScroll(e.data.scrollX, e.data.scrollY, e.data.viewW, e.data.viewH);
-      };
-
-      function requestState() {
-        try { ch.postMessage({ type: 'de-ready' }); } catch (e) { }
-      }
-
-      // Request state immediately
-      requestState();
-
-      document.addEventListener('DOMContentLoaded', function () {
-        requestState();
-        setTimeout(requestState, 600);
-        setTimeout(requestState, 1800);
-      });
-      window.addEventListener('resize', function () {
-        _mirrorApplyViewport();
-      });
-    })();
   </script>
 </body>
 </html>

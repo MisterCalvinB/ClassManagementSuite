@@ -4933,27 +4933,18 @@
         return '<div class="exercise-card-item section-card-blue" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '      <span class="card-drag-handle" title="Drag to reorder"><img class="tc-ico" src="../assets/icons/grip.svg" alt=""></span>' +
           '      <span class="card-type-badge badge-blue">' + (i18n.t('tcTypeSectionCompetences') || 'Competences Block') + '</span>' +
           '    </div>' +
           '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title || 'Curriculum Objectives & Competences') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title || 'Curriculum Objectives & Competences') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
           '    </div>' +
           '    <div class="card-header-right">' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
+          tcCardActionsHtml(ex, idx, isOpen) +
           '    </div>' +
           '  </div>' +
           '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
           '    <div class="section-block-preview">' +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#1e40af;">' + (i18n.t('tcActiveCompetencesInBlock') || 'Curriculum objectives displayed by this block:') + '</span>' +
@@ -4967,6 +4958,7 @@
           previewContent +
           '    </div>' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+          tcStyleRowHtml(ex) +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-top:4px;flex-wrap:wrap;gap:6px;">' +
           '        <span style="font-size:0.78rem;font-weight:900;color:#1e40af;display:inline-flex;align-items:center;gap:5px;">' +
           '          <img src="../assets/icons/award.svg" style="width:14px;height:14px;" alt="">' +
@@ -5052,8 +5044,6 @@
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
           '      <button type="button" class="neo-btn sm" style="background:#eff6ff;color:#1e40af;border-color:#2563eb;" onclick="tcOpenCompetenceDrawerForSection(\'' + ex.id + '\')" title="Attach curriculum competences from database">+ Competences</button>' +
-          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
-          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '    </div>' +
           '  </div>' +
           '</div>';
@@ -5112,31 +5102,22 @@
         return '<div class="exercise-card-item section-card-green" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '      <span class="card-drag-handle" title="Drag to reorder"><img class="tc-ico" src="../assets/icons/grip.svg" alt=""></span>' +
           '      <span class="card-type-badge badge-green">' + (i18n.t('tcTypeSectionCriteria') || 'Criteria Block') + '</span>' +
           '    </div>' +
           '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title || 'Assessment Criteria & Rubric') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title || 'Assessment Criteria & Rubric') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
           '    </div>' +
           '    <div class="card-header-right">' +
           '      <div class="card-points-wrap">' +
           '        <span class="card-pts-label">PTS:</span>' +
-          '        <input type="number" class="card-points-input" value="' + (critPts || ex.points || 0) + '" step="0.5" min="0" onchange="tcUpdateExField(\'' + ex.id + '\', \'points\', Number(this.value)); updatePointsBadge();">' +
+          '        <input type="number" class="card-points-input" value="' + (critPts || ex.points || 0) + '" step="0.5" min="0"' + (TestCreatorService.isPointsFromRubric(ex) ? ' readonly tabindex="-1" title="' + escapeAttr(i18n.t('tcPointsFromRubric') || 'Points come from the attached rubric') + '"' : '') + ' onchange="tcUpdateExField(\'' + ex.id + '\', \'points\', Number(this.value)); updatePointsBadge();">' +
           '      </div>' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
+          tcCardActionsHtml(ex, idx, isOpen) +
           '    </div>' +
           '  </div>' +
           '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
           '    <div class="section-block-preview">' +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#065f46;">' + (i18n.t('tcActiveCriteriaInBlock') || 'Assessment criteria rubrics displayed by this block:') + '</span>' +
@@ -5153,6 +5134,7 @@
           previewContent +
           '    </div>' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+          tcStyleRowHtml(ex) +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-top:4px;flex-wrap:wrap;gap:6px;">' +
           '        <span style="font-size:0.78rem;font-weight:900;color:#065f46;display:inline-flex;align-items:center;gap:5px;">' +
           '          <img src="../assets/icons/award.svg" style="width:14px;height:14px;" alt="">' +
@@ -5239,8 +5221,6 @@
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
           '      <button type="button" class="neo-btn sm" style="background:#ecfdf5;color:#065f46;border-color:#059669;" onclick="tcOpenCriteriaDrawerForSection(\'' + ex.id + '\')" title="Attach scoring rubric criteria from database">+ Rubric Criteria</button>' +
-          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
-          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '    </div>' +
           '  </div>' +
           '</div>';
@@ -5340,27 +5320,18 @@
         return '<div class="exercise-card-item section-card-amber" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '      <span class="card-drag-handle" title="Drag to reorder"><img class="tc-ico" src="../assets/icons/grip.svg" alt=""></span>' +
           '      <span class="card-type-badge badge-amber">' + (i18n.t('tcTypeSectionGradingScale') || 'Grading Scale Block') + '</span>' +
           '    </div>' +
           '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title || 'Grading Scale & Conversion Table') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value); tcUpdateExOptionField(\'' + ex.id + '\', \'scaleTitle\', this.value);">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title || 'Grading Scale & Conversion Table') + '" placeholder="Section Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value); tcUpdateExOptionField(\'' + ex.id + '\', \'scaleTitle\', this.value);">' +
           '    </div>' +
           '    <div class="card-header-right">' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
+          tcCardActionsHtml(ex, idx, isOpen) +
           '    </div>' +
           '  </div>' +
           '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
           '    <div class="section-block-preview">' +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">' +
           '        <span style="font-size:0.75rem;font-weight:900;text-transform:uppercase;color:#92400e;">' + (i18n.t('tcActiveScaleInBlock') || 'Active grading scale conversion table:') + '</span>' +
@@ -5374,6 +5345,7 @@
           previewContent +
           '    </div>' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+          tcStyleRowHtml(ex) +
           '      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-top:4px;flex-wrap:wrap;gap:6px;">' +
           '        <span style="font-size:0.78rem;font-weight:900;color:#92400e;display:inline-flex;align-items:center;gap:5px;">' +
           '          <img src="../assets/icons/layout.svg" style="width:14px;height:14px;" alt="">' +
@@ -5456,8 +5428,6 @@
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
           '      <button type="button" class="neo-btn sm" style="background:#fef3c7;color:#92400e;border-color:#d97706;" onclick="tcOpenScalesDrawerForSection(\'' + ex.id + '\')" title="Choose scale model from drawer">+ Scale Model</button>' +
-          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
-          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '    </div>' +
           '  </div>' +
           '</div>';
@@ -5474,31 +5444,22 @@
         return '<div class="exercise-card-item section-card-purple" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '      <span class="card-drag-handle" title="Drag to reorder"><img class="tc-ico" src="../assets/icons/grip.svg" alt=""></span>' +
           '      <span class="card-type-badge badge-purple">' + (i18n.t('tcTypeSectionCustom') || 'Custom Block') + '</span>' +
           '    </div>' +
           '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title || 'Custom Block') + '" placeholder="Custom Block Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title || 'Custom Block') + '" placeholder="Custom Block Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
           '    </div>' +
           '    <div class="card-header-right">' +
           '      <div class="card-points-wrap">' +
           '        <span class="card-pts-label">PTS:</span>' +
           '        <input type="number" class="card-points-input" value="' + (ex.points || 0) + '" step="0.5" min="0" onchange="tcUpdateExField(\'' + ex.id + '\', \'points\', Number(this.value)); updatePointsBadge();">' +
           '      </div>' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
+          tcCardActionsHtml(ex, idx, isOpen) +
           '    </div>' +
           '  </div>' +
           '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle for this block" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
           '    <!-- Mode Selector: WYSIWYG vs Pure HTML -->' +
           '    <div class="tc-custom-mode-bar">' +
           '      <div class="tc-custom-mode-pills">' +
@@ -5574,6 +5535,7 @@
           '    </div>' +
           '    <!-- Options Panel -->' +
           '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+          tcStyleRowHtml(ex) +
           '      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:10px;padding:8px 0;">' +
           '        <div>' +
           '          <label style="display:block;font-size:0.75rem;font-weight:800;margin-bottom:3px;">Background Tint:</label>' +
@@ -5627,8 +5589,6 @@
           '      </label>' +
           '    </div>' +
           '    <div style="display:flex;align-items:center;gap:6px;">' +
-          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
-          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting">Style</button>' +
           '      <button class="neo-btn sm" onclick="tcAttachCriteriaToEx(\'' + ex.id + '\')">+ Rubric Criteria</button>' +
           '      <button class="neo-btn sm" onclick="tcAttachCompetenceToEx(\'' + ex.id + '\')">+ Competence</button>' +
           '    </div>' +
@@ -5894,27 +5854,18 @@
           '  <input type="file" id="pdfFileInput_' + ex.id + '" accept="application/pdf" style="display:none;" onchange="tcHandlePdfFileSelected(\'' + ex.id + '\', this)">' +
           '  <div class="exercise-card-header">' +
           '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
+          '      <span class="card-drag-handle" title="Drag to reorder"><img class="tc-ico" src="../assets/icons/grip.svg" alt=""></span>' +
           '      <span class="card-type-badge badge-red">' + escapeHtml(i18n.t('tcPdfCardTitle') || 'PDF Document') + '</span>' +
           '    </div>' +
           '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title || 'Document: Reading Passage') + '" placeholder="Document Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
+          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title || 'Document: Reading Passage') + '" placeholder="Document Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
           '    </div>' +
           '    <div class="card-header-right">' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
+          tcCardActionsHtml(ex, idx, null) +
           '    </div>' +
           '  </div>' +
           '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle (e.g. Read the document before answering Questions 1 to 5)" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
+          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="Optional instructions or subtitle (e.g. Read the document before answering Questions 1 to 5)" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
           fileAreaHtml +
           (pdfPages > 0 ? (
             '    <div class="tc-pdf-settings-grid">' +
@@ -6199,61 +6150,147 @@
         var typeObj = TestCreatorService.EXERCISE_TYPES.find(function (t) { return t.id === ex.type; }) || { name: ex.type };
         var isOpen = window._openOptionsExerciseIds && window._openOptionsExerciseIds.has(ex.id);
 
-        return '<div class="exercise-card-item" id="card-' + ex.id + '" data-index="' + idx + '" data-id="' + ex.id + '">' +
-          '  <div class="exercise-card-header">' +
-          '    <div class="card-header-left">' +
-          '      <span class="card-drag-handle" title="Drag to reorder">⋮⋮</span>' +
-          '      <span class="card-type-badge">' + typeObj.name + '</span>' +
-          '    </div>' +
-          '    <div class="card-header-title-wrap">' +
-          '      <input type="text" id="exTitle_' + ex.id + '" class="card-title-input" value="' + escapeAttr(ex.title) + '" placeholder="Exercise Title" onchange="tcUpdateExField(\'' + ex.id + '\', \'title\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exTitle_' + ex.id) +
-          '    </div>' +
-          '    <div class="card-header-right">' +
-          '      <div class="card-points-wrap">' +
-          '        <span class="card-pts-label">PTS:</span>' +
-          '        <input type="number" class="card-points-input" value="' + (ex.points || 1) + '" step="0.5" onchange="tcUpdateExField(\'' + ex.id + '\', \'points\', Number(this.value))">' +
-          '      </div>' +
-          '      <div class="card-actions">' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', -1)" title="Move up">▲</button>' +
-          '        <button class="card-btn-icon" onclick="tcMoveExercise(' + idx + ', 1)" title="Move down">▼</button>' +
-          '        <button class="card-btn-icon" onclick="tcDuplicateExercise(\'' + ex.id + '\')" title="Duplicate"><img src="../assets/icons/duplicate.svg" alt="Duplicate" style="width:13px;height:13px;"></button>' +
-          '        <button class="card-btn-icon" style="color:#ef4444;" onclick="tcDeleteExercise(\'' + ex.id + '\')" title="Delete"><img src="../assets/icons/delete.svg" alt="Delete" style="width:13px;height:13px;"></button>' +
-          '      </div>' +
-          '    </div>' +
-          '  </div>' +
-          '  <div class="card-body">' +
-          '    <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;">' +
-          '      <input type="text" id="exInstr_' + ex.id + '" class="instructions-input" style="flex:1;" value="' + escapeAttr(ex.instructions) + '" placeholder="Instructions for students (optional)" onchange="tcUpdateExField(\'' + ex.id + '\', \'instructions\', this.value)">' +
-          '      ' + buildMiniFormatToolbar('exInstr_' + ex.id) +
-          '    </div>' +
-          buildSpecificEditorHtml(ex) +
-          '    <div class="exercise-options-panel" id="optionsPanel_' + ex.id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
-          buildExerciseOptionsHtml(ex) +
-          '    </div>' +
-          renderExerciseTagsHtml(ex) +
-          '  </div>' +
-          '  <div class="card-footer">' +
-          '    <div class="card-toggles">' +
-          '      <label class="card-checkbox-label">' +
-          '        <input type="checkbox" ' + (ex.forcePageBreak ? 'checked' : '') + ' onchange="tcUpdateExField(\'' + ex.id + '\', \'forcePageBreak\', this.checked)">' +
-          '        <span>Force Page Break before this exercise</span>' +
-          '      </label>' +
-          '      <label class="card-checkbox-label">' +
-          '        <input type="checkbox" ' + (ex.autoSaveToDb === true ? 'checked' : '') + ' onchange="tcToggleExAutoSave(\'' + ex.id + '\', this.checked)">' +
-          '        <span data-i18n="tcSaveToDb">' + (i18n.t('tcSaveToDb') || 'Save to Database') + '</span>' +
-          '      </label>' +
-          '    </div>' +
-          '    <div style="display:flex;align-items:center;gap:6px;">' +
-          '      <button type="button" id="optionsBtn_' + ex.id + '" class="neo-btn sm tc-options-btn' + (isOpen ? ' yellow' : '') + '" onclick="tcToggleExerciseOptions(\'' + ex.id + '\')">Options</button>' +
-          '      <button type="button" class="' + (ex.exportStyle && (ex.exportStyle.fontSize || ex.exportStyle.lineHeight || ex.exportStyle.padding || (ex.exportStyle.numberedLines !== null && ex.exportStyle.numberedLines !== undefined)) ? 'neo-btn sm primary' : 'neo-btn sm') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')" title="Customise export formatting (font, line spacing, padding, numbered lines)">Style</button>' +
-          '      <button class="neo-btn sm" onclick="tcAttachCriteriaToEx(\'' + ex.id + '\')">+ Rubric Criteria</button>' +
-          '      <button class="neo-btn sm" onclick="tcAttachCompetenceToEx(\'' + ex.id + '\')">+ Competence</button>' +
-          '      <button class="neo-btn sm" onclick="tcAttachScaleToEx(\'' + ex.id + '\')">+ Grading Scale</button>' +
-          '    </div>' +
-          '  </div>' +
+        return tcBuildCardShell(ex, idx, {
+          badgeText: typeObj.name,
+          titlePlaceholder: 'Exercise Title',
+          instrPlaceholder: 'Instructions for students (optional)',
+          bodyHtml: buildSpecificEditorHtml(ex),
+          optionsHtml: buildExerciseOptionsHtml(ex),
+          isOpen: isOpen
+        });
+      }
+
+      // ── Shared card shell (header, instructions, one Settings panel) ──
+      function tcCardIcon(name) {
+        return '<img class="tc-ico" src="../assets/icons/' + name + '.svg" alt="">';
+      }
+
+      function tcHasExStyle(ex) {
+        var es = ex.exportStyle || {};
+        return !!(es.fontSize || es.lineHeight || es.padding || (es.numberedLines !== null && es.numberedLines !== undefined));
+      }
+
+      // Settings toggle + overflow menu (isOpen === null hides the Settings button)
+      function tcCardActionsHtml(ex, idx, isOpen) {
+        var id = ex.id;
+        var T = function (k, d) { return escapeHtml(i18n.t(k) || d); };
+        var A = function (k, d) { return escapeAttr(i18n.t(k) || d); };
+        return (isOpen === null ? '' :
+          '<button type="button" id="optionsBtn_' + id + '" class="card-settings-btn tc-options-btn' + (isOpen ? ' yellow' : '') + (tcHasExStyle(ex) ? ' has-style' : '') + '" onclick="tcToggleExerciseOptions(\'' + id + '\')">' + tcCardIcon('settings') + '<span>' + T('tcSettings', 'Settings') + '</span></button>') +
+          '<div class="card-menu-wrap">' +
+            '<button type="button" class="card-btn-icon" onclick="tcToggleCardMenu(\'' + id + '\', event)" title="' + A('tcMoreActions', 'More actions') + '">' + tcCardIcon('dots') + '</button>' +
+            '<div class="card-menu" id="cardMenu_' + id + '">' +
+              '<button type="button" onclick="tcMoveExercise(' + idx + ', -1)">' + T('tcMoveUp', 'Move up') + '</button>' +
+              '<button type="button" onclick="tcMoveExercise(' + idx + ', 1)">' + T('tcMoveDown', 'Move down') + '</button>' +
+              '<button type="button" onclick="tcDuplicateExercise(\'' + id + '\')">' + T('tcDuplicate', 'Duplicate') + '</button>' +
+              '<button type="button" class="danger" onclick="tcDeleteExercise(\'' + id + '\')">' + T('tcDelete', 'Delete') + '</button>' +
+            '</div>' +
           '</div>';
       }
+
+      // Style shortcut shown at the top of a section card's Settings panel
+      function tcStyleRowHtml(ex) {
+        return '<div class="tc-settings-row"><button type="button" class="neo-btn sm' + (tcHasExStyle(ex) ? ' primary' : '') + '" onclick="tcOpenExerciseStyleModal(\'' + ex.id + '\')">' + tcCardIcon('palette') + ' ' + escapeHtml(i18n.t('tcTabStyle') || 'Style') + ': ' + escapeHtml(i18n.t('tcEditExportStyle') || 'Font, spacing, padding, numbered lines...') + '</button></div>';
+      }
+
+      function tcBuildCardShell(ex, idx, cfg) {
+        var id = ex.id;
+        var es = ex.exportStyle || {};
+        var hasStyle = !!(es.fontSize || es.lineHeight || es.padding || (es.numberedLines !== null && es.numberedLines !== undefined));
+        var T = function (k, d) { return escapeHtml(i18n.t(k) || d); };
+        var A = function (k, d) { return escapeAttr(i18n.t(k) || d); };
+        var isOpen = !!cfg.isOpen;
+        var fromRubric = TestCreatorService.isPointsFromRubric(ex);
+        if (fromRubric) TestCreatorService.calculateExercisePoints(ex, currentTest);
+        return '<div class="exercise-card-item ' + (cfg.cardClass || '') + '" id="card-' + id + '" data-index="' + idx + '" data-id="' + id + '">' +
+          '<div class="exercise-card-header">' +
+            '<span class="card-drag-handle" title="' + A('tcDragReorder', 'Drag to reorder') + '">' + tcCardIcon('grip') + '</span>' +
+            '<span class="card-type-badge ' + (cfg.badgeClass || '') + '">' + escapeHtml(cfg.badgeText || '') + '</span>' +
+            '<input type="text" id="exTitle_' + id + '" class="card-title-input tc-fmt-field" value="' + escapeAttr(ex.title) + '" placeholder="' + escapeAttr(cfg.titlePlaceholder || '') + '" onchange="tcUpdateExField(\'' + id + '\', \'title\', this.value)">' +
+            '<label class="card-points-wrap' + (fromRubric ? ' from-rubric' : '') + '"' + (fromRubric ? ' title="' + A('tcPointsFromRubric', 'Points come from the attached rubric') + '"' : '') + '><input type="number" class="card-points-input" value="' + (ex.points || 1) + '" step="0.5"' + (fromRubric ? ' readonly tabindex="-1"' : '') + ' onchange="tcUpdateExField(\'' + id + '\', \'points\', Number(this.value))"><span class="card-pts-label">' + (fromRubric ? T('tcPtsFromRubric', 'pts (rubric)') : T('tcPtsShort', 'pts')) + '</span></label>' +
+            tcCardActionsHtml(ex, idx, isOpen) +
+          '</div>' +
+          '<div class="card-body">' +
+            '<input type="text" id="exInstr_' + id + '" class="instructions-input tc-fmt-field" value="' + escapeAttr(ex.instructions || '') + '" placeholder="' + escapeAttr(cfg.instrPlaceholder || '') + '" onchange="tcUpdateExField(\'' + id + '\', \'instructions\', this.value)">' +
+            (cfg.bodyHtml || '') +
+            '<div class="exercise-options-panel tc-settings-panel" id="optionsPanel_' + id + '" style="display:' + (isOpen ? 'block' : 'none') + ';">' +
+              '<div class="tc-settings-tabs">' +
+                '<button type="button" class="active" data-tab="options" onclick="tcSetSettingsTab(\'' + id + '\', \'options\')">' + T('tcTabOptions', 'Options') + '</button>' +
+                '<button type="button" data-tab="style" onclick="tcSetSettingsTab(\'' + id + '\', \'style\')">' + T('tcTabStyle', 'Style') + '</button>' +
+              '</div>' +
+              '<div class="tc-settings-pane" data-pane="options">' +
+                (cfg.optionsHtml || '') +
+                '<div class="tc-settings-row">' +
+                  '<label class="card-checkbox-label"><input type="checkbox" ' + (ex.forcePageBreak ? 'checked' : '') + ' onchange="tcUpdateExField(\'' + id + '\', \'forcePageBreak\', this.checked)"><span>' + T('tcForcePageBreak', 'Page break before') + '</span></label>' +
+                  '<label class="card-checkbox-label"><input type="checkbox" ' + (ex.autoSaveToDb === true ? 'checked' : '') + ' onchange="tcToggleExAutoSave(\'' + id + '\', this.checked)"><span>' + T('tcSaveToDb', 'Save to Database') + '</span></label>' +
+                '</div>' +
+                '<div class="tc-settings-row">' +
+                  '<button type="button" class="neo-btn sm" onclick="tcAttachCriteriaToEx(\'' + id + '\')">' + T('tcAttachRubric', '+ Rubric Criteria') + '</button>' +
+                  '<button type="button" class="neo-btn sm" onclick="tcAttachCompetenceToEx(\'' + id + '\')">' + T('tcAttachCompetence', '+ Competence') + '</button>' +
+                  '<button type="button" class="neo-btn sm" onclick="tcAttachScaleToEx(\'' + id + '\')">' + T('tcAttachScale', '+ Grading Scale') + '</button>' +
+                '</div>' +
+              '</div>' +
+              '<div class="tc-settings-pane" data-pane="style" hidden>' +
+                '<div class="tc-settings-row"><button type="button" class="neo-btn sm' + (hasStyle ? ' primary' : '') + '" onclick="tcOpenExerciseStyleModal(\'' + id + '\')">' + tcCardIcon('palette') + ' ' + T('tcEditExportStyle', 'Font, spacing, padding, numbered lines...') + '</button></div>' +
+              '</div>' +
+            '</div>' +
+            renderExerciseTagsHtml(ex) +
+          '</div>' +
+        '</div>';
+      }
+
+      window.tcSetSettingsTab = function (exId, tab) {
+        var panel = document.getElementById('optionsPanel_' + exId);
+        if (!panel) return;
+        panel.querySelectorAll('.tc-settings-tabs button').forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === tab); });
+        panel.querySelectorAll('.tc-settings-pane').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== tab; });
+      };
+
+      window.tcToggleCardMenu = function (exId, ev) {
+        if (ev) ev.stopPropagation();
+        var m = document.getElementById('cardMenu_' + exId);
+        var wasOpen = m && m.classList.contains('open');
+        document.querySelectorAll('.card-menu.open').forEach(function (x) { x.classList.remove('open'); });
+        if (m && !wasOpen) m.classList.add('open');
+      };
+      document.addEventListener('click', function () {
+        document.querySelectorAll('.card-menu.open').forEach(function (x) { x.classList.remove('open'); });
+      });
+
+      // ── One shared floating format toolbar for .tc-fmt-field inputs ──
+      (function () {
+        var bar = null, active = null;
+        var BTNS = [['bold', '<b>B</b>', 'Bold'], ['italic', '<em>I</em>', 'Italic'], ['underline', '<u>U</u>', 'Underline'], ['strike', '<s>S</s>', 'Strikethrough'], ['sup', 'x&sup2;', 'Superscript'], ['sub', 'x&#8322;', 'Subscript'], ['code', '&lt;/&gt;', 'Code'], ['mark', '<mark>M</mark>', 'Highlight']];
+        function ensure() {
+          if (bar) return bar;
+          bar = document.createElement('div');
+          bar.className = 'tc-float-fmt';
+          bar.innerHTML = BTNS.map(function (b) { return '<button type="button" class="tc-fmt-btn" data-fmt="' + b[0] + '" title="' + b[2] + '">' + b[1] + '</button>'; }).join('') +
+            '<button type="button" class="tc-fmt-btn" data-fmt="preview" title="Preview"><img class="tc-ico" src="../assets/icons/eye.svg" alt=""></button>';
+          bar.addEventListener('mousedown', function (e) {
+            var b = e.target.closest('button[data-fmt]');
+            if (!b || !active) return;
+            e.preventDefault();
+            if (b.getAttribute('data-fmt') === 'preview') tcToggleFieldPreview(active.id);
+            else tcInsertFormat(active, b.getAttribute('data-fmt'));
+          });
+          document.body.appendChild(bar);
+          return bar;
+        }
+        function place() {
+          if (!active || !bar) return;
+          var r = active.getBoundingClientRect();
+          bar.style.transform = 'translate(' + Math.round(Math.max(4, r.left)) + 'px,' + Math.round(Math.max(4, r.top - 34)) + 'px)';
+        }
+        document.addEventListener('focusin', function (e) {
+          var t = e.target;
+          if (t && t.classList && t.classList.contains('tc-fmt-field')) { active = t; ensure().classList.add('show'); place(); }
+        });
+        document.addEventListener('focusout', function (e) {
+          if (e.target === active) setTimeout(function () { if (document.activeElement !== active && bar) { bar.classList.remove('show'); active = null; } }, 120);
+        });
+        window.addEventListener('scroll', function () { requestAnimationFrame(place); }, true);
+      })();
 
       function renderExerciseTagsHtml(ex) {
         var html = '';
@@ -9571,6 +9608,10 @@
           showToast(template.replace('{0}', title));
         }
         tcOnDirty();
+        // A new rubric block is empty: open the Criteria Database panel targeting it.
+        if (type === 'section_criteria' && typeof window.tcOpenCriteriaDrawerForSection === 'function') {
+          window.tcOpenCriteriaDrawerForSection(ex.id);
+        }
       };
 
       function syncRubricOptionKeys(o, key, value, ex) {

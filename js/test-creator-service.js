@@ -2522,11 +2522,54 @@
     return blanks;
   };
 
+  // Attached rubric criteria of an exercise (own criteria first, then legacy markingRubric).
+  TestCreatorService.getExerciseRubric = function (ex) {
+    if (!ex) return [];
+    if (Array.isArray(ex.criteria) && ex.criteria.length) return ex.criteria;
+    if (Array.isArray(ex.markingRubric) && ex.markingRubric.length) return ex.markingRubric;
+    return [];
+  };
+
+  TestCreatorService.rubricCriterionPoints = function (c) {
+    var w = Number(c.weight || c.pointCoefficient) || 1;
+    var cp = (c.maxPoints != null && c.maxPoints !== '')
+      ? Number(c.maxPoints)
+      : ((Array.isArray(c.grades) && c.grades.length && !isNaN(Number(c.grades[0])))
+        ? Number(c.grades[0])
+        : ((c.points != null && c.points !== '') ? Number(c.points) : 0));
+    if (isNaN(cp)) cp = 0;
+    return cp * w;
+  };
+
+  // True when the exercise takes its points from an attached rubric.
+  TestCreatorService.isPointsFromRubric = function (ex) {
+    if (!ex) return false;
+    if (ex.type === 'section_competences' || ex.type === 'section_grading_scale') return false;
+    return TestCreatorService.getExerciseRubric(ex).length > 0;
+  };
+
   TestCreatorService.calculateExercisePoints = function (ex, testContext) {
     if (!ex) return 0;
     var pts = 0;
     var ppi = Number(ex.pointsPerItem) || 1;
     var ctx = testContext || (typeof currentTest !== 'undefined' ? currentTest : (typeof window !== 'undefined' ? window.currentTest : null));
+
+    // Linked rubric is the source of truth for the exercise points.
+    if (TestCreatorService.isPointsFromRubric(ex)) {
+      if (ex._manualPoints === undefined && ex.type !== 'section_criteria' && ex.points != null) ex._manualPoints = ex.points;
+      ex._pointsFromRubric = true;
+      pts = TestCreatorService.getExerciseRubric(ex).reduce(function (sum, c) {
+        return sum + TestCreatorService.rubricCriterionPoints(c);
+      }, 0);
+      ex.points = Math.round(pts * 10) / 10;
+      return ex.points;
+    }
+    if (ex._pointsFromRubric) {
+      // Rubric was unlinked: restore the previous manual value, then recompute normally.
+      if (ex._manualPoints !== undefined) ex.points = ex._manualPoints;
+      delete ex._manualPoints;
+      delete ex._pointsFromRubric;
+    }
 
     switch (ex.type) {
       case 'cloze':
@@ -2695,7 +2738,7 @@
 
     if (Array.isArray(test.exercises)) {
       test.exercises.forEach(function (ex) {
-        if (ex && ex.type === 'section_criteria') {
+        if (ex && (ex.type === 'section_criteria' || TestCreatorService.isPointsFromRubric(ex))) {
           hasCritSection = true;
         }
         total += TestCreatorService.calculateExercisePoints(ex, test);
@@ -5068,18 +5111,10 @@
           if (exOpts.showPrompts === false) return '';
           var pOut = [];
           var optionPrefix = _t('tcOptionPrefix', 'Option', lang);
-          var wordsUnit = _t('tcWordsUnit', 'words', lang);
-          var targetWordCountLabel = _t('tcTargetWordCountLabel', 'Target word count:', lang);
           compItems.forEach(function (it, itIdx) {
             var taskHeader = compItems.length > 1 ? (it.label || (optionPrefix + ' ' + String.fromCharCode(65 + itIdx))) + ': ' : '';
-            var wcStr = (exOpts.wordCountMin && exOpts.wordCountMax)
-              ? (exOpts.wordCountMin + ' – ' + exOpts.wordCountMax + ' ' + wordsUnit)
-              : (it.targetWordCount ? ('~' + it.targetWordCount + ' ' + wordsUnit) : (exOpts.wordCountMax ? ('~' + exOpts.wordCountMax + ' ' + wordsUnit) : ''));
             pOut.push('  <div class="composition-task-block">');
             pOut.push('    <div class="composition-prompt"><strong>' + TestCreatorService.formatRichText(taskHeader) + '</strong>' + TestCreatorService.formatRichText(it.prompt || '') + '</div>');
-            if (wcStr) {
-              pOut.push('    <div class="comp-wordcount-hint">' + targetWordCountLabel + ' ' + wcStr + '</div>');
-            }
             pOut.push('  </div>');
           });
           return pOut.join('\n');
@@ -6233,7 +6268,6 @@
             compItems.forEach(function (it, itIdx) {
               var label = compItems.length > 1 ? (it.label || (taskPrefix + ' ' + (itIdx + 1))) + ': ' : '';
               md.push('**' + label + '** ' + (it.prompt || ''));
-              md.push('*' + _t('tcTargetWordCountLabel', 'Target word count:', lang) + ' ~' + (it.targetWordCount || 150) + ' ' + _t('tcWordsUnit', 'words', lang) + '*');
               md.push('');
             });
           }

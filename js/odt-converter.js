@@ -192,6 +192,172 @@
     return xml;
   }
 
+  function cssLineHeightToOdt(val) {
+    if (!val) return '150%';
+    const s = String(val).trim();
+    if (s.endsWith('%')) return s;
+    const num = parseFloat(s);
+    if (!isNaN(num) && /^[0-9.]+$/.test(s)) {
+      return `${Math.round(num * 100)}%`;
+    }
+    if (s.endsWith('pt') || s.endsWith('mm') || s.endsWith('cm')) return s;
+    if (s.endsWith('px') && !isNaN(num)) return `${(num * 0.75).toFixed(1)}pt`;
+    return '150%';
+  }
+
+  function cssAlignToOdt(align) {
+    if (!align) return '';
+    const a = String(align).toLowerCase();
+    if (a === 'center') return 'center';
+    if (a === 'right' || a === 'end') return 'end';
+    if (a === 'justify') return 'justify';
+    if (a === 'left' || a === 'start') return 'start';
+    return '';
+  }
+
+  function renderAstRunsToOdt(runs, ctx) {
+    if (!Array.isArray(runs) || runs.length === 0) return '';
+    let out = '';
+    for (const r of runs) {
+      if (!r) continue;
+      if (r.type === 'br') {
+        out += '<text:line-break/>';
+        continue;
+      }
+      if (r.type === 'image') {
+        const imgXml = ctx.addImage(r.src, r.alt, r.width);
+        if (imgXml) out += imgXml;
+        else if (r.alt) out += escapeXml(r.alt);
+        continue;
+      }
+      if (r.type === 'link') {
+        const inner = Array.isArray(r.runs)
+          ? renderAstRunsToOdt(r.runs, ctx)
+          : escapeXml(r.text || r.href || '');
+        const linkStyle = ctx.getLinkStyle();
+        const styledInner = linkStyle ? `<text:span text:style-name="${linkStyle}">${inner}</text:span>` : inner;
+        out += `<text:a xlink:type="simple" xlink:href="${escapeXml(r.href || '')}">${styledInner}</text:a>`;
+        continue;
+      }
+      const text = r.text || '';
+      if (!text) continue;
+      // Preserve leading/trailing spaces and newlines cleanly in ODT
+      const escaped = escapeXml(text).replace(/\n/g, '<text:line-break/>');
+      const styleName = ctx.getTextStyle(r);
+      if (styleName) {
+        out += `<text:span text:style-name="${styleName}">${escaped}</text:span>`;
+      } else {
+        out += escaped;
+      }
+    }
+    return out;
+  }
+
+  function renderAstBlocksToOdt(blocks, ctx, listDepth = 0) {
+    if (!Array.isArray(blocks) || blocks.length === 0) return '';
+    let out = '';
+    for (const b of blocks) {
+      if (!b) continue;
+      if (b.type === 'pagebreak') {
+        out += '<text:p text:style-name="PageBreak"/>';
+        continue;
+      }
+      if (b.type === 'hr') {
+        out += '<text:p text:style-name="Horizontal_Line"/>';
+        continue;
+      }
+      if (b.type === 'heading') {
+        const lvl = Math.min(6, Math.max(1, parseInt(b.depth || b.level, 10) || 1));
+        const pStyle = ctx.getParaStyle(`Heading_${lvl}`, b.align, b);
+        out += `<text:p text:style-name="${pStyle}">${renderAstRunsToOdt(b.runs, ctx)}</text:p>`;
+        continue;
+      }
+      if (b.type === 'paragraph') {
+        const pStyle = ctx.getParaStyle('Standard', b.align, b);
+        out += `<text:p text:style-name="${pStyle}">${renderAstRunsToOdt(b.runs, ctx)}</text:p>`;
+        continue;
+      }
+      if (b.type === 'blockquote') {
+        if (Array.isArray(b.blocks) && b.blocks.length > 0) {
+          for (const sub of b.blocks) {
+            if (sub && (sub.type === 'paragraph' || sub.type === 'heading')) {
+              const pStyle = ctx.getParaStyle('Blockquote', sub.align || b.align);
+              out += `<text:p text:style-name="${pStyle}">${renderAstRunsToOdt(sub.runs, ctx)}</text:p>`;
+            } else if (sub) {
+              out += renderAstBlocksToOdt([sub], ctx, listDepth);
+            }
+          }
+        } else if (Array.isArray(b.runs)) {
+          const pStyle = ctx.getParaStyle('Blockquote', b.align);
+          out += `<text:p text:style-name="${pStyle}">${renderAstRunsToOdt(b.runs, ctx)}</text:p>`;
+        }
+        continue;
+      }
+      if (b.type === 'code') {
+        const lines = String(b.text || '').split('\n');
+        for (const line of lines) {
+          out += `<text:p text:style-name="Preformatted_Text">${escapeXml(line)}</text:p>`;
+        }
+        continue;
+      }
+      if (b.type === 'list') {
+        const listStyle = b.ordered ? 'List_Ordered' : (b.bulletChar ? ctx.getCustomListStyle(b.bulletChar) : 'List_Bullet');
+        out += `<text:list text:style-name="${listStyle}">`;
+        for (const item of (b.items || [])) {
+          out += '<text:list-item>';
+          const prefix = item.checked === true ? '[x] ' : (item.checked === false ? '[ ] ' : '');
+          const subLists = item.lists || item.children || [];
+          if (Array.isArray(item.runs) && item.runs.length > 0) {
+            const pStyle = ctx.getParaStyle('Standard', item.align);
+            out += `<text:p text:style-name="${pStyle}">${escapeXml(prefix)}${renderAstRunsToOdt(item.runs, ctx)}</text:p>`;
+          }
+          if (Array.isArray(subLists) && subLists.length > 0) {
+            out += renderAstBlocksToOdt(subLists, ctx, listDepth + 1);
+          }
+          if ((!item.runs || item.runs.length === 0) && subLists.length === 0) {
+            out += `<text:p text:style-name="Standard">${escapeXml(prefix)}</text:p>`;
+          }
+          out += '</text:list-item>';
+        }
+        out += '</text:list>';
+        continue;
+      }
+      if (b.type === 'table') {
+        const normalizedRows = [];
+        if (Array.isArray(b.header) && b.header.length > 0) {
+          normalizedRows.push(b.header.map(c => Object.assign({ header: true }, c)));
+        }
+        for (const row of (Array.isArray(b.rows) ? b.rows : [])) {
+          if (Array.isArray(row)) normalizedRows.push(row);
+          else if (row && Array.isArray(row.cells)) normalizedRows.push(row.cells);
+        }
+        if (normalizedRows.length === 0) continue;
+        const colCount = Math.max(1, ...normalizedRows.map(r => r.length));
+        ctx.tableCounter++;
+        out += `<table:table table:name="Table_${ctx.tableCounter}" table:style-name="Table_Style">`;
+        for (let c = 0; c < colCount; c++) {
+          out += '<table:table-column/>';
+        }
+        for (const rowCells of normalizedRows) {
+          out += '<table:table-row>';
+          for (let c = 0; c < colCount; c++) {
+            const cell = rowCells[c] || { runs: [] };
+            const isHeader = !!cell.header;
+            const cellStyle = b.borderless ? 'TableCellBorderless' : (isHeader ? 'TableHeader' : 'TableCell');
+            const baseTextPara = isHeader ? 'Table_Header_Text' : 'Standard';
+            const paraStyle = ctx.getParaStyle(baseTextPara, cell.align);
+            out += `<table:table-cell table:style-name="${cellStyle}" office:value-type="string">`;
+            out += `<text:p text:style-name="${paraStyle}">${renderAstRunsToOdt(cell.runs || [], ctx)}</text:p>`;
+            out += '</table:table-cell>';
+          }
+          out += '</table:table-row>';
+        }
+        out += '</table:table>';
+      }
+    }
+    return out;
+  }
+
   async function markdownToOdtBuffer(options = {}) {
     if (!JSZip) throw new Error('JSZip library is required to create ODT files.');
 
@@ -199,7 +365,9 @@
     const title = options.title || options.defaultName || 'Document';
     const orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
     const paperName = options.size || 'A4';
-    const pmm = PAGE_SIZES_MM[paperName] || PAGE_SIZES_MM.A4;
+    const pmm = paperName === 'Custom'
+      ? { w: parseMm(options.customW, 210), h: parseMm(options.customH, 297) }
+      : (PAGE_SIZES_MM[paperName] || PAGE_SIZES_MM.A4);
     const pageW = orientation === 'landscape' ? pmm.h : pmm.w;
     const pageH = orientation === 'landscape' ? pmm.w : pmm.h;
 
@@ -208,11 +376,32 @@
     const mr = parseMm(margins.right, 15);
     const mb = parseMm(margins.bottom, 15);
     const ml = parseMm(margins.left, 15);
+    const textWidthMm = Math.max(20, pageW - ml - mr);
 
-    const rawFont = String(options.fontFamily || 'Lexend, Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Lexend';
-    const fontSizePt = parseFloat(options.fontSize) || 11;
-    const tableThBg = options.tableThBg || '#f5f5f0';
-    const borderColor = options.borderColor || '#333333';
+    const styles = options.styles || {};
+    const rawFont = String(options.fontFamily || styles.fontFamily || 'Lexend, Segoe UI').split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'Lexend';
+    const fontSizePt = parseFloat(options.fontSize || styles.fontSize) || 11;
+    const bodyColor = options.color || styles.color || '#222222';
+    const lineHeightOdt = cssLineHeightToOdt(options.lineHeight || styles.lineHeight || '1.6');
+
+    const tblStyle = styles.table || {};
+    const tableThBg = tblStyle.thBg || options.tableThBg || '#f6f8fa';
+    const tableThColor = tblStyle.thColor || bodyColor;
+    const borderColor = tblStyle.borderColor || options.borderColor || '#dfe2e5';
+
+    const bqStyle = styles.blockquote || {};
+    const bqBg = bqStyle.bg || '#fdfdf9';
+    const bqColor = bqStyle.color || '#555555';
+    const bqBorder = bqStyle.borderColor || '#dfe2e5';
+
+    const codeStyle = styles.code || {};
+    const codeBg = codeStyle.bg || '#f6f8fa';
+    const codeColor = codeStyle.color || bodyColor;
+    const codeFont = String(codeStyle.fontFamily || 'monospace').split(',')[0].trim().replace(/^['"]|['"]$/g, '') || 'monospace';
+
+    const linkColor = (styles.link && styles.link.color) || '#5b8fcc';
+    const hrColor = (styles.hr && styles.hr.color) || '#dfe2e5';
+    const headingsMap = styles.headings || {};
 
     // 1. mimetype (MUST be first and uncompressed)
     const zip = new JSZip();
@@ -221,38 +410,137 @@
     // Track embedded pictures
     const manifestEntries = [];
     let imgCounter = 0;
+    const dynamicTextStyles = new Map();
+    const dynamicParaStyles = new Map();
+    const dynamicListStyles = new Map();
+
     const imgContext = {
-      addImage: function (href, alt) {
+      tableCounter: 0,
+      getTextStyle: function (r) {
+        const props = [];
+        if (r.bold) props.push('fo:font-weight="bold"');
+        if (r.italic) props.push('fo:font-style="italic"');
+        if (r.underline) props.push('style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"');
+        if (r.strike) props.push('style:text-line-through-style="solid"');
+        if (r.sup) props.push('style:text-position="super 58%"');
+        else if (r.sub) props.push('style:text-position="sub 58%"');
+        if (r.code) {
+          props.push(`fo:font-family="${escapeXml(codeFont)}"`);
+          if (!r.bg) props.push(`fo:background-color="${escapeXml(codeBg)}"`);
+          if (!r.color && codeColor) props.push(`fo:color="${escapeXml(codeColor)}"`);
+        }
+        if (r.color) props.push(`fo:color="${escapeXml(r.color)}"`);
+        if (r.bg) props.push(`fo:background-color="${escapeXml(r.bg)}"`);
+        if (r.font) {
+          const fn = String(r.font).split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+          if (fn) props.push(`fo:font-family="${escapeXml(fn)}"`);
+        }
+        if (r.fontSize) {
+          const fsPt = parseFloat(r.fontSize);
+          if (!isNaN(fsPt) && fsPt > 0) props.push(`fo:font-size="${fsPt}pt"`);
+        }
+        if (props.length === 0) return '';
+        const key = props.join(' ');
+        if (!dynamicTextStyles.has(key)) {
+          const name = `DT_${dynamicTextStyles.size + 1}`;
+          dynamicTextStyles.set(key, `<style:style style:name="${name}" style:family="text"><style:text-properties ${key}/></style:style>`);
+        }
+        return dynamicTextStyles.get(key).match(/style:name="([^"]+)"/)[1];
+      },
+      getLinkStyle: function () {
+        const key = `fo:color="${escapeXml(linkColor)}" style:text-underline-style="solid" style:text-underline-width="auto" style:text-underline-color="font-color"`;
+        if (!dynamicTextStyles.has(key)) {
+          const name = `DT_${dynamicTextStyles.size + 1}`;
+          dynamicTextStyles.set(key, `<style:style style:name="${name}" style:family="text"><style:text-properties ${key}/></style:style>`);
+        }
+        return dynamicTextStyles.get(key).match(/style:name="([^"]+)"/)[1];
+      },
+      getParaStyle: function (baseStyle, align, box) {
+        const odtAlign = cssAlignToOdt(align);
+        const pProps = [];
+        if (odtAlign) pProps.push(`fo:text-align="${odtAlign}"`);
+        if (box) {
+          if (box.bg) pProps.push(`fo:background-color="${escapeXml(box.bg)}"`);
+          if (box.borderBottom && box.borderBottom.widthPt > 0) {
+            const bStyle = box.borderBottom.style === 'dashed' || box.borderBottom.style === 'dotted' ? box.borderBottom.style : 'solid';
+            pProps.push(`fo:border-bottom="${box.borderBottom.widthPt}pt ${bStyle} ${escapeXml(box.borderBottom.color || '#888888')}"`);
+          }
+          if (box.marginTop > 0) pProps.push(`fo:margin-top="${box.marginTop}pt"`);
+          if (box.marginBottom > 0) pProps.push(`fo:margin-bottom="${box.marginBottom}pt"`);
+          if (box.marginLeft > 0) pProps.push(`fo:margin-left="${box.marginLeft}pt"`);
+          if (box.marginRight > 0) pProps.push(`fo:margin-right="${box.marginRight}pt"`);
+          if (box.padding) {
+            if (box.padding.top > 0) pProps.push(`fo:padding-top="${box.padding.top}pt"`);
+            if (box.padding.bottom > 0) pProps.push(`fo:padding-bottom="${box.padding.bottom}pt"`);
+            if (box.padding.left > 0) pProps.push(`fo:padding-left="${box.padding.left}pt"`);
+          }
+        }
+        if (pProps.length === 0) return baseStyle;
+        const propsStr = pProps.join(' ');
+        const key = `${baseStyle}|${propsStr}`;
+        if (!dynamicParaStyles.has(key)) {
+          const name = `DP_${dynamicParaStyles.size + 1}`;
+          dynamicParaStyles.set(key, `<style:style style:name="${name}" style:family="paragraph" style:parent-style-name="${baseStyle}"><style:paragraph-properties ${propsStr}/></style:style>`);
+        }
+        return dynamicParaStyles.get(key).match(/style:name="([^"]+)"/)[1];
+      },
+      getCustomListStyle: function (bulletChar) {
+        const ch = String(bulletChar || '•').trim() || '•';
+        if (!dynamicListStyles.has(ch)) {
+          const name = `DL_${dynamicListStyles.size + 1}`;
+          dynamicListStyles.set(ch, `<text:list-style style:name="${name}">
+      <text:list-level-style-bullet text:level="1" text:bullet-char="${escapeXml(ch)}"><style:list-level-properties text:space-before="6mm" text:min-label-width="4.5mm"/></text:list-level-style-bullet>
+      <text:list-level-style-bullet text:level="2" text:bullet-char="${escapeXml(ch)}"><style:list-level-properties text:space-before="12mm" text:min-label-width="4.5mm"/></text:list-level-style-bullet>
+      <text:list-level-style-bullet text:level="3" text:bullet-char="${escapeXml(ch)}"><style:list-level-properties text:space-before="18mm" text:min-label-width="4.5mm"/></text:list-level-style-bullet>
+    </text:list-style>`);
+        }
+        return dynamicListStyles.get(ch).match(/style:name="([^"]+)"/)[1];
+      },
+      addImage: function (href, alt, reqWidthPx) {
         if (!href) return null;
         let imgData = null;
         let mime = 'image/png';
         let ext = 'png';
+        let natW = 0;
+        let natH = 0;
 
-        if (typeof href === 'string' && href.startsWith('data:image/')) {
-          const semiIdx = href.indexOf(';');
-          const commaIdx = href.indexOf(',');
+        const parseDataUrl = (dataUrl) => {
+          const semiIdx = dataUrl.indexOf(';');
+          const commaIdx = dataUrl.indexOf(',');
           if (semiIdx !== -1 && commaIdx !== -1) {
-            mime = href.slice(5, semiIdx);
+            mime = dataUrl.slice(5, semiIdx);
             ext = mime.split('/')[1] || 'png';
             if (ext === 'jpeg') ext = 'jpg';
-            imgData = href.slice(commaIdx + 1);
+            else if (ext.includes('svg')) ext = 'svg';
+            return dataUrl.slice(commaIdx + 1);
           }
+          return null;
+        };
+
+        if (typeof href === 'string' && href.startsWith('data:image/')) {
+          imgData = parseDataUrl(href);
         } else if (options.images && options.images[href]) {
           const mapped = options.images[href];
-          if (typeof mapped === 'string' && mapped.startsWith('data:image/')) {
-            const semiIdx = mapped.indexOf(';');
-            const commaIdx = mapped.indexOf(',');
-            if (semiIdx !== -1 && commaIdx !== -1) {
-              mime = mapped.slice(5, semiIdx);
-              ext = mime.split('/')[1] || 'png';
-              if (ext === 'jpeg') ext = 'jpg';
-              imgData = mapped.slice(commaIdx + 1);
+          if (typeof mapped === 'string') {
+            if (mapped.startsWith('data:image/')) {
+              imgData = parseDataUrl(mapped);
+            } else {
+              imgData = mapped;
+              if (href.match(/\.jpe?g$/i)) { mime = 'image/jpeg'; ext = 'jpg'; }
+              else if (href.match(/\.webp$/i)) { mime = 'image/webp'; ext = 'webp'; }
+              else if (href.match(/\.gif$/i)) { mime = 'image/gif'; ext = 'gif'; }
             }
-          } else {
-            imgData = mapped;
-            if (href.match(/\.jpe?g$/i)) { mime = 'image/jpeg'; ext = 'jpg'; }
-            else if (href.match(/\.webp$/i)) { mime = 'image/webp'; ext = 'webp'; }
-            else if (href.match(/\.gif$/i)) { mime = 'image/gif'; ext = 'gif'; }
+          } else if (mapped && typeof mapped === 'object' && mapped.data) {
+            if (typeof mapped.data === 'string' && mapped.data.startsWith('data:image/')) {
+              imgData = parseDataUrl(mapped.data);
+            } else {
+              imgData = mapped.data;
+              if (href.match(/\.jpe?g$/i)) { mime = 'image/jpeg'; ext = 'jpg'; }
+              else if (href.match(/\.webp$/i)) { mime = 'image/webp'; ext = 'webp'; }
+              else if (href.match(/\.gif$/i)) { mime = 'image/gif'; ext = 'gif'; }
+            }
+            natW = Number(mapped.width) || 0;
+            natH = Number(mapped.height) || 0;
           }
         }
 
@@ -261,27 +549,62 @@
           const imgName = `image_${imgCounter}.${ext}`;
           zip.folder('Pictures').file(imgName, imgData, { base64: typeof imgData === 'string' });
           manifestEntries.push(`<manifest:file-entry manifest:full-path="Pictures/${imgName}" manifest:media-type="${mime}"/>`);
-          return `<draw:frame draw:style-name="Graphics" draw:name="Graphic_${imgCounter}" text:anchor-type="as-char" svg:width="140mm" svg:height="90mm" draw:z-index="0"><draw:image xlink:href="Pictures/${imgName}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame>`;
+
+          // Compute exact physical size in mm preserving aspect ratio & imageWidth option
+          const pxToMm = 25.4 / 96;
+          let targetW = natW > 0 ? natW * pxToMm : 120;
+          let targetH = natH > 0 ? natH * pxToMm : 80;
+          const aspect = (natW > 0 && natH > 0) ? (natH / natW) : (targetH / targetW);
+
+          if (reqWidthPx && Number(reqWidthPx) > 0) {
+            targetW = Number(reqWidthPx) * pxToMm;
+            targetH = targetW * aspect;
+          } else if (options.imageWidth === '100%') {
+            targetW = textWidthMm;
+            targetH = targetW * aspect;
+          } else if (typeof options.imageWidth === 'string' && options.imageWidth.endsWith('%')) {
+            const pct = parseFloat(options.imageWidth);
+            if (!isNaN(pct) && pct > 0) {
+              targetW = textWidthMm * (pct / 100);
+              targetH = targetW * aspect;
+            }
+          }
+
+          if (targetW > textWidthMm) {
+            targetW = textWidthMm;
+            targetH = targetW * aspect;
+          }
+          const maxH = Math.max(30, pageH - mt - mb - 10);
+          if (targetH > maxH) {
+            targetH = maxH;
+            targetW = targetH / aspect;
+          }
+
+          return `<draw:frame draw:style-name="Graphics" draw:name="Graphic_${imgCounter}" text:anchor-type="as-char" svg:width="${targetW.toFixed(2)}mm" svg:height="${targetH.toFixed(2)}mm" draw:z-index="0"><draw:image xlink:href="Pictures/${imgName}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/></draw:frame>`;
         }
         return null;
       }
     };
 
-    // Tokenize Markdown
-    let tokens = [];
-    if (MarkedClass) {
-      const m = new MarkedClass({ gfm: true, breaks: true });
-      tokens = m.lexer(markdown);
-    } else if (typeof marked !== 'undefined' && marked.lexer) {
-      tokens = marked.lexer(markdown);
+    let bodyContentXml = '';
+    if (Array.isArray(options.blocks) && options.blocks.length > 0) {
+      bodyContentXml = renderAstBlocksToOdt(options.blocks, imgContext);
     } else {
-      tokens = markdown.split(/\n\n+/).map(block => ({
-        type: 'paragraph',
-        tokens: [{ type: 'text', text: block.trim() }]
-      }));
+      // Tokenize Markdown (legacy fallback)
+      let tokens = [];
+      if (MarkedClass) {
+        const m = new MarkedClass({ gfm: true, breaks: true });
+        tokens = m.lexer(markdown);
+      } else if (typeof marked !== 'undefined' && marked.lexer) {
+        tokens = marked.lexer(markdown);
+      } else {
+        tokens = markdown.split(/\n\n+/).map(block => ({
+          type: 'paragraph',
+          tokens: [{ type: 'text', text: block.trim() }]
+        }));
+      }
+      bodyContentXml = renderBlockTokens(tokens, imgContext);
     }
-
-    const bodyContentXml = renderBlockTokens(tokens, imgContext);
 
     // 2. META-INF/manifest.xml
     const manifestXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -305,17 +628,35 @@
 </office:document-meta>`;
     zip.file('meta.xml', metaXml);
 
+    // Build footer XML for styles.xml if enabled
+    const hasFooter = !!(options.footer && options.footerText);
+    const hasPageNum = !!options.pageNumbers;
+    let footerStyleXml = '';
+    let masterFooterXml = '';
+    if (hasFooter || hasPageNum) {
+      const fAlign = cssAlignToOdt(options.footerAlign || options.pageNumbersPos || 'center') || 'center';
+      footerStyleXml = `
+    <style:style style:name="Footer_Style" style:family="paragraph">
+      <style:paragraph-properties fo:text-align="${fAlign}" fo:margin-top="4pt"/>
+      <style:text-properties fo:font-size="9pt" fo:color="#666666" style:font-name="${escapeXml(rawFont)}"/>
+    </style:style>`;
+      const parts = [];
+      if (hasFooter) parts.push(escapeXml(String(options.footerText)));
+      if (hasPageNum) parts.push('<text:page-number/> / <text:page-count/>');
+      masterFooterXml = `<style:footer><text:p text:style-name="Footer_Style">${parts.join(' — ')}</text:p></style:footer>`;
+    }
+
     // 4. styles.xml
     const stylesXml = `<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" office:version="1.2">
   <office:styles>
     <style:default-style style:family="paragraph">
-      <style:paragraph-properties fo:line-height="125%" fo:margin-bottom="6pt"/>
-      <style:text-properties fo:font-size="${fontSizePt}pt" style:font-name="${escapeXml(rawFont)}" fo:color="#222222"/>
+      <style:paragraph-properties fo:line-height="${escapeXml(lineHeightOdt)}" fo:margin-bottom="6pt"/>
+      <style:text-properties fo:font-size="${fontSizePt}pt" style:font-name="${escapeXml(rawFont)}" fo:color="${escapeXml(bodyColor)}"/>
     </style:default-style>
     <style:style style:name="PageBreak" style:family="paragraph">
       <style:paragraph-properties fo:break-before="page"/>
-    </style:style>
+    </style:style>${footerStyleXml}
   </office:styles>
   <office:automatic-styles>
     <style:page-layout style:name="PM1">
@@ -323,10 +664,37 @@
     </style:page-layout>
   </office:automatic-styles>
   <office:master-styles>
-    <style:master-page style:name="Standard" style:page-layout-name="PM1"/>
+    <style:master-page style:name="Standard" style:page-layout-name="PM1">${masterFooterXml}</style:master-page>
   </office:master-styles>
 </office:document-styles>`;
     zip.file('styles.xml', stylesXml);
+
+    const buildHeadingStyle = (lvl, defaultPt) => {
+      const h = headingsMap[lvl] || {};
+      const pt = h.fontSize ? parseFloat(h.fontSize) : defaultPt;
+      const col = h.color || bodyColor;
+      const fn = h.fontFamily ? String(h.fontFamily).split(',')[0].trim().replace(/^['"]|['"]$/g, '') : rawFont;
+      const textProps = [`fo:font-size="${pt}pt"`, 'fo:font-weight="bold"', `fo:color="${escapeXml(col)}"`];
+      if (fn) textProps.push(`style:font-name="${escapeXml(fn)}"`);
+      const paraProps = [`fo:margin-top="${Math.max(4, Math.round(defaultPt * 0.6))}pt"`, `fo:margin-bottom="${Math.max(2, Math.round(defaultPt * 0.3))}pt"`];
+      if (h.align && cssAlignToOdt(h.align)) paraProps.push(`fo:text-align="${cssAlignToOdt(h.align)}"`);
+      if (h.borderBottom) paraProps.push(`fo:border-bottom="1pt solid ${escapeXml(borderColor)}" fo:padding-bottom="2pt"`);
+      if (h.bg) paraProps.push(`fo:background-color="${escapeXml(h.bg)}"`);
+      return `<style:style style:name="Heading_${lvl}" style:family="paragraph"><style:text-properties ${textProps.join(' ')}/><style:paragraph-properties ${paraProps.join(' ')}/></style:style>`;
+    };
+
+    const listBulletStyle = `
+    <text:list-style style:name="List_Bullet">
+      <text:list-level-style-bullet text:level="1" text:bullet-char="•"><style:list-level-properties text:space-before="6mm" text:min-label-width="4mm"/></text:list-level-style-bullet>
+      <text:list-level-style-bullet text:level="2" text:bullet-char="◦"><style:list-level-properties text:space-before="12mm" text:min-label-width="4mm"/></text:list-level-style-bullet>
+      <text:list-level-style-bullet text:level="3" text:bullet-char="▪"><style:list-level-properties text:space-before="18mm" text:min-label-width="4mm"/></text:list-level-style-bullet>
+    </text:list-style>`;
+    const listOrderedStyle = `
+    <text:list-style style:name="List_Ordered">
+      <text:list-level-style-number text:level="1" style:num-format="1" style:num-suffix="."><style:list-level-properties text:space-before="6mm" text:min-label-width="5mm"/></text:list-level-style-number>
+      <text:list-level-style-number text:level="2" style:num-format="a" style:num-suffix="."><style:list-level-properties text:space-before="12mm" text:min-label-width="5mm"/></text:list-level-style-number>
+      <text:list-level-style-number text:level="3" style:num-format="i" style:num-suffix="."><style:list-level-properties text:space-before="18mm" text:min-label-width="5mm"/></text:list-level-style-number>
+    </text:list-style>`;
 
     // 5. content.xml
     const contentXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -335,22 +703,28 @@
     <style:style style:name="Bold" style:family="text"><style:text-properties fo:font-weight="bold"/></style:style>
     <style:style style:name="Italic" style:family="text"><style:text-properties fo:font-style="italic"/></style:style>
     <style:style style:name="Strikethrough" style:family="text"><style:text-properties style:text-line-through-style="solid"/></style:style>
-    <style:style style:name="Source_Text" style:family="text"><style:text-properties fo:font-family="monospace" fo:background-color="#f5f5f0"/></style:style>
+    <style:style style:name="Source_Text" style:family="text"><style:text-properties fo:font-family="${escapeXml(codeFont)}" fo:background-color="${escapeXml(codeBg)}" fo:color="${escapeXml(codeColor)}"/></style:style>
     <style:style style:name="PageBreak" style:family="paragraph"><style:paragraph-properties fo:break-before="page"/></style:style>
-    <style:style style:name="Graphics" style:family="graphic"><style:graphic-properties svg:stroke-color="${borderColor}" draw:fill="none"/></style:style>
-    <style:style style:name="Heading_1" style:family="paragraph"><style:text-properties fo:font-size="20pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="12pt" fo:margin-bottom="6pt"/></style:style>
-    <style:style style:name="Heading_2" style:family="paragraph"><style:text-properties fo:font-size="16pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="10pt" fo:margin-bottom="4pt"/></style:style>
-    <style:style style:name="Heading_3" style:family="paragraph"><style:text-properties fo:font-size="13pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="8pt" fo:margin-bottom="3pt"/></style:style>
-    <style:style style:name="Heading_4" style:family="paragraph"><style:text-properties fo:font-size="11pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="6pt" fo:margin-bottom="2pt"/></style:style>
-    <style:style style:name="Heading_5" style:family="paragraph"><style:text-properties fo:font-size="10pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="4pt" fo:margin-bottom="2pt"/></style:style>
-    <style:style style:name="Heading_6" style:family="paragraph"><style:text-properties fo:font-size="9pt" fo:font-weight="bold"/><style:paragraph-properties fo:margin-top="4pt" fo:margin-bottom="2pt"/></style:style>
-    <style:style style:name="Preformatted_Text" style:family="paragraph"><style:text-properties fo:font-family="monospace" fo:font-size="9.5pt"/><style:paragraph-properties fo:margin-top="2pt" fo:margin-bottom="2pt" fo:background-color="#f9f9f6"/></style:style>
-    <style:style style:name="Horizontal_Line" style:family="paragraph"><style:paragraph-properties fo:border-bottom="1.5pt solid ${borderColor}" fo:margin-top="8pt" fo:margin-bottom="12pt"/></style:style>
-    <style:style style:name="Blockquote" style:family="paragraph"><style:paragraph-properties fo:margin-left="6pt" fo:margin-right="6pt" fo:margin-top="4pt" fo:margin-bottom="6pt" fo:border-left="3pt solid ${borderColor}" fo:padding-left="8pt" fo:background-color="#fdfdf9"/><style:text-properties fo:font-style="italic"/></style:style>
+    <style:style style:name="Graphics" style:family="graphic"><style:graphic-properties svg:stroke-color="none" draw:fill="none"/></style:style>
+    ${buildHeadingStyle(1, 20)}
+    ${buildHeadingStyle(2, 16)}
+    ${buildHeadingStyle(3, 13)}
+    ${buildHeadingStyle(4, 11)}
+    ${buildHeadingStyle(5, 10)}
+    ${buildHeadingStyle(6, 9)}
+    <style:style style:name="Preformatted_Text" style:family="paragraph"><style:text-properties fo:font-family="${escapeXml(codeFont)}" fo:font-size="9.5pt" fo:color="${escapeXml(codeColor)}"/><style:paragraph-properties fo:margin-top="2pt" fo:margin-bottom="2pt" fo:padding="4pt" fo:background-color="${escapeXml(codeBg)}"/></style:style>
+    <style:style style:name="Horizontal_Line" style:family="paragraph"><style:paragraph-properties fo:border-bottom="1.5pt solid ${escapeXml(hrColor)}" fo:margin-top="8pt" fo:margin-bottom="12pt"/></style:style>
+    <style:style style:name="Blockquote" style:family="paragraph"><style:paragraph-properties fo:margin-left="6pt" fo:margin-right="6pt" fo:margin-top="4pt" fo:margin-bottom="6pt" fo:border-left="3pt solid ${escapeXml(bqBorder)}" fo:padding-left="8pt" fo:background-color="${escapeXml(bqBg)}"/><style:text-properties fo:font-style="italic" fo:color="${escapeXml(bqColor)}"/></style:style>
     <style:style style:name="Table_Style" style:family="table"><style:table-properties style:width="100%" table:align="margins" fo:margin-top="4pt" fo:margin-bottom="8pt"/></style:style>
-    <style:style style:name="TableHeader" style:family="table-cell"><style:table-cell-properties fo:border="1pt solid ${borderColor}" fo:background-color="${tableThBg}" fo:padding="5pt"/></style:style>
-    <style:style style:name="TableCell" style:family="table-cell"><style:table-cell-properties fo:border="0.5pt solid ${borderColor}" fo:padding="5pt"/></style:style>
-    <style:style style:name="Table_Header_Text" style:family="paragraph"><style:text-properties fo:font-weight="bold"/></style:style>
+    <style:style style:name="TableHeader" style:family="table-cell"><style:table-cell-properties fo:border="1pt solid ${escapeXml(borderColor)}" fo:background-color="${escapeXml(tableThBg)}" fo:padding="5pt"/></style:style>
+    <style:style style:name="TableCell" style:family="table-cell"><style:table-cell-properties fo:border="0.5pt solid ${escapeXml(borderColor)}" fo:padding="5pt"/></style:style>
+    <style:style style:name="TableCellBorderless" style:family="table-cell"><style:table-cell-properties fo:border="none" fo:padding="2pt"/></style:style>
+    <style:style style:name="Table_Header_Text" style:family="paragraph"><style:text-properties fo:font-weight="bold" fo:color="${escapeXml(tableThColor)}"/></style:style>
+    ${listBulletStyle}
+    ${listOrderedStyle}
+    ${Array.from(dynamicListStyles.values()).join('\n    ')}
+    ${Array.from(dynamicTextStyles.values()).join('\n    ')}
+    ${Array.from(dynamicParaStyles.values()).join('\n    ')}
   </office:automatic-styles>
   <office:body>
     <office:text>
