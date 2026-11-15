@@ -511,7 +511,7 @@ const PAGE_PERMISSIONS = {
   [PAGE_FILES.launcher]: new Set(['user', 'grades', 'gradeSheet', 'mindmaps', 'constellations', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'lessons', 'tests', 'data', 'customData', 'groupParticipation', 'classPlans', 'seatingPlans', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customModes', 'customExercises', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'exportCss', 'userExportCss']),
   [PAGE_FILES.generalConfig]: new Set(['user']),
   [PAGE_FILES.fileManager]: new Set(['user', 'lessons', 'mindmaps', 'constellations', 'data', 'customData', 'customWordbanks', 'customBooks', 'customDictations', 'customQuizzes', 'grades', 'groupParticipation', 'docEditorDocs', 'docEditorStylesheets', 'docEditorTemplates', 'toPrint', 'customCompetences', 'customDescriptors', 'customPhases', 'customActivities', 'customCriteria', 'customScales', 'customChips', 'customBadges', 'customModes', 'customExercises', 'tests', 'testImages', 'classPlans', 'seatingPlans', 'gradeSheet', 'exportCss', 'userExportCss']),
-  [PAGE_FILES.howTo]: new Set(['user']),
+  [PAGE_FILES.howTo]: new Set(['user', 'app']),
   [PAGE_FILES.credits]: new Set([]),
   [PAGE_FILES.scheduleMaker]: new Set(['user', 'data', 'toPrint', 'docEditorDocs', 'grades', 'groupParticipation', 'tests', 'customCriteria', 'customScales', 'customCompetences', 'lessons', 'mindmaps', 'exportCss', 'userExportCss']),
   [PAGE_FILES.classPlan]: new Set(['user', 'classPlans', 'seatingPlans', 'groupParticipation']),
