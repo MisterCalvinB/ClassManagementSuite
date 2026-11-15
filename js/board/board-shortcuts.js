@@ -2088,6 +2088,8 @@
       if (animIntVal) animIntVal.textContent = Math.round(animInt * 100) + '%';
       const animPausedEl = document.getElementById('bc-anim-paused');
       if (animPausedEl) animPausedEl.checked = !!animCfg.paused;
+      set('bc-anim-reveal-effect', animCfg.revealEffect !== undefined ? String(animCfg.revealEffect) : 'blink');
+      set('bc-anim-reveal-sec', animCfg.revealDurationSec !== undefined ? Number(animCfg.revealDurationSec) : (animCfg.doubleClickDurationSec !== undefined ? Number(animCfg.doubleClickDurationSec) : 3.0));
       set('bc-anim-dblclick-sec', animCfg.doubleClickDurationSec !== undefined ? Number(animCfg.doubleClickDurationSec) : 3.0);
 
       const activeCfg = (animCfg.activeEffect && typeof animCfg.activeEffect === 'object') ? animCfg.activeEffect : {};
@@ -2826,6 +2828,8 @@
           durationSec: Math.max(0.6, Math.min(5.0, parseFloat(document.getElementById('bc-anim-duration')?.value || '2.4') || 2.4)),
           intensity: Math.max(0.4, Math.min(1.6, parseFloat(document.getElementById('bc-anim-intensity')?.value || '1.0') || 1.0)),
           paused: !!document.getElementById('bc-anim-paused')?.checked,
+          revealEffect: getVal('bc-anim-reveal-effect', 'blink'),
+          revealDurationSec: Math.max(0.5, Math.min(15, parseFloat(document.getElementById('bc-anim-reveal-sec')?.value || '3.0') || 3.0)),
           doubleClickDurationSec: Math.max(0.5, Math.min(15, parseFloat(document.getElementById('bc-anim-dblclick-sec')?.value || '3.0') || 3.0)),
           activeEffect: {
             scope: getVal('bc-active-scope', 'mirror'),

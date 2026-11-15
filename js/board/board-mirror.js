@@ -1194,6 +1194,42 @@
           return;
         }
 
+        if (d.type === 'entity-reveal-anim') {
+          if (_mirrorIsFrozen) return;
+          if (typeof window.conPlayRevealAnimation === 'function') {
+            var revEl = null;
+            var revEntity = null;
+            var sid = String(d.id || '');
+            if (d.entityType === 'node') {
+              var mn = (window.conGetNodes ? window.conGetNodes() : []).find(function (x) { return x && String(x.id) === sid; });
+              revEntity = mn || null;
+              revEl = (mn && mn.el) || document.getElementById(sid);
+            } else if (d.entityType === 'note') {
+              var mnote = (window.conGetNotes ? window.conGetNotes() : []).find(function (x) { return x && String(x.id) === sid; });
+              revEntity = mnote || null;
+              revEl = (typeof window.wnGetNoteElementById === 'function' ? window.wnGetNoteElementById(sid) : null)
+                || document.querySelector('#constellation-board .con-word-note[data-id="' + sid + '"]');
+            } else if (d.entityType === 'media') {
+              var mmed = (window.conGetMediaItems ? window.conGetMediaItems() : []).find(function (x) { return x && String(x.id) === sid; });
+              revEntity = mmed || null;
+              revEl = document.querySelector('#constellation-board .con-media-item[data-id="' + sid + '"]');
+            } else if (d.entityType === 'group') {
+              var mgrp = (window.conGetGroups ? window.conGetGroups() : []).find(function (x) { return x && String(x.id) === sid; });
+              revEntity = mgrp || null;
+              revEl = (mgrp && mgrp.el) || document.querySelector('#constellation-board .con-group[data-id="' + sid + '"]');
+            }
+            if (revEl) {
+              window.conPlayRevealAnimation(d.entityType, revEntity, revEl, {
+                animKey: d.animKey,
+                durationMs: d.durationMs,
+                borderColor: d.borderColor,
+                fromMirror: true
+              });
+            }
+          }
+          return;
+        }
+
         if (d.type === 'laser-toggle') {
           if (_mirrorIsFrozen) return;
           document.body.classList.toggle('laser-active', !!d.on);

@@ -6059,13 +6059,21 @@
       }
 
       // 2. Scan Mindmaps
-      if (window.Desktop && typeof Desktop.listFiles === 'function') {
+      if (window.Desktop && (typeof Desktop.listByPath === 'function' || typeof Desktop.listFiles === 'function')) {
         try {
-          const res = await Desktop.listFiles('mindmaps', { extensions: ['.cstz', '.json'] });
+          const res = typeof Desktop.listByPath === 'function'
+            ? await Desktop.listByPath('mindmaps', '', {
+                extensions: ['.cstz', '.json'],
+                recursive: true,
+                excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+              })
+            : await Desktop.listFiles('mindmaps', { extensions: ['.cstz', '.json'] });
           const flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
           for (const item of flist) {
-            const fn = typeof item === 'string' ? item : (item && (item.filename || item.name));
-            if (!fn || fn.includes('-Autosave') || fn.includes('.bak')) continue;
+            const fn = typeof item === 'string' ? item : (item && (item.relativePath || item.filename || item.name));
+            if (!fn) continue;
+            const normFn = String(fn).replace(/\\/g, '/');
+            if (normFn.includes('-Autosave') || normFn.includes('.bak') || normFn.includes('/history/') || normFn.startsWith('history/')) continue;
             let b = null;
             if (fn.endsWith('.cstz') || fn.endsWith('.zip')) {
               if (typeof Desktop.readBoardArchive === 'function') {

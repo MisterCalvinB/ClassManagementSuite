@@ -727,6 +727,10 @@
         hideBtn.classList.toggle('active', !!item.hidden);
         hideBtn.title = item.hidden ? 'Reveal' : 'Hide';
       }
+      var imgRevealSel = document.getElementById('con-img-sp-reveal-anim-select');
+      if (imgRevealSel && typeof window.conPopulateRevealAnimSelect === 'function') {
+        window.conPopulateRevealAnimSelect(imgRevealSel, item.revealAnim || '');
+      }
       var fullBtn = document.getElementById('con-img-sp-fullscreen-btn');
       if (fullBtn) fullBtn.classList.toggle('active', !!item._fullscreen);
       var isElectron = item.relativePath && window.Desktop && Desktop.isElectron();
@@ -987,7 +991,8 @@
     window.conImgSpToggleHide = function () {
       if (!_conCtxItem) return;
       _conCtxItem.hidden = !_conCtxItem.hidden;
-      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      var wrap = _conMediaGetWrap(_conCtxItem);
+      _conApplyMediaStyles(_conCtxItem, wrap);
       var btn = document.getElementById('con-img-sp-hide-btn');
       if (btn) {
         btn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
@@ -995,6 +1000,16 @@
         btn.title = _conCtxItem.hidden ? 'Reveal' : 'Hide';
       }
       if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: _conCtxItem.id, hidden: !!_conCtxItem.hidden });
+      if (!_conCtxItem.hidden && wrap && typeof window.conPlayRevealAnimation === 'function') {
+        window.conPlayRevealAnimation('media', _conCtxItem, wrap);
+      }
+    };
+    window.conImgSpSetRevealAnimation = function (animKey) {
+      if (!_conCtxItem) return;
+      _conCtxItem.revealAnim = String(animKey || '');
+      var sel = document.getElementById('con-img-sp-reveal-anim-select');
+      if (sel && sel.value !== _conCtxItem.revealAnim) sel.value = _conCtxItem.revealAnim;
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     };
     window.conImgSpAddEmoji = function () {
       if (!_conCtxItem) return;
@@ -1077,6 +1092,10 @@
         hideBtn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
         hideBtn.classList.toggle('active', !!item.hidden);
         hideBtn.title = item.hidden ? 'Reveal' : 'Hide';
+      }
+      var pdfRevealSel = document.getElementById('con-pdf-sp-reveal-anim-select');
+      if (pdfRevealSel && typeof window.conPopulateRevealAnimSelect === 'function') {
+        window.conPopulateRevealAnimSelect(pdfRevealSel, item.revealAnim || '');
       }
       var lockFitBtn = document.getElementById('con-pdf-sp-lockfit-btn');
       if (lockFitBtn) lockFitBtn.classList.toggle('active', !!item.pdfLockSize);
@@ -1275,7 +1294,8 @@
     window.conPdfSpToggleHide = function () {
       if (!_conCtxItem) return;
       _conCtxItem.hidden = !_conCtxItem.hidden;
-      _conApplyMediaStyles(_conCtxItem, _conMediaGetWrap(_conCtxItem));
+      var wrap = _conMediaGetWrap(_conCtxItem);
+      _conApplyMediaStyles(_conCtxItem, wrap);
       var btn = document.getElementById('con-pdf-sp-hide-btn');
       if (btn) {
         btn.innerHTML = '<img src="../assets/icons/mask.svg" class="btn-icon" alt="" />';
@@ -1283,6 +1303,16 @@
         btn.title = _conCtxItem.hidden ? 'Reveal' : 'Hide';
       }
       if (window._conMirrorSend) window._conMirrorSend({ type: 'media-hide', id: _conCtxItem.id, hidden: !!_conCtxItem.hidden });
+      if (!_conCtxItem.hidden && wrap && typeof window.conPlayRevealAnimation === 'function') {
+        window.conPlayRevealAnimation('media', _conCtxItem, wrap);
+      }
+    };
+    window.conPdfSpSetRevealAnimation = function (animKey) {
+      if (!_conCtxItem) return;
+      _conCtxItem.revealAnim = String(animKey || '');
+      var sel = document.getElementById('con-pdf-sp-reveal-anim-select');
+      if (sel && sel.value !== _conCtxItem.revealAnim) sel.value = _conCtxItem.revealAnim;
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     };
     window.conPdfSpToggleLockFit = function () {
       if (!_conCtxItem) return;

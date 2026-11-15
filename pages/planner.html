@@ -2529,6 +2529,11 @@
         var parts = rel.split('/').filter(Boolean);
         var filename = String((file && file.filename) || (parts.length ? parts[parts.length - 1] : ''));
         if (!filename) return false;
+        if (/\.(cstz|zip)$/i.test(filename)) {
+          if (rel.indexOf('/history/') !== -1 || rel.startsWith('history/')) return false;
+          if (rel.indexOf('/archived/') !== -1 || rel.startsWith('archived/')) return false;
+          return true;
+        }
         if (parts.length <= 1) return true;
         if (parts.length === 2) {
           var folder = parts[0];
@@ -5502,6 +5507,7 @@
             version: 1,
             format: 'cstz',
             title: baseName,
+            classGroup: String(source && source.classId || ''),
             plannerEntryIds: linkId ? [linkId] : [],
             plannerEntryId: linkId,
             pageCount: 1,
@@ -5515,7 +5521,10 @@
             { name: 'manifest.json', data: JSON.stringify(manifest, null, 2), encoding: 'utf8', store: true },
             { name: 'board.json', data: JSON.stringify(sessionData, null, 2), encoding: 'utf8', store: true }
           ];
-          var result = await Desktop.saveBoardArchive('mindmaps', baseName + '.cstz', archiveEntries);
+          var classSubdir = (source && source.classId)
+            ? String(plannerClassDisplayName(source.classId) || '').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_')
+            : '';
+          var result = await Desktop.saveBoardArchive('mindmaps', baseName + '.cstz', archiveEntries, classSubdir || undefined);
           if (!result || result.ok === false) {
             throw new Error(result && result.error ? result.error : t('pl_boardCreateErr'));
           }

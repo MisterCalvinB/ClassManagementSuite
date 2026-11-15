@@ -7878,6 +7878,103 @@
       }
       window.conGetDefaultAnim = global.conGetDefaultAnim = conGetDefaultAnim;
 
+      function conGetDefaultRevealAnim() {
+        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        if (cfg && cfg.revealEffect !== undefined && cfg.revealEffect !== null && String(cfg.revealEffect) !== '') {
+          return String(cfg.revealEffect);
+        }
+        return 'blink';
+      }
+      window.conGetDefaultRevealAnim = global.conGetDefaultRevealAnim = conGetDefaultRevealAnim;
+
+      function conGetDefaultRevealDurationMs() {
+        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        const sec = (cfg && Number(cfg.revealDurationSec)) ? Number(cfg.revealDurationSec)
+          : ((cfg && Number(cfg.doubleClickDurationSec)) ? Number(cfg.doubleClickDurationSec) : 3.0);
+        return Math.max(250, sec * 1000);
+      }
+      window.conGetDefaultRevealDurationMs = global.conGetDefaultRevealDurationMs = conGetDefaultRevealDurationMs;
+
+      function conPopulateRevealAnimSelect(selectEl, currentVal) {
+        if (!selectEl) return;
+        const t = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t.bind(i18n) : (k, fb) => fb || k;
+        const prev = currentVal !== undefined ? String(currentVal || '') : (selectEl.value || '');
+        selectEl.innerHTML = '';
+        const defOpt = document.createElement('option');
+        defOpt.value = '';
+        defOpt.textContent = t('conRevealAnimDefault', 'Reveal: Global Default');
+        selectEl.appendChild(defOpt);
+        const noneOpt = document.createElement('option');
+        noneOpt.value = 'none';
+        noneOpt.textContent = t('conAnimNone', 'No Animation');
+        selectEl.appendChild(noneOpt);
+        CON_ANIMATIONS.forEach(a => {
+          const opt = document.createElement('option');
+          opt.value = a.key;
+          const translated = t(a.i18nKey);
+          opt.textContent = (translated && translated !== a.i18nKey) ? translated : a.label;
+          selectEl.appendChild(opt);
+        });
+        selectEl.value = prev;
+      }
+      window.conPopulateRevealAnimSelect = global.conPopulateRevealAnimSelect = conPopulateRevealAnimSelect;
+
+      function conPlayRevealAnimation(entityType, entity, el, opts) {
+        if (!el) return;
+        const options = opts && typeof opts === 'object' ? opts : {};
+        const rawOverride = options.animKey !== undefined ? String(options.animKey || '')
+          : ((entity && entity.revealAnim) ? String(entity.revealAnim) : '');
+        const resolved = rawOverride || conGetDefaultRevealAnim();
+        if (!resolved || resolved === 'none') return;
+
+        const totalMs = Math.max(250, Number(options.durationMs) || conGetDefaultRevealDurationMs());
+        const entityId = entity && entity.id !== undefined ? String(entity.id) : (el.id || (el.dataset && el.dataset.id) || '');
+
+        if (el._conRevealTimeout) {
+          clearTimeout(el._conRevealTimeout);
+          el._conRevealTimeout = null;
+        }
+        if (el._conBlinkTimeout) {
+          clearTimeout(el._conBlinkTimeout);
+          el._conBlinkTimeout = null;
+        }
+
+        const persistentAnim = (entity && entity.anim) ? String(entity.anim) : ((entity && entity.blink) ? 'pulse' : '');
+        const baseBorderColor = (options.borderColor)
+          || (entity && (entity.border || entity.borderColor))
+          || (el.style && el.style.borderColor)
+          || '#111111';
+
+        if (!options.fromMirror && window._conMirrorSend && entityId) {
+          window._conMirrorSend({
+            type: 'entity-reveal-anim',
+            entityType: entityType || 'node',
+            id: entityId,
+            animKey: resolved,
+            durationMs: totalMs,
+            borderColor: baseBorderColor
+          });
+        }
+
+        if (resolved === 'blink') {
+          el.style.setProperty('--con-node-border', baseBorderColor);
+          el.style.setProperty('--con-blink-delay', '-' + (Math.floor(performance.now()) % 360) + 'ms');
+          el.classList.add('con-attention-blink');
+          el._conRevealTimeout = setTimeout(() => {
+            el.classList.remove('con-attention-blink');
+            el.style.removeProperty('--con-blink-delay');
+            el._conRevealTimeout = null;
+          }, totalMs);
+        } else if (CON_ANIMATIONS.some(a => a.key === resolved)) {
+          conApplyEntityAnimClass(el, resolved, false);
+          el._conRevealTimeout = setTimeout(() => {
+            conApplyEntityAnimClass(el, persistentAnim, false);
+            el._conRevealTimeout = null;
+          }, totalMs);
+        }
+      }
+      window.conPlayRevealAnimation = global.conPlayRevealAnimation = conPlayRevealAnimation;
+
       function conApplyEntityAnimClass(el, animKey, legacyBlink) {
         if (!el || !el.classList) return;
         CON_ANIMATIONS.forEach(a => el.classList.remove('con-anim-' + a.key));
@@ -7977,6 +8074,20 @@
         if (typeof conSave === 'function') conSave();
       }
       window.conCtxSetAnimation = global.conCtxSetAnimation = conCtxSetAnimation;
+
+      function conCtxSetRevealAnimation(animKey) {
+        const resolved = String(animKey || '');
+        const ids = _conGetTargetNodeIdsForAnim();
+        ids.forEach(nid => {
+          const n = conNodes.find(x => x && String(x.id) === nid);
+          if (!n) return;
+          n.revealAnim = resolved;
+        });
+        const sel = document.getElementById('con-ctx-reveal-anim-select');
+        if (sel && sel.value !== resolved) sel.value = resolved;
+        if (typeof conSave === 'function') conSave();
+      }
+      window.conCtxSetRevealAnimation = global.conCtxSetRevealAnimation = conCtxSetRevealAnimation;
 
       function conCtxToggleAnim() {
         const primaryId = (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) ? String(conCtxNodeId) : (typeof conSelected !== 'undefined' && conSelected ? String(conSelected) : null);
@@ -8105,6 +8216,8 @@
             if (typeof window._conMirrorSend === 'function') {
               window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: false });
             }
+            conPlayRevealAnimation('node', node, el);
+            return;
           }
           conBlinkNodeAttention(el);
         });
@@ -9864,30 +9977,34 @@
         if (grad.children[1]) grad.children[1].setAttribute('stop-color', colorB);
       }
 
-      function _conEnsureEdgeCustomMarker(edge, whichEnd, term, color) {
-        const defs = _conEnsureEdgeDefs(edge);
+      function _conEnsureColorMarker(term, whichEnd, color) {
+        conEnsureSvgDefs();
+        const svgEl = svg();
+        const defs = svgEl ? svgEl.querySelector('#con-arrow-defs') : null;
         if (!defs) return 'url(#con-' + term + '-' + whichEnd + ')';
-        const markerId = 'con-edge-marker-' + whichEnd + '-' + edge.id;
+        const safeCol = String(color || '#333333').trim().replace(/[^a-zA-Z0-9]/g, '') || '333333';
+        const markerId = 'con-m-' + term + '-' + whichEnd + '-' + safeCol;
         let m = defs.querySelector('#' + markerId);
+        const template = document.getElementById('con-' + term + '-' + whichEnd);
         if (!m) {
           m = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
           m.id = markerId;
           m.setAttribute('orient', 'auto');
           m.setAttribute('markerUnits', 'userSpaceOnUse');
+          if (template) {
+            m.setAttribute('markerWidth', template.getAttribute('markerWidth') || '11');
+            m.setAttribute('markerHeight', template.getAttribute('markerHeight') || '9');
+            m.setAttribute('refX', template.getAttribute('refX') || '1');
+            m.setAttribute('refY', template.getAttribute('refY') || '4.5');
+            m.innerHTML = template.innerHTML.replace(/context-stroke/g, color || '#333333');
+          }
           defs.appendChild(m);
         }
-        const template = document.getElementById('con-' + term + '-' + whichEnd);
-        if (template) {
-          m.setAttribute('markerWidth', template.getAttribute('markerWidth') || '11');
-          m.setAttribute('markerHeight', template.getAttribute('markerHeight') || '9');
-          m.setAttribute('refX', template.getAttribute('refX') || '1');
-          m.setAttribute('refY', template.getAttribute('refY') || '4.5');
-          const inner = template.innerHTML.replace(/context-stroke/g, color);
-          if (m.innerHTML !== inner) {
-            m.innerHTML = inner;
-          }
-        }
         return 'url(#' + markerId + ')';
+      }
+
+      function _conEnsureEdgeCustomMarker(edge, whichEnd, term, color) {
+        return _conEnsureColorMarker(term, whichEnd, color);
       }
 
       function conAddEdge(aId, bId, type, color, existingId, explicitThickness) {
@@ -10275,6 +10392,7 @@
       }
 
       function conUpdateEdge(edge) {
+        conEnsureSvgDefs();
         const na = conResolveLinkAnchor(edge.a);
         const nb = conResolveLinkAnchor(edge.b);
         if (!na || !nb) {
@@ -10366,36 +10484,34 @@
         const strokeInfo = conResolveEdgeStroke(edge);
         if (strokeInfo.gradient) {
           _conUpdateEdgeGradient(edge, x1, y1, x2, y2, strokeInfo.colorA, strokeInfo.colorB);
-          if (edge.line) edge.line.style.stroke = 'url(#con-edge-grad-' + edge.id + ')';
+          if (edge.line) {
+            const gradUrl = 'url(#con-edge-grad-' + edge.id + ')';
+            edge.line.style.stroke = gradUrl;
+            edge.line.setAttribute('stroke', gradUrl);
+          }
         } else if (edge.line) {
           edge.line.style.stroke = strokeInfo.solid;
+          edge.line.setAttribute('stroke', strokeInfo.solid);
         }
 
-        // Terminator markers
-        let mEnd = 'url(#con-' + term + '-end)';
-        let mStart = 'url(#con-' + term + '-start)';
+        // Terminator markers (resolved with explicit color per (term, end, color) so Blink always repaints)
+        if (edge.line) {
+          const endColor = strokeInfo.gradient ? strokeInfo.colorB : strokeInfo.solid;
+          const startColor = strokeInfo.gradient ? strokeInfo.colorA : strokeInfo.solid;
+          const mEnd = (t === 'forward' || t === 'both') ? _conEnsureColorMarker(term, 'end', endColor) : '';
+          const mStart = (t === 'backward' || t === 'both') ? _conEnsureColorMarker(term, 'start', startColor) : '';
 
-        if (strokeInfo.gradient) {
-          if (t === 'forward' || t === 'both') {
-            mEnd = _conEnsureEdgeCustomMarker(edge, 'end', term, strokeInfo.colorB);
+          if (mStart) {
+            if (edge.line.getAttribute('marker-start') !== mStart) edge.line.setAttribute('marker-start', mStart);
+          } else if (edge.line.hasAttribute('marker-start')) {
+            edge.line.removeAttribute('marker-start');
           }
-          if (t === 'backward' || t === 'both') {
-            mStart = _conEnsureEdgeCustomMarker(edge, 'start', term, strokeInfo.colorA);
-          }
-        }
 
-        if (t === 'forward') {
-          edge.line.setAttribute('marker-end', mEnd);
-          edge.line.removeAttribute('marker-start');
-        } else if (t === 'backward') {
-          edge.line.setAttribute('marker-start', mStart);
-          edge.line.removeAttribute('marker-end');
-        } else if (t === 'both') {
-          edge.line.setAttribute('marker-start', mStart);
-          edge.line.setAttribute('marker-end', mEnd);
-        } else {
-          edge.line.removeAttribute('marker-start');
-          edge.line.removeAttribute('marker-end');
+          if (mEnd) {
+            if (edge.line.getAttribute('marker-end') !== mEnd) edge.line.setAttribute('marker-end', mEnd);
+          } else if (edge.line.hasAttribute('marker-end')) {
+            edge.line.removeAttribute('marker-end');
+          }
         }
 
         // Update label position and pill background
@@ -11202,6 +11318,8 @@
         if (ctxBlinkBtn) ctxBlinkBtn.classList.toggle('active', !!nodeAnim);
         const ctxAnimSel = document.getElementById('con-ctx-anim-select');
         if (ctxAnimSel) conPopulateAnimSelect(ctxAnimSel, nodeAnim);
+        const ctxRevealAnimSel = document.getElementById('con-ctx-reveal-anim-select');
+        if (ctxRevealAnimSel) conPopulateRevealAnimSelect(ctxRevealAnimSel, (node && node.revealAnim) ? String(node.revealAnim) : '');
 
         // Base-word row: show when node is a synonym/antonym/related word/other form.
         // Priority 1 — metadata stamped at creation time (conCtxAddRelated).
@@ -14310,11 +14428,14 @@
 
         // 3. File not found loose on disk (e.g. packed in a .cstz archive or in memory)
         const isCstz = !!(_conCurrentFileName && (_conCurrentFileName.endsWith('.cstz') || _conCurrentFileName.endsWith('.zip')));
+        const archiveRelPath = _conCurrentFileName
+          ? (_conCurrentFolderName ? (_conCurrentFolderName + '/' + _conCurrentFileName) : _conCurrentFileName)
+          : '';
 
         if (action === 'folder') {
           // If it's a .cstz file or saved file, reveal the archive/session file in explorer
-          if (_conCurrentFileName) {
-            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+          if (archiveRelPath) {
+            await Desktop.showInFolder('mindmaps', archiveRelPath);
           } else if (_conCurrentFolderName) {
             await Desktop.showInFolder('mindmaps', _conCurrentFolderName);
           } else {
@@ -14325,9 +14446,9 @@
 
         // Action === 'open' on .cstz or memory-only media:
         // If it is a cstz file, open the folder of the archive file first, then open the extracted audio/video
-        if (isCstz && _conCurrentFileName) {
+        if (isCstz && archiveRelPath) {
           try {
-            await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+            await Desktop.showInFolder('mindmaps', archiveRelPath);
           } catch (_) {}
         }
 
@@ -14384,8 +14505,8 @@
         }
 
         // Fallback if unable to extract
-        if (_conCurrentFileName) {
-          await Desktop.showInFolder('mindmaps', _conCurrentFileName);
+        if (archiveRelPath) {
+          await Desktop.showInFolder('mindmaps', archiveRelPath);
         } else {
           if (typeof showToast === 'function') {
             showToast(typeof i18n !== 'undefined' ? i18n.t('mediaNodeFileNotFound') || 'Media file could not be located on disk.' : 'Media file could not be located on disk.', true);
@@ -17805,6 +17926,9 @@
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'node-mask', nodeId: String(node.id), masked: node.masked });
         }
+        if (!node.masked) {
+          conPlayRevealAnimation('node', node, node.el);
+        }
       };
 
       // ---- Star / unstar a node's DB entry ----
@@ -17911,16 +18035,21 @@
 
       window.conRevealAll = function () {
         if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('reveal_all');
+        const revealed = [];
         conNodes.forEach(node => {
           if (node.masked) {
             node.masked = false;
             node.el.classList.remove('con-masked');
+            revealed.push(node);
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'node-masks', masks: conNodes.map(n => ({ id: String(n.id), masked: false })) });
         }
+        revealed.forEach(node => {
+          if (node && node.el) conPlayRevealAnimation('node', node, node.el);
+        });
       };
 
       window.conMaskAll = function () {
@@ -17969,16 +18098,21 @@
           : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
         if (selectedNodes.length === 0) return;
         conPushUndo();
+        const revealed = [];
         selectedNodes.forEach(node => {
           if (node.masked) {
             node.masked = false;
             if (node.el) node.el.classList.remove('con-masked');
+            revealed.push(node);
           }
         });
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'node-masks', masks: selectedNodes.map(n => ({ id: String(n.id), masked: false })) });
         }
+        revealed.forEach(node => {
+          if (node && node.el) conPlayRevealAnimation('node', node, node.el);
+        });
       };
 
       window.conToggleAllIpa = function () {
@@ -18151,6 +18285,7 @@
             newNode.textStrokeColor = node.textStrokeColor || null;
             newNode.textStrokeWidth = node.textStrokeWidth || null;
             newNode.anim = node.anim || '';
+          newNode.revealAnim = node.revealAnim || '';
             conApplyEntityAnimClass(newNode.el, newNode.anim, false);
             conApplyTextStrokeStyle(newNode.el, newNode.textStrokeWidth, newNode.textStrokeColor);
             conRenderNodeLabel(newNode);
@@ -19146,7 +19281,8 @@
             rotation: (typeof n.rotation === 'number') ? conNormalizeNodeRotation(n.rotation) : 0,
             textStrokeColor: n.textStrokeColor || null,
             textStrokeWidth: n.textStrokeWidth || null,
-            anim: n.anim || ''
+            anim: n.anim || '',
+            revealAnim: n.revealAnim || ''
           }));
 
         const _liveNotes = (typeof window.conGetNotes === 'function')
@@ -19540,6 +19676,7 @@
           newNode.textStrokeColor = n.textStrokeColor || null;
           newNode.textStrokeWidth = n.textStrokeWidth || null;
           newNode.anim = n.anim || '';
+          newNode.revealAnim = n.revealAnim || '';
           conApplyEntityAnimClass(newNode.el, newNode.anim, false);
 
           if (n.bg) newNode.el.style.background = n.bg;

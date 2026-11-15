@@ -3543,10 +3543,13 @@
           }
 
           if (hasNodeSelection) {
+            const revealedNodes = [];
             selectedNodes.forEach(node => {
               if (!node || !node.el) return;
+              const wasMasked = !!node.masked;
               node.masked = anyVisible;
               node.el.classList.toggle('con-masked', anyVisible);
+              if (wasMasked && !anyVisible) revealedNodes.push(node);
             });
             // Sync node mask state to mirror view without DOM teardown
             if (typeof window._conMirrorSend === 'function') {
@@ -3555,16 +3558,22 @@
                 masks: selectedNodes.filter(n => n).map(n => ({ id: String(n.id), masked: !!n.masked }))
               });
             }
+            if (revealedNodes.length && typeof window.conPlayRevealAnimation === 'function') {
+              revealedNodes.forEach(node => window.conPlayRevealAnimation('node', node, node.el));
+            }
           }
           if (hasNoteSelection) {
+            const revealedNotes = [];
             selectedNotes.forEach(note => {
               if (!note) return;
+              const wasHidden = !!note.hidden;
               note.hidden = anyVisible;
               if (typeof note._applyStyle === 'function') note._applyStyle();
               const noteEl = (typeof wnGetNoteElementById === 'function')
                 ? wnGetNoteElementById(note.id)
                 : document.querySelector(`.con-word-note[data-id="${note.id}"]`);
               if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, noteEl);
+              if (wasHidden && !anyVisible && noteEl) revealedNotes.push({ note, noteEl });
               if (noteEl) {
                 const hideQuickBtn = noteEl.querySelector('.wn-note-mini-btn[title*="Hide"], .wn-note-mini-btn[title*="Reveal"]');
                 if (hideQuickBtn) {
@@ -3588,12 +3597,18 @@
                 window._conMirrorSend({ type: 'note-style', id: String(note.id), hidden: !!note.hidden });
               });
             }
+            if (revealedNotes.length && typeof window.conPlayRevealAnimation === 'function') {
+              revealedNotes.forEach(({ note, noteEl }) => window.conPlayRevealAnimation('note', note, noteEl));
+            }
           }
           if (hasMediaSelection) {
+            const revealedMedia = [];
             selectedMedia.forEach(m => {
+              const wasHidden = !!m.hidden;
               m.hidden = anyVisible;
               const wrap = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(m) : document.querySelector('.con-media-item[data-id="' + m.id + '"]');
               if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
+              if (wasHidden && !anyVisible && wrap) revealedMedia.push({ m, wrap });
               if (typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id === m.id) {
                 const imgHideBtn = document.getElementById('con-img-sp-hide-btn');
                 if (imgHideBtn) {
@@ -3615,6 +3630,9 @@
                 window._conMirrorSend({ type: 'media-hide', id: String(m.id), hidden: !!m.hidden });
               });
             }
+            if (revealedMedia.length && typeof window.conPlayRevealAnimation === 'function') {
+              revealedMedia.forEach(({ m, wrap }) => window.conPlayRevealAnimation('media', m, wrap));
+            }
           }
         } else {
           // If no element is selected, check if a non-phrase group is explicitly focused
@@ -3630,10 +3648,13 @@
             if (grpNodes.length || grpNotes.length || grpMedia.length) {
               conPushUndo();
               const anyVisible = grpNodes.some(n => !n.masked) || grpNotes.some(n => !n.hidden) || grpMedia.some(m => !m.hidden);
+              const grpRevealedNodes = [];
               grpNodes.forEach(node => {
                 if (!node || !node.el) return;
+                const wasMasked = !!node.masked;
                 node.masked = anyVisible;
                 node.el.classList.toggle('con-masked', anyVisible);
+                if (wasMasked && !anyVisible) grpRevealedNodes.push(node);
               });
               if (grpNodes.length && typeof window._conMirrorSend === 'function') {
                 window._conMirrorSend({
@@ -3641,14 +3662,23 @@
                   masks: grpNodes.map(nid => ({ id: String(nid.id), masked: anyVisible }))
                 });
               }
+              if (grpRevealedNodes.length && typeof window.conPlayRevealAnimation === 'function') {
+                grpRevealedNodes.forEach(node => {
+                  const opts = (!node.revealAnim && focusedGroup.revealAnim) ? { animKey: focusedGroup.revealAnim } : undefined;
+                  window.conPlayRevealAnimation('node', node, node.el, opts);
+                });
+              }
+              const grpRevealedNotes = [];
               grpNotes.forEach(note => {
                 if (!note) return;
+                const wasHidden = !!note.hidden;
                 note.hidden = anyVisible;
                 if (typeof note._applyStyle === 'function') note._applyStyle();
                 const noteEl = (typeof wnGetNoteElementById === 'function')
                   ? wnGetNoteElementById(note.id)
                   : document.querySelector(`.con-word-note[data-id="${note.id}"]`);
                 if (typeof wnApplyHiddenState === 'function') wnApplyHiddenState(note, noteEl);
+                if (wasHidden && !anyVisible && noteEl) grpRevealedNotes.push({ note, noteEl });
                 if (noteEl) {
                   const hideQuickBtn = noteEl.querySelector('.wn-note-mini-btn[title*="Hide"], .wn-note-mini-btn[title*="Reveal"]');
                   if (hideQuickBtn) {
@@ -3663,14 +3693,29 @@
                   window._conMirrorSend({ type: 'note-style', id: String(note.id), hidden: anyVisible });
                 });
               }
+              if (grpRevealedNotes.length && typeof window.conPlayRevealAnimation === 'function') {
+                grpRevealedNotes.forEach(({ note, noteEl }) => {
+                  const opts = (!note.revealAnim && focusedGroup.revealAnim) ? { animKey: focusedGroup.revealAnim } : undefined;
+                  window.conPlayRevealAnimation('note', note, noteEl, opts);
+                });
+              }
+              const grpRevealedMedia = [];
               grpMedia.forEach(m => {
+                const wasHidden = !!m.hidden;
                 m.hidden = anyVisible;
                 const wrap = (typeof _conMediaGetWrap === 'function') ? _conMediaGetWrap(m) : document.querySelector('.con-media-item[data-id="' + m.id + '"]');
                 if (wrap && typeof _conApplyMediaStyles === 'function') _conApplyMediaStyles(m, wrap);
+                if (wasHidden && !anyVisible && wrap) grpRevealedMedia.push({ m, wrap });
               });
               if (grpMedia.length && typeof window._conMirrorSend === 'function') {
                 grpMedia.forEach(m => {
                   window._conMirrorSend({ type: 'media-hide', id: String(m.id), hidden: anyVisible });
+                });
+              }
+              if (grpRevealedMedia.length && typeof window.conPlayRevealAnimation === 'function') {
+                grpRevealedMedia.forEach(({ m, wrap }) => {
+                  const opts = (!m.revealAnim && focusedGroup.revealAnim) ? { animKey: focusedGroup.revealAnim } : undefined;
+                  window.conPlayRevealAnimation('media', m, wrap, opts);
                 });
               }
             }
@@ -4333,6 +4378,7 @@
             textStrokeColor: n.textStrokeColor || null,
             textStrokeWidth: n.textStrokeWidth || null,
             anim: n.anim || '',
+            revealAnim: n.revealAnim || '',
             fmt: n.fmt ? { ...n.fmt } : {},
             masked: n.masked || false,
             locked: !!n.locked,
@@ -8613,24 +8659,34 @@
     async function _conSaveSessionFolderBundleImpl(sessionFilename, persistedData, options = {}) {
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveBoardArchive === 'function') {
         const archiveBundle = await conBuildSessionArchiveBundle(sessionFilename, persistedData, options);
-        const result = await Desktop.saveBoardArchive('mindmaps', archiveBundle.filename, archiveBundle.entries);
+        let targetSubdir = '';
+        if (typeof options.subdir === 'string') {
+          targetSubdir = options.subdir.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+        } else if (options.useClassSubdir) {
+          const cg = (persistedData && (persistedData._classGroup || persistedData.classGroup)) || (typeof activeClassGroup === 'string' ? activeClassGroup : '');
+          targetSubdir = typeof boardGetClassSubdirForGroup === 'function' ? boardGetClassSubdirForGroup(cg) : '';
+        } else {
+          targetSubdir = String(_conCurrentFolderName || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+        }
+        const result = await Desktop.saveBoardArchive('mindmaps', archiveBundle.filename, archiveBundle.entries, targetSubdir || undefined);
         if (!result || !result.ok) {
           throw new Error(result && result.error ? result.error : 'Could not save Constellation archive.');
         }
 
         if (!options.preserveCurrentSession) {
           _conCurrentFileName = archiveBundle.filename;
-          _conCurrentFolderName = null;
+          _conCurrentFolderName = targetSubdir || null;
           if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
           conSetAttachmentsFromSession(archiveBundle.attachments);
           if (window.conUpdatePageBar) window.conUpdatePageBar();
         }
         if (typeof historyUpsertEntry === 'function') {
-          historyUpsertEntry('mindmaps', archiveBundle.filename, archiveBundle.filename, archiveBundle.data, options);
+          const relPath = targetSubdir ? (targetSubdir + '/' + archiveBundle.filename) : archiveBundle.filename;
+          historyUpsertEntry('mindmaps', archiveBundle.filename, relPath, archiveBundle.data, options);
         }
         return {
           filename: archiveBundle.filename,
-          folderName: null,
+          folderName: targetSubdir || null,
           data: archiveBundle.data
         };
       }
@@ -8675,7 +8731,7 @@
       const persistedData = boardBuildPersistedSessionData('constellation', data);
 
       boardShowAutosaveToast();
-      _conSilentInitialSavePromise = conSaveSessionFolderBundle(requestedName, persistedData, { isAutosave: true })
+      _conSilentInitialSavePromise = conSaveSessionFolderBundle(requestedName, persistedData, { isAutosave: true, useClassSubdir: !_conCurrentFolderName })
         .then(saved => {
           boardPersistLocalSession('constellation', saved.data, {
             source: 'autosave',
@@ -8786,7 +8842,7 @@
         }, {
           customSave: async function (requestedName) {
             try {
-              const saved = await conSaveSessionFolderBundle(requestedName, persistedData, { isManualSave: true });
+              const saved = await conSaveSessionFolderBundle(requestedName, persistedData, { isManualSave: true, useClassSubdir: true });
               _onSaveSuccess(saved.filename, saved.folderName, saved.data);
               return saved.filename;
             } catch (err) {
@@ -8825,9 +8881,10 @@
       });
     }
 
-    async function conSuggestDuplicateFilename(baseName) {
+    async function conSuggestDuplicateFilename(baseName, targetSubdir = '') {
       const sourceBase = boardStripJsonExt(String(baseName || '').trim()) || 'constellation';
       const ext = (baseName && baseName.endsWith('.js')) ? '.js' : '.cstz';
+      const normalizedSubdir = String(targetSubdir || '').trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '').toLowerCase();
       const takenBases = new Set();
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
@@ -8845,6 +8902,13 @@
             const leaf = parts.length ? parts[parts.length - 1] : '';
             const leafBase = boardStripJsonExt(leaf).toLowerCase();
             if (!leafBase) return;
+            const parentDir = parts.length > 1 ? parts.slice(0, -1).join('/').toLowerCase() : '';
+            if (normalizedSubdir) {
+              if (parentDir === normalizedSubdir) {
+                takenBases.add(leafBase);
+              }
+              return;
+            }
             if (parts.length === 2 && boardStripJsonExt(parts[1]).toLowerCase() === parts[0].toLowerCase()) {
               takenBases.add(parts[0].toLowerCase());
               return;
@@ -8907,7 +8971,8 @@
 
       try {
         const sourceName = _conCurrentFileName || (_conCurrentFolderName ? (_conCurrentFolderName + '.js') : (boardDefaultFileName('constellation', window.conGetTitle ? window.conGetTitle() : '') + '.cstz'));
-        const duplicateFilename = await conSuggestDuplicateFilename(sourceName);
+        const dupSubdir = (typeof boardGetClassSubdirForGroup === 'function' ? boardGetClassSubdirForGroup(activeClassGroup) : '') || _conCurrentFolderName || '';
+        const duplicateFilename = await conSuggestDuplicateFilename(sourceName, dupSubdir);
 
         const persistedData = boardBuildPersistedSessionData('constellation', data);
         delete persistedData._plannerEntryIds;
@@ -8917,7 +8982,8 @@
 
         const saved = await conSaveSessionFolderBundle(duplicateFilename, persistedData, {
           isManualSave: true,
-          preserveCurrentSession: true
+          preserveCurrentSession: true,
+          subdir: dupSubdir
         });
 
         if (typeof historyRenderList === 'function') historyRenderList();
@@ -11400,6 +11466,7 @@
             existing.textStrokeColor = n.textStrokeColor || null;
             existing.textStrokeWidth = n.textStrokeWidth || null;
             existing.anim = n.anim || '';
+            existing.revealAnim = n.revealAnim || '';
             if (typeof window.conApplyEntityAnimClass === 'function') window.conApplyEntityAnimClass(existing.el, existing.anim, false);
             existing.competences = Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []);
             if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(existing);
@@ -11499,7 +11566,8 @@
               competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []),
               nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
               nodeNumberFormat: n.nodeNumberFormat || null,
-              anim: n.anim || ''
+              anim: n.anim || '',
+              revealAnim: n.revealAnim || ''
             };
             if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
               window.conApplyEntityAnimClass(el, nodeObj.anim, false);
@@ -12267,7 +12335,8 @@
           competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])),
           nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
           nodeNumberFormat: n.nodeNumberFormat || null,
-          anim: n.anim || ''
+          anim: n.anim || '',
+          revealAnim: n.revealAnim || ''
         };
         if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
           window.conApplyEntityAnimClass(el, nodeObj.anim, false);

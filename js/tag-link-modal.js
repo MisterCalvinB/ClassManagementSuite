@@ -1675,19 +1675,28 @@
     } catch (_) {}
 
     // 7. Board Mindmaps
-    if (desktop && typeof desktop.listFiles === 'function') {
+    if (desktop && (typeof desktop.listByPath === 'function' || typeof desktop.listFiles === 'function')) {
       try {
-        var mmFiles = await desktop.listFiles('mindmaps', { extensions: ['.json', '.js', '.cstz'] });
+        var mmFiles = typeof desktop.listByPath === 'function'
+          ? await desktop.listByPath('mindmaps', '', {
+              extensions: ['.json', '.js', '.cstz', '.zip'],
+              recursive: true,
+              excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+            })
+          : await desktop.listFiles('mindmaps', { extensions: ['.json', '.js', '.cstz'] });
         var mfList = Array.isArray(mmFiles) ? mmFiles : (mmFiles && Array.isArray(mmFiles.files) ? mmFiles.files : []);
         mfList.forEach(function(mf) {
-          var fn = typeof mf === 'string' ? mf : (mf.filename || mf.name);
-          if (!fn) return;
+          var rel = typeof mf === 'string' ? mf : (mf.relativePath || mf.filename || mf.name);
+          if (!rel) return;
+          rel = String(rel).replace(/\\/g, '/');
+          if (rel.includes('-Autosave') || rel.includes('.bak') || rel.includes('/history/') || rel.startsWith('history/')) return;
+          var leaf = rel.split('/').pop() || rel;
           addCandidate({
-            urn: window.LinksService.makeUrn('board', fn),
+            urn: window.LinksService.makeUrn('board', rel),
             type: 'board',
             badge: '[BOARD]',
-            title: fn.replace(/\.(json|js|cstz)$/, ''),
-            subtitle: 'Board Mindmap Session • ' + fn
+            title: leaf.replace(/\.(json|js|cstz|zip)$/i, ''),
+            subtitle: 'Board Mindmap Session • ' + rel
           });
         });
       } catch (_) {}

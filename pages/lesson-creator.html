@@ -8218,12 +8218,20 @@
 
         var files = [];
         try {
-          if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
-            var res = await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
+          if (window.Desktop && Desktop.isElectron() && (typeof Desktop.listByPath === 'function' || typeof Desktop.listFiles === 'function')) {
+            var res = typeof Desktop.listByPath === 'function'
+              ? await Desktop.listByPath('mindmaps', '', {
+                  extensions: ['.cstz', '.js', '.json', '.zip'],
+                  recursive: true,
+                  excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+                })
+              : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
             var list = Array.isArray(res) ? res : (res && res.files ? res.files : []);
             list.forEach(function (f) {
-              var name = typeof f === 'string' ? f : (f.filename || f.name);
-              if (name && !name.endsWith('.bak')) files.push(name);
+              var name = typeof f === 'string' ? f : (f.relativePath || f.filename || f.name);
+              if (!name) return;
+              name = String(name).replace(/\\/g, '/');
+              if (!name.endsWith('.bak') && !name.includes('-Autosave') && !name.includes('/history/') && !name.startsWith('history/')) files.push(name);
             });
           }
         } catch (_) {}
@@ -8242,7 +8250,7 @@
         files.sort().forEach(function (fn) {
           var opt = document.createElement('option');
           opt.value = fn;
-          opt.textContent = fn.replace(/\.(js|json)$/i, '');
+          opt.textContent = fn.replace(/\.(cstz|zip|js|json)$/i, '');
           if (sec.boardFile && (sec.boardFile === fn || sec.boardFile.endsWith(fn))) {
             opt.selected = true;
           }

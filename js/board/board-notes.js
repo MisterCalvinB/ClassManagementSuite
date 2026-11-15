@@ -1481,6 +1481,10 @@
       if (spAnimSel && typeof window.conPopulateAnimSelect === 'function') {
         window.conPopulateAnimSelect(spAnimSel, activeAnim);
       }
+      const spRevealAnimSel = document.getElementById('wn-sp-reveal-anim-select');
+      if (spRevealAnimSel && typeof window.conPopulateRevealAnimSelect === 'function') {
+        window.conPopulateRevealAnimSelect(spRevealAnimSel, noteData.revealAnim || '');
+      }
       const libBtn = document.getElementById('wn-sp-save-library-btn');
       if (libBtn) {
         const isMulti = (typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size > 1)
@@ -2034,10 +2038,14 @@
       nd.hidden = !nd.hidden;
       if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction(nd.hidden ? 'mask_note' : 'reveal_note');
       if (nd._applyStyle) nd._applyStyle();
-      wnApplyHiddenState(nd, wnGetNoteElementById(nd.id));
+      const noteEl = wnGetNoteElementById(nd.id);
+      wnApplyHiddenState(nd, noteEl);
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
       if (typeof window._conMirrorSend === 'function') {
         window._conMirrorSend({ type: 'note-hide', id: String(nd.id), hidden: !!nd.hidden });
+      }
+      if (!nd.hidden && noteEl && typeof window.conPlayRevealAnimation === 'function') {
+        window.conPlayRevealAnimation('note', nd, noteEl);
       }
     }
 
@@ -2079,6 +2087,17 @@
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
     }
     window.wnStyleSetAnimation = wnStyleSetAnimation;
+
+    function wnStyleSetRevealAnimation(animKey) {
+      if (!_wnActiveNote) return;
+      const resolved = String(animKey || '');
+      const targetNotes = wnGetTargetNotes(_wnActiveNote);
+      targetNotes.forEach(nd => { nd.revealAnim = resolved; });
+      const spRevealAnimSel = document.getElementById('wn-sp-reveal-anim-select');
+      if (spRevealAnimSel && spRevealAnimSel.value !== resolved) spRevealAnimSel.value = resolved;
+      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+    }
+    window.wnStyleSetRevealAnimation = wnStyleSetRevealAnimation;
 
     function wnStyleBlink() {
       if (!_wnActiveNote) return;
@@ -3102,13 +3121,18 @@
       const targets = wnGetTargetNotes(_wnActiveNote);
       const newHidden = !_wnActiveNote.hidden;
       targets.forEach(nd => {
+        const wasHidden = !!nd.hidden;
         nd.hidden = newHidden;
         if (nd._applyStyle) nd._applyStyle();
+        const noteEl = wnGetNoteElementById(nd.id);
         if (typeof wnApplyHiddenState === 'function') {
-          wnApplyHiddenState(nd, wnGetNoteElementById(nd.id));
+          wnApplyHiddenState(nd, noteEl);
         }
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'note-hide', id: String(nd.id), hidden: !!newHidden });
+        }
+        if (wasHidden && !newHidden && noteEl && typeof window.conPlayRevealAnimation === 'function') {
+          window.conPlayRevealAnimation('note', nd, noteEl);
         }
       });
       const hideBtn = document.getElementById('wn-sp-hide-btn');
@@ -5333,6 +5357,7 @@
       const shouldHide = attachedNotes.some(n => !n.hidden);
 
       attachedNotes.forEach(noteData => {
+        const wasHidden = !!noteData.hidden;
         noteData.hidden = shouldHide;
         const noteEl = (typeof wnGetNoteElementById === 'function')
           ? wnGetNoteElementById(noteData.id)
@@ -5346,6 +5371,9 @@
           }
           if (!shouldHide && typeof noteData._applyStyle === 'function') {
             noteData._applyStyle();
+          }
+          if (wasHidden && !shouldHide && typeof window.conPlayRevealAnimation === 'function') {
+            window.conPlayRevealAnimation('note', noteData, noteEl);
           }
         }
         if (typeof window._conMirrorSend === 'function') {
@@ -6125,6 +6153,9 @@
         noteData.hidden = !noteData.hidden;
         if (noteData._applyStyle) noteData._applyStyle();
         wnApplyHiddenState(noteData, note);
+        if (!noteData.hidden && typeof window.conPlayRevealAnimation === 'function') {
+          window.conPlayRevealAnimation('note', noteData, note);
+        }
         hideQuickBtn.classList.toggle('active', !!noteData.hidden);
         hideQuickBtn.title = noteData.hidden ? 'Reveal note' : 'Hide note';
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -6393,6 +6424,9 @@
         if (typeof conRedrawEdges === 'function') conRedrawEdges();
         if (typeof window._conMirrorSend === 'function') {
           window._conMirrorSend({ type: 'note-hide', id: String(noteData.id), hidden: false });
+        }
+        if (typeof window.conPlayRevealAnimation === 'function') {
+          window.conPlayRevealAnimation('note', noteData, note);
         }
         setTimeout(() => ta.focus(), 0);
       });

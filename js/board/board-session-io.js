@@ -472,6 +472,16 @@
       return out;
     }
 
+    function boardGetClassSubdirForGroup(classGroup = activeClassGroup) {
+      const groupKey = String(classGroup || '').trim();
+      if (!groupKey) return '';
+      const displayName = (typeof _cgDisplayName === 'function' ? _cgDisplayName(groupKey) : '') || groupKey;
+      if (typeof sanitizeFilenamePart === 'function') {
+        return sanitizeFilenamePart(displayName);
+      }
+      return String(displayName || '').trim().replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_');
+    }
+
     function boardApplyClassPrefixForGroup(name, classGroup) {
       const clean = String(name || '').trim() || 'session';
       const displayName = _cgDisplayName(classGroup) || classGroup;
@@ -2972,10 +2982,15 @@
           await maybeRepairAndResave();
           const relPathVal = historyEntryRelativePath(entry) || entry.filename || '';
           const isArchiveFile = relPathVal.endsWith('.cstz') || relPathVal.endsWith('.zip');
+          const archiveParentDir = isArchiveFile && relPathVal.includes('/')
+            ? relPathVal.slice(0, relPathVal.lastIndexOf('/'))
+            : null;
           _conCurrentFileName = global._conCurrentFileName = entry.filename ? (isArchiveFile ? entry.filename : (entry.filename.endsWith('.js') ? entry.filename : boardStripJsonExt(entry.filename) + '.js')) : null;
-          _conCurrentFolderName = global._conCurrentFolderName = isArchiveFile ? null : (historyEntryIsNestedPath(entry)
-            ? (historyEntryRelativePath(entry).split('/')[0] || null)
-            : (entry.filename ? boardStripJsonExt(entry.filename) : null));
+          _conCurrentFolderName = global._conCurrentFolderName = isArchiveFile
+            ? (archiveParentDir || null)
+            : (historyEntryIsNestedPath(entry)
+              ? (historyEntryRelativePath(entry).split('/')[0] || null)
+              : (entry.filename ? boardStripJsonExt(entry.filename) : null));
           boardReportActiveFileContext();
           boardSetSessionFileMetaFromData('constellation', data);
           _conRestoreSession(data);
@@ -3086,10 +3101,11 @@
       historyRenameCancel();
       try {
         let result;
+        const isArchiveRename = /\.(cstz|zip)$/i.test(String(entry.filename || newFilename || ''));
         if (historyEntryIsNestedPath(entry) && typeof Desktop.renameByPath === 'function') {
           const rel = historyEntryRelativePath(entry);
           const parts = rel.split('/').filter(Boolean);
-          if (entry.target === 'mindmaps' && parts.length === 2) {
+          if (!isArchiveRename && entry.target === 'mindmaps' && parts.length === 2) {
             const oldFolder = parts[0];
             const oldInnerFile = parts[1];
             const newFolder = boardStripJsonExt(newFilename);
@@ -3135,7 +3151,7 @@
         if (historyEntryIsNestedPath(entry)) {
           const rel = historyEntryRelativePath(entry);
           const parts = rel.split('/').filter(Boolean);
-          if (entry.target === 'mindmaps' && parts.length === 2) {
+          if (!isArchiveRename && entry.target === 'mindmaps' && parts.length === 2) {
             const newFolder = boardStripJsonExt(newFilename);
             newRelPath = (newFolder || parts[0]) + '/' + newFilename;
           } else {
@@ -3347,9 +3363,12 @@
       try {
         let relinkAfterDuplicate = false;
         let parsedData = null;
+        let dupArchiveSubdir = '';
 
         if (isArchive && typeof Desktop.readBoardArchive === 'function' && typeof Desktop.saveBoardArchive === 'function') {
           const rel = historyEntryRelativePath(entry) || entry.filename;
+          const existingParentDir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+          dupArchiveSubdir = safePrefix || existingParentDir || '';
           const readArch = await Desktop.readBoardArchive(entry.target, rel);
           if (!readArch || !readArch.ok || !readArch.boardData) {
             throw new Error(readArch && readArch.error ? readArch.error : 'Could not read archive.');
@@ -3422,7 +3441,7 @@
             }
           }
 
-          const saveArchResult = await Desktop.saveBoardArchive(entry.target, duplicateFilename, entriesToSave);
+          const saveArchResult = await Desktop.saveBoardArchive(entry.target, duplicateFilename, entriesToSave, dupArchiveSubdir || undefined);
           if (!saveArchResult || !saveArchResult.ok) {
             throw new Error(saveArchResult && saveArchResult.error ? saveArchResult.error : 'Duplicate archive failed.');
           }
@@ -3484,17 +3503,17 @@
           }
         }
 
-        const dupRelPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
-          ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
-          : duplicateFilename;
+        const dupRelPath = isArchive
+          ? (dupArchiveSubdir ? (dupArchiveSubdir + '/' + duplicateFilename) : duplicateFilename)
+          : ((entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
+            ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
+            : duplicateFilename);
         historyUpsertEntry(entry.target, duplicateFilename, dupRelPath, parsedData || {});
 
         mdbToast('✅ Duplicated: ' + duplicateFilename);
 
         if (entry.section === 'constellation' && relinkAfterDuplicate) {
-          const relPath = (entry.target === 'mindmaps' && historyEntryIsNestedPath(entry))
-            ? (boardStripJsonExt(duplicateFilename) + '/' + duplicateFilename)
-            : duplicateFilename;
+          const relPath = dupRelPath;
           await historyLoadSavedFile({
             target: entry.target,
             filename: duplicateFilename,
@@ -6583,6 +6602,7 @@
   window.boardResetSessionFileMeta = global.boardResetSessionFileMeta = boardResetSessionFileMeta;
   window.boardMakeSessionId = global.boardMakeSessionId = boardMakeSessionId;
   window.boardSanitizeFilenameKeepSpaces = global.boardSanitizeFilenameKeepSpaces = boardSanitizeFilenameKeepSpaces;
+  window.boardGetClassSubdirForGroup = global.boardGetClassSubdirForGroup = boardGetClassSubdirForGroup;
 
   window.historyUpsertEntry = global.historyUpsertEntry = historyUpsertEntry;
   window.historyBuildEntry = global.historyBuildEntry = historyBuildEntry;

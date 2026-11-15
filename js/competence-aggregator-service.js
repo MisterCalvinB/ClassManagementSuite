@@ -1418,7 +1418,11 @@
       try {
         let flist = [];
         if (typeof window.Desktop.listByPath === 'function') {
-          const res = await window.Desktop.listByPath('mindmaps', '', { extensions: ['.cstz', '.json'], recursive: false });
+          const res = await window.Desktop.listByPath('mindmaps', '', {
+            extensions: ['.cstz', '.json'],
+            recursive: true,
+            excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+          });
           flist = Array.isArray(res) ? res : ((res && Array.isArray(res.files)) ? res.files : []);
         } else if (typeof window.Desktop.listFiles === 'function') {
           const res = await window.Desktop.listFiles('mindmaps', { extensions: ['.cstz', '.json'] });
@@ -1430,9 +1434,10 @@
         const targetGroupId = String((groupMeta && groupMeta.classId) || '').trim();
 
         for (const item of flist) {
-          const fn = typeof item === 'string' ? item : (item && (item.filename || item.name || item.relativePath));
+          const fn = typeof item === 'string' ? item : (item && (item.relativePath || item.filename || item.name));
           if (!fn) continue;
-          if (fn.includes('-Autosave') || fn.includes('.bak')) continue;
+          const normFn = String(fn).replace(/\\/g, '/');
+          if (normFn.includes('-Autosave') || normFn.includes('.bak') || normFn.includes('/history/') || normFn.startsWith('history/')) continue;
 
           let b = null;
           let manifest = null;

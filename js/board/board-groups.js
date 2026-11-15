@@ -1039,6 +1039,10 @@
         if (animSel && typeof window.conPopulateAnimSelect === 'function') {
           window.conPopulateAnimSelect(animSel, activeAnim);
         }
+        const revealAnimSel = document.getElementById('con-group-ctx-reveal-anim-select');
+        if (revealAnimSel && typeof window.conPopulateRevealAnimSelect === 'function') {
+          window.conPopulateRevealAnimSelect(revealAnimSel, group.revealAnim || '');
+        }
 
         // Build swatches once
         const swContainer = document.getElementById('con-group-ctx-swatches');
@@ -1159,6 +1163,10 @@
         if (animSel && typeof window.conPopulateAnimSelect === 'function') {
           window.conPopulateAnimSelect(animSel, activeAnim);
         }
+        const revealAnimSel = document.getElementById('con-group-ctx-reveal-anim-select');
+        if (revealAnimSel && typeof window.conPopulateRevealAnimSelect === 'function') {
+          window.conPopulateRevealAnimSelect(revealAnimSel, group.revealAnim || '');
+        }
       }
 
       window.conGroupCtxToggleInvisible = function () {
@@ -1245,14 +1253,15 @@
         const group = conGroups.find(g => g.id === gid);
         if (!group || !group.nodeIds || !group.nodeIds.length) return;
         conPushUndo();
-        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction(anyVisible ? 'mask_group' : 'reveal_group');
 
         // If any node in the group is visible, mask all; otherwise reveal all
         const anyVisible = group.nodeIds.some(nid => {
           const node = conNodes.find(n => n.id === nid);
           return node && !node.masked;
         });
+        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction(anyVisible ? 'mask_group' : 'reveal_group');
 
+        const revealedNodes = [];
         group.nodeIds.forEach(nid => {
           const node = conNodes.find(n => n.id === nid);
           if (!node || !node.el) return;
@@ -1265,6 +1274,7 @@
             if (node.masked) {
               node.masked = false;
               node.el.classList.remove('con-masked');
+              revealedNodes.push(node);
             }
           }
         });
@@ -1276,6 +1286,12 @@
               const n = conNodes.find(x => x.id === nid);
               return { id: String(nid), masked: n ? !!n.masked : anyVisible };
             })
+          });
+        }
+        if (revealedNodes.length && typeof window.conPlayRevealAnimation === 'function') {
+          revealedNodes.forEach(node => {
+            const opts = (!node.revealAnim && group.revealAnim) ? { animKey: group.revealAnim } : undefined;
+            window.conPlayRevealAnimation('node', node, node.el, opts);
           });
         }
       };
@@ -1304,6 +1320,15 @@
         if (blinkBtn) blinkBtn.classList.toggle('active', !!group.anim);
         const animSel = document.getElementById('con-group-ctx-anim-select');
         if (animSel && animSel.value !== group.anim) animSel.value = group.anim;
+        if (typeof conSave === 'function') conSave();
+      };
+
+      window.conGroupCtxSetRevealAnimation = function (animKey) {
+        const group = conGroups.find(g => g.id === _conGroupCtxId);
+        if (!group) return;
+        group.revealAnim = String(animKey || '');
+        const sel = document.getElementById('con-group-ctx-reveal-anim-select');
+        if (sel && sel.value !== group.revealAnim) sel.value = group.revealAnim;
         if (typeof conSave === 'function') conSave();
       };
 

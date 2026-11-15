@@ -1784,6 +1784,7 @@
       const oldFilename = _conCurrentFileName;
       const extMatch = String(oldFilename).match(/\.(cstz|js|json|zip)$/i);
       const ext = extMatch ? extMatch[0] : '.cstz';
+      const isArchive = /\.(cstz|zip)$/i.test(oldFilename);
       const cleanBase = conPlannerSlotBaseName(e);
       let nextFilename = cleanBase + ext;
       if (nextFilename === oldFilename) return true;
@@ -1793,14 +1794,14 @@
 
       if (typeof Desktop.statByPath === 'function') {
         try {
-          const checkTarget = hasFolder ? targetFolder : nextFilename;
+          const checkTarget = hasFolder ? (isArchive ? (_conCurrentFolderName + '/' + nextFilename) : targetFolder) : nextFilename;
           const stat = await Desktop.statByPath('mindmaps', checkTarget);
           if (stat && stat.ok && stat.exists) {
             let i = 2;
             while (i < 1000) {
               const testBase = `${cleanBase} (${i})`;
               const testFilename = testBase + ext;
-              const testTarget = hasFolder ? testBase : testFilename;
+              const testTarget = hasFolder ? (isArchive ? (_conCurrentFolderName + '/' + testFilename) : testBase) : testFilename;
               const s = await Desktop.statByPath('mindmaps', testTarget);
               if (!s || !s.ok || !s.exists) {
                 targetFolder = testBase;
@@ -1816,10 +1817,17 @@
       if (nextFilename === oldFilename) return true;
 
       const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
-      const newFolder = targetFolder;
+      const newFolder = isArchive ? _conCurrentFolderName : targetFolder;
 
       try {
-        if (hasFolder) {
+        if (hasFolder && isArchive) {
+          const fromRel = _conCurrentFolderName + '/' + oldFilename;
+          const toRel = _conCurrentFolderName + '/' + nextFilename;
+          const res = await Desktop.renameByPath('mindmaps', fromRel, toRel);
+          if (res && res.ok === false) {
+            throw new Error(res.error || 'Could not rename archive');
+          }
+        } else if (hasFolder) {
           if (oldFolder && oldFolder !== newFolder) {
             const rFolder = await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
             if (rFolder && rFolder.ok === false) {
@@ -1887,9 +1895,10 @@
           console.warn('Post-rename session save error:', e);
         }
 
-        if (window.conSetTitle) window.conSetTitle(newFolder);
+        const nextTitleLabel = isArchive ? boardStripJsonExt(nextFilename) : newFolder;
+        if (window.conSetTitle) window.conSetTitle(nextTitleLabel);
         const titleEl = document.getElementById('con-title-input');
-        if (titleEl) titleEl.value = newFolder;
+        if (titleEl) titleEl.value = nextTitleLabel;
         if (typeof historyUpdateRenamedEntry === 'function') {
           historyUpdateRenamedEntry('mindmaps', oldFileValue, nextFilename, newFolder ? (newFolder + '/' + nextFilename) : nextFilename);
         } else if (typeof historyRenderList === 'function') {
@@ -1957,6 +1966,7 @@
       const oldFilename = _conCurrentFileName;
       const extMatch = String(oldFilename).match(/\.(cstz|js|json|zip)$/i);
       const ext = extMatch ? extMatch[0] : '.cstz';
+      const isArchive = /\.(cstz|zip)$/i.test(oldFilename);
       const nextFilename = cleanBase + ext;
       if (nextFilename === oldFilename) {
         conUpdateRenameButtonVisibility();
@@ -1965,10 +1975,17 @@
 
       const hasFolder = !!_conCurrentFolderName;
       const oldFolder = _conCurrentFolderName || boardStripJsonExt(oldFilename);
-      const newFolder = cleanBase;
+      const newFolder = isArchive ? _conCurrentFolderName : cleanBase;
 
       try {
-        if (hasFolder) {
+        if (hasFolder && isArchive) {
+          const fromRel = _conCurrentFolderName + '/' + oldFilename;
+          const toRel = _conCurrentFolderName + '/' + nextFilename;
+          const res = await Desktop.renameByPath('mindmaps', fromRel, toRel);
+          if (res && res.ok === false) {
+            throw new Error(res.error || 'Could not rename archive');
+          }
+        } else if (hasFolder) {
           if (oldFolder && oldFolder !== newFolder) {
             const rFolder = await Desktop.renameByPath('mindmaps', oldFolder, newFolder);
             if (rFolder && rFolder.ok === false) {
@@ -2022,8 +2039,9 @@
           boardWriteStoreWithFallback(store);
         } catch (e) { }
 
-        if (window.conSetTitle) window.conSetTitle(newFolder);
-        if (input) input.value = newFolder;
+        const nextTitleLabel = isArchive ? cleanBase : newFolder;
+        if (window.conSetTitle) window.conSetTitle(nextTitleLabel);
+        if (input) input.value = nextTitleLabel;
         if (typeof historyUpdateRenamedEntry === 'function') {
           historyUpdateRenamedEntry('mindmaps', oldFileValue, nextFilename, newFolder ? (newFolder + '/' + nextFilename) : nextFilename);
         } else if (typeof historyRenderList === 'function') {
