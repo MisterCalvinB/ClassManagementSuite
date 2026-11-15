@@ -6092,6 +6092,10 @@
               return;
             }
             _mirrorBroadcast({ bumpRevision: true, forceRender: true });
+            const animCfg = _conGetBoardAnimCfg();
+            if (animCfg && typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'board-anim-config', animation: animCfg });
+            }
             return;
           }
           if (e.data.type === 'mirror-control') {
@@ -6124,6 +6128,10 @@
               }
               if (typeof window._conMirrorSend === 'function') {
                 window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
+                const animCfg = _conGetBoardAnimCfg();
+                if (animCfg) {
+                  window._conMirrorSend({ type: 'board-anim-config', animation: animCfg });
+                }
               }
             } else {
               _mirrorPeers.delete(mirrorId);
@@ -7872,14 +7880,21 @@
         return ((n >> 16) & 255) + ', ' + ((n >> 8) & 255) + ', ' + (n & 255);
       }
 
+      function _conGetBoardAnimCfg() {
+        const bc = (typeof window !== 'undefined' && window.BOARD_CONFIG)
+          ? window.BOARD_CONFIG
+          : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : null);
+        return (bc && bc.animation && typeof bc.animation === 'object') ? bc.animation : null;
+      }
+
       function conGetDefaultAnim() {
-        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        const cfg = _conGetBoardAnimCfg();
         return (cfg && cfg.defaultEffect) ? String(cfg.defaultEffect) : 'pulse';
       }
       window.conGetDefaultAnim = global.conGetDefaultAnim = conGetDefaultAnim;
 
       function conGetDefaultRevealAnim() {
-        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        const cfg = _conGetBoardAnimCfg();
         if (cfg && cfg.revealEffect !== undefined && cfg.revealEffect !== null && String(cfg.revealEffect) !== '') {
           return String(cfg.revealEffect);
         }
@@ -7888,7 +7903,7 @@
       window.conGetDefaultRevealAnim = global.conGetDefaultRevealAnim = conGetDefaultRevealAnim;
 
       function conGetDefaultRevealDurationMs() {
-        const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation) ? BOARD_CONFIG.animation : null;
+        const cfg = _conGetBoardAnimCfg();
         const sec = (cfg && Number(cfg.revealDurationSec)) ? Number(cfg.revealDurationSec)
           : ((cfg && Number(cfg.doubleClickDurationSec)) ? Number(cfg.doubleClickDurationSec) : 3.0);
         return Math.max(250, sec * 1000);
@@ -7980,7 +7995,8 @@
         CON_ANIMATIONS.forEach(a => el.classList.remove('con-anim-' + a.key));
         const resolved = animKey ? String(animKey) : (legacyBlink ? 'pulse' : '');
         if (resolved && CON_ANIMATIONS.some(a => a.key === resolved)) {
-          const dur = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation && Number(BOARD_CONFIG.animation.durationSec)) || 2.4;
+          const animCfg = _conGetBoardAnimCfg();
+          const dur = (animCfg && Number(animCfg.durationSec)) || 2.4;
           el.style.setProperty('--con-anim-delay', '-' + ((Date.now() / 1000) % dur).toFixed(3) + 's');
           el.classList.add('con-anim-' + resolved);
         } else {

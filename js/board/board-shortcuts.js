@@ -750,7 +750,7 @@
       }
     }
 
-    function saveBoardQuickActionsList(list) {
+    function saveBoardQuickActionsList(list, opts) {
       try {
         localStorage.setItem(BOARD_QUICK_ACTIONS_STORAGE_KEY, JSON.stringify(list));
       } catch (e) { }
@@ -758,7 +758,7 @@
         if (!window.BOARD_CONFIG || typeof window.BOARD_CONFIG !== 'object') window.BOARD_CONFIG = {};
         window.BOARD_CONFIG.quickActions = [...list];
       }
-      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveText === 'function' && window.BOARD_CONFIG) {
+      if (!(opts && opts.skipPersist) && typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveText === 'function' && window.BOARD_CONFIG) {
         try {
           const lines = 'const BOARD_CONFIG = ' + JSON.stringify(window.BOARD_CONFIG, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
           window.Desktop.saveText('user', 'board-config.js', lines).catch(() => {});
@@ -1940,7 +1940,9 @@
     }
 
     async function boardCustomiseOpen() {
-      let bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length) ? BOARD_CONFIG : {};
+      let bc = (window.BOARD_CONFIG && Object.keys(window.BOARD_CONFIG).length)
+        ? window.BOARD_CONFIG
+        : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length) ? BOARD_CONFIG : {});
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
           const _bcResult = await Desktop.readJson('user', 'board-config.js');
@@ -2709,7 +2711,9 @@
     async function boardCustomiseSave() {
       const getNum = (id, fallback) => { const el = document.getElementById(id); return el ? (parseInt(el.value, 10) || fallback) : fallback; };
       const getVal = (id, fallback) => { const el = document.getElementById(id); return el ? ((typeof el.value === 'string' ? el.value.trim() : el.value) || fallback) : fallback; };
-      const existing = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const existing = (window.BOARD_CONFIG && Object.keys(window.BOARD_CONFIG).length)
+        ? window.BOARD_CONFIG
+        : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {});
       const boardLayout = _bcResolveBoardLayoutSettings({
         boardLayoutPreset: getVal('bc-board-layout-preset', 'flex'),
         boardCustomOrientation: getVal('bc-board-custom-orientation', 'landscape'),
@@ -3097,7 +3101,7 @@
         saveBoardCustomShortcutsMap(bc.shortcuts);
       }
       if (Array.isArray(bc.quickActions)) {
-        saveBoardQuickActionsList(bc.quickActions);
+        saveBoardQuickActionsList(bc.quickActions, { skipPersist: true });
       }
       renderQuickActionsToolbar();
 
@@ -3155,12 +3159,20 @@
       });
     };
 
-    // Auto-apply saved customise settings on load
+    // Auto-apply saved customise settings on load (wait for DOM body + user bootstrap)
     (async function () {
-      let bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length)
-        ? BOARD_CONFIG
-        : ((typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.boardCustomise)
-          ? CLASS_MANAGEMENT_CONFIG.boardCustomise : null);
+      if (document.readyState === 'loading') {
+        await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
+      }
+      if (window.__boardUserBootstrapPromise) {
+        try { await window.__boardUserBootstrapPromise; } catch (e) { }
+      }
+      let bc = (window.BOARD_CONFIG && Object.keys(window.BOARD_CONFIG).length)
+        ? window.BOARD_CONFIG
+        : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length)
+          ? BOARD_CONFIG
+          : ((typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.boardCustomise)
+            ? CLASS_MANAGEMENT_CONFIG.boardCustomise : null));
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
           const _bcR = await Desktop.readJson('user', 'board-config.js');
@@ -3171,8 +3183,15 @@
         } catch (e) { }
       }
       if (bc) {
-        try { _boardCustomiseApply(bc); } catch (e) { }
+        window.BOARD_CONFIG = bc;
+        try { _boardCustomiseApply(bc); } catch (e) { console.warn('[BoardCustomise] Failed to apply saved settings:', e); }
+        if (!bc.animation && typeof window.conApplyBoardAnimationConfig === 'function') {
+          try { window.conApplyBoardAnimationConfig({}); } catch (e) { }
+        }
       } else {
+        if (typeof window.conApplyBoardAnimationConfig === 'function') {
+          try { window.conApplyBoardAnimationConfig({}); } catch (e) { }
+        }
         renderQuickActionsToolbar();
       }
     })();
