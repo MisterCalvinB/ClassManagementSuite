@@ -715,9 +715,13 @@
     ];
 
     function getBoardCustomShortcutsMap() {
-      const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
-      if (cfg && cfg.shortcuts && typeof cfg.shortcuts === 'object' && !Array.isArray(cfg.shortcuts) && Object.keys(cfg.shortcuts).length > 0) {
-        return { ...cfg.shortcuts };
+      const cfg = (typeof window !== 'undefined' && window.BOARD_CONFIG && Object.keys(window.BOARD_CONFIG).length)
+        ? window.BOARD_CONFIG
+        : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {});
+      if (cfg && cfg.shortcuts && typeof cfg.shortcuts === 'object' && !Array.isArray(cfg.shortcuts)) {
+        if (Object.keys(cfg.shortcuts).length > 0 || (typeof window !== 'undefined' && window.BOARD_CONFIG && window.BOARD_CONFIG.shortcuts === cfg.shortcuts)) {
+          return { ...cfg.shortcuts };
+        }
       }
       try {
         const raw = localStorage.getItem(BOARD_SHORTCUTS_STORAGE_KEY);
@@ -738,7 +742,9 @@
     }
 
     function getBoardQuickActionsList() {
-      const cfg = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+      const cfg = (typeof window !== 'undefined' && window.BOARD_CONFIG && Object.keys(window.BOARD_CONFIG).length)
+        ? window.BOARD_CONFIG
+        : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {});
       if (cfg && Array.isArray(cfg.quickActions) && cfg.quickActions.length > 0) {
         return [...cfg.quickActions];
       }

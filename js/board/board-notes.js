@@ -5659,6 +5659,9 @@
       if (noteData.nodeId) note.dataset.nodeid = noteData.nodeId;
       note.style.left = noteData.x + 'px';
       note.style.top = noteData.y + 'px';
+      if (typeof window.conMaybeAutoExpandBoard === 'function') {
+        window.conMaybeAutoExpandBoard((noteData.y || 0) + (noteData.height || 80), { skipSave: true });
+      }
 
       const ta = document.createElement('div');
       ta.className = 'wn-note-editor';
@@ -6791,6 +6794,20 @@
             const targetEl = mEl || document.querySelector(`.con-media-item[data-id="${m.id}"]`);
             if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
           });
+        }
+        if (typeof window.conMaybeAutoExpandBoard === 'function') {
+          let maxBottom = 0;
+          _dragOffsets.forEach(({ nd }) => {
+            const el = wnGetNoteElementById(nd.id);
+            const b = (nd.y || 0) + ((el && el.offsetHeight) || nd.height || 80);
+            if (b > maxBottom) maxBottom = b;
+          });
+          _nodeOffsets.forEach(({ nd }) => {
+            const el = nd.el || document.getElementById(nd.id);
+            const b = (nd.y || 0) + ((el && el.offsetHeight) || 32);
+            if (b > maxBottom) maxBottom = b;
+          });
+          if (maxBottom > 0) window.conMaybeAutoExpandBoard(maxBottom, { skipSave: true });
         }
         // Lightweight mirror update — send object positions directly
         if (hasDragged && window._conMirrorSend) {

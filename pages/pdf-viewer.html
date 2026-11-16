@@ -234,6 +234,45 @@
       border-right: 1px solid #444;
     }
 
+    .page-jump-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 8px;
+    }
+
+    .page-num-input {
+      width: 46px;
+      background: #1a1a1a;
+      color: #ffffff;
+      border: 1.5px solid #555555;
+      border-radius: 3px;
+      padding: 2px 4px;
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-align: center;
+      outline: none;
+      -moz-appearance: textfield;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .page-num-input::-webkit-inner-spin-button,
+    .page-num-input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .page-num-input:focus {
+      border-color: var(--accent-gold);
+      background: #262626;
+    }
+
+    .page-total {
+      color: #bbbbbb;
+      white-space: nowrap;
+    }
+
     /* ── Annotation Tool Palette ── */
     #tool-bar {
       height: 48px;
@@ -1072,9 +1111,15 @@
 
     <!-- Page Stepper -->
     <div class="nav-group" id="pageStepperGroup" style="display:none;">
-      <button type="button" id="prevPageBtn" title="Previous Page (PageUp / Left)">◀</button>
-      <div class="nav-group-label" id="pageLabel">Page 1 / 1</div>
-      <button type="button" id="nextPageBtn" title="Next Page (PageDown / Right)">▶</button>
+      <button type="button" id="prevPageBtn" data-i18n-title="pdfPrevPage" title="Previous Page (PageUp / Left)">◀</button>
+      <div class="nav-group-label page-jump-wrap" id="pageLabel">
+        <span class="page-prefix" data-i18n="pdfPage">Page</span>
+        <input type="number" id="pageInput" class="page-num-input" min="1" max="1" value="1"
+               data-i18n-title="pdfGoToPageHint" title="Go to page (Ctrl+G)"
+               data-i18n-aria-label="pdfGoToPage" aria-label="Go to page" />
+        <span class="page-total" id="pageTotalLabel">/ 1</span>
+      </div>
+      <button type="button" id="nextPageBtn" data-i18n-title="pdfNextPage" title="Next Page (PageDown / Right)">▶</button>
     </div>
 
     <!-- Zoom Controls -->
@@ -1328,6 +1373,9 @@
 
       vp.style.width = targetW + 'px';
       vp.style.transform = `scale(${s}) translate(${-_msx}px, ${-_msy}px)`;
+
+      // Ensure visible pages are rendered even when moved via CSS transform in presentation mode
+      _scheduleVisiblePagesSync();
     }
 
     // ── Viewport Streaming Helper for Presenter Window ──
@@ -1366,6 +1414,8 @@
     const docBadgeName = document.getElementById('docBadgeName');
     const docDirtyDot = document.getElementById('docDirtyDot');
     const pageLabel = document.getElementById('pageLabel');
+    const pageInput = document.getElementById('pageInput');
+    const pageTotalLabel = document.getElementById('pageTotalLabel');
     const zoomLabel = document.getElementById('zoomLabel');
     const searchModalBackdrop = document.getElementById('search-modal-backdrop');
     const pdfSearchInput = document.getElementById('pdfSearchInput');
@@ -1484,9 +1534,39 @@
         });
       }
 
-      // Page Stepper
+      // Page Stepper & Go-To Page Input
       document.getElementById('prevPageBtn').addEventListener('click', () => jumpToPage(state.currentPage - 1));
       document.getElementById('nextPageBtn').addEventListener('click', () => jumpToPage(state.currentPage + 1));
+      if (pageInput) {
+        const commitPageInput = (shouldBlur = false) => {
+          const parsed = parseInt(pageInput.value, 10);
+          if (!isNaN(parsed) && state.numPages > 0) {
+            const clamped = Math.max(1, Math.min(state.numPages, parsed));
+            pageInput.value = String(clamped);
+            jumpToPage(clamped);
+          } else {
+            pageInput.value = String(state.currentPage || 1);
+          }
+          if (shouldBlur) pageInput.blur();
+        };
+        pageInput.addEventListener('focus', () => pageInput.select());
+        pageInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            commitPageInput(true);
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            pageInput.value = String(state.currentPage || 1);
+            pageInput.blur();
+          }
+        });
+        pageInput.addEventListener('change', () => commitPageInput(false));
+        pageInput.addEventListener('blur', () => {
+          if (!pageInput.value || isNaN(parseInt(pageInput.value, 10))) {
+            pageInput.value = String(state.currentPage || 1);
+          }
+        });
+      }
 
       // Zoom Controls
       document.getElementById('zoomInBtn').addEventListener('click', () => setScale(state.scale * 1.2, state.currentPage, { debounceMs: 80 }));
@@ -1564,23 +1644,30 @@
       window.addEventListener('keydown', handleKeyShortcuts);
       setupPdfDictionaryLookup();
 
-      // Viewport scroll tracking for active page updates & live mirror synchronization
+      // Cancel programmatic jump lock on manual wheel/pointer interaction
+      viewport.addEventListener('wheel', () => { _programmaticJumpUntil = 0; }, { passive: true });
+      viewport.addEventListener('pointerdown', () => { _programmaticJumpUntil = 0; }, { passive: true });
+
+      // Viewport scroll tracking for active page updates, lazy render sync & live mirror synchronization
       viewport.addEventListener('scroll', () => {
-        const pages = viewport.querySelectorAll('.page-container');
-        const viewMid = viewport.scrollTop + viewport.clientHeight / 3;
-        for (const p of pages) {
-          if (p.offsetTop + p.offsetHeight > viewMid) {
-            const pNum = parseInt(p.dataset.pageNum, 10);
-            if (pNum && pNum !== state.currentPage) {
-              state.currentPage = pNum;
-              updatePageLabel();
-              document.querySelectorAll('.thumb-card').forEach(c => {
-                c.classList.toggle('active', parseInt(c.dataset.pageNum, 10) === pNum);
-              });
+        if (performance.now() >= _programmaticJumpUntil) {
+          const pages = viewport.querySelectorAll('.page-container');
+          const viewMid = viewport.scrollTop + viewport.clientHeight / 3;
+          for (const p of pages) {
+            if (p.offsetTop + p.offsetHeight > viewMid) {
+              const pNum = parseInt(p.dataset.pageNum, 10);
+              if (pNum && pNum !== state.currentPage) {
+                state.currentPage = pNum;
+                updatePageLabel();
+                document.querySelectorAll('.thumb-card').forEach(c => {
+                  c.classList.toggle('active', parseInt(c.dataset.pageNum, 10) === pNum);
+                });
+              }
+              break;
             }
-            break;
           }
         }
+        _scheduleVisiblePagesSync();
         _mirrorSendViewport();
       }, { passive: true });
 
@@ -1867,8 +1954,65 @@
     }
 
     // ── Render Viewport Pages (Virtualized / Lazy) ──
+    let _programmaticJumpUntil = 0;
+    let _visibleSyncRaf = null;
+    let _pendingPriorityPage = null;
+
+    function _scheduleVisiblePagesSync(priorityPageNum = null) {
+      if (priorityPageNum) _pendingPriorityPage = priorityPageNum;
+      if (_visibleSyncRaf) return;
+      _visibleSyncRaf = requestAnimationFrame(() => {
+        _visibleSyncRaf = null;
+        const prio = _pendingPriorityPage;
+        _pendingPriorityPage = null;
+        _syncVisiblePages(prio);
+      });
+    }
+
+    function _syncVisiblePages(priorityPageNum = null) {
+      if (!state.pdfDoc || !viewport) return;
+      const allPages = viewport.querySelectorAll('.page-container');
+      if (!allPages.length) return;
+
+      const viewTop = state.isPresentation ? _msy : viewport.scrollTop;
+      const viewHeight = state.isPresentation ? (_mvpH || window.innerHeight) : viewport.clientHeight;
+      const renderBuffer = Math.max(900, viewHeight * 1.25);
+      const unloadBuffer = Math.max(2800, viewHeight * 3.5);
+      const rTop = viewTop - renderBuffer;
+      const rBottom = viewTop + viewHeight + renderBuffer;
+      const uTop = viewTop - unloadBuffer;
+      const uBottom = viewTop + viewHeight + unloadBuffer;
+
+      const toRender = [];
+      for (const pw of allPages) {
+        const pNum = parseInt(pw.dataset.pageNum, 10);
+        const pTop = pw.offsetTop;
+        const pBottom = pTop + pw.offsetHeight;
+
+        const isPriority = priorityPageNum && Math.abs(pNum - priorityPageNum) <= 1;
+        if (isPriority || (pBottom >= rTop && pTop <= rBottom)) {
+          const dist = priorityPageNum
+            ? Math.abs(pNum - priorityPageNum)
+            : Math.abs((pTop + pBottom) / 2 - (viewTop + viewHeight / 2));
+          toRender.push({ pw, dist });
+        } else if (state.numPages > 12 && (pBottom < uTop || pTop > uBottom)) {
+          const rendered = parseFloat(pw.dataset.renderedScale || '0');
+          if (rendered > 0 || pw._renderingPromise) {
+            _unloadPageCanvases(pw);
+          }
+        }
+      }
+
+      toRender.sort((a, b) => a.dist - b.dist);
+      for (const item of toRender) {
+        _ensurePageRendered(item.pw, state.scale);
+      }
+    }
+
     function _unloadPageCanvases(pageWrap) {
       if (!pageWrap) return;
+      pageWrap._renderGen = (pageWrap._renderGen || 0) + 1;
+      pageWrap._renderingPromise = null;
       if (pageWrap._pdfRenderTask) {
         try { pageWrap._pdfRenderTask.cancel(); } catch (_) {}
         pageWrap._pdfRenderTask = null;
@@ -1902,11 +2046,12 @@
 
       const pNum = parseInt(pageWrap.dataset.pageNum, 10);
       if (!pNum) return;
+      const myGen = (pageWrap._renderGen || 0);
 
       const taskPromise = (async () => {
         try {
           const page = await state.pdfDoc.getPage(pNum);
-          if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+          if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
 
           const scaledViewport = page.getViewport({ scale: targetScale });
           const dpr = getSafeRenderDpr(scaledViewport.width, scaledViewport.height);
@@ -1936,7 +2081,7 @@
             if (pageWrap._pdfRenderTask === renderTask) pageWrap._pdfRenderTask = null;
           }
 
-          if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+          if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
 
           if (hasExisting) {
             pdfCanvas.width = targetPxW;
@@ -1955,7 +2100,7 @@
           if (!state.isPresentation && textLayerDiv && pdfjsLib.TextLayer) {
             try {
               const textContent = await page.getTextContent();
-              if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+              if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
               textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
               textLayerDiv.innerHTML = '';
               const textLayer = new pdfjsLib.TextLayer({
@@ -1964,6 +2109,7 @@
                 viewport: scaledViewport
               });
               await textLayer.render();
+              if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
             } catch (tErr) {
               console.warn('TextLayer render error on page', pNum, tErr);
             }
@@ -1971,7 +2117,9 @@
 
           pageWrap.dataset.renderedScale = String(targetScale);
         } finally {
-          pageWrap._renderingPromise = null;
+          if (pageWrap._renderingPromise === taskPromise) {
+            pageWrap._renderingPromise = null;
+          }
         }
       })();
 
@@ -2062,21 +2210,18 @@
         _mirrorScheduleApplyViewport();
       }
 
-      // Lazy-render pages near the viewport and release far off-screen canvases on large PDFs
+      // Lazy-render pages near the viewport; far off-screen unloading is handled with hysteresis in _syncVisiblePages
       const allPages = Array.from(viewport.querySelectorAll('.page-container'));
-      if ('IntersectionObserver' in window) {
+      if ('IntersectionObserver' in window && !state.isPresentation) {
         _pageObserver = new IntersectionObserver((entries) => {
           for (const entry of entries) {
-            const pw = entry.target;
             if (entry.isIntersecting) {
-              _ensurePageRendered(pw, state.scale);
-            } else if (state.numPages > 12) {
-              _unloadPageCanvases(pw);
+              _ensurePageRendered(entry.target, state.scale);
             }
           }
         }, {
-          root: state.isPresentation ? null : viewport,
-          rootMargin: '800px 0px'
+          root: viewport,
+          rootMargin: '900px 0px'
         });
         for (const pw of allPages) {
           _pageObserver.observe(pw);
@@ -2089,6 +2234,7 @@
       for (let i = startIdx; i <= endIdx; i++) {
         await _ensurePageRendered(allPages[i], state.scale);
       }
+      _syncVisiblePages(pageToPreserve);
     }
 
     // ── Inking & Interaction Engine ──
@@ -2564,29 +2710,42 @@
 
     // ── Navigation & Zoom ──
     function jumpToPage(pageNum) {
-      if (pageNum < 1 || pageNum > state.numPages) return;
-      state.currentPage = pageNum;
+      const targetPage = parseInt(pageNum, 10);
+      if (isNaN(targetPage) || targetPage < 1 || targetPage > state.numPages) return;
+      const prevPage = state.currentPage || 1;
+      state.currentPage = targetPage;
       updatePageLabel();
 
-      const pageWrap = viewport.querySelector(`.page-container[data-page-num="${pageNum}"]`);
+      const pageWrap = viewport.querySelector(`.page-container[data-page-num="${targetPage}"]`);
       if (pageWrap) {
         if (!state.isPresentation) {
-          pageWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const isFarJump = Math.abs(targetPage - prevPage) > 3;
+          _programmaticJumpUntil = isFarJump ? 0 : (performance.now() + 650);
+          pageWrap.scrollIntoView({ behavior: isFarJump ? 'auto' : 'smooth', block: 'start' });
         } else {
           _msy = Math.max(0, pageWrap.offsetTop - 24);
           _mirrorScheduleApplyViewport();
         }
       }
 
+      // Immediately render target page and neighbors so large files never show blank pages after jumping
+      _syncVisiblePages(targetPage);
+
       if (!state.isPresentation) {
-        // Highlight thumbnail
+        // Highlight thumbnail and keep it visible in sidebar
+        let activeCard = null;
         document.querySelectorAll('.thumb-card').forEach(c => {
-          c.classList.toggle('active', parseInt(c.dataset.pageNum, 10) === pageNum);
+          const isMatch = parseInt(c.dataset.pageNum, 10) === targetPage;
+          c.classList.toggle('active', isMatch);
+          if (isMatch) activeCard = c;
         });
+        if (activeCard) {
+          activeCard.scrollIntoView({ block: 'nearest' });
+        }
 
         syncChannel.postMessage({
           action: 'page-turn',
-          pageNum,
+          pageNum: targetPage,
           vW: viewport.clientWidth,
           vH: viewport.clientHeight,
           sx: viewport.scrollLeft,
@@ -2915,7 +3074,15 @@
     }
 
     function updatePageLabel() {
-      pageLabel.textContent = `Page ${state.currentPage} / ${state.numPages}`;
+      if (pageInput) {
+        if (document.activeElement !== pageInput) {
+          pageInput.value = String(state.currentPage || 1);
+        }
+        pageInput.max = String(Math.max(1, state.numPages || 1));
+      }
+      if (pageTotalLabel) {
+        pageTotalLabel.textContent = `/ ${state.numPages || 1}`;
+      }
     }
 
     // ── Thumbnails Sidebar (Lazy Rendered) ──
@@ -3621,6 +3788,12 @@
       } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         saveSidecarAnnotations();
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        if (pageInput && !state.isPresentation && state.numPages > 0) {
+          pageInput.focus();
+          pageInput.select();
+        }
       } else if (e.key === 'PageDown' || e.key === 'ArrowRight') {
         jumpToPage(state.currentPage + 1);
       } else if (e.key === 'PageUp' || e.key === 'ArrowLeft') {

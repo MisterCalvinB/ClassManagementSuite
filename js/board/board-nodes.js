@@ -4338,6 +4338,7 @@
       window.conGetTableSelected = function () { return conTableSelected; };
       let conConnSrc = null;  // id of first node in connect mode
       let _conLinkSrc = null; // id of source element for Ctrl+J cross-type link mode
+      let _conLinkSrcIds = []; // all source element IDs for Ctrl+J link mode
       let conNextId = 1;
       let _conClipboard = null;
       let _conClipboardPasteCount = 0;
@@ -8731,6 +8732,23 @@
                 if (targetEl) { targetEl.style.left = m.x + 'px'; targetEl.style.top = m.y + 'px'; }
               });
             }
+            // Auto-expand board height if dragged nodes or notes approach the bottom
+            if (typeof window.conMaybeAutoExpandBoard === 'function') {
+              let maxBottom = (node.y || 0) + (el.offsetHeight || 32);
+              if (groupSnap) {
+                groupSnap.forEach(({ n }) => {
+                  const b = (n.y || 0) + ((n.el && n.el.offsetHeight) || 32);
+                  if (b > maxBottom) maxBottom = b;
+                });
+              }
+              if (noteGroupSnap.length > 0) {
+                noteGroupSnap.forEach(({ nd, el: sEl }) => {
+                  const b = (nd.y || 0) + ((sEl && sEl.offsetHeight) || nd.height || 80);
+                  if (b > maxBottom) maxBottom = b;
+                });
+              }
+              window.conMaybeAutoExpandBoard(maxBottom, { skipSave: true });
+            }
             // Highlight nearby nodes as drop targets (single-node drag only)
             if (!groupSnap) {
               const DROP_DIST = 24;
@@ -10890,36 +10908,48 @@
         return { x: anchorData.cx + ox, y: anchorData.cy + oy };
       }
 
-      // Start Ctrl+J cross-type link mode with the given element ID as the source.
-      function _conStartLinkMode(srcId) {
+      // Start Ctrl+J cross-type link mode with the given element ID (or array of IDs) as the source(s).
+      function _conStartLinkMode(srcIdOrIds) {
         _conCancelLinkMode();
-        _conLinkSrc = srcId;
-        window._conLinkSrc = global._conLinkSrc = srcId;
-        const anchor = conResolveLinkAnchor(srcId);
-        if (anchor && anchor.el) anchor.el.classList.add('con-link-src');
+        const ids = Array.isArray(srcIdOrIds)
+          ? Array.from(new Set(srcIdOrIds.filter(Boolean).map(String)))
+          : (srcIdOrIds ? [String(srcIdOrIds)] : []);
+        if (!ids.length) return;
+        _conLinkSrcIds = ids;
+        _conLinkSrc = ids[0];
+        window._conLinkSrc = global._conLinkSrc = _conLinkSrc;
+        ids.forEach(id => {
+          const anchor = conResolveLinkAnchor(id);
+          if (anchor && anchor.el) anchor.el.classList.add('con-link-src');
+        });
         const brd = board();
         if (brd) brd.classList.add('con-linking');
         conUpdateInstructions('link-src');
         if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({ type: 'link-mode-start', srcId: String(srcId) });
+          window._conMirrorSend({ type: 'link-mode-start', srcId: String(_conLinkSrc), srcIds: ids });
         }
       }
 
       // Cancel Ctrl+J link mode, restoring normal visual state.
       function _conCancelLinkMode() {
-        if (!_conLinkSrc && !window._conLinkSrc) return;
-        const currentSrc = _conLinkSrc || window._conLinkSrc;
-        const anchor = conResolveLinkAnchor(currentSrc);
-        const cancelledId = currentSrc;
-        if (anchor && anchor.el) anchor.el.classList.remove('con-link-src');
+        if (!_conLinkSrc && !window._conLinkSrc && (!_conLinkSrcIds || !_conLinkSrcIds.length)) return;
+        const currentIds = (_conLinkSrcIds && _conLinkSrcIds.length)
+          ? _conLinkSrcIds.slice()
+          : ((_conLinkSrc || window._conLinkSrc) ? [String(_conLinkSrc || window._conLinkSrc)] : []);
+        const cancelledId = currentIds[0] || '';
+        currentIds.forEach(id => {
+          const anchor = conResolveLinkAnchor(id);
+          if (anchor && anchor.el) anchor.el.classList.remove('con-link-src');
+        });
         document.querySelectorAll('#constellation-board .con-link-src, .con-link-src').forEach(el => el.classList.remove('con-link-src'));
+        _conLinkSrcIds = [];
         _conLinkSrc = null;
         window._conLinkSrc = global._conLinkSrc = null;
         const brd = board();
         if (brd) brd.classList.remove('con-linking');
         conUpdateInstructions(conMode);
         if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({ type: 'link-mode-cancel', srcId: String(cancelledId) });
+          window._conMirrorSend({ type: 'link-mode-cancel', srcId: String(cancelledId), srcIds: currentIds });
         }
       }
 
@@ -16311,6 +16341,9 @@
         conAttachNodeEvents(id, el);
         conAddNodeStarBtn(node);
         conSelect(id);
+        if (typeof window.conMaybeAutoExpandBoard === 'function') {
+          window.conMaybeAutoExpandBoard(y + (el.offsetHeight || 36), { skipSave: true });
+        }
         return id;
       }
 
@@ -16667,6 +16700,15 @@
         const brdCenterX = brd.clientWidth / 2;
         const brdCenterY = brd.clientHeight / 2;
         const z = (window.conGetZoom ? window.conGetZoom() : (typeof window.conCurrentZoom === 'number' ? window.conCurrentZoom : 1)) || 1;
+
+        if (typeof window.conMaybeAutoExpandBoard === 'function') {
+          let maxTargetBottom = 0;
+          targets.forEach(t => {
+            const b = (t.y || 0) + (t.height || 40);
+            if (b > maxTargetBottom) maxTargetBottom = b;
+          });
+          if (maxTargetBottom > 0) window.conMaybeAutoExpandBoard(maxTargetBottom, { skipSave: true });
+        }
 
         targets.forEach(t => {
           if (t.type === 'node') {
@@ -20525,66 +20567,47 @@
             return;
           }
           // Fallback if conTriggerLinkShortcut is not yet defined
-          let srcId = null;
-          if (document.activeElement && document.activeElement.closest('.con-word-note')) {
+          const srcIds = [];
+          const pushSrc = id => {
+            if (!id) return;
+            const s = String(id);
+            if (!srcIds.includes(s)) srcIds.push(s);
+          };
+          const noteSet = (typeof conNoteSelected !== 'undefined' && conNoteSelected) ? conNoteSelected : (typeof window.conGetNoteSelected === 'function' ? window.conGetNoteSelected() : null);
+          if (noteSet && noteSet.size) noteSet.forEach(pushSrc);
+          if (typeof conSelected !== 'undefined' && conSelected) pushSrc(conSelected);
+          else if (typeof window.conGetSelected === 'function' && window.conGetSelected()) pushSrc(window.conGetSelected());
+          const multiSet = (typeof conMultiSelected !== 'undefined' && conMultiSelected) ? conMultiSelected : (typeof window.conGetMultiSelected === 'function' ? window.conGetMultiSelected() : null);
+          if (multiSet && multiSet.size) multiSet.forEach(pushSrc);
+          const drawSet = (typeof conDrawingSelected !== 'undefined' && conDrawingSelected) ? conDrawingSelected : (typeof window.conGetDrawingSelected === 'function' ? window.conGetDrawingSelected() : null);
+          if (drawSet && drawSet.size) drawSet.forEach(pushSrc);
+          const mediaSet = (typeof conMediaSelected !== 'undefined' && conMediaSelected) ? conMediaSelected : (typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected() : null);
+          if (mediaSet && mediaSet.size) mediaSet.forEach(pushSrc);
+          if (!srcIds.length && document.activeElement && document.activeElement.closest('.con-word-note')) {
             const an = document.activeElement.closest('.con-word-note');
-            if (an && an.dataset && an.dataset.id) srcId = an.dataset.id;
+            if (an && an.dataset && an.dataset.id) pushSrc(an.dataset.id);
           }
-          if (!srcId && typeof conNoteSelected !== 'undefined' && conNoteSelected && conNoteSelected.size === 1) {
-            srcId = [...conNoteSelected][0];
-          } else if (!srcId && typeof window.conGetNoteSelected === 'function' && window.conGetNoteSelected() && window.conGetNoteSelected().size === 1) {
-            srcId = [...window.conGetNoteSelected()][0];
-          } else if (!srcId && typeof conSelected !== 'undefined' && conSelected) {
-            srcId = conSelected;
-          } else if (!srcId && typeof window.conGetSelected === 'function' && window.conGetSelected()) {
-            srcId = window.conGetSelected();
-          } else if (!srcId && typeof conDrawingSelected !== 'undefined' && conDrawingSelected && conDrawingSelected.size === 1) {
-            srcId = [...conDrawingSelected][0];
-          } else if (!srcId && typeof window.conGetDrawingSelected === 'function' && window.conGetDrawingSelected() && window.conGetDrawingSelected().size === 1) {
-            srcId = [...window.conGetDrawingSelected()][0];
-          } else if (!srcId && typeof conMediaSelected !== 'undefined' && conMediaSelected && conMediaSelected.size === 1) {
-            srcId = [...conMediaSelected][0];
-          } else if (!srcId && typeof window.conGetMediaSelected === 'function' && window.conGetMediaSelected() && window.conGetMediaSelected().size === 1) {
-            srcId = [...window.conGetMediaSelected()][0];
-          } else if (!srcId && typeof conGroupFocused !== 'undefined' && conGroupFocused) {
-            srcId = conGroupFocused;
-          } else if (!srcId && typeof window.conGetGroupFocused === 'function' && window.conGetGroupFocused()) {
-            srcId = window.conGetGroupFocused();
+          if (!srcIds.length) {
+            document.querySelectorAll('#constellation-board .con-word-note.wn-selected').forEach(el => { if (el.dataset && el.dataset.id) pushSrc(el.dataset.id); });
+            document.querySelectorAll('#constellation-board .con-node.con-selected, #constellation-board .con-node.con-multi-selected').forEach(el => { if (el.id) pushSrc(el.id); });
+            document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected').forEach(el => { if (el.dataset && el.dataset.did) pushSrc(el.dataset.did); });
+            document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => { if (el.dataset && el.dataset.id) pushSrc(el.dataset.id); });
           }
-          if (!srcId) {
-            const singleNoteEl = document.querySelectorAll('#constellation-board .con-word-note.wn-selected');
-            if (singleNoteEl.length === 1 && singleNoteEl[0].dataset && singleNoteEl[0].dataset.id) {
-              srcId = singleNoteEl[0].dataset.id;
-            }
+          if (!srcIds.length) {
+            if (typeof conGroupFocused !== 'undefined' && conGroupFocused) pushSrc(conGroupFocused);
+            else if (typeof window.conGetGroupFocused === 'function' && window.conGetGroupFocused()) pushSrc(window.conGetGroupFocused());
           }
-          if (!srcId) {
-            const singleNodeEl = document.querySelectorAll('#constellation-board .con-node.con-selected');
-            if (singleNodeEl.length === 1 && singleNodeEl[0].id) {
-              srcId = singleNodeEl[0].id;
-            }
-          }
-          if (!srcId) {
-            const singleDrawEl = document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected');
-            if (singleDrawEl.length === 1 && singleDrawEl[0].dataset && singleDrawEl[0].dataset.did) {
-              srcId = singleDrawEl[0].dataset.did;
-            }
-          }
-          if (!srcId) {
-            const singleMediaEl = document.querySelectorAll('#constellation-board .con-media-item.con-media-selected');
-            if (singleMediaEl.length === 1 && singleMediaEl[0].dataset && singleMediaEl[0].dataset.id) {
-              srcId = singleMediaEl[0].dataset.id;
-            }
-          }
-          if (!srcId) return;
-          const curLinkSrc = _conLinkSrc || window._conLinkSrc;
-          // Toggle off if Ctrl+J pressed again on the same source
-          if (curLinkSrc === srcId) {
+          if (!srcIds.length) return;
+          const curIds = (_conLinkSrcIds && _conLinkSrcIds.length) ? _conLinkSrcIds : (_conLinkSrc ? [String(_conLinkSrc)] : []);
+          const isSameSet = curIds.length === srcIds.length && srcIds.every(id => curIds.includes(id));
+          // Toggle off if Ctrl+J pressed again on the same source(s)
+          if (isSameSet) {
             if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode();
             else if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode();
             return;
           }
-          if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcId);
-          else if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(srcId);
+          if (typeof _conStartLinkMode === 'function') _conStartLinkMode(srcIds);
+          else if (typeof window._conStartLinkMode === 'function') window._conStartLinkMode(srcIds);
           return;
         }
         if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
@@ -21285,9 +21308,11 @@
           const baseFont = Math.round(baseSize * 0.5);
           badge.style.fontSize = Math.max(8, baseFont - (text.length - 2) * 2) + 'px';
           badge.style.minWidth = (baseSize + (text.length - 2) * 6) + 'px';
+          badge.style.height = baseSize + 'px';
         } else {
           badge.style.fontSize = '';
           badge.style.minWidth = '';
+          badge.style.height = '';
         }
       }
 
@@ -21462,6 +21487,7 @@
         const tContinue = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceContinue') : 'Continue number';
         const tKeep = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceKeepOld') : 'Keep old and start new';
         const tClear = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceClearOld') : 'Clear old and start new';
+        const tCustom = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceCustom') : 'Use custom number';
 
         const toast = document.createElement('div');
         toast.id = 'con-numbering-choice-toast';
@@ -21532,6 +21558,48 @@
           if (typeof opts.onChoice === 'function') opts.onChoice('clear');
         });
         actions.appendChild(clearBtn);
+
+        const customWrap = document.createElement('div');
+        customWrap.className = 'con-numbering-custom-wrap';
+
+        const customInput = document.createElement('input');
+        customInput.type = 'number';
+        customInput.min = '1';
+        customInput.step = '1';
+        customInput.className = 'con-numbering-custom-input';
+        customInput.value = String((typeof opts.defaultCustom === 'number' && opts.defaultCustom > 0) ? opts.defaultCustom : 1);
+        customInput.setAttribute('aria-label', tCustom);
+
+        const submitCustom = function () {
+          const val = parseInt(customInput.value, 10);
+          const startNum = (!isNaN(val) && val > 0) ? val : 1;
+          conCloseNumberingChoiceToast();
+          if (typeof opts.onChoice === 'function') opts.onChoice('custom', startNum);
+        };
+
+        customInput.addEventListener('keydown', function (e) {
+          e.stopPropagation();
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            submitCustom();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            conCloseNumberingChoiceToast();
+          }
+        });
+
+        const customBtn = document.createElement('button');
+        customBtn.type = 'button';
+        customBtn.className = 'action-btn btn-grey con-numbering-choice-btn con-btn-custom';
+        customBtn.textContent = tCustom;
+        customBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          submitCustom();
+        });
+
+        customWrap.appendChild(customInput);
+        customWrap.appendChild(customBtn);
+        actions.appendChild(customWrap);
 
         toast.appendChild(header);
         toast.appendChild(actions);
@@ -21627,18 +21695,21 @@
             conNumberSelectedEntities(preferredFormat, 1);
             return;
           }
+          const outsideMax = conGetMaxEntityNumberOutside(selected);
+          const defaultCustom = (outsideMax > 0 ? outsideMax : maxNum) + 1;
           conShowNumberingChoiceToast({
             mode: 'selection',
-            onChoice: function (choice) {
+            defaultCustom: defaultCustom,
+            onChoice: function (choice, customStartNum) {
               if (choice === 'continue') {
-                const outsideMax = conGetMaxEntityNumberOutside(selected);
-                const startNum = (outsideMax > 0 ? outsideMax : maxNum) + 1;
-                conNumberSelectedEntities(preferredFormat, startNum);
+                conNumberSelectedEntities(preferredFormat, defaultCustom);
               } else if (choice === 'keep') {
                 conNumberSelectedEntities(preferredFormat, 1);
               } else if (choice === 'clear') {
                 conClearEntityNumbers('all');
                 conNumberSelectedEntities(preferredFormat, 1);
+              } else if (choice === 'custom') {
+                conNumberSelectedEntities(preferredFormat, customStartNum);
               }
             }
           });
@@ -21654,7 +21725,8 @@
           }
           conShowNumberingChoiceToast({
             mode: 'interactive',
-            onChoice: function (choice) {
+            defaultCustom: maxNum + 1,
+            onChoice: function (choice, customStartNum) {
               if (choice === 'continue') {
                 window._conNumberingSeq = maxNum + 1;
                 conToggleNumberingMode(true, preferredFormat);
@@ -21664,6 +21736,9 @@
               } else if (choice === 'clear') {
                 conClearEntityNumbers('all');
                 window._conNumberingSeq = 1;
+                conToggleNumberingMode(true, preferredFormat);
+              } else if (choice === 'custom') {
+                window._conNumberingSeq = (typeof customStartNum === 'number' && customStartNum > 0) ? customStartNum : 1;
                 conToggleNumberingMode(true, preferredFormat);
               }
             }
@@ -21848,8 +21923,9 @@
             _conCancelLinkMode();
             return;
           }
-          if (targetId === _conLinkSrc) {
-            // Clicked the source element itself — cancel
+          const activeSrcIds = (_conLinkSrcIds && _conLinkSrcIds.length) ? _conLinkSrcIds : (_conLinkSrc ? [String(_conLinkSrc)] : []);
+          if (activeSrcIds.includes(String(targetId))) {
+            // Clicked a source element itself — cancel
             _conCancelLinkMode();
             e.preventDefault();
             e.stopPropagation();
@@ -21858,7 +21934,11 @@
           e.preventDefault();
           e.stopPropagation();
           conPushUndo();
-          conAddEdge(_conLinkSrc, targetId);
+          activeSrcIds.forEach(srcId => {
+            if (srcId && String(srcId) !== String(targetId)) {
+              conAddEdge(srcId, targetId);
+            }
+          });
           _conCancelLinkMode();
         }, true);
 
@@ -23949,6 +24029,7 @@
       window.conCancelLinkMode = global.conCancelLinkMode = _conCancelLinkMode;
       window._conStartLinkMode = global._conStartLinkMode = _conStartLinkMode;
       window.conGetLinkSrc = global.conGetLinkSrc = function () { return _conLinkSrc; };
+      window.conGetLinkSrcIds = global.conGetLinkSrcIds = function () { return _conLinkSrcIds.slice(); };
       window.conGetSelected = global.conGetSelected = function () { return conSelected; };
       window.conGetMultiSelected = global.conGetMultiSelected = function () { return conMultiSelected; };
       window.conAddMultiSelected = global.conAddMultiSelected = function (id) {

@@ -7389,13 +7389,16 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
     `, true);
 
     const reqOpts = (request.pdfOptions && typeof request.pdfOptions === 'object') ? { ...request.pdfOptions } : {};
-    if (typeof reqOpts.marginsType !== 'number' && reqOpts.margins && typeof reqOpts.margins === 'object') {
-      const mt = String(reqOpts.margins.marginType || '').toLowerCase();
-      if (mt === 'none') reqOpts.marginsType = 1;
-      else if (mt === 'minimum') reqOpts.marginsType = 2;
-      else if (mt === 'custom') reqOpts.marginsType = 3;
-      else if (mt === 'default') reqOpts.marginsType = 0;
-      delete reqOpts.margins;
+    if (reqOpts.margins && typeof reqOpts.margins === 'object') {
+      const hasNumericMargins = ['top', 'bottom', 'left', 'right'].some(k => typeof reqOpts.margins[k] === 'number');
+      if (!hasNumericMargins) {
+        const mt = String(reqOpts.margins.marginType || '').toLowerCase();
+        if (mt === 'none') reqOpts.marginsType = 1;
+        else if (mt === 'minimum') reqOpts.marginsType = 2;
+        else if (mt === 'custom') reqOpts.marginsType = 3;
+        else if (mt === 'default') reqOpts.marginsType = 0;
+        delete reqOpts.margins;
+      }
     }
     const defaultExportOpts = getDefaultPdfExportOptions();
     const pdfOptions = Object.assign(
@@ -7403,6 +7406,11 @@ ipcMain.handle('app:print-pdf', async (event, request = {}) => {
       reqOpts,
       { printBackground: true }
     );
+    // Electron 20+ removed marginsType in favor of margins: { top, bottom, left, right } (in inches).
+    // When marginsType === 1 ('none') is requested and no explicit numeric margins are set, pass 0-inch margins so @page CSS controls exact margins.
+    if (pdfOptions.marginsType === 1 && !pdfOptions.margins) {
+      pdfOptions.margins = { top: 0, bottom: 0, left: 0, right: 0 };
+    }
     const pdfBuffer = await win.webContents.printToPDF(pdfOptions);
 
     if (request.previewOnly) {

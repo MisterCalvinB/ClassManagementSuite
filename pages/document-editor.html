@@ -494,17 +494,151 @@
         <style id="custom-css-style"></style>
         <div id="preview-content" class="doc-preview"></div>
       </div>
+      <div id="de-preview-zoom-bar" role="toolbar" aria-label="Preview Zoom" data-i18n-aria-label="dePreviewZoomLabel">
+        <button type="button" class="de-zoom-btn" id="btn-preview-zoom-out" data-i18n-title="dePreviewZoomOut" title="Zoom out preview">
+          <img src="../assets/icons/zoom-out.svg" class="btn-icon" alt="" />
+        </button>
+        <button type="button" class="de-zoom-btn de-zoom-reset" id="btn-preview-zoom-reset" data-i18n-title="dePreviewZoomReset" title="Reset zoom (100%)">100%</button>
+        <button type="button" class="de-zoom-btn" id="btn-preview-zoom-in" data-i18n-title="dePreviewZoomIn" title="Zoom in preview">
+          <img src="../assets/icons/zoom-in.svg" class="btn-icon" alt="" />
+        </button>
+        <span class="de-zoom-sep"></span>
+        <button type="button" class="de-zoom-btn" id="btn-preview-zoom-fit" data-i18n-title="dePreviewZoomFit" title="Fit preview to pane width">
+          <img src="../assets/icons/fit-text.svg" class="btn-icon" alt="" />
+        </button>
+        <span class="de-zoom-sep"></span>
+        <button type="button" class="de-zoom-btn de-zoom-pdf-btn" id="btn-preview-exact-pdf" data-i18n-title="dePreviewExactPdfTitle" title="Toggle exact PDF render in preview pane">
+          <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+          <span data-i18n="dePreviewExactPdf">Exact PDF</span>
+        </button>
+      </div>
       <div id="de-inspector-pill" style="display:none;">
-        <span class="de-pill-tag" id="de-pill-tag">&lt;elem&gt;</span>
-        <span class="de-pill-item de-pill-code" id="de-pill-code" title="Jump to code in editor">
-          <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
-          <span id="de-pill-code-text">Line 1</span>
-        </span>
-        <span class="de-pill-item de-pill-css" id="de-pill-css" title="Jump to matching CSS rule">
-          <img src="../assets/icons/palette.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
-          <span id="de-pill-css-text">CSS</span>
-        </span>
-        <button class="de-pill-close" id="de-pill-close" title="Close inspector">✕</button>
+        <div id="de-inspector-drawer" hidden>
+          <div class="de-insp-row de-insp-selector-row">
+            <label class="de-insp-label" for="de-insp-selector" data-i18n="deInspSelector">Selector</label>
+            <input id="de-insp-selector" class="de-insp-input de-insp-selector-input" type="text" spellcheck="false" autocomplete="off" placeholder=".selector" />
+            <button type="button" class="de-insp-important-btn" id="de-insp-important-btn" aria-pressed="false" data-i18n-title="deInspImportantTitle" title="Toggle !important on rule declarations">!important</button>
+            <button type="button" class="de-insp-icon-btn de-insp-danger-btn" id="de-insp-clear-rule" data-i18n-title="deInspClearRuleTitle" title="Remove CSS rule for this selector">
+              <img src="../assets/icons/trash.svg" class="btn-icon" alt="" />
+            </button>
+          </div>
+          <div class="de-insp-chips" id="de-insp-selector-chips"></div>
+
+          <div class="de-insp-grid">
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-color" data-i18n="deInspTextColor">Text</label>
+              <div class="de-insp-color-wrap">
+                <input id="de-insp-color-picker" class="de-insp-color-swatch" type="color" value="#222222" />
+                <input id="de-insp-color" class="de-insp-input" type="text" spellcheck="false" placeholder="inherit" />
+                <button type="button" class="de-insp-mini-clear" data-prop="color" title="Clear">
+                  <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                </button>
+              </div>
+            </div>
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-bg" data-i18n="deInspBgColor">Background</label>
+              <div class="de-insp-color-wrap">
+                <input id="de-insp-bg-picker" class="de-insp-color-swatch" type="color" value="#ffffff" />
+                <input id="de-insp-bg" class="de-insp-input" type="text" spellcheck="false" placeholder="transparent" />
+                <button type="button" class="de-insp-mini-clear" data-prop="background-color" title="Clear">
+                  <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="de-insp-grid de-insp-grid-3">
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-font-size" data-i18n="deInspFontSize">Size</label>
+              <input id="de-insp-font-size" class="de-insp-input" type="text" spellcheck="false" placeholder="16px" />
+            </div>
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-font-weight" data-i18n="deInspFontWeight">Weight</label>
+              <select id="de-insp-font-weight" class="de-insp-input">
+                <option value="">—</option>
+                <option value="400">400</option>
+                <option value="500">500</option>
+                <option value="600">600</option>
+                <option value="700">700</option>
+                <option value="800">800</option>
+              </select>
+            </div>
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-line-height" data-i18n="deInspLineHeight">Line H.</label>
+              <input id="de-insp-line-height" class="de-insp-input" type="text" spellcheck="false" placeholder="1.5" />
+            </div>
+          </div>
+
+          <div class="de-insp-row de-insp-align-row">
+            <span class="de-insp-label" data-i18n="deInspAlign">Align</span>
+            <div class="de-insp-seg" id="de-insp-align-group">
+              <button type="button" class="de-insp-seg-btn" data-align="left" title="Left">
+                <img src="../assets/icons/align-left.svg" class="btn-icon" alt="" />
+              </button>
+              <button type="button" class="de-insp-seg-btn" data-align="center" title="Center">
+                <img src="../assets/icons/align-center-h.svg" class="btn-icon" alt="" />
+              </button>
+              <button type="button" class="de-insp-seg-btn" data-align="right" title="Right">
+                <img src="../assets/icons/align-right.svg" class="btn-icon" alt="" />
+              </button>
+              <button type="button" class="de-insp-seg-btn" data-align="justify" title="Justify">
+                <img src="../assets/icons/align-justify.svg" class="btn-icon" alt="" />
+              </button>
+            </div>
+            <button type="button" class="de-insp-seg-btn de-insp-italic-btn" id="de-insp-italic-btn" data-i18n-title="deInspItalicTitle" title="Italic"><em>I</em></button>
+          </div>
+
+          <div class="de-insp-grid">
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-padding" data-i18n="deInspPadding">Padding</label>
+              <input id="de-insp-padding" class="de-insp-input" type="text" spellcheck="false" placeholder="8px 12px" />
+            </div>
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-margin" data-i18n="deInspMargin">Margin</label>
+              <input id="de-insp-margin" class="de-insp-input" type="text" spellcheck="false" placeholder="0 0 12px 0" />
+            </div>
+          </div>
+
+          <div class="de-insp-grid">
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-border" data-i18n="deInspBorder">Border</label>
+              <input id="de-insp-border" class="de-insp-input" type="text" spellcheck="false" placeholder="1px solid #333" />
+            </div>
+            <div class="de-insp-field">
+              <label class="de-insp-label" for="de-insp-radius" data-i18n="deInspRadius">Radius</label>
+              <input id="de-insp-radius" class="de-insp-input" type="text" spellcheck="false" placeholder="6px" />
+            </div>
+          </div>
+
+          <div class="de-insp-row de-insp-custom-row">
+            <input id="de-insp-custom-prop" class="de-insp-input" type="text" spellcheck="false" data-i18n-placeholder="deInspCustomPropPlaceholder" placeholder="property" />
+            <span class="de-insp-colon">:</span>
+            <input id="de-insp-custom-val" class="de-insp-input" type="text" spellcheck="false" data-i18n-placeholder="deInspCustomValPlaceholder" placeholder="value" />
+            <button type="button" class="de-insp-icon-btn de-insp-add-btn" id="de-insp-custom-add" data-i18n-title="deInspAddCustomTitle" title="Apply property">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" />
+            </button>
+          </div>
+        </div>
+
+        <div class="de-pill-bar">
+          <span class="de-pill-tag" id="de-pill-tag">&lt;elem&gt;</span>
+          <span class="de-pill-item de-pill-code" id="de-pill-code" data-i18n-title="deInspJumpCodeTitle" title="Jump to code in editor">
+            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
+            <span id="de-pill-code-text">Line 1</span>
+          </span>
+          <span class="de-pill-item de-pill-css" id="de-pill-css" data-i18n-title="deInspJumpCssTitle" title="Open CSS editor at matching rule">
+            <img src="../assets/icons/palette.svg" class="btn-icon" alt="" />
+            <span id="de-pill-css-text">CSS</span>
+          </span>
+          <button type="button" class="de-pill-item de-pill-style-toggle" id="de-pill-style-toggle" aria-expanded="false" data-i18n-title="deInspToggleStyleTitle" title="Edit CSS styles for this element">
+            <img src="../assets/icons/edit.svg" class="btn-icon" alt="" />
+            <span data-i18n="deInspStyleBtn">Style</span>
+            <img src="../assets/icons/chevron-down.svg" class="btn-icon de-pill-chevron" alt="" />
+          </button>
+          <button type="button" class="de-pill-close" id="de-pill-close" data-i18n-title="deInspCloseTitle" title="Close inspector">
+            <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+          </button>
+        </div>
       </div>
       <div id="de-dict-selection-pill" class="de-dict-pill" style="display:none;">
         <button type="button" class="de-dict-pill-btn" id="btn-de-dict-pill-lookup">
@@ -1200,7 +1334,7 @@
               return match ? match.index : -1;
             },
             tokenizer(src) {
-              const m = src.match(/^\x3c!--\s*page[-_ ]*break\s*--\x3e\s*\n?/i);
+              const m = src.match(/^\x3c!--\s*page[-_ ]*break\s*--\x3e\s*\r?\n?/i);
               if (m) return { type: 'page-break', raw: m[0] };
             },
             renderer(token) {
@@ -1295,6 +1429,8 @@
             container.innerHTML = html;
             _deExpandPageBreakComments(container);
             await fixPreviewImages(container);
+          } else if (previewExactPdfMode && window.Desktop && Desktop.isElectron()) {
+            await renderExactPdfInPane(container, html);
           } else {
             await deRenderPagedPreview(container, html);
           }
@@ -1308,7 +1444,7 @@
 
     function scheduleRender() {
       if (renderTimer) clearTimeout(renderTimer);
-      renderTimer = setTimeout(renderPreview, 150);
+      renderTimer = setTimeout(renderPreview, previewExactPdfMode ? 450 : 150);
     }
 
     function deCloneDefaultPageLayout() {
@@ -2639,7 +2775,7 @@
         document.getElementById('custom-css-style').textContent = deBuildScopedPreviewCss(cssText, '#preview-content');
         const fpCss = document.getElementById('full-preview-custom-css');
         if (fpCss) fpCss.textContent = deBuildScopedPreviewCss(cssText, '#full-preview-content');
-        scheduleRender();
+        if (!window._deInspectorApplyingCss) scheduleRender();
         if (!deSyncingLayoutCss) {
           const parsed = deParsePageLayoutFromCss(cssText);
           if (parsed.found) {
@@ -4393,7 +4529,7 @@
       return css;
     }
 
-    async function deBuildPrintDocumentHtml(overrideTitle = null) {
+    async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml = null) {
       const lexendFontsCss = await getEmbeddedLexendFontsCss();
 
       let katexCssLink = '';
@@ -4410,7 +4546,21 @@
 
       let previewContent = '';
       const previewEl = document.getElementById('preview-content');
-      if (previewEl && previewEl.classList.contains('paged-mode')) {
+      if (typeof overrideBodyHtml === 'string') {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = overrideBodyHtml;
+        _deExpandPageBreakComments(wrapper);
+        await fixPreviewImages(wrapper);
+        previewContent = wrapper.innerHTML;
+      } else if (previewEl && previewEl.querySelector('.full-preview-pdf-pages')) {
+        const raw = mdEditor ? mdEditor.getValue() : '';
+        const bodyHtml = currentDocType === 'html' ? raw : marked.parse(raw);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = bodyHtml;
+        _deExpandPageBreakComments(wrapper);
+        await fixPreviewImages(wrapper);
+        previewContent = wrapper.innerHTML;
+      } else if (previewEl && previewEl.classList.contains('paged-mode')) {
         const bodies = previewEl.querySelectorAll('.doc-page-body');
         if (bodies.length > 0) {
           const wrapper = document.createElement('div');
@@ -4435,12 +4585,13 @@
       }
 
       const m = pageLayout.margins;
+      const dims = getPageDims();
       const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
 
       const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
       const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
       const defaultPreviewCss =
-        '@page { size: auto; margin: ' + marginCss + '; }\n' +
+        '@page { size: ' + dims.w + 'mm ' + dims.h + 'mm; margin: ' + marginCss + '; }\n' +
         'body { margin: 0; padding: 0; background: #fff; }\n' +
         '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
         '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
@@ -4453,27 +4604,29 @@
         '.doc-preview li { margin: .25em 0; }\n' +
         '.doc-preview pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 0 0 1em; font-size: .88em; }\n' +
         '.doc-preview code { background: rgba(27,31,35,.07); padding: 2px 5px; border-radius: 3px; font-size: .9em; font-family: \'Consolas\',\'Courier New\',monospace; }\n' +
-        '.doc-preview pre code { background: none; padding: 0; }\n' +
+        '.doc-preview pre code { background: none; padding: 0; font-size: inherit; }\n' +
         '.doc-preview blockquote { border-left: 4px solid #dfe2e5; padding: 2px 16px; color: #6a737d; margin: 0 0 1em; }\n' +
         '.doc-preview table { border-collapse: collapse; width: 100%; margin: 0 0 1em; }\n' +
         '.doc-preview th, .doc-preview td { border: 1px solid #dfe2e5; padding: 8px 13px; }\n' +
         '.doc-preview th { background: #f6f8fa; font-weight: 700; }\n' +
         '.doc-preview tr:nth-child(even) td { background: #fafbfc; }\n' +
         '.doc-preview hr { border: none; border-top: 2px solid #eee; margin: 1.5em 0; }\n' +
-        '.de-page-break, .page-break { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
+        '.doc-preview a { color: #0366d6; text-decoration: none; }\n' +
+        '.de-page-break, .page-break, .pagebreak, .cmt-page-break, .mailposting-page-break-hr { display: block; height: 0; margin: 0; padding: 0; border: none; page-break-after: always; break-after: page; }\n' +
         '.math-display { margin: 1em 0; overflow-x: auto; text-align: center; }\n' +
         (pageLayout.imageWidth && pageLayout.imageWidth !== 'auto'
-          ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; }\n'
-          : '.doc-preview img { max-width: 100%; height: auto; }\n');
+          ? '.doc-preview img { width: ' + pageLayout.imageWidth + '; max-width: 100%; height: auto; border-radius: 4px; }\n'
+          : '.doc-preview img { max-width: 100%; height: auto; border-radius: 4px; }\n');
 
       const pdfTitle = overrideTitle || getPdfExportBaseName() || 'Document';
+      const scopedCustomCss = deScopeCssForContainer(customCss, '.doc-preview');
 
       const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
         '<title>' + escHtml(pdfTitle) + '</title>\n' +
         katexCssLink + '\n' +
-        '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+        '<style>\n* { box-sizing: border-box; }\nhtml, body { margin: 0; padding: 0; }\n' +
         lexendFontsCss + '\n' +
-        defaultPreviewCss + '\n' + customCss + '\n</style>\n' +
+        defaultPreviewCss + '\n' + scopedCustomCss + '\n</style>\n' +
         '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
 
       const pdfSize = pageLayout.size === 'Custom'
@@ -4485,7 +4638,8 @@
       const pdfOptions = {
         landscape: pageLayout.orientation === 'landscape',
         pageSize: pdfSize,
-        marginsType: 1, // no browser-imposed PDF margins; use @page margin from generated CSS
+        margins: { top: 0, bottom: 0, left: 0, right: 0 }, // Electron 41+: zero browser-imposed PDF margins; use @page margin from generated CSS
+        marginsType: 1,
         preferCSSPageSize: true
       };
 
@@ -5546,6 +5700,7 @@
       const sandbox = document.createElement('div');
       sandbox.innerHTML = html || '<p><br></p>';
       _deExpandPageBreakComments(sandbox);
+      _deHoistNestedPageBreaks(sandbox);
       await fixPreviewImages(sandbox);
 
       // Group inline children into block elements
@@ -5654,6 +5809,10 @@
         // Check for manual page break
         if (_deIsManualPageBreak(el)) {
           if (currentSheet.content.childNodes.length > 0) {
+            const divider = document.createElement('div');
+            divider.className = 'de-page-break-divider';
+            divider.innerHTML = '<span>PAGE BREAK</span>';
+            container.appendChild(divider);
             currentSheet = createSheet(sheets.length + 1);
             sheets.push(currentSheet);
             container.appendChild(currentSheet.sheet);
@@ -5885,15 +6044,58 @@
       return sheets.length > 0 ? sheets.length : 1;
     }
 
+    /** Hoist manual page-break elements nested inside <p> or simple wrapper blocks to top-level sandbox children */
+    function _deHoistNestedPageBreaks(sandbox) {
+      if (!sandbox) return;
+      const candidates = Array.from(sandbox.querySelectorAll('*')).filter(el => _deIsManualPageBreak(el));
+      candidates.forEach(pb => {
+        while (pb.parentNode && pb.parentNode !== sandbox) {
+          const parent = pb.parentNode;
+          const tag = parent.tagName ? parent.tagName.toUpperCase() : '';
+          // Do not break apart tables or multi-column flex/grid containers
+          if (['TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH'].includes(tag)) break;
+          const before = parent.cloneNode(false);
+          const after = parent.cloneNode(false);
+          before.removeAttribute('id');
+          after.removeAttribute('id');
+          let seenPb = false;
+          Array.from(parent.childNodes).forEach(ch => {
+            if (ch === pb) {
+              seenPb = true;
+            } else if (!seenPb) {
+              before.appendChild(ch);
+            } else {
+              after.appendChild(ch);
+            }
+          });
+          const grand = parent.parentNode;
+          if (!grand) break;
+          const hasBefore = before.textContent.trim().length > 0 || before.querySelector('img, svg, table, br, hr, canvas, video, iframe');
+          const hasAfter = after.textContent.trim().length > 0 || after.querySelector('img, svg, table, br, hr, canvas, video, iframe');
+          if (hasBefore) grand.insertBefore(before, parent);
+          grand.insertBefore(pb, parent);
+          if (hasAfter) grand.insertBefore(after, parent);
+          grand.removeChild(parent);
+        }
+      });
+    }
+
     /** Check if an element represents a manual page break */
     function _deIsManualPageBreak(el) {
       if (!el || el.nodeType !== 1) return false;
       if (el.classList.contains('de-page-break') || el.classList.contains('page-break') ||
-        el.classList.contains('cmt-page-break') || el.classList.contains('mailposting-page-break-hr')) return true;
+        el.classList.contains('pagebreak') || el.classList.contains('cmt-page-break') ||
+        el.classList.contains('mailposting-page-break-hr')) return true;
       const s = el.style;
       if (s && (s.pageBreakAfter === 'always' || s.pageBreakBefore === 'always' ||
-        s.breakAfter === 'page' || s.breakBefore === 'page')) return true;
-      if (el.dataset && el.dataset.pageBreak === 'after') return true;
+        s.breakAfter === 'page' || s.breakBefore === 'page')) {
+        const hasContent = el.textContent.trim().length > 0 || !!el.querySelector('img, svg, table, canvas, video, iframe');
+        if (!hasContent) return true;
+      }
+      if (el.dataset && el.dataset.pageBreak === 'after') {
+        const hasContent = el.textContent.trim().length > 0 || !!el.querySelector('img, svg, table, canvas, video, iframe');
+        if (!hasContent) return true;
+      }
       return false;
     }
 
@@ -6763,11 +6965,12 @@
     }
 
     function deHandlePreviewElementClick(e) {
-      if (currentViewMode === 'wysiwyg') return;
+      if (currentViewMode === 'wysiwyg' || previewExactPdfMode) return;
 
       let target = e.target;
       const previewContainer = document.getElementById('preview-content');
       if (!target || target === previewContainer) return;
+      if (target.closest && target.closest('.full-preview-pdf-pages')) return;
 
       // Ignore page sheet container margins/footers
       if (target.classList.contains('doc-pages-container') ||
@@ -6902,15 +7105,12 @@
         }
       }
 
-      // 4. Locate & highlight associated CSS in Monaco CSS Editor
+      // 4. Locate & highlight associated CSS in Monaco CSS Editor (without auto-opening cssEditor)
       const customCss = cssEditor ? cssEditor.getValue() : '';
       const matchingRules = deFindMatchingCssRules(el, customCss);
       let cssRange = null;
 
       if (matchingRules.length > 0) {
-        if (!cssEditorVisible) {
-          toggleCssEditor();
-        }
         const decs = matchingRules.map(r => ({
           range: new monaco.Range(r.startLine, 1, r.endLine, 999),
           options: {
@@ -6938,36 +7138,347 @@
         }
       }
 
-      // 5. Update Floating Inspector Pill
-      const pill = document.getElementById('de-inspector-pill');
-      if (pill) {
-        const tagEl = document.getElementById('de-pill-tag');
-        const codeTextEl = document.getElementById('de-pill-code-text');
-        const cssItem = document.getElementById('de-pill-css');
-        const cssTextEl = document.getElementById('de-pill-css-text');
+      // 5. Update Floating Inspector Pill & Style Drawer
+      deUpdateInspectorPillUI(el, codeRange, matchingRules, customCss);
+    }
 
-        const cleanClasses = (el.className || '').split(/\s+/).filter(c => c && !c.startsWith('cmt-'));
-        const tagDesc = '<' + el.tagName.toLowerCase() + (cleanClasses.length > 0 ? '.' + cleanClasses[0] : '') + '>';
-        if (tagEl) tagEl.textContent = tagDesc;
+    const deInspectorState = {
+      selector: '',
+      candidates: [],
+      commitTimer: null,
+      liveCssText: null,
+      important: false
+    };
 
-        if (codeTextEl) {
-          codeTextEl.textContent = (typeof t === 'function' ? t('deInspectorCodeLine') : 'Line') + ' ' + (codeRange ? codeRange.startLineNumber : '—');
-        }
+    function deStripImportant(val) {
+      if (!val || typeof val !== 'string') return { value: '', isImportant: false };
+      const isImportant = /\s*!important\s*$/i.test(val);
+      const cleaned = val.replace(/\s*!important\s*$/i, '').trim();
+      return { value: cleaned, isImportant };
+    }
 
-        if (cssItem && cssTextEl) {
-          if (matchingRules.length > 0) {
-            cssItem.classList.remove('de-pill-no-css');
-            cssItem.classList.add('de-pill-css');
-            cssTextEl.textContent = matchingRules.length + ' ' + (typeof t === 'function' ? t('deInspectorCssRules') : 'CSS') + ' (L' + matchingRules[0].startLine + ')';
-          } else {
-            cssItem.classList.remove('de-pill-css');
-            cssItem.classList.add('de-pill-no-css');
-            cssTextEl.textContent = typeof t === 'function' ? t('deInspectorNoCss') : 'No custom CSS';
-          }
-        }
+    function deFormatPropValueWithImportant(val, makeImportant) {
+      const cleaned = deStripImportant(val).value;
+      if (!cleaned) return '';
+      return makeImportant ? cleaned + ' !important' : cleaned;
+    }
 
-        pill.style.display = 'flex';
+    function deNormalizeHexColor(val) {
+      if (!val || typeof val !== 'string') return null;
+      const v = val.trim().toLowerCase();
+      if (/^#[0-9a-f]{6}$/.test(v)) return v;
+      if (/^#[0-9a-f]{3}$/.test(v)) {
+        return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
       }
+      const m = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+      if (m) {
+        const r = Math.max(0, Math.min(255, parseInt(m[1], 10))).toString(16).padStart(2, '0');
+        const g = Math.max(0, Math.min(255, parseInt(m[2], 10))).toString(16).padStart(2, '0');
+        const b = Math.max(0, Math.min(255, parseInt(m[3], 10))).toString(16).padStart(2, '0');
+        return '#' + r + g + b;
+      }
+      return null;
+    }
+
+    function deParseCssDeclarations(bodyStr) {
+      const decls = new Map();
+      if (!bodyStr) return decls;
+      const cleaned = bodyStr.replace(/\/\*[\s\S]*?\*\//g, '');
+      const parts = cleaned.split(';');
+      for (let i = 0; i < parts.length; i++) {
+        const part = parts[i].trim();
+        if (!part) continue;
+        const colonIdx = part.indexOf(':');
+        if (colonIdx <= 0) continue;
+        const prop = part.slice(0, colonIdx).trim().toLowerCase();
+        const value = part.slice(colonIdx + 1).trim();
+        if (prop) decls.set(prop, value);
+      }
+      return decls;
+    }
+
+    function deFindExactCssRule(selector, cssText) {
+      if (!selector || !cssText) return null;
+      const target = selector.trim();
+      const rules = deParseCssRules(cssText);
+      for (let i = 0; i < rules.length; i++) {
+        if (rules[i].selector.trim() === target) {
+          return rules[i];
+        }
+      }
+      return null;
+    }
+
+    function deUpdateCssRuleInText(cssText, selector, prop, value, makeImportant) {
+      const sel = (selector || '').trim();
+      if (!sel) return cssText;
+      const existing = deFindExactCssRule(sel, cssText);
+      const lines = cssText ? cssText.split('\n') : [''];
+
+      if (existing) {
+        const startIdx = existing.startLine - 1;
+        const endIdx = existing.endLine - 1;
+        if (prop === null && value === null) {
+          // Remove entire rule block
+          lines.splice(startIdx, endIdx - startIdx + 1);
+          return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+        }
+        const decls = deParseCssDeclarations(existing.body);
+        if (value === '' || value === null || value === undefined) {
+          decls.delete(prop.toLowerCase());
+        } else {
+          decls.set(prop.toLowerCase(), deFormatPropValueWithImportant(String(value), !!makeImportant));
+        }
+        if (decls.size === 0) {
+          lines.splice(startIdx, endIdx - startIdx + 1);
+          return lines.join('\n').replace(/\n{3,}/g, '\n\n');
+        }
+        const bodyLines = [];
+        decls.forEach((v, k) => {
+          bodyLines.push('  ' + k + ': ' + v + ';');
+        });
+        const replacement = sel + ' {\n' + bodyLines.join('\n') + '\n}';
+        lines.splice(startIdx, endIdx - startIdx + 1, replacement);
+        return lines.join('\n');
+      }
+
+      if (prop === null || value === '' || value === null || value === undefined) {
+        return cssText;
+      }
+      const formattedVal = deFormatPropValueWithImportant(String(value), !!makeImportant);
+      const prefix = cssText && !cssText.endsWith('\n') ? '\n\n' : (cssText ? '\n' : '');
+      return (cssText || '') + prefix + sel + ' {\n  ' + prop.toLowerCase() + ': ' + formattedVal + ';\n}\n';
+    }
+
+    function deToggleRuleImportantInText(cssText, selector, makeImportant) {
+      const sel = (selector || '').trim();
+      if (!sel || !cssText) return cssText;
+      const existing = deFindExactCssRule(sel, cssText);
+      if (!existing) return cssText;
+      const decls = deParseCssDeclarations(existing.body);
+      if (decls.size === 0) return cssText;
+      const bodyLines = [];
+      decls.forEach((v, k) => {
+        bodyLines.push('  ' + k + ': ' + deFormatPropValueWithImportant(v, makeImportant) + ';');
+      });
+      const lines = cssText.split('\n');
+      const startIdx = existing.startLine - 1;
+      const endIdx = existing.endLine - 1;
+      lines.splice(startIdx, endIdx - startIdx + 1, sel + ' {\n' + bodyLines.join('\n') + '\n}');
+      return lines.join('\n');
+    }
+
+    function deBuildSelectorCandidates(el, matchingRules) {
+      const candidates = [];
+      const addCandidate = (sel) => {
+        if (sel && !candidates.includes(sel)) candidates.push(sel);
+      };
+      if (matchingRules && matchingRules.length > 0) {
+        const direct = matchingRules.find(r => r.isDirect);
+        if (direct) addCandidate(direct.matchedSelector || direct.selector);
+      }
+      if (el.id) addCandidate('#' + el.id);
+      if (el.className && typeof el.className === 'string') {
+        const classes = el.className.split(/\s+/).filter(c => c && !c.startsWith('cmt-'));
+        for (let i = 0; i < classes.length; i++) {
+          addCandidate('.' + classes[i]);
+        }
+      }
+      addCandidate(el.tagName.toLowerCase());
+      return candidates;
+    }
+
+    function deRefreshInspectorCssBadge(matchingRules) {
+      const cssItem = document.getElementById('de-pill-css');
+      const cssTextEl = document.getElementById('de-pill-css-text');
+      if (!cssItem || !cssTextEl) return;
+      if (matchingRules && matchingRules.length > 0) {
+        cssItem.classList.remove('de-pill-no-css');
+        cssItem.classList.add('de-pill-css');
+        cssTextEl.textContent = matchingRules.length + ' ' + (typeof t === 'function' ? t('deInspectorCssRules') : 'CSS') + ' (L' + matchingRules[0].startLine + ')';
+      } else {
+        cssItem.classList.remove('de-pill-css');
+        cssItem.classList.add('de-pill-no-css');
+        cssTextEl.textContent = typeof t === 'function' ? t('deInspectorNoCss') : 'No custom CSS';
+      }
+    }
+
+    function dePopulateInspectorDrawerFromRule(selector, cssText) {
+      const rule = deFindExactCssRule(selector, cssText);
+      const decls = rule ? deParseCssDeclarations(rule.body) : new Map();
+      const computed = lastInspectedPreviewEl ? window.getComputedStyle(lastInspectedPreviewEl) : null;
+
+      let anyImportant = false;
+      decls.forEach((v) => {
+        if (deStripImportant(v).isImportant) anyImportant = true;
+      });
+      deInspectorState.important = anyImportant;
+      const impBtn = document.getElementById('de-insp-important-btn');
+      if (impBtn) {
+        impBtn.classList.toggle('active', anyImportant);
+        impBtn.setAttribute('aria-pressed', String(anyImportant));
+      }
+
+      const getClean = (prop) => deStripImportant(decls.get(prop) || '').value;
+
+      const setVal = (id, prop) => {
+        const inp = document.getElementById(id);
+        if (inp) inp.value = getClean(prop);
+      };
+
+      setVal('de-insp-color', 'color');
+      setVal('de-insp-bg', 'background-color');
+      setVal('de-insp-font-size', 'font-size');
+      setVal('de-insp-font-weight', 'font-weight');
+      setVal('de-insp-line-height', 'line-height');
+      setVal('de-insp-padding', 'padding');
+      setVal('de-insp-margin', 'margin');
+      setVal('de-insp-border', 'border');
+      setVal('de-insp-radius', 'border-radius');
+
+      const colorPicker = document.getElementById('de-insp-color-picker');
+      if (colorPicker) {
+        const hex = deNormalizeHexColor(getClean('color')) || (computed ? deNormalizeHexColor(computed.color) : null) || '#222222';
+        colorPicker.value = hex;
+      }
+
+      const bgPicker = document.getElementById('de-insp-bg-picker');
+      if (bgPicker) {
+        const bgHex = deNormalizeHexColor(getClean('background-color')) || (computed ? deNormalizeHexColor(computed.backgroundColor) : null) || '#ffffff';
+        bgPicker.value = bgHex;
+      }
+
+      const alignVal = getClean('text-align').toLowerCase();
+      document.querySelectorAll('#de-insp-align-group .de-insp-seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.align === alignVal);
+      });
+
+      const italicBtn = document.getElementById('de-insp-italic-btn');
+      if (italicBtn) {
+        italicBtn.classList.toggle('active', getClean('font-style').toLowerCase() === 'italic');
+      }
+    }
+
+    function deRenderSelectorChips() {
+      const container = document.getElementById('de-insp-selector-chips');
+      if (!container) return;
+      container.innerHTML = '';
+      deInspectorState.candidates.forEach(sel => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'de-insp-chip' + (sel === deInspectorState.selector ? ' active' : '');
+        chip.textContent = sel;
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deSetInspectorSelector(sel);
+        });
+        container.appendChild(chip);
+      });
+    }
+
+    function deSetInspectorSelector(newSelector) {
+      deInspectorState.selector = (newSelector || '').trim();
+      const selInput = document.getElementById('de-insp-selector');
+      if (selInput && selInput.value !== deInspectorState.selector) {
+        selInput.value = deInspectorState.selector;
+      }
+      const ruleSelInput = document.getElementById('rule-selector');
+      if (ruleSelInput && deInspectorState.selector) {
+        ruleSelInput.value = deInspectorState.selector;
+      }
+      deRenderSelectorChips();
+      const cssText = cssEditor ? cssEditor.getValue() : '';
+      dePopulateInspectorDrawerFromRule(deInspectorState.selector, cssText);
+    }
+
+    function deCommitCssTextToEditor(nextCss) {
+      if (!cssEditor) return;
+      const model = cssEditor.getModel();
+      if (!model) return;
+      if (model.getValue() === nextCss) return;
+      window._deInspectorApplyingCss = true;
+      try {
+        cssEditor.executeEdits('de-inspector', [{
+          range: model.getFullModelRange(),
+          text: nextCss,
+          forceMoveMarkers: true
+        }]);
+      } finally {
+        window._deInspectorApplyingCss = false;
+      }
+      if (lastInspectedPreviewEl) {
+        const matchingRules = deFindMatchingCssRules(lastInspectedPreviewEl, nextCss);
+        deRefreshInspectorCssBadge(matchingRules);
+        if (matchingRules.length > 0) {
+          const bestRule = matchingRules.find(r => r.isDirect) || matchingRules[0];
+          lastInspectedCssRange = new monaco.Range(bestRule.startLine, bestRule.startCol, bestRule.endLine, bestRule.endCol);
+        } else {
+          lastInspectedCssRange = null;
+        }
+      }
+    }
+
+    function deApplyInspectorStyle(prop, value, commitNow) {
+      const sel = (document.getElementById('de-insp-selector')?.value || deInspectorState.selector || '').trim();
+      if (!sel) return;
+      deInspectorState.selector = sel;
+
+      const baseCss = deInspectorState.liveCssText !== null
+        ? deInspectorState.liveCssText
+        : (cssEditor ? cssEditor.getValue() : '');
+      const nextCss = deUpdateCssRuleInText(baseCss, sel, prop, value, deInspectorState.important);
+      deInspectorState.liveCssText = nextCss;
+
+      // Immediate 60fps preview CSS update without DOM teardown
+      const customStyleEl = document.getElementById('custom-css-style');
+      if (customStyleEl) customStyleEl.textContent = deBuildScopedPreviewCss(nextCss, '#preview-content');
+      const fpCss = document.getElementById('full-preview-custom-css');
+      if (fpCss) fpCss.textContent = deBuildScopedPreviewCss(nextCss, '#full-preview-content');
+
+      if (deInspectorState.commitTimer) {
+        clearTimeout(deInspectorState.commitTimer);
+        deInspectorState.commitTimer = null;
+      }
+
+      if (commitNow) {
+        deInspectorState.liveCssText = null;
+        deCommitCssTextToEditor(nextCss);
+      } else {
+        deInspectorState.commitTimer = setTimeout(() => {
+          const pending = deInspectorState.liveCssText;
+          deInspectorState.liveCssText = null;
+          deInspectorState.commitTimer = null;
+          if (pending !== null) deCommitCssTextToEditor(pending);
+        }, 160);
+      }
+    }
+
+    function deUpdateInspectorPillUI(el, codeRange, matchingRules, customCss) {
+      const pill = document.getElementById('de-inspector-pill');
+      if (!pill) return;
+
+      const tagEl = document.getElementById('de-pill-tag');
+      const codeTextEl = document.getElementById('de-pill-code-text');
+      const cleanClasses = (el.className || '').split(/\s+/).filter(c => c && !c.startsWith('cmt-'));
+      const tagDesc = '<' + el.tagName.toLowerCase() + (cleanClasses.length > 0 ? '.' + cleanClasses[0] : '') + '>';
+      if (tagEl) tagEl.textContent = tagDesc;
+
+      if (codeTextEl) {
+        codeTextEl.textContent = (typeof t === 'function' ? t('deInspectorCodeLine') : 'Line') + ' ' + (codeRange ? codeRange.startLineNumber : '—');
+      }
+
+      deRefreshInspectorCssBadge(matchingRules);
+
+      deInspectorState.liveCssText = null;
+      deInspectorState.candidates = deBuildSelectorCandidates(el, matchingRules);
+      deInspectorState.selector = deInspectorState.candidates[0] || el.tagName.toLowerCase();
+
+      const selInput = document.getElementById('de-insp-selector');
+      if (selInput) selInput.value = deInspectorState.selector;
+      deRenderSelectorChips();
+      dePopulateInspectorDrawerFromRule(deInspectorState.selector, customCss);
+
+      pill.style.display = 'flex';
     }
 
     function initDocumentInspector() {
@@ -6978,6 +7489,11 @@
       const fullPc = document.getElementById('full-preview-content');
       if (fullPc) {
         fullPc.addEventListener('click', deHandlePreviewElementClick);
+      }
+
+      const pill = document.getElementById('de-inspector-pill');
+      if (pill) {
+        pill.addEventListener('click', (e) => e.stopPropagation());
       }
 
       const pillClose = document.getElementById('de-pill-close');
@@ -7009,6 +7525,172 @@
             cssEditor.revealRangeInCenter(lastInspectedCssRange, monaco.editor.ScrollType.Smooth);
             cssEditor.setSelection(lastInspectedCssRange);
             cssEditor.focus();
+          }
+        });
+      }
+
+      const styleToggle = document.getElementById('de-pill-style-toggle');
+      const drawer = document.getElementById('de-inspector-drawer');
+      if (styleToggle && drawer) {
+        styleToggle.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isOpen = !drawer.hidden;
+          drawer.hidden = isOpen;
+          styleToggle.setAttribute('aria-expanded', String(!isOpen));
+          styleToggle.classList.toggle('active', !isOpen);
+        });
+      }
+
+      const selInput = document.getElementById('de-insp-selector');
+      if (selInput) {
+        selInput.addEventListener('input', () => {
+          deSetInspectorSelector(selInput.value);
+        });
+      }
+
+      const clearRuleBtn = document.getElementById('de-insp-clear-rule');
+      if (clearRuleBtn) {
+        clearRuleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          deApplyInspectorStyle(null, null, true);
+          dePopulateInspectorDrawerFromRule(deInspectorState.selector, cssEditor ? cssEditor.getValue() : '');
+        });
+      }
+
+      const importantBtn = document.getElementById('de-insp-important-btn');
+      if (importantBtn) {
+        importantBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const nextImportant = !deInspectorState.important;
+          deInspectorState.important = nextImportant;
+          importantBtn.classList.toggle('active', nextImportant);
+          importantBtn.setAttribute('aria-pressed', String(nextImportant));
+
+          const sel = (document.getElementById('de-insp-selector')?.value || deInspectorState.selector || '').trim();
+          if (sel && cssEditor) {
+            const currentCss = cssEditor.getValue();
+            const updatedCss = deToggleRuleImportantInText(currentCss, sel, nextImportant);
+            if (updatedCss !== currentCss) {
+              deInspectorState.liveCssText = null;
+              if (deInspectorState.commitTimer) {
+                clearTimeout(deInspectorState.commitTimer);
+                deInspectorState.commitTimer = null;
+              }
+              deCommitCssTextToEditor(updatedCss);
+            }
+          }
+        });
+      }
+
+      // Color pickers <-> text inputs
+      const bindColorPair = (pickerId, textId, prop) => {
+        const picker = document.getElementById(pickerId);
+        const text = document.getElementById(textId);
+        if (picker && text) {
+          picker.addEventListener('input', () => {
+            text.value = picker.value;
+            deApplyInspectorStyle(prop, picker.value, false);
+          });
+          picker.addEventListener('change', () => {
+            text.value = picker.value;
+            deApplyInspectorStyle(prop, picker.value, true);
+          });
+          text.addEventListener('input', () => {
+            const hex = deNormalizeHexColor(text.value);
+            if (hex) picker.value = hex;
+            deApplyInspectorStyle(prop, text.value.trim(), false);
+          });
+          text.addEventListener('change', () => {
+            deApplyInspectorStyle(prop, text.value.trim(), true);
+          });
+        }
+      };
+      bindColorPair('de-insp-color-picker', 'de-insp-color', 'color');
+      bindColorPair('de-insp-bg-picker', 'de-insp-bg', 'background-color');
+
+      // Mini clear buttons for color inputs
+      document.querySelectorAll('.de-insp-mini-clear').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const prop = btn.dataset.prop;
+          if (prop === 'color') {
+            const inp = document.getElementById('de-insp-color');
+            if (inp) inp.value = '';
+          } else if (prop === 'background-color') {
+            const inp = document.getElementById('de-insp-bg');
+            if (inp) inp.value = '';
+          }
+          deApplyInspectorStyle(prop, '', true);
+        });
+      });
+
+      // Text/select property inputs
+      const bindTextProp = (id, prop) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+        el.addEventListener(evt, () => {
+          deApplyInspectorStyle(prop, el.value.trim(), el.tagName === 'SELECT');
+        });
+        if (el.tagName !== 'SELECT') {
+          el.addEventListener('change', () => {
+            deApplyInspectorStyle(prop, el.value.trim(), true);
+          });
+        }
+      };
+      bindTextProp('de-insp-font-size', 'font-size');
+      bindTextProp('de-insp-font-weight', 'font-weight');
+      bindTextProp('de-insp-line-height', 'line-height');
+      bindTextProp('de-insp-padding', 'padding');
+      bindTextProp('de-insp-margin', 'margin');
+      bindTextProp('de-insp-border', 'border');
+      bindTextProp('de-insp-radius', 'border-radius');
+
+      // Text-align segmented buttons
+      document.querySelectorAll('#de-insp-align-group .de-insp-seg-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const wasActive = btn.classList.contains('active');
+          document.querySelectorAll('#de-insp-align-group .de-insp-seg-btn').forEach(b => b.classList.remove('active'));
+          if (wasActive) {
+            deApplyInspectorStyle('text-align', '', true);
+          } else {
+            btn.classList.add('active');
+            deApplyInspectorStyle('text-align', btn.dataset.align, true);
+          }
+        });
+      });
+
+      // Italic toggle button
+      const italicBtn = document.getElementById('de-insp-italic-btn');
+      if (italicBtn) {
+        italicBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const next = !italicBtn.classList.contains('active');
+          italicBtn.classList.toggle('active', next);
+          deApplyInspectorStyle('font-style', next ? 'italic' : '', true);
+        });
+      }
+
+      // Custom property row
+      const customProp = document.getElementById('de-insp-custom-prop');
+      const customVal = document.getElementById('de-insp-custom-val');
+      const customAdd = document.getElementById('de-insp-custom-add');
+      const applyCustom = () => {
+        const p = (customProp?.value || '').trim().toLowerCase();
+        const v = (customVal?.value || '').trim();
+        if (!p) return;
+        deApplyInspectorStyle(p, v, true);
+        if (customProp) customProp.value = '';
+        if (customVal) customVal.value = '';
+        dePopulateInspectorDrawerFromRule(deInspectorState.selector, cssEditor ? cssEditor.getValue() : '');
+      };
+      if (customAdd) customAdd.addEventListener('click', applyCustom);
+      if (customVal) {
+        customVal.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            applyCustom();
           }
         });
       }
@@ -7140,12 +7822,209 @@
       try { localStorage.setItem('cmt-doceditor-split', String(splitFraction)); } catch (e) { }
     }
 
+    let previewZoom = 1;
+    let previewExactPdfMode = false;
+    let _exactPdfPaneSeq = 0;
+    const PREVIEW_ZOOM_MIN = 0.25;
+    const PREVIEW_ZOOM_MAX = 2.5;
+    const PREVIEW_ZOOM_STEP = 0.1;
+
+    function syncExactPdfButton() {
+      const btn = document.getElementById('btn-preview-exact-pdf');
+      if (btn) btn.classList.toggle('active', !!previewExactPdfMode);
+    }
+
+    function togglePreviewExactPdf() {
+      if (!window.Desktop || !Desktop.isElectron()) {
+        showToast(t('dePreviewExactPdfNoElectron') || 'Exact PDF preview requires the Electron desktop app.', true);
+        return;
+      }
+      previewExactPdfMode = !previewExactPdfMode;
+      syncExactPdfButton();
+      if (previewExactPdfMode) {
+        if (typeof deClearInspectorHighlights === 'function') deClearInspectorHighlights();
+        const drawer = document.getElementById('de-inspector-drawer');
+        if (drawer) drawer.setAttribute('hidden', '');
+      }
+      try { localStorage.setItem('cmt-doceditor-preview-exact-pdf', previewExactPdfMode ? '1' : '0'); } catch (e) { }
+      renderPreview();
+    }
+
+    async function renderExactPdfInPane(container, html) {
+      if (!container || !window.Desktop || !Desktop.isElectron()) return;
+      const seq = ++_exactPdfPaneSeq;
+      const scrollEl = document.getElementById('preview-scroll');
+      const prevScrollTop = scrollEl ? scrollEl.scrollTop : 0;
+      const exactBtn = document.getElementById('btn-preview-exact-pdf');
+      if (exactBtn) exactBtn.classList.add('is-loading');
+
+      try {
+        const printData = await deBuildPrintDocumentHtml(null, html);
+        if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+        const result = await Desktop.printPdf({
+          html: printData.html,
+          pdfOptions: printData.pdfOptions,
+          previewOnly: true
+        });
+        if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+        if (result && result.ok && result.base64) {
+          const pdfjsLib = await deEnsurePdfjsLib();
+          if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+          const binaryStr = atob(result.base64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) {
+            bytes[i] = binaryStr.charCodeAt(i);
+          }
+
+          const pdfDoc = await pdfjsLib.getDocument({
+            data: bytes,
+            standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+            disableFontFace: false
+          }).promise;
+          if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+          const dpr = Math.max(window.devicePixelRatio || 1, 2);
+          const renderedPages = [];
+
+          for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+            const page = await pdfDoc.getPage(pageNum);
+            if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+            const unscaledViewport = page.getViewport({ scale: 1.0 });
+            const displayWidth = Math.round(unscaledViewport.width * (96 / 72));
+            const displayHeight = Math.round(unscaledViewport.height * (displayWidth / unscaledViewport.width));
+            const scale = (displayWidth / unscaledViewport.width) * dpr;
+            const viewport = page.getViewport({ scale });
+
+            const offscreen = document.createElement('canvas');
+            offscreen.width = viewport.width;
+            offscreen.height = viewport.height;
+            const ctx = offscreen.getContext('2d');
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+            renderedPages.push({ displayWidth, displayHeight, offscreen });
+          }
+
+          if (seq !== _exactPdfPaneSeq || !previewExactPdfMode) return;
+
+          container.classList.add('doc-preview', 'paged-mode');
+          container.classList.remove('doc-pages-container');
+
+          const existingWrapper = container.querySelector('.full-preview-pdf-pages');
+          if (existingWrapper) {
+            // In-place canvas update to avoid DOM teardown and flicker
+            const existingWraps = Array.from(existingWrapper.querySelectorAll('.full-preview-pdf-canvas-wrap'));
+            for (let i = 0; i < renderedPages.length; i++) {
+              const item = renderedPages[i];
+              let wrap = existingWraps[i];
+              let canvas = wrap ? wrap.querySelector('canvas') : null;
+              if (!wrap || !canvas) {
+                wrap = document.createElement('div');
+                wrap.className = 'full-preview-pdf-canvas-wrap';
+                canvas = document.createElement('canvas');
+                canvas.className = 'full-preview-pdf-canvas';
+                wrap.appendChild(canvas);
+                existingWrapper.appendChild(wrap);
+              }
+              wrap.style.width = item.displayWidth + 'px';
+              if (canvas.width !== item.offscreen.width) canvas.width = item.offscreen.width;
+              if (canvas.height !== item.offscreen.height) canvas.height = item.offscreen.height;
+              canvas.style.width = item.displayWidth + 'px';
+              canvas.style.height = item.displayHeight + 'px';
+              const targetCtx = canvas.getContext('2d');
+              targetCtx.clearRect(0, 0, canvas.width, canvas.height);
+              targetCtx.drawImage(item.offscreen, 0, 0);
+            }
+            for (let i = renderedPages.length; i < existingWraps.length; i++) {
+              existingWraps[i].remove();
+            }
+          } else {
+            const pagesWrapper = document.createElement('div');
+            pagesWrapper.className = 'full-preview-pdf-pages';
+            renderedPages.forEach(item => {
+              const wrap = document.createElement('div');
+              wrap.className = 'full-preview-pdf-canvas-wrap';
+              wrap.style.width = item.displayWidth + 'px';
+              item.offscreen.className = 'full-preview-pdf-canvas';
+              item.offscreen.style.width = item.displayWidth + 'px';
+              item.offscreen.style.height = item.displayHeight + 'px';
+              wrap.appendChild(item.offscreen);
+              pagesWrapper.appendChild(wrap);
+            });
+            container.replaceChildren(pagesWrapper);
+          }
+
+          if (scrollEl) scrollEl.scrollTop = prevScrollTop;
+          return;
+        }
+      } catch (err) {
+        console.warn('Exact PDF pane preview fallback:', err);
+      } finally {
+        if (exactBtn && seq === _exactPdfPaneSeq) exactBtn.classList.remove('is-loading');
+      }
+
+      if (seq === _exactPdfPaneSeq) {
+        await deRenderPagedPreview(container, html);
+      }
+    }
+
+    function applyPreviewZoom(zoomVal, persist = true) {
+      const clamped = Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, Math.round(zoomVal * 100) / 100));
+      previewZoom = clamped;
+      const content = document.getElementById('preview-content');
+      if (content) {
+        content.style.zoom = clamped === 1 ? '' : String(clamped);
+      }
+      const resetBtn = document.getElementById('btn-preview-zoom-reset');
+      if (resetBtn) {
+        resetBtn.textContent = Math.round(clamped * 100) + '%';
+      }
+      const outBtn = document.getElementById('btn-preview-zoom-out');
+      const inBtn = document.getElementById('btn-preview-zoom-in');
+      if (outBtn) outBtn.disabled = clamped <= PREVIEW_ZOOM_MIN;
+      if (inBtn) inBtn.disabled = clamped >= PREVIEW_ZOOM_MAX;
+      if (persist) {
+        try { localStorage.setItem('cmt-doceditor-preview-zoom', String(clamped)); } catch (e) { }
+      }
+    }
+
+    function fitPreviewZoomToWidth() {
+      const scrollEl = document.getElementById('preview-scroll');
+      if (!scrollEl) return;
+      const availW = Math.max(120, scrollEl.clientWidth - 40);
+      let targetW = 794;
+      if (typeof getPageDims === 'function') {
+        const dims = getPageDims();
+        if (dims && dims.w) targetW = Math.round(dims.w * 3.7795);
+      }
+      const sheet = document.querySelector('#preview-content .doc-page-sheet, #preview-content .full-preview-pdf-canvas-wrap');
+      if (sheet && sheet.offsetWidth > 0) {
+        targetW = sheet.offsetWidth;
+      }
+      applyPreviewZoom(availW / targetW);
+    }
+
     async function loadPersistedState() {
       try {
         const s = localStorage.getItem('cmt-doceditor-split');
         if (s) splitFraction = Math.max(0.15, Math.min(0.85, parseFloat(s) || 0.5));
       } catch (e) { }
       applySplit();
+      try {
+        previewExactPdfMode = localStorage.getItem('cmt-doceditor-preview-exact-pdf') === '1' && !!(window.Desktop && Desktop.isElectron());
+      } catch (e) { previewExactPdfMode = false; }
+      syncExactPdfButton();
+      try {
+        const z = parseFloat(localStorage.getItem('cmt-doceditor-preview-zoom'));
+        if (!Number.isNaN(z) && z >= PREVIEW_ZOOM_MIN && z <= PREVIEW_ZOOM_MAX) {
+          applyPreviewZoom(z, false);
+        } else {
+          applyPreviewZoom(1, false);
+        }
+      } catch (e) { applyPreviewZoom(1, false); }
       deConfigureInlineStylesheetUi();
       await loadEditorSettings();
       applyEditorPrefs();
@@ -11735,6 +12614,32 @@
       document.getElementById('btn-export-docx').addEventListener('click', exportDocx);
       document.getElementById('btn-export-odt').addEventListener('click', exportOdt);
       document.getElementById('btn-preview').addEventListener('click', showFullPreview);
+      document.getElementById('btn-preview-zoom-out').addEventListener('click', () => applyPreviewZoom(previewZoom - PREVIEW_ZOOM_STEP));
+      document.getElementById('btn-preview-zoom-in').addEventListener('click', () => applyPreviewZoom(previewZoom + PREVIEW_ZOOM_STEP));
+      document.getElementById('btn-preview-zoom-reset').addEventListener('click', () => applyPreviewZoom(1));
+      document.getElementById('btn-preview-zoom-fit').addEventListener('click', fitPreviewZoomToWidth);
+      document.getElementById('btn-preview-exact-pdf').addEventListener('click', togglePreviewExactPdf);
+      const previewScrollEl = document.getElementById('preview-scroll');
+      if (previewScrollEl) {
+        let _zoomRaf = null;
+        let _pendingZoom = null;
+        previewScrollEl.addEventListener('wheel', (e) => {
+          if (!e.ctrlKey && !e.metaKey) return;
+          e.preventDefault();
+          const base = _pendingZoom !== null ? _pendingZoom : previewZoom;
+          const delta = e.deltaY < 0 ? 0.05 : -0.05;
+          _pendingZoom = Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, Math.round((base + delta) * 100) / 100));
+          if (!_zoomRaf) {
+            _zoomRaf = requestAnimationFrame(() => {
+              _zoomRaf = null;
+              if (_pendingZoom !== null) {
+                applyPreviewZoom(_pendingZoom);
+                _pendingZoom = null;
+              }
+            });
+          }
+        }, { passive: false });
+      }
       document.getElementById('btn-syntax-help').addEventListener('click', () => openSyntaxHelpModal());
       document.getElementById('syntax-help-close').addEventListener('click', () => hideModal('syntax-help-modal'));
       document.getElementById('syntax-help-modal').addEventListener('click', function (e) {

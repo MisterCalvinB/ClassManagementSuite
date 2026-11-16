@@ -3726,93 +3726,91 @@
         else if (typeof boardSetDirty === 'function') boardSetDirty(true);
       };
       window.conTriggerLinkShortcut = function () {
-        let srcId = null;
-        // 1. Note selected or focused
+        const srcIds = [];
+        const pushSrc = id => {
+          if (!id) return;
+          const s = String(id);
+          if (!srcIds.includes(s)) srcIds.push(s);
+        };
+
+        // 1. Notes selected (or focused if none selected)
         const noteSel = (typeof window.conGetNoteSelected === 'function') ? window.conGetNoteSelected() : (typeof conNoteSelected !== 'undefined' ? conNoteSelected : null);
-        if (noteSel && noteSel.size === 1) {
-          srcId = [...noteSel][0];
-        } else if (document.activeElement && document.activeElement.closest) {
-          const activeNoteEl = document.activeElement.closest('.con-word-note');
-          if (activeNoteEl && activeNoteEl.dataset && activeNoteEl.dataset.id) {
-            srcId = activeNoteEl.dataset.id;
-          }
-        }
-        if (!srcId) {
+        if (noteSel && noteSel.size > 0) {
+          noteSel.forEach(pushSrc);
+        } else {
           const selectedNoteEls = document.querySelectorAll('#constellation-board .con-word-note.wn-selected');
-          if (selectedNoteEls.length === 1 && selectedNoteEls[0].dataset && selectedNoteEls[0].dataset.id) {
-            srcId = selectedNoteEls[0].dataset.id;
-          }
-        }
-        // 2. Node selected
-        if (!srcId) {
-          const selNode = (typeof window.conGetSelected === 'function') ? window.conGetSelected() : (window.conSelected || (typeof conSelected !== 'undefined' ? conSelected : null));
-          if (selNode) {
-            srcId = selNode;
-          } else {
-            const multiSel = (typeof window.conGetMultiSelected === 'function') ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : null);
-            if (multiSel && multiSel.size === 1) {
-              srcId = [...multiSel][0];
-            } else {
-              const selNodeEl = document.querySelector('#constellation-board .con-node.con-selected');
-              if (selNodeEl) srcId = selNodeEl.id;
-            }
-          }
-        }
-        // 3. Drawing selected
-        if (!srcId) {
-          const drawSel = (typeof window.conGetDrawingSelected === 'function') ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : null);
-          if (drawSel && drawSel.size === 1) {
-            srcId = [...drawSel][0];
-          } else {
-            const selDrawEls = document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected');
-            if (selDrawEls.length === 1 && selDrawEls[0].dataset && selDrawEls[0].dataset.did) {
-              srcId = selDrawEls[0].dataset.did;
-            } else if (typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
-              srcId = _conDrawCtxId;
-            }
-          }
-        }
-        // 4. Picture / Media item selected or active
-        if (!srcId) {
-          const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : null);
-          if (mediaSel && mediaSel.size === 1) {
-            srcId = [...mediaSel][0];
-          } else {
-            const selMediaEls = document.querySelectorAll('#constellation-board .con-media-item.con-media-selected');
-            if (selMediaEls.length === 1 && selMediaEls[0].dataset && selMediaEls[0].dataset.id) {
-              srcId = selMediaEls[0].dataset.id;
-            } else if (document.activeElement && document.activeElement.closest) {
-              const activeMediaEl = document.activeElement.closest('.con-media-item');
-              if (activeMediaEl && activeMediaEl.dataset && activeMediaEl.dataset.id) {
-                srcId = activeMediaEl.dataset.id;
-              }
-            }
-            if (!srcId && typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem && window._conActiveMediaItem.id) {
-              srcId = window._conActiveMediaItem.id;
-            } else if (!srcId && typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id) {
-              srcId = _conCtxItem.id;
-            }
-          }
-        }
-        // 5. Group focused
-        if (!srcId) {
-          const focusedGroup = (typeof window.conGetGroupFocused === 'function') ? window.conGetGroupFocused() : (window.conGroupFocused || (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null));
-          if (focusedGroup) srcId = focusedGroup;
+          selectedNoteEls.forEach(el => { if (el.dataset && el.dataset.id) pushSrc(el.dataset.id); });
         }
 
-        if (!srcId) return;
+        // 2. Nodes selected (single or multi-selected)
+        const selNode = (typeof window.conGetSelected === 'function') ? window.conGetSelected() : (window.conSelected || (typeof conSelected !== 'undefined' ? conSelected : null));
+        if (selNode) pushSrc(selNode);
+        const multiSel = (typeof window.conGetMultiSelected === 'function') ? window.conGetMultiSelected() : (typeof conMultiSelected !== 'undefined' ? conMultiSelected : null);
+        if (multiSel && multiSel.size > 0) {
+          multiSel.forEach(pushSrc);
+        }
+        document.querySelectorAll('#constellation-board .con-node.con-selected, #constellation-board .con-node.con-multi-selected').forEach(el => {
+          if (el.id) pushSrc(el.id);
+        });
 
-        const currentLinkSrc = (typeof window.conGetLinkSrc === 'function') ? window.conGetLinkSrc() : (window._conLinkSrc || (typeof _conLinkSrc !== 'undefined' ? _conLinkSrc : null));
-        if (currentLinkSrc === srcId) {
+        // 3. Drawings selected
+        const drawSel = (typeof window.conGetDrawingSelected === 'function') ? window.conGetDrawingSelected() : (typeof conDrawingSelected !== 'undefined' ? conDrawingSelected : null);
+        if (drawSel && drawSel.size > 0) {
+          drawSel.forEach(pushSrc);
+        } else {
+          document.querySelectorAll('#constellation-board .con-drawing.con-drawing-selected').forEach(el => {
+            if (el.dataset && el.dataset.did) pushSrc(el.dataset.did);
+          });
+        }
+
+        // 4. Pictures / Media items selected
+        const mediaSel = (typeof window.conGetMediaSelected === 'function') ? window.conGetMediaSelected() : (typeof conMediaSelected !== 'undefined' ? conMediaSelected : null);
+        if (mediaSel && mediaSel.size > 0) {
+          mediaSel.forEach(pushSrc);
+        } else {
+          document.querySelectorAll('#constellation-board .con-media-item.con-media-selected').forEach(el => {
+            if (el.dataset && el.dataset.id) pushSrc(el.dataset.id);
+          });
+        }
+
+        // 5. Fallback to focused/active element if nothing explicitly selected
+        if (!srcIds.length) {
+          if (document.activeElement && document.activeElement.closest) {
+            const activeNoteEl = document.activeElement.closest('.con-word-note');
+            if (activeNoteEl && activeNoteEl.dataset && activeNoteEl.dataset.id) pushSrc(activeNoteEl.dataset.id);
+            const activeMediaEl = document.activeElement.closest('.con-media-item');
+            if (!srcIds.length && activeMediaEl && activeMediaEl.dataset && activeMediaEl.dataset.id) pushSrc(activeMediaEl.dataset.id);
+          }
+          if (!srcIds.length && typeof _conDrawCtxId !== 'undefined' && _conDrawCtxId) {
+            pushSrc(_conDrawCtxId);
+          }
+          if (!srcIds.length && typeof window._conActiveMediaItem !== 'undefined' && window._conActiveMediaItem && window._conActiveMediaItem.id) {
+            pushSrc(window._conActiveMediaItem.id);
+          } else if (!srcIds.length && typeof _conCtxItem !== 'undefined' && _conCtxItem && _conCtxItem.id) {
+            pushSrc(_conCtxItem.id);
+          }
+          if (!srcIds.length) {
+            const focusedGroup = (typeof window.conGetGroupFocused === 'function') ? window.conGetGroupFocused() : (window.conGroupFocused || (typeof conGroupFocused !== 'undefined' ? conGroupFocused : null));
+            if (focusedGroup) pushSrc(focusedGroup);
+          }
+        }
+
+        if (!srcIds.length) return;
+
+        const currentLinkIds = (typeof window.conGetLinkSrcIds === 'function')
+          ? window.conGetLinkSrcIds()
+          : ((typeof window.conGetLinkSrc === 'function' ? window.conGetLinkSrc() : (window._conLinkSrc || (typeof _conLinkSrc !== 'undefined' ? _conLinkSrc : null))) ? [String(typeof window.conGetLinkSrc === 'function' ? window.conGetLinkSrc() : (window._conLinkSrc || _conLinkSrc))] : []);
+        const isSameSet = currentLinkIds.length === srcIds.length && srcIds.every(id => currentLinkIds.includes(id));
+        if (isSameSet) {
           if (typeof window._conCancelLinkMode === 'function') window._conCancelLinkMode();
           else if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode();
           else if (typeof _conCancelLinkMode === 'function') _conCancelLinkMode();
           return;
         }
         if (typeof window._conStartLinkMode === 'function') {
-          window._conStartLinkMode(srcId);
+          window._conStartLinkMode(srcIds);
         } else if (typeof _conStartLinkMode === 'function') {
-          _conStartLinkMode(srcId);
+          _conStartLinkMode(srcIds);
         }
       };
       window.conAdjustSelectedFontSize = function (delta) {
@@ -4061,7 +4059,7 @@
 
       window.conRestorePageToBoard = function (snap, opts) { window._conRestorePageToBoard(snap, opts); };
 
-      window.conExpandBoardHeight = function (deltaPx = 400) {
+      window.conExpandBoardHeight = function (deltaPx = 400, opts = {}) {
         const board = document.getElementById('constellation-board');
         if (!board) return;
         const currentH = board.offsetHeight || board.clientHeight || 1200;
@@ -4075,13 +4073,36 @@
           sessionStorage.setItem('cmt-board-expanded-height-' + pIdx, String(newH));
           sessionStorage.setItem('cmt-board-expanded-height', String(newH));
         } catch (_) { }
-        try {
-          board.scrollBy({ top: Math.min(300, deltaPx), behavior: 'smooth' });
-        } catch (_) { }
-        if (typeof boardSetDirty === 'function') boardSetDirty(true);
-        if (typeof _boardScheduleSave === 'function') _boardScheduleSave('constellation');
+        if (!opts || opts.scroll !== false) {
+          try {
+            board.scrollBy({ top: Math.min(300, deltaPx), behavior: 'smooth' });
+          } catch (_) { }
+        }
+        if (!opts || !opts.skipSave) {
+          if (typeof boardSetDirty === 'function') boardSetDirty(true);
+          if (typeof _boardScheduleSave === 'function') _boardScheduleSave('constellation');
+        }
         if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
         if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, boardHeight: newH });
+      };
+
+      window.conMaybeAutoExpandBoard = function (bottomY, opts = {}) {
+        if (typeof document !== 'undefined' && document.documentElement && document.documentElement.classList.contains('con-mirror-mode')) return false;
+        const board = document.getElementById('constellation-board');
+        if (!board) return false;
+        const currentH = board.offsetHeight || board.clientHeight || 0;
+        if (!currentH) return false;
+        const threshold = (opts && typeof opts.threshold === 'number') ? opts.threshold : 120;
+        const yVal = Number(bottomY);
+        if (!Number.isFinite(yVal) || yVal <= currentH - threshold) return false;
+        const step = (opts && typeof opts.step === 'number') ? opts.step : 400;
+        const minNeeded = Math.ceil(yVal + 180 - currentH);
+        const delta = Math.max(step, Math.ceil(minNeeded / 200) * 200);
+        window.conExpandBoardHeight(delta, {
+          scroll: !!(opts && opts.scroll),
+          skipSave: !!(opts && opts.skipSave)
+        });
+        return true;
       };
 
 

@@ -1660,6 +1660,20 @@
     </div>
   </div>
 
+  <!-- 2c-bis. Exercise / Block Settings Modal -->
+  <div id="exerciseSettingsModal" class="modal-overlay" onclick="if(event.target===this)tcCloseExerciseSettingsModal()">
+    <div class="modal-box" style="max-width:640px;">
+      <div class="modal-header">
+        <span class="modal-title" id="exerciseSettingsModalTitle" data-i18n="tcSettings">Settings</span>
+        <button class="modal-close-btn" onclick="tcCloseExerciseSettingsModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="exerciseSettingsModalBody" style="padding:16px;max-height:78vh;overflow-y:auto;"></div>
+      <div class="modal-footer">
+        <button type="button" class="neo-btn primary" onclick="tcCloseExerciseSettingsModal()" data-i18n="btnDone">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 2d. Customizable Header & Allowed Materials Modal (Simplified) -->
   <div id="headerCustomizerModal" class="modal-overlay" onclick="if(event.target===this)tcCloseHeaderCustomizerModal()">
     <div class="modal-box header-modal-box" style="max-width:780px;">
@@ -7715,21 +7729,62 @@
       // ── Options Toggle & Mutation Actions ──────────────────────────────────
       window._openOptionsExerciseIds = window._openOptionsExerciseIds || new Set();
 
+      var _activeSettingsPanel = null;
+      var _activeSettingsParent = null;
+      var _activeSettingsNext = null;
+
       window.tcToggleExerciseOptions = function (exId) {
-        if (window._openOptionsExerciseIds.has(exId)) {
-          window._openOptionsExerciseIds.delete(exId);
-        } else {
-          window._openOptionsExerciseIds.add(exId);
+        if (_activeSettingsPanel) {
+          tcCloseExerciseSettingsModal(true);
         }
-        var isOpen = window._openOptionsExerciseIds.has(exId);
         var panel = document.getElementById('optionsPanel_' + exId);
-        var btn = document.getElementById('optionsBtn_' + exId);
-        if (panel) {
-          panel.style.display = isOpen ? 'block' : 'none';
+        var modal = document.getElementById('exerciseSettingsModal');
+        var body = document.getElementById('exerciseSettingsModalBody');
+        var titleEl = document.getElementById('exerciseSettingsModalTitle');
+        if (!panel || !modal || !body) return;
+
+        var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
+        var typeMeta = ex && (TestCreatorService.EXERCISE_TYPES || []).find(function (t) { return t.id === ex.type; });
+        var label = (ex && ex.title && String(ex.title).trim()) ? ex.title : (typeMeta ? typeMeta.name : 'Exercise');
+        if (titleEl) {
+          titleEl.textContent = (i18n.t('tcSettings') || 'Settings') + ': ' + label;
         }
-        if (btn) {
-          if (isOpen) btn.classList.add('yellow');
-          else btn.classList.remove('yellow');
+
+        _activeSettingsPanel = panel;
+        _activeSettingsParent = panel.parentNode;
+        _activeSettingsNext = panel.nextSibling;
+
+        panel.style.display = 'block';
+        panel.style.borderTop = 'none';
+        panel.style.marginTop = '0';
+        panel.style.paddingTop = '0';
+        body.innerHTML = '';
+        body.appendChild(panel);
+
+        modal.classList.add('open');
+      };
+
+      window.tcCloseExerciseSettingsModal = function (skipPreview) {
+        var modal = document.getElementById('exerciseSettingsModal');
+        if (modal) modal.classList.remove('open');
+        if (_activeSettingsPanel) {
+          _activeSettingsPanel.style.display = 'none';
+          _activeSettingsPanel.style.borderTop = '';
+          _activeSettingsPanel.style.marginTop = '';
+          _activeSettingsPanel.style.paddingTop = '';
+          if (_activeSettingsParent && _activeSettingsParent.isConnected) {
+            if (_activeSettingsNext && _activeSettingsNext.parentNode === _activeSettingsParent) {
+              _activeSettingsParent.insertBefore(_activeSettingsPanel, _activeSettingsNext);
+            } else {
+              _activeSettingsParent.appendChild(_activeSettingsPanel);
+            }
+          }
+          _activeSettingsPanel = null;
+          _activeSettingsParent = null;
+          _activeSettingsNext = null;
+        }
+        if (!skipPreview && typeof tcScheduleLivePreviewUpdate === 'function') {
+          tcScheduleLivePreviewUpdate();
         }
       };
 
@@ -14184,6 +14239,7 @@
       };
 
       window.tcOpenExerciseStyleModal = function (exId) {
+        if (typeof tcCloseExerciseSettingsModal === 'function') tcCloseExerciseSettingsModal(true);
         var ex = (currentTest.exercises || []).find(function (e) { return e.id === exId; });
         if (!ex) return;
         currentEditingExStyleId = exId;
