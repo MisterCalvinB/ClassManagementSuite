@@ -406,7 +406,7 @@
       padding: 24px;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: safe center;
       gap: 24px;
       position: relative;
     }
@@ -1489,8 +1489,8 @@
       document.getElementById('nextPageBtn').addEventListener('click', () => jumpToPage(state.currentPage + 1));
 
       // Zoom Controls
-      document.getElementById('zoomInBtn').addEventListener('click', () => setScale(state.scale * 1.2, state.currentPage));
-      document.getElementById('zoomOutBtn').addEventListener('click', () => setScale(state.scale / 1.2, state.currentPage));
+      document.getElementById('zoomInBtn').addEventListener('click', () => setScale(state.scale * 1.2, state.currentPage, { debounceMs: 80 }));
+      document.getElementById('zoomOutBtn').addEventListener('click', () => setScale(state.scale / 1.2, state.currentPage, { debounceMs: 80 }));
       document.getElementById('fitWidthBtn').addEventListener('click', fitToWidth);
       document.getElementById('fitPageBtn').addEventListener('click', fitToPage);
 
@@ -1593,14 +1593,95 @@
         ro.observe(viewport);
       }
 
-      // Ctrl + Wheel Zoom
+      // Ctrl + Wheel / Trackpad Pinch Zoom (anchored at pointer)
       viewport.addEventListener('wheel', (e) => {
         if (e.ctrlKey) {
           e.preventDefault();
-          const factor = e.deltaY < 0 ? 1.15 : (1 / 1.15);
-          setScale(state.scale * factor, state.currentPage);
+          const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
+          const factor = Math.exp(-clampedDelta * 0.0015);
+          setScale(state.scale * factor, state.currentPage, {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            debounceMs: 140
+          });
         }
       }, { passive: false });
+    }
+
+    // ── Large File & Canvas Safety Limits ──
+    const LARGE_PDF_WARN_BYTES = 100 * 1024 * 1024; // 100 MB
+    const MAX_CANVAS_PIXELS = 12_000_000; // ~12M px keeps Chromium GPU memory safe on huge scans
+    const MAX_CANVAS_DIM = 8192;
+    let _pageObserver = null;
+    let _thumbObserver = null;
+
+    function getSafeRenderDpr(cssWidth, cssHeight) {
+      const rawDpr = window.devicePixelRatio || 1;
+      const w = Math.max(1, cssWidth);
+      const h = Math.max(1, cssHeight);
+      let dpr = rawDpr;
+      if (w * dpr > MAX_CANVAS_DIM) dpr = MAX_CANVAS_DIM / w;
+      if (h * dpr > MAX_CANVAS_DIM) dpr = Math.min(dpr, MAX_CANVAS_DIM / h);
+      const area = w * dpr * h * dpr;
+      if (area > MAX_CANVAS_PIXELS) {
+        dpr *= Math.sqrt(MAX_CANVAS_PIXELS / area);
+      }
+      return Math.max(0.25, dpr);
+    }
+
+    function _toUint8Array(content) {
+      if (content instanceof Uint8Array) return content;
+      if (content instanceof ArrayBuffer) return new Uint8Array(content);
+      if (ArrayBuffer.isView(content)) {
+        return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+      }
+      if (typeof content === 'string') {
+        const binary = atob(content);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        return bytes;
+      }
+      return new Uint8Array(0);
+    }
+
+    async function _promptOpenInSystemViewer({ target = null, relPath = null, absPath = null, blobBuffer = null, fileSizeBytes = 0, isError = false } = {}) {
+      const sizeMb = fileSizeBytes > 0 ? Math.max(1, Math.round(fileSizeBytes / (1024 * 1024))) : '?';
+      let msg;
+      if (isError) {
+        msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfOpenSystemErrorConfirm'))
+          ? i18n.t('pdfOpenSystemErrorConfirm')
+          : 'The built-in viewer could not render this PDF (it may be too large or complex).\n\nOpen it in your system\'s default PDF viewer instead?\n(Note: in-app annotations, presentation mirroring, and dictionary lookup will not be available.)';
+      } else {
+        const tpl = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfLargeFileConfirm'))
+          ? i18n.t('pdfLargeFileConfirm')
+          : 'This PDF is very large ({size} MB) and may be slow or unstable in the built-in viewer.\n\nOpen it in your system\'s default PDF viewer instead?\n(Note: in-app annotations, presentation mirroring, and dictionary lookup will not be available.)';
+        msg = tpl.replace('{size}', String(sizeMb));
+      }
+
+      if (!(await showConfirm(msg))) {
+        return false;
+      }
+
+      if (window.Desktop && Desktop.isElectron()) {
+        let openRes = null;
+        if (absPath) {
+          openRes = await Desktop.openNative(absPath);
+        } else if (target && relPath) {
+          openRes = await Desktop.openNative(target, relPath);
+        }
+        if (openRes && openRes.ok) {
+          return true;
+        }
+        showToast('Could not open in system viewer: ' + (openRes?.error || 'No file path available'), true);
+        return false;
+      }
+
+      if (blobBuffer) {
+        const url = URL.createObjectURL(new Blob([blobBuffer], { type: 'application/pdf' }));
+        window.open(url, '_blank');
+        return true;
+      }
+      return false;
     }
 
     // ── PDF Document Loading ──
@@ -1623,6 +1704,17 @@
           } catch (_) {}
         }
 
+        if (!state.isPresentation && window.Desktop && Desktop.isElectron() && typeof Desktop.statByPath === 'function') {
+          try {
+            const statRes = await Desktop.statByPath(target, relPath);
+            const fileSize = statRes?.file?.size || statRes?.size || 0;
+            if (fileSize > LARGE_PDF_WARN_BYTES) {
+              const openedExternal = await _promptOpenInSystemViewer({ target, relPath, fileSizeBytes: fileSize });
+              if (openedExternal) return;
+            }
+          } catch (_) {}
+        }
+
         state.pdfTarget = target;
         state.pdfRelPath = relPath;
         state.pdfPath = null;
@@ -1630,21 +1722,25 @@
 
         let res;
         if (window.Desktop && Desktop.isElectron()) {
-          res = await Desktop.readByPath(target, relPath, { encoding: 'base64' });
+          res = await Desktop.readByPath(target, relPath, { encoding: 'binary' });
+          // Fallback to base64 if main process hasn't been restarted with binary support
+          if (res && res.ok && res.encoding !== 'binary' && typeof res.content === 'string') {
+            res = await Desktop.readByPath(target, relPath, { encoding: 'base64' });
+          }
         }
         if (!res || !res.ok) {
           showToast('Could not load PDF: ' + (res?.error || 'Target read failed'), true);
           return;
         }
 
-        const binary = atob(res.content);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-
-        await initPdfDocument(bytes.buffer, state.pdfFilename, res.content);
+        const bytes = _toUint8Array(res.content);
+        await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), state.pdfFilename);
         await loadSidecarAnnotations();
       } catch (err) {
         console.error('loadPdfFromTarget error:', err);
+        if (!state.isPresentation && await _promptOpenInSystemViewer({ target, relPath, isError: true })) {
+          return;
+        }
         showToast('Error opening PDF document', true);
       }
     }
@@ -1673,34 +1769,46 @@
         state.pdfFilename = absPath.split(/[\/\\]/).pop();
 
         if (window.Desktop && Desktop.isElectron()) {
-          const res = await Desktop.readDiskFile(absPath, 'base64');
+          let res = await Desktop.readDiskFile(absPath, 'binary', state.isPresentation ? {} : { maxBytes: LARGE_PDF_WARN_BYTES });
+          if (res && res.tooLarge) {
+            const openedExternal = await _promptOpenInSystemViewer({ absPath, fileSizeBytes: res.size });
+            if (openedExternal) return;
+            res = await Desktop.readDiskFile(absPath, 'binary');
+          }
+          // Fallback to base64 if main process hasn't been restarted with binary support
+          if (res && res.ok && res.encoding !== 'binary' && typeof res.content === 'string') {
+            res = await Desktop.readDiskFile(absPath, 'base64');
+          }
           if (!res || !res.ok) {
             showToast('Could not read disk file: ' + (res?.error || ''), true);
             return;
           }
-          const binary = atob(res.content);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          await initPdfDocument(bytes.buffer, state.pdfFilename, res.content);
+          const bytes = _toUint8Array(res.content);
+          await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), state.pdfFilename);
           await loadSidecarAnnotations();
         }
       } catch (err) {
         console.error('loadPdfFromDisk error:', err);
+        if (!state.isPresentation && await _promptOpenInSystemViewer({ absPath, isError: true })) {
+          return;
+        }
         showToast('Failed to load local PDF', true);
       }
     }
 
     async function initPdfDocument(arrayBuffer, title, optBase64 = null) {
-      // Calculate or reuse base64 string BEFORE passing buffer to PDF.js worker (worker detaches ArrayBuffer!)
-      const bufferBase64 = optBase64 || arrayBufferToBase64(arrayBuffer);
+      // Clone before passing to PDF.js worker (worker detaches ArrayBuffer)
       const workerBuffer = (arrayBuffer && typeof arrayBuffer.slice === 'function')
         ? arrayBuffer.slice(0)
         : arrayBuffer;
 
-      state.pdfBufferBase64 = bufferBase64;
+      state.pdfBufferBase64 = optBase64 || null;
       state.pdfFilename = title;
       state.pdfArrayBuffer = arrayBuffer;
-      state.pdfDoc = await pdfjsLib.getDocument({ data: new Uint8Array(workerBuffer) }).promise;
+      state.pdfDoc = await pdfjsLib.getDocument({
+        data: new Uint8Array(workerBuffer),
+        standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href
+      }).promise;
       state.numPages = state.pdfDoc.numPages;
       state.currentPage = 1;
       state.annotations = {};
@@ -1727,15 +1835,14 @@
       updatePageLabel();
       await renderAllPages();
       if (!state.isPresentation) {
-        await buildThumbnails();
+        buildThumbnails();
       }
 
-      // Broadcast to presentation window if active
-      if (!state.isPresentation && bufferBase64) {
-        syncChannel.postMessage({
+      // Broadcast to presentation window if active (prefer path reference to avoid cloning huge base64 strings)
+      if (!state.isPresentation) {
+        const msg = {
           action: 'open-doc',
           filename: title,
-          bufferBase64: bufferBase64,
           currentPage: state.currentPage,
           annotations: state.annotations,
           scale: state.scale,
@@ -1743,21 +1850,155 @@
           vH: viewport.clientHeight,
           sx: viewport.scrollLeft,
           sy: viewport.scrollTop
-        });
+        };
+        if (state.pdfTarget && state.pdfRelPath) {
+          msg.target = state.pdfTarget;
+          msg.relPath = state.pdfRelPath;
+        } else if (state.pdfPath) {
+          msg.diskPath = state.pdfPath;
+        } else {
+          if (!state.pdfBufferBase64 && arrayBuffer) {
+            state.pdfBufferBase64 = arrayBufferToBase64(arrayBuffer);
+          }
+          msg.bufferBase64 = state.pdfBufferBase64;
+        }
+        syncChannel.postMessage(msg);
       }
     }
 
-    // ── Render Viewport Pages ──
+    // ── Render Viewport Pages (Virtualized / Lazy) ──
+    function _unloadPageCanvases(pageWrap) {
+      if (!pageWrap) return;
+      if (pageWrap._pdfRenderTask) {
+        try { pageWrap._pdfRenderTask.cancel(); } catch (_) {}
+        pageWrap._pdfRenderTask = null;
+      }
+      const pdfCanvas = pageWrap.querySelector('.page-pdf-canvas');
+      if (pdfCanvas && (pdfCanvas.width > 0 || pdfCanvas.height > 0)) {
+        pdfCanvas.width = 0;
+        pdfCanvas.height = 0;
+      }
+      const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
+      if (annotCanvas && (annotCanvas.width > 0 || annotCanvas.height > 0)) {
+        annotCanvas.width = 0;
+        annotCanvas.height = 0;
+      }
+      const textLayerDiv = pageWrap.querySelector('.textLayer');
+      if (textLayerDiv) {
+        textLayerDiv.innerHTML = '';
+      }
+      pageWrap.dataset.renderedScale = '0';
+    }
+
+    async function _ensurePageRendered(pageWrap, targetScale = state.scale) {
+      if (!state.pdfDoc || !pageWrap) return;
+      const renderedScale = parseFloat(pageWrap.dataset.renderedScale || '0');
+      if (Math.abs(renderedScale - targetScale) < 0.0005 && !pageWrap._renderingPromise) {
+        return;
+      }
+      if (pageWrap._renderingPromise) {
+        return pageWrap._renderingPromise;
+      }
+
+      const pNum = parseInt(pageWrap.dataset.pageNum, 10);
+      if (!pNum) return;
+
+      const taskPromise = (async () => {
+        try {
+          const page = await state.pdfDoc.getPage(pNum);
+          if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+
+          const scaledViewport = page.getViewport({ scale: targetScale });
+          const dpr = getSafeRenderDpr(scaledViewport.width, scaledViewport.height);
+          const targetPxW = Math.max(1, Math.floor(scaledViewport.width * dpr));
+          const targetPxH = Math.max(1, Math.floor(scaledViewport.height * dpr));
+
+          const pdfCanvas = pageWrap.querySelector('.page-pdf-canvas');
+          if (!pdfCanvas) return;
+
+          // Render offscreen first if canvas already has pixels (prevents flash)
+          const hasExisting = pdfCanvas.width > 0 && pdfCanvas.height > 0;
+          const renderTargetCanvas = hasExisting ? document.createElement('canvas') : pdfCanvas;
+          renderTargetCanvas.width = targetPxW;
+          renderTargetCanvas.height = targetPxH;
+          const ctx = renderTargetCanvas.getContext('2d');
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+          const renderTask = page.render({ canvasContext: ctx, viewport: scaledViewport });
+          pageWrap._pdfRenderTask = renderTask;
+          try {
+            await renderTask.promise;
+          } catch (err) {
+            if (err && err.name === 'RenderingCancelledException') return;
+            console.warn('Page render error on page', pNum, err);
+            return;
+          } finally {
+            if (pageWrap._pdfRenderTask === renderTask) pageWrap._pdfRenderTask = null;
+          }
+
+          if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+
+          if (hasExisting) {
+            pdfCanvas.width = targetPxW;
+            pdfCanvas.height = targetPxH;
+            pdfCanvas.getContext('2d').drawImage(renderTargetCanvas, 0, 0);
+          }
+
+          const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
+          if (annotCanvas) {
+            annotCanvas.width = targetPxW;
+            annotCanvas.height = targetPxH;
+            redrawPageAnnotations(pNum);
+          }
+
+          const textLayerDiv = pageWrap.querySelector('.textLayer');
+          if (!state.isPresentation && textLayerDiv && pdfjsLib.TextLayer) {
+            try {
+              const textContent = await page.getTextContent();
+              if (Math.abs(state.scale - targetScale) >= 0.0005) return;
+              textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
+              textLayerDiv.innerHTML = '';
+              const textLayer = new pdfjsLib.TextLayer({
+                textContentSource: textContent,
+                container: textLayerDiv,
+                viewport: scaledViewport
+              });
+              await textLayer.render();
+            } catch (tErr) {
+              console.warn('TextLayer render error on page', pNum, tErr);
+            }
+          }
+
+          pageWrap.dataset.renderedScale = String(targetScale);
+        } finally {
+          pageWrap._renderingPromise = null;
+        }
+      })();
+
+      pageWrap._renderingPromise = taskPromise;
+      return taskPromise;
+    }
+
     async function renderAllPages(targetPageToScroll = null) {
+      if (typeof _zoomRerenderTimer !== 'undefined' && _zoomRerenderTimer) {
+        clearTimeout(_zoomRerenderTimer);
+        _zoomRerenderTimer = null;
+      }
+      if (typeof _zoomRenderGen !== 'undefined') {
+        _zoomRenderGen++;
+      }
+      if (_pageObserver) {
+        _pageObserver.disconnect();
+        _pageObserver = null;
+      }
+
       const pageToPreserve = targetPageToScroll || state.currentPage || 1;
       viewport.innerHTML = '';
 
+      const pageScale = state.scale;
       for (let pNum = 1; pNum <= state.numPages; pNum++) {
         const page = await state.pdfDoc.getPage(pNum);
         const unscaledViewport = page.getViewport({ scale: 1 });
-
-        // Presentation mirror renders at identical scale so dimensions match exactly
-        const pageScale = state.scale;
         const scaledViewport = page.getViewport({ scale: pageScale });
 
         const pageWrap = document.createElement('div');
@@ -1767,25 +2008,22 @@
         pageWrap.style.height = Math.floor(scaledViewport.height) + 'px';
         pageWrap.dataset.unscaledW = unscaledViewport.width;
         pageWrap.dataset.unscaledH = unscaledViewport.height;
+        pageWrap.dataset.renderedScale = '0';
 
-        // Base PDF Canvas
+        // Base PDF Canvas (allocated lazily when near viewport)
         const pdfCanvas = document.createElement('canvas');
         pdfCanvas.className = 'page-pdf-canvas';
-        const dpr = window.devicePixelRatio || 1;
-        pdfCanvas.width = Math.floor(scaledViewport.width * dpr);
-        pdfCanvas.height = Math.floor(scaledViewport.height * dpr);
+        pdfCanvas.width = 0;
+        pdfCanvas.height = 0;
         pdfCanvas.style.width = '100%';
         pdfCanvas.style.height = '100%';
-
-        const ctx = pdfCanvas.getContext('2d');
-        ctx.scale(dpr, dpr);
         pageWrap.appendChild(pdfCanvas);
 
-        // Interactive Annotation Canvas
+        // Interactive Annotation Canvas (allocated lazily when near viewport)
         const annotCanvas = document.createElement('canvas');
         annotCanvas.className = 'page-annot-canvas';
-        annotCanvas.width = Math.floor(scaledViewport.width * dpr);
-        annotCanvas.height = Math.floor(scaledViewport.height * dpr);
+        annotCanvas.width = 0;
+        annotCanvas.height = 0;
         annotCanvas.style.width = '100%';
         annotCanvas.style.height = '100%';
         pageWrap.appendChild(annotCanvas);
@@ -1808,30 +2046,10 @@
 
         viewport.appendChild(pageWrap);
 
-        // Render PDF content onto base canvas
-        await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
-
-        if (textLayerDiv && pdfjsLib.TextLayer) {
-          try {
-            const textContent = await page.getTextContent();
-            const textLayer = new pdfjsLib.TextLayer({
-              textContentSource: textContent,
-              container: textLayerDiv,
-              viewport: scaledViewport
-            });
-            await textLayer.render();
-          } catch (tErr) {
-            console.warn('TextLayer render error on page', pNum, tErr);
-          }
-        }
-
         // Setup Inking & Interaction only on presenter window
         if (!state.isPresentation) {
           setupPageInteraction(pageWrap, pNum, annotCanvas, textBoxesOverlay);
         }
-
-        // Redraw saved annotations
-        redrawPageAnnotations(pNum);
       }
 
       if (!state.isPresentation) {
@@ -1842,6 +2060,34 @@
         }
       } else {
         _mirrorScheduleApplyViewport();
+      }
+
+      // Lazy-render pages near the viewport and release far off-screen canvases on large PDFs
+      const allPages = Array.from(viewport.querySelectorAll('.page-container'));
+      if ('IntersectionObserver' in window) {
+        _pageObserver = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            const pw = entry.target;
+            if (entry.isIntersecting) {
+              _ensurePageRendered(pw, state.scale);
+            } else if (state.numPages > 12) {
+              _unloadPageCanvases(pw);
+            }
+          }
+        }, {
+          root: state.isPresentation ? null : viewport,
+          rootMargin: '800px 0px'
+        });
+        for (const pw of allPages) {
+          _pageObserver.observe(pw);
+        }
+      }
+
+      // Eagerly render the initial visible window immediately
+      const startIdx = Math.max(0, pageToPreserve - 2);
+      const endIdx = Math.min(allPages.length - 1, pageToPreserve + 1);
+      for (let i = startIdx; i <= endIdx; i++) {
+        await _ensurePageRendered(allPages[i], state.scale);
       }
     }
 
@@ -2349,13 +2595,277 @@
       }
     }
 
-    async function setScale(newScale, targetPageToScroll = null) {
+    let _zoomRenderGen = 0;
+    let _zoomRerenderTimer = null;
+
+    function _findAnchorForPoint(pages, docY) {
+      let bestPage = pages[0];
+      let bestDist = Infinity;
+      for (const p of pages) {
+        const top = p.offsetTop;
+        const bottom = top + p.offsetHeight;
+        if (docY >= top && docY <= bottom) {
+          return p;
+        }
+        const dist = docY < top ? (top - docY) : (docY - bottom);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPage = p;
+        }
+      }
+      return bestPage;
+    }
+
+    function _resizePagesInPlace(pages, newScale) {
+      for (const pageWrap of pages) {
+        const unscaledW = parseFloat(pageWrap.dataset.unscaledW);
+        const unscaledH = parseFloat(pageWrap.dataset.unscaledH);
+        if (unscaledW && unscaledH) {
+          pageWrap.style.width = Math.floor(unscaledW * newScale) + 'px';
+          pageWrap.style.height = Math.floor(unscaledH * newScale) + 'px';
+        }
+        const textLayerDiv = pageWrap.querySelector('.textLayer');
+        if (textLayerDiv) {
+          textLayerDiv.style.setProperty('--total-scale-factor', String(newScale));
+        }
+      }
+    }
+
+    function _scheduleZoomRerender(targetScale, debounceMs = 120) {
+      if (_zoomRerenderTimer) {
+        clearTimeout(_zoomRerenderTimer);
+        _zoomRerenderTimer = null;
+      }
+      const gen = ++_zoomRenderGen;
+      // Cancel any in-flight PDF.js page render tasks from an obsolete scale
+      viewport.querySelectorAll('.page-container').forEach(pw => {
+        if (pw._pdfRenderTask) {
+          try { pw._pdfRenderTask.cancel(); } catch (_) {}
+          pw._pdfRenderTask = null;
+        }
+      });
+
+      const run = () => {
+        _zoomRerenderTimer = null;
+        rerenderPagesAtScale(targetScale, gen);
+      };
+
+      if (debounceMs <= 0) {
+        return rerenderPagesAtScale(targetScale, gen);
+      }
+      _zoomRerenderTimer = setTimeout(run, debounceMs);
+      return Promise.resolve();
+    }
+
+    async function rerenderPagesAtScale(targetScale, gen) {
+      if (!state.pdfDoc || gen !== _zoomRenderGen) return;
+      const pages = Array.from(viewport.querySelectorAll('.page-container'));
+      if (pages.length === 0) return;
+
+      // Prioritize pages currently visible in the viewport (or presentation mirror)
+      const viewTop = state.isPresentation ? _msy : viewport.scrollTop;
+      const viewHeight = state.isPresentation ? (_mvpH || window.innerHeight) : viewport.clientHeight;
+      const rangeTop = viewTop - viewHeight * 0.5;
+      const rangeBottom = viewTop + viewHeight * 1.5;
+
+      const priorityPages = [];
+      for (const pw of pages) {
+        const rendered = parseFloat(pw.dataset.renderedScale || '0');
+        const pTop = pw.offsetTop;
+        const pBottom = pTop + pw.offsetHeight;
+        const isNearViewport = pBottom >= rangeTop && pTop <= rangeBottom;
+        if (isNearViewport) {
+          if (Math.abs(rendered - targetScale) >= 0.0005) {
+            priorityPages.push(pw);
+          }
+        } else if (rendered > 0 && Math.abs(rendered - targetScale) >= 0.0005) {
+          // Release stale off-screen canvases so they render fresh at targetScale when scrolled into view
+          _unloadPageCanvases(pw);
+        }
+      }
+
+      if (priorityPages.length === 0) return;
+
+      const offCanvas = document.createElement('canvas');
+
+      for (const pageWrap of priorityPages) {
+        if (gen !== _zoomRenderGen) return;
+        const pNum = parseInt(pageWrap.dataset.pageNum, 10);
+        if (!pNum) continue;
+
+        const page = await state.pdfDoc.getPage(pNum);
+        if (gen !== _zoomRenderGen) return;
+
+        const scaledViewport = page.getViewport({ scale: targetScale });
+        const dpr = getSafeRenderDpr(scaledViewport.width, scaledViewport.height);
+        const targetPxW = Math.max(1, Math.floor(scaledViewport.width * dpr));
+        const targetPxH = Math.max(1, Math.floor(scaledViewport.height * dpr));
+
+        offCanvas.width = targetPxW;
+        offCanvas.height = targetPxH;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        const renderTask = page.render({ canvasContext: offCtx, viewport: scaledViewport });
+        pageWrap._pdfRenderTask = renderTask;
+        try {
+          await renderTask.promise;
+        } catch (err) {
+          if (err && err.name === 'RenderingCancelledException') return;
+          console.warn('Zoom re-render error on page', pNum, err);
+          continue;
+        } finally {
+          if (pageWrap._pdfRenderTask === renderTask) pageWrap._pdfRenderTask = null;
+        }
+
+        if (gen !== _zoomRenderGen) return;
+
+        // Swap rendered bitmap onto visible canvas synchronously (zero white flash)
+        const pdfCanvas = pageWrap.querySelector('.page-pdf-canvas');
+        if (pdfCanvas) {
+          pdfCanvas.width = targetPxW;
+          pdfCanvas.height = targetPxH;
+          const pCtx = pdfCanvas.getContext('2d');
+          pCtx.drawImage(offCanvas, 0, 0);
+        }
+
+        // Update annotation canvas resolution & redraw strokes
+        const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
+        if (annotCanvas) {
+          annotCanvas.width = targetPxW;
+          annotCanvas.height = targetPxH;
+          const overlayEl = pageWrap.querySelector('.text-boxes-overlay');
+          const isEditingText = overlayEl && overlayEl.contains(document.activeElement);
+          if (!isEditingText) {
+            redrawPageAnnotations(pNum);
+          } else {
+            // Redraw strokes without disturbing active text box focus
+            const aCtx = annotCanvas.getContext('2d');
+            aCtx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
+            const pageData = state.annotations[pNum];
+            if (pageData && pageData.strokes && pageData.strokes.length) {
+              const w = annotCanvas.width / dpr;
+              const h = annotCanvas.height / dpr;
+              aCtx.save();
+              aCtx.scale(dpr, dpr);
+              aCtx.lineCap = 'round';
+              aCtx.lineJoin = 'round';
+              pageData.strokes.forEach(stroke => {
+                if (!stroke.points || stroke.points.length === 0) return;
+                aCtx.lineWidth = stroke.size;
+                aCtx.strokeStyle = stroke.color;
+                if (stroke.tool === 'highlight') {
+                  aCtx.globalCompositeOperation = 'multiply';
+                  aCtx.globalAlpha = stroke.opacity || 0.38;
+                } else {
+                  aCtx.globalCompositeOperation = 'source-over';
+                  aCtx.globalAlpha = 1.0;
+                }
+                aCtx.beginPath();
+                aCtx.moveTo(stroke.points[0].x * w, stroke.points[0].y * h);
+                for (let i = 1; i < stroke.points.length; i++) {
+                  aCtx.lineTo(stroke.points[i].x * w, stroke.points[i].y * h);
+                }
+                aCtx.stroke();
+              });
+              aCtx.restore();
+            }
+          }
+        }
+
+        // Refresh selectable text layer at new scale
+        const textLayerDiv = pageWrap.querySelector('.textLayer');
+        if (!state.isPresentation && textLayerDiv && pdfjsLib.TextLayer) {
+          try {
+            const textContent = await page.getTextContent();
+            if (gen !== _zoomRenderGen) return;
+            textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
+            textLayerDiv.innerHTML = '';
+            const textLayer = new pdfjsLib.TextLayer({
+              textContentSource: textContent,
+              container: textLayerDiv,
+              viewport: scaledViewport
+            });
+            await textLayer.render();
+          } catch (tErr) {
+            console.warn('TextLayer zoom re-render error on page', pNum, tErr);
+          }
+        }
+
+        pageWrap.dataset.renderedScale = String(targetScale);
+
+        // Yield one frame between pages so UI remains 60fps responsive
+        await new Promise(resolve => requestAnimationFrame(resolve));
+      }
+    }
+
+    async function setScale(newScale, targetPageToScroll = null, options = {}) {
       // Allow scaling down to 0.15 so any large page fits completely on any screen
       const clamped = Math.max(0.15, Math.min(3.5, newScale));
+      const pages = Array.from(viewport.querySelectorAll('.page-container'));
+
+      if (pages.length === 0) {
+        state.scale = clamped;
+        zoomLabel.textContent = Math.round(clamped * 100) + '%';
+        const pageToPreserve = targetPageToScroll || state.currentPage || 1;
+        await renderAllPages(pageToPreserve);
+        syncChannel.postMessage({
+          action: 'scale-change',
+          scale: state.scale,
+          vW: viewport.clientWidth,
+          vH: viewport.clientHeight,
+          sx: viewport.scrollLeft,
+          sy: viewport.scrollTop
+        });
+        return;
+      }
+
+      if (Math.abs(clamped - state.scale) < 0.0001 && !options.centerPage && !options.centerHorizontally) {
+        return;
+      }
+
+      // 1. Capture focal anchor BEFORE resizing pages
+      const vpRect = viewport.getBoundingClientRect();
+      const focalVpX = (typeof options.clientX === 'number')
+        ? Math.max(0, Math.min(viewport.clientWidth, options.clientX - vpRect.left))
+        : viewport.clientWidth / 2;
+      const focalVpY = (typeof options.clientY === 'number')
+        ? Math.max(0, Math.min(viewport.clientHeight, options.clientY - vpRect.top))
+        : viewport.clientHeight / 2;
+
+      const anchorPage = _findAnchorForPoint(pages, viewport.scrollTop + focalVpY);
+      const anchorW = anchorPage ? anchorPage.offsetWidth : 1;
+      const anchorH = anchorPage ? anchorPage.offsetHeight : 1;
+      const relX = anchorPage && anchorW > 0
+        ? (viewport.scrollLeft + focalVpX - anchorPage.offsetLeft) / anchorW
+        : 0.5;
+      const relY = anchorPage && anchorH > 0
+        ? (viewport.scrollTop + focalVpY - anchorPage.offsetTop) / anchorH
+        : 0.5;
+
+      // 2. Update scale & resize all page containers in-place (instant 60fps, zero DOM teardown)
       state.scale = clamped;
       zoomLabel.textContent = Math.round(clamped * 100) + '%';
-      const pageToPreserve = targetPageToScroll || state.currentPage || 1;
-      await renderAllPages(pageToPreserve);
+      _resizePagesInPlace(pages, clamped);
+
+      // 3. Restore anchored scroll position synchronously in the same frame
+      if (options.centerPage) {
+        const targetNum = targetPageToScroll || state.currentPage || 1;
+        const curEl = viewport.querySelector(`.page-container[data-page-num="${targetNum}"]`) || anchorPage;
+        if (curEl) {
+          viewport.scrollLeft = Math.max(0, curEl.offsetLeft - Math.max(0, (viewport.clientWidth - curEl.offsetWidth) / 2));
+          viewport.scrollTop = Math.max(0, curEl.offsetTop - Math.max(0, (viewport.clientHeight - curEl.offsetHeight) / 2));
+        }
+      } else if (anchorPage) {
+        if (options.centerHorizontally) {
+          viewport.scrollLeft = Math.max(0, anchorPage.offsetLeft - Math.max(0, (viewport.clientWidth - anchorPage.offsetWidth) / 2));
+        } else {
+          viewport.scrollLeft = anchorPage.offsetLeft + relX * anchorPage.offsetWidth - focalVpX;
+        }
+        viewport.scrollTop = anchorPage.offsetTop + relY * anchorPage.offsetHeight - focalVpY;
+      }
+
+      // 4. Broadcast updated scale & scroll to presentation mirror immediately
       syncChannel.postMessage({
         action: 'scale-change',
         scale: state.scale,
@@ -2364,6 +2874,10 @@
         sx: viewport.scrollLeft,
         sy: viewport.scrollTop
       });
+
+      // 5. Schedule crisp offscreen PDF/annotation/textLayer re-render (debounced)
+      const debounceMs = typeof options.debounceMs === 'number' ? options.debounceMs : 120;
+      await _scheduleZoomRerender(clamped, debounceMs);
     }
 
     async function fitToWidth() {
@@ -2373,7 +2887,7 @@
       // Viewport width minus safe margins (padding 24px*2 = 48px + scrollbar buffer)
       const availWidth = Math.max(100, viewport.clientWidth - 56);
       const fitScale = (availWidth / unscaledW) * 0.98;
-      await setScale(fitScale, state.currentPage);
+      await setScale(fitScale, state.currentPage, { debounceMs: 0, centerHorizontally: true });
     }
 
     async function fitToPage() {
@@ -2388,7 +2902,7 @@
 
       // Fit BOTH width and height completely so 100% of the page is visible without any scroll
       const fitScale = Math.min(availWidth / unscaledW, availHeight / unscaledH) * 0.96;
-      await setScale(fitScale, state.currentPage);
+      await setScale(fitScale, state.currentPage, { debounceMs: 0, centerPage: true });
     }
 
     function setTool(toolName) {
@@ -2404,9 +2918,14 @@
       pageLabel.textContent = `Page ${state.currentPage} / ${state.numPages}`;
     }
 
-    // ── Thumbnails Sidebar ──
+    // ── Thumbnails Sidebar (Lazy Rendered) ──
     async function buildThumbnails() {
+      if (_thumbObserver) {
+        _thumbObserver.disconnect();
+        _thumbObserver = null;
+      }
       thumbSidebar.innerHTML = '';
+
       for (let pNum = 1; pNum <= state.numPages; pNum++) {
         const page = await state.pdfDoc.getPage(pNum);
         const vp = page.getViewport({ scale: 0.22 });
@@ -2414,11 +2933,12 @@
         const card = document.createElement('div');
         card.className = 'thumb-card' + (pNum === 1 ? ' active' : '');
         card.dataset.pageNum = pNum;
+        card.dataset.thumbRendered = '0';
 
         const thumbCanvas = document.createElement('canvas');
         thumbCanvas.className = 'thumb-canvas';
-        thumbCanvas.width = Math.floor(vp.width);
-        thumbCanvas.height = Math.floor(vp.height);
+        thumbCanvas.width = Math.max(1, Math.floor(vp.width));
+        thumbCanvas.height = Math.max(1, Math.floor(vp.height));
         card.appendChild(thumbCanvas);
 
         const numEl = document.createElement('div');
@@ -2428,9 +2948,35 @@
 
         card.addEventListener('click', () => jumpToPage(pNum));
         thumbSidebar.appendChild(card);
+      }
 
-        // Render low-res preview
-        page.render({ canvasContext: thumbCanvas.getContext('2d'), viewport: vp });
+      const renderThumb = async (card) => {
+        if (!state.pdfDoc || card.dataset.thumbRendered === '1') return;
+        card.dataset.thumbRendered = '1';
+        const pNum = parseInt(card.dataset.pageNum, 10);
+        const canvas = card.querySelector('.thumb-canvas');
+        if (!pNum || !canvas) return;
+        try {
+          const page = await state.pdfDoc.getPage(pNum);
+          const vp = page.getViewport({ scale: 0.22 });
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+        } catch (_) {
+          card.dataset.thumbRendered = '0';
+        }
+      };
+
+      if ('IntersectionObserver' in window) {
+        _thumbObserver = new IntersectionObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              renderThumb(entry.target);
+              _thumbObserver.unobserve(entry.target);
+            }
+          }
+        }, { root: thumbSidebar, rootMargin: '250px 0px' });
+        thumbSidebar.querySelectorAll('.thumb-card').forEach(c => _thumbObserver.observe(c));
+      } else {
+        thumbSidebar.querySelectorAll('.thumb-card').forEach(c => renderThumb(c));
       }
     }
 
@@ -2739,6 +3285,14 @@
         input.onchange = async () => {
           if (input.files && input.files[0]) {
             const file = input.files[0];
+            if (file.size > LARGE_PDF_WARN_BYTES) {
+              const buf = await file.arrayBuffer();
+              if (await _promptOpenInSystemViewer({ blobBuffer: buf, fileSizeBytes: file.size })) {
+                return;
+              }
+              initPdfDocument(buf, file.name);
+              return;
+            }
             const buffer = await file.arrayBuffer();
             initPdfDocument(buffer, file.name);
           }
@@ -2754,6 +3308,18 @@
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
         if (file.name.toLowerCase().endsWith('.pdf')) {
+          if (window.Desktop && Desktop.isElectron() && file.path) {
+            await loadPdfFromDisk(file.path);
+            return;
+          }
+          if (file.size > LARGE_PDF_WARN_BYTES) {
+            const buffer = await file.arrayBuffer();
+            if (await _promptOpenInSystemViewer({ blobBuffer: buffer, fileSizeBytes: file.size })) {
+              return;
+            }
+            initPdfDocument(buffer, file.name);
+            return;
+          }
           const buffer = await file.arrayBuffer();
           initPdfDocument(buffer, file.name);
         } else {
@@ -2798,6 +3364,32 @@
       }
     }
 
+    function _buildOpenDocMessage() {
+      const msg = {
+        action: 'open-doc',
+        filename: state.pdfFilename,
+        currentPage: state.currentPage || 1,
+        annotations: state.annotations,
+        scale: state.scale,
+        vW: viewport ? viewport.clientWidth : window.innerWidth,
+        vH: viewport ? viewport.clientHeight : window.innerHeight,
+        sx: viewport ? viewport.scrollLeft : 0,
+        sy: viewport ? viewport.scrollTop : 0
+      };
+      if (state.pdfTarget && state.pdfRelPath) {
+        msg.target = state.pdfTarget;
+        msg.relPath = state.pdfRelPath;
+      } else if (state.pdfPath) {
+        msg.diskPath = state.pdfPath;
+      } else if (state.pdfBufferBase64 || state.pdfArrayBuffer) {
+        if (!state.pdfBufferBase64 && state.pdfArrayBuffer) {
+          state.pdfBufferBase64 = arrayBufferToBase64(state.pdfArrayBuffer);
+        }
+        msg.bufferBase64 = state.pdfBufferBase64;
+      }
+      return msg;
+    }
+
     function setupPresenterSync() {
       syncChannel.onmessage = (e) => {
         const msg = e.data;
@@ -2805,19 +3397,8 @@
 
         if (msg.action === 'mirror-ready' || msg.action === 'request-viewport') {
           projectorBtn.classList.add('projector-active');
-          if (state.pdfBufferBase64) {
-            syncChannel.postMessage({
-              action: 'open-doc',
-              filename: state.pdfFilename,
-              bufferBase64: state.pdfBufferBase64,
-              currentPage: state.currentPage || 1,
-              annotations: state.annotations,
-              scale: state.scale,
-              vW: viewport ? viewport.clientWidth : window.innerWidth,
-              vH: viewport ? viewport.clientHeight : window.innerHeight,
-              sx: viewport ? viewport.scrollLeft : 0,
-              sy: viewport ? viewport.scrollTop : 0
-            });
+          if (state.pdfDoc) {
+            syncChannel.postMessage(_buildOpenDocMessage());
           }
           _mirrorSendViewport();
         } else if (msg.action === 'mirror-closed') {
@@ -2866,7 +3447,6 @@
         if (!msg) return;
 
         if (msg.action === 'open-doc') {
-          if (!msg.bufferBase64) return;
           state.annotations = msg.annotations || {};
           state.currentPage = msg.currentPage || 1;
           if (typeof msg.scale === 'number') state.scale = msg.scale;
@@ -2886,6 +3466,31 @@
             return;
           }
 
+          if (msg.target && msg.relPath && window.Desktop && Desktop.isElectron()) {
+            let res = await Desktop.readByPath(msg.target, msg.relPath, { encoding: 'binary' });
+            if (res && res.ok && res.encoding !== 'binary' && typeof res.content === 'string') {
+              res = await Desktop.readByPath(msg.target, msg.relPath, { encoding: 'base64' });
+            }
+            if (res && res.ok) {
+              const bytes = _toUint8Array(res.content);
+              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), msg.filename);
+              _mirrorScheduleApplyViewport();
+            }
+            return;
+          }
+          if (msg.diskPath && window.Desktop && Desktop.isElectron()) {
+            let res = await Desktop.readDiskFile(msg.diskPath, 'binary');
+            if (res && res.ok && res.encoding !== 'binary' && typeof res.content === 'string') {
+              res = await Desktop.readDiskFile(msg.diskPath, 'base64');
+            }
+            if (res && res.ok) {
+              const bytes = _toUint8Array(res.content);
+              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), msg.filename);
+              _mirrorScheduleApplyViewport();
+            }
+            return;
+          }
+          if (!msg.bufferBase64) return;
           const binary = atob(msg.bufferBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -2901,7 +3506,13 @@
           if (msg.currentPage) state.currentPage = msg.currentPage;
           if (typeof msg.scale === 'number' && Math.abs(msg.scale - state.scale) > 0.001) {
             state.scale = msg.scale;
-            await renderAllPages(state.currentPage);
+            const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
+            if (mirrorPages.length > 0) {
+              _resizePagesInPlace(mirrorPages, msg.scale);
+              _scheduleZoomRerender(msg.scale, 140);
+            } else {
+              await renderAllPages(state.currentPage);
+            }
           }
           _mirrorScheduleApplyViewport();
         } else if (msg.action === 'page-turn') {
@@ -2915,14 +3526,22 @@
             jumpToPage(msg.pageNum);
           }
         } else if (msg.action === 'scale-change') {
-          state.scale = msg.scale;
           if (msg.vW) {
             _mvpW = msg.vW;
             _mvpH = msg.vH;
             _msx = msg.sx;
             _msy = msg.sy;
           }
-          await renderAllPages(state.currentPage);
+          if (typeof msg.scale === 'number' && Math.abs(msg.scale - state.scale) > 0.001) {
+            state.scale = msg.scale;
+            const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
+            if (mirrorPages.length > 0) {
+              _resizePagesInPlace(mirrorPages, msg.scale);
+              _scheduleZoomRerender(msg.scale, 140);
+            } else {
+              await renderAllPages(state.currentPage);
+            }
+          }
           _mirrorScheduleApplyViewport();
         } else if (msg.action === 'stroke-segment') {
           const pageWrap = viewport.querySelector(`.page-container[data-page-num="${msg.pageNum}"]`);

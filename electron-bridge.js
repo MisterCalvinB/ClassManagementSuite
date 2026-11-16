@@ -506,9 +506,12 @@
     return getDesktopApi().pickAndReadFile({ filters: filters || [] });
   }
 
-  async function readDiskFile(absolutePath, encoding = "utf8") {
+  async function readDiskFile(absolutePath, encoding = "utf8", options = {}) {
     if (!isElectron()) return null;
-    return getDesktopApi().readDiskFile({ absolutePath, encoding });
+    const req = (typeof encoding === 'object' && encoding !== null)
+      ? { absolutePath, ...encoding }
+      : { absolutePath, encoding, ...(options || {}) };
+    return getDesktopApi().readDiskFile(req);
   }
 
   async function writeDiskFile(absolutePath, content, encoding = "utf8") {

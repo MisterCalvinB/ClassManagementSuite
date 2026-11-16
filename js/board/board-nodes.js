@@ -11408,7 +11408,9 @@
         const shapeSelCount = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected().size : (typeof _conShapeSelected !== 'undefined' && _conShapeSelected ? _conShapeSelected.size : 0);
         const mediaSelCount = typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected().size : (typeof conMediaSelected !== 'undefined' && conMediaSelected ? conMediaSelected.size : 0);
         const totalMultiCount = conMultiSelected.size + conNoteSelected.size + conDrawingSelected.size + shapeSelCount + mediaSelCount;
-        if (totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0 || mediaSelCount > 0)) || (mediaSelCount >= 1 && (conMultiSelected.size > 0 || conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0))) {
+        const isMultiCtx = totalMultiCount > 1 || conMultiSelected.size > 1 || (conMultiSelected.size >= 1 && (conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0 || mediaSelCount > 0)) || (mediaSelCount >= 1 && (conMultiSelected.size > 0 || conNoteSelected.size > 0 || conDrawingSelected.size > 0 || shapeSelCount > 0));
+        menu.classList.toggle('is-multi', isMultiCtx);
+        if (isMultiCtx) {
           multiRow.style.display = '';
           if (multiCount) multiCount.textContent = totalMultiCount;
         } else {
@@ -11480,11 +11482,12 @@
         // Position near cursor, keep wholly inside viewport
         menu.classList.add('visible');
         const margin = 8;
+        const isMultiMenu = menu.classList.contains('is-multi');
         const maxAvailH = Math.max(160, window.innerHeight - 2 * margin);
-        const maxAvailW = Math.min(340, Math.max(200, window.innerWidth - 2 * margin));
+        const maxAvailW = Math.min(isMultiMenu ? 660 : 340, Math.max(200, window.innerWidth - 2 * margin));
         menu.style.maxHeight = maxAvailH + 'px';
         menu.style.maxWidth = maxAvailW + 'px';
-        menu.style.width = Math.min(320, maxAvailW) + 'px';
+        menu.style.width = Math.min(isMultiMenu ? 620 : 320, maxAvailW) + 'px';
         menu.style.overflowY = 'auto';
         menu.style.overflowX = 'hidden';
 

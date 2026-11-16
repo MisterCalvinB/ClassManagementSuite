@@ -1503,11 +1503,13 @@
         mergeBtn.setAttribute('title', mergeTitleStr);
       }
       const arrangeRow = document.getElementById('wn-sp-arrange-row');
+      const totalTargetsCount = (typeof conNoteSelected !== 'undefined' && conNoteSelected ? conNoteSelected.size : 0) +
+        (typeof conMultiSelected !== 'undefined' && conMultiSelected ? conMultiSelected.size : 0);
+      const isMultiArrange = totalTargetsCount >= 2;
       if (arrangeRow) {
-        const totalTargetsCount = (typeof conNoteSelected !== 'undefined' && conNoteSelected ? conNoteSelected.size : 0) +
-          (typeof conMultiSelected !== 'undefined' && conMultiSelected ? conMultiSelected.size : 0);
-        arrangeRow.style.display = totalTargetsCount >= 2 ? 'flex' : 'none';
+        arrangeRow.style.display = isMultiArrange ? 'flex' : 'none';
       }
+      if (popup) popup.classList.toggle('is-multi', isMultiArrange);
       const openInputBtn = document.getElementById('wn-sp-open-input-btn');
       const stopInputBtn = document.getElementById('wn-sp-stop-input-btn');
       if (stopInputBtn) {

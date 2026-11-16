@@ -1985,7 +1985,7 @@ async function readAllowedFile(pageFile, target, filename) {
 
 async function readAllowedPathFile(pageFile, target, relativePath, encoding = 'utf8') {
   const { fullPath, safeRelative } = resolveAllowedTargetPath(pageFile, target, relativePath);
-  const finalEncoding = encoding === 'base64' ? 'base64' : 'utf8';
+  const finalEncoding = encoding === 'binary' ? 'binary' : (encoding === 'base64' ? 'base64' : 'utf8');
   let pathToRead = fullPath;
 
   try {
@@ -2007,6 +2007,18 @@ async function readAllowedPathFile(pageFile, target, relativePath, encoding = 'u
   }
 
   const stats = await fs.stat(pathToRead);
+
+  if (finalEncoding === 'binary') {
+    const buf = await fs.readFile(pathToRead);
+    return {
+      relativePath: safeRelative,
+      path: pathToRead,
+      size: stats.size,
+      mtimeMs: stats.mtimeMs,
+      encoding: 'binary',
+      content: buf
+    };
+  }
 
   if (finalEncoding === 'base64') {
     const buf = await fs.readFile(pathToRead);
@@ -8183,8 +8195,16 @@ ipcMain.handle('app:read-disk-file', async (_event, request = {}) => {
   if (!request.absolutePath) return { ok: false, error: 'No path specified.' };
   try {
     const fullPath = path.resolve(String(request.absolutePath));
+    const stats = await fs.stat(fullPath);
+    if (request.maxBytes && stats.size > request.maxBytes) {
+      return { ok: false, tooLarge: true, size: stats.size, path: fullPath, name: path.basename(fullPath) };
+    }
+    if (request.encoding === 'binary') {
+      const content = await fs.readFile(fullPath);
+      return { ok: true, path: fullPath, name: path.basename(fullPath), size: stats.size, encoding: 'binary', content };
+    }
     const content = await fs.readFile(fullPath, request.encoding === 'base64' ? 'base64' : 'utf8');
-    return { ok: true, path: fullPath, name: path.basename(fullPath), content };
+    return { ok: true, path: fullPath, name: path.basename(fullPath), size: stats.size, content };
   } catch (err) {
     return { ok: false, error: String(err?.message || err) };
   }

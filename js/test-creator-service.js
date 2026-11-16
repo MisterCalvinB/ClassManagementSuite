@@ -324,7 +324,9 @@
     { id: 'section_competences', name: 'Competences Block', icon: 'award.svg', desc: 'Curriculum objectives & competence table block', isSection: true },
     { id: 'section_criteria', name: 'Criteria Rubric Block', icon: 'check-circle.svg', desc: 'Assessment criteria & evaluation rubric block', isSection: true },
     { id: 'section_grading_scale', name: 'Grading Scale Block', icon: 'table.svg', desc: 'Score conversion & grade threshold table block', isSection: true },
+    { id: 'section_header', name: 'Header Block', icon: 'layout.svg', desc: 'Saved exam header & materials configuration', isSection: true },
     { id: 'section_custom', name: 'Custom Block', icon: 'document-editor.svg', desc: 'Custom HTML or WYSIWYG rich text block', isSection: true },
+    { id: 'section_lines', name: 'Line Block', icon: 'align-left.svg', desc: 'Customizable writing lines block', isSection: true },
     { id: 'section_pdf', name: 'PDF Document', icon: 'file-text.svg', desc: 'External PDF document or reading passage', isSection: true }
   ];
 
@@ -2127,6 +2129,22 @@
         };
         break;
 
+      case 'section_lines':
+        ex.title = '';
+        ex.instructions = '';
+        ex.points = 0;
+        ex.content = {
+          lineCount: 6,
+          lineStyle: 'solid',
+          lineSpacing: 'standard',
+          numberedLines: false
+        };
+        ex.options = {
+          showTitle: true,
+          showInstructions: true
+        };
+        break;
+
       case 'section_pdf':
         ex.title = 'Document: Reading Passage';
         ex.instructions = '';
@@ -2719,6 +2737,7 @@
 
       case 'section_custom':
       case 'custom_block':
+      case 'section_lines':
         pts = Number(ex.points) || 0;
         break;
 
@@ -2861,25 +2880,48 @@
   };
 
   // ── 7. Database Auto-Saver Helper ─────────────────────────────────────────
-  TestCreatorService.saveExerciseToDatabase = async function (exercise, subject) {
+  TestCreatorService.saveExerciseToDatabase = async function (exercise, subject, customTitle) {
     if (!exercise || !window.Desktop || !window.Desktop.isElectron) return false;
     try {
       var filename = 'custom-test-exercises.json';
       var existing = await window.Desktop.readJson('customExercises', filename);
       var records = (existing && existing.ok && Array.isArray(existing.data)) ? existing.data : [];
 
+      var typeMeta = (TestCreatorService.EXERCISE_TYPES || []).find(function (t) { return t.id === exercise.type; });
+      var cleanContent = exercise.content ? JSON.parse(JSON.stringify(exercise.content)) : {};
+      if (cleanContent && cleanContent.renderedPagesCache) {
+        cleanContent.renderedPagesCache = {};
+      }
+
+      var resolvedTitle = (customTitle && String(customTitle).trim())
+        ? String(customTitle).trim()
+        : ((exercise.title && String(exercise.title).trim()) ? exercise.title : (typeMeta ? typeMeta.name : 'Exercise'));
+
       var entry = {
         id: exercise.id || generateUUID(),
-        title: exercise.title || 'Exercise',
+        title: resolvedTitle,
         type: exercise.type || 'cloze',
         subject: subject || 'general',
         instructions: exercise.instructions || '',
-        points: exercise.points || 2,
+        points: (exercise.points !== undefined && exercise.points !== null) ? exercise.points : 0,
         pointsPerItem: exercise.pointsPerItem || 1,
-        content: exercise.content || {},
+        content: cleanContent,
+        options: exercise.options ? JSON.parse(JSON.stringify(exercise.options)) : undefined,
+        lineBlocks: Array.isArray(exercise.lineBlocks) ? JSON.parse(JSON.stringify(exercise.lineBlocks)) : undefined,
         markingRubric: exercise.markingRubric || [],
+        criteria: Array.isArray(exercise.criteria) ? JSON.parse(JSON.stringify(exercise.criteria)) : undefined,
+        linkedCriteria: Array.isArray(exercise.linkedCriteria) ? JSON.parse(JSON.stringify(exercise.linkedCriteria)) : undefined,
         answerKey: exercise.answerKey || '',
         linkedCompetenceIds: exercise.linkedCompetenceIds || [],
+        linkedCompetences: Array.isArray(exercise.linkedCompetences) ? JSON.parse(JSON.stringify(exercise.linkedCompetences)) : undefined,
+        scaleModelId: exercise.scaleModelId || undefined,
+        gradingScale: exercise.gradingScale ? JSON.parse(JSON.stringify(exercise.gradingScale)) : undefined,
+        exportStyle: exercise.exportStyle ? JSON.parse(JSON.stringify(exercise.exportStyle)) : undefined,
+        tags: Array.isArray(exercise.tags) ? exercise.tags.slice() : undefined,
+        forcePageBreak: !!exercise.forcePageBreak,
+        customHtmlMode: !!exercise.customHtmlMode,
+        customHtml: exercise.customHtml || undefined,
+        customCss: exercise.customCss || undefined,
         savedAt: Date.now()
       };
 
@@ -3191,6 +3233,9 @@
 
     var commonNumberedLineCss = [
       '.numbered-lines { counter-reset: writing-line-counter; }',
+      '.writing-lines.dotted-lines .writing-line, .writing-line.dotted { border-bottom-style: dotted !important; }',
+      '.writing-lines.dashed-lines .writing-line, .writing-line.dashed { border-bottom-style: dashed !important; }',
+      '.writing-lines.solid-lines .writing-line, .writing-line.solid { border-bottom-style: solid !important; }',
       '.writing-line-numbered { display: flex; align-items: flex-end; gap: 8px; }',
       '.writing-line-numbered::before { counter-increment: writing-line-counter; content: counter(writing-line-counter); font-size: 8pt; font-weight: 700; color: #64748b; width: 22px; text-align: right; flex-shrink: 0; user-select: none; line-height: 1; padding-bottom: 2px; }',
       '.writing-line-numbered.has-custom-num::before { display: none !important; content: none !important; }',
@@ -3215,9 +3260,12 @@
       '.header-pad-compact { padding: 8px 12px; margin-bottom: 16px; }',
       '.header-pad-standard { padding: 14px 18px; margin-bottom: 24px; }',
       '.header-pad-spacious { padding: 20px 24px; margin-bottom: 30px; }',
-      '.header-grid.header-layout-3-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 10pt; }',
-      '.header-grid.header-layout-2-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 10.5pt; }',
-      '.header-grid.header-layout-compact { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 9.5pt; }',
+      '.header-grid { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 10pt; align-items: baseline; }',
+      '.header-grid.header-layout-3-columns { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 10pt; align-items: baseline; }',
+      '.header-grid.header-layout-3-columns > .header-item, .header-grid.header-layout-3-columns > .header-grid-item { flex: 1 1 calc(33.333% - 14px); min-width: 140px; }',
+      '.header-grid.header-layout-2-columns { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 10.5pt; align-items: baseline; }',
+      '.header-grid.header-layout-2-columns > .header-item, .header-grid.header-layout-2-columns > .header-grid-item { flex: 1 1 calc(50% - 18px); min-width: 180px; }',
+      '.header-grid.header-layout-compact, .header-grid.header-layout-banner { display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 9.5pt; align-items: baseline; }',
       '.header-table-layout { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 10pt; }',
       '.header-table-layout td { padding: 4px 8px; vertical-align: middle; border: 1px solid #ddd; }',
       '.name-box { display: inline-block; width: 150px; height: 18px; border: 1px solid #000; vertical-align: middle; background: #fff; }',
@@ -3471,9 +3519,13 @@
       '.rc-quote-prompt { font-size: 9pt; font-style: italic; margin-left: 14px; margin-bottom: 4px; }',
       '.rc-answer-solution { color: #b91c1c; font-weight: bold; margin: 2px 0; }',
       '/* Exercise & Question Styling Overrides */',
+      '.card-border-academic { border: 1.5px solid #333 !important; box-shadow: none !important; }',
       '.card-border-neobrutalist { border: 2.5px solid #000 !important; box-shadow: 3px 3px 0 #000 !important; }',
       '.card-border-minimal { border: 1px solid #cbd5e1 !important; box-shadow: none !important; }',
       '.card-border-borderless { border: none !important; box-shadow: none !important; border-bottom: 1.5px solid #000 !important; border-radius: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }',
+      '.card-border-none, .line-block-card, .exam-sheet.no-card-borders .exercise-card:not(.card-border-academic):not(.card-border-neobrutalist):not(.card-border-minimal), .exam-sheet.no-card-borders .section-block-card:not(.card-border-academic):not(.card-border-neobrutalist):not(.card-border-minimal), .exam-sheet.no-card-borders .exam-competences-wrap, .exam-sheet.no-card-borders .exam-criteria-wrap, .exam-sheet.no-card-borders .exam-grading-scale-wrap, .exam-sheet.no-card-borders .exam-custom-block-wrap, .card-border-none .exam-competences-wrap, .card-border-none .exam-criteria-wrap, .card-border-none .exam-grading-scale-wrap, .card-border-none .exam-custom-block-wrap { border: none !important; box-shadow: none !important; background: transparent !important; border-radius: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }',
+      '@media print { .card-border-none, .line-block-card, .exam-sheet.no-card-borders .exercise-card:not(.card-border-academic):not(.card-border-neobrutalist):not(.card-border-minimal), .exam-sheet.no-card-borders .section-block-card:not(.card-border-academic):not(.card-border-neobrutalist):not(.card-border-minimal) { border: none !important; box-shadow: none !important; background: transparent !important; } }',
+      '.line-block-card { padding: 4px 0 !important; }',
       '.q-spacing-compact .mcq-item, .q-spacing-compact .exercise-subitem-card { margin-bottom: 6px !important; }',
       '.q-spacing-relaxed .mcq-item, .q-spacing-relaxed .exercise-subitem-card { margin-bottom: 18px !important; }',
       '/* Header & Exercise Page Break Protection */',
@@ -3568,6 +3620,85 @@
     return tokens;
   };
 
+  TestCreatorService.scopeCustomCss = function (cssText) {
+    if (!cssText || !String(cssText).trim()) return '';
+    // 1. Scope selectors with body .exam-sheet for higher specificity
+    var scoped = String(cssText).replace(/([^{}@]+)\{/g, function (match, selGroup) {
+      var trimmed = selGroup.trim();
+      if (!trimmed || trimmed.charAt(0) === '@') return match;
+      var outSel = trimmed.split(',').map(function (s) {
+        var part = s.trim();
+        if (!part) return part;
+        if (/^(body|html|:root|\.exam-sheet)\b/i.test(part)) return part;
+        return 'body .exam-sheet ' + part;
+      }).join(', ');
+      return outSel + ' {';
+    });
+    // 2. Ensure declarations in custom block CSS override @media print !important theme rules
+    return scoped.replace(/\{([^{}]+)\}/g, function (match, body) {
+      var decls = [];
+      var cur = '';
+      var inQuote = null;
+      var parenDepth = 0;
+      for (var i = 0; i < body.length; i++) {
+        var ch = body.charAt(i);
+        if (inQuote) {
+          cur += ch;
+          if (ch === inQuote && body.charAt(i - 1) !== '\\') inQuote = null;
+        } else if (ch === '"' || ch === "'") {
+          inQuote = ch;
+          cur += ch;
+        } else if (ch === '(') {
+          parenDepth++;
+          cur += ch;
+        } else if (ch === ')') {
+          if (parenDepth > 0) parenDepth--;
+          cur += ch;
+        } else if (ch === ';' && parenDepth === 0) {
+          decls.push(cur);
+          cur = '';
+        } else {
+          cur += ch;
+        }
+      }
+      if (cur.trim()) decls.push(cur);
+      var outDecls = decls.map(function (d) {
+        var t = d.trim();
+        if (!t || t.indexOf(':') === -1) return t;
+        if (/!important\s*$/i.test(t)) return t + ';';
+        return t + ' !important;';
+      }).filter(Boolean);
+      return '{ ' + outDecls.join(' ') + ' }';
+    });
+  };
+
+  TestCreatorService.resolveBlockPlaceholders = function (rawHtml, test, ex, extra) {
+    if (!rawHtml) return '';
+    var t = test || {};
+    var e = extra || {};
+    var v = e.variant || t.variant || 'A';
+    var mats = Array.isArray(t.materialsAllowed) ? t.materialsAllowed.join(', ') : '';
+    var teacher = t.teacher || ((typeof window !== 'undefined' && typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '');
+    var tPts = (e.totalPts !== undefined) ? e.totalPts : TestCreatorService.calculateTotalTestPoints(t);
+    var map = {
+      title: escapeHtml((ex && ex.title) ? ex.title : (t.title || 'Test')),
+      testTitle: escapeHtml(t.title || 'Test'),
+      studentName: escapeHtml(e.studentName || ''),
+      'class': escapeHtml(e.className || t.className || ''),
+      date: escapeHtml(t.date || ''),
+      teacher: escapeHtml(teacher || ''),
+      duration: escapeHtml(t.duration || ''),
+      totalPoints: escapeHtml(String(tPts)),
+      points: escapeHtml(String((ex && ex.points !== undefined) ? ex.points : tPts)),
+      materials: escapeHtml(mats),
+      variant: escapeHtml(v),
+      instructions: escapeHtml((ex && ex.instructions) ? ex.instructions : (t.instructions || ''))
+    };
+    return String(rawHtml).replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, function (m, k) {
+      return Object.prototype.hasOwnProperty.call(map, k) ? map[k] : m;
+    });
+  };
+
   // ── 3c. Modular Customizable Header Renderer ─────────────────────────────
   TestCreatorService.renderHeaderHtml = function (test, isTeacherKey, variant, studentName, className, totalPts, options) {
     var opts = options || {};
@@ -3576,6 +3707,16 @@
     var v = variant || test.variant || 'A';
     var tPts = (totalPts !== undefined) ? totalPts : TestCreatorService.calculateTotalTestPoints(test);
     var mats = Array.isArray(test.materialsAllowed) ? test.materialsAllowed : [];
+
+    if (!opts.forceStructured && hc.customHtmlMode && hc.customHtml) {
+      var cssTag = (hc.customCss && String(hc.customCss).trim()) ? ('<style>\n' + TestCreatorService.scopeCustomCss(hc.customCss) + '\n</style>\n') : '';
+      return cssTag + TestCreatorService.resolveBlockPlaceholders(hc.customHtml, test, null, {
+        variant: v,
+        studentName: studentName,
+        className: className,
+        totalPts: tPts
+      });
+    }
 
     var borderCls = 'header-border-' + (hc.borderStyle || 'double');
     var layoutCls = 'header-layout-' + (hc.layout || '3-columns');
@@ -4565,12 +4706,19 @@
   TestCreatorService.renderExerciseHtml = function (ex, index, isTeacherKey, options) {
     if (!ex) return '';
     var opts = options || {};
+    if (!opts.forceStructured && ex.customHtmlMode && ex.customHtml) {
+      var exCssTag = (ex.customCss && String(ex.customCss).trim()) ? ('<style>\n' + TestCreatorService.scopeCustomCss(ex.customCss) + '\n</style>\n') : '';
+      return exCssTag + TestCreatorService.resolveBlockPlaceholders(ex.customHtml, opts.test || {}, ex, {
+        totalPts: opts.totalPoints
+      });
+    }
     var lang = _currentLang(opts);
     var testContext = opts.test || null;
     var isSection = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
     var num = (opts.exerciseNumber !== undefined && opts.exerciseNumber > 0) ? opts.exerciseNumber : (index + 1);
     var html = [];
     var pageBreakClass = ex.forcePageBreak ? ' page-break-before' : '';
+    var secBorderCls = (ex.exportStyle && ex.exportStyle.cardBorderStyle && ex.exportStyle.cardBorderStyle !== 'inherit') ? (' card-border-' + ex.exportStyle.cardBorderStyle) : '';
     var exOpts = TestCreatorService.ensureExerciseOptions(ex);
 
     if (ex.type === 'section_competences') {
@@ -4606,7 +4754,7 @@
         lang: lang
       });
       var compInstrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
-      return '<div class="exercise-card section-block-card' + compPageCls + '" id="ex-' + ex.id + '">' +
+      return '<div class="exercise-card section-block-card' + compPageCls + secBorderCls + '" id="ex-' + ex.id + '">' +
         compInstrBanner +
         (compHtml || '<div class="exam-competences-wrap"><div class="exam-competences-title">' + TestCreatorService.formatRichText(resolvedCompTitle) + '</div></div>') +
         '</div>';
@@ -4653,7 +4801,7 @@
         lang: lang
       });
       var instrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
-      return '<div class="exercise-card section-block-card' + critPageCls + '" id="ex-' + ex.id + '">' +
+      return '<div class="exercise-card section-block-card' + critPageCls + secBorderCls + '" id="ex-' + ex.id + '">' +
         instrBanner +
         (critHtml || '<div class="exam-criteria-wrap"><div class="exam-criteria-title">' + TestCreatorService.formatRichText(resolvedTitle) + '</div></div>') +
         '</div>';
@@ -4685,7 +4833,7 @@
         lang: lang
       });
       var scaleInstrBanner = ex.instructions ? '<div class="ex-instructions" style="margin-bottom:6px;">' + TestCreatorService.formatRichText(ex.instructions) + '</div>' : '';
-      return '<div class="exercise-card section-block-card' + scalePageCls + '" id="ex-' + ex.id + '">' +
+      return '<div class="exercise-card section-block-card' + scalePageCls + secBorderCls + '" id="ex-' + ex.id + '">' +
         scaleInstrBanner +
         (scaleHtml || '<div class="exam-grading-scale-wrap"><div class="exam-grading-scale-title">' + TestCreatorService.formatRichText(resolvedScaleTitle) + '</div></div>') +
         '</div>';
@@ -4701,6 +4849,7 @@
       var paddingStyle = csOpts.padding || 'standard';
 
       var blockClasses = ['exercise-card', 'section-block-card', 'custom-block-card'];
+      if (secBorderCls) blockClasses.push(secBorderCls.trim());
       if (pageBreakClass) blockClasses.push(pageBreakClass.trim());
       if (bgStyle && bgStyle !== 'default') blockClasses.push('custom-bg-' + bgStyle);
       if (borderStyle && borderStyle !== 'solid') blockClasses.push('custom-border-' + borderStyle);
@@ -4722,6 +4871,106 @@
       out.push('  </div>');
       out.push('</div>');
       return out.join('\n');
+    }
+
+    function computeLinesPerPage(lineHeightCss) {
+      var uObj = TestCreatorService.parseUnitValue(lineHeightCss || '28px', 'px');
+      var val = parseFloat(uObj.value) || 28;
+      var unit = uObj.unit || 'px';
+      var rowPx = val;
+      if (unit === 'pt') rowPx = val * (96 / 72);
+      else if (unit === 'cm') rowPx = val * (96 / 2.54);
+      else if (unit === 'mm') rowPx = val * (96 / 25.4);
+      else if (unit === 'em' || unit === 'rem') rowPx = val * 15;
+      rowPx = Math.max(8, rowPx);
+
+      var gSt = opts.exportStyle || {};
+      var mg = gSt.margins || {};
+      var mTopMm = (mg.top !== undefined && mg.top !== null) ? Number(mg.top) : 15;
+      var mBotMm = (mg.bottom !== undefined && mg.bottom !== null) ? Number(mg.bottom) : 15;
+      var pageMm = (gSt.pageSize === 'Letter') ? 279.4 : 297;
+      var usableMm = Math.max(80, pageMm - mTopMm - mBotMm - 18);
+      var usablePx = usableMm * (96 / 25.4);
+      return Math.max(1, Math.floor(usablePx / rowPx));
+    }
+
+    function renderLineBlockPagesOrLines(cfg) {
+      var mode = cfg.lineMode || 'lines';
+      var style = cfg.lineStyle || 'solid';
+      var hCss = cfg.lineHeightCss || '28px';
+      var tCss = cfg.lineThickness || '';
+      var cCss = cfg.lineColor || '';
+      var num = !!cfg.numberedLines;
+      var headerHtml = cfg.headerHtml || '';
+
+      if (mode === 'pages') {
+        var pCount = Math.max(1, Math.min(20, parseInt(cfg.pageCount, 10) || 1));
+        var perPage = computeLinesPerPage(hCss);
+        var pagesOut = [];
+        var runningStart = 1;
+        for (var p = 0; p < pCount; p++) {
+          var isFirst = (p === 0);
+          var hasHdr = isFirst && !!headerHtml;
+          var pageLines = hasHdr ? Math.max(1, perPage - 2) : perPage;
+          var pageCls = 'line-block-page' + ((!isFirst || cfg.breakBeforeFirst) ? ' page-break-before' : '');
+          pagesOut.push('  <div class="' + pageCls + '">');
+          if (hasHdr) pagesOut.push(headerHtml);
+          pagesOut.push(buildWritingLinesHtml(pageLines, style, {
+            lineHeight: hCss,
+            lineThickness: tCss,
+            lineColor: cCss,
+            numberedLines: num,
+            lineNumbering: num ? { startAt: runningStart } : undefined
+          }));
+          pagesOut.push('  </div>');
+          runningStart += pageLines;
+        }
+        return pagesOut.join('\n');
+      }
+
+      var cnt = Math.max(1, Math.min(500, parseInt(cfg.lineCount, 10) || 6));
+      var out = [];
+      if (headerHtml) out.push(headerHtml);
+      out.push(buildWritingLinesHtml(cnt, style, { lineHeight: hCss, lineThickness: tCss, lineColor: cCss, numberedLines: num }));
+      return out.join('\n');
+    }
+
+    if (ex.type === 'section_lines') {
+      var lc = ex.content || {};
+      var lStyle = lc.lineStyle || 'solid';
+      var lSpacing = lc.lineSpacing || 'standard';
+      var lHeightCss = lc.lineHeight || (lSpacing === 'compact' ? '20px' : (lSpacing === 'wide' ? '38px' : '28px'));
+      var lNum = lc.numberedLines === true;
+      var lShowTitle = (!ex.options || ex.options.showTitle !== false) && !!(ex.title && String(ex.title).trim());
+      var lShowInstr = (!ex.options || ex.options.showInstructions !== false) && !!(ex.instructions && String(ex.instructions).trim());
+      var lClasses = ['exercise-card', 'section-block-card', 'line-block-card'];
+      var lMode = lc.lineMode || 'lines';
+      if (pageBreakClass && lMode !== 'pages') lClasses.push(pageBreakClass.trim());
+
+      var hdrParts = [];
+      if (lShowTitle) {
+        hdrParts.push('  <div class="exam-custom-block-title">' + TestCreatorService.formatRichText(ex.title) + '</div>');
+      }
+      if (lShowInstr) {
+        hdrParts.push('  <div class="exam-custom-block-instr">' + TestCreatorService.formatRichText(ex.instructions) + '</div>');
+      }
+
+      var lOut = [];
+      lOut.push('<div class="' + lClasses.join(' ') + '" id="ex-' + ex.id + '">');
+      lOut.push(renderLineBlockPagesOrLines({
+        lineMode: lMode,
+        lineCount: lc.lineCount || 6,
+        pageCount: lc.pageCount || 1,
+        lineStyle: lStyle,
+        lineHeightCss: lHeightCss,
+        lineThickness: lc.lineThickness || '',
+        lineColor: lc.lineColor || '',
+        numberedLines: lNum,
+        headerHtml: hdrParts.join('\n'),
+        breakBeforeFirst: (lMode === 'pages')
+      }));
+      lOut.push('</div>');
+      return lOut.join('\n');
     }
 
     if (ex.type === 'section_pdf') {
@@ -4844,7 +5093,7 @@
     var effectiveNumberedLines = !!resolveLineNumberConfig();
 
     var borderClass = '';
-    if (ex.exportStyle && ex.exportStyle.cardBorderStyle && ex.exportStyle.cardBorderStyle !== 'academic') {
+    if (ex.exportStyle && ex.exportStyle.cardBorderStyle && ex.exportStyle.cardBorderStyle !== 'inherit') {
       borderClass = ' card-border-' + ex.exportStyle.cardBorderStyle;
     }
     var spacingClass = '';
@@ -4854,11 +5103,20 @@
 
     function buildWritingLinesHtml(count, style, lineOpts) {
       var lineSt = style || (lineOpts && (lineOpts.lineStyle || lineOpts.lineType)) || 'solid';
+      var lCol = (lineOpts && lineOpts.lineColor && String(lineOpts.lineColor).trim()) ? String(lineOpts.lineColor).trim() : '';
       if (lineSt === 'box') {
-        return '    <div class="writing-box"></div>';
+        var boxStyle = lCol ? ' style="border-color:' + lCol + ';"' : '';
+        return '    <div class="writing-box"' + boxStyle + '></div>';
       }
       if (lineSt === 'grid') {
-        return '    <div class="writing-grid"></div>';
+        var gCnt = Math.max(1, parseInt(count, 10) || 4);
+        var gHeightObj = (lineOpts && lineOpts.lineHeight) ? TestCreatorService.parseUnitValue(lineOpts.lineHeight, 'px') : null;
+        var gRowCss = (gHeightObj && gHeightObj.css) ? gHeightObj.css : '28px';
+        var gStyle = 'height:calc(' + gCnt + ' * ' + gRowCss + ');';
+        if (lCol) {
+          gStyle += 'border-color:' + lCol + ';background-image:linear-gradient(to right,' + lCol + '33 1px,transparent 1px),linear-gradient(to bottom,' + lCol + '33 1px,transparent 1px);';
+        }
+        return '    <div class="writing-grid" style="' + gStyle + '"></div>';
       }
       var lineType = (lineSt === 'dotted') ? 'dotted' : ((lineSt === 'dashed') ? 'dashed' : 'solid');
       var isDotted = (lineType === 'dotted');
@@ -4879,6 +5137,9 @@
       }
       if (lThicknessObj && lThicknessObj.css) {
         styleRules.push('border-bottom-width:' + lThicknessObj.css);
+      }
+      if (lCol) {
+        styleRules.push('border-bottom-color:' + lCol);
       }
 
       var inlineStyleAttr = styleRules.length ? ' style="' + styleRules.join(';') + ';"' : '';
@@ -4918,7 +5179,8 @@
     }
 
     var rawTitle = (ex.title && String(ex.title).trim()) ? TestCreatorService.formatRichText(ex.title) : _t('tcExerciseFallbackTitle', 'Question', lang);
-    var exTitleFormatted = _tFmt('tcExerciseHeader', { num: num, title: rawTitle }, lang);
+    var hideExPrefix = (ex.hideExercisePrefix === true) || (ex.hideExercisePrefix !== false && opts.exportStyle && opts.exportStyle.showExercisePrefix === false);
+    var exTitleFormatted = hideExPrefix ? rawTitle : _tFmt('tcExerciseHeader', { num: num, title: rawTitle }, lang);
     var exPtsFormatted = _tFmt('tcExercisePointsOutOf', { pts: (ex.points !== undefined && ex.points !== null ? ex.points : 0) }, lang);
 
     html.push('<div class="exercise-card' + pageBreakClass + borderClass + spacingClass + '" id="ex-' + ex.id + '">');
@@ -4927,9 +5189,45 @@
     html.push('    <span class="exercise-points">' + exPtsFormatted + '</span>');
     html.push('  </div>');
 
+    function renderExLineBlocks(pos) {
+      if (!Array.isArray(ex.lineBlocks) || !ex.lineBlocks.length) return '';
+      var matching = ex.lineBlocks.filter(function (lb) {
+        return (lb.position || 'after') === pos;
+      });
+      if (!matching.length) return '';
+      return matching.map(function (lb) {
+        var st = lb.lineStyle || 'solid';
+        var sp = lb.lineSpacing || 'standard';
+        var hCss = lb.lineHeight || (sp === 'compact' ? '20px' : (sp === 'wide' ? '38px' : '28px'));
+        var num = lb.numberedLines === true;
+        var mode = lb.lineMode || 'lines';
+        var lblHtml = (lb.label && String(lb.label).trim())
+          ? '    <div class="ex-inline-line-block-label">' + TestCreatorService.formatRichText(lb.label) + '</div>'
+          : '';
+        var outLb = ['  <div class="ex-inline-line-block">'];
+        outLb.push(renderLineBlockPagesOrLines({
+          lineMode: mode,
+          lineCount: lb.lineCount || 4,
+          pageCount: lb.pageCount || 1,
+          lineStyle: st,
+          lineHeightCss: hCss,
+          lineThickness: lb.lineThickness || '',
+          lineColor: lb.lineColor || '',
+          numberedLines: num,
+          headerHtml: lblHtml,
+          breakBeforeFirst: (mode === 'pages')
+        }));
+        outLb.push('  </div>');
+        return outLb.join('\n');
+      }).join('\n');
+    }
+
     if (ex.instructions) {
       html.push('  <div class="exercise-instructions">' + TestCreatorService.formatRichText(ex.instructions) + '</div>');
     }
+
+    var beforeLinesHtml = renderExLineBlocks('before');
+    if (beforeLinesHtml) html.push(beforeLinesHtml);
 
     switch (ex.type) {
       case 'cloze':
@@ -5063,8 +5361,9 @@
           var lCount = Number(it.lineCount) || 4;
           var lSt = it.lineStyle || exOpts.lineStyle || 'lines';
           html.push(buildWritingLinesHtml(lCount, lSt, {
-            lineHeight: exOpts.lineHeight,
-            lineThickness: exOpts.lineThickness,
+            lineHeight: it.lineHeight || exOpts.lineHeight,
+            lineThickness: it.lineThickness || exOpts.lineThickness,
+            lineColor: it.lineColor || exOpts.lineColor,
             numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
             lineNumbering: it.lineNumbering || exOpts.lineNumbering
           }));
@@ -5130,17 +5429,20 @@
           var taskPrefix = _t('tcTaskPrefix', 'Task', lang);
           var respLinesLabel = _t('tcResponseLinesLabel', 'Response Lines:', lang).replace(/:$/, '');
           compItems.forEach(function (it, itIdx) {
+            var cLines = (it.lineCount !== undefined && it.lineCount !== null && it.lineCount !== '') ? Number(it.lineCount) : 14;
+            if (isNaN(cLines) || cLines <= 0) return;
             if (compItems.length > 1) {
               var tLbl = it.label || (taskPrefix + ' ' + (itIdx + 1));
               lOut.push('  <div class="comp-task-lines-label">' + TestCreatorService.formatRichText(tLbl) + ' — ' + respLinesLabel + ':</div>');
             }
-            var cLines = Number(it.lineCount) || 14;
             var cStyle = it.lineStyle || exOpts.lineStyle || 'solid';
             var cHeight = it.lineHeight || exOpts.lineHeight || 28;
             var cThickness = it.lineThickness || exOpts.lineThickness || 1;
+            var cColor = it.lineColor || exOpts.lineColor || '';
             lOut.push(buildWritingLinesHtml(cLines, cStyle, {
               lineHeight: cHeight,
               lineThickness: cThickness,
+              lineColor: cColor,
               lineType: cStyle,
               numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
               lineNumbering: it.lineNumbering || exOpts.lineNumbering
@@ -5327,6 +5629,9 @@
           }
           var lines = Number(item.allocatedLines) || 2;
           html.push(buildWritingLinesHtml(lines, item.lineStyle || exOpts.lineStyle || 'lines', {
+            lineHeight: item.lineHeight || exOpts.lineHeight,
+            lineThickness: item.lineThickness || exOpts.lineThickness,
+            lineColor: item.lineColor || exOpts.lineColor,
             numberedLines: item.numberedLines !== undefined ? item.numberedLines : exOpts.numberedLines,
             lineNumbering: item.lineNumbering || exOpts.lineNumbering
           }));
@@ -5371,6 +5676,9 @@
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
+              lineHeight: it.lineHeight || exOpts.lineHeight,
+              lineThickness: it.lineThickness || exOpts.lineThickness,
+              lineColor: it.lineColor || exOpts.lineColor,
               numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
               lineNumbering: it.lineNumbering || exOpts.lineNumbering
             }));
@@ -5392,6 +5700,9 @@
             }
             var pLines = Number(it.lineCount) || 6;
             html.push(buildWritingLinesHtml(pLines, it.lineStyle || 'lines', {
+              lineHeight: it.lineHeight || exOpts.lineHeight,
+              lineThickness: it.lineThickness || exOpts.lineThickness,
+              lineColor: it.lineColor || exOpts.lineColor,
               numberedLines: it.numberedLines !== undefined ? it.numberedLines : exOpts.numberedLines,
               lineNumbering: it.lineNumbering || exOpts.lineNumbering
             }));
@@ -5535,12 +5846,21 @@
             var falseLabel = _t('tcFalseLabel', 'False', lang);
             html.push('    <div class="rc-tf-choice-row">[ &nbsp; ] ' + trueLabel + ' &nbsp;&nbsp;&nbsp; [ &nbsp; ] ' + falseLabel + tfKey + '</div>');
             html.push('    <div class="rc-quote-prompt">' + _t('tcQuoteLinePrompt', 'Quote line from text to justify:', lang) + '</div>');
-            html.push(buildWritingLinesHtml(sqLines, 'lines'));
+            html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines', {
+              lineHeight: sq.lineHeight || exOpts.lineHeight,
+              lineThickness: sq.lineThickness || exOpts.lineThickness,
+              lineColor: sq.lineColor || exOpts.lineColor,
+              numberedLines: sq.numberedLines !== undefined ? sq.numberedLines : exOpts.numberedLines,
+              lineNumbering: sq.lineNumbering || exOpts.lineNumbering
+            }));
           } else {
             if (isTeacherKey && sq.solution) {
               html.push('    <div class="rc-answer-solution">&rarr; ' + _t('tcAnswerLabel', 'Answer:', lang) + ' ' + TestCreatorService.formatRichText(sq.solution) + '</div>');
             }
             html.push(buildWritingLinesHtml(sqLines, sq.lineStyle || 'lines', {
+              lineHeight: sq.lineHeight || exOpts.lineHeight,
+              lineThickness: sq.lineThickness || exOpts.lineThickness,
+              lineColor: sq.lineColor || exOpts.lineColor,
               numberedLines: sq.numberedLines !== undefined ? sq.numberedLines : exOpts.numberedLines,
               lineNumbering: sq.lineNumbering || exOpts.lineNumbering
             }));
@@ -5584,6 +5904,9 @@
         }
       }
     }
+
+    var afterLinesHtml = renderExLineBlocks('after');
+    if (afterLinesHtml) html.push(afterLinesHtml);
 
     html.push('</div>');
     return html.join('\n');
@@ -5661,6 +5984,22 @@
       if (es.fontSize) exRules.push('font-size: ' + es.fontSize + ' !important;');
       if (es.lineHeight) exRules.push('line-height: ' + es.lineHeight + ' !important;');
       if (es.padding) exRules.push('padding: ' + es.padding + ' !important;');
+      if (es.marginTop !== undefined && es.marginTop !== null && es.marginTop !== '') {
+        var mtObj = TestCreatorService.parseUnitValue(es.marginTop, 'px');
+        if (mtObj && mtObj.css) exRules.push('margin-top: ' + mtObj.css + ' !important;');
+      }
+      if (es.marginRight !== undefined && es.marginRight !== null && es.marginRight !== '') {
+        var mrObj = TestCreatorService.parseUnitValue(es.marginRight, 'px');
+        if (mrObj && mrObj.css) exRules.push('margin-right: ' + mrObj.css + ' !important;');
+      }
+      if (es.marginBottom !== undefined && es.marginBottom !== null && es.marginBottom !== '') {
+        var mbObj = TestCreatorService.parseUnitValue(es.marginBottom, 'px');
+        if (mbObj && mbObj.css) exRules.push('margin-bottom: ' + mbObj.css + ' !important;');
+      }
+      if (es.marginLeft !== undefined && es.marginLeft !== null && es.marginLeft !== '') {
+        var mlObj = TestCreatorService.parseUnitValue(es.marginLeft, 'px');
+        if (mlObj && mlObj.css) exRules.push('margin-left: ' + mlObj.css + ' !important;');
+      }
       if (exRules.length > 0) {
         customCssRules.push('#ex-' + ex.id + ' { ' + exRules.join(' ') + ' }');
       }
@@ -5712,7 +6051,8 @@
     }
     html.push('</head>');
     html.push('<body>');
-    html.push('  <div class="exam-sheet">');
+    var sheetCls = (globalStyle && globalStyle.showBorders === false) ? 'exam-sheet no-card-borders' : 'exam-sheet';
+    html.push('  <div class="' + sheetCls + '">');
 
     // Header section
     html.push(TestCreatorService.renderHeaderHtml(test, isTeacherKey, variant, studentName, className, totalPts, { lang: lang }));
@@ -5722,7 +6062,7 @@
     var exList = test.exercises || [];
     var lastIsLandscape = false;
     exList.forEach(function (ex, idx) {
-      var isSec = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_pdf');
+      var isSec = (ex.type === 'section_competences' || ex.type === 'section_criteria' || ex.type === 'section_grading_scale' || ex.type === 'section_custom' || ex.type === 'custom_block' || ex.type === 'section_lines' || ex.type === 'section_pdf');
       var currentExNum = isSec ? 0 : exNum++;
       var hasNext = idx < (exList.length - 1);
       var exHtml = TestCreatorService.renderExerciseHtml(ex, idx, isTeacherKey, {
@@ -6167,6 +6507,16 @@
           }
           var rawContent = (ex.content && (ex.content.html || ex.content.text)) || '';
           md.push(rawContent);
+          md.push('');
+          break;
+
+        case 'section_lines':
+          if (ex.title) md.push('### ' + ex.title);
+          if (ex.instructions) md.push('*' + ex.instructions + '*\n');
+          var lineCnt = (ex.content && parseInt(ex.content.lineCount, 10)) || 6;
+          for (var li = 0; li < lineCnt; li++) {
+            md.push('________________________________________\n');
+          }
           md.push('');
           break;
 

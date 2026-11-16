@@ -922,6 +922,7 @@
       </div>
       <div class="student-modal-body" id="student-modal-body"></div>
       <div class="student-modal-footer">
+        <span id="student-modal-corr-time" class="smod-corr-time-pill hidden"></span>
         <button class="btn" id="student-modal-cancel" data-i18n="btnCancel">Cancel</button>
         <button class="btn primary" id="student-modal-save" data-i18n="gsBtnSave">Save</button>
       </div>
@@ -11915,16 +11916,17 @@
           chip.className = "all-test-item";
           chip.draggable = true;
 
-          // Check if test was already taken and has unscored students
+          // Check if test was already taken and has unscored students, or if all non-absent students are marked
           const todayStr = new Date().toISOString().slice(0, 10);
           let remClusterHtml = '';
           let chipTooltip = t('gsDragToReorder');
+          const progress = computeScoringProgress(c, sem, i, cfg);
+          const isAutoCompleted = !!(progress && progress.totalCount > 0 && progress.remainingCount === 0);
 
-          if (cfg && cfg.markingCompleted) {
+          if ((cfg && cfg.markingCompleted) || isAutoCompleted) {
             chip.classList.add("test-marking-completed");
             chipTooltip = `${name} · ${t('gsMarkingCompletedTooltip')}`;
           } else if (date && date <= todayStr) {
-            const progress = computeScoringProgress(c, sem, i, cfg);
             if (progress && progress.remainingCount > 0) {
               const estMinutes = (progress.hasEta && progress.avgMin > 0)
                 ? Math.round(progress.remainingCount * progress.avgMin)
@@ -21924,17 +21926,24 @@
         }
       };
 
+      gradeRow.appendChild(scaleStrip);
+
       gradeSection.appendChild(gradeTitle);
       gradeSection.appendChild(gradeRow);
-      gradeSection.appendChild(scaleStrip);
       body.appendChild(gradeSection);
+
+      // — Overview 2-column grid (Observations + Criteria) —
+      const overviewGrid = document.createElement("div");
+      overviewGrid.className = config.criteria.length > 0
+        ? "smod-overview-grid has-criteria"
+        : "smod-overview-grid no-criteria";
 
       // — Teacher observations —
       const noteSection = document.createElement("div");
-      noteSection.className = "smod-section";
+      noteSection.className = "smod-section smod-pane smod-pane-notes";
 
       const noteHeadRow = document.createElement("div");
-      noteHeadRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;";
+      noteHeadRow.className = "smod-note-head-row";
       const noteTitle = document.createElement("div");
       noteTitle.className = "smod-section-title";
       noteTitle.style.margin = "0";
@@ -21942,13 +21951,13 @@
       noteHeadRow.appendChild(noteTitle);
 
       const noteBankWrap = document.createElement("div");
-      noteBankWrap.style.cssText = "display:flex;align-items:center;gap:6px;";
+      noteBankWrap.className = "smod-note-head-actions";
       const noteBankLbl = document.createElement("span");
       noteBankLbl.style.cssText = "font-size:0.75rem;font-weight:600;color:var(--muted);";
       noteBankLbl.textContent = t('gsChipsBank', 'Observation Chips Bank:') + ' ';
       const noteBankSel = document.createElement("select");
       noteBankSel.className = "input input-sm";
-      noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:220px;";
+      noteBankSel.style.cssText = "padding:2px 6px;font-size:0.75rem;max-width:200px;";
       populateChipBankSelectElement(noteBankSel, _activeChipBankFilename);
       noteBankSel.addEventListener("change", () => {
         _activeChipBankFilename = noteBankSel.value;
@@ -22595,7 +22604,7 @@
       const addBtn = document.createElement("button");
       addBtn.innerHTML = '<img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> ' + t('gsBtnAddSection');
       addBtn.className = "btn note-add-btn";
-      noteSectionsWrap.appendChild(addBtn);
+      noteBankWrap.appendChild(addBtn);
 
       function addNoteBlock(section) {
         const block = document.createElement("div");
@@ -22684,7 +22693,7 @@
         });
         mdNoteWrap.append(mdNoteToggleRow, ta, mdNotePreview);
         block.appendChild(mdNoteWrap);
-        noteSectionsWrap.insertBefore(block, addBtn);
+        noteSectionsWrap.appendChild(block);
         autoResizeTextarea(ta);
       }
 
@@ -22702,12 +22711,12 @@
 
       renderNoteSections();
       noteSection.appendChild(noteSectionsWrap);
-      body.appendChild(noteSection);
+      overviewGrid.appendChild(noteSection);
 
       // — Criteria —
       if (config.criteria.length > 0) {
         const critSection = document.createElement("div");
-        critSection.className = "smod-section";
+        critSection.className = "smod-section smod-pane smod-pane-criteria";
         const critTitle = document.createElement("div");
         critTitle.className = "smod-section-title";
         critTitle.textContent = t('gsStudentCriteriaTitle');
@@ -23171,22 +23180,21 @@
         });
         table.appendChild(tbody);
         critSection.appendChild(table);
-        body.appendChild(critSection);
+        overviewGrid.appendChild(critSection);
       }
 
-      // — Time spent correcting (auto) —
-      if (prevCorrTime != null) {
-        const corrTimeSection = document.createElement("div");
-        corrTimeSection.className = "smod-section";
-        const corrTimeTitle = document.createElement("div");
-        corrTimeTitle.className = "smod-section-title";
-        corrTimeTitle.textContent = t('gsStudentCorrTimeTitle');
-        const corrTimeVal = document.createElement("div");
-        corrTimeVal.style.cssText = "font-size:0.9rem;color:var(--muted);padding:4px 0;";
-        corrTimeVal.textContent = tFmt('gsStudentCorrTimePrev', { n: formatCorrectionTime(prevCorrTime) });
-        corrTimeSection.appendChild(corrTimeTitle);
-        corrTimeSection.appendChild(corrTimeVal);
-        body.appendChild(corrTimeSection);
+      body.appendChild(overviewGrid);
+
+      // — Time spent correcting (auto, compact pill in footer) —
+      const corrTimePill = document.getElementById("student-modal-corr-time");
+      if (corrTimePill) {
+        if (prevCorrTime != null) {
+          corrTimePill.textContent = t('gsStudentCorrTimeTitle') + ': ' + tFmt('gsStudentCorrTimePrev', { n: formatCorrectionTime(prevCorrTime) });
+          corrTimePill.classList.remove("hidden");
+        } else {
+          corrTimePill.textContent = "";
+          corrTimePill.classList.add("hidden");
+        }
       }
 
       document.getElementById("student-modal-overlay").classList.remove("hidden");
