@@ -2206,7 +2206,7 @@
         addStr('pictureSrc');
         addStr('pictureAnim', { useSelect: true, uniqueVals: ['none', 'pulse', 'bounce', 'rotate', 'shush', 'bubbles'] });
         addStr('pictureFit', { useSelect: true, uniqueVals: ['fit', 'cover', 'contain'] });
-        addStr('soundType', { useSelect: true, uniqueVals: ['none', 'whitenoise', 'binaural', 'custom_audio'] });
+        addStr('soundType', { useSelect: true, uniqueVals: ['none', 'white', 'pink', 'brown', 'file', 'whitenoise', 'binaural', 'custom_audio'] });
         addStr('soundFile');
         addNum('soundVol');
         addBool('soundChime');
@@ -4417,9 +4417,11 @@
         const curSound = String(val || 'none').toLowerCase();
         const soundOpts = [
           { val: 'none', lbl: 'None' },
-          { val: 'whitenoise', lbl: 'White Noise' },
-          { val: 'binaural', lbl: 'Binaural Beats' },
-          { val: 'custom_audio', lbl: 'Custom Audio File' }
+          { val: 'white', lbl: 'White Noise' },
+          { val: 'pink', lbl: 'Pink Noise' },
+          { val: 'brown', lbl: 'Brown Noise' },
+          { val: 'file', lbl: 'Audio File' },
+          { val: 'binaural', lbl: 'Binaural Beats' }
         ];
         input = `<select id="${id}">${soundOpts.map(o => `<option value="${o.val}"${curSound === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
       } else if (S.typeKey === 'modebanks' && field.key === 'textSize') {
@@ -7039,8 +7041,15 @@
         }
       } else if (S.typeKey === 'modebanks') {
         const seedCb = $('nf-seed-default-modes');
-        if (seedCb && seedCb.checked && typeof ModeSets !== 'undefined' && typeof ModeSets.getDefaultDefs === 'function') {
-          initialRecords = ModeSets.getDefaultDefs();
+        if (seedCb && seedCb.checked) {
+          const cfgModes = (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && Array.isArray(window.CLASS_MANAGEMENT_CONFIG.classModes) && window.CLASS_MANAGEMENT_CONFIG.classModes.length > 0)
+            ? window.CLASS_MANAGEMENT_CONFIG.classModes
+            : null;
+          if (cfgModes && typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeDefs === 'function') {
+            initialRecords = ModeSets.normalizeDefs(cfgModes);
+          } else if (typeof ModeSets !== 'undefined' && typeof ModeSets.getDefaultDefs === 'function') {
+            initialRecords = ModeSets.getDefaultDefs();
+          }
         }
       }
 

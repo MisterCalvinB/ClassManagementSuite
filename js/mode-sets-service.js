@@ -116,7 +116,7 @@
     // Nested or flat sound
     var soundObj = (raw.sound && typeof raw.sound === 'object') ? raw.sound : {};
     var soundType = String(raw.soundType || soundObj.type || 'none').trim().toLowerCase();
-    var validSoundTypes = ['none', 'whitenoise', 'binaural', 'custom_audio'];
+    var validSoundTypes = ['none', 'white', 'pink', 'brown', 'file', 'whitenoise', 'binaural', 'custom_audio'];
     if (validSoundTypes.indexOf(soundType) === -1) soundType = 'none';
 
     var soundFile = String(raw.soundFile != null ? raw.soundFile : (soundObj.file != null ? soundObj.file : '')).trim();

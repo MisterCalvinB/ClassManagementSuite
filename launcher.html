@@ -3284,13 +3284,15 @@
               var tcfg = td.testConfig || {};
               var dlDate = tcfg.correctionDeadline;
               if (!dlDate) return;
+              if (tcfg.markingCompleted) return;
 
               var excludedIds = new Set((Array.isArray(tcfg.excludedStudentIds) ? tcfg.excludedStudentIds : []).filter(function(id) { return id != null && id !== ''; }).map(String));
+              var absentIds = new Set((Array.isArray(tcfg.absentStudentIds) ? tcfg.absentStudentIds : []).filter(function(id) { return id != null && id !== ''; }).map(String));
               var results = Array.isArray(td.results) ? td.results : [];
               var total = 0;
               var scored = 0;
               results.forEach(function(r) {
-                if (r.studentId && excludedIds.has(String(r.studentId))) return;
+                if (r.studentId && (excludedIds.has(String(r.studentId)) || absentIds.has(String(r.studentId)))) return;
                 total++;
                 var hasScore = r.score !== null && r.score !== undefined && r.score !== '' && !isNaN(Number(r.score));
                 var hasCrit = false;
@@ -3305,7 +3307,7 @@
                 }
               });
               var remaining = Math.max(0, total - scored);
-              if (remaining === 0 && total > 0) return;
+              if (remaining === 0) return;
 
               deadlines.push({
                 classId: td.classId || '',
@@ -3683,6 +3685,54 @@
     if (window.Desktop && Desktop.isElectron()) Desktop.openTool('planner.html');
   }
 
+  async function sbReadTodosFile() {
+    if (!window.Desktop || !Desktop.isElectron()) return [];
+    try {
+      var r = await Desktop.readByPath('user', 'todos.js');
+      if (r && r.content) {
+        var m = r.content.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
+        if (m) return JSON.parse(m[1]);
+      }
+    } catch(e) {}
+    return [];
+  }
+
+  async function sbSaveTodosFile(todos) {
+    if (!window.Desktop || !Desktop.isElectron()) return;
+    await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+    if (Desktop.reloadPlannerReminders) Desktop.reloadPlannerReminders();
+  }
+
+  async function sbMarkTodoDone(todoId) {
+    if (!todoId || !window.Desktop || !Desktop.isElectron()) return;
+    try {
+      var todos = await sbReadTodosFile();
+      var td = todos.find(function(x) { return x.id === todoId; });
+      if (!td) return;
+      td.archivedAt = Date.now();
+      await sbSaveTodosFile(todos);
+      if (typeof showToast === 'function') {
+        showToast(typeof t === 'function' ? t('sbTodoMarkedDone') : 'To-do marked as done');
+      }
+      sbLoadTodos(true);
+    } catch(e) {
+      if (typeof showToast === 'function') showToast('Error saving to-do', true);
+    }
+  }
+
+  async function sbToggleSubtodoDone(todoId, subId) {
+    if (!todoId || !subId || !window.Desktop || !Desktop.isElectron()) return;
+    try {
+      var todos = await sbReadTodosFile();
+      var td = todos.find(function(x) { return x.id === todoId; });
+      if (!td || !Array.isArray(td.subtodos)) return;
+      var st = td.subtodos.find(function(s) { return s.id === subId; });
+      if (!st) return;
+      st.done = !st.done;
+      await sbSaveTodosFile(todos);
+    } catch(e) {}
+  }
+
   async function sbLoadTodos(silent) {
     var list = document.getElementById('sbTodoList');
     if (!list) return;
@@ -3694,14 +3744,7 @@
       list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
       return;
     }
-    var todos = [];
-    try {
-      var r = await Desktop.readByPath('user', 'todos.js');
-      if (r && r.content) {
-        var m = r.content.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
-        if (m) todos = JSON.parse(m[1]);
-      }
-    } catch(e) {}
+    var todos = await sbReadTodosFile();
     var today = new Date().toISOString().slice(0, 10);
     var active = todos.filter(function(td) { return !td.archivedAt; });
     active.sort(function(a, b) {
@@ -3734,20 +3777,58 @@
         subsHtml = '<div class="sb-subtodos">' +
           subs.map(function(st) {
             return '<div class="sb-std-row">' +
-              '<span class="sb-std-check' + (st.done ? ' sb-std-checked' : '') + '"></span>' +
+              '<span class="sb-std-check' + (st.done ? ' sb-std-checked' : '') + '" data-sub-id="' + escHtml(st.id || '') + '" role="checkbox" aria-checked="' + (st.done ? 'true' : 'false') + '"></span>' +
               '<span class="sb-std-text' + (st.done ? ' sb-std-done' : '') + '">' + escHtml(st.text || '') + '</span>' +
               '</div>';
           }).join('') +
           '</div>';
       }
+      var markDoneLbl = typeof t === 'function' ? t('sbMarkTodoDone') : 'Mark as done';
       item.innerHTML =
         '<div class="sb-item-top">' +
           (overdue ? '<span class="sb-tag sb-tag-test">' + escHtml(typeof t === 'function' ? t('td_overdue') : 'Overdue') + '</span>' : '') +
           (dateLbl ? '<span class="sb-date">' + escHtml(dateLbl) + '</span>' : '') +
         '</div>' +
-        '<div class="sb-name" title="' + escHtml(td.text || '') + '">' + escHtml(td.text || '—') + '</div>' +
+        '<div class="sb-todo-row">' +
+          '<span class="sb-check" role="checkbox" aria-checked="false" tabindex="0" title="' + escHtml(markDoneLbl) + '"></span>' +
+          '<div class="sb-name" title="' + escHtml(td.text || '') + '">' + escHtml(td.text || '—') + '</div>' +
+        '</div>' +
         subsHtml +
         (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
+
+      var checkEl = item.querySelector('.sb-check');
+      if (checkEl) {
+        var triggerDone = function(e) {
+          e.stopPropagation();
+          if (checkEl.classList.contains('sb-checked')) return;
+          checkEl.classList.add('sb-checked');
+          checkEl.setAttribute('aria-checked', 'true');
+          sbMarkTodoDone(td.id);
+        };
+        checkEl.addEventListener('click', triggerDone);
+        checkEl.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            triggerDone(e);
+          }
+        });
+      }
+
+      item.querySelectorAll('.sb-std-check[data-sub-id]').forEach(function(subChk) {
+        subChk.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var subId = subChk.getAttribute('data-sub-id');
+          if (!subId) return;
+          var nowDone = !subChk.classList.contains('sb-std-checked');
+          subChk.classList.toggle('sb-std-checked', nowDone);
+          subChk.setAttribute('aria-checked', nowDone ? 'true' : 'false');
+          var txtEl = subChk.nextElementSibling;
+          if (txtEl && txtEl.classList.contains('sb-std-text')) {
+            txtEl.classList.toggle('sb-std-done', nowDone);
+          }
+          sbToggleSubtodoDone(td.id, subId);
+        });
+      });
       item.addEventListener('click', (function(todoId) { return function() {
         if (window.Desktop && Desktop.isElectron()) {
           try { localStorage.removeItem('cmt-planner-nav'); localStorage.setItem('cmt-planner-todo', todoId); } catch(e) {}
@@ -4604,7 +4685,18 @@
     item.addEventListener('contextmenu', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      if (!window.Pins) return;
+
+      var doneItem = {
+        label: typeof t === 'function' ? t('sbMarkTodoDone') : 'Mark as done',
+        action: function() {
+          sbMarkTodoDone(td.id);
+        }
+      };
+
+      if (!window.Pins) {
+        showCtx(e.clientX, e.clientY, [doneItem]);
+        return;
+      }
 
       var pinInfo = {
         type: 'todo',
@@ -4613,6 +4705,7 @@
 
       Pins.isPinned(pinInfo).then(function(pinned) {
         showCtx(e.clientX, e.clientY, [
+          doneItem,
           {
             label: pinned ? (typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') : (typeof t === 'function' ? t('ctxPinItem') : 'Pin to sidebar'),
             action: async function() {
