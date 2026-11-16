@@ -5116,7 +5116,15 @@
         : (typeof conEnsurePdfjsLib === 'function' ? conEnsurePdfjsLib : null);
       if (!ensurePdf) throw new Error('PDF.js library is not available.');
       const pdfjsLib = await ensurePdf();
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const loadingTask = pdfjsLib.getDocument(
+        (typeof window.conPdfGetDocumentParams === 'function')
+          ? window.conPdfGetDocumentParams({ data: arrayBuffer })
+          : {
+              data: arrayBuffer,
+              standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+              wasmUrl: new URL('../modules/wasm/', location.href).href
+            }
+      );
       const pdfDoc = await loadingTask.promise;
       const numPages = pdfDoc.numPages;
       const pageTexts = [];

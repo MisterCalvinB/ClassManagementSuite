@@ -12423,7 +12423,9 @@
             e.anchorA,
             e.anchorB,
             e.colorMode,
-            e.strokeColor
+            e.strokeColor,
+            e.points,
+            e.avoidObstacles
           );
         }
       });

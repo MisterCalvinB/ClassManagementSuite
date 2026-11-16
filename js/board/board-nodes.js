@@ -329,11 +329,14 @@
 
     function conPdfGetDocumentParams(loadSrc) {
       let fontUrl = '../modules/standard_fonts/';
+      let wasmUrl = '../modules/wasm/';
       try {
         fontUrl = new URL('../modules/standard_fonts/', location.href).href;
+        wasmUrl = new URL('../modules/wasm/', location.href).href;
       } catch (_) {}
       return Object.assign({
         standardFontDataUrl: fontUrl,
+        wasmUrl: wasmUrl,
         disableFontFace: false,
         useSystemFonts: false
       }, loadSrc || {});
@@ -4347,15 +4350,28 @@
       function _conClipboardWrite(payload) {
         _conClipboard = payload;
         _conClipboardPasteCount = 0;
-        try { sessionStorage.setItem(CON_CLIPBOARD_STORAGE_KEY, JSON.stringify(payload)); } catch (e) { }
+        const serialized = JSON.stringify(payload);
+        try { sessionStorage.setItem(CON_CLIPBOARD_STORAGE_KEY, serialized); } catch (e) { }
+        try { localStorage.setItem(CON_CLIPBOARD_STORAGE_KEY, serialized); } catch (e) { }
       }
       function _conClipboardRead() {
-        if (_conClipboard) return _conClipboard;
+        let best = _conClipboard || null;
+        if (!best) {
+          try {
+            const raw = sessionStorage.getItem(CON_CLIPBOARD_STORAGE_KEY);
+            if (raw) best = JSON.parse(raw);
+          } catch (e) { }
+        }
         try {
-          const raw = sessionStorage.getItem(CON_CLIPBOARD_STORAGE_KEY);
-          if (raw) return JSON.parse(raw);
+          const localRaw = localStorage.getItem(CON_CLIPBOARD_STORAGE_KEY);
+          if (localRaw) {
+            const localParsed = JSON.parse(localRaw);
+            if (localParsed && (!best || (Number(localParsed.timestamp) || 0) > (Number(best.timestamp) || 0))) {
+              best = localParsed;
+            }
+          }
         } catch (e) { }
-        return null;
+        return best;
       }
       var conBuildPageSnapshot = function () {
         return (typeof window.conBuildPageSnapshot === 'function')
@@ -8364,6 +8380,10 @@
 
           // Move mode — handle drag + click + ctrl/shift multi-select
           e.preventDefault();
+          const _ae = document.activeElement;
+          if (_ae && (_ae.tagName === 'INPUT' || _ae.tagName === 'TEXTAREA' || _ae.tagName === 'SELECT' || _ae.isContentEditable)) {
+            try { _ae.blur(); } catch (_) {}
+          }
           const node = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
             || ((global.conNodes || []).find(n => n && (n.id === id || String(n.id) === String(id))));
           if (!node) return;
@@ -9800,7 +9820,7 @@
                 if (typeof window._conMirrorSend === 'function') {
                   window._conMirrorSend({
                     type: 'edge-update',
-                    edge: { id: edge.id, points: edge.points }
+                    edge: { id: edge.id, points: edge.points, routing: edge.routing }
                   });
                 }
               }
@@ -9816,7 +9836,7 @@
             if (typeof window._conMirrorSend === 'function') {
               window._conMirrorSend({
                 type: 'edge-update',
-                edge: { id: edge.id, points: edge.points }
+                edge: { id: edge.id, points: edge.points, routing: edge.routing }
               });
             }
           }
@@ -9858,7 +9878,7 @@
                 if (typeof window._conMirrorSend === 'function') {
                   window._conMirrorSend({
                     type: 'edge-update',
-                    edge: { id: edge.id, points: edge.points }
+                    edge: { id: edge.id, points: edge.points, routing: edge.routing }
                   });
                 }
               }
@@ -9874,7 +9894,7 @@
             if (typeof window._conMirrorSend === 'function') {
               window._conMirrorSend({
                 type: 'edge-update',
-                edge: { id: edge.id, points: edge.points }
+                edge: { id: edge.id, points: edge.points, routing: edge.routing }
               });
             }
           }
@@ -19182,16 +19202,42 @@
       let _lastConCopiedText = null;
       let _lastConCopiedOsText = null;
       let _lastConCopyTime = 0;
+      let _conOsClipboardWritePending = false;
+      let _conOsClipboardWritePromise = null;
 
       async function _conWriteOsClipboardText(text) {
         const str = String(text || '');
+        let wrote = false;
         if (window.Desktop && typeof window.Desktop.clipboardWriteText === 'function') {
-          try { await window.Desktop.clipboardWriteText(str); } catch (e) {}
+          try {
+            const res = await window.Desktop.clipboardWriteText(str);
+            if (res !== false) wrote = true;
+          } catch (e) {}
         } else if (window.electronApi && typeof window.electronApi.clipboardWriteText === 'function') {
-          try { await window.electronApi.clipboardWriteText(str); } catch (e) {}
+          try {
+            const res = await window.electronApi.clipboardWriteText(str);
+            if (res !== false) wrote = true;
+          } catch (e) {}
         }
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          try { await navigator.clipboard.writeText(str); } catch (e) {}
+          try {
+            await navigator.clipboard.writeText(str);
+            wrote = true;
+          } catch (e) {}
+        }
+        if (!wrote && str) {
+          try {
+            const tmp = document.createElement('textarea');
+            tmp.value = str;
+            tmp.setAttribute('readonly', '');
+            tmp.style.position = 'fixed';
+            tmp.style.opacity = '0';
+            tmp.style.pointerEvents = 'none';
+            document.body.appendChild(tmp);
+            tmp.select();
+            document.execCommand('copy');
+            tmp.remove();
+          } catch (e) {}
         }
       }
 
@@ -19234,10 +19280,6 @@
             noteIds.add(noteEl.dataset.id);
           }
         }
-        if (!noteIds.size && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
-          noteIds.add(_wnActiveNote.id);
-        }
-
         if (hasDrawingSelection) {
           conDrawingSelected.forEach(id => drawingIds.add(id));
         }
@@ -19259,6 +19301,9 @@
           if (activeEl && activeEl.classList.contains('con-media-selected')) {
             mediaIds.add(window._conActiveMediaItem.id);
           }
+        }
+        if (!noteIds.size && !nodeIds.size && !drawingIds.size && !shapeIds.size && !mediaIds.size && typeof _wnActiveNote !== 'undefined' && _wnActiveNote && _wnActiveNote.id) {
+          noteIds.add(_wnActiveNote.id);
         }
 
         const groupCtxMenu = document.getElementById('con-group-ctx-menu');
@@ -19504,6 +19549,19 @@
             labelSize: Number(e.labelSize) || 11,
             labelColor: e.labelColor || '#333333',
             labelWeight: Number(e.labelWeight) || 600,
+            thickness: Number(e.thickness) > 0 ? Number(e.thickness) : null,
+            dashStyle: e.dashStyle || null,
+            strokeType: e.strokeType || (e.dashStyle === 'dashed' ? 'dashed' : (e.dashStyle === 'dotted' ? 'dotted' : 'solid')),
+            routing: e.routing || 'straight',
+            curvature: (typeof e.curvature === 'number') ? e.curvature : 0,
+            opacity: (typeof e.opacity === 'number') ? e.opacity : 1,
+            terminator: e.terminator || 'arrow',
+            animated: !!e.animated,
+            labelBg: !!e.labelBgActive,
+            anchorA: e.anchorA || null,
+            anchorB: e.anchorB || null,
+            points: (Array.isArray(e.points) && e.points.length > 0) ? e.points.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })) : [],
+            avoidObstacles: !!e.avoidObstacles,
             colorMode: e.colorMode,
             strokeColor: e.strokeColor
           }));
@@ -19768,6 +19826,21 @@
             edge.labelColor = e.labelColor || '#333333';
             edge.labelWeight = Number(e.labelWeight) || 600;
             edge.dashStyle = e.dashStyle || null;
+            if (e.strokeType) edge.strokeType = e.strokeType;
+            if (e.routing) edge.routing = e.routing;
+            if (typeof e.curvature === 'number') edge.curvature = e.curvature;
+            if (typeof e.opacity === 'number') edge.opacity = e.opacity;
+            if (e.terminator) edge.terminator = e.terminator;
+            if (e.animated !== undefined) edge.animated = !!e.animated;
+            if (e.labelBg !== undefined) edge.labelBgActive = !!e.labelBg;
+            if (e.anchorA !== undefined) edge.anchorA = e.anchorA || null;
+            if (e.anchorB !== undefined) edge.anchorB = e.anchorB || null;
+            if (Array.isArray(e.points) && e.points.length > 0) {
+              const dxOff = targetMinX - sourceBounds.minX;
+              const dyOff = targetMinY - sourceBounds.minY;
+              edge.points = e.points.map(p => ({ x: Math.round((Number(p.x) || 0) + dxOff), y: Math.round((Number(p.y) || 0) + dyOff) }));
+            }
+            if (e.avoidObstacles !== undefined) edge.avoidObstacles = !!e.avoidObstacles;
             if (e.thickness > 0) {
               edge.thickness = Number(e.thickness);
               if (edge.line) edge.line.style.strokeWidth = String(edge.thickness);
@@ -19777,6 +19850,7 @@
             if (e.strokeColor !== undefined) edge.strokeColor = e.strokeColor;
             if (edge.labelEl) edge.labelEl.textContent = edge.label;
             conApplyEdgeLabelStyle(edge);
+            conUpdateEdge(edge);
           }
         });
 
@@ -20049,7 +20123,13 @@
         const textToWrite = payload.plainText || ('[ClassBoard:' + _lastConCopyTime + ']');
         _lastConCopiedOsText = textToWrite;
         if (textToWrite) {
-          _conWriteOsClipboardText(textToWrite);
+          _conOsClipboardWritePending = true;
+          const writePromise = _conWriteOsClipboardText(textToWrite).finally(() => {
+            if (_conOsClipboardWritePromise === writePromise) {
+              _conOsClipboardWritePending = false;
+            }
+          });
+          _conOsClipboardWritePromise = writePromise;
         }
         const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length + (payload.media || []).length;
         if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
@@ -20072,7 +20152,13 @@
         const textToWrite = payload.plainText || ('[ClassBoard:' + _lastConCopyTime + ']');
         _lastConCopiedOsText = textToWrite;
         if (textToWrite) {
-          _conWriteOsClipboardText(textToWrite);
+          _conOsClipboardWritePending = true;
+          const writePromise = _conWriteOsClipboardText(textToWrite).finally(() => {
+            if (_conOsClipboardWritePromise === writePromise) {
+              _conOsClipboardWritePending = false;
+            }
+          });
+          _conOsClipboardWritePromise = writePromise;
         }
         conPushUndo();
         conClipboardDeletePayload(payload);
@@ -20092,6 +20178,10 @@
         const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
         const x = Number.isFinite(anchorX) ? anchorX : (brd ? Math.round(brd.clientWidth / 2 - 60) : 60);
         const y = Number.isFinite(anchorY) ? anchorY : (brd ? Math.round(brd.clientHeight / 2 - 20) : 60);
+
+        if (_conOsClipboardWritePending && _conOsClipboardWritePromise) {
+          try { await _conOsClipboardWritePromise; } catch (e) {}
+        }
 
         // 1. Try reading via Desktop / Electron native clipboard first (synchronous & guaranteed)
         let osPlainText = null;
@@ -20156,6 +20246,7 @@
         // 3. Disambiguate Internal Board payload vs External Clipboard
         const isInternalCopyMatch = hasValidInternalPayload && (
           !plain ||
+          _conOsClipboardWritePending ||
           plain === (_pasteTarget.plainText || '').trim() ||
           plain === (_lastConCopiedText || '').trim() ||
           (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim()) ||
@@ -20873,6 +20964,7 @@
         // or hasn't changed since copy, or is empty, paste the internal payload
         const isInternalCopyMatch = hasValidInternalPayload && (
           !plain ||
+          _conOsClipboardWritePending ||
           plain === (_pasteTarget.plainText || '').trim() ||
           plain === (_lastConCopiedText || '').trim() ||
           (_lastConCopiedOsText != null && plain === _lastConCopiedOsText.trim()) ||

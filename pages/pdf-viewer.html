@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
   <title>PDF Viewer — Class Management Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <style>
@@ -1894,7 +1894,8 @@
       state.pdfArrayBuffer = arrayBuffer;
       state.pdfDoc = await pdfjsLib.getDocument({
         data: new Uint8Array(workerBuffer),
-        standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href
+        standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+        wasmUrl: new URL('../modules/wasm/', location.href).href
       }).promise;
       state.numPages = state.pdfDoc.numPages;
       state.currentPage = 1;

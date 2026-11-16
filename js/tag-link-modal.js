@@ -2387,6 +2387,7 @@
 
         var getDocConfig = {
           standardFontDataUrl: new URL(rootPrefix + 'modules/standard_fonts/', location.href).href,
+          wasmUrl: new URL(rootPrefix + 'modules/wasm/', location.href).href,
           disableFontFace: false
         };
         if (pdfBytes) {

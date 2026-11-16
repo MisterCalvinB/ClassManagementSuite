@@ -118,10 +118,18 @@
     </div>
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarView">View</span>
-      <button class="tb-btn" id="pastBtn" onclick="toggleShowPast()" data-i18n="pl_showPast">Show past</button>
-      <button class="tb-btn" id="outsideBtn" onclick="toggleShowOutsideTerm()" data-i18n="pl_showOutside">All
-        terms</button>
-      <button class="tb-btn icon-btn" id="viewBtn" onclick="toggleView()" data-i18n="pl_viewTable">⊞</button>
+      <div class="tb-seg" id="pastBtn" role="group" aria-label="Past entries">
+        <button type="button" class="tb-seg-opt active" data-state="hide" onclick="setShowPast(false)" data-i18n="pl_hidePast" aria-pressed="true">Hide past</button>
+        <button type="button" class="tb-seg-opt" data-state="show" onclick="setShowPast(true)" data-i18n="pl_showPast" aria-pressed="false">Show past</button>
+      </div>
+      <div class="tb-seg" id="outsideBtn" role="group" aria-label="Term scope">
+        <button type="button" class="tb-seg-opt active" data-state="active" onclick="setShowOutsideTerm(false)" data-i18n="pl_hideOutside" aria-pressed="true">Active term</button>
+        <button type="button" class="tb-seg-opt" data-state="all" onclick="setShowOutsideTerm(true)" data-i18n="pl_showOutside" aria-pressed="false">All terms</button>
+      </div>
+      <div class="tb-seg" id="viewBtn" role="group" aria-label="View mode">
+        <button type="button" class="tb-seg-opt active" data-state="list" onclick="setTableView(false)" data-i18n="pl_viewList" aria-pressed="true">List</button>
+        <button type="button" class="tb-seg-opt" data-state="table" onclick="setTableView(true)" data-i18n="pl_viewTable" aria-pressed="false">Table</button>
+      </div>
       <div class="disp-wrap" id="dispWrap">
         <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
         <div class="disp-popover" id="dispPopover">
@@ -1649,10 +1657,9 @@
       var si = document.getElementById('entry-search-input');
       if (si) si.value = searchQuery;
       rebuildTypeFilterChips();
-      var pb = document.getElementById('pastBtn');
-      if (pb) { pb.classList.toggle('active', showPast); pb.textContent = showPast ? t('pl_hidePast') : t('pl_showPast'); }
-      var ob = document.getElementById('outsideBtn');
-      if (ob) { ob.classList.toggle('active', showOutsideTerm); ob.textContent = showOutsideTerm ? t('pl_hideOutside') : t('pl_showOutside'); }
+      syncToggleSeg('pastBtn', showPast ? 'show' : 'hide');
+      syncToggleSeg('outsideBtn', showOutsideTerm ? 'all' : 'active');
+      syncToggleSeg('viewBtn', tableView ? 'table' : 'list');
     }
     function saveViewFlags() {
       try {
@@ -6180,8 +6187,7 @@
       if (!showOutsideTerm && _semForSave && date &&
         (date < _semForSave.semesterStart || date > _semForSave.semesterEnd)) {
         showOutsideTerm = true;
-        var _ob = document.getElementById('outsideBtn');
-        if (_ob) { _ob.classList.add('active'); _ob.textContent = t('pl_hideOutside'); }
+        syncToggleSeg('outsideBtn', 'all');
         saveViewFlags();
       }
 
@@ -8788,30 +8794,47 @@
       renderAgenda();
     }
 
+    function syncToggleSeg(id, activeState) {
+      var wrap = document.getElementById(id);
+      if (!wrap) return;
+      var btns = wrap.querySelectorAll('.tb-seg-opt');
+      for (var i = 0; i < btns.length; i++) {
+        var isOn = btns[i].getAttribute('data-state') === activeState;
+        btns[i].classList.toggle('active', isOn);
+        btns[i].setAttribute('aria-pressed', isOn ? 'true' : 'false');
+      }
+    }
+
+    function setShowPast(val) {
+      showPast = !!val;
+      syncToggleSeg('pastBtn', showPast ? 'show' : 'hide');
+      saveViewFlags();
+      renderAgenda();
+    }
+
     function toggleShowPast() {
-      showPast = !showPast;
-      var btn = document.getElementById('pastBtn');
-      btn.classList.toggle('active', showPast);
-      btn.textContent = showPast ? t('pl_hidePast') : t('pl_showPast');
+      setShowPast(!showPast);
+    }
+
+    function setShowOutsideTerm(val) {
+      showOutsideTerm = !!val;
+      syncToggleSeg('outsideBtn', showOutsideTerm ? 'all' : 'active');
       saveViewFlags();
       renderAgenda();
     }
 
     function toggleShowOutsideTerm() {
-      showOutsideTerm = !showOutsideTerm;
-      var btn = document.getElementById('outsideBtn');
-      btn.classList.toggle('active', showOutsideTerm);
-      btn.textContent = showOutsideTerm ? t('pl_hideOutside') : t('pl_showOutside');
-      saveViewFlags();
+      setShowOutsideTerm(!showOutsideTerm);
+    }
+
+    function setTableView(val) {
+      tableView = !!val;
+      syncToggleSeg('viewBtn', tableView ? 'table' : 'list');
       renderAgenda();
     }
 
     function toggleView() {
-      tableView = !tableView;
-      var btn = document.getElementById('viewBtn');
-      btn.textContent = tableView ? t('pl_viewList') : t('pl_viewTable');
-      btn.classList.toggle('active', tableView);
-      renderAgenda();
+      setTableView(!tableView);
     }
 
     // ── Table view ──────────────────────────────────────────────────────────────
@@ -9746,18 +9769,14 @@
       var _today = new Date().toISOString().slice(0, 10);
       if (!showPast && toImport.some(function (ev) { return ev.date < _today; })) {
         showPast = true;
-        var _pb = document.getElementById('pastBtn');
-        _pb.classList.add('active');
-        _pb.textContent = t('pl_hidePast');
+        syncToggleSeg('pastBtn', 'show');
       }
       var _activeSemForImp = getActiveSem();
       if (!showOutsideTerm && _activeSemForImp && toImport.some(function (ev) {
         return ev.date < _activeSemForImp.semesterStart || ev.date > _activeSemForImp.semesterEnd;
       })) {
         showOutsideTerm = true;
-        var _ob = document.getElementById('outsideBtn');
-        _ob.classList.add('active');
-        _ob.textContent = t('pl_hideOutside');
+        syncToggleSeg('outsideBtn', 'all');
       }
 
       closeModal('icsImportModal');
@@ -10181,11 +10200,7 @@
         var hasInSem = semStart && semEnd ? res.events.some(function (ev) { return ev.date >= semStart && ev.date <= semEnd; }) : true;
         if (!showOutsideTerm && !hasInSem && res.events.length > 0) {
           showOutsideTerm = true;
-          var _ob = document.getElementById('outsideBtn');
-          if (_ob) {
-            _ob.classList.add('active');
-            _ob.textContent = t('pl_hideOutside');
-          }
+          syncToggleSeg('outsideBtn', 'all');
         }
 
         renderSubscriptionsModalList();

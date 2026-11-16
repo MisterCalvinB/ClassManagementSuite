@@ -311,6 +311,7 @@
     var doc = await pdfjsLib.getDocument({
       data: ab,
       standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+      wasmUrl: new URL('../modules/wasm/', location.href).href,
       disableFontFace: false,
       useSystemFonts: false
     }).promise;
