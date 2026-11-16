@@ -2243,14 +2243,150 @@
       ];
     }
 
+    function splitUnescapedPipe(str) {
+      const parts = [];
+      let cur = '';
+      for (let i = 0; i < str.length; i++) {
+        if (str[i] === '\\' && i + 1 < str.length && str[i + 1] === '|') {
+          cur += '|';
+          i++;
+        } else if (str[i] === '|') {
+          parts.push(cur);
+          cur = '';
+        } else {
+          cur += str[i];
+        }
+      }
+      parts.push(cur);
+      return parts;
+    }
+
+    function parseChipRemarksString(commentOrRemarks) {
+      if (Array.isArray(commentOrRemarks)) {
+        return commentOrRemarks.map(r => {
+          if (r && typeof r === 'object') {
+            return { num: String(r.num || '').trim(), text: String(r.text || '').trim() };
+          }
+          return { num: '', text: String(r || '').trim() };
+        }).filter(r => r && r.text);
+      }
+      const str = String(commentOrRemarks || '').trim();
+      if (!str) return [];
+      return splitUnescapedPipe(str).map(raw => {
+        const part = raw.trim();
+        if (!part) return null;
+        const m = part.match(/^\[([^\]]+)\]\s*(.*)$/);
+        if (m) {
+          return { num: m[1].trim(), text: m[2].trim() };
+        }
+        return { num: '', text: part };
+      }).filter(r => r && r.text);
+    }
+
+    function formatChipRemarksString(remarksOrStr) {
+      if (typeof remarksOrStr === 'string') return remarksOrStr.trim();
+      if (!Array.isArray(remarksOrStr)) return '';
+      return remarksOrStr
+        .map(r => {
+          const num = (r && typeof r === 'object') ? String(r.num || '').trim() : '';
+          const text = (r && typeof r === 'object') ? String(r.text || '').trim() : String(r || '').trim();
+          if (!text) return '';
+          const safeText = text.replace(/\|/g, '\\|');
+          return num ? `[${num}] ${safeText}` : safeText;
+        })
+        .filter(Boolean)
+        .join(' | ');
+    }
+
+    function getNextObservationRemarkNumber(sections, extraRemarks = []) {
+      const used = new Set();
+      if (Array.isArray(sections)) {
+        sections.forEach(sec => {
+          const checklist = typeof sectionChecklistSummary === 'function' ? sectionChecklistSummary(sec) : (sec && sec.checklist);
+          if (!Array.isArray(checklist)) return;
+          checklist.forEach(item => {
+            const p = parseObservationChipItem(item);
+            if (Array.isArray(p.remarks)) {
+              p.remarks.forEach(r => {
+                const n = parseInt(r.num, 10);
+                if (!isNaN(n) && n > 0) used.add(n);
+              });
+            }
+          });
+        });
+      }
+      if (Array.isArray(extraRemarks)) {
+        extraRemarks.forEach(r => {
+          const n = parseInt(r && r.num, 10);
+          if (!isNaN(n) && n > 0) used.add(n);
+        });
+      }
+      let max = (typeof _studentModalDraft !== 'undefined' && _studentModalDraft && Number(_studentModalDraft.maxRemarkNum)) || 0;
+      for (const n of used) {
+        if (n > max) max = n;
+      }
+      return max + 1;
+    }
+
+    function createRemarkNumberAllocator(notes) {
+      const reserved = new Set();
+      const emitted = new Set();
+      if (Array.isArray(notes)) {
+        notes.forEach(sec => {
+          const checklist = typeof sectionChecklistSummary === 'function' ? sectionChecklistSummary(sec) : (sec && sec.checklist);
+          if (!Array.isArray(checklist)) return;
+          checklist.forEach(item => {
+            const p = parseObservationChipItem(item);
+            if (Array.isArray(p.remarks)) {
+              p.remarks.forEach(r => {
+                if (r && r.text && r.text.trim() && r.num && r.num.trim()) {
+                  reserved.add(r.num.trim());
+                }
+              });
+            }
+          });
+        });
+      }
+      let cursor = 1;
+      return {
+        next(rem) {
+          const raw = (rem && rem.num) ? String(rem.num).trim() : '';
+          if (raw && !emitted.has(raw)) {
+            emitted.add(raw);
+            reserved.add(raw);
+            return raw;
+          }
+          while (reserved.has(String(cursor)) || emitted.has(String(cursor))) {
+            cursor++;
+          }
+          const assigned = String(cursor);
+          reserved.add(assigned);
+          emitted.add(assigned);
+          cursor++;
+          return assigned;
+        }
+      };
+    }
+
+    function getChipUnderlineThickness(count) {
+      const c = Math.min(4, Math.max(0, Number(count) || 0));
+      if (c === 2) return '1px';
+      if (c === 3) return '2px';
+      if (c >= 4) return '3px';
+      return '0px';
+    }
+
     function parseObservationChipItem(item) {
-      if (!item) return { name: '', count: 1, comment: '' };
+      if (!item) return { name: '', count: 1, comment: '', remarks: [] };
       if (typeof item === 'object') {
         const rawName = String(item.name || item.label || item.chipName || '').trim();
         const parsed = parseObservationChipItem(rawName);
         const count = Number(item.count) || parsed.count || 1;
-        const comment = String(item.comment || parsed.comment || '').trim();
-        return { name: parsed.name, count: Math.max(1, count), comment };
+        const remarks = Array.isArray(item.remarks) && item.remarks.length
+          ? parseChipRemarksString(item.remarks)
+          : parseChipRemarksString(item.comment || parsed.comment || '');
+        const comment = formatChipRemarksString(remarks);
+        return { name: parsed.name, count: Math.max(1, count), comment, remarks };
       }
       const str = String(item || '').trim();
       let comment = '';
@@ -2260,19 +2396,23 @@
         chipPart = str.slice(0, colonIdx).trim();
         comment = str.slice(colonIdx + 1).trim();
       }
+      const remarks = parseChipRemarksString(comment);
+      const normalizedComment = formatChipRemarksString(remarks);
       const match = chipPart.match(/^(.*?)(?:\s*(?:\((?:x|×)?(\d+)\)|(?:x|×)(\d+)))$/i);
       if (match) {
         const baseName = (match[1] || '').trim();
         const count = parseInt(match[2] || match[3], 10) || 1;
-        return { name: baseName || chipPart, count: Math.max(1, count), comment };
+        return { name: baseName || chipPart, count: Math.max(1, count), comment: normalizedComment, remarks };
       }
-      return { name: chipPart, count: 1, comment };
+      return { name: chipPart, count: 1, comment: normalizedComment, remarks };
     }
 
-    function formatObservationChipItem(name, count, comment) {
+    function formatObservationChipItem(name, count, commentOrRemarks) {
       const c = Math.max(1, Number(count) || 1);
       const n = String(name || '').trim();
-      const comm = String(comment || '').trim();
+      const comm = Array.isArray(commentOrRemarks)
+        ? formatChipRemarksString(commentOrRemarks)
+        : String(commentOrRemarks || '').trim();
       const countPart = c > 1 ? ` (x${c})` : '';
       if (comm) {
         return `${n}${countPart}: ${comm}`;
@@ -2739,7 +2879,7 @@
       return resolveObservationSectionColor(sampleLabel, sampleKind, targetBank);
     }
 
-    function renderObservationPill(nameOrObj, kind, label, preferredColor = '') {
+    function renderObservationPill(nameOrObj, kind, label, preferredColor = '', remarkAllocator = null) {
       const parsed = parseObservationChipItem(nameOrObj);
       const name = parsed.name;
       const count = parsed.count;
@@ -2759,15 +2899,23 @@
         pillClass = "obs-pill obs-pill-remedy";
       }
 
-      const multiplierBadge = count > 1
-        ? `<sup class="obs-pill-multiplier" style="font-size:0.68em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;margin-right:3px;display:inline-block;white-space:nowrap;pointer-events:none;">x${count}</sup>`
-        : "";
-      const comment = parsed.comment;
-      const commentSpan = comment
-        ? `<span class="obs-pill-comment" style="font-weight:600;margin-left:2px;font-style:italic;opacity:0.92;">: ${escapeHtml(comment)}</span>`
-        : "";
+      const remarks = Array.isArray(parsed.remarks) ? parsed.remarks : parseChipRemarksString(parsed.comment || "");
+      const underlineThickness = getChipUnderlineThickness(count);
+      const nameHtml = underlineThickness !== '0px'
+        ? `<span class="obs-pill-name" style="text-decoration:underline;text-decoration-thickness:${underlineThickness};text-underline-offset:2px;">${escapeHtml(name)}</span>`
+        : `<span class="obs-pill-name">${escapeHtml(name)}</span>`;
 
-      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${escapeHtml(name)}${multiplierBadge}${commentSpan}</span>`;
+      const textRemarks = remarks.filter(r => r.text && r.text.trim());
+      let commentHtml = '';
+      if (textRemarks.length > 0) {
+        const joined = textRemarks.map((rem, idx) => {
+          const displayNum = remarkAllocator ? remarkAllocator.next(rem) : (rem.num ? rem.num : String(idx + 1));
+          return `${escapeHtml(rem.text)}<sup class="obs-pill-remark-num" style="font-size:0.75em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;">[${escapeHtml(displayNum)}]</sup>`;
+        }).join(', ');
+        commentHtml = `<span class="obs-pill-comment" style="font-weight:600;margin-left:2px;opacity:0.95;">: ${joined}</span>`;
+      }
+
+      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${nameHtml}${commentHtml}</span>`;
     }
 
     function groupObservationChipsByCategory(chips, sectionLabel, bankFilename, sectionKind = '') {
@@ -2823,7 +2971,7 @@
       return result;
     }
 
-    function renderObservationSectionHtml(section, bankFilename = null) {
+    function renderObservationSectionHtml(section, bankFilename = null, remarkAllocator = null) {
       if (!section) return "";
       const label = String(section.label || "").trim();
       const checklist = sectionChecklistSummary(section);
@@ -2843,7 +2991,7 @@
               <span class="obs-category-tag" style="font-size:10px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">
                 ${escapeHtml(cg.category)}:
               </span>
-              ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor)).join("")}
+              ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor, remarkAllocator)).join("")}
             </span>
           `).join("");
         }
@@ -2865,7 +3013,7 @@
       return `<div class="obs-section" style="margin-bottom:4px;line-height:1.35;">${topChipsLine}${feedbackHtml}</div>`;
     }
 
-    function renderObservationInlineHtml(section, bankFilename = null) {
+    function renderObservationInlineHtml(section, bankFilename = null, remarkAllocator = null) {
       if (!section) return "";
       const label = String(section.label || "").trim();
       const checklist = sectionChecklistSummary(section);
@@ -2883,7 +3031,7 @@
         pills = catGroups.map(cg => `
           <span class="obs-category-span" style="display:inline-flex;align-items:center;flex-wrap:wrap;gap:2px;margin:0 4px 0 0;vertical-align:middle;">
             <span class="obs-category-tag" style="font-size:10px;font-weight:800;letter-spacing:0.02em;color:#333333;margin-right:2px;white-space:nowrap;">${escapeHtml(cg.category)}:</span>
-            ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor)).join("")}
+            ${cg.chips.map(chip => renderObservationPill(chip, section.kind, label, cg.color || secColor, remarkAllocator)).join("")}
           </span>
         `).join("");
       }
@@ -16828,6 +16976,11 @@
           display: inline-block;
           white-space: nowrap;
         }
+        .obs-pill-num {
+          font-weight: 800;
+          margin-right: 2px;
+          opacity: 0.95;
+        }
         .obs-feedback {
           display: inline;
           padding: 0;
@@ -16998,7 +17151,8 @@
         // Observations
         let obsHtml = "";
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-          const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))).join("");
+          const remarkAllocator = createRemarkNumberAllocator(notes);
+          const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank), remarkAllocator)).join("");
           obsHtml = `<div><div class="section-title">${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}</div>${blocks}</div>`;
         }
 
@@ -17377,13 +17531,16 @@
           totalPtsText: totals.totalPossible > 0
             ? `${fmtN((totals.totalScored || 0) + (totals.totalBonusScored || 0))} / ${fmtN(totals.totalPossible)}${(totals.totalBonusScored && totals.totalBonusScored > 0) ? ` (+${fmtN(totals.totalBonusScored)} bonus)` : ""}`
             : "—",
-          observations: notes.filter(s => sectionHasContent(s)).map(s => ({
-            label: s.label || "",
-            kind: s.kind || "",
-            checklist: sectionChecklistSummary(s),
-            text: s.text || "",
-            html: renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))
-          }))
+          observations: (() => {
+            const remarkAllocator = createRemarkNumberAllocator(notes);
+            return notes.filter(s => sectionHasContent(s)).map(s => ({
+              label: s.label || "",
+              kind: s.kind || "",
+              checklist: sectionChecklistSummary(s),
+              text: s.text || "",
+              html: renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank), remarkAllocator)
+            }));
+          })()
         };
       });
 
@@ -17587,6 +17744,11 @@
           margin-right: 3px;
           display: inline-block;
           white-space: nowrap;
+        }
+        .obs-pill-num {
+          font-weight: 800;
+          margin-right: 2px;
+          opacity: 0.95;
         }
         .obs-feedback {
           display: inline;
@@ -18154,6 +18316,7 @@
         }
 
         if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
+          const remarkAllocator = createRemarkNumberAllocator(notes);
           sections.push(`### ${t('gsReportObservationsFeedback') || t('gsColObservations') || 'Observations & Teacher Feedback'}`);
           notes.filter(s => sectionHasContent(s)).forEach(s => {
             const label = s.label ? `**${s.label}**` : "";
@@ -18167,10 +18330,16 @@
               catGroups.forEach(cg => {
                 const chipsStr = cg.chips.map(c => {
                   const p = (c && typeof c === 'object') ? c : parseObservationChipItem(c);
-                  const countStr = p.count > 1 ? ` (x${p.count})` : '';
-                  const commentStr = p.comment ? `: ${p.comment}` : '';
-                  return `\`[${p.name}${countStr}${commentStr}]\``;
-                }).join(" ");
+                  const rems = Array.isArray(p.remarks) ? p.remarks : parseChipRemarksString(p.comment || '');
+                  const thickness = getChipUnderlineThickness(p.count);
+                  const textRems = rems.filter(r => r.text && r.text.trim());
+                  const remsStr = textRems.length > 0
+                    ? `: ${textRems.map(r => `${r.text}<sup>[${remarkAllocator.next(r)}]</sup>`).join(', ')}`
+                    : '';
+                  return thickness !== '0px'
+                    ? `<span style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">\`${p.name}\`</span>${remsStr}`
+                    : `\`${p.name}\`${remsStr}`;
+                }).join("; ");
                 sections.push(`- *${cg.category}:* ${chipsStr}`);
               });
             }
@@ -19632,7 +19801,9 @@
           const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
           const noteArr = student.testNotes[sem];
-          const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank))).join("");
+          const secNotes = Array.isArray(noteArr[ti]) ? noteArr[ti] : [];
+          const remarkAllocator = createRemarkNumberAllocator(secNotes);
+          const notesHtml = secNotes.filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank), remarkAllocator)).join("");
 
           testRows.push(`<tr>
             <td class="center" style="font-weight:700;">${sem.toUpperCase()}</td>
@@ -19761,7 +19932,9 @@
         const deltaColor = delta != null ? (delta >= 0 ? '#2e7d32' : '#c62828') : '#111';
 
         const noteArr = student.testNotes[sem];
-        const notesHtml = (Array.isArray(noteArr[ti]) ? noteArr[ti] : []).filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank))).join("");
+        const secNotes = Array.isArray(noteArr[ti]) ? noteArr[ti] : [];
+        const remarkAllocator = createRemarkNumberAllocator(secNotes);
+        const notesHtml = secNotes.filter(s => sectionHasContent(s)).map(s => renderObservationInlineHtml(s, (cfg && cfg.chipBank) || (classObj && classObj.chipBank), remarkAllocator)).join("");
 
         testRows.push(`<tr>
           <td class="center" style="font-weight:700;">T${ti + 1}</td>
@@ -19926,7 +20099,8 @@
       // Observations
       let obsHtml = '';
       if (notes.length > 0 && notes.some(s => sectionHasContent(s))) {
-        const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank))).join('');
+        const remarkAllocator = createRemarkNumberAllocator(notes);
+        const blocks = notes.filter(s => sectionHasContent(s)).map(s => renderObservationSectionHtml(s, (config && config.chipBank) || (classObj && classObj.chipBank), remarkAllocator)).join('');
         obsHtml = `<div class="obs-feedback" style="padding:6px 0;background:transparent;margin-top:6px;">
           <div class="section-heading" style="margin-top:0;">${t('gsReportObservationsFeedback') || 'Observations & Teacher Feedback'}</div>
           ${blocks}
@@ -21627,7 +21801,10 @@
         draftCriteria[c.id] = { points: criteriaMap[c.id].points, comment: criteriaMap[c.id].comment };
       });
 
-      _studentModalDraft = { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, criteriaPointsChanged: false, modalOpenedAt: Date.now() };
+      const storedMaxRemark = (student.testRemarkMax && student.testRemarkMax[sem] && Number(student.testRemarkMax[sem][testIndex])) || 0;
+      _studentModalDraft = { student, classObj, sem, testIndex, tr, config, draftSections, draftCriteria, draftOverrideEnabled, criteriaPointsChanged: false, modalOpenedAt: Date.now(), maxRemarkNum: storedMaxRemark };
+      const initialNextRemark = getNextObservationRemarkNumber(draftSections);
+      _studentModalDraft.maxRemarkNum = Math.max(storedMaxRemark, initialNextRemark - 1);
 
       const heading = document.getElementById("student-modal-heading");
       const studentFormattedName = (window.StudentNameUtils && typeof StudentNameUtils.formatStudentName === 'function')
@@ -22161,7 +22338,7 @@
       }
 
       function openChipCommentPopup(opts) {
-        const { chipName, category, section, currentCount, currentComment, secColor, onSave } = opts;
+        const { chipName, category, section, currentCount, currentComment, currentRemarks, focusIndex, secColor, onSave } = opts;
         let overlay = document.getElementById('gs-chip-comment-modal-overlay');
         if (!overlay) {
           overlay = document.createElement('div');
@@ -22176,6 +22353,15 @@
         const secLabel = section && section.label ? section.label : '';
         const effectiveColor = secColor || '#0284c7';
 
+        let remarksList = Array.isArray(currentRemarks) && currentRemarks.length
+          ? currentRemarks.map(r => ({ num: String(r.num || ''), text: String(r.text || '') }))
+          : parseChipRemarksString(currentComment || '');
+        const hasInitialRemarks = remarksList.some(r => r.text.trim());
+        if (remarksList.length === 0) {
+          const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []));
+          remarksList.push({ num: String(nextNum), text: '' });
+        }
+
         overlay.innerHTML = `
           <div class="gs-chip-comment-card" role="dialog" aria-modal="true">
             <div class="gs-chip-comment-header">
@@ -22183,7 +22369,9 @@
                 <img src="../assets/icons/speech-bubbles.svg" style="width:18px;height:18px;" alt="" />
                 <span>${escapeHtml(titleText)}</span>
               </div>
-              <button type="button" id="gs-chip-comment-close" class="btn btn-xs gs-chip-comment-close">✕</button>
+              <button type="button" id="gs-chip-comment-close" class="btn btn-xs gs-chip-comment-close">
+                <img src="../assets/icons/close.svg" style="width:12px;height:12px;display:block;" alt="" />
+              </button>
             </div>
             <div class="gs-chip-comment-meta">
               ${secLabel ? `<span class="gs-chip-comment-sec-badge" style="border-left:3px solid ${effectiveColor};">${escapeHtml(secLabel)}</span>` : ''}
@@ -22191,12 +22379,17 @@
               <span class="gs-chip-comment-chip-name">${escapeHtml(chipName)}</span>
             </div>
             <div class="gs-chip-comment-body">
-              <label class="gs-chip-comment-label" for="gs-chip-comment-text-input">${t('gsChipCommentLabel', 'Secondary Note / Comment')}</label>
-              <input type="text" id="gs-chip-comment-text-input" class="input gs-chip-comment-input" placeholder="${t('gsChipCommentPlaceholder', 'e.g. Needs clearer examples, very expressive, etc.')}" autocomplete="off" value="${escapeHtml(currentComment || '')}" />
+              <label class="gs-chip-comment-label">${t('gsChipCommentLabel', 'Secondary Note / Comment')}</label>
+              <p class="gs-chip-comment-hint">${t('gsChipCommentRemarksHint', "Ref # is optional (to match a number on the student's paper). Enter saves; Ctrl+Enter adds a remark.")}</p>
+              <ol id="gs-chip-remark-list" class="gs-chip-remark-list"></ol>
+              <button type="button" id="gs-chip-remark-add-btn" class="gs-chip-remark-add-btn">
+                <img src="../assets/icons/plus.svg" style="width:12px;height:12px;" alt="" />
+                <span>${t('gsChipCommentAddRemark', 'Add Remark')}</span>
+              </button>
             </div>
             <div class="gs-chip-comment-actions">
               <div>
-                ${currentComment ? `<button type="button" id="gs-chip-comment-clear" class="btn btn-danger-outline">${t('gsChipCommentClear', 'Remove Note')}</button>` : ''}
+                ${hasInitialRemarks ? `<button type="button" id="gs-chip-comment-clear" class="btn btn-danger-outline">${t('gsChipCommentClearAll', 'Remove All')}</button>` : ''}
               </div>
               <div class="gs-chip-comment-actions-right">
                 <button type="button" id="gs-chip-comment-cancel" class="btn">${t('gsAddChipBtnCancel', 'Cancel')}</button>
@@ -22208,7 +22401,8 @@
           </div>
         `;
 
-        const textInput = document.getElementById('gs-chip-comment-text-input');
+        const listEl = document.getElementById('gs-chip-remark-list');
+        const addBtn = document.getElementById('gs-chip-remark-add-btn');
         const closeBtn = document.getElementById('gs-chip-comment-close');
         const cancelBtn = document.getElementById('gs-chip-comment-cancel');
         const saveBtn = document.getElementById('gs-chip-comment-save');
@@ -22222,21 +22416,162 @@
           document.removeEventListener('keydown', onKeyDown, true);
         }
 
-        function submitComment(commentVal) {
+        function submitRemarks(nextRemarks) {
+          const cleaned = (nextRemarks || [])
+            .map(r => ({ num: String(r.num || '').trim(), text: String(r.text || '').trim() }))
+            .filter(r => r.text);
+          if (typeof _studentModalDraft !== 'undefined' && _studentModalDraft) {
+            cleaned.forEach(r => {
+              const n = parseInt(r.num, 10);
+              if (!isNaN(n) && n > (_studentModalDraft.maxRemarkNum || 0)) {
+                _studentModalDraft.maxRemarkNum = n;
+              }
+            });
+          }
           closePopup();
           if (typeof onSave === 'function') {
-            onSave(commentVal);
+            onSave(formatChipRemarksString(cleaned), cleaned);
           }
         }
 
+        function renderRemarkRows(focusIdx = -1) {
+          if (!listEl) return;
+          listEl.innerHTML = '';
+          remarksList.forEach((row, idx) => {
+            const li = document.createElement('li');
+            li.className = 'gs-chip-remark-item';
+
+            const numInput = document.createElement('input');
+            numInput.type = 'text';
+            numInput.className = 'gs-chip-remark-num-input';
+            numInput.maxLength = 6;
+            numInput.placeholder = t('gsChipCommentRefPlaceholder', '#');
+            numInput.title = t('gsChipCommentRefTitle', 'Optional paper reference number (defaults to row number)');
+            numInput.autocomplete = 'off';
+            numInput.value = row.num || '';
+            numInput.addEventListener('input', () => {
+              remarksList[idx].num = numInput.value;
+            });
+            numInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
+                remarksList.splice(idx + 1, 0, { num: String(nextNum), text: '' });
+                renderRemarkRows(idx + 1);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                submitRemarks(remarksList);
+              }
+            });
+
+            const textInput = document.createElement('input');
+            textInput.type = 'text';
+            textInput.className = 'gs-chip-remark-text-input';
+            textInput.placeholder = t('gsChipCommentPlaceholder', 'e.g. Needs clearer examples, very expressive, etc.');
+            textInput.autocomplete = 'off';
+            textInput.value = row.text || '';
+            textInput.addEventListener('input', () => {
+              remarksList[idx].text = textInput.value;
+            });
+            textInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                e.stopPropagation();
+                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
+                remarksList.splice(idx + 1, 0, { num: String(nextNum), text: '' });
+                renderRemarkRows(idx + 1);
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                e.stopPropagation();
+                submitRemarks(remarksList);
+              }
+            });
+
+            const actionsWrap = document.createElement('div');
+            actionsWrap.className = 'gs-chip-remark-actions';
+
+            const upBtn = document.createElement('button');
+            upBtn.type = 'button';
+            upBtn.className = 'gs-chip-remark-btn';
+            upBtn.title = t('gsChipCommentMoveUp', 'Move Up');
+            upBtn.disabled = (idx === 0);
+            upBtn.innerHTML = '<img src="../assets/icons/arrow-up.svg" style="width:11px;height:11px;display:block;" alt="" />';
+            upBtn.addEventListener('click', () => {
+              if (idx > 0) {
+                const tmp = remarksList[idx];
+                remarksList[idx] = remarksList[idx - 1];
+                remarksList[idx - 1] = tmp;
+                renderRemarkRows(idx - 1);
+              }
+            });
+
+            const downBtn = document.createElement('button');
+            downBtn.type = 'button';
+            downBtn.className = 'gs-chip-remark-btn';
+            downBtn.title = t('gsChipCommentMoveDown', 'Move Down');
+            downBtn.disabled = (idx === remarksList.length - 1);
+            downBtn.innerHTML = '<img src="../assets/icons/arrow-down.svg" style="width:11px;height:11px;display:block;" alt="" />';
+            downBtn.addEventListener('click', () => {
+              if (idx < remarksList.length - 1) {
+                const tmp = remarksList[idx];
+                remarksList[idx] = remarksList[idx + 1];
+                remarksList[idx + 1] = tmp;
+                renderRemarkRows(idx + 1);
+              }
+            });
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'gs-chip-remark-btn gs-chip-remark-btn-del';
+            delBtn.title = t('gsChipCommentDeleteRemark', 'Delete Remark');
+            delBtn.innerHTML = '<img src="../assets/icons/trash.svg" style="width:11px;height:11px;display:block;" alt="" />';
+            delBtn.addEventListener('click', () => {
+              if (remarksList.length === 1) {
+                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), []);
+                remarksList[0] = { num: String(nextNum), text: '' };
+                renderRemarkRows(0);
+              } else {
+                remarksList.splice(idx, 1);
+                renderRemarkRows(Math.min(idx, remarksList.length - 1));
+              }
+            });
+
+            actionsWrap.appendChild(upBtn);
+            actionsWrap.appendChild(downBtn);
+            actionsWrap.appendChild(delBtn);
+
+            li.appendChild(numInput);
+            li.appendChild(textInput);
+            li.appendChild(actionsWrap);
+            listEl.appendChild(li);
+
+            if (idx === focusIdx) {
+              setTimeout(() => {
+                textInput.focus();
+                if (textInput.value) textInput.select();
+              }, 20);
+            }
+          });
+        }
+
+        const initialFocus = (typeof focusIndex === 'number' && focusIndex >= 0 && focusIndex < remarksList.length)
+          ? focusIndex
+          : (remarksList.length - 1);
+        renderRemarkRows(initialFocus);
+
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
+            remarksList.push({ num: String(nextNum), text: '' });
+            renderRemarkRows(remarksList.length - 1);
+          });
+        }
         if (closeBtn) closeBtn.addEventListener('click', closePopup);
         if (cancelBtn) cancelBtn.addEventListener('click', closePopup);
-        if (saveBtn) saveBtn.addEventListener('click', () => {
-          submitComment(textInput ? textInput.value.trim() : '');
-        });
-        if (clearBtn) clearBtn.addEventListener('click', () => {
-          submitComment('');
-        });
+        if (saveBtn) saveBtn.addEventListener('click', () => submitRemarks(remarksList));
+        if (clearBtn) clearBtn.addEventListener('click', () => submitRemarks([]));
 
         function onKeyDown(e) {
           if (e.key === 'Escape') {
@@ -22244,9 +22579,14 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
             closePopup();
-          } else if (e.key === 'Enter') {
+          } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
-            submitComment(textInput ? textInput.value.trim() : '');
+            const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
+            remarksList.push({ num: String(nextNum), text: '' });
+            renderRemarkRows(remarksList.length - 1);
+          } else if (e.key === 'Enter' && (!e.target || e.target.tagName !== 'BUTTON')) {
+            e.preventDefault();
+            submitRemarks(remarksList);
           }
         }
 
@@ -22255,18 +22595,102 @@
         }
         document.addEventListener('keydown', onKeyDown, true);
 
-        overlay.addEventListener('click', (e) => {
+        overlay.onclick = (e) => {
           if (e.target === overlay) {
             closePopup();
           }
-        });
+        };
+      }
 
-        setTimeout(() => {
-          if (textInput) {
-            textInput.focus();
-            textInput.select();
+      function closeChipContextMenu() {
+        const existing = document.getElementById('gs-chip-context-menu');
+        if (existing) {
+          if (typeof existing._cleanup === 'function') existing._cleanup();
+          existing.remove();
+        }
+      }
+
+      function openChipContextMenu({ x, y, chipName, currentCount, hasRemarks, onEditNotes, onAddOne, onRemoveOne, onClearChip }) {
+        closeChipContextMenu();
+
+        const menu = document.createElement('div');
+        menu.id = 'gs-chip-context-menu';
+        menu.className = 'gs-chip-context-menu';
+        menu.setAttribute('role', 'menu');
+
+        const header = document.createElement('div');
+        header.className = 'gs-chip-context-header';
+        header.textContent = currentCount > 1 ? `${chipName} (x${currentCount})` : chipName;
+        menu.appendChild(header);
+
+        function addMenuItem(iconFile, labelText, isDanger, handler) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'gs-chip-context-item' + (isDanger ? ' is-danger' : '');
+          btn.setAttribute('role', 'menuitem');
+          btn.innerHTML = `<img src="../assets/icons/${iconFile}" style="width:13px;height:13px;flex-shrink:0;" alt="" /><span>${escapeHtml(labelText)}</span>`;
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closeChipContextMenu();
+            if (typeof handler === 'function') handler();
+          });
+          menu.appendChild(btn);
+        }
+
+        addMenuItem(
+          'speech-bubbles.svg',
+          hasRemarks ? t('gsChipCtxOpenNotes', 'Edit Remarks / Notes') : t('gsChipCtxAddNotes', 'Add Remark / Note'),
+          false,
+          onEditNotes
+        );
+        if (currentCount < 4) {
+          addMenuItem('plus.svg', t('gsChipCtxAddOne', 'Add (+1)'), false, onAddOne);
+        }
+
+        if (currentCount > 0) {
+          addMenuItem('clear.svg', t('gsChipCtxRemoveOne', 'Remove One (-1)'), true, onRemoveOne);
+        }
+        if (currentCount > 1 || hasRemarks) {
+          addMenuItem('trash.svg', t('gsChipCtxClearChip', 'Clear Chip'), true, onClearChip);
+        }
+
+        document.body.appendChild(menu);
+
+        const rect = menu.getBoundingClientRect();
+        const pad = 8;
+        const left = Math.min(x, window.innerWidth - rect.width - pad);
+        const top = Math.min(y, window.innerHeight - rect.height - pad);
+        menu.style.left = `${Math.max(pad, left)}px`;
+        menu.style.top = `${Math.max(pad, top)}px`;
+
+        let unregEsc = null;
+        function onDocPointerDown(e) {
+          if (!menu.contains(e.target)) {
+            closeChipContextMenu();
           }
-        }, 50);
+        }
+        function onDocKeyDown(e) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            closeChipContextMenu();
+          }
+        }
+
+        if (window.cmtPushEscapeHandler) {
+          unregEsc = window.cmtPushEscapeHandler({ el: menu, close: closeChipContextMenu });
+        }
+        setTimeout(() => {
+          document.addEventListener('pointerdown', onDocPointerDown, true);
+        }, 0);
+        document.addEventListener('keydown', onDocKeyDown, true);
+
+        menu._cleanup = () => {
+          if (unregEsc) { unregEsc(); unregEsc = null; }
+          document.removeEventListener('pointerdown', onDocPointerDown, true);
+          document.removeEventListener('keydown', onDocKeyDown, true);
+        };
       }
 
       function buildChecklistElement(section, block) {
@@ -22374,39 +22798,22 @@
 
             const initialParsed = chipMap.get(name.toLowerCase());
             let currentCount = initialParsed ? initialParsed.count : 0;
-            let currentComment = (initialParsed && initialParsed.comment) ? initialParsed.comment : '';
+            let currentRemarks = (initialParsed && Array.isArray(initialParsed.remarks)) ? initialParsed.remarks.map(r => ({ ...r })) : [];
+            let currentComment = (initialParsed && initialParsed.comment) ? initialParsed.comment : formatChipRemarksString(currentRemarks);
 
-            const updateChipVisual = (count, comment) => {
-              const isSelected = count > 0;
-              const hasComment = isSelected && !!comment;
-              chip.classList.toggle("selected", isSelected);
-              chip.classList.toggle("has-comment", hasComment);
-              chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
-              const badge = count > 1 ? `<sup class="chip-multiplier-badge">x${count}</sup>` : '';
-              const commentBadge = hasComment ? `<span class="chip-comment-badge" title="${escapeHtml(comment)}"><img src="../assets/icons/comments.svg" class="chip-comment-icon" alt="" style="width:8px;height:8px;vertical-align:middle;display:inline-block;" /></span>` : '';
-              chip.innerHTML = `${escapeHtml(name)}${badge}${commentBadge}`;
-
-              const countPart = count > 1 ? ` (x${count})` : '';
-              const commentPart = hasComment ? `: "${comment}"` : '';
-              const hintKey = hasComment ? 'gsChipClickHintWithComment' : 'gsChipClickHintWithoutComment';
-              const defaultHint = hasComment
-                ? 'Left-click: + / Right-click: - / Shift-click: edit note'
-                : 'Left-click: + / Right-click: - / Shift-click: add note';
-              chip.title = isSelected
-                ? `${group.type} • ${name}${countPart}${commentPart} • ${t(hintKey, defaultHint)}`
-                : `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')} • ${t('gsChipClickHintWithoutComment', defaultHint)}`;
-            };
-
-            const saveChipState = (count, comment) => {
+            const saveChipState = (count, comment, remarks) => {
               const currentMap = new Map();
               sectionChecklistSummary(section).forEach(item => {
                 const p = parseObservationChipItem(item);
                 if (p.name) currentMap.set(p.name.toLowerCase(), p);
               });
+              const formattedComment = Array.isArray(remarks)
+                ? formatChipRemarksString(remarks)
+                : String(comment || '').trim();
               if (count <= 0) {
                 currentMap.delete(name.toLowerCase());
               } else {
-                currentMap.set(name.toLowerCase(), { name, count, comment: (comment || '').trim() });
+                currentMap.set(name.toLowerCase(), { name, count, comment: formattedComment });
               }
               const formattedList = Array.from(currentMap.values()).map(v => formatObservationChipItem(v.name, v.count, v.comment));
               section.checklist = typeof sortSectionChecklistByBank === 'function'
@@ -22414,13 +22821,42 @@
                 : formattedList;
             };
 
-            updateChipVisual(currentCount, currentComment);
+            const updateChipVisual = (count, comment, remarks) => {
+              const isSelected = count > 0;
+              const resolvedRemarks = Array.isArray(remarks) ? remarks : parseChipRemarksString(comment || '');
+              const resolvedComment = formatChipRemarksString(resolvedRemarks);
+              const hasTextComment = isSelected && resolvedRemarks.some(r => r.text && r.text.trim());
 
-            const handleCommentEdit = () => {
+              chip.classList.toggle("selected", isSelected);
+              chip.classList.toggle("has-comment", hasTextComment);
+              chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
+
+              const thickness = getChipUnderlineThickness(count);
+              const nameSpan = (isSelected && thickness !== '0px')
+                ? `<span class="chip-label-text" style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">${escapeHtml(name)}</span>`
+                : escapeHtml(name);
+              const commentBadge = hasTextComment
+                ? `<span class="chip-comment-badge" title="${escapeHtml(resolvedComment)}"><img src="../assets/icons/comments.svg" class="chip-comment-icon" alt="" style="width:8px;height:8px;vertical-align:middle;display:inline-block;" /></span>`
+                : '';
+
+              chip.innerHTML = `${nameSpan}${commentBadge}`;
+
+              const countPart = count > 1 ? ` (x${count})` : '';
+              const commentPart = hasTextComment ? `: "${resolvedComment}"` : '';
+              const hintKey = hasTextComment ? 'gsChipClickHintWithComment' : 'gsChipClickHintWithoutComment';
+              const defaultHint = hasTextComment
+                ? 'Left-click: + / Right-click: - / Shift-click: edit note'
+                : 'Left-click: + / Right-click: - / Shift-click: add note';
+              chip.title = isSelected
+                ? `${group.type} • ${name}${countPart}${commentPart} • ${t(hintKey, defaultHint)}`
+                : `${group.type} • ${t('gsDragToReorder', 'Drag to reorder')} • ${t('gsChipClickHintWithoutComment', defaultHint)}`;
+            };
+
+            const handleCommentEdit = (focusIndex = -1) => {
               if (currentCount === 0) {
                 currentCount = 1;
-                saveChipState(currentCount, currentComment);
-                updateChipVisual(currentCount, currentComment);
+                saveChipState(currentCount, currentComment, currentRemarks);
+                updateChipVisual(currentCount, currentComment, currentRemarks);
               }
               openChipCommentPopup({
                 chipName: name,
@@ -22428,15 +22864,20 @@
                 section,
                 currentCount,
                 currentComment,
+                currentRemarks,
+                focusIndex,
                 secColor,
-                onSave: (newComment) => {
-                  currentComment = newComment;
-                  saveChipState(currentCount, currentComment);
-                  updateChipVisual(currentCount, currentComment);
+                onSave: (newComment, newRemarks) => {
+                  currentRemarks = Array.isArray(newRemarks) ? newRemarks : parseChipRemarksString(newComment);
+                  currentComment = formatChipRemarksString(currentRemarks);
+                  saveChipState(currentCount, currentComment, currentRemarks);
+                  updateChipVisual(currentCount, currentComment, currentRemarks);
                   autoSaveStudentModal(false);
                 }
               });
             };
+
+            updateChipVisual(currentCount, currentComment, currentRemarks);
 
             let isDragging = false;
 
@@ -22523,9 +22964,9 @@
                 handleCommentEdit();
                 return;
               }
-              currentCount = currentCount === 0 ? 1 : currentCount + 1;
-              saveChipState(currentCount, currentComment);
-              updateChipVisual(currentCount, currentComment);
+              currentCount = currentCount === 0 ? 1 : Math.min(4, currentCount + 1);
+              saveChipState(currentCount, currentComment, currentRemarks);
+              updateChipVisual(currentCount, currentComment, currentRemarks);
               autoSaveStudentModal(false);
             });
 
@@ -22533,14 +22974,41 @@
               e.preventDefault();
               e.stopPropagation();
               if (isDragging) return;
-              if (currentCount <= 0) return;
-              currentCount = currentCount - 1;
-              if (currentCount === 0) {
-                currentComment = '';
-              }
-              saveChipState(currentCount, currentComment);
-              updateChipVisual(currentCount, currentComment);
-              autoSaveStudentModal(false);
+              const hasRemarks = currentRemarks.some(r => r.text && r.text.trim());
+              openChipContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                chipName: name,
+                currentCount,
+                hasRemarks,
+                onEditNotes: () => handleCommentEdit(),
+                onAddOne: () => {
+                  currentCount = currentCount === 0 ? 1 : Math.min(4, currentCount + 1);
+                  saveChipState(currentCount, currentComment, currentRemarks);
+                  updateChipVisual(currentCount, currentComment, currentRemarks);
+                  autoSaveStudentModal(false);
+                },
+                onRemoveOne: () => {
+                  if (currentCount <= 0) return;
+                  currentCount -= 1;
+                  if (currentCount <= 0) {
+                    currentCount = 0;
+                    currentComment = '';
+                    currentRemarks = [];
+                  }
+                  saveChipState(currentCount, currentComment, currentRemarks);
+                  updateChipVisual(currentCount, currentComment, currentRemarks);
+                  autoSaveStudentModal(false);
+                },
+                onClearChip: () => {
+                  currentCount = 0;
+                  currentComment = '';
+                  currentRemarks = [];
+                  saveChipState(currentCount, currentComment, currentRemarks);
+                  updateChipVisual(currentCount, currentComment, currentRemarks);
+                  autoSaveStudentModal(false);
+                }
+              });
             });
 
             inlineGroup.appendChild(chip);
@@ -23273,6 +23741,11 @@
         kind: normalizeObservationKind(s.kind),
         checklist: sectionChecklistSummary(s)
       }));
+      if (_studentModalDraft.maxRemarkNum > 0) {
+        if (!student.testRemarkMax) student.testRemarkMax = { sem1: Array(TEST_COUNT_PER_SEM).fill(0), sem2: Array(TEST_COUNT_PER_SEM).fill(0) };
+        if (!Array.isArray(student.testRemarkMax[sem])) student.testRemarkMax[sem] = Array(TEST_COUNT_PER_SEM).fill(0);
+        student.testRemarkMax[sem][testIndex] = Math.max(Number(student.testRemarkMax[sem][testIndex]) || 0, _studentModalDraft.maxRemarkNum);
+      }
 
       if (config && _activeChipBankFilename) {
         config.chipBank = _activeChipBankFilename;
