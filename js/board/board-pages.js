@@ -109,74 +109,61 @@
         menu.id = 'con-mini-thumb-context-menu';
         menu.className = 'con-mini-thumb-menu';
 
-        const openImgItem = document.createElement('button');
-        openImgItem.type = 'button';
-        openImgItem.className = 'con-mini-thumb-menu-item';
-        openImgItem.style.display = 'flex';
-        openImgItem.style.alignItems = 'center';
-        openImgItem.style.gap = '6px';
-        const openImgLabel = (typeof t === 'function' ? t('conOpenPageImageInNewWindow') : 'Open image in new window');
-        openImgItem.innerHTML = '<img src="../assets/icons/eye.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openImgLabel) + '</span>';
-        openImgItem.onclick = function (evt) {
-          evt.stopPropagation();
-          conCloseMiniThumbContextMenu();
-          if (typeof window.conOpenPageSnapshotWindow === 'function') {
-            window.conOpenPageSnapshotWindow(pageIndex);
-          }
+        const addMenuItem = (iconFile, label, handler, opts) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'con-mini-thumb-menu-item' + (opts && opts.danger ? ' danger' : '');
+          item.style.display = 'flex';
+          item.style.alignItems = 'center';
+          item.style.gap = '6px';
+          if (opts && opts.disabled) item.disabled = true;
+          item.innerHTML = '<img src="../assets/icons/' + iconFile + '" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(label) + '</span>';
+          item.onclick = function (evt) {
+            evt.stopPropagation();
+            if (item.disabled) return;
+            conCloseMiniThumbContextMenu();
+            handler();
+          };
+          menu.appendChild(item);
         };
-        menu.appendChild(openImgItem);
 
-        const openPageItem = document.createElement('button');
-        openPageItem.type = 'button';
-        openPageItem.className = 'con-mini-thumb-menu-item';
-        openPageItem.style.display = 'flex';
-        openPageItem.style.alignItems = 'center';
-        openPageItem.style.gap = '6px';
-        const openPageLabel = (typeof t === 'function' ? t('conOpenPageInNewWindow') : 'Open page in new window');
-        openPageItem.innerHTML = '<img src="../assets/icons/external-link.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(openPageLabel) + '</span>';
-        openPageItem.onclick = function (evt) {
-          evt.stopPropagation();
-          conCloseMiniThumbContextMenu();
-          if (typeof window.conOpenPageInNewWindow === 'function') {
-            window.conOpenPageInNewWindow(pageIndex);
-          }
-        };
-        menu.appendChild(openPageItem);
-
-        const dupItem = document.createElement('button');
-        dupItem.type = 'button';
-        dupItem.className = 'con-mini-thumb-menu-item';
-        dupItem.style.display = 'flex';
-        dupItem.style.alignItems = 'center';
-        dupItem.style.gap = '6px';
-        const dupLabel = (typeof t === 'function' ? t('conDuplicatePage') : 'Duplicate page');
-        dupItem.innerHTML = '<img src="../assets/icons/duplicate.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(dupLabel) + '</span>';
-        dupItem.onclick = function (evt) {
-          evt.stopPropagation();
-          conCloseMiniThumbContextMenu();
-          conDuplicatePageMiniThumb(pageIndex);
-        };
-        menu.appendChild(dupItem);
-
-        const delItem = document.createElement('button');
-        delItem.type = 'button';
-        delItem.className = 'con-mini-thumb-menu-item danger';
-        delItem.style.display = 'flex';
-        delItem.style.alignItems = 'center';
-        delItem.style.gap = '6px';
-        const delLabel = (typeof t === 'function' ? t('conDeletePage') : 'Delete page');
-        delItem.innerHTML = '<img src="../assets/icons/delete.svg" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span>' + escapeSearchHtml(delLabel) + '</span>';
-        delItem.onclick = function (evt) {
-          evt.stopPropagation();
-          conCloseMiniThumbContextMenu();
-          conDeletePageMiniThumb(pageIndex);
-        };
-        menu.appendChild(delItem);
+        addMenuItem(
+          'eye.svg',
+          typeof t === 'function' ? t('conOpenPageImageInNewWindow') : 'Open image in new window',
+          () => { if (typeof window.conOpenPageSnapshotWindow === 'function') window.conOpenPageSnapshotWindow(pageIndex); }
+        );
+        addMenuItem(
+          'external-link.svg',
+          typeof t === 'function' ? t('conOpenPageInNewWindow') : 'Open page in new window',
+          () => { if (typeof window.conOpenPageInNewWindow === 'function') window.conOpenPageInNewWindow(pageIndex); }
+        );
+        addMenuItem(
+          'copy.svg',
+          typeof t === 'function' ? t('conCopyPage') : 'Copy page',
+          () => { if (typeof window.conCopyPage === 'function') window.conCopyPage(pageIndex); }
+        );
+        addMenuItem(
+          'paste.svg',
+          typeof t === 'function' ? t('conPastePage') : 'Paste page',
+          () => { if (typeof window.conPastePage === 'function') window.conPastePage(pageIndex); },
+          { disabled: typeof conHasCopiedPages === 'function' ? !conHasCopiedPages() : true }
+        );
+        addMenuItem(
+          'duplicate.svg',
+          typeof t === 'function' ? t('conDuplicatePage') : 'Duplicate page',
+          () => { conDuplicatePageMiniThumb(pageIndex); }
+        );
+        addMenuItem(
+          'delete.svg',
+          typeof t === 'function' ? t('conDeletePage') : 'Delete page',
+          () => { conDeletePageMiniThumb(pageIndex); },
+          { danger: true }
+        );
 
         document.body.appendChild(menu);
 
-        const menuWidth = 220;
-        const menuHeight = 155;
+        const menuWidth = menu.offsetWidth || 220;
+        const menuHeight = menu.offsetHeight || 220;
         let top = e.clientY;
         let left = e.clientX;
         if (left + menuWidth > window.innerWidth) left = Math.max(10, window.innerWidth - menuWidth - 8);
@@ -1528,9 +1515,12 @@
         } catch (_) { }
       }
 
-      window.conCopyPage = async function () {
+      window.conCopyPage = async function (targetIdx) {
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        const snap = conPageSnapshots[conCurrentPageIndex];
+        const idx = typeof targetIdx === 'number' && targetIdx >= 0 && targetIdx < conPageSnapshots.length
+          ? targetIdx
+          : conCurrentPageIndex;
+        const snap = conPageSnapshots[idx];
         const attachments = await conCollectAttachmentsForPages([snap]);
         const pkg = { pages: [JSON.parse(JSON.stringify(snap))], attachments };
         _conCopiedPages = pkg;
@@ -1544,16 +1534,19 @@
         } catch (_) { }
         const btn = document.getElementById('con-paste-page-btn');
         if (btn) btn.disabled = false;
-        mdbToast('📋 1 page copied — use Paste Page to insert a duplicate');
+        mdbToast('1 page copied — use Paste Page to insert a duplicate');
       };
 
-      window.conPastePage = function () {
+      window.conPastePage = function (insertAfterIdx) {
         const pkg = conGetCopiedPagesPackage();
         if (!pkg || !pkg.pages || pkg.pages.length === 0) return;
         conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        const insertIdx = conCurrentPageIndex + 1;
+        const baseIdx = typeof insertAfterIdx === 'number' && insertAfterIdx >= 0 && insertAfterIdx < conPageSnapshots.length
+          ? insertAfterIdx
+          : conCurrentPageIndex;
+        const insertIdx = baseIdx + 1;
         const count = conPasteCopiedPagesPackage(pkg, insertIdx);
-        mdbToast('📋 Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' starting at page ' + (conCurrentPageIndex + 1));
+        mdbToast('Pasted ' + count + ' page' + (count === 1 ? '' : 's') + ' starting at page ' + (conCurrentPageIndex + 1));
       };
 
       function conPreviewUpdateSelectionUi() {

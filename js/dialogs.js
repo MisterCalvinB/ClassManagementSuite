@@ -1570,32 +1570,40 @@
     hcStyle.textContent = [
       '#cmt-hover-card{',
         'position:fixed;top:0;left:0;',
-        'max-width:270px;width:max-content;',
-        'padding:7px 11px;',
+        'max-width:220px;width:max-content;',
+        'padding:5px 9px;',
         'background:#fafaf7;color:#222222;',
-        'border:2px solid #333333;',
-        'border-left:5px solid #e2c96e;',
-        'border-radius:6px;',
-        'box-shadow:3px 3px 0 #555555;',
+        'border:1.5px solid #333333;',
+        'border-left:3px solid #e2c96e;',
+        'border-radius:5px;',
+        'box-shadow:2px 2px 0 #888888;',
         'font-family:"Lexend",system-ui,-apple-system,sans-serif;',
-        'font-size:0.76rem;font-weight:500;line-height:1.42;',
+        'font-size:0.72rem;font-weight:500;line-height:1.35;',
         'z-index:10000005;pointer-events:none;',
         'opacity:0;will-change:opacity;',
         'transform:translate3d(var(--hc-x,0px),var(--hc-y,0px),0);',
-        'transition:opacity 0.22s cubic-bezier(0.22,1,0.36,1);',
+        'transition:opacity 0.16s cubic-bezier(0.22,1,0.36,1);',
         'white-space:normal;word-wrap:break-word;',
         'user-select:none;-webkit-user-select:none;',
       '}',
       '#cmt-hover-card.cmt-hc-visible{',
-        'opacity:1;',
+        'opacity:0.96;',
       '}',
       '#cmt-hover-card .cmt-hc-title{',
-        'font-weight:800;font-size:0.78rem;color:#111111;',
+        'font-weight:800;font-size:0.74rem;color:#111111;',
         'margin-bottom:2px;letter-spacing:0.2px;',
       '}',
       '#cmt-hover-card .cmt-hc-body{',
         'color:#334155;font-weight:500;',
-      '}'
+      '}',
+      '#cmt-hover-card strong{font-weight:700;color:#111111;}',
+      '#cmt-hover-card em{font-style:italic;}',
+      '#cmt-hover-card .cmt-hc-c-red{color:#9c2f2f;}',
+      '#cmt-hover-card .cmt-hc-c-green{color:#1f6f43;}',
+      '#cmt-hover-card .cmt-hc-c-blue{color:#2b5e99;}',
+      '#cmt-hover-card .cmt-hc-c-amber{color:#8a6a10;}',
+      '#cmt-hover-card .cmt-hc-c-purple{color:#574799;}',
+      '#cmt-hover-card .cmt-hc-c-muted{color:#64748b;}'
     ].join('');
     document.head.appendChild(hcStyle);
 
@@ -1643,19 +1651,51 @@
       cardEl.style.setProperty('--hc-y', Math.round(y) + 'px');
     }
 
+    var HC_COLORS = {
+      red: '#c96b6b',
+      green: '#6abf8e',
+      blue: '#5b8fcc',
+      amber: '#e2c96e',
+      purple: '#8b7cc2'
+    };
+
+    function formatHoverText(raw) {
+      var safe = String(raw)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+      safe = safe.replace(/\\n|\r?\n/g, '<br>');
+      safe = safe.replace(/\{(red|green|blue|amber|purple|muted):([^\n{}]+)\}/g, function (_, color, inner) {
+        return '<span class="cmt-hc-c-' + color + '">' + inner + '</span>';
+      });
+      safe = safe.replace(/\*\*([^\s*](?:[^*\n]*?[^\s*])?)\*\*/g, '<strong>$1</strong>');
+      safe = safe.replace(/(^|[^*\w])\*([^\s*](?:[^*\n]*?[^\s*])?)\*(?!\w)/g, '$1<em>$2</em>');
+      return safe;
+    }
+
     function showFor(target) {
       var text = target.getAttribute('data-hover-help');
       if (!text) return;
       var card = ensureCard();
+      var accent = target.getAttribute('data-hover-help-accent');
+      if (accent && HC_COLORS[accent]) {
+        card.style.borderLeftColor = HC_COLORS[accent];
+      } else if (accent && /^#[0-9a-fA-F]{3,8}$/.test(accent.trim())) {
+        card.style.borderLeftColor = accent.trim();
+      } else {
+        card.style.borderLeftColor = '';
+      }
       var titleText = target.getAttribute('data-hover-help-title');
       if (titleText) {
-        titleEl.textContent = titleText;
+        titleEl.innerHTML = formatHoverText(titleText);
         titleEl.style.display = '';
       } else {
         titleEl.textContent = '';
         titleEl.style.display = 'none';
       }
-      bodyEl.textContent = text;
+      bodyEl.innerHTML = formatHoverText(text);
       positionCard(target);
       void card.offsetWidth;
       requestAnimationFrame(function () {
@@ -1699,7 +1739,7 @@
       activeTarget = target;
       showTimer = setTimeout(function () {
         if (activeTarget === target) showFor(target);
-      }, 260);
+      }, 550);
     }, true);
 
     document.addEventListener('pointerout', function (e) {
@@ -1717,7 +1757,7 @@
       activeTarget = target;
       showTimer = setTimeout(function () {
         if (activeTarget === target) showFor(target);
-      }, 260);
+      }, 550);
     }, true);
 
     document.addEventListener('focusout', function () {
