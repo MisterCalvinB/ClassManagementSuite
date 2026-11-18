@@ -6038,7 +6038,6 @@
     html.push('  <meta charset="UTF-8">');
     var docTitle = (test.title || _t('tcDefaultExamTitleShort', 'Examination', lang)) + (isTeacherKey ? ' ' + _t('tcTeacherSolutionKeyShort', '(Teacher Solution Key)', lang) : '');
     html.push('  <title>' + escapeHtml(docTitle) + '</title>');
-    html.push('  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700;800;900&display=swap">');
     html.push('  <style id="cmt-test-base-styles">');
     html.push(TestCreatorService.getThemeCss(themeName));
     html.push('  </style>');

@@ -125,12 +125,26 @@ test('Main IPC modules export registration functions and contain no emojis', () 
   const backupBoard = require(path.join(ROOT, 'js', 'main', 'ipc-backup-board.js'));
   const printIpc = require(path.join(ROOT, 'js', 'main', 'ipc-print.js'));
   const remoteQuiz = require(path.join(ROOT, 'js', 'main', 'ipc-remote-quiz.js'));
+  const cloudSync = require(path.join(ROOT, 'js', 'main', 'ipc-cloud-sync.js'));
+  const zipUtils = require(path.join(ROOT, 'js', 'main', 'zip-utils.js'));
+  const fileOps = require(path.join(ROOT, 'js', 'main', 'ipc-file-ops.js'));
+  const plannerReminders = require(path.join(ROOT, 'js', 'main', 'ipc-planner-reminders.js'));
+  const systemDict = require(path.join(ROOT, 'js', 'main', 'ipc-system-dict.js'));
+  const presentation = require(path.join(ROOT, 'js', 'main', 'ipc-presentation.js'));
+  const backupSync = require(path.join(ROOT, 'js', 'main', 'ipc-backup-sync.js'));
   assert.equal(typeof mediaAi.registerMediaAiIpc, 'function');
   assert.equal(typeof docExport.registerDocExportIpc, 'function');
   assert.equal(typeof archives.registerArchiveIpc, 'function');
   assert.equal(typeof backupBoard.registerBackupBoardIpc, 'function');
   assert.equal(typeof printIpc.registerPrintIpc, 'function');
   assert.equal(typeof remoteQuiz.registerRemoteQuizIpc, 'function');
+  assert.equal(typeof cloudSync.registerCloudSyncIpc, 'function');
+  assert.equal(typeof zipUtils.buildZip, 'function');
+  assert.equal(typeof fileOps.registerFileOpsIpc, 'function');
+  assert.equal(typeof plannerReminders.registerPlannerRemindersIpc, 'function');
+  assert.equal(typeof systemDict.registerSystemDictIpc, 'function');
+  assert.equal(typeof presentation.registerPresentationIpc, 'function');
+  assert.equal(typeof backupSync.registerBackupSyncIpc, 'function');
 
   const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
   const cleanFiles = [
@@ -140,6 +154,26 @@ test('Main IPC modules export registration functions and contain no emojis', () 
   for (const file of cleanFiles) {
     const content = fs.readFileSync(file, 'utf8');
     assert.equal(emojiRe.test(content), false, `Disallowed Unicode emoji/symbol in ${path.relative(ROOT, file)}`);
+  }
+
+  // Verify no js/main/*.js module uses an Electron/Node global without declaring/destructuring it
+  const mainBuiltins = [
+    'app', 'BrowserWindow', 'clipboard', 'desktopCapturer', 'dialog',
+    'ipcMain', 'screen', 'shell', 'fs', 'fsSync', 'path', 'zlib',
+    'os', 'http', 'https', 'crypto', 'spawn', 'ROOT_DIR', 'PAGE_FILES'
+  ];
+  for (const file of walkFiles(path.join(ROOT, 'js', 'main'), '.js')) {
+    const content = fs.readFileSync(file, 'utf8');
+    const fnIdx = content.indexOf('function ');
+    const header = content.slice(0, fnIdx !== -1 ? fnIdx + 800 : 800);
+    for (const g of mainBuiltins) {
+      if (new RegExp(`\\b${g}\\.`).test(content)) {
+        assert.ok(
+          new RegExp(`\\b${g}\\b`).test(header),
+          `${path.relative(ROOT, file)} accesses ${g}.* without declaring/destructuring ${g} in its header`
+        );
+      }
+    }
   }
 });
 
@@ -166,4 +200,119 @@ test('ImportUtils pure helpers: UUIDs, header normalization, and autoDetectMappi
     JSON.parse(JSON.stringify(mapping)),
     { firstName: 2, lastName: 1, email: 0 }
   );
+
+  const mappedRows = ImportUtils.applyMapping(
+    [['alice@school.org', 'Dupont', 'Alice']],
+    ['Email', 'Nom', 'Prénom'],
+    { firstName: 2, lastName: 1, email: 0, group: { type: 'manual', value: '3A' } },
+    [
+      { key: 'firstName' },
+      { key: 'lastName' },
+      { key: 'email' },
+      { key: 'group' }
+    ]
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(mappedRows)),
+    [{ firstName: 'Alice', lastName: 'Dupont', email: 'alice@school.org', group: '3A' }]
+  );
+});
+
+test('zip-utils: crc32, DOS timestamp round-trip, and buildZip output structure', async () => {
+  const { crc32, msToDosDateTime, dosDateTimeToMs, buildZip } = require(path.join(ROOT, 'js', 'main', 'zip-utils.js'));
+
+  assert.equal(crc32(Buffer.from('123456789')), 0xcbf43926);
+
+  const sampleMs = new Date(2026, 4, 15, 14, 30, 10).getTime();
+  const { dosTime, dosDate } = msToDosDateTime(sampleMs);
+  const roundTripMs = dosDateTimeToMs(dosTime, dosDate);
+  assert.equal(Math.abs(roundTripMs - sampleMs) <= 2000, true);
+
+  const zipBuf = await buildZip([
+    { name: 'hello.txt', data: Buffer.from('Hello Class Management Tools!'), mtimeMs: sampleMs }
+  ]);
+  assert.ok(Buffer.isBuffer(zipBuf));
+  assert.equal(zipBuf.readUInt32LE(0), 0x04034b50);
+  assert.ok(zipBuf.includes(Buffer.from('hello.txt')));
+  assert.ok(zipBuf.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06])));
+});
+
+test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve DOM node identity', () => {
+  const DomSync = require(path.join(ROOT, 'js', 'dom-sync.js'));
+
+  const makeEl = (tag) => {
+    const classes = new Set();
+    const attrs = new Map();
+    const el = {
+      tagName: tag,
+      _text: '',
+      get textContent() { return this._text; },
+      set textContent(v) { this._text = String(v); },
+      dataset: {},
+      children: [],
+      classList: {
+        contains: (c) => classes.has(c),
+        toggle: (c, force) => {
+          if (force === undefined) force = !classes.has(c);
+          if (force) classes.add(c); else classes.delete(c);
+        }
+      },
+      hasAttribute: (k) => attrs.has(k),
+      getAttribute: (k) => (attrs.has(k) ? attrs.get(k) : null),
+      setAttribute: (k, v) => attrs.set(k, String(v)),
+      removeAttribute: (k) => attrs.delete(k),
+      appendChild: (c) => { el.children.push(c); return c; },
+      removeChild: (c) => {
+        const idx = el.children.indexOf(c);
+        if (idx !== -1) el.children.splice(idx, 1);
+        return c;
+      },
+      insertBefore: (node, ref) => {
+        const oldIdx = el.children.indexOf(node);
+        if (oldIdx !== -1) el.children.splice(oldIdx, 1);
+        if (!ref) {
+          el.children.push(node);
+        } else {
+          const refIdx = el.children.indexOf(ref);
+          el.children.splice(refIdx === -1 ? el.children.length : refIdx, 0, node);
+        }
+        return node;
+      }
+    };
+    return el;
+  };
+
+  const container = makeEl('div');
+  const firstItems = [{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta' }];
+  DomSync.patchListByKey(
+    container,
+    firstItems,
+    (x) => x.id,
+    () => makeEl('span'),
+    (node, x) => DomSync.setText(node, x.label)
+  );
+  assert.equal(container.children.length, 2);
+  const nodeA = container.children[0];
+  const nodeB = container.children[1];
+  assert.equal(nodeA.textContent, 'Alpha');
+
+  // Reorder + update + insert 'c' -> nodeA and nodeB must be the exact same object references
+  const secondItems = [{ id: 'b', label: 'Beta-2' }, { id: 'c', label: 'Gamma' }, { id: 'a', label: 'Alpha' }];
+  DomSync.patchListByKey(
+    container,
+    secondItems,
+    (x) => x.id,
+    () => makeEl('span'),
+    (node, x) => DomSync.setText(node, x.label)
+  );
+  assert.equal(container.children.length, 3);
+  assert.strictEqual(container.children[0], nodeB);
+  assert.strictEqual(container.children[2], nodeA);
+  assert.equal(nodeB.textContent, 'Beta-2');
+  assert.equal(container.children[1].textContent, 'Gamma');
+  assert.equal(DomSync.setText(nodeA, 'Alpha'), false);
+  assert.equal(DomSync.setAttr(nodeA, 'data-test', '1'), true);
+  assert.equal(DomSync.setAttr(nodeA, 'data-test', '1'), false);
+  DomSync.setClass(nodeA, 'active', true);
+  assert.equal(nodeA.classList.contains('active'), true);
 });

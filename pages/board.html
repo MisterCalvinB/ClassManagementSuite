@@ -16,6 +16,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/dom-sync.js"></script>
   <script src="../js/pins.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/tutorial.js"></script>
@@ -904,13 +905,18 @@
         <div class="char-net-card">
           <div class="char-net-section-title">
             <span data-i18n="charNetDetectedHeading">Detected Characters & Aliases</span>
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
               <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkToggleAll(true)"
                 style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetSelectAll">Select All</button>
               <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkToggleAll(false)"
                 style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetDeselectAll">Deselect All</button>
               <button type="button" class="action-btn btn-grey btn-sm" onclick="characterNetworkAddCustomChar()"
                 style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetAddCharBtn">+ Add Character</button>
+              <button type="button" class="action-btn btn-sm" id="char-net-merge-btn" onclick="characterNetworkMergeSelected()" disabled
+                style="padding:2px 8px; font-size:0.72rem; display:inline-flex; align-items:center; gap:4px; background:#5b8fcc; color:#fff; opacity:0.5; cursor:not-allowed;">
+                <img src="../assets/icons/merge.svg" class="btn-icon" alt="" style="filter:invert(1); width:12px; height:12px;" />
+                <span id="char-net-merge-btn-label" data-i18n="charNetMergeBtn">Merge</span>
+              </button>
             </div>
           </div>
           <div style="font-size:0.74rem; color:#666; margin-bottom:8px;" data-i18n="charNetDetectedSubtitle">
@@ -924,10 +930,11 @@
                   <th style="width:170px;" data-i18n="charNetCharCol">Character</th>
                   <th style="width:80px; text-align:center;" data-i18n="charNetOccurrencesCol">Mentions</th>
                   <th data-i18n="charNetAliasesCol">Aliases (comma-separated)</th>
+                  <th style="width:54px; text-align:center;" data-i18n="charNetMergeCol">Merge</th>
                 </tr>
               </thead>
               <tbody id="char-net-chars-tbody">
-                <tr><td colspan="4" style="text-align:center; color:#888; padding:16px;">Scan a novel to detect characters.</td></tr>
+                <tr><td colspan="5" style="text-align:center; color:#888; padding:16px;">Scan a novel to detect characters.</td></tr>
               </tbody>
             </table>
           </div>

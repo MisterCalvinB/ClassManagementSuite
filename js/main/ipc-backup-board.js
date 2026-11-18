@@ -18,7 +18,8 @@ function registerBackupBoardIpc(ctx) {
     resolveAllowedTargetPath,
     sanitizeRelativePath,
     _broadcastDataChanged,
-    normalizePlannerEntryIds
+    normalizePlannerEntryIds,
+    _sessionMetaCache
   } = ctx;
 
   ipcMain.handle('app:backup-zip', async (event) => {

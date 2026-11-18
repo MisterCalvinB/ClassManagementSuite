@@ -94,15 +94,15 @@
                     const temp = p.isTemporary ? `<span class="cp-temp-badge">Temp</span>` : '';
                     const pSlots = _cpGetPlanSlots(p);
                     const slotStr = pSlots.map(_cpPlanSlotLabel).filter(Boolean).join(', ');
-                    const meta = [p.roomNumber ? '📍 ' + p.roomNumber : '', slotStr ? '🗓 ' + slotStr : '', cpScheduleSummary(p), `${p.rows}×${p.cols}`].filter(Boolean).join(' · ');
+                    const meta = [p.roomNumber ? '' + p.roomNumber : '', slotStr ? '' + slotStr : '', cpScheduleSummary(p), `${p.rows}×${p.cols}`].filter(Boolean).join(' · ');
                     return `<div class="cp-manager-row">
               <div class="cp-manager-row-name">${escapeSettingsHtml(p.name)} ${active} ${temp}</div>
               <div class="cp-manager-row-meta">${escapeSettingsHtml(meta)}</div>
               <div class="cp-manager-btns">
-                <button onclick="cpManagerPrint('${gEsc}',${idx})">🖨</button>
+                <button onclick="cpManagerPrint('${gEsc}',${idx})"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
                 <button onclick="cpManagerEdit('${gEsc}',${idx})">Edit</button>
                 ${!p.isActive ? `<button onclick="cpManagerSetActive('${gEsc}',${idx})">Set Active</button>` : ''}
-                <button class="danger" onclick="cpManagerDelete('${gEsc}',${idx})">✕</button>
+                <button class="danger" onclick="cpManagerDelete('${gEsc}',${idx})"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
               </div>
             </div>`;
                 }).join('');
@@ -220,7 +220,7 @@
             const endIn = document.createElement('input');
             endIn.type = 'time'; endIn.className = 'cp-sched-end'; endIn.value = slot ? slot.end : '09:00';
             const rm = document.createElement('button');
-            rm.className = 'cp-sched-remove'; rm.textContent = '✕'; rm.title = 'Remove slot';
+            rm.className = 'cp-sched-remove'; rm.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />'; rm.title = 'Remove slot';
             rm.onclick = () => row.remove();
             row.appendChild(daySel); row.appendChild(startIn); row.appendChild(sep); row.appendChild(endIn); row.appendChild(rm);
             container.appendChild(row);
@@ -290,7 +290,7 @@
             titleEl.textContent = plan.name;
 
             // Meta
-            const meta = [plan.roomNumber ? '📍 ' + plan.roomNumber : '', cpScheduleSummary(plan)].filter(Boolean).join('  ·  ');
+            const meta = [plan.roomNumber ? '' + plan.roomNumber : '', cpScheduleSummary(plan)].filter(Boolean).join('  ·  ');
             document.getElementById('cp-editor-meta').textContent = meta;
 
             // Sidebar
@@ -556,7 +556,7 @@
             nameSpan.textContent = (student ? getDisplayName(student) : studentName) + senStar;
 
             const rmBtn = document.createElement('button');
-            rmBtn.className = 'cp-desk-remove'; rmBtn.title = 'Remove'; rmBtn.textContent = '✕';
+            rmBtn.className = 'cp-desk-remove'; rmBtn.title = 'Remove'; rmBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />';
             rmBtn.addEventListener('click', e => {
                 e.stopPropagation();
                 const sid = cell.dataset.seatId;
@@ -614,7 +614,7 @@
             cpSavePlans();
             document.getElementById('cp-editor-modal').style.display = 'none';
             cpRenderManagerList();
-            mdbToast('✅ Plan saved.');
+            mdbToast('Plan saved.');
         }
 
         function cpCloseEditor(askIfDirty) {
@@ -752,7 +752,7 @@
   @media print { body { margin: 0; } }
 </style></head><body>
 <h1>${plan.name}</h1>
-<div class="meta">${[plan.roomNumber ? '📍 ' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ')}</div>
+<div class="meta">${[plan.roomNumber ? '' + plan.roomNumber : '', schedStr].filter(Boolean).join('  ·  ')}</div>
 ${body}
 <footer>${fText}</footer>
 </body></html>`;

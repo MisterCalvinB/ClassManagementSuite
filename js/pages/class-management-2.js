@@ -307,7 +307,7 @@
         // ── Download/Upload Data Functions ──
         async function downloadData() {
             if (!Desktop.isElectron()) {
-                mdbToast('⚠️ Download is only available in the desktop app.');
+                mdbToast('Download is only available in the desktop app.');
                 return;
             }
             const btn = document.querySelector('button[onclick="downloadData()"]');
@@ -324,15 +324,15 @@
                     return;
                 }
                 if (result.ok) {
-                    btn.textContent = '✓ Saved!';
+                    btn.textContent = 'Saved!';
                     setTimeout(() => { btn.textContent = origText; btn.disabled = false; }, 2500);
                 } else {
-                    mdbToast('⚠️ Download failed: ' + (result.error || 'Unknown error'));
+                    mdbToast('Download failed: ' + (result.error || 'Unknown error'));
                     btn.textContent = origText;
                     btn.disabled = false;
                 }
             } catch (err) {
-                mdbToast('⚠️ Download error: ' + (err && err.message ? err.message : err));
+                mdbToast('Download error: ' + (err && err.message ? err.message : err));
                 btn.textContent = origText;
                 btn.disabled = false;
             }
@@ -340,7 +340,7 @@
 
         async function uploadData() {
             if (!Desktop.isElectron()) {
-                mdbToast('⚠️ Upload is only available in the desktop app.');
+                mdbToast('Upload is only available in the desktop app.');
                 return;
             }
             const btn = document.querySelector('button[onclick="uploadData()"]');
@@ -357,7 +357,7 @@
                     return;
                 }
                 if (!result.ok) {
-                    mdbToast('⚠️ Upload failed: ' + (result.error || 'Unknown error'));
+                    mdbToast('Upload failed: ' + (result.error || 'Unknown error'));
                     btn.textContent = origText;
                     btn.disabled = false;
                     return;
@@ -374,7 +374,7 @@
                 btn.textContent = origText;
                 btn.disabled = false;
             } catch (err) {
-                mdbToast('⚠️ Upload error: ' + (err && err.message ? err.message : err));
+                mdbToast('Upload error: ' + (err && err.message ? err.message : err));
                 btn.textContent = origText;
                 btn.disabled = false;
             }
@@ -402,8 +402,8 @@
             modal.innerHTML = `
     <div id="restore-conflict-modal">
       <h3>
-        <span>⚠️ File Conflicts Detected</span>
-        <button onclick="document.getElementById('restore-conflict-overlay').remove()">✕</button>
+        <span>File Conflicts Detected</span>
+        <button onclick="document.getElementById('restore-conflict-overlay').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </h3>
       <div id="restore-conflict-body">
         <p>Some files already exist. Choose what to do for each:</p>
@@ -448,16 +448,16 @@
             try {
                 const result = await Desktop.applyRestoreChoices({ zipPath, choices: choiceMap });
                 if (result && result.ok) {
-                    mdbToast('✓ Data restored successfully! ' + (result.restored || 0) + ' files restored.');
+                    mdbToast('Data restored successfully! ' + (result.restored || 0) + ' files restored.');
                     document.getElementById('restore-conflict-overlay')?.remove();
                     setTimeout(() => { location.reload(); }, 1500);
                 } else {
-                    mdbToast('⚠️ Restore failed: ' + (result?.error || 'Unknown error'));
+                    mdbToast('Restore failed: ' + (result?.error || 'Unknown error'));
                     btn.textContent = origText;
                     btn.disabled = false;
                 }
             } catch (err) {
-                mdbToast('⚠️ Restore error: ' + (err && err.message ? err.message : err));
+                mdbToast('Restore error: ' + (err && err.message ? err.message : err));
                 btn.textContent = origText;
                 btn.disabled = false;
             }
@@ -497,7 +497,7 @@
                     return mdbToast(d['alert_save_error'] + msg.slice('Could not save to database: '.length));
                 if (msg && (msg.startsWith('No saved sessions to export yet.') || msg.startsWith('No active-group sessions to export yet.')))
                     return mdbToast(d['alert_no_sessions_export']);
-                if (msg && msg.startsWith('✓ Import successful!')) {
+                if (msg && msg.startsWith('Import successful!')) {
                     const m = msg.match(/(\d+) session/);
                     return mdbToast(d['alert_import_ok'].replace('{n}', m ? m[1] : '?'));
                 }
@@ -521,7 +521,7 @@
                         const container = document.getElementById('tm-sessions-container');
                         if (container && container.querySelector) {
                             const empty = container.querySelector('.tm-empty');
-                            if (empty) empty.innerHTML = t('tm_no_sessions').replace('\n', '<br>') + '<br>' + '💾 ' + t('db_save');
+                            if (empty) empty.innerHTML = t('tm_no_sessions').replace('\n', '<br>') + '<br>' + '' + t('db_save');
                         }
                     }, 50);
                 };

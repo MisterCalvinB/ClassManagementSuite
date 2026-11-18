@@ -4270,6 +4270,7 @@
       rawText: '',
       bookLabel: '',
       detectedCharacters: [],
+      mergeSelectedIds: new Set(),
       pairExcerpts: {},
       isScanning: false
     };
@@ -4281,27 +4282,28 @@
       const bookSelect = document.getElementById('char-net-book-select');
       const bookStatus = document.getElementById('char-net-book-status');
 
-      if (typeof searchInitShortcutMenu === 'function' && (!searchAvailableBooks || searchAvailableBooks.length === 0)) {
-        try { await searchInitShortcutMenu(); } catch (_) {}
+      if (typeof window.searchInitShortcutMenu === 'function' && (!Array.isArray(window.searchAvailableBooks) || window.searchAvailableBooks.length === 0)) {
+        try { await window.searchInitShortcutMenu(); } catch (_) {}
       }
+
+      const loadedBookText = typeof window.searchBookText === 'string' ? window.searchBookText : '';
+      const availableBooks = Array.isArray(window.searchAvailableBooks) ? window.searchAvailableBooks : [];
 
       if (bookSelect) {
         bookSelect.innerHTML = '<option value="">' + (typeof i18n !== 'undefined' ? i18n.t('charNetChooseBookPrompt') : '-- Choose a novel --') + '</option>';
-        if (typeof searchBookText === 'string' && searchBookText.trim().length > 0) {
+        if (loadedBookText.trim().length > 0) {
           const optLoaded = document.createElement('option');
           optLoaded.value = '__loaded_search_book__';
-          optLoaded.textContent = '★ ' + (typeof i18n !== 'undefined' ? i18n.t('charNetLoadedSearchBook') : 'Currently Loaded Book');
+          optLoaded.textContent = (typeof i18n !== 'undefined' ? i18n.t('charNetLoadedSearchBook') : 'Currently Loaded Book');
           bookSelect.appendChild(optLoaded);
         }
 
-        if (Array.isArray(searchAvailableBooks)) {
-          searchAvailableBooks.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.id || b.path;
-            opt.textContent = b.label || b.fileName;
-            bookSelect.appendChild(opt);
-          });
-        }
+        availableBooks.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.id || b.path;
+          opt.textContent = b.folder ? (b.folder + ' / ' + (b.label || b.fileName)) : (b.label || b.fileName);
+          bookSelect.appendChild(opt);
+        });
       }
 
       if (typeof presetText === 'string' && presetText.trim().length > 0) {
@@ -4309,11 +4311,11 @@
         characterNetworkState.bookLabel = 'Current Book';
         if (bookSelect) bookSelect.value = '__loaded_search_book__';
         if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(presetText.length / 1024) + ' KB)';
-      } else if (typeof searchBookText === 'string' && searchBookText.trim().length > 0) {
-        characterNetworkState.rawText = searchBookText;
+      } else if (loadedBookText.trim().length > 0) {
+        characterNetworkState.rawText = loadedBookText;
         characterNetworkState.bookLabel = 'Current Book';
         if (bookSelect) bookSelect.value = '__loaded_search_book__';
-        if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(searchBookText.length / 1024) + ' KB)';
+        if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(loadedBookText.length / 1024) + ' KB)';
       } else {
         characterNetworkState.rawText = '';
         characterNetworkState.bookLabel = '';
@@ -4344,19 +4346,20 @@
       }
 
       if (bookSelect.value === '__loaded_search_book__') {
-        characterNetworkState.rawText = searchBookText || '';
+        characterNetworkState.rawText = typeof window.searchBookText === 'string' ? window.searchBookText : '';
         characterNetworkState.bookLabel = 'Current Book';
         if (bookStatus) bookStatus.textContent = 'Ready (' + Math.round(characterNetworkState.rawText.length / 1024) + ' KB)';
         return;
       }
 
-      const match = Array.isArray(searchAvailableBooks) ? searchAvailableBooks.find(b => b.id === bookSelect.value || b.path === bookSelect.value) : null;
+      const availableBooks = Array.isArray(window.searchAvailableBooks) ? window.searchAvailableBooks : [];
+      const match = availableBooks.find(b => b.id === bookSelect.value || b.path === bookSelect.value);
       if (!match) return;
 
       try {
         if (bookStatus) bookStatus.textContent = 'Loading text...';
         const target = match.target || (match.path.startsWith('books/') ? 'data' : 'customBooks');
-        const text = await searchReadShortcutBook(match.path, target);
+        const text = await window.searchReadShortcutBook(match.path, target);
         if (!text) throw new Error('File produced no readable text.');
 
         characterNetworkState.rawText = text;
@@ -4402,6 +4405,7 @@
         await new Promise(r => setTimeout(r, 60));
 
         characterNetworkState.detectedCharacters = candidates;
+        characterNetworkState.mergeSelectedIds.clear();
         characterNetworkRenderTable();
 
         if (typeof showToast === 'function') {
@@ -4424,9 +4428,15 @@
 
       const chars = characterNetworkState.detectedCharacters;
       if (!chars || chars.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:#888; padding:16px;">No character entities detected. Try adding a custom character below.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#888; padding:16px;">No character entities detected. Try adding a custom character below.</td></tr>';
+        characterNetworkUpdateMergeButton();
         return;
       }
+
+      const validIds = new Set(chars.map(c => c.id));
+      Array.from(characterNetworkState.mergeSelectedIds).forEach(id => {
+        if (!validIds.has(id)) characterNetworkState.mergeSelectedIds.delete(id);
+      });
 
       tbody.innerHTML = '';
       chars.forEach((c) => {
@@ -4477,10 +4487,100 @@
         tdAlias.appendChild(aliasInput);
         tr.appendChild(tdAlias);
 
+        // Merge Checkbox
+        const tdMerge = document.createElement('td');
+        tdMerge.style.textAlign = 'center';
+        const chkMerge = document.createElement('input');
+        chkMerge.type = 'checkbox';
+        chkMerge.checked = characterNetworkState.mergeSelectedIds.has(c.id);
+        chkMerge.style.cursor = 'pointer';
+        chkMerge.style.accentColor = '#5b8fcc';
+        chkMerge.onchange = function () {
+          if (this.checked) characterNetworkState.mergeSelectedIds.add(c.id);
+          else characterNetworkState.mergeSelectedIds.delete(c.id);
+          characterNetworkUpdateMergeButton();
+        };
+        tdMerge.appendChild(chkMerge);
+        tr.appendChild(tdMerge);
+
         tbody.appendChild(tr);
       });
+      characterNetworkUpdateMergeButton();
     }
     window.characterNetworkRenderTable = characterNetworkRenderTable;
+
+    function characterNetworkUpdateMergeButton() {
+      const btn = document.getElementById('char-net-merge-btn');
+      const labelEl = document.getElementById('char-net-merge-btn-label');
+      if (!btn) return;
+      const count = characterNetworkState.mergeSelectedIds.size;
+      const baseLabel = typeof i18n !== 'undefined' ? i18n.t('charNetMergeBtn') : 'Merge';
+      if (labelEl) {
+        labelEl.textContent = count >= 2 ? (baseLabel + ' (' + count + ')') : baseLabel;
+      }
+      btn.disabled = count < 2;
+      btn.style.opacity = count < 2 ? '0.5' : '1';
+      btn.style.cursor = count < 2 ? 'not-allowed' : 'pointer';
+    }
+
+    function characterNetworkMergeSelected() {
+      const chars = characterNetworkState.detectedCharacters || [];
+      const selected = chars.filter(c => characterNetworkState.mergeSelectedIds.has(c.id));
+      if (selected.length < 2) {
+        const msg = typeof i18n !== 'undefined' ? i18n.t('charNetMergeNeedTwo') : 'Select at least 2 characters in the Merge column to merge them.';
+        if (typeof showToast === 'function') showToast(msg, true);
+        return;
+      }
+
+      // Keep the character with the highest mention count as primary (tie-breaker: first in list)
+      let primary = selected[0];
+      selected.forEach(c => {
+        if ((c.count || 0) > (primary.count || 0)) primary = c;
+      });
+
+      const primaryNameLower = (primary.name || '').trim().toLowerCase();
+      const seenAliases = new Set();
+      if (primaryNameLower) seenAliases.add(primaryNameLower);
+      const mergedAliases = [];
+
+      const addAlias = (val) => {
+        const trimmed = String(val || '').trim();
+        if (!trimmed) return;
+        const lower = trimmed.toLowerCase();
+        if (seenAliases.has(lower)) return;
+        seenAliases.add(lower);
+        mergedAliases.push(trimmed);
+      };
+
+      (primary.aliases || []).forEach(addAlias);
+
+      let totalCount = primary.count || 0;
+      let anyEnabled = primary.enabled !== false;
+      const removeIds = new Set();
+
+      selected.forEach(c => {
+        if (c === primary) return;
+        removeIds.add(c.id);
+        addAlias(c.name);
+        (c.aliases || []).forEach(addAlias);
+        totalCount += (c.count || 0);
+        if (c.enabled !== false) anyEnabled = true;
+      });
+
+      primary.aliases = mergedAliases;
+      primary.count = totalCount;
+      primary.enabled = anyEnabled;
+
+      characterNetworkState.detectedCharacters = chars.filter(c => !removeIds.has(c.id));
+      characterNetworkState.mergeSelectedIds.clear();
+      characterNetworkRenderTable();
+
+      if (typeof showToast === 'function') {
+        const tpl = typeof i18n !== 'undefined' ? i18n.t('charNetMergeSuccess') : 'Merged {count} characters into "{name}".';
+        showToast(tpl.replace('{count}', String(selected.length)).replace('{name}', primary.name || ''), false);
+      }
+    }
+    window.characterNetworkMergeSelected = characterNetworkMergeSelected;
 
     function characterNetworkToggleAll(state) {
       if (!Array.isArray(characterNetworkState.detectedCharacters)) return;

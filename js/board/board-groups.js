@@ -1132,7 +1132,7 @@
           const word = node.baseWord || node.el.textContent.trim();
           const row = document.createElement('div');
           row.className = 'con-group-word-row';
-          row.innerHTML = `<span>${word}</span><button title="Remove from group" onclick="conGroupCtxRemoveWord('${nid}')">✕</button>`;
+          row.innerHTML = `<span>${word}</span><button title="Remove from group" onclick="conGroupCtxRemoveWord('${nid}')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>`;
           list.appendChild(row);
         });
       }

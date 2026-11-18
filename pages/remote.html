@@ -12,7 +12,7 @@
 
 <!-- Auth / connecting overlay -->
 <div id="overlay">
-  <h1>📱 CMS Remote</h1>
+  <h1>CMS Remote</h1>
   <div id="overlay-spinner" class="spinner"></div>
   <p id="overlay-status">Connecting…</p>
   <div id="token-form" style="display:none">
@@ -25,7 +25,7 @@
 </div>
 
 <!-- Reconnect banner (shown while WS is down after auth) -->
-<div id="reconnect-banner">⚠ Connection lost — reconnecting…</div>
+<div id="reconnect-banner">Connection lost - reconnecting...</div>
 
 <!-- Top bar -->
 <div id="top-bar" style="display:none">
@@ -174,7 +174,7 @@
       connDot.className   = 'connected';
       connLabel.textContent = 'Live';
     } else if (msg.type === 'auth_fail') {
-      overlayMsg.textContent = '✗ ' + (msg.reason || 'Invalid token');
+      overlayMsg.textContent = msg.reason || 'Invalid token';
       tokenForm.style.display = 'flex';
       overlaySpin.style.display = 'none';
       overlayStatus.style.display = 'none';
@@ -187,7 +187,7 @@
     } else if (msg.type === 'error') {
       const p = pendingCmds[msg.cmdId];
       if (p) { clearTimeout(p.timer); pendingStudentIds.delete(p.studentId); delete pendingCmds[msg.cmdId]; p.reject && p.reject(new Error(msg.reason)); }
-      showToast('✗ ' + (msg.reason || 'Error'), true);
+      showToast(msg.reason || 'Error', true);
     } else if (msg.type === 'pong') {
       // heartbeat response
     }
@@ -373,7 +373,7 @@
         student.minusHistory.push({ time, timestamp });
       }
       renderStudents();
-      showToast(extra.delta > 0 ? '✓ +1 for ' + student.name : '✓ −1 for ' + student.name);
+      showToast(extra.delta > 0 ? '+1 for ' + student.name : '-1 for ' + student.name);
     } else if (extra.action === 'badge_add') {
       if (!student.badges) student.badges = [];
       const now = new Date();
@@ -385,13 +385,13 @@
         timestamp: now.toISOString()
       });
       renderStudents();
-      showToast('✓ ' + extra.icon + ' ' + extra.label);
+      showToast(extra.label);
     } else if (extra.action === 'badge_remove') {
       if (student.badges) {
         const idx = student.badges.findIndex(b => b.icon === extra.icon);
         if (idx !== -1) { student.badges.splice(idx, 1); renderStudents(); }
       }
-      showToast('✓ Badge removed');
+      showToast('Badge removed');
     }
     pendingStudentIds.add(student.id);
 

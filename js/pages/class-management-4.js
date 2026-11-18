@@ -85,7 +85,7 @@
                 var statusEl = document.getElementById('remote-modal-status');
                 if (statusEl) {
                     statusEl.textContent = count > 0
-                        ? (t('remote_phones_connected') || '📱 {count} phone(s) connected').replace('{count}', count)
+                        ? (t('remote_phones_connected') || '{count} phone(s) connected').replace('{count}', count)
                         : (t('remote_no_phones_connected') || 'No phones connected');
                     statusEl.style.color = count > 0 ? '#16a34a' : '#888';
                 }
@@ -229,7 +229,7 @@
                 if (url && navigator.clipboard) {
                     navigator.clipboard.writeText(url).then(function () {
                         var btn = document.querySelector('[onclick="_remoteCopyUrl()"]');
-                        if (btn) { btn.textContent = '✓'; setTimeout(function () { btn.textContent = '📋'; }, 1500); }
+                        if (btn) { btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />'; setTimeout(function () { btn.innerHTML = '<img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />'; }, 1500); }
                     }).catch(function () { });
                 }
             };

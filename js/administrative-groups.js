@@ -2729,7 +2729,7 @@
         var opt = document.createElement('option');
         opt.value = String(i);
         var isH = (i === rawRes.headerRowIdx);
-        opt.textContent = (isH ? '★ ' : '') + 'Row ' + (i + 1) + (isH ? ' (' + t('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
+        opt.textContent = 'Row ' + (i + 1) + (isH ? ' (' + t('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
         if (isH) opt.selected = true;
         rowSelect.appendChild(opt);
       }

@@ -3869,7 +3869,8 @@
       if (!select) return;
 
       const previousValue = select.value;
-      searchAvailableBooks = [];
+      searchAvailableBooks.length = 0;
+      window.searchAvailableBooks = global.searchAvailableBooks = searchAvailableBooks;
 
       const canList = !!(
         window.Desktop &&
@@ -3986,6 +3987,7 @@
 
     function searchApplyBookText(text, label, sourcePath = '') {
       searchBookText = text;
+      window.searchBookText = global.searchBookText = searchBookText;
       searchParagraphs = searchBuildParagraphs(text);
       searchResetResults();
       searchSyncShortcutSelection(sourcePath);

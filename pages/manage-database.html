@@ -11,6 +11,7 @@
   <script src="../modules/marked/marked.umd.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/i18n.js"></script>
+  <script src="../js/dom-sync.js"></script>
   <script src="../js/dialogs.js"></script>
   <script src="../js/shortcuts-modal.js"></script>
   <script src="../js/menus.js"></script>
@@ -5674,7 +5675,6 @@
       const listEl = $('mdb-comp-picker-list');
       const countEl = $('mdb-comp-picker-count');
       if (!listEl) return;
-      listEl.innerHTML = '';
 
       const filtered = getFilteredMdbCompetences();
 
@@ -5683,6 +5683,7 @@
       }
 
       if (!filtered.length) {
+        listEl.innerHTML = '';
         const empty = document.createElement('div');
         empty.style.cssText = 'padding:20px;text-align:center;color:#64748b;font-size:0.85rem;';
         empty.textContent = _allAvailableCompetences.length === 0
@@ -5692,14 +5693,12 @@
         return;
       }
 
-      filtered.forEach(comp => {
+      function createMdbCompRow(comp) {
         const row = document.createElement('div');
-        const isChecked = _compPickerDraftSelected.has(comp.id);
-        row.style.cssText = `display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:${isChecked ? '#eff6ff' : '#fff'};border:1px solid ${isChecked ? '#93c5fd' : '#e2e8f0'};transition:background 0.1s ease;`;
+        row.style.cssText = 'display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;background:#fff;border:1px solid #e2e8f0;transition:background 0.1s ease;';
 
         const chk = document.createElement('input');
         chk.type = 'checkbox';
-        chk.checked = isChecked;
         chk.style.marginTop = '3px';
         chk.style.cursor = 'pointer';
 
@@ -5750,7 +5749,7 @@
             chk.checked = true;
           }
           if (countEl) {
-            countEl.textContent = tFmt('mdbSelectedCount', { n: _compPickerDraftSelected.size }) + ` (${filtered.length} visible)`;
+            countEl.textContent = tFmt('mdbSelectedCount', { n: _compPickerDraftSelected.size }) + ` (${getFilteredMdbCompetences().length} visible)`;
           }
         };
 
@@ -5758,7 +5757,26 @@
           if (e.target !== chk) toggle();
         };
         chk.onchange = toggle;
+        return row;
+      }
 
+      function updateMdbCompRow(row, comp) {
+        const isChecked = _compPickerDraftSelected.has(comp.id);
+        const chk = row.querySelector('input[type="checkbox"]');
+        if (chk && chk.checked !== isChecked) chk.checked = isChecked;
+        row.style.background = isChecked ? '#eff6ff' : '#fff';
+        row.style.borderColor = isChecked ? '#93c5fd' : '#e2e8f0';
+      }
+
+      if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+        window.DomSync.patchListByKey(listEl, filtered, comp => comp.id, createMdbCompRow, updateMdbCompRow);
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(comp => {
+        const row = createMdbCompRow(comp);
+        updateMdbCompRow(row, comp);
         listEl.appendChild(row);
       });
     }

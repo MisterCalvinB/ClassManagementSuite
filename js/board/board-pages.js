@@ -10997,21 +10997,17 @@
         return true;
       });
 
-      listEl.innerHTML = '';
       if (!filtered.length) {
         listEl.innerHTML = '<div style="text-align:center;color:#888;padding:24px;font-size:0.85rem;">No competences found matching filters.</div>';
       } else {
-        filtered.forEach(c => {
+        const createConCompRow = (c) => {
           const id = String(c.id || c.code || c.title || '');
-          const isSelected = _conCompSelectedIds.has(id);
-
           const row = document.createElement('div');
-          row.className = 'con-comp-picker-item' + (isSelected ? ' selected' : '');
+          row.className = 'con-comp-picker-item';
           row.dataset.compId = id;
 
           const chk = document.createElement('input');
           chk.type = 'checkbox';
-          chk.checked = isSelected;
           chk.style.cursor = 'pointer';
           chk.style.marginTop = '3px';
           chk.onclick = (e) => {
@@ -11085,9 +11081,27 @@
             chk.checked = nextState;
             conToggleCompSelection(c, nextState);
           };
+          return row;
+        };
 
-          listEl.appendChild(row);
-        });
+        const updateConCompRow = (row, c) => {
+          const id = String(c.id || c.code || c.title || '');
+          const isSelected = _conCompSelectedIds.has(id);
+          row.classList.toggle('selected', isSelected);
+          const chk = row.querySelector('input[type="checkbox"]');
+          if (chk && chk.checked !== isSelected) chk.checked = isSelected;
+        };
+
+        if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+          window.DomSync.patchListByKey(listEl, filtered, c => String(c.id || c.code || c.title || ''), createConCompRow, updateConCompRow);
+        } else {
+          listEl.innerHTML = '';
+          filtered.forEach(c => {
+            const row = createConCompRow(c);
+            updateConCompRow(row, c);
+            listEl.appendChild(row);
+          });
+        }
       }
 
       if (countEl) {

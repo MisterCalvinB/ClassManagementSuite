@@ -18,6 +18,7 @@
   <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/file-manager.css">
   <script src="../js/tutorial.js"></script>
+  <script src="../js/dom-sync.js"></script>
 </head>
 <body data-neo-hover-all="1">
 <nav id="app-nav">
@@ -4322,8 +4323,7 @@ function openFmShortcuts() {
       return;
     }
 
-    var frag = document.createDocumentFragment();
-    filtered.forEach(function(item) {
+    function buildDossierCard(item) {
       var d = item.dossier;
       var gs = d ? d.gradesSummary : null;
       var evals = (d && d.evaluations) ? d.evaluations : [];
@@ -4431,7 +4431,22 @@ function openFmShortcuts() {
         }
       });
 
-      frag.appendChild(card);
+      return card;
+    }
+
+    if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+      window.DomSync.patchListByKey(
+        container,
+        filtered,
+        function(item) { return String(item.classId || '') + '::' + String(item.id); },
+        buildDossierCard
+      );
+      return;
+    }
+
+    var frag = document.createDocumentFragment();
+    filtered.forEach(function(item) {
+      frag.appendChild(buildDossierCard(item));
     });
 
     container.replaceChildren(frag);

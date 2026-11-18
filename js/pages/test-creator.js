@@ -11134,7 +11134,7 @@
 
       window.tcEnsurePdfjsLib = async function () {
         if (!window._tcPdfjsLib) {
-          var mod = await import('../modules/pdf.min.mjs');
+          var mod = await import(new URL('../modules/pdf.min.mjs', location.href).href);
           mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
           window._tcPdfjsLib = mod;
         }
@@ -12727,7 +12727,7 @@
             .replace(/\bbody\s*\{/g, '#previewCanvasWrap .a4-sheet {')
             .replace(/\.exam-sheet\s*\{[^}]*\}/g, '.exam-sheet { width: 100%; max-width: 100%; margin: 0; }');
 
-          var match = previewHtml.match(/<div class="exam-sheet">[\s\S]*<\/body>/);
+          var match = previewHtml.match(/<div class="exam-sheet[^"]*">[\s\S]*<\/body>/);
           var content = match ? match[0].replace('</body>', '') : previewHtml;
 
           var tempContainer = document.createElement('div');

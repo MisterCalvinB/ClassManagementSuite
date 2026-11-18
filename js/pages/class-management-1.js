@@ -1277,9 +1277,17 @@
                     const dockVolSlider = document.getElementById('ucm-dock-vol-slider');
                     if (dockMuteBtn) {
                         const isMuted = !!(typeof whiteNoiseMuted !== 'undefined' && whiteNoiseMuted);
-                        dockMuteBtn.innerHTML = isMuted
-                            ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />'
-                            : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />';
+                        const nextSrc = isMuted ? '../assets/icons/mute.svg' : '../assets/icons/volume.svg';
+                        let muteImg = dockMuteBtn.querySelector('img');
+                        if (!muteImg) {
+                            muteImg = document.createElement('img');
+                            muteImg.className = 'btn-icon';
+                            muteImg.alt = '';
+                            dockMuteBtn.textContent = '';
+                            dockMuteBtn.appendChild(muteImg);
+                        }
+                        if (window.DomSync) window.DomSync.setAttr(muteImg, 'src', nextSrc);
+                        else if (muteImg.getAttribute('src') !== nextSrc) muteImg.setAttribute('src', nextSrc);
                         dockMuteBtn.classList.toggle('is-muted', isMuted);
                     }
                     if (dockVolSlider && typeof whiteNoiseVolume === 'number') {
@@ -2598,7 +2606,21 @@
             const _rolesToggleBtn = document.getElementById('roles-toggle-btn');
             if (_rolesToggleBtn) { _rolesToggleBtn.classList.toggle('badges-hidden', !rolesVisible); _rolesToggleBtn.innerHTML = rolesVisible ? 'Roles' : '<s>Roles</s>'; }
             const _scoreMuteBtn = document.getElementById('score-mute-btn');
-            if (_scoreMuteBtn) { _scoreMuteBtn.innerHTML = scoreMuted ? '<img src="../assets/icons/mute.svg" class="btn-icon" alt="" />' : '<img src="../assets/icons/volume.svg" class="btn-icon" alt="" />'; _scoreMuteBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)'; _scoreMuteBtn.style.color = scoreMuted ? '#bbb' : '#111'; }
+            if (_scoreMuteBtn) {
+                const nextScoreSrc = scoreMuted ? '../assets/icons/mute.svg' : '../assets/icons/volume.svg';
+                let scoreImg = _scoreMuteBtn.querySelector('img');
+                if (!scoreImg) {
+                    scoreImg = document.createElement('img');
+                    scoreImg.className = 'btn-icon';
+                    scoreImg.alt = '';
+                    _scoreMuteBtn.textContent = '';
+                    _scoreMuteBtn.appendChild(scoreImg);
+                }
+                if (window.DomSync) window.DomSync.setAttr(scoreImg, 'src', nextScoreSrc);
+                else if (scoreImg.getAttribute('src') !== nextScoreSrc) scoreImg.setAttribute('src', nextScoreSrc);
+                _scoreMuteBtn.title = scoreMuted ? 'Score sounds muted (click to unmute)' : 'Score sounds on (click to mute)';
+                _scoreMuteBtn.style.color = scoreMuted ? '#bbb' : '#111';
+            }
             _applyAppTitle();
             const _planAbbrevIn = document.getElementById('settings-plan-abbrev-len');
             if (_planAbbrevIn) _planAbbrevIn.value = planAbbrevLen;

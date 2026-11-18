@@ -5074,7 +5074,6 @@
       const listEl = document.getElementById('gs-competence-picker-list');
       const countEl = document.getElementById('gs-competence-picker-count');
       if (!listEl) return;
-      listEl.innerHTML = '';
 
       const filtered = getFilteredCompetences();
 
@@ -5083,6 +5082,7 @@
       }
 
       if (filtered.length === 0) {
+        listEl.innerHTML = '';
         const empty = document.createElement('div');
         empty.style.cssText = 'padding:16px;text-align:center;color:var(--muted);font-size:0.85rem;';
         empty.textContent = _allLessonCompetences.length === 0
@@ -5092,14 +5092,12 @@
         return;
       }
 
-      filtered.forEach(comp => {
+      function createCompRow(comp) {
         const row = document.createElement('div');
-        const isChecked = _compPickerSelected.has(comp.id);
-        row.style.cssText = `display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;background:${isChecked ? '#f0f9ff' : 'transparent'};border:1px solid ${isChecked ? '#bae6fd' : '#f1f5f9'};margin-bottom:2px;`;
-        
+        row.style.cssText = 'display:flex;align-items:flex-start;gap:8px;padding:6px 8px;border-radius:5px;cursor:pointer;background:transparent;border:1px solid #f1f5f9;margin-bottom:2px;';
+
         const chk = document.createElement('input');
         chk.type = 'checkbox';
-        chk.checked = isChecked;
         chk.style.marginTop = '3px';
         chk.style.cursor = 'pointer';
 
@@ -5183,6 +5181,26 @@
 
         row.appendChild(chk);
         row.appendChild(info);
+        return row;
+      }
+
+      function updateCompRow(row, comp) {
+        const isChecked = _compPickerSelected.has(comp.id);
+        const chk = row.querySelector('input[type="checkbox"]');
+        if (chk && chk.checked !== isChecked) chk.checked = isChecked;
+        row.style.background = isChecked ? '#f0f9ff' : 'transparent';
+        row.style.borderColor = isChecked ? '#bae6fd' : '#f1f5f9';
+      }
+
+      if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+        window.DomSync.patchListByKey(listEl, filtered, comp => comp.id, createCompRow, updateCompRow);
+        return;
+      }
+
+      listEl.innerHTML = '';
+      filtered.forEach(comp => {
+        const row = createCompRow(comp);
+        updateCompRow(row, comp);
         listEl.appendChild(row);
       });
     }

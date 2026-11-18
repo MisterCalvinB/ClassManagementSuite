@@ -24545,7 +24545,6 @@
     function conImportRender() {
       conImportFilteredItems = conImportGetFiltered();
       const list = document.getElementById('con-import-word-list');
-      list.innerHTML = '';
       if (conImportFilteredItems.length === 0) {
         list.innerHTML = '<em style="color:#999;font-size:0.9rem;">No words match these filters.</em>';
         conImportUpdateCount();
@@ -24555,7 +24554,40 @@
       conImportFilteredItems.sort((a, b) => a.word.localeCompare(b.word));
 
       conImportShownCount = 200;
-      conImportRenderChipRange(list, 0, Math.min(conImportShownCount, conImportFilteredItems.length));
+      const visibleSlice = conImportFilteredItems.slice(0, Math.min(conImportShownCount, conImportFilteredItems.length));
+      if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+        const oldMore = document.getElementById('con-import-show-more-btn');
+        if (oldMore) oldMore.remove();
+        window.DomSync.patchListByKey(
+          list,
+          visibleSlice,
+          item => item.word,
+          item => {
+            const chip = document.createElement('div');
+            chip.className = 'con-import-chip';
+            const _chipTrans = getTranslation(item);
+            chip.innerHTML = item.word + (_chipTrans ? '<span class="chip-translation">(' + _chipTrans + ')</span>' : '');
+            chip.onclick = function () {
+              if (conImportSelected.has(item.word)) {
+                conImportSelected.delete(item.word);
+                chip.classList.remove('selected');
+              } else {
+                conImportSelected.add(item.word);
+                chip.classList.add('selected');
+              }
+              conImportUpdateCount();
+            };
+            return chip;
+          },
+          (chip, item) => {
+            chip.classList.toggle('selected', conImportSelected.has(item.word));
+            chip.classList.toggle('starred', !!item.starred);
+          }
+        );
+      } else {
+        list.innerHTML = '';
+        conImportRenderChipRange(list, 0, visibleSlice.length);
+      }
       conImportAppendShowMore(list);
       conImportUpdateCount();
       conImportUpdateFilterCounts();

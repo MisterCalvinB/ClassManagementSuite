@@ -707,13 +707,57 @@
 
       const entries = getWordsSeenTodayEntries();
       countEl.innerHTML = `<strong>${entries.length}</strong> ${t('wordsSeenTodayTracked')} · ${formatWordsSeenTodayDate()} · ${getClassGroupLabel(activeClassGroup)}`;
-      listEl.innerHTML = '';
-
       if (!entries.length) {
         listEl.innerHTML = `<p class="words-seen-empty">${t('wordsSeenTodayEmpty')}</p>`;
         return;
       }
 
+      if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {
+        window.DomSync.patchListByKey(
+          listEl,
+          entries,
+          entry => normalizeSeenTodayWordKey(entry.word),
+          () => {
+            const card = document.createElement('div');
+            card.className = 'vocab-item-card words-seen-card';
+            const wordSpan = document.createElement('span');
+            wordSpan.className = 'words-seen-word';
+            const ipaSpan = document.createElement('span');
+            ipaSpan.className = 'words-seen-ipa';
+            ipaSpan.style.cssText = "display:block;font-family:'Courier New',monospace;font-size:0.72rem;color:#aaa;font-weight:400;margin-top:2px;";
+            const gamesDiv = document.createElement('div');
+            gamesDiv.className = 'words-seen-games';
+            card.appendChild(wordSpan);
+            card.appendChild(ipaSpan);
+            card.appendChild(gamesDiv);
+            return card;
+          },
+          (card, entry) => {
+            const liveItem = vocabBank.find(item => normalizeSeenTodayWordKey(item.word) === normalizeSeenTodayWordKey(entry.word));
+            const displayItem = liveItem || entry;
+            const wordSpan = card.querySelector('.words-seen-word');
+            const ipaSpan = card.querySelector('.words-seen-ipa');
+            const gamesDiv = card.querySelector('.words-seen-games');
+            window.DomSync.setText(wordSpan, displayItem.word.toLowerCase());
+            if (ipaSpan) {
+              ipaSpan.style.display = displayItem.ipa ? 'block' : 'none';
+              window.DomSync.setText(ipaSpan, displayItem.ipa ? `/ ${displayItem.ipa} /` : '');
+            }
+            if (gamesDiv) {
+              const gamesSig = (entry.games || []).join(',');
+              if (gamesDiv.dataset.gamesSig !== gamesSig) {
+                gamesDiv.dataset.gamesSig = gamesSig;
+                gamesDiv.innerHTML = (entry.games || []).map(gameKey => `<span class="words-seen-game">${getWordsSeenTodayGameLabel(gameKey)}</span>`).join('');
+              }
+            }
+            card.onclick = liveItem ? () => showWordDetail(liveItem.word) : null;
+            card.style.cursor = liveItem ? 'pointer' : 'default';
+          }
+        );
+        return;
+      }
+
+      listEl.innerHTML = '';
       entries.forEach(entry => {
         const liveItem = vocabBank.find(item => normalizeSeenTodayWordKey(item.word) === normalizeSeenTodayWordKey(entry.word));
         const displayItem = liveItem || entry;
