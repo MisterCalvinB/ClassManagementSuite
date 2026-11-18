@@ -453,6 +453,7 @@
     /* Single Page Container */
     .page-container {
       position: relative;
+      flex-shrink: 0;
       background: #ffffff;
       box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2);
       border: 1px solid #777777;
@@ -1138,8 +1139,9 @@
     </button>
 
     <!-- Projector / Second Screen Presentation Mode -->
-    <button type="button" class="nav-btn" id="projectorBtn" data-i18n="pdfProjectorMode" style="display:none;">
-      🖥 Presentation
+    <button type="button" class="nav-btn" id="projectorBtn" style="display:none;">
+      <img src="../assets/icons/presentation.svg" class="btn-icon" alt="" style="width:14px;height:14px;filter:invert(1);vertical-align:-2px;" />
+      <span data-i18n="pdfProjectorMode">Presentation</span>
     </button>
 
     <!-- Help Tour Button -->
@@ -1179,7 +1181,7 @@
       <span data-i18n="pdfToolText">Text</span>
     </button>
     <button type="button" class="tool-btn" id="toolEraser" data-tool="eraser" title="Eraser">
-      <span style="font-size:14px;">🧹</span>
+      <img src="../assets/icons/eraser.svg" alt="">
       <span data-i18n="pdfToolEraser">Eraser</span>
     </button>
 
@@ -1213,7 +1215,7 @@
       <span data-i18n="pdfToolRedo">Redo</span>
     </button>
     <button type="button" class="tool-btn" id="clearPageBtn" title="Clear Page Annotations">
-      <span style="font-size:14px;">🗑️</span>
+      <img src="../assets/icons/trash.svg" alt="">
     </button>
 
     <div class="nav-spacer"></div>
@@ -1673,12 +1675,20 @@
 
       // Window resize & element resize tracking to mirror exact visible dimensions
       window.addEventListener('resize', _mirrorSendViewport, { passive: true });
+      let _vpResizeObserver = null;
       if (window.ResizeObserver) {
-        const ro = new ResizeObserver(() => {
+        _vpResizeObserver = new ResizeObserver(() => {
           _mirrorSendViewport();
         });
-        ro.observe(viewport);
+        _vpResizeObserver.observe(viewport);
       }
+
+      window.addEventListener('beforeunload', () => {
+        if (_pageObserver) { _pageObserver.disconnect(); _pageObserver = null; }
+        if (_thumbObserver) { _thumbObserver.disconnect(); _thumbObserver = null; }
+        if (_vpResizeObserver) { _vpResizeObserver.disconnect(); _vpResizeObserver = null; }
+        try { syncChannel.close(); } catch (_) {}
+      });
 
       // Ctrl + Wheel / Trackpad Pinch Zoom (anchored at pointer)
       viewport.addEventListener('wheel', (e) => {
@@ -1884,6 +1894,11 @@
     }
 
     async function initPdfDocument(arrayBuffer, title, optBase64 = null) {
+      if (state.pdfDoc) {
+        try { await state.pdfDoc.destroy(); } catch (_) {}
+        state.pdfDoc = null;
+      }
+
       // Clone before passing to PDF.js worker (worker detaches ArrayBuffer)
       const workerBuffer = (arrayBuffer && typeof arrayBuffer.slice === 'function')
         ? arrayBuffer.slice(0)
@@ -1894,6 +1909,9 @@
       state.pdfArrayBuffer = arrayBuffer;
       state.pdfDoc = await pdfjsLib.getDocument({
         data: new Uint8Array(workerBuffer),
+        cMapUrl: new URL('../modules/cmaps/', location.href).href,
+        cMapPacked: true,
+        iccUrl: new URL('../modules/iccs/', location.href).href,
         standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
         wasmUrl: new URL('../modules/wasm/', location.href).href
       }).promise;
@@ -1954,10 +1972,16 @@
       }
     }
 
-    // ── Render Viewport Pages (Virtualized / Lazy) ──
+    // ── Render Viewport Pages (Virtualized / Lazy + Priority Queue) ──
     let _programmaticJumpUntil = 0;
     let _visibleSyncRaf = null;
     let _pendingPriorityPage = null;
+    let _renderAllGen = 0;
+    let _thumbBuildGen = 0;
+    const MAX_CONCURRENT_RENDERS = 2;
+    const MAX_LIVE_RENDERED_PAGES = 14;
+    let _activeRenderCount = 0;
+    let _renderQueue = [];
 
     function _scheduleVisiblePagesSync(priorityPageNum = null) {
       if (priorityPageNum) _pendingPriorityPage = priorityPageNum;
@@ -1970,6 +1994,24 @@
       });
     }
 
+    function _pumpRenderQueue() {
+      while (_activeRenderCount < MAX_CONCURRENT_RENDERS && _renderQueue.length > 0) {
+        const next = _renderQueue.shift();
+        if (!next || !next.pw || !next.pw.isConnected) continue;
+        if (Math.abs(next.scale - state.scale) >= 0.0005) continue;
+        const rendered = parseFloat(next.pw.dataset.renderedScale || '0');
+        if (Math.abs(rendered - state.scale) < 0.0005 && !next.pw._renderingPromise) continue;
+
+        _activeRenderCount++;
+        Promise.resolve(_ensurePageRendered(next.pw, next.scale))
+          .catch(() => {})
+          .finally(() => {
+            _activeRenderCount = Math.max(0, _activeRenderCount - 1);
+            _pumpRenderQueue();
+          });
+      }
+    }
+
     function _syncVisiblePages(priorityPageNum = null) {
       if (!state.pdfDoc || !viewport) return;
       const allPages = viewport.querySelectorAll('.page-container');
@@ -1977,37 +2019,74 @@
 
       const viewTop = state.isPresentation ? _msy : viewport.scrollTop;
       const viewHeight = state.isPresentation ? (_mvpH || window.innerHeight) : viewport.clientHeight;
-      const renderBuffer = Math.max(900, viewHeight * 1.25);
-      const unloadBuffer = Math.max(2800, viewHeight * 3.5);
+      const viewCenter = viewTop + viewHeight / 2;
+      const renderBuffer = Math.max(800, viewHeight * 1.1);
+      const unloadBuffer = Math.max(2400, viewHeight * 3.0);
       const rTop = viewTop - renderBuffer;
       const rBottom = viewTop + viewHeight + renderBuffer;
       const uTop = viewTop - unloadBuffer;
       const uBottom = viewTop + viewHeight + unloadBuffer;
 
       const toRender = [];
+      const liveOffscreen = [];
+
       for (const pw of allPages) {
         const pNum = parseInt(pw.dataset.pageNum, 10);
         const pTop = pw.offsetTop;
         const pBottom = pTop + pw.offsetHeight;
+        const dist = priorityPageNum
+          ? Math.abs(pNum - priorityPageNum)
+          : Math.abs((pTop + pBottom) / 2 - viewCenter);
 
         const isPriority = priorityPageNum && Math.abs(pNum - priorityPageNum) <= 1;
         if (isPriority || (pBottom >= rTop && pTop <= rBottom)) {
-          const dist = priorityPageNum
-            ? Math.abs(pNum - priorityPageNum)
-            : Math.abs((pTop + pBottom) / 2 - (viewTop + viewHeight / 2));
-          toRender.push({ pw, dist });
-        } else if (state.numPages > 12 && (pBottom < uTop || pTop > uBottom)) {
           const rendered = parseFloat(pw.dataset.renderedScale || '0');
-          if (rendered > 0 || pw._renderingPromise) {
-            _unloadPageCanvases(pw);
+          if (Math.abs(rendered - state.scale) >= 0.0005 && !pw._renderingPromise) {
+            toRender.push({ pw, dist, scale: state.scale });
+          }
+        } else {
+          // Cancel obsolete in-flight renders outside the active render window immediately
+          if (pw._pdfRenderTask) {
+            pw._renderGen = (pw._renderGen || 0) + 1;
+            try { pw._pdfRenderTask.cancel(); } catch (_) {}
+            pw._pdfRenderTask = null;
+            pw._renderingPromise = null;
+          }
+          const rendered = parseFloat(pw.dataset.renderedScale || '0');
+          if (state.numPages > 12 && (pBottom < uTop || pTop > uBottom)) {
+            if (rendered > 0 || pw._renderingPromise) {
+              _unloadPageCanvases(pw);
+            }
+          } else if (rendered > 0) {
+            liveOffscreen.push({ pw, dist });
+          }
+        }
+      }
+
+      // Enforce GPU/canvas memory cap by unloading farthest offscreen pages first
+      if (state.numPages > MAX_LIVE_RENDERED_PAGES) {
+        let totalLive = liveOffscreen.length;
+        for (const pw of allPages) {
+          const pTop = pw.offsetTop;
+          const pBottom = pTop + pw.offsetHeight;
+          if (pBottom >= rTop && pTop <= rBottom && parseFloat(pw.dataset.renderedScale || '0') > 0) {
+            totalLive++;
+          }
+        }
+        if (totalLive > MAX_LIVE_RENDERED_PAGES) {
+          liveOffscreen.sort((a, b) => b.dist - a.dist);
+          let excess = totalLive - MAX_LIVE_RENDERED_PAGES;
+          for (const item of liveOffscreen) {
+            if (excess <= 0) break;
+            _unloadPageCanvases(item.pw);
+            excess--;
           }
         }
       }
 
       toRender.sort((a, b) => a.dist - b.dist);
-      for (const item of toRender) {
-        _ensurePageRendered(item.pw, state.scale);
-      }
+      _renderQueue = toRender;
+      _pumpRenderQueue();
     }
 
     function _unloadPageCanvases(pageWrap) {
@@ -2035,24 +2114,38 @@
       pageWrap.dataset.renderedScale = '0';
     }
 
-    async function _ensurePageRendered(pageWrap, targetScale = state.scale) {
+    async function _ensurePageRendered(pageWrap, targetScale = state.scale, options = {}) {
       if (!state.pdfDoc || !pageWrap) return;
+      const isZoomGen = options.isZoomGen;
+      if (isZoomGen !== undefined && isZoomGen !== _zoomRenderGen) return;
+
       const renderedScale = parseFloat(pageWrap.dataset.renderedScale || '0');
-      if (Math.abs(renderedScale - targetScale) < 0.0005 && !pageWrap._renderingPromise) {
+      if (!options.force && Math.abs(renderedScale - targetScale) < 0.0005 && !pageWrap._renderingPromise) {
         return;
       }
       if (pageWrap._renderingPromise) {
-        return pageWrap._renderingPromise;
+        if (!options.force && Math.abs((pageWrap._renderingScale || 0) - targetScale) < 0.0005) {
+          return pageWrap._renderingPromise;
+        }
+        // Cancel obsolete in-flight render so the new scale renders immediately
+        pageWrap._renderGen = (pageWrap._renderGen || 0) + 1;
+        if (pageWrap._pdfRenderTask) {
+          try { pageWrap._pdfRenderTask.cancel(); } catch (_) {}
+          pageWrap._pdfRenderTask = null;
+        }
+        pageWrap._renderingPromise = null;
       }
 
       const pNum = parseInt(pageWrap.dataset.pageNum, 10);
       if (!pNum) return;
-      const myGen = (pageWrap._renderGen || 0);
+      const myGen = (pageWrap._renderGen = (pageWrap._renderGen || 0) + 1);
+      pageWrap._renderingScale = targetScale;
 
       const taskPromise = (async () => {
         try {
           const page = await state.pdfDoc.getPage(pNum);
           if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
+          if (isZoomGen !== undefined && isZoomGen !== _zoomRenderGen) return;
 
           const scaledViewport = page.getViewport({ scale: targetScale });
           const dpr = getSafeRenderDpr(scaledViewport.width, scaledViewport.height);
@@ -2062,12 +2155,11 @@
           const pdfCanvas = pageWrap.querySelector('.page-pdf-canvas');
           if (!pdfCanvas) return;
 
-          // Render offscreen first if canvas already has pixels (prevents flash)
-          const hasExisting = pdfCanvas.width > 0 && pdfCanvas.height > 0;
-          const renderTargetCanvas = hasExisting ? document.createElement('canvas') : pdfCanvas;
-          renderTargetCanvas.width = targetPxW;
-          renderTargetCanvas.height = targetPxH;
-          const ctx = renderTargetCanvas.getContext('2d');
+          // Always render offscreen first, then blit to visible canvas (prevents partial/blank DOM canvas states)
+          const offCanvas = document.createElement('canvas');
+          offCanvas.width = targetPxW;
+          offCanvas.height = targetPxH;
+          const ctx = offCanvas.getContext('2d');
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
           const renderTask = page.render({ canvasContext: ctx, viewport: scaledViewport });
@@ -2083,18 +2175,22 @@
           }
 
           if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
+          if (isZoomGen !== undefined && isZoomGen !== _zoomRenderGen) return;
 
-          if (hasExisting) {
-            pdfCanvas.width = targetPxW;
-            pdfCanvas.height = targetPxH;
-            pdfCanvas.getContext('2d').drawImage(renderTargetCanvas, 0, 0);
-          }
+          pdfCanvas.width = targetPxW;
+          pdfCanvas.height = targetPxH;
+          pdfCanvas.getContext('2d').drawImage(offCanvas, 0, 0);
+          offCanvas.width = 0;
+          offCanvas.height = 0;
 
           const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
           if (annotCanvas) {
             annotCanvas.width = targetPxW;
             annotCanvas.height = targetPxH;
-            redrawPageAnnotations(pNum);
+            annotCanvas.dataset.dpr = String(dpr);
+            const overlayEl = pageWrap.querySelector('.text-boxes-overlay');
+            const isEditingText = overlayEl && overlayEl.contains(document.activeElement);
+            redrawPageAnnotations(pNum, { skipTextBoxes: isEditingText });
           }
 
           const textLayerDiv = pageWrap.querySelector('.textLayer');
@@ -2102,6 +2198,7 @@
             try {
               const textContent = await page.getTextContent();
               if (pageWrap._renderGen !== myGen || Math.abs(state.scale - targetScale) >= 0.0005) return;
+              if (isZoomGen !== undefined && isZoomGen !== _zoomRenderGen) return;
               textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
               textLayerDiv.innerHTML = '';
               const textLayer = new pdfjsLib.TextLayer({
@@ -2129,6 +2226,9 @@
     }
 
     async function renderAllPages(targetPageToScroll = null) {
+      const myBuildGen = ++_renderAllGen;
+      _renderQueue = [];
+      _activeRenderCount = 0;
       if (typeof _zoomRerenderTimer !== 'undefined' && _zoomRerenderTimer) {
         clearTimeout(_zoomRerenderTimer);
         _zoomRerenderTimer = null;
@@ -2145,8 +2245,10 @@
       viewport.innerHTML = '';
 
       const pageScale = state.scale;
+      const frag = document.createDocumentFragment();
       for (let pNum = 1; pNum <= state.numPages; pNum++) {
         const page = await state.pdfDoc.getPage(pNum);
+        if (myBuildGen !== _renderAllGen) return;
         const unscaledViewport = page.getViewport({ scale: 1 });
         const scaledViewport = page.getViewport({ scale: pageScale });
 
@@ -2193,13 +2295,16 @@
         textBoxesOverlay.className = 'text-boxes-overlay';
         pageWrap.appendChild(textBoxesOverlay);
 
-        viewport.appendChild(pageWrap);
+        frag.appendChild(pageWrap);
 
         // Setup Inking & Interaction only on presenter window
         if (!state.isPresentation) {
           setupPageInteraction(pageWrap, pNum, annotCanvas, textBoxesOverlay);
         }
       }
+
+      if (myBuildGen !== _renderAllGen) return;
+      viewport.appendChild(frag);
 
       if (!state.isPresentation) {
         setTool(state.activeTool);
@@ -2211,13 +2316,14 @@
         _mirrorScheduleApplyViewport();
       }
 
-      // Lazy-render pages near the viewport; far off-screen unloading is handled with hysteresis in _syncVisiblePages
+      // Lazy-render pages near the viewport via priority queue; far off-screen unloading is handled in _syncVisiblePages
       const allPages = Array.from(viewport.querySelectorAll('.page-container'));
       if ('IntersectionObserver' in window && !state.isPresentation) {
         _pageObserver = new IntersectionObserver((entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              _ensurePageRendered(entry.target, state.scale);
+              _scheduleVisiblePagesSync();
+              break;
             }
           }
         }, {
@@ -2233,9 +2339,12 @@
       const startIdx = Math.max(0, pageToPreserve - 2);
       const endIdx = Math.min(allPages.length - 1, pageToPreserve + 1);
       for (let i = startIdx; i <= endIdx; i++) {
+        if (myBuildGen !== _renderAllGen) return;
         await _ensurePageRendered(allPages[i], state.scale);
       }
+      if (myBuildGen !== _renderAllGen) return;
       _syncVisiblePages(pageToPreserve);
+      requestAnimationFrame(() => _syncVisiblePages(pageToPreserve));
     }
 
     // ── Inking & Interaction Engine ──
@@ -2376,7 +2485,7 @@
     }
 
     function drawStrokeSegment(ctx, canvas, stroke) {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = parseFloat(canvas.dataset.dpr) || window.devicePixelRatio || 1;
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
 
@@ -2414,7 +2523,7 @@
 
     function drawSegmentBetween(ctx, canvas, style, p1, p2) {
       if (!ctx || !canvas) return;
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = parseFloat(canvas.dataset.dpr) || window.devicePixelRatio || 1;
       const w = canvas.width / dpr;
       const h = canvas.height / dpr;
 
@@ -2450,13 +2559,13 @@
       ctx.restore();
     }
 
-    function redrawPageAnnotations(pageNum) {
+    function redrawPageAnnotations(pageNum, options = {}) {
       const pageWrap = viewport.querySelector(`.page-container[data-page-num="${pageNum}"]`);
       if (!pageWrap) return;
 
       const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
       const ctx = annotCanvas.getContext('2d');
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = parseFloat(annotCanvas.dataset.dpr) || window.devicePixelRatio || 1;
       ctx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
 
       const pageData = state.annotations[pageNum];
@@ -2495,7 +2604,9 @@
       ctx.restore();
 
       // 2. Render Text Boxes
-      renderTextBoxes(pageNum, pageWrap.querySelector('.text-boxes-overlay'));
+      if (!options.skipTextBoxes) {
+        renderTextBoxes(pageNum, pageWrap.querySelector('.text-boxes-overlay'));
+      }
     }
 
     // ── Text Annotation Boxes ──
@@ -2846,113 +2957,10 @@
 
       if (priorityPages.length === 0) return;
 
-      const offCanvas = document.createElement('canvas');
-
       for (const pageWrap of priorityPages) {
         if (gen !== _zoomRenderGen) return;
-        const pNum = parseInt(pageWrap.dataset.pageNum, 10);
-        if (!pNum) continue;
-
-        const page = await state.pdfDoc.getPage(pNum);
+        await _ensurePageRendered(pageWrap, targetScale, { force: true, isZoomGen: gen });
         if (gen !== _zoomRenderGen) return;
-
-        const scaledViewport = page.getViewport({ scale: targetScale });
-        const dpr = getSafeRenderDpr(scaledViewport.width, scaledViewport.height);
-        const targetPxW = Math.max(1, Math.floor(scaledViewport.width * dpr));
-        const targetPxH = Math.max(1, Math.floor(scaledViewport.height * dpr));
-
-        offCanvas.width = targetPxW;
-        offCanvas.height = targetPxH;
-        const offCtx = offCanvas.getContext('2d');
-        offCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-        const renderTask = page.render({ canvasContext: offCtx, viewport: scaledViewport });
-        pageWrap._pdfRenderTask = renderTask;
-        try {
-          await renderTask.promise;
-        } catch (err) {
-          if (err && err.name === 'RenderingCancelledException') return;
-          console.warn('Zoom re-render error on page', pNum, err);
-          continue;
-        } finally {
-          if (pageWrap._pdfRenderTask === renderTask) pageWrap._pdfRenderTask = null;
-        }
-
-        if (gen !== _zoomRenderGen) return;
-
-        // Swap rendered bitmap onto visible canvas synchronously (zero white flash)
-        const pdfCanvas = pageWrap.querySelector('.page-pdf-canvas');
-        if (pdfCanvas) {
-          pdfCanvas.width = targetPxW;
-          pdfCanvas.height = targetPxH;
-          const pCtx = pdfCanvas.getContext('2d');
-          pCtx.drawImage(offCanvas, 0, 0);
-        }
-
-        // Update annotation canvas resolution & redraw strokes
-        const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
-        if (annotCanvas) {
-          annotCanvas.width = targetPxW;
-          annotCanvas.height = targetPxH;
-          const overlayEl = pageWrap.querySelector('.text-boxes-overlay');
-          const isEditingText = overlayEl && overlayEl.contains(document.activeElement);
-          if (!isEditingText) {
-            redrawPageAnnotations(pNum);
-          } else {
-            // Redraw strokes without disturbing active text box focus
-            const aCtx = annotCanvas.getContext('2d');
-            aCtx.clearRect(0, 0, annotCanvas.width, annotCanvas.height);
-            const pageData = state.annotations[pNum];
-            if (pageData && pageData.strokes && pageData.strokes.length) {
-              const w = annotCanvas.width / dpr;
-              const h = annotCanvas.height / dpr;
-              aCtx.save();
-              aCtx.scale(dpr, dpr);
-              aCtx.lineCap = 'round';
-              aCtx.lineJoin = 'round';
-              pageData.strokes.forEach(stroke => {
-                if (!stroke.points || stroke.points.length === 0) return;
-                aCtx.lineWidth = stroke.size;
-                aCtx.strokeStyle = stroke.color;
-                if (stroke.tool === 'highlight') {
-                  aCtx.globalCompositeOperation = 'multiply';
-                  aCtx.globalAlpha = stroke.opacity || 0.38;
-                } else {
-                  aCtx.globalCompositeOperation = 'source-over';
-                  aCtx.globalAlpha = 1.0;
-                }
-                aCtx.beginPath();
-                aCtx.moveTo(stroke.points[0].x * w, stroke.points[0].y * h);
-                for (let i = 1; i < stroke.points.length; i++) {
-                  aCtx.lineTo(stroke.points[i].x * w, stroke.points[i].y * h);
-                }
-                aCtx.stroke();
-              });
-              aCtx.restore();
-            }
-          }
-        }
-
-        // Refresh selectable text layer at new scale
-        const textLayerDiv = pageWrap.querySelector('.textLayer');
-        if (!state.isPresentation && textLayerDiv && pdfjsLib.TextLayer) {
-          try {
-            const textContent = await page.getTextContent();
-            if (gen !== _zoomRenderGen) return;
-            textLayerDiv.style.setProperty('--total-scale-factor', String(scaledViewport.scale));
-            textLayerDiv.innerHTML = '';
-            const textLayer = new pdfjsLib.TextLayer({
-              textContentSource: textContent,
-              container: textLayerDiv,
-              viewport: scaledViewport
-            });
-            await textLayer.render();
-          } catch (tErr) {
-            console.warn('TextLayer zoom re-render error on page', pNum, tErr);
-          }
-        }
-
-        pageWrap.dataset.renderedScale = String(targetScale);
 
         // Yield one frame between pages so UI remains 60fps responsive
         await new Promise(resolve => requestAnimationFrame(resolve));
@@ -3088,14 +3096,17 @@
 
     // ── Thumbnails Sidebar (Lazy Rendered) ──
     async function buildThumbnails() {
+      const myThumbGen = ++_thumbBuildGen;
       if (_thumbObserver) {
         _thumbObserver.disconnect();
         _thumbObserver = null;
       }
       thumbSidebar.innerHTML = '';
 
+      const thumbFrag = document.createDocumentFragment();
       for (let pNum = 1; pNum <= state.numPages; pNum++) {
         const page = await state.pdfDoc.getPage(pNum);
+        if (myThumbGen !== _thumbBuildGen) return;
         const vp = page.getViewport({ scale: 0.22 });
 
         const card = document.createElement('div');
@@ -3115,21 +3126,44 @@
         card.appendChild(numEl);
 
         card.addEventListener('click', () => jumpToPage(pNum));
-        thumbSidebar.appendChild(card);
+        thumbFrag.appendChild(card);
       }
+      if (myThumbGen !== _thumbBuildGen) return;
+      thumbSidebar.appendChild(thumbFrag);
 
-      const renderThumb = async (card) => {
+      const thumbQueue = [];
+      let activeThumbRenders = 0;
+      const pumpThumbQueue = () => {
+        if (myThumbGen !== _thumbBuildGen) return;
+        while (activeThumbRenders < 2 && thumbQueue.length > 0) {
+          const card = thumbQueue.shift();
+          if (!card || !card.isConnected || card.dataset.thumbRendered === '1') continue;
+          card.dataset.thumbRendered = '1';
+          activeThumbRenders++;
+          (async () => {
+            try {
+              const pNum = parseInt(card.dataset.pageNum, 10);
+              const canvas = card.querySelector('.thumb-canvas');
+              if (!pNum || !canvas || !state.pdfDoc || myThumbGen !== _thumbBuildGen) return;
+              const page = await state.pdfDoc.getPage(pNum);
+              if (myThumbGen !== _thumbBuildGen) return;
+              const vp = page.getViewport({ scale: 0.22 });
+              await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+            } catch (_) {
+              card.dataset.thumbRendered = '0';
+            } finally {
+              activeThumbRenders = Math.max(0, activeThumbRenders - 1);
+              pumpThumbQueue();
+            }
+          })();
+        }
+      };
+
+      const enqueueThumb = (card) => {
         if (!state.pdfDoc || card.dataset.thumbRendered === '1') return;
-        card.dataset.thumbRendered = '1';
-        const pNum = parseInt(card.dataset.pageNum, 10);
-        const canvas = card.querySelector('.thumb-canvas');
-        if (!pNum || !canvas) return;
-        try {
-          const page = await state.pdfDoc.getPage(pNum);
-          const vp = page.getViewport({ scale: 0.22 });
-          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
-        } catch (_) {
-          card.dataset.thumbRendered = '0';
+        if (!thumbQueue.includes(card)) {
+          thumbQueue.push(card);
+          pumpThumbQueue();
         }
       };
 
@@ -3137,14 +3171,14 @@
         _thumbObserver = new IntersectionObserver((entries) => {
           for (const entry of entries) {
             if (entry.isIntersecting) {
-              renderThumb(entry.target);
+              enqueueThumb(entry.target);
               _thumbObserver.unobserve(entry.target);
             }
           }
         }, { root: thumbSidebar, rootMargin: '250px 0px' });
         thumbSidebar.querySelectorAll('.thumb-card').forEach(c => _thumbObserver.observe(c));
       } else {
-        thumbSidebar.querySelectorAll('.thumb-card').forEach(c => renderThumb(c));
+        thumbSidebar.querySelectorAll('.thumb-card').forEach(c => enqueueThumb(c));
       }
     }
 
@@ -3231,24 +3265,102 @@
 
     // ── Export Flattened PDF ──
     async function exportFlattenedPdf() {
+      if (!state.pdfDoc) return;
       showToast('Rendering annotated PDF export...');
       // Flatten pages to high-res images and call electron print-pdf
       try {
         const pagesHtml = [];
         for (let pNum = 1; pNum <= state.numPages; pNum++) {
           const pageWrap = viewport.querySelector(`.page-container[data-page-num="${pNum}"]`);
-          if (!pageWrap) continue;
+          const baseCanvas = pageWrap ? pageWrap.querySelector('.page-pdf-canvas') : null;
+          const annotCanvas = pageWrap ? pageWrap.querySelector('.page-annot-canvas') : null;
 
-          const baseCanvas = pageWrap.querySelector('.page-pdf-canvas');
-          const annotCanvas = pageWrap.querySelector('.page-annot-canvas');
-
-          // Composite base + annotation
           const composite = document.createElement('canvas');
-          composite.width = baseCanvas.width;
-          composite.height = baseCanvas.height;
-          const cCtx = composite.getContext('2d');
-          cCtx.drawImage(baseCanvas, 0, 0);
-          cCtx.drawImage(annotCanvas, 0, 0);
+          let compW = 0;
+          let compH = 0;
+          let compDpr = 1;
+
+          if (baseCanvas && baseCanvas.width > 0 && baseCanvas.height > 0) {
+            compW = baseCanvas.width;
+            compH = baseCanvas.height;
+            compDpr = (annotCanvas && parseFloat(annotCanvas.dataset.dpr)) || window.devicePixelRatio || 1;
+            composite.width = compW;
+            composite.height = compH;
+            const cCtx = composite.getContext('2d');
+            cCtx.drawImage(baseCanvas, 0, 0);
+            if (annotCanvas && annotCanvas.width > 0 && annotCanvas.height > 0) {
+              cCtx.drawImage(annotCanvas, 0, 0, compW, compH);
+            }
+          } else {
+            // Render unloaded / offscreen page on demand so exported PDF never has blank/0x0 pages
+            const page = await state.pdfDoc.getPage(pNum);
+            const expScale = Math.max(1.5, state.scale || 1.35);
+            const vp = page.getViewport({ scale: expScale });
+            compDpr = getSafeRenderDpr(vp.width, vp.height);
+            compW = Math.max(1, Math.floor(vp.width * compDpr));
+            compH = Math.max(1, Math.floor(vp.height * compDpr));
+            composite.width = compW;
+            composite.height = compH;
+            const cCtx = composite.getContext('2d');
+            cCtx.save();
+            cCtx.setTransform(compDpr, 0, 0, compDpr, 0, 0);
+            await page.render({ canvasContext: cCtx, viewport: vp }).promise;
+            cCtx.restore();
+
+            // Draw strokes on demand
+            const pageData = state.annotations[pNum];
+            if (pageData && Array.isArray(pageData.strokes) && pageData.strokes.length) {
+              const logicalW = compW / compDpr;
+              const logicalH = compH / compDpr;
+              cCtx.save();
+              cCtx.scale(compDpr, compDpr);
+              cCtx.lineCap = 'round';
+              cCtx.lineJoin = 'round';
+              pageData.strokes.forEach(stroke => {
+                if (!stroke.points || stroke.points.length === 0) return;
+                cCtx.lineWidth = stroke.size;
+                cCtx.strokeStyle = stroke.color;
+                if (stroke.tool === 'highlight') {
+                  cCtx.globalCompositeOperation = 'multiply';
+                  cCtx.globalAlpha = stroke.opacity || 0.38;
+                } else {
+                  cCtx.globalCompositeOperation = 'source-over';
+                  cCtx.globalAlpha = 1.0;
+                }
+                cCtx.beginPath();
+                cCtx.moveTo(stroke.points[0].x * logicalW, stroke.points[0].y * logicalH);
+                for (let i = 1; i < stroke.points.length; i++) {
+                  cCtx.lineTo(stroke.points[i].x * logicalW, stroke.points[i].y * logicalH);
+                }
+                cCtx.stroke();
+              });
+              cCtx.restore();
+            }
+          }
+
+          // Composite text-box annotations onto the flattened image
+          const pageData = state.annotations[pNum];
+          if (pageData && Array.isArray(pageData.texts) && pageData.texts.length) {
+            const cCtx = composite.getContext('2d');
+            const logicalW = compW / compDpr;
+            const logicalH = compH / compDpr;
+            cCtx.save();
+            cCtx.scale(compDpr, compDpr);
+            pageData.texts.forEach(txt => {
+              if (!txt || !txt.content) return;
+              const fontSize = txt.fontSize || 14;
+              cCtx.font = `600 ${fontSize}px Lexend, sans-serif`;
+              cCtx.fillStyle = txt.color || '#333333';
+              cCtx.textBaseline = 'top';
+              const lines = String(txt.content).split('\n');
+              const baseX = (txt.x || 0) * logicalW;
+              const baseY = (txt.y || 0) * logicalH;
+              lines.forEach((line, idx) => {
+                cCtx.fillText(line, baseX, baseY + idx * (fontSize * 1.25));
+              });
+            });
+            cCtx.restore();
+          }
 
           const imgData = composite.toDataURL('image/jpeg', 0.92);
           pagesHtml.push(`<div style="page-break-after:always;text-align:center;"><img src="${imgData}" style="width:100%;height:auto;display:block;" /></div>`);
@@ -3436,10 +3548,9 @@
             }
             // Picked local file (fallback when path is not available)
             if (res.content) {
-              const binary = res.content;
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              initPdfDocument(bytes.buffer, res.name, res.content);
+              const bytes = _toUint8Array(res.content);
+              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), res.name);
+              await loadSidecarAnnotations();
             }
           }
         } catch (err) {
@@ -3509,7 +3620,7 @@
         await Desktop.openPdfPresentation({
           openTarget: state.pdfTarget,
           openRelPath: state.pdfRelPath,
-          openAbsPath: state.pdfAbsPath,
+          openAbsPath: state.pdfPath,
           currentPage: state.currentPage
         });
         projectorBtn.classList.add('projector-active');
@@ -3520,7 +3631,7 @@
       const res = await Desktop.openPdfPresentation({
         openTarget: state.pdfTarget,
         openRelPath: state.pdfRelPath,
-        openAbsPath: state.pdfAbsPath,
+        openAbsPath: state.pdfPath,
         currentPage: state.currentPage
       });
 

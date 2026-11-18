@@ -11447,6 +11447,13 @@
             existing.locked = !!n.locked;
             existing.pageNum = n.pageNum != null ? n.pageNum : null;
             existing.phraseOrder = n.phraseOrder != null ? n.phraseOrder : null;
+            if (existing.phraseOrder == null && existing.el) {
+              if (typeof window.conClearNodePhraseClasses === 'function') {
+                window.conClearNodePhraseClasses(existing);
+              } else {
+                existing.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
+              }
+            }
             existing.emoji = n.emoji || null;
             existing.isTimer = !!n.isTimer;
             existing.durationSec = n.durationSec || null;
@@ -11851,6 +11858,8 @@
           const mediaIds = g.mediaIds || [];
           const existing = existingGroupsMap.get(gid);
           if (existing && existing.el) {
+            const wasPhraseGroup = !!existing.phraseGroup;
+            const prevNodeIds = Array.isArray(existing.nodeIds) ? existing.nodeIds.slice() : [];
             existing.nodeIds = [...validIds];
             existing.noteIds = [...noteIds];
             existing.drawingIds = [...drawingIds];
@@ -11862,6 +11871,25 @@
             existing.blink = !!g.blink;
             existing.drawingGroup = !!g.drawingGroup;
             existing.phraseGroup = !!g.phraseGroup;
+            existing.el.classList.toggle('con-group-drawing', existing.drawingGroup);
+            existing.el.classList.toggle('con-phrase-group', existing.phraseGroup);
+            if (wasPhraseGroup) {
+              const validSet = new Set(validIds.map(String));
+              const liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+              prevNodeIds.forEach(nid => {
+                if (!existing.phraseGroup || !validSet.has(String(nid))) {
+                  const node = liveNodes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+                  if (node) {
+                    if (typeof window.conClearNodePhraseClasses === 'function') {
+                      window.conClearNodePhraseClasses(node);
+                    } else {
+                      if (node.el) node.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
+                      node.phraseOrder = null;
+                    }
+                  }
+                }
+              });
+            }
             existing._manualW = (g.manualW != null ? g.manualW : null);
             existing._manualH = (g.manualH != null ? g.manualH : null);
             existing._px = (g.x != null ? g.x : null);
@@ -11895,6 +11923,9 @@
                 }
               }
             }
+            if (existing.phraseGroup && typeof window.conPhraseGroupLayout === 'function') {
+              window.conPhraseGroupLayout(existing);
+            }
           } else {
             if (validIds.length >= 1 || noteIds.length >= 1 || drawingIds.length >= 1 || shapeIds.length >= 1 || mediaIds.length >= 1 || (g.manualW != null && g.manualH != null)) {
               _conRestoreGroup({ ...g, noteIds, drawingIds, shapeIds, mediaIds }, validIds);
@@ -11904,6 +11935,20 @@
         for (let i = existingGroups.length - 1; i >= 0; i--) {
           const g = existingGroups[i];
           if (!keepGroupIds.has(String(g.id))) {
+            if (g.phraseGroup && Array.isArray(g.nodeIds)) {
+              const liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+              g.nodeIds.forEach(nid => {
+                const node = liveNodes.find(n => n && (n.id === nid || String(n.id) === String(nid)));
+                if (node) {
+                  if (typeof window.conClearNodePhraseClasses === 'function') {
+                    window.conClearNodePhraseClasses(node);
+                  } else {
+                    if (node.el) node.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
+                    node.phraseOrder = null;
+                  }
+                }
+              });
+            }
             if (g.el && g.el.remove) g.el.remove();
             existingGroups.splice(i, 1);
           }

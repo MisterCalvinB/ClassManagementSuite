@@ -853,6 +853,15 @@
         return conGroups.find(g => g.nodeIds.includes(nodeId)) || null;
       }
 
+      // Remove phrase-group layout classes and order metadata from a node
+      function conClearNodePhraseClasses(node) {
+        if (!node) return;
+        if (node.el) {
+          node.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
+        }
+        node.phraseOrder = null;
+      }
+
       // Remove a node from its group; dissolve group if fewer than 2 members remain
       function conGroupRemoveNode(nodeId) {
         const g = conGroupOfNode(nodeId);
@@ -861,17 +870,19 @@
         // Clean up phrase classes on the removed node
         if (g.phraseGroup) {
           const removedNode = conNodes.find(n => n.id === nodeId);
-          if (removedNode) {
-            removedNode.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
-            removedNode.phraseOrder = null;
-          }
+          conClearNodePhraseClasses(removedNode);
         }
         if (g.nodeIds.length < 2) {
           conGroupDissolve(g.id);
-        } else if (g.phraseGroup) {
-          conPhraseGroupLayout(g);
         } else {
-          conGroupRefit(g);
+          if (g.phraseGroup) {
+            conPhraseGroupLayout(g);
+          } else {
+            conGroupRefit(g);
+          }
+          if (!window._conSuppressMirrorObserver && typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true });
+          }
         }
       }
 
@@ -883,10 +894,7 @@
         if (dissolved.phraseGroup) {
           dissolved.nodeIds.forEach(nid => {
             const node = conNodes.find(n => n.id === nid);
-            if (node) {
-              node.el.classList.remove('con-phrase-node', 'con-phrase-first', 'con-phrase-middle', 'con-phrase-last', 'con-phrase-only');
-              node.phraseOrder = null;
-            }
+            conClearNodePhraseClasses(node);
           });
         }
         dissolved.el.remove();
@@ -905,6 +913,9 @@
           if (typeof global !== 'undefined') global.conEdges = edgesArr;
           conEdges = edgesArr;
           if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+        }
+        if (!window._conSuppressMirrorObserver && typeof window._conMirrorBroadcast === 'function') {
+          window._conMirrorBroadcast({ bumpRevision: true });
         }
       }
 
@@ -1718,6 +1729,7 @@
   window.conGroupAttach = global.conGroupAttach = conGroupAttachEvents;
   window.conGroupApplyStyle = conGroupApplyStyle;
   window.conPhraseGroupLayout = conPhraseGroupLayout;
+  window.conClearNodePhraseClasses = conClearNodePhraseClasses;
   window.conCreatePhraseGroup = conCreatePhraseGroup;
   window.conGroupOfNode = conGroupOfNode;
   window.conGroupRemoveNode = conGroupRemoveNode;

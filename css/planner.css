@@ -2504,17 +2504,28 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
-  background: #fff;
-  border: 2px solid #111;
+  background: #ffffff;
+  border: 2px solid #333333;
   border-radius: 6px;
   padding: 10px 14px;
   z-index: 300;
-  min-width: 170px;
+  min-width: 225px;
+  max-height: 75vh;
+  overflow-y: auto;
   flex-direction: column;
-  gap: 9px;
-  box-shadow: 3px 3px 0 #111;
+  gap: 7px;
+  box-shadow: 3px 3px 0 #555555;
   user-select: none;
   -webkit-user-select: none;
+}
+
+.disp-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #666666;
+  margin-top: 2px;
 }
 
 .disp-wrap.open .disp-popover {
@@ -3234,3 +3245,454 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ── Calendar Period Navigation Bar ── */
+#cal-nav-bar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto 14px auto;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 #555555;
+}
+
+#cal-nav-bar.visible {
+  display: flex;
+}
+
+.cal-nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cal-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 12px;
+  background: #f5f5f0;
+  color: #222222;
+  border: 2px solid #333333;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 #555555;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.cal-nav-btn:hover {
+  background: #e2c96e;
+  transform: translate(-1px, -1px);
+}
+
+.cal-nav-btn:active {
+  transform: translate(1px, 1px);
+}
+
+.cal-nav-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #222222;
+  letter-spacing: -0.01em;
+}
+
+.cal-nav-sub {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #666666;
+  background: #f5f5f0;
+  border: 1.5px solid #333333;
+  border-radius: 6px;
+  padding: 3px 9px;
+}
+
+/* ── All-Day / To-do / Holiday Strip (Day, Week, List) ── */
+.allday-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 #555555;
+}
+
+.allday-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555555;
+  margin-right: 4px;
+}
+
+.allday-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1.5px solid #333333;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #f5f5f0;
+  color: #222222;
+}
+
+.allday-pill.is-holiday {
+  background: #f4ecec;
+  border-color: #c96b6b;
+  color: #7c2d12;
+}
+
+.todo-cal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1.5px solid #333333;
+  background: #eef4fb;
+  color: #1e3a5f;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-cal-chip.is-done {
+  opacity: 0.6;
+  text-decoration: line-through;
+  background: #f0f0eb;
+}
+
+.todo-cal-chip:hover {
+  background: #dbeafe;
+}
+
+.date-todos-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 8px 0;
+}
+
+/* ── Day View ── */
+.day-view-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.day-view-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 #555555;
+  overflow: hidden;
+}
+
+/* ── Week View All-Day Row ── */
+.week-allday-row th,
+.week-allday-row td {
+  background: #fafaf7;
+  border-bottom: 2px solid #333333;
+  padding: 5px 6px;
+  vertical-align: top;
+}
+
+.week-allday-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* ── Month View ── */
+.month-grid-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  box-shadow: 4px 4px 0 #555555;
+  overflow: hidden;
+}
+
+.month-dow-row,
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.month-dow-row.no-weekends,
+.month-grid.no-weekends {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.month-dow-cell {
+  padding: 8px 10px;
+  background: #f5f5f0;
+  border-bottom: 2px solid #333333;
+  border-right: 1px solid #d4d4ce;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #333333;
+  text-align: center;
+}
+
+.month-dow-cell:last-child {
+  border-right: none;
+}
+
+.month-cell {
+  min-height: 118px;
+  padding: 6px;
+  border-right: 1px solid #d4d4ce;
+  border-bottom: 1px solid #d4d4ce;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  contain: content;
+  transition: background-color 0.15s ease;
+}
+
+.month-cell:hover {
+  background: #fafaf5;
+}
+
+.month-cell.outside {
+  background: #f5f5f0;
+  color: #888888;
+}
+
+.month-cell.is-today {
+  background: #fdf9e7;
+}
+
+.month-cell.is-holiday {
+  background: #fdf2f2;
+}
+
+.month-cell-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.month-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #222222;
+  border: 1.5px solid transparent;
+}
+
+.month-day-num:hover {
+  border-color: #333333;
+  background: #e2c96e;
+}
+
+.month-cell.is-today .month-day-num {
+  background: #e2c96e;
+  border-color: #333333;
+}
+
+.month-cell-items {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.month-entry-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  border: 1.5px solid #333333;
+  border-left: 4px solid var(--col, #5b8fcc);
+  background: #ffffff;
+  font-size: 0.7rem;
+  line-height: 1.25;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.month-entry-chip.is-empty {
+  border-style: dashed;
+  background: #fafaf7;
+  opacity: 0.8;
+}
+
+.month-entry-chip.is-subscribed {
+  background: #f4f1fb;
+}
+
+.month-chip-time {
+  font-weight: 700;
+  color: #555555;
+  flex-shrink: 0;
+}
+
+.month-chip-cls {
+  font-weight: 700;
+  color: #222222;
+  flex-shrink: 0;
+}
+
+.month-chip-topic {
+  color: #333333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month-more-btn {
+  align-self: flex-start;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #f5f5f0;
+  border: 1.5px solid #333333;
+  border-radius: 4px;
+  color: #222222;
+  cursor: pointer;
+}
+
+.month-more-btn:hover {
+  background: #e2c96e;
+}
+
+/* ── Year View ── */
+.year-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.year-month-card {
+  background: #ffffff;
+  border: 2px solid #333333;
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 3px 3px 0 #555555;
+  contain: content;
+}
+
+.year-month-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: #222222;
+  padding: 4px 6px 8px 6px;
+  margin-bottom: 6px;
+  border-bottom: 2px solid #333333;
+  cursor: pointer;
+}
+
+.year-month-title:hover {
+  color: #5b8fcc;
+}
+
+.year-mini-dow,
+.year-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.year-mini-dow-cell {
+  text-align: center;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: #777777;
+  padding-bottom: 3px;
+}
+
+.year-day-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1.5px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #222222;
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.year-day-cell:hover {
+  background: #f5f5f0;
+  border-color: #333333;
+  transform: translate(-1px, -1px);
+}
+
+.year-day-cell.outside {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.year-day-cell.is-today {
+  background: #e2c96e;
+  border-color: #333333;
+  font-weight: 800;
+}
+
+.year-day-cell.is-holiday {
+  background: #f4ecec;
+}
+
+.year-day-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  margin-top: 2px;
+  min-height: 5px;
+}
+
+.year-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.year-dot-entry { background: #5b8fcc; }
+.year-dot-test { background: #c96b6b; }
+.year-dot-todo { background: #8b7cc2; }
+.year-dot-empty { background: #6abf8e; }

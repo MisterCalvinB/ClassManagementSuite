@@ -127,21 +127,44 @@
         <button type="button" class="tb-seg-opt" data-state="all" onclick="setShowOutsideTerm(true)" data-i18n="pl_showOutside" aria-pressed="false">All terms</button>
       </div>
       <div class="tb-seg" id="viewBtn" role="group" aria-label="View mode">
-        <button type="button" class="tb-seg-opt active" data-state="list" onclick="setTableView(false)" data-i18n="pl_viewList" aria-pressed="true">List</button>
-        <button type="button" class="tb-seg-opt" data-state="table" onclick="setTableView(true)" data-i18n="pl_viewTable" aria-pressed="false">Table</button>
+        <button type="button" class="tb-seg-opt active" data-state="list" onclick="setViewMode('list')" data-i18n="pl_viewList" aria-pressed="true">List</button>
+        <button type="button" class="tb-seg-opt" data-state="day" onclick="setViewMode('day')" data-i18n="pl_viewDay" aria-pressed="false">Day</button>
+        <button type="button" class="tb-seg-opt" data-state="week" onclick="setViewMode('week')" data-i18n="pl_viewWeek" aria-pressed="false">Week</button>
+        <button type="button" class="tb-seg-opt" data-state="month" onclick="setViewMode('month')" data-i18n="pl_viewMonth" aria-pressed="false">Month</button>
+        <button type="button" class="tb-seg-opt" data-state="year" onclick="setViewMode('year')" data-i18n="pl_viewYear" aria-pressed="false">Year</button>
       </div>
+      <button type="button" class="tb-btn" id="toolbarTodayBtn" onclick="goToToday()" data-i18n="pl_navToday">Today</button>
       <div class="disp-wrap" id="dispWrap">
         <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
         <div class="disp-popover" id="dispPopover">
+          <div class="disp-section-title" data-i18n="pl_dispElements">Entry Elements</div>
+          <label class="cb-label"><input type="checkbox" id="vo-time" checked
+              onchange="setViewOpt('time',this.checked)"> <span data-i18n="pl_viewTime">Time range</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-classPill" checked
+              onchange="setViewOpt('classPill',this.checked)"> <span data-i18n="pl_viewClassPill">Class pill</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-badges" checked
               onchange="setViewOpt('badges',this.checked)"> <span data-i18n="pl_viewBadges">Type badges</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-topic" checked
               onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-linkedBadges" checked
+              onchange="setViewOpt('linkedBadges',this.checked)"> <span data-i18n="pl_viewLinkedBadges">Linked badges</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)">
             <span data-i18n="pl_viewDetails">Detail fields</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)">
             <span data-i18n="pl_viewCustom">Custom fields</span></label>
-          <hr style="border:none;border-top:1px solid #e0e0e0;margin:6px 0">
+          <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">
+          <div class="disp-section-title" data-i18n="pl_dispLayers">Calendar Layers</div>
+          <label class="cb-label"><input type="checkbox" id="vo-emptySlots" checked
+              onchange="setViewOpt('emptySlots',this.checked)"> <span data-i18n="pl_viewEmptySlots">Empty scheduled slots</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-holidays" checked
+              onchange="setViewOpt('holidays',this.checked)"> <span data-i18n="pl_viewHolidays">Global holidays</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-subscribed" checked
+              onchange="setViewOpt('subscribed',this.checked)"> <span data-i18n="pl_viewSubscribed">Calendar feed events</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-todos" checked
+              onchange="setViewOpt('todos',this.checked)"> <span data-i18n="pl_viewTodos">Due to-dos</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-weekends" checked
+              onchange="setViewOpt('weekends',this.checked)"> <span data-i18n="pl_viewWeekends">Show weekends</span></label>
+          <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">
           <label class="cb-label"><input type="checkbox" id="vo-sub-future" checked
               onchange="setSubFutureOnly(this.checked)"> <span data-i18n="pl_subFutureOnly">Show only upcoming / future events</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked
@@ -195,6 +218,15 @@
     </div>
 
     <div id="main">
+      <div id="cal-nav-bar">
+        <div class="cal-nav-controls">
+          <button type="button" class="cal-nav-btn" onclick="navigateView(-1)" data-i18n-title="pl_navPrev" title="Previous">&lt;</button>
+          <button type="button" class="cal-nav-btn" onclick="goToToday()" data-i18n="pl_navToday">Today</button>
+          <button type="button" class="cal-nav-btn" onclick="navigateView(1)" data-i18n-title="pl_navNext" title="Next">&gt;</button>
+        </div>
+        <span id="cal-nav-title" class="cal-nav-title"></span>
+        <span id="cal-nav-sub" class="cal-nav-sub" style="display:none"></span>
+      </div>
       <div id="agenda"></div>
     </div>
 
@@ -1235,6 +1267,8 @@
     var filterTypes = new Set();
     var showPast = false;
     var showOutsideTerm = false;
+    var viewMode = 'list';
+    var viewAnchorDate = new Date().toISOString().slice(0, 10);
     var tableView = false;
     var editingId = null;
     var editingSemId = null;
@@ -1242,7 +1276,20 @@
     var _recurScopeAction = null;   // 'edit' | 'delete'
     var _recurScopeEntryId = null;
     var activeClsSetup = '';
-    var viewOpts = { badges: true, topic: true, details: false, custom: false };
+    var viewOpts = {
+      time: true,
+      classPill: true,
+      badges: true,
+      topic: true,
+      linkedBadges: true,
+      details: false,
+      custom: false,
+      emptySlots: true,
+      holidays: true,
+      subscribed: true,
+      todos: true,
+      weekends: true
+    };
 
     // ── Multi-Select Logic ──────────────────────────────────────────────────────
     var multiSelectMode = false;
@@ -1641,6 +1688,10 @@
           viewOpts = Object.assign(viewOpts, stored);
           if (stored.showPast !== undefined) showPast = !!stored.showPast;
           if (stored.showOutsideTerm !== undefined) showOutsideTerm = !!stored.showOutsideTerm;
+          if (stored.viewMode && ['list', 'day', 'week', 'month', 'year'].indexOf(stored.viewMode) !== -1) {
+            viewMode = stored.viewMode;
+            tableView = (viewMode === 'week');
+          }
           if (stored.filterTypes !== undefined && Array.isArray(stored.filterTypes)) {
             filterTypes = new Set(stored.filterTypes);
           } else if (stored.filterType !== undefined && stored.filterType) {
@@ -1650,16 +1701,30 @@
           }
         }
       } catch (e) { }
-      document.getElementById('vo-badges').checked = viewOpts.badges;
-      document.getElementById('vo-topic').checked = viewOpts.topic;
-      document.getElementById('vo-details').checked = viewOpts.details;
-      document.getElementById('vo-custom').checked = viewOpts.custom;
+      var voMap = {
+        'vo-time': 'time',
+        'vo-classPill': 'classPill',
+        'vo-badges': 'badges',
+        'vo-topic': 'topic',
+        'vo-linkedBadges': 'linkedBadges',
+        'vo-details': 'details',
+        'vo-custom': 'custom',
+        'vo-emptySlots': 'emptySlots',
+        'vo-holidays': 'holidays',
+        'vo-subscribed': 'subscribed',
+        'vo-todos': 'todos',
+        'vo-weekends': 'weekends'
+      };
+      Object.keys(voMap).forEach(function (elId) {
+        var el = document.getElementById(elId);
+        if (el) el.checked = !!viewOpts[voMap[elId]];
+      });
       var si = document.getElementById('entry-search-input');
       if (si) si.value = searchQuery;
       rebuildTypeFilterChips();
       syncToggleSeg('pastBtn', showPast ? 'show' : 'hide');
       syncToggleSeg('outsideBtn', showOutsideTerm ? 'all' : 'active');
-      syncToggleSeg('viewBtn', tableView ? 'table' : 'list');
+      syncToggleSeg('viewBtn', viewMode);
     }
     function saveViewFlags() {
       try {
@@ -1667,6 +1732,7 @@
         var stored = raw ? JSON.parse(raw) : {};
         stored.showPast = showPast;
         stored.showOutsideTerm = showOutsideTerm;
+        stored.viewMode = viewMode;
         stored.filterUnassigned = filterUnassigned;
         stored.searchQuery = searchQuery;
         stored.filterTypes = Array.from(filterTypes);
@@ -1675,8 +1741,13 @@
       } catch (e) { }
     }
     function setViewOpt(key, val) {
-      viewOpts[key] = val;
-      try { localStorage.setItem('cmt-planner-viewopts', JSON.stringify(viewOpts)); } catch (e) { }
+      viewOpts[key] = !!val;
+      try {
+        var raw = localStorage.getItem('cmt-planner-viewopts');
+        var stored = raw ? JSON.parse(raw) : {};
+        stored[key] = !!val;
+        localStorage.setItem('cmt-planner-viewopts', JSON.stringify(stored));
+      } catch (e) { }
       render();
     }
     function setAutoEnd5Min(val) {
@@ -1698,6 +1769,8 @@
       Tutorial.start([
         { selector: 'button[data-i18n="pl_btnAddSem"]', title: t('tutPl1Title'), text: t('tutPl1Text') },
         { selector: 'button[data-i18n="pl_btnClasses"]', title: t('tutPl2Title'), text: t('tutPl2Text') },
+        { selector: '#viewBtn', title: t('tutPlViewTitle'), text: t('tutPlViewText') },
+        { selector: '#dispWrap', title: t('tutPlDispTitle'), text: t('tutPlDispText') },
         { selector: '#class-filter-chips', title: t('tutPl3Title'), text: t('tutPl3Text') },
         { selector: 'button[data-i18n="pl_btnAddEntry"]', title: t('tutPl4Title'), text: t('tutPl4Text') },
         { selector: '#main', title: t('tutPl5Title'), text: t('tutPl5Text') },
@@ -3423,16 +3496,53 @@
       if (!listEl) return;
       listEl.innerHTML = '';
 
-      var headers = document.querySelectorAll('.week-header, .at-week-title');
-      if (!headers.length) {
-        var emptySpan = document.createElement('span');
-        emptySpan.className = 'wn-empty';
-        emptySpan.textContent = t('pl_noWeeks') || 'No weeks available';
-        listEl.appendChild(emptySpan);
+      var activeSem = getActiveSem();
+
+      if (viewMode !== 'list') {
+        if (!activeSem || !activeSem.semesterStart || !activeSem.semesterEnd) {
+          var emptySpan = document.createElement('span');
+          emptySpan.className = 'wn-empty';
+          emptySpan.textContent = t('pl_noWeeks') || 'No weeks available';
+          listEl.appendChild(emptySpan);
+          return;
+        }
+        var totalW = getTotalWeeks(activeSem);
+        var semStartD = new Date(activeSem.semesterStart + 'T12:00:00');
+        var semStartMon = new Date(semStartD.getTime() - ((semStartD.getDay() + 6) % 7) * 86400000);
+        var curWeek = getWeekNumber(viewAnchorDate, activeSem.semesterStart);
+        for (var wn = 1; wn <= Math.max(1, totalW); wn++) {
+          var wkMon = new Date(semStartMon.getTime() + (wn - 1) * 7 * 86400000);
+          var wkDateStr = wkMon.toISOString().slice(0, 10);
+          var isPast = isPlannerWeekPast(wn, activeSem, wkDateStr);
+          var item = document.createElement('a');
+          item.className = 'wn-item' + (isPast ? ' wn-past' : '') + (curWeek === wn ? ' active' : '');
+          var wLbl = totalW > 0 ? tFmt('pl_weekLabel', { n: wn, total: totalW }) : ('Week ' + wn);
+          item.textContent = wLbl;
+          item.title = wLbl;
+          item.onclick = (function (ds) {
+            return function (e) {
+              e.preventDefault();
+              viewAnchorDate = ds;
+              if (viewMode === 'month' || viewMode === 'year') {
+                setViewMode('week');
+              } else {
+                renderAgenda();
+              }
+            };
+          })(wkDateStr);
+          listEl.appendChild(item);
+        }
         return;
       }
 
-      var activeSem = getActiveSem();
+      var headers = document.querySelectorAll('.week-header, .at-week-title');
+      if (!headers.length) {
+        var emptySpan2 = document.createElement('span');
+        emptySpan2.className = 'wn-empty';
+        emptySpan2.textContent = t('pl_noWeeks') || 'No weeks available';
+        listEl.appendChild(emptySpan2);
+        return;
+      }
 
       headers.forEach(function (hdr, idx) {
         var weekId = hdr.id;
@@ -3476,13 +3586,61 @@
       });
     }
 
+    function updateCalNavBar(activeSem) {
+      var bar = document.getElementById('cal-nav-bar');
+      if (!bar) return;
+      if (viewMode === 'list') {
+        bar.classList.remove('visible');
+        return;
+      }
+      bar.classList.add('visible');
+      var titleEl = document.getElementById('cal-nav-title');
+      var subEl = document.getElementById('cal-nav-sub');
+      var d = new Date(viewAnchorDate + 'T12:00:00');
+      if (isNaN(d.getTime())) {
+        d = new Date();
+        viewAnchorDate = d.toISOString().slice(0, 10);
+      }
+      var title = '';
+      var sub = '';
+      if (viewMode === 'day') {
+        title = d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+        if (activeSem && activeSem.semesterStart) {
+          var wn = getWeekNumber(viewAnchorDate, activeSem.semesterStart);
+          var tw = getTotalWeeks(activeSem);
+          if (wn > 0) sub = tw > 0 ? tFmt('pl_weekLabel', { n: wn, total: tw }) : ('Week ' + wn);
+        }
+      } else if (viewMode === 'week') {
+        var dow = (d.getDay() + 6) % 7;
+        var mon = new Date(d.getTime() - dow * 86400000);
+        var sun = new Date(mon.getTime() + (viewOpts.weekends ? 6 : 4) * 86400000);
+        var mStr = mon.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        var sStr = sun.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        title = mStr + ' – ' + sStr;
+        if (activeSem && activeSem.semesterStart) {
+          var wn2 = getWeekNumber(mon.toISOString().slice(0, 10), activeSem.semesterStart);
+          var tw2 = getTotalWeeks(activeSem);
+          if (wn2 > 0) sub = tw2 > 0 ? tFmt('pl_weekLabel', { n: wn2, total: tw2 }) : ('Week ' + wn2);
+        }
+      } else if (viewMode === 'month') {
+        title = d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      } else if (viewMode === 'year') {
+        title = String(d.getFullYear());
+      }
+      if (titleEl) titleEl.textContent = title;
+      if (subEl) {
+        subEl.textContent = sub;
+        subEl.style.display = sub ? '' : 'none';
+      }
+    }
+
     function renderAgenda() {
       var el = document.getElementById('agenda');
 
       if (!el._plannerBoardMenuBound) {
         el._plannerBoardMenuBound = true;
         el.addEventListener('contextmenu', function (event) {
-          var target = event.target && event.target.closest ? event.target.closest('.entry-row[data-date], .at-cell[data-entry-id], .at-cell-empty[data-date]') : null;
+          var target = event.target && event.target.closest ? event.target.closest('.entry-row[data-date], .at-cell[data-entry-id], .at-cell-empty[data-date], .month-entry-chip[data-date]') : null;
           if (!target) return;
           var entryId = target.getAttribute('data-entry-id') || '';
           if (entryId) {
@@ -3498,22 +3656,27 @@
         });
       }
 
-      if (tableView) { renderTable(); return; }
       var activeSem = getActiveSem();
+      updateCalNavBar(activeSem);
+
+      if (viewMode === 'day') { renderDayView(el, activeSem); return; }
+      if (viewMode === 'week' || tableView) { renderWeekView(el, activeSem); return; }
+      if (viewMode === 'month') { renderMonthView(el, activeSem); return; }
+      if (viewMode === 'year') { renderYearView(el, activeSem); return; }
 
       if (!activeSem) {
         el.innerHTML =
-          '<div class="empty-state"><span class="es-icon">📅</span>' +
+          '<div class="empty-state">' +
           '<p class="es-title">' + esc(t('pl_semNotSet')) + '</p>' +
           '<p class="es-hint">' + esc(t('pl_semNotSetHint')) + '</p></div>';
         return;
       }
 
-      var slots = buildSlots(activeSem);
-      slots = filterSlots(slots);
+      var slots = getFilteredViewSlots(activeSem);
+      var todosByDate = getTodosByDateMap();
       if (!slots.length) {
         el.innerHTML =
-          '<div class="empty-state"><span class="es-icon">✓</span>' +
+          '<div class="empty-state">' +
           '<p class="es-title">' + esc(t('pl_noEntries')) + '</p>' +
           '<p class="es-hint">' + esc(t('pl_noEntriesHint')) + '</p></div>';
         return;
@@ -3566,8 +3729,11 @@
         }
         var isPastDay = date < todayStr;
         var label = _getDateLabel(date);
-        html += '<div class="date-group' + (isPastDay ? ' day-past' : '') + '">';
+        html += '<div class="date-group' + (isPastDay ? ' day-past' : '') + '" data-date="' + esc(date) + '">';
         html += '<div class="date-header' + (isPastDay ? ' day-past' : '') + '"><span class="dh-date">' + esc(label) + '</span><span class="dh-line"></span></div>';
+        if (viewOpts.todos && todosByDate[date] && todosByDate[date].length) {
+          html += '<div class="date-todos-bar">' + renderTodoCalChipsHtml(todosByDate[date]) + '</div>';
+        }
         byDate[date].forEach(function (s) { html += renderSlot(s); });
         html += '</div>';
       });
@@ -3584,7 +3750,7 @@
     function renderSlot(s) {
       if (s.isGlobalHoliday) {
         var hlabel = s.holidayLabel || t('pl_typeHoliday');
-        var hhtml = '<div class="holiday-row">🏖 ' + esc(hlabel);
+        var hhtml = '<div class="holiday-row">' + esc(hlabel);
         if (s.dateTo) {
           var hd1 = new Date(s.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
           var hd2 = new Date(s.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -3625,11 +3791,14 @@
       }
       r += '<div class="entry-content">';
       r += '<div class="entry-inner">';
-      r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
-      if (!isUnassigned)
-        r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(plannerClassDisplayName(s.classId)) + '</span>';
-      else
-        r += '<span class="entry-class-pill" style="background:#888">' + esc(t('pl_noClass')) + '</span>';
+      if (viewOpts.time && timeLabel)
+        r += '<span class="entry-time">' + esc(timeLabel) + '</span>';
+      if (viewOpts.classPill) {
+        if (!isUnassigned)
+          r += '<span class="entry-class-pill" style="background:' + color + '">' + esc(plannerClassDisplayName(s.classId)) + '</span>';
+        else
+          r += '<span class="entry-class-pill" style="background:#888">' + esc(t('pl_noClass')) + '</span>';
+      }
       if (isSubscribed) {
         r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:12px; height:12px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
       }
@@ -3649,23 +3818,25 @@
         r += '<span class="recur-badge" title="' + esc(t('pl_recurBadgeTitle')) + '">↻</span>';
       }
       if (showDot) r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
-      var _lpLink = plannerLessonPlanForSlot(s, entry);
-      if (_lpLink && _lpLink.plan) {
-        var _lp = _lpLink.plan;
-        var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
-        var _lpDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lp.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-        r += '<span class="lesson-plan-badge"' + _lpDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+      if (viewOpts.linkedBadges) {
+        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+        var _lpLink = plannerLessonPlanForSlot(s, entry);
+        if (_lpLink && _lpLink.plan) {
+          var _lp = _lpLink.plan;
+          var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+          var _lpDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lp.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+          r += '<span class="lesson-plan-badge"' + _lpDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        }
+        var _boardLink = plannerBoardSessionsForSlot(s, entry);
+        var _bSess = _boardLink.sessions;
+        if (_bSess && _bSess.length) {
+          var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
+          var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name + ' (Click to open · Drag to link to another slot)';
+          var _bDragAttr = _bLatest.relativePath ? (' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bLatest.relativePath) + '" data-board-name="' + esc(_bLatest.name || '') + '" data-entry-id="' + esc(_boardLink.linkId) + '"') : '';
+          r += '<span class="board-session-badge"' + _bDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
+        }
+        r += buildPlannerEntryLinkBadgesHtml(entry);
       }
-      var _boardLink = plannerBoardSessionsForSlot(s, entry);
-      var _bSess = _boardLink.sessions;
-      if (_bSess && _bSess.length) {
-        var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
-        var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name + ' (Click to open · Drag to link to another slot)';
-        var _bDragAttr = _bLatest.relativePath ? (' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bLatest.relativePath) + '" data-board-name="' + esc(_bLatest.name || '') + '" data-entry-id="' + esc(_boardLink.linkId) + '"') : '';
-        r += '<span class="board-session-badge"' + _bDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
-      }
-      r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '<div class="entry-actions" onclick="event.stopPropagation()">';
       if (entry) {
         if (isSubscribed) {
@@ -3781,9 +3952,10 @@
     }
 
     // ── Slot generation ─────────────────────────────────────────────────────────
-    function buildSlots(activeSem) {
+    function buildSlots(activeSem, forceShowPast) {
       var slots = [];
       if (!activeSem || !activeSem.semesterStart || !activeSem.semesterEnd) return slots;
+      var effectiveShowPast = forceShowPast ? true : showPast;
 
       var start = new Date(activeSem.semesterStart + 'T12:00:00');
       var end = new Date(activeSem.semesterEnd + 'T12:00:00');
@@ -3803,7 +3975,7 @@
         var hd = new Date(visStart);
         while (hd <= visEnd) { holDates.add(hd.toISOString().slice(0, 10)); hd.setDate(hd.getDate() + 1); }
         // First visible day (respects showPast)
-        var dispStart = showPast ? visStart : new Date(Math.max(visStart.getTime(), today.getTime()));
+        var dispStart = effectiveShowPast ? visStart : new Date(Math.max(visStart.getTime(), today.getTime()));
         if (dispStart > visEnd) return;
         var ds0 = dispStart.toISOString().slice(0, 10);
         var ds1 = visEnd.toISOString().slice(0, 10);
@@ -3815,8 +3987,10 @@
 
       var emap = {}, consumed = {};
       var allCombinedEntries = entries.slice();
-      var subEvents = getActiveSubscribedEntries();
-      subEvents.forEach(function (se) { allCombinedEntries.push(se); });
+      if (viewOpts.subscribed !== false) {
+        var subEvents = getActiveSubscribedEntries();
+        subEvents.forEach(function (se) { allCombinedEntries.push(se); });
+      }
       allCombinedEntries.forEach(function (e) {
         var cids = entryClassIds(e);
         var dates = expandEntryDates(e);
@@ -3868,7 +4042,7 @@
         var ds = d.toISOString().slice(0, 10);
         var dow = d.getDay();
 
-        if (!showPast && d < today) { d.setDate(d.getDate() + 1); continue; }
+        if (!effectiveShowPast && d < today) { d.setDate(d.getDate() + 1); continue; }
 
         if (holDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
 
@@ -4263,6 +4437,57 @@
 
         return true;
       });
+    }
+
+    function getFilteredViewSlots(activeSem, forceShowPast) {
+      var slots = buildSlots(activeSem, !!forceShowPast);
+      slots = filterSlots(slots);
+      return slots.filter(function (s) {
+        if (s.isGlobalHoliday && viewOpts.holidays === false) return false;
+        if (!s.isGlobalHoliday && !s.entry && viewOpts.emptySlots === false) return false;
+        return true;
+      });
+    }
+
+    function getHolidayDatesMap(activeSem) {
+      var map = Object.create(null);
+      if (!activeSem || viewOpts.holidays === false) return map;
+      (activeSem.holidays || []).forEach(function (h) {
+        if (!h.date) return;
+        var d = new Date(h.date + 'T12:00:00');
+        var end = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : d;
+        var guard = 0;
+        while (d <= end && guard++ < 400) {
+          var ds = d.toISOString().slice(0, 10);
+          map[ds] = h.label || t('pl_typeHoliday');
+          d.setDate(d.getDate() + 1);
+        }
+      });
+      return map;
+    }
+
+    function getTodosByDateMap() {
+      var map = Object.create(null);
+      if (viewOpts.todos === false || !Array.isArray(todos)) return map;
+      var showDoneEl = document.getElementById('td-show-archived');
+      var showArchived = !!(showDoneEl && showDoneEl.checked);
+      todos.forEach(function (td) {
+        if (!td || !td.dueDate) return;
+        if (!showArchived && td.archivedAt) return;
+        if (!map[td.dueDate]) map[td.dueDate] = [];
+        map[td.dueDate].push(td);
+      });
+      return map;
+    }
+
+    function renderTodoCalChipsHtml(list) {
+      if (!list || !list.length) return '';
+      return list.map(function (td) {
+        var isDone = !!td.archivedAt;
+        return '<span class="todo-cal-chip' + (isDone ? ' is-done' : '') + '" onclick="event.stopPropagation();openEditTodo(\'' + esc(td.id) + '\')" title="' + esc(td.text || '') + '">' +
+          '<img src="../assets/icons/check.svg" style="width:11px;height:11px;flex-shrink:0" alt="" />' +
+          '<span>' + esc(td.text || '') + '</span></span>';
+      }).join('');
     }
 
     // ── Class setup modal ──────────────────────────────────────────────────────
@@ -8827,200 +9052,512 @@
       setShowOutsideTerm(!showOutsideTerm);
     }
 
-    function setTableView(val) {
-      tableView = !!val;
-      syncToggleSeg('viewBtn', tableView ? 'table' : 'list');
+    function setViewMode(mode) {
+      if (['list', 'day', 'week', 'month', 'year'].indexOf(mode) === -1) mode = 'list';
+      viewMode = mode;
+      tableView = (mode === 'week');
+      syncToggleSeg('viewBtn', viewMode);
+      saveViewFlags();
       renderAgenda();
     }
 
-    function toggleView() {
-      setTableView(!tableView);
+    function navigateView(delta) {
+      var d = new Date(viewAnchorDate + 'T12:00:00');
+      if (isNaN(d.getTime())) d = new Date();
+      if (viewMode === 'day') {
+        d.setDate(d.getDate() + delta);
+      } else if (viewMode === 'week') {
+        d.setDate(d.getDate() + delta * 7);
+      } else if (viewMode === 'month') {
+        d.setDate(1);
+        d.setMonth(d.getMonth() + delta);
+      } else if (viewMode === 'year') {
+        d.setFullYear(d.getFullYear() + delta);
+      }
+      viewAnchorDate = d.toISOString().slice(0, 10);
+      renderAgenda();
     }
 
-    // ── Table view ──────────────────────────────────────────────────────────────
-    function renderTable() {
-      var el = document.getElementById('agenda');
-      var activeSem = getActiveSem();
+    function goToToday() {
+      var todayStr = new Date().toISOString().slice(0, 10);
+      viewAnchorDate = todayStr;
+      if (viewMode === 'list') {
+        var groups = document.querySelectorAll('#agenda .date-group[data-date]');
+        var target = null;
+        for (var i = 0; i < groups.length; i++) {
+          var d = groups[i].getAttribute('data-date');
+          if (d && d >= todayStr) { target = groups[i]; break; }
+        }
+        if (!target && groups.length) target = groups[groups.length - 1];
+        if (target) {
+          var wg = target.closest('.week-group');
+          if (wg && wg.classList.contains('collapsed')) {
+            wg.classList.remove('collapsed');
+            var wkAttr = wg.getAttribute('data-week');
+            if (wkAttr != null && activeSemId) {
+              if (!window._plannerManualWeekCollapse) window._plannerManualWeekCollapse = {};
+              window._plannerManualWeekCollapse[activeSemId + ':' + wkAttr] = false;
+            }
+          }
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+      }
+      renderAgenda();
+      var mainEl = document.getElementById('main');
+      if (mainEl) mainEl.scrollTop = 0;
+    }
+
+    function drillDownToView(mode, dateStr) {
+      if (dateStr) viewAnchorDate = dateStr;
+      setViewMode(mode);
+    }
+
+    function setTableView(val) {
+      setViewMode(val ? 'week' : 'list');
+    }
+
+    function toggleView() {
+      setViewMode(viewMode === 'week' ? 'list' : 'week');
+    }
+
+    // ── Shared Time-Grid Helpers ──────────────────────────────────────────────
+    function plHmToMin(hm) {
+      var s = String(hm || '').trim();
+      if (!/^\d{1,2}:\d{2}$/.test(s)) return null;
+      var p = s.split(':');
+      var h = parseInt(p[0], 10);
+      var m = parseInt(p[1], 10);
+      if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return null;
+      return h * 60 + m;
+    }
+
+    function plMinToHm(mins) {
+      var m = Math.max(0, parseInt(mins, 10) || 0);
+      var hh = Math.floor(m / 60);
+      var mm = m % 60;
+      return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    }
+
+    function plAssignOverlapLanes(items) {
+      var lanesEnd = [];
+      items.forEach(function (it) {
+        var lane = -1;
+        for (var i = 0; i < lanesEnd.length; i++) {
+          if (it.start >= lanesEnd[i]) { lane = i; break; }
+        }
+        if (lane < 0) {
+          lane = lanesEnd.length;
+          lanesEnd.push(it.end);
+        } else {
+          lanesEnd[lane] = it.end;
+        }
+        it._lane = lane;
+      });
+      var total = Math.max(1, lanesEnd.length);
+      items.forEach(function (it) { it._laneCount = total; });
+    }
+
+    // ── Day View ────────────────────────────────────────────────────────────────
+    function renderDayView(el, activeSem) {
       var ABS_STEP_MIN = 60;
       var ABS_ROW_HEIGHT = 64;
+      var dateStr = viewAnchorDate;
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var allSlots = activeSem ? getFilteredViewSlots(activeSem, true) : [];
+      var daySlots = allSlots.filter(function (s) { return !s.isGlobalHoliday && s.date === dateStr; });
+      var holMap = getHolidayDatesMap(activeSem);
+      var todosByDate = getTodosByDateMap();
+      var dayTodos = todosByDate[dateStr] || [];
+      var holLabel = holMap[dateStr] || '';
 
-      function hmToMin(hm) {
-        var s = String(hm || '').trim();
-        if (!/^\d{1,2}:\d{2}$/.test(s)) return null;
-        var p = s.split(':');
-        var h = parseInt(p[0], 10);
-        var m = parseInt(p[1], 10);
-        if (isNaN(h) || isNaN(m)) return null;
-        if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-        return h * 60 + m;
-      }
+      var timedItems = [];
+      var untimedSlots = [];
+      var minStart = 8 * 60;
+      var maxEnd = 17 * 60;
 
-      function minToHm(mins) {
-        var m = Math.max(0, parseInt(mins, 10) || 0);
-        var hh = Math.floor(m / 60);
-        var mm = m % 60;
-        return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
-      }
-
-      function assignOverlapLanes(items) {
-        var lanesEnd = [];
-        items.forEach(function (it) {
-          var lane = -1;
-          for (var i = 0; i < lanesEnd.length; i++) {
-            if (it.start >= lanesEnd[i]) { lane = i; break; }
-          }
-          if (lane < 0) {
-            lane = lanesEnd.length;
-            lanesEnd.push(it.end);
-          } else {
-            lanesEnd[lane] = it.end;
-          }
-          it._lane = lane;
-        });
-        var total = Math.max(1, lanesEnd.length);
-        items.forEach(function (it) { it._laneCount = total; });
-      }
-
-      if (!activeSem) {
-        el.innerHTML = '<div class="empty-state"><span class="es-icon">📅</span>' +
-          '<p class="es-title">' + esc(t('pl_semNotSet')) + '</p>' +
-          '<p class="es-hint">' + esc(t('pl_semNotSetHint')) + '</p></div>';
-        return;
-      }
-
-      var slots = buildSlots(activeSem).filter(function (s) {
-        return !s.isGlobalHoliday;
-      });
-      slots = filterSlots(slots);
-
-      if (!slots.length) {
-        el.innerHTML = '<div class="empty-state"><span class="es-icon">✓</span>' +
-          '<p class="es-title">' + esc(t('pl_noEntries')) + '</p>' +
-          '<p class="es-hint">' + esc(t('pl_noEntriesHint')) + '</p></div>';
-        return;
-      }
-
-      var dayOrder = [1, 2, 3, 4, 5, 6, 0]; // Monday first
-      var weekBuckets = {};
-      var weekKeys = [];
-
-      function getWeekKey(dateStr) {
-        var wn = activeSem.semesterStart ? getWeekNumber(dateStr, activeSem.semesterStart) : 1;
-        return String(wn);
-      }
-
-      slots.forEach(function (s) {
-        var startMin = hmToMin(s.time || '');
-        if (startMin == null) return;
-        var endMin = hmToMin(s.timeEnd || '');
-        if (endMin == null || endMin <= startMin) endMin = startMin + ABS_STEP_MIN;
-
-        var wk = getWeekKey(s.date);
-        if (!weekBuckets[wk]) {
-          weekBuckets[wk] = {
-            firstDate: s.date,
-            minStart: startMin,
-            maxEnd: endMin,
-            byDay: { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] }
-          };
-          weekKeys.push(wk);
+      daySlots.forEach(function (s) {
+        var st = plHmToMin(s.time || '');
+        if (st == null) {
+          untimedSlots.push(s);
+          return;
         }
-        if (s.date < weekBuckets[wk].firstDate) weekBuckets[wk].firstDate = s.date;
-        weekBuckets[wk].minStart = Math.min(weekBuckets[wk].minStart, startMin);
-        weekBuckets[wk].maxEnd = Math.max(weekBuckets[wk].maxEnd, endMin);
-        var dow = new Date(s.date + 'T12:00:00').getDay();
-        weekBuckets[wk].byDay[dow].push({ slot: s, start: startMin, end: endMin });
+        var en = plHmToMin(s.timeEnd || '');
+        if (en == null || en <= st) en = st + ABS_STEP_MIN;
+        minStart = Math.min(minStart, st);
+        maxEnd = Math.max(maxEnd, en);
+        timedItems.push({ slot: s, start: st, end: en });
       });
 
-      weekKeys.sort(function (a, b) {
-        var wa = parseInt(a, 10) || 0;
-        var wb = parseInt(b, 10) || 0;
-        if (wa !== wb) return wa - wb;
-        return weekBuckets[a].firstDate < weekBuckets[b].firstDate ? -1 : 1;
+      timedItems.sort(function (a, b) {
+        if (a.start !== b.start) return a.start - b.start;
+        if (a.end !== b.end) return a.end - b.end;
+        return plannerClassDisplayName(a.slot.classId || '').localeCompare(plannerClassDisplayName(b.slot.classId || ''));
       });
+      plAssignOverlapLanes(timedItems);
 
-      var totalWeeks = getTotalWeeks(activeSem);
-      var html = '';
+      var gridStart = Math.floor(minStart / ABS_STEP_MIN) * ABS_STEP_MIN;
+      var gridEnd = Math.ceil(maxEnd / ABS_STEP_MIN) * ABS_STEP_MIN;
+      if (gridEnd <= gridStart) gridEnd = gridStart + ABS_STEP_MIN;
+      var rowCount = Math.max(1, Math.ceil((gridEnd - gridStart) / ABS_STEP_MIN));
+      var gridHeight = rowCount * ABS_ROW_HEIGHT;
 
-      weekKeys.forEach(function (wk) {
-        var bucket = weekBuckets[wk];
-        var gridStart = Math.floor(bucket.minStart / ABS_STEP_MIN) * ABS_STEP_MIN;
-        var gridEnd = Math.ceil(bucket.maxEnd / ABS_STEP_MIN) * ABS_STEP_MIN;
-        if (gridEnd <= gridStart) gridEnd = gridStart + ABS_STEP_MIN;
-        var rowCount = Math.max(1, Math.ceil((gridEnd - gridStart) / ABS_STEP_MIN));
-        var gridHeight = rowCount * ABS_ROW_HEIGHT;
-
-        Object.keys(bucket.byDay).forEach(function (k) {
-          var arr = bucket.byDay[k];
-          arr.sort(function (a, b) {
-            if (a.start !== b.start) return a.start - b.start;
-            if (a.end !== b.end) return a.end - b.end;
-            return plannerClassDisplayName(a.slot.classId || '').localeCompare(plannerClassDisplayName(b.slot.classId || ''));
-          });
-          assignOverlapLanes(arr);
-        });
-
-        var weekLabel = totalWeeks > 0
-          ? tFmt('pl_weekLabel', { n: parseInt(wk, 10), total: totalWeeks })
-          : ('Week ' + wk);
-
-        var isPast = isPlannerWeekPast(wk, activeSem, bucket.firstDate);
-        var isCollapsed = isPlannerWeekCollapsed(wk, isPast);
-
-        html += '<div class="at-week-block' + (isCollapsed ? ' collapsed' : '') + (isPast ? ' week-past' : '') + '" data-week="' + wk + '">';
-        html += '<div class="at-week-title' + (isPast ? ' week-hdr-past' : '') + '" id="week-hdr-' + wk + '" data-week="' + wk + '" onclick="togglePlannerWeek(this, event)">' +
-          '<span class="week-hdr-title">' + esc(weekLabel) + '</span>' +
-          '</div>';
-        var todayStr = new Date().toISOString().slice(0, 10);
-        var fd = new Date(bucket.firstDate + 'T12:00:00');
-        var fdDow = fd.getDay();
-        var fdFromMon = (fdDow + 6) % 7;
-        var mondayDate = new Date(fd.getTime() - fdFromMon * 24 * 60 * 60 * 1000);
-
-        html += '<div class="table-wrap"><table class="agenda-table"><thead><tr>';
-        var _timeHdr = t('pl_time');
-        if (!_timeHdr || _timeHdr === 'pl_time') _timeHdr = 'Time';
-        html += '<th class="at-time-cell">' + esc(_timeHdr) + '</th>';
-        dayOrder.forEach(function (dow) {
-          var targetFromMon = (dow + 6) % 7;
-          var dowDate = new Date(mondayDate.getTime() + targetFromMon * 24 * 60 * 60 * 1000);
-          var dowDateStr = dowDate.toISOString().slice(0, 10);
-          var isDowPast = dowDateStr < todayStr;
-          html += '<th class="' + (isDowPast ? 'at-day-hdr-past' : '') + '">' + esc(t(DAY_KEYS[dow])) + '</th>';
-        });
-        html += '</tr></thead><tbody><tr>';
-        html += '<td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
-        for (var m = gridStart; m <= gridEnd; m += ABS_STEP_MIN) {
-          var top = ((m - gridStart) / ABS_STEP_MIN) * ABS_ROW_HEIGHT;
-          html += '<div class="at-time-tick" style="top:' + top + 'px">' + esc(minToHm(m)) + '</div>';
+      var html = '<div class="day-view-wrap">';
+      if (holLabel || dayTodos.length || untimedSlots.length) {
+        html += '<div class="allday-strip">';
+        html += '<span class="allday-label">' + esc(t('pl_allDay')) + '</span>';
+        if (holLabel) {
+          html += '<span class="allday-pill is-holiday">' + esc(holLabel) + '</span>';
         }
-        html += '</div></td>';
+        if (dayTodos.length) {
+          html += renderTodoCalChipsHtml(dayTodos);
+        }
+        untimedSlots.forEach(function (s) {
+          var clsName = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+          var topic = s.entry && s.entry.topic ? s.entry.topic : '';
+          var lbl = (viewOpts.classPill ? clsName : '') + (viewOpts.topic && topic ? (viewOpts.classPill ? ': ' : '') + topic : '');
+          if (!lbl) lbl = t('pl_allDay');
+          var eid = s.entry ? s.entry.id : '';
+          html += '<span class="allday-pill" style="cursor:pointer" onclick="' +
+            (eid ? ('atCellClick(event,\'' + esc(eid) + '\')') : ('atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(dateStr) + '\',\'\',\'\')')) +
+            '">' + esc(lbl) + '</span>';
+        });
+        html += '</div>';
+      }
 
-        dayOrder.forEach(function (dow) {
-          var targetFromMon = (dow + 6) % 7;
-          var dowDate = new Date(mondayDate.getTime() + targetFromMon * 24 * 60 * 60 * 1000);
-          var dowDateStr = dowDate.toISOString().slice(0, 10);
-          var isDowPast = dowDateStr < todayStr;
-          var dayItems = bucket.byDay[dow] || [];
-          html += '<td class="at-day-col' + (isDowPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
-          dayItems.forEach(function (it) {
-            html += renderTableMatrixEntry(it.slot, {
-              gridStart: gridStart,
-              stepMin: ABS_STEP_MIN,
-              rowHeight: ABS_ROW_HEIGHT,
-              lane: it._lane || 0,
-              laneCount: it._laneCount || 1,
-              start: it.start,
-              end: it.end
-            });
+      var _timeHdr = t('pl_time');
+      if (!_timeHdr || _timeHdr === 'pl_time') _timeHdr = 'Time';
+      var dow = new Date(dateStr + 'T12:00:00').getDay();
+      var isPast = dateStr < todayStr;
+
+      html += '<table class="agenda-table day-view-table"><thead><tr>';
+      html += '<th class="at-time-cell">' + esc(_timeHdr) + '</th>';
+      html += '<th class="' + (isPast ? 'at-day-hdr-past' : '') + '">' + esc(t(DAY_KEYS[dow])) + ' · ' + esc(dateStr) + '</th>';
+      html += '</tr></thead><tbody><tr>';
+      html += '<td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      for (var m = gridStart; m <= gridEnd; m += ABS_STEP_MIN) {
+        var top = ((m - gridStart) / ABS_STEP_MIN) * ABS_ROW_HEIGHT;
+        html += '<div class="at-time-tick" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
+      }
+      html += '</div></td>';
+
+      html += '<td class="at-day-col' + (isPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      timedItems.forEach(function (it) {
+        html += renderTableMatrixEntry(it.slot, {
+          gridStart: gridStart,
+          stepMin: ABS_STEP_MIN,
+          rowHeight: ABS_ROW_HEIGHT,
+          lane: it._lane || 0,
+          laneCount: it._laneCount || 1,
+          start: it.start,
+          end: it.end
+        });
+      });
+      html += '</div></td></tr></tbody></table></div>';
+
+      el.innerHTML = html;
+      _applyNavHighlight(false);
+      updateWeekNav();
+    }
+
+    // ── Week View (Single Focused Week Timetable) ───────────────────────────────
+    function renderTable() { renderWeekView(document.getElementById('agenda'), getActiveSem()); }
+
+    function renderWeekView(el, activeSem) {
+      var ABS_STEP_MIN = 60;
+      var ABS_ROW_HEIGHT = 64;
+      var anchor = new Date(viewAnchorDate + 'T12:00:00');
+      if (isNaN(anchor.getTime())) anchor = new Date();
+      var fromMon = (anchor.getDay() + 6) % 7;
+      var mondayDate = new Date(anchor.getTime() - fromMon * 86400000);
+
+      var dayOrder = viewOpts.weekends ? [1, 2, 3, 4, 5, 6, 0] : [1, 2, 3, 4, 5];
+      var weekDateStrs = [];
+      var dateToDow = Object.create(null);
+      dayOrder.forEach(function (dow) {
+        var offset = (dow + 6) % 7;
+        var dd = new Date(mondayDate.getTime() + offset * 86400000);
+        var ds = dd.toISOString().slice(0, 10);
+        weekDateStrs.push(ds);
+        dateToDow[ds] = dow;
+      });
+      var weekDateSet = new Set(weekDateStrs);
+
+      var allSlots = activeSem ? getFilteredViewSlots(activeSem, true) : [];
+      var holMap = getHolidayDatesMap(activeSem);
+      var todosByDate = getTodosByDateMap();
+
+      var byDay = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+      var untimedByDay = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+      var minStart = 8 * 60;
+      var maxEnd = 17 * 60;
+
+      allSlots.forEach(function (s) {
+        if (s.isGlobalHoliday || !weekDateSet.has(s.date)) return;
+        var dow = dateToDow[s.date];
+        if (dow === undefined) return;
+        var st = plHmToMin(s.time || '');
+        if (st == null) {
+          untimedByDay[dow].push(s);
+          return;
+        }
+        var en = plHmToMin(s.timeEnd || '');
+        if (en == null || en <= st) en = st + ABS_STEP_MIN;
+        minStart = Math.min(minStart, st);
+        maxEnd = Math.max(maxEnd, en);
+        byDay[dow].push({ slot: s, start: st, end: en });
+      });
+
+      dayOrder.forEach(function (dow) {
+        var arr = byDay[dow];
+        arr.sort(function (a, b) {
+          if (a.start !== b.start) return a.start - b.start;
+          if (a.end !== b.end) return a.end - b.end;
+          return plannerClassDisplayName(a.slot.classId || '').localeCompare(plannerClassDisplayName(b.slot.classId || ''));
+        });
+        plAssignOverlapLanes(arr);
+      });
+
+      var gridStart = Math.floor(minStart / ABS_STEP_MIN) * ABS_STEP_MIN;
+      var gridEnd = Math.ceil(maxEnd / ABS_STEP_MIN) * ABS_STEP_MIN;
+      if (gridEnd <= gridStart) gridEnd = gridStart + ABS_STEP_MIN;
+      var rowCount = Math.max(1, Math.ceil((gridEnd - gridStart) / ABS_STEP_MIN));
+      var gridHeight = rowCount * ABS_ROW_HEIGHT;
+      var todayStr = new Date().toISOString().slice(0, 10);
+
+      var hasAnyAllDay = weekDateStrs.some(function (ds) {
+        var dow = dateToDow[ds];
+        return !!holMap[ds] || (todosByDate[ds] && todosByDate[ds].length) || untimedByDay[dow].length;
+      });
+
+      var _timeHdr = t('pl_time');
+      if (!_timeHdr || _timeHdr === 'pl_time') _timeHdr = 'Time';
+
+      var html = '<div class="at-week-block"><div class="table-wrap"><table class="agenda-table"><thead><tr>';
+      html += '<th class="at-time-cell">' + esc(_timeHdr) + '</th>';
+      weekDateStrs.forEach(function (ds) {
+        var dow = dateToDow[ds];
+        var isDowPast = ds < todayStr;
+        var shortD = new Date(ds + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+        html += '<th class="' + (isDowPast ? 'at-day-hdr-past' : '') + '" style="cursor:pointer" onclick="drillDownToView(\'day\',\'' + esc(ds) + '\')">' +
+          esc(t(DAY_KEYS[dow])) + ' <span style="font-weight:500;opacity:0.75">' + esc(shortD) + '</span></th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      if (hasAnyAllDay) {
+        html += '<tr class="week-allday-row"><th>' + esc(t('pl_allDay')) + '</th>';
+        weekDateStrs.forEach(function (ds) {
+          var dow = dateToDow[ds];
+          html += '<td><div class="week-allday-stack">';
+          if (holMap[ds]) html += '<span class="allday-pill is-holiday">' + esc(holMap[ds]) + '</span>';
+          if (todosByDate[ds] && todosByDate[ds].length) html += renderTodoCalChipsHtml(todosByDate[ds]);
+          untimedByDay[dow].forEach(function (s) {
+            var clsName = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+            var topic = s.entry && s.entry.topic ? s.entry.topic : '';
+            var lbl = (viewOpts.classPill ? clsName : '') + (viewOpts.topic && topic ? (viewOpts.classPill ? ': ' : '') + topic : '');
+            if (!lbl) lbl = t('pl_allDay');
+            var eid = s.entry ? s.entry.id : '';
+            html += '<span class="allday-pill" style="cursor:pointer" onclick="' +
+              (eid ? ('atCellClick(event,\'' + esc(eid) + '\')') : ('atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(ds) + '\',\'\',\'\')')) +
+              '">' + esc(lbl) + '</span>';
           });
           html += '</div></td>';
         });
+        html += '</tr>';
+      }
 
-        html += '</tr></tbody></table></div>';
-        html += '</div>';
+      html += '<tr><td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      for (var m = gridStart; m <= gridEnd; m += ABS_STEP_MIN) {
+        var top = ((m - gridStart) / ABS_STEP_MIN) * ABS_ROW_HEIGHT;
+        html += '<div class="at-time-tick" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
+      }
+      html += '</div></td>';
+
+      weekDateStrs.forEach(function (ds) {
+        var dow = dateToDow[ds];
+        var isDowPast = ds < todayStr;
+        var dayItems = byDay[dow] || [];
+        html += '<td class="at-day-col' + (isDowPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+        dayItems.forEach(function (it) {
+          html += renderTableMatrixEntry(it.slot, {
+            gridStart: gridStart,
+            stepMin: ABS_STEP_MIN,
+            rowHeight: ABS_ROW_HEIGHT,
+            lane: it._lane || 0,
+            laneCount: it._laneCount || 1,
+            start: it.start,
+            end: it.end
+          });
+        });
+        html += '</div></td>';
       });
 
+      html += '</tr></tbody></table></div></div>';
+      el.innerHTML = html;
+      _applyNavHighlight(false);
+      updateWeekNav();
+    }
+
+    // ── Month View ──────────────────────────────────────────────────────────────
+    function renderMonthView(el, activeSem) {
+      var anchor = new Date(viewAnchorDate + 'T12:00:00');
+      if (isNaN(anchor.getTime())) anchor = new Date();
+      var year = anchor.getFullYear();
+      var month = anchor.getMonth();
+      var firstOfMonth = new Date(year, month, 1, 12, 0, 0);
+      var lastOfMonth = new Date(year, month + 1, 0, 12, 0, 0);
+      var startDowOffset = (firstOfMonth.getDay() + 6) % 7; // Monday = 0
+      var gridStart = new Date(firstOfMonth.getTime() - startDowOffset * 86400000);
+      var endDowOffset = (lastOfMonth.getDay() + 6) % 7;
+      var gridEnd = new Date(lastOfMonth.getTime() + (6 - endDowOffset) * 86400000);
+
+      var allSlots = activeSem ? getFilteredViewSlots(activeSem, true) : [];
+      var slotsByDate = Object.create(null);
+      allSlots.forEach(function (s) {
+        if (s.isGlobalHoliday) return;
+        if (!slotsByDate[s.date]) slotsByDate[s.date] = [];
+        slotsByDate[s.date].push(s);
+      });
+      var holMap = getHolidayDatesMap(activeSem);
+      var todosByDate = getTodosByDateMap();
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var dayOrder = viewOpts.weekends ? [1, 2, 3, 4, 5, 6, 0] : [1, 2, 3, 4, 5];
+      var noWkClass = viewOpts.weekends ? '' : ' no-weekends';
+
+      var html = '<div class="month-grid-wrap">';
+      html += '<div class="month-dow-row' + noWkClass + '">';
+      dayOrder.forEach(function (dow) {
+        html += '<div class="month-dow-cell">' + esc(t(DAY_KEYS[dow])) + '</div>';
+      });
+      html += '</div><div class="month-grid' + noWkClass + '">';
+
+      var cur = new Date(gridStart);
+      var guard = 0;
+      while (cur <= gridEnd && guard++ < 50) {
+        var dow = cur.getDay();
+        if (viewOpts.weekends || (dow !== 0 && dow !== 6)) {
+          var ds = cur.toISOString().slice(0, 10);
+          var isOutside = cur.getMonth() !== month;
+          var isToday = ds === todayStr;
+          var holLbl = holMap[ds] || '';
+          var daySlots = slotsByDate[ds] || [];
+          var dayTodos = todosByDate[ds] || [];
+
+          html += '<div class="month-cell' + (isOutside ? ' outside' : '') + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" onclick="openAddEntry(\'\',\'' + esc(ds) + '\',\'\',\'\')">';
+          html += '<div class="month-cell-hd">';
+          html += '<span class="month-day-num" onclick="event.stopPropagation();drillDownToView(\'day\',\'' + esc(ds) + '\')">' + cur.getDate() + '</span>';
+          if (holLbl) html += '<span class="allday-pill is-holiday" style="font-size:0.65rem;padding:1px 5px">' + esc(holLbl) + '</span>';
+          html += '</div>';
+
+          html += '<div class="month-cell-items">';
+          var maxItems = 4;
+          var shown = 0;
+          for (var i = 0; i < daySlots.length && shown < maxItems; i++) {
+            var s = daySlots[i];
+            var entry = s.entry;
+            var color = (cfg.classes[s.classId] || {}).color || '#888888';
+            var clsLabel = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
+            var isSub = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
+            var clickHandler = entry
+              ? ('event.stopPropagation();atCellClick(event,\'' + esc(entry.id) + '\')')
+              : ('event.stopPropagation();atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(ds) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')');
+            html += '<div class="month-entry-chip' + (!entry ? ' is-empty' : '') + (isSub ? ' is-subscribed' : '') + '" data-date="' + esc(ds) + '" data-classid="' + esc(s.classId || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--col:' + color + '" onclick="' + clickHandler + '">';
+            if (viewOpts.time && s.time) html += '<span class="month-chip-time">' + esc(s.time) + '</span>';
+            if (viewOpts.classPill) html += '<span class="month-chip-cls">' + esc(clsLabel) + '</span>';
+            if (viewOpts.badges && entry && entry.type) html += '<span class="entry-type-badge ' + typeBadgeCls(entry.type) + '" style="font-size:0.58rem;padding:0 4px">' + esc(typeLabel(entry.type)) + '</span>';
+            if (viewOpts.topic && entry && entry.topic) html += '<span class="month-chip-topic">' + esc(entry.topic) + '</span>';
+            html += '</div>';
+            shown++;
+          }
+          for (var j = 0; j < dayTodos.length && shown < maxItems; j++) {
+            html += renderTodoCalChipsHtml([dayTodos[j]]);
+            shown++;
+          }
+          var totalCount = daySlots.length + dayTodos.length;
+          if (totalCount > shown) {
+            html += '<button type="button" class="month-more-btn" onclick="event.stopPropagation();drillDownToView(\'day\',\'' + esc(ds) + '\')">' + esc(tFmt('pl_moreCount', { n: totalCount - shown })) + '</button>';
+          }
+          html += '</div></div>';
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      html += '</div></div>';
+      el.innerHTML = html;
+      _applyNavHighlight(false);
+      updateWeekNav();
+    }
+
+    // ── Year View ───────────────────────────────────────────────────────────────
+    function renderYearView(el, activeSem) {
+      var anchor = new Date(viewAnchorDate + 'T12:00:00');
+      if (isNaN(anchor.getTime())) anchor = new Date();
+      var year = anchor.getFullYear();
+
+      var allSlots = activeSem ? getFilteredViewSlots(activeSem, true) : [];
+      var countsByDate = Object.create(null);
+      allSlots.forEach(function (s) {
+        if (s.isGlobalHoliday) return;
+        if (!countsByDate[s.date]) countsByDate[s.date] = { entries: 0, tests: 0, empty: 0, todos: 0 };
+        if (!s.entry) countsByDate[s.date].empty++;
+        else if (s.entry.type === 'test') countsByDate[s.date].tests++;
+        else countsByDate[s.date].entries++;
+      });
+      var todosByDate = getTodosByDateMap();
+      Object.keys(todosByDate).forEach(function (ds) {
+        if (!countsByDate[ds]) countsByDate[ds] = { entries: 0, tests: 0, empty: 0, todos: 0 };
+        countsByDate[ds].todos += todosByDate[ds].length;
+      });
+      var holMap = getHolidayDatesMap(activeSem);
+      var todayStr = new Date().toISOString().slice(0, 10);
+      var miniDow = [1, 2, 3, 4, 5, 6, 0];
+
+      var html = '<div class="year-grid">';
+      for (var m = 0; m < 12; m++) {
+        var mFirst = new Date(year, m, 1, 12, 0, 0);
+        var mLast = new Date(year, m + 1, 0, 12, 0, 0);
+        var mTitle = mFirst.toLocaleDateString(undefined, { month: 'long' });
+        var mStartStr = mFirst.toISOString().slice(0, 10);
+        var startOff = (mFirst.getDay() + 6) % 7;
+
+        html += '<div class="year-month-card">';
+        html += '<div class="year-month-title" onclick="drillDownToView(\'month\',\'' + esc(mStartStr) + '\')"><span>' + esc(mTitle) + '</span><span>' + year + '</span></div>';
+        html += '<div class="year-mini-dow">';
+        miniDow.forEach(function (dow) {
+          html += '<div class="year-mini-dow-cell">' + esc((t(DAY_KEYS[dow]) || '').slice(0, 2)) + '</div>';
+        });
+        html += '</div><div class="year-mini-grid">';
+
+        for (var pad = 0; pad < startOff; pad++) {
+          html += '<div class="year-day-cell outside"></div>';
+        }
+        for (var dayNum = 1; dayNum <= mLast.getDate(); dayNum++) {
+          var dObj = new Date(year, m, dayNum, 12, 0, 0);
+          var ds = dObj.toISOString().slice(0, 10);
+          var c = countsByDate[ds];
+          var holLbl = holMap[ds] || '';
+          var isToday = ds === todayStr;
+          var tipParts = [ds];
+          if (holLbl) tipParts.push(holLbl);
+          if (c) {
+            if (c.entries) tipParts.push(c.entries + ' ' + t('pl_typeLesson'));
+            if (c.tests) tipParts.push(c.tests + ' ' + t('pl_typeTest'));
+            if (c.todos) tipParts.push(c.todos + ' ' + t('td_todoTitle'));
+          }
+          html += '<div class="year-day-cell' + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" title="' + esc(tipParts.join(' · ')) + '" onclick="drillDownToView(\'day\',\'' + esc(ds) + '\')">';
+          html += '<span>' + dayNum + '</span>';
+          html += '<div class="year-day-dots">';
+          if (c) {
+            if (c.entries) html += '<span class="year-dot year-dot-entry"></span>';
+            if (c.tests) html += '<span class="year-dot year-dot-test"></span>';
+            if (c.todos) html += '<span class="year-dot year-dot-todo"></span>';
+            if (!c.entries && !c.tests && c.empty) html += '<span class="year-dot year-dot-empty"></span>';
+          }
+          html += '</div></div>';
+        }
+        html += '</div></div>';
+      }
+      html += '</div>';
       el.innerHTML = html;
       _applyNavHighlight(false);
       updateWeekNav();
@@ -9066,13 +9603,19 @@
         });
       }
 
+      var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
       var isSubscribed = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
       var isSelected = selectedEntryIds.has(entry.id);
       var r = '<div class="at-cell' + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
       if (multiSelectMode) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
       }
-      r += '<span class="at-class-title">' + esc(classLabel) + '</span>';
+      if (viewOpts.time && timeLabel) {
+        r += '<span class="at-time">' + esc(timeLabel) + '</span>';
+      }
+      if (viewOpts.classPill) {
+        r += '<span class="at-class-title">' + esc(classLabel) + '</span>';
+      }
       if (isSubscribed) {
         r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:12px; height:12px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
       }
@@ -9084,20 +9627,22 @@
       }
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
-      var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
-      if (_lpMatrixLink && _lpMatrixLink.plan) {
-        var _lpM = _lpMatrixLink.plan;
-        var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
-        var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-        r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+      if (viewOpts.linkedBadges) {
+        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+        var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
+        if (_lpMatrixLink && _lpMatrixLink.plan) {
+          var _lpM = _lpMatrixLink.plan;
+          var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+          var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+          r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        }
+        if (_atBSess && _atBSess.length) {
+          var _bMRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
+          var _bMDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bMRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
+          r += '<span class="board-session-badge"' + _bMDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+        }
+        r += buildPlannerEntryLinkBadgesHtml(entry);
       }
-      if (_atBSess && _atBSess.length) {
-        var _bMRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
-        var _bMDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bMRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-        r += '<span class="board-session-badge"' + _bMDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
-      }
-      r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
       return r;
     }

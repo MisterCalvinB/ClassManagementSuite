@@ -2268,7 +2268,7 @@
             return { num: String(r.num || '').trim(), text: String(r.text || '').trim() };
           }
           return { num: '', text: String(r || '').trim() };
-        }).filter(r => r && r.text);
+        }).filter(r => r && (r.text || r.num));
       }
       const str = String(commentOrRemarks || '').trim();
       if (!str) return [];
@@ -2280,7 +2280,7 @@
           return { num: m[1].trim(), text: m[2].trim() };
         }
         return { num: '', text: part };
-      }).filter(r => r && r.text);
+      }).filter(r => r && (r.text || r.num));
     }
 
     function formatChipRemarksString(remarksOrStr) {
@@ -2290,7 +2290,8 @@
         .map(r => {
           const num = (r && typeof r === 'object') ? String(r.num || '').trim() : '';
           const text = (r && typeof r === 'object') ? String(r.text || '').trim() : String(r || '').trim();
-          if (!text) return '';
+          if (!text && !num) return '';
+          if (!text) return `[${num}]`;
           const safeText = text.replace(/\|/g, '\\|');
           return num ? `[${num}] ${safeText}` : safeText;
         })
@@ -2339,7 +2340,7 @@
             const p = parseObservationChipItem(item);
             if (Array.isArray(p.remarks)) {
               p.remarks.forEach(r => {
-                if (r && r.text && r.text.trim() && r.num && r.num.trim()) {
+                if (r && r.num && r.num.trim()) {
                   reserved.add(r.num.trim());
                 }
               });
@@ -2351,7 +2352,8 @@
       return {
         next(rem) {
           const raw = (rem && rem.num) ? String(rem.num).trim() : '';
-          if (raw && !emitted.has(raw)) {
+          if (!raw) return '';
+          if (!emitted.has(raw)) {
             emitted.add(raw);
             reserved.add(raw);
             return raw;
@@ -2905,17 +2907,31 @@
         ? `<span class="obs-pill-name" style="text-decoration:underline;text-decoration-thickness:${underlineThickness};text-underline-offset:2px;">${escapeHtml(name)}</span>`
         : `<span class="obs-pill-name">${escapeHtml(name)}</span>`;
 
+      const numOnlyRemarks = remarks.filter(r => (!r.text || !r.text.trim()) && r.num && r.num.trim());
       const textRemarks = remarks.filter(r => r.text && r.text.trim());
+      let numOnlyHtml = '';
+      if (numOnlyRemarks.length > 0) {
+        numOnlyHtml = numOnlyRemarks.map(rem => {
+          const displayNum = remarkAllocator ? remarkAllocator.next(rem) : rem.num.trim();
+          return `<sup class="obs-pill-remark-num" style="font-size:0.75em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;">[${escapeHtml(displayNum)}]</sup>`;
+        }).join('');
+      }
       let commentHtml = '';
       if (textRemarks.length > 0) {
-        const joined = textRemarks.map((rem, idx) => {
-          const displayNum = remarkAllocator ? remarkAllocator.next(rem) : (rem.num ? rem.num : String(idx + 1));
-          return `${escapeHtml(rem.text)}<sup class="obs-pill-remark-num" style="font-size:0.75em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;">[${escapeHtml(displayNum)}]</sup>`;
+        const joined = textRemarks.map(rem => {
+          const rawNum = rem && rem.num ? String(rem.num).trim() : '';
+          if (!rawNum) {
+            return escapeHtml(rem.text);
+          }
+          const displayNum = remarkAllocator ? remarkAllocator.next(rem) : rawNum;
+          return displayNum
+            ? `${escapeHtml(rem.text)}<sup class="obs-pill-remark-num" style="font-size:0.75em;font-weight:800;line-height:0;vertical-align:super;margin-left:2px;">[${escapeHtml(displayNum)}]</sup>`
+            : escapeHtml(rem.text);
         }).join(', ');
         commentHtml = `<span class="obs-pill-comment" style="font-weight:600;margin-left:2px;opacity:0.95;">: ${joined}</span>`;
       }
 
-      return `<span class="${pillClass}" style="display:inline-block;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 2px 1px 0;background:${bg};color:${color};border:1.5px solid ${border};box-shadow:1px 1px 0 rgba(0,0,0,0.12);">${nameHtml}${commentHtml}</span>`;
+      return `<span class="${pillClass}" style="display:inline-block;padding:1px 4px;border-radius:4px;font-size:9px;font-weight:700;line-height:1.15;margin:1px 3px 1px 0;background:transparent;color:${color};border:0.5px dotted ${border};box-shadow:none;">${nameHtml}${numOnlyHtml}${commentHtml}</span>`;
     }
 
     function groupObservationChipsByCategory(chips, sectionLabel, bankFilename, sectionKind = '') {
@@ -16941,30 +16957,30 @@
           margin-top: 1px;
           margin-bottom: 2px;
         }
-        .obs-pill {
+        .obs-pill,
+        .obs-feedback .obs-pill,
+        .obs-section .obs-pill {
           display: inline-block;
-          padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
+          padding: ${fitToOnePage ? '0.5px 3.5px' : '1px 4px'};
           border-radius: 4px;
           font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
           line-height: 1.15;
-          margin: 1px 2px 1px 0;
-          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+          margin: 1px 3px 1px 0;
+          background: transparent !important;
+          box-shadow: none !important;
         }
         .obs-pill-good {
-          background: #dcfce7;
           color: #166534;
-          border: 1.5px solid #16a34a;
+          border: 0.5px dotted #16a34a;
         }
         .obs-pill-remedy {
-          background: #fee2e2;
           color: #991b1b;
-          border: 1.5px solid #dc2626;
+          border: 0.5px dotted #dc2626;
         }
         .obs-pill-custom {
-          background: #e0f2fe;
           color: #0369a1;
-          border: 1.5px solid #0284c7;
+          border: 0.5px dotted #0284c7;
         }
         .obs-pill-multiplier {
           font-size: 0.68em;
@@ -17204,7 +17220,11 @@
           const pdfReq = {
             html: htmlDoc,
             landscape: isLandscape,
-            pdfOptions: { pageSize: pageSize, landscape: isLandscape }
+            pdfOptions: {
+              pageSize: pageSize,
+              landscape: isLandscape,
+              margins: parseCssMarginToInches(fitToOnePage ? '6mm 9mm 5mm 9mm' : margin)
+            }
           };
           if (destination === 'to-print') {
             pdfReq.target = 'toPrint';
@@ -17338,6 +17358,43 @@
           });
         });
       })();`;
+    }
+
+    function parseCssMarginToInches(marginStr) {
+      const toInches = (tok) => {
+        const m = String(tok || '').trim().match(/^(-?[\d.]+)\s*(mm|cm|in|px|pt)?$/i);
+        if (!m) return 0.55;
+        const val = parseFloat(m[1]);
+        if (isNaN(val)) return 0.55;
+        const unit = (m[2] || 'mm').toLowerCase();
+        if (unit === 'in') return val;
+        if (unit === 'cm') return val / 2.54;
+        if (unit === 'px') return val / 96;
+        if (unit === 'pt') return val / 72;
+        return val / 25.4;
+      };
+      const parts = String(marginStr || '16mm 14mm').trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 1) {
+        const v = toInches(parts[0]);
+        return { top: v, right: v, bottom: v, left: v };
+      }
+      if (parts.length === 2) {
+        const tb = toInches(parts[0]);
+        const lr = toInches(parts[1]);
+        return { top: tb, right: lr, bottom: tb, left: lr };
+      }
+      if (parts.length === 3) {
+        const t = toInches(parts[0]);
+        const lr = toInches(parts[1]);
+        const b = toInches(parts[2]);
+        return { top: t, right: lr, bottom: b, left: lr };
+      }
+      return {
+        top: toInches(parts[0]),
+        right: toInches(parts[1]),
+        bottom: toInches(parts[2]),
+        left: toInches(parts[3])
+      };
     }
 
     function getPdfExportSettings() {
@@ -17710,30 +17767,30 @@
           margin-top: 2px;
           margin-bottom: 4px;
         }
-        .obs-pill {
+        .obs-pill,
+        .obs-feedback .obs-pill,
+        .obs-section .obs-pill {
           display: inline-block;
-          padding: 1.5px 5px;
+          padding: 1px 4px;
           border-radius: 4px;
           font-size: 9px;
           font-weight: 700;
           line-height: 1.15;
-          margin: 1px 2px 1px 0;
-          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+          margin: 1px 3px 1px 0;
+          background: transparent !important;
+          box-shadow: none !important;
         }
         .obs-pill-good {
-          background: #dcfce7;
           color: #166534;
-          border: 1.5px solid #16a34a;
+          border: 0.5px dotted #16a34a;
         }
         .obs-pill-remedy {
-          background: #fee2e2;
           color: #991b1b;
-          border: 1.5px solid #dc2626;
+          border: 0.5px dotted #dc2626;
         }
         .obs-pill-custom {
-          background: #e0f2fe;
           color: #0369a1;
-          border: 1.5px solid #0284c7;
+          border: 0.5px dotted #0284c7;
         }
         .obs-pill-multiplier {
           font-size: 0.68em;
@@ -18332,13 +18389,21 @@
                   const p = (c && typeof c === 'object') ? c : parseObservationChipItem(c);
                   const rems = Array.isArray(p.remarks) ? p.remarks : parseChipRemarksString(p.comment || '');
                   const thickness = getChipUnderlineThickness(p.count);
+                  const numOnlyRems = rems.filter(r => (!r.text || !r.text.trim()) && r.num && r.num.trim());
                   const textRems = rems.filter(r => r.text && r.text.trim());
+                  const numOnlyStr = numOnlyRems.length > 0
+                    ? numOnlyRems.map(r => `<sup>[${remarkAllocator.next(r)}]</sup>`).join('')
+                    : '';
                   const remsStr = textRems.length > 0
-                    ? `: ${textRems.map(r => `${r.text}<sup>[${remarkAllocator.next(r)}]</sup>`).join(', ')}`
+                    ? `: ${textRems.map(r => {
+                        const rawNum = r && r.num ? String(r.num).trim() : '';
+                        const displayNum = rawNum ? remarkAllocator.next(r) : '';
+                        return displayNum ? `${r.text}<sup>[${displayNum}]</sup>` : r.text;
+                      }).join(', ')}`
                     : '';
                   return thickness !== '0px'
-                    ? `<span style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">\`${p.name}\`</span>${remsStr}`
-                    : `\`${p.name}\`${remsStr}`;
+                    ? `<span style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">\`${p.name}\`</span>${numOnlyStr}${remsStr}`
+                    : `\`${p.name}\`${numOnlyStr}${remsStr}`;
                 }).join("; ");
                 sections.push(`- *${cg.category}:* ${chipsStr}`);
               });
@@ -18694,19 +18759,22 @@
           white-space: nowrap;
         }
         .obs-pills-row { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 1px; margin-bottom: 2px; }
-        .obs-pill {
+        .obs-pill,
+        .obs-feedback .obs-pill,
+        .obs-section .obs-pill {
           display: inline-block;
-          padding: ${fitToOnePage ? '1px 4px' : '1.5px 5px'};
+          padding: ${fitToOnePage ? '0.5px 3.5px' : '1px 4px'};
           border-radius: 4px;
           font-size: ${fitToOnePage ? '8px' : '9px'};
           font-weight: 700;
           line-height: 1.15;
-          margin: 1px 2px 1px 0;
-          box-shadow: 1px 1px 0 rgba(0,0,0,0.12);
+          margin: 1px 3px 1px 0;
+          background: transparent !important;
+          box-shadow: none !important;
         }
-        .obs-pill-good { background: #dcfce7; color: #166534; border: 1.5px solid #16a34a; }
-        .obs-pill-remedy { background: #fee2e2; color: #991b1b; border: 1.5px solid #dc2626; }
-        .obs-pill-custom { background: #e0f2fe; color: #0369a1; border: 1.5px solid #0284c7; }
+        .obs-pill-good { color: #166534; border: 0.5px dotted #16a34a; }
+        .obs-pill-remedy { color: #991b1b; border: 0.5px dotted #dc2626; }
+        .obs-pill-custom { color: #0369a1; border: 0.5px dotted #0284c7; }
         .obs-pill-multiplier { font-size: 0.68em; font-weight: 800; line-height: 0; vertical-align: super; margin-left: 2px; margin-right: 3px; display: inline-block; white-space: nowrap; }
         .obs-feedback {
           display: block;
@@ -20778,7 +20846,8 @@
             landscape: isLandscape != null ? isLandscape : pdfSettings.isLandscape,
             pdfOptions: {
               pageSize: pdfSettings.pageSize || 'A4',
-              landscape: isLandscape != null ? isLandscape : pdfSettings.isLandscape
+              landscape: isLandscape != null ? isLandscape : pdfSettings.isLandscape,
+              margins: parseCssMarginToInches(getReportFitToOnePage() ? '6mm 9mm 5mm 9mm' : (pdfSettings.margin || '16mm 14mm'))
             }
           };
           if (destination === 'to-print') {
@@ -22355,11 +22424,10 @@
 
         let remarksList = Array.isArray(currentRemarks) && currentRemarks.length
           ? currentRemarks.map(r => ({ num: String(r.num || ''), text: String(r.text || '') }))
-          : parseChipRemarksString(currentComment || '');
-        const hasInitialRemarks = remarksList.some(r => r.text.trim());
+          : parseChipRemarksString(currentComment || '').map(r => ({ num: String(r.num || ''), text: String(r.text || '') }));
+        const hasInitialRemarks = remarksList.some(r => r.text.trim() || r.num.trim());
         if (remarksList.length === 0) {
-          const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []));
-          remarksList.push({ num: String(nextNum), text: '' });
+          remarksList.push({ num: '', text: '' });
         }
 
         overlay.innerHTML = `
@@ -22419,7 +22487,7 @@
         function submitRemarks(nextRemarks) {
           const cleaned = (nextRemarks || [])
             .map(r => ({ num: String(r.num || '').trim(), text: String(r.text || '').trim() }))
-            .filter(r => r.text);
+            .filter(r => r.text || r.num);
           if (typeof _studentModalDraft !== 'undefined' && _studentModalDraft) {
             cleaned.forEach(r => {
               const n = parseInt(r.num, 10);
@@ -22446,7 +22514,7 @@
             numInput.className = 'gs-chip-remark-num-input';
             numInput.maxLength = 6;
             numInput.placeholder = t('gsChipCommentRefPlaceholder', '#');
-            numInput.title = t('gsChipCommentRefTitle', 'Optional paper reference number (defaults to row number)');
+            numInput.title = t('gsChipCommentRefTitle', 'Optional paper reference number');
             numInput.autocomplete = 'off';
             numInput.value = row.num || '';
             numInput.addEventListener('input', () => {
@@ -22456,8 +22524,7 @@
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 e.stopPropagation();
-                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
-                remarksList.splice(idx + 1, 0, { num: String(nextNum), text: '' });
+                remarksList.splice(idx + 1, 0, { num: '', text: '' });
                 renderRemarkRows(idx + 1);
               } else if (e.key === 'Enter') {
                 e.preventDefault();
@@ -22479,8 +22546,7 @@
               if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                 e.preventDefault();
                 e.stopPropagation();
-                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
-                remarksList.splice(idx + 1, 0, { num: String(nextNum), text: '' });
+                remarksList.splice(idx + 1, 0, { num: '', text: '' });
                 renderRemarkRows(idx + 1);
               } else if (e.key === 'Enter') {
                 e.preventDefault();
@@ -22529,8 +22595,7 @@
             delBtn.innerHTML = '<img src="../assets/icons/trash.svg" style="width:11px;height:11px;display:block;" alt="" />';
             delBtn.addEventListener('click', () => {
               if (remarksList.length === 1) {
-                const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), []);
-                remarksList[0] = { num: String(nextNum), text: '' };
+                remarksList[0] = { num: '', text: '' };
                 renderRemarkRows(0);
               } else {
                 remarksList.splice(idx, 1);
@@ -22538,6 +22603,23 @@
               }
             });
 
+            const numOnlyBtn = document.createElement('button');
+            numOnlyBtn.type = 'button';
+            numOnlyBtn.className = 'gs-chip-remark-btn gs-chip-remark-btn-num-only';
+            numOnlyBtn.title = t('gsChipCommentSaveNumOnly', 'Save number only');
+            numOnlyBtn.setAttribute('aria-label', t('gsChipCommentSaveNumOnly', 'Save number only'));
+            numOnlyBtn.innerHTML = '<img src="../assets/icons/number-badge.svg" style="width:12px;height:12px;display:block;" alt="" />';
+            numOnlyBtn.addEventListener('click', () => {
+              let numVal = String(numInput.value || '').trim();
+              if (!numVal) {
+                numVal = String(getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList));
+              }
+              remarksList[idx].num = numVal;
+              remarksList[idx].text = '';
+              submitRemarks(remarksList);
+            });
+
+            actionsWrap.appendChild(numOnlyBtn);
             actionsWrap.appendChild(upBtn);
             actionsWrap.appendChild(downBtn);
             actionsWrap.appendChild(delBtn);
@@ -22563,8 +22645,7 @@
 
         if (addBtn) {
           addBtn.addEventListener('click', () => {
-            const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
-            remarksList.push({ num: String(nextNum), text: '' });
+            remarksList.push({ num: '', text: '' });
             renderRemarkRows(remarksList.length - 1);
           });
         }
@@ -22581,8 +22662,7 @@
             closePopup();
           } else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
-            const nextNum = getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList);
-            remarksList.push({ num: String(nextNum), text: '' });
+            remarksList.push({ num: '', text: '' });
             renderRemarkRows(remarksList.length - 1);
           } else if (e.key === 'Enter' && (!e.target || e.target.tagName !== 'BUTTON')) {
             e.preventDefault();
@@ -22825,7 +22905,7 @@
               const isSelected = count > 0;
               const resolvedRemarks = Array.isArray(remarks) ? remarks : parseChipRemarksString(comment || '');
               const resolvedComment = formatChipRemarksString(resolvedRemarks);
-              const hasTextComment = isSelected && resolvedRemarks.some(r => r.text && r.text.trim());
+              const hasTextComment = isSelected && resolvedRemarks.some(r => (r.text && r.text.trim()) || (r.num && r.num.trim()));
 
               chip.classList.toggle("selected", isSelected);
               chip.classList.toggle("has-comment", hasTextComment);
@@ -22974,7 +23054,7 @@
               e.preventDefault();
               e.stopPropagation();
               if (isDragging) return;
-              const hasRemarks = currentRemarks.some(r => r.text && r.text.trim());
+              const hasRemarks = currentRemarks.some(r => (r.text && r.text.trim()) || (r.num && r.num.trim()));
               openChipContextMenu({
                 x: e.clientX,
                 y: e.clientY,
@@ -26695,7 +26775,7 @@ ${blocks}
         const pdfReq = {
           html: exportHtml,
           landscape: ${JSON.stringify(pdfSettings.isLandscape)},
-          pdfOptions: { pageSize: ${JSON.stringify(pdfSettings.pageSize || 'A4')}, landscape: ${JSON.stringify(pdfSettings.isLandscape)} }
+          pdfOptions: { pageSize: ${JSON.stringify(pdfSettings.pageSize || 'A4')}, landscape: ${JSON.stringify(pdfSettings.isLandscape)}, margins: ${JSON.stringify(parseCssMarginToInches(pdfSettings.margin))} }
         };
         if (dest === 'to-print') {
           pdfReq.target = 'toPrint';
@@ -26841,7 +26921,7 @@ ${blocks}
           const pdfReq = {
             html,
             landscape: pdfSettings.isLandscape,
-            pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: pdfSettings.isLandscape }
+            pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: pdfSettings.isLandscape, margins: parseCssMarginToInches(pdfSettings.margin) }
           };
           if (destination === 'to-print') {
             pdfReq.target = 'toPrint';
@@ -27748,7 +27828,7 @@ ${blocks}
           const pdfReq = {
             html,
             landscape: pdfSettings.isLandscape,
-            pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
+            pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape, margins: parseCssMarginToInches(pdfSettings.margin) }
           };
           if (destination === 'to-print') {
             pdfReq.target = 'toPrint';
