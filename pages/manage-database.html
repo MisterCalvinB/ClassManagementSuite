@@ -66,7 +66,7 @@
   <link rel="stylesheet" href="../css/manage-database.css">
 </head>
 
-<body>
+<body data-neo-hover-all="1">
   <nav id="app-nav"
     style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;flex-wrap:wrap;box-sizing:border-box;flex-shrink:0;">
     <span class="nav-brand"
@@ -75,8 +75,8 @@
       data-i18n="importShortcutBtn"
       style="margin-left:auto;background:#222;border:1.5px solid #444;color:#ddd;padding:5px 13px;border-radius:5px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
     <div id="app-hamburger" class="hm-wrap">
-      <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-      <button id="tut-trigger" class="tut-trigger-btn" onclick="startMdbTutorial()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" onclick="startMdbTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
       <div class="hm-menu"></div>
     </div>
@@ -109,18 +109,18 @@
             <div id="actions-row">
               <button class="btn btn-primary btn-sm" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
               <button class="btn btn-secondary btn-sm" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
-              <button class="btn btn-secondary btn-sm" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
+              <button class="btn btn-secondary btn-sm" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn" data-i18n-help="hhMdbAddCol" data-hover-help="Add a custom metadata or translation column to this database."><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
               <button class="btn btn-secondary btn-sm" id="ai-studio-btn" onclick="openMdbAiStudio()"
-                style="display:none;background:#e2c96e;font-weight:800;" data-i18n="mdbBtnAiStudio" title="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Studio</button>
+                style="display:none;background:#e2c96e;font-weight:800;" data-i18n="mdbBtnAiStudio" data-hover-help="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Studio</button>
               <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)"
-                style="display:none" data-i18n="mdbBtnAiPrompt"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> AI Prompt</button>
+                style="display:none" data-i18n="mdbBtnAiPrompt" data-i18n-help="hhMdbAiPrompt" data-hover-help="Copy a ready-to-paste AI prompt formatted for this database's columns."><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> AI Prompt</button>
               <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()"
-                style="display:none"></button>
+                style="display:none" data-i18n-help="hhMdbViewToggle" data-hover-help="Switch between table view and card view."></button>
               <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()"
-                style="display:none" data-i18n="mdbBtnRemoveDupes"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Remove Dupes</button>
+                style="display:none" data-i18n="mdbBtnRemoveDupes" data-i18n-help="hhMdbDedup" data-hover-help="Find and remove duplicate entries in the active database."><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Remove Dupes</button>
               <button class="btn btn-secondary btn-sm" id="merge-btn" onclick="openMerge()" style="display:none"
-                data-i18n="mdbBtnMergeFiles"><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge Files</button>
-              <button class="btn btn-secondary btn-sm" id="file-links-btn" onclick="openActiveFileLinksModal()" style="display:none">
+                data-i18n="mdbBtnMergeFiles" data-i18n-help="hhMdbMerge" data-hover-help="Merge records from another database file into this one."><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge Files</button>
+              <button class="btn btn-secondary btn-sm" id="file-links-btn" onclick="openActiveFileLinksModal()" style="display:none" data-i18n-help="hhMdbLinks" data-hover-help="Attach external links, tags, or curriculum units to this database file.">
                 <img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span id="file-links-btn-text">[LINKS &amp; TAGS]</span>
               </button>
               <div class="dropdown" id="export-dropdown" style="display:none">
@@ -335,7 +335,7 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <button type="button" class="btn btn-secondary btn-sm" id="ai-studio-model-chip" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" title="Manage Offline AI Models" style="font-size:0.73rem;padding:3px 8px;display:flex;align-items:center;gap:4px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-studio-model-chip" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" data-hover-help="Manage Offline AI Models" style="font-size:0.73rem;padding:3px 8px;display:flex;align-items:center;gap:4px;">
             <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>Model</span>
           </button>

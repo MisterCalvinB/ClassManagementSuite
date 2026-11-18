@@ -1562,4 +1562,172 @@
   window.promptExportDestination = _promptExportDestination;
   window.saveExportWithDestination = _saveExportWithDestination;
   window.sendToDocumentEditor = _sendToDocumentEditor;
+
+  // ── Light Neobrutalist Hover Helper Card ──────────────────────────────────
+  (function initHoverHelperCard() {
+    if (typeof document === 'undefined') return;
+    var hcStyle = document.createElement('style');
+    hcStyle.textContent = [
+      '#cmt-hover-card{',
+        'position:fixed;top:0;left:0;',
+        'max-width:270px;width:max-content;',
+        'padding:7px 11px;',
+        'background:#fafaf7;color:#222222;',
+        'border:2px solid #333333;',
+        'border-left:5px solid #e2c96e;',
+        'border-radius:6px;',
+        'box-shadow:3px 3px 0 #555555;',
+        'font-family:"Lexend",system-ui,-apple-system,sans-serif;',
+        'font-size:0.76rem;font-weight:500;line-height:1.42;',
+        'z-index:10000005;pointer-events:none;',
+        'opacity:0;will-change:opacity;',
+        'transform:translate3d(var(--hc-x,0px),var(--hc-y,0px),0);',
+        'transition:opacity 0.22s cubic-bezier(0.22,1,0.36,1);',
+        'white-space:normal;word-wrap:break-word;',
+        'user-select:none;-webkit-user-select:none;',
+      '}',
+      '#cmt-hover-card.cmt-hc-visible{',
+        'opacity:1;',
+      '}',
+      '#cmt-hover-card .cmt-hc-title{',
+        'font-weight:800;font-size:0.78rem;color:#111111;',
+        'margin-bottom:2px;letter-spacing:0.2px;',
+      '}',
+      '#cmt-hover-card .cmt-hc-body{',
+        'color:#334155;font-weight:500;',
+      '}'
+    ].join('');
+    document.head.appendChild(hcStyle);
+
+    var cardEl = null;
+    var titleEl = null;
+    var bodyEl = null;
+    var activeTarget = null;
+    var showTimer = null;
+
+    function ensureCard() {
+      if (cardEl) return cardEl;
+      cardEl = document.createElement('div');
+      cardEl.id = 'cmt-hover-card';
+      cardEl.setAttribute('role', 'tooltip');
+      titleEl = document.createElement('div');
+      titleEl.className = 'cmt-hc-title';
+      titleEl.style.display = 'none';
+      bodyEl = document.createElement('div');
+      bodyEl.className = 'cmt-hc-body';
+      cardEl.appendChild(titleEl);
+      cardEl.appendChild(bodyEl);
+      document.body.appendChild(cardEl);
+      return cardEl;
+    }
+
+    function positionCard(target) {
+      if (!cardEl || !target) return;
+      var rect = target.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) return;
+      var pad = 8;
+      var gap = 8;
+      var cardRect = cardEl.getBoundingClientRect();
+      var cw = cardRect.width || 220;
+      var ch = cardRect.height || 48;
+      var x = rect.left + (rect.width - cw) / 2;
+      if (x < pad) x = pad;
+      if (x + cw > window.innerWidth - pad) x = Math.max(pad, window.innerWidth - cw - pad);
+      var y = rect.bottom + gap;
+      if (y + ch > window.innerHeight - pad) {
+        var aboveY = rect.top - ch - gap;
+        if (aboveY >= pad) y = aboveY;
+        else y = Math.max(pad, window.innerHeight - ch - pad);
+      }
+      cardEl.style.setProperty('--hc-x', Math.round(x) + 'px');
+      cardEl.style.setProperty('--hc-y', Math.round(y) + 'px');
+    }
+
+    function showFor(target) {
+      var text = target.getAttribute('data-hover-help');
+      if (!text) return;
+      var card = ensureCard();
+      var titleText = target.getAttribute('data-hover-help-title');
+      if (titleText) {
+        titleEl.textContent = titleText;
+        titleEl.style.display = '';
+      } else {
+        titleEl.textContent = '';
+        titleEl.style.display = 'none';
+      }
+      bodyEl.textContent = text;
+      positionCard(target);
+      void card.offsetWidth;
+      requestAnimationFrame(function () {
+        if (activeTarget === target && cardEl) {
+          positionCard(target);
+          cardEl.classList.add('cmt-hc-visible');
+        }
+      });
+    }
+
+    function hideCard() {
+      if (showTimer) {
+        clearTimeout(showTimer);
+        showTimer = null;
+      }
+      activeTarget = null;
+      if (cardEl) cardEl.classList.remove('cmt-hc-visible');
+    }
+
+    function findHelpTarget(node) {
+      if (!node || typeof node.closest !== 'function') return null;
+      var neoAll = document.body && document.body.getAttribute('data-neo-hover-all') === '1';
+      if (neoAll) {
+        var titled = node.closest('[title]');
+        if (titled && titled.tagName !== 'IFRAME') {
+          var tVal = titled.getAttribute('title');
+          titled.removeAttribute('title');
+          if (tVal && tVal.trim()) {
+            titled.setAttribute('data-hover-help', tVal.trim());
+          }
+        }
+      }
+      return node.closest('[data-hover-help]');
+    }
+
+    document.addEventListener('pointerover', function (e) {
+      var target = findHelpTarget(e.target);
+      if (!target) return;
+      if (activeTarget === target) return;
+      hideCard();
+      activeTarget = target;
+      showTimer = setTimeout(function () {
+        if (activeTarget === target) showFor(target);
+      }, 260);
+    }, true);
+
+    document.addEventListener('pointerout', function (e) {
+      if (!activeTarget) return;
+      var related = e.relatedTarget;
+      if (related && activeTarget.contains(related)) return;
+      if (findHelpTarget(e.target) === activeTarget) hideCard();
+    }, true);
+
+    document.addEventListener('focusin', function (e) {
+      var target = findHelpTarget(e.target);
+      if (!target) return;
+      if (activeTarget === target) return;
+      hideCard();
+      activeTarget = target;
+      showTimer = setTimeout(function () {
+        if (activeTarget === target) showFor(target);
+      }, 260);
+    }, true);
+
+    document.addEventListener('focusout', function () {
+      if (activeTarget) hideCard();
+    }, true);
+
+    document.addEventListener('pointerdown', hideCard, true);
+    document.addEventListener('scroll', hideCard, true);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hideCard();
+    }, true);
+  })();
 })();

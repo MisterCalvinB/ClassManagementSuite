@@ -92,7 +92,7 @@
   <link rel="stylesheet" href="../css/planner.css">
 </head>
 
-<body>
+<body data-neo-hover-all="1">
 
   <!-- ── Nav ── -->
   <nav id="app-nav">
@@ -100,9 +100,9 @@
     <div class="hm-wrap" id="hmWrap">
       <button id="skm-trigger" class="tut-trigger-btn"
         onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})"
-        data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
+        data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
       <button id="tut-trigger" class="tut-trigger-btn" onclick="startPlTutorial()" data-i18n="tourBtnLabel"
-        data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+        data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" data-i18n-aria="navOpenMenu">☰</button>
       <div class="hm-menu"></div>
     </div>
@@ -110,37 +110,37 @@
 
   <!-- ── Toolbar ── -->
   <div id="toolbar-wrap">
-    <div id="toolbar-hover-bar" data-i18n-title="pl_toolbarHoverHint" title="Hover to show toolbar">
+    <div id="toolbar-hover-bar" data-i18n-help="pl_toolbarHoverHint" data-hover-help="Hover to show toolbar">
       <img src="../assets/icons/chevron-down.svg" class="tb-hover-icon" alt="" />
       <span data-i18n="pl_toolbarLabel">Toolbar</span>
     </div>
     <div id="toolbar">
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarSetup">Setup</span>
-      <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Term</button>
-      <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses">Classes</button>
-      <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields">Fields</button>
+      <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem" data-i18n-help="hhPlannerAddTerm" data-hover-help="Create a new academic term with start/end dates and holidays.">+ Term</button>
+      <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses" data-i18n-help="hhPlannerClasses" data-hover-help="Configure class schedules, weekly slots, and class colors.">Classes</button>
+      <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields" data-i18n-help="hhPlannerFields" data-hover-help="Add or customise extra fields shown inside lesson entries.">Fields</button>
     </div>
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarView">View</span>
-      <div class="tb-seg" id="pastBtn" role="group" aria-label="Past entries">
+      <div class="tb-seg" id="pastBtn" role="group" aria-label="Past entries" data-i18n-help="hhPlannerPastToggle" data-hover-help="Show or hide entries from before today.">
         <button type="button" class="tb-seg-opt active" data-state="hide" onclick="setShowPast(false)" data-i18n="pl_hidePast" aria-pressed="true">Hide past</button>
         <button type="button" class="tb-seg-opt" data-state="show" onclick="setShowPast(true)" data-i18n="pl_showPast" aria-pressed="false">Show past</button>
       </div>
-      <div class="tb-seg" id="outsideBtn" role="group" aria-label="Term scope">
+      <div class="tb-seg" id="outsideBtn" role="group" aria-label="Term scope" data-i18n-help="hhPlannerTermScope" data-hover-help="Switch between the active term only or all configured terms.">
         <button type="button" class="tb-seg-opt active" data-state="active" onclick="setShowOutsideTerm(false)" data-i18n="pl_hideOutside" aria-pressed="true">Active term</button>
         <button type="button" class="tb-seg-opt" data-state="all" onclick="setShowOutsideTerm(true)" data-i18n="pl_showOutside" aria-pressed="false">All terms</button>
       </div>
-      <div class="tb-seg" id="viewBtn" role="group" aria-label="View mode">
+      <div class="tb-seg" id="viewBtn" role="group" aria-label="View mode" data-i18n-help="hhPlannerViewMode" data-hover-help="Switch between List, Day, Week, Month, and Year calendar views.">
         <button type="button" class="tb-seg-opt active" data-state="list" onclick="setViewMode('list')" data-i18n="pl_viewList" aria-pressed="true">List</button>
         <button type="button" class="tb-seg-opt" data-state="day" onclick="setViewMode('day')" data-i18n="pl_viewDay" aria-pressed="false">Day</button>
         <button type="button" class="tb-seg-opt" data-state="week" onclick="setViewMode('week')" data-i18n="pl_viewWeek" aria-pressed="false">Week</button>
         <button type="button" class="tb-seg-opt" data-state="month" onclick="setViewMode('month')" data-i18n="pl_viewMonth" aria-pressed="false">Month</button>
         <button type="button" class="tb-seg-opt" data-state="year" onclick="setViewMode('year')" data-i18n="pl_viewYear" aria-pressed="false">Year</button>
       </div>
-      <button type="button" class="tb-btn" id="toolbarTodayBtn" onclick="goToToday()" data-i18n="pl_navToday">Today</button>
+      <button type="button" class="tb-btn" id="toolbarTodayBtn" onclick="goToToday()" data-i18n="pl_navToday" data-i18n-help="hhPlannerToday" data-hover-help="Jump directly to today's date in the current view.">Today</button>
       <div class="disp-wrap" id="dispWrap">
-        <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay">Display ▾</button>
+        <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay" data-i18n-help="hhPlannerDisplay" data-hover-help="Toggle which entry details and calendar layers are visible.">Display ▾</button>
         <div class="disp-popover" id="dispPopover">
           <div class="disp-section-title" data-i18n="pl_dispElements">Entry Elements</div>
           <label class="cb-label"><input type="checkbox" id="vo-time" checked
@@ -181,13 +181,13 @@
 
     <div class="tb-group actions-group">
       <span class="tb-group-label" data-i18n="pl_toolbarActions">Actions</span>
-      <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" data-i18n="pl_btnAddEntry">+ Add
+      <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" data-i18n="pl_btnAddEntry" data-i18n-help="hhPlannerAddEntry" data-hover-help="Create a new lesson, test, or event entry in the planner.">+ Add
         Entry</button>
-      <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport">Export</button>
-      <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs">Import ICS</button>
-      <button class="tb-btn" onclick="openSubscriptionsModal()"><img src="../assets/icons/feed.svg" class="btn-icon" alt="" style="width:12px; height:12px;" /> <span data-i18n="pl_btnSubscriptions">Calendar Feeds</span></button>
+      <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport" data-i18n-help="hhPlannerExport" data-hover-help="Export planner schedule as PDF, ICS calendar, or printable handout.">Export</button>
+      <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs" data-i18n-help="hhPlannerImportIcs" data-hover-help="Import events or holidays from an external .ics calendar file.">Import ICS</button>
+      <button class="tb-btn" onclick="openSubscriptionsModal()" data-i18n-help="hhPlannerFeeds" data-hover-help="Subscribe to live external calendar feeds (ICS URLs)."><img src="../assets/icons/feed.svg" class="btn-icon" alt="" style="width:12px; height:12px;" /> <span data-i18n="pl_btnSubscriptions">Calendar Feeds</span></button>
       <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()"
-        data-i18n="pl_btnMultiSelect">Select</button>
+        data-i18n="pl_btnMultiSelect" data-i18n-help="hhPlannerMultiSelect" data-hover-help="Select multiple entries at once for batch moving, tagging, or deleting.">Select</button>
       <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;"
         data-i18n="pl_btnBatchActions" disabled>Batch Actions</button>
       <span id="save-status"></span>
@@ -209,7 +209,7 @@
     </div>
     <button type="button" class="tb-btn tb-autocollapse-btn" id="toolbarAutoCollapseBtn"
       onclick="toggleToolbarAutoCollapse()" aria-pressed="false"
-      data-i18n-title="pl_toolbarAutoCollapseTitle" title="Auto-collapse toolbar (expand on hover)">
+      data-i18n-help="pl_toolbarAutoCollapseTitle" data-hover-help="Auto-collapse toolbar (expand on hover)">
       <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
       <span data-i18n="pl_toolbarAutoCollapse">Auto-hide</span>
     </button>
@@ -232,9 +232,9 @@
     <div id="main">
       <div id="cal-nav-bar">
         <div class="cal-nav-controls">
-          <button type="button" class="cal-nav-btn" onclick="navigateView(-1)" data-i18n-title="pl_navPrev" title="Previous">&lt;</button>
+          <button type="button" class="cal-nav-btn" onclick="navigateView(-1)" data-i18n-help="pl_navPrev" data-hover-help="Previous">&lt;</button>
           <button type="button" class="cal-nav-btn" onclick="goToToday()" data-i18n="pl_navToday">Today</button>
-          <button type="button" class="cal-nav-btn" onclick="navigateView(1)" data-i18n-title="pl_navNext" title="Next">&gt;</button>
+          <button type="button" class="cal-nav-btn" onclick="navigateView(1)" data-i18n-help="pl_navNext" data-hover-help="Next">&gt;</button>
         </div>
         <span id="cal-nav-title" class="cal-nav-title"></span>
         <span id="cal-nav-sub" class="cal-nav-sub" style="display:none"></span>
@@ -250,7 +250,7 @@
       <div class="tp-inner">
         <div class="tp-header">
           <span class="tp-title" data-i18n="td_todoTitle">To-do</span>
-          <button class="tp-icon-btn" onclick="openAddTodo()" data-i18n-title="td_addTodo">+</button>
+          <button class="tp-icon-btn" onclick="openAddTodo()" data-i18n-help="td_addTodo">+</button>
           <button class="tp-icon-btn" onclick="toggleTodoPanel()">◀</button>
         </div>
         <div class="tp-filter-bar">
@@ -577,7 +577,7 @@
                 <input type="date" id="e-date" class="field-input" style="flex:1;min-width:120px">
                 <span style="font-size:.8rem;color:#aaa;font-weight:800;flex-shrink:0">→</span>
                 <input type="date" id="e-date-to" class="field-input" style="flex:1;min-width:120px"
-                  data-i18n-title="pl_entryDateTo">
+                  data-i18n-help="pl_entryDateTo">
               </div>
             </div>
             <div style="display:flex;flex:1.5;gap:10px;min-width:180px">

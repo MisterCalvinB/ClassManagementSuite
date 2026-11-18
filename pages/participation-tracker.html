@@ -71,12 +71,12 @@
     <link rel="stylesheet" href="../css/participation-tracker.css">
 </head>
 
-<body>
+<body data-neo-hover-all="1">
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-title="skmTitle" title="Keyboard Shortcuts">?</button>
-    <button class="tut-trigger-btn" onclick="showPtTour()" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+    <button class="tut-trigger-btn" onclick="showPtTour()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
@@ -91,14 +91,14 @@
         <!-- Controls Section -->
         <div class="controls-section">
             <div class="control-group" style="width: 100%; flex: 1 1 100%; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
-                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
-                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
-                <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print</button>
-                <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge</button>
+                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives" data-i18n-help="hhPtObjectives" data-hover-help="Configure participation grading thresholds, points, and rules."><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
+                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport" data-i18n-help="hhPtExport" data-hover-help="Export participation records to Excel, CSV, PDF, or HTML."><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
+                <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint" data-i18n-help="hhPtPrint" data-hover-help="Print a formatted participation summary for the selected group."><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print</button>
+                <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport" data-i18n-help="hhPtImport" data-hover-help="Import and merge participation logs from another file or backup."><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge</button>
 
                 <div style="position:relative; min-width: 240px; max-width: 340px; flex: 1; margin-left: 6px;">
                     <input type="text" id="ptStudentSearchInput" data-i18n-placeholder="ptSearchStudentsPlaceholder" placeholder="Search students across groups..." autocomplete="off" style="width:100%;">
-                    <button id="ptStudentSearchClearBtn" type="button" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; cursor:pointer; color:#888; padding:0; line-height:1;" title="Clear search" aria-label="Clear search"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+                    <button id="ptStudentSearchClearBtn" type="button" style="display:none; position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; font-size:16px; cursor:pointer; color:#888; padding:0; line-height:1;" data-hover-help="Clear search" aria-label="Clear search"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
                     <div id="ptSearchResultsDropdown" class="pt-search-results-dropdown hidden"></div>
                 </div>
             </div>
@@ -107,15 +107,15 @@
                 <label data-i18n="ptSelectGroup">Select Group</label>
                 <div class="group-buttons" id="groupButtons"></div>
                 <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-                    <button id="toggleArchivedBtn" class="btn-secondary" onclick="toggleShowArchived()" style="font-size:11px; padding:3px 10px;" data-i18n="ptShowArchived">Show archived</button>
-                    <button id="openCompareGroupsBtn" class="btn-secondary" type="button" style="font-size:11px; padding:3px 10px; background:#ddeef7; color:#2a6a92;" data-i18n="ptCompareGroups">Compare groups</button>
+                    <button id="toggleArchivedBtn" class="btn-secondary" onclick="toggleShowArchived()" style="font-size:11px; padding:3px 10px;" data-i18n="ptShowArchived" data-i18n-help="hhPtShowArchived" data-hover-help="Include archived class groups in the group selector.">Show archived</button>
+                    <button id="openCompareGroupsBtn" class="btn-secondary" type="button" style="font-size:11px; padding:3px 10px; background:#ddeef7; color:#2a6a92;" data-i18n="ptCompareGroups" data-i18n-help="hhPtCompareGroups" data-hover-help="Compare participation metrics side-by-side across multiple classes.">Compare groups</button>
                 </div>
                 <div class="group-meta-info" id="groupMetaInfo"></div>
             </div>
 
             <div class="control-group">
                 <label data-i18n="ptDateRange">Date Range</label>
-                <div class="date-controls">
+                <div class="date-controls" data-i18n-help="hhPtDatePresets" data-hover-help="Quickly filter participation logs by date range or active term.">
                     <button class="date-preset-btn active" data-preset="all" data-i18n="ptDateAll">All Data</button>
                     <button class="date-preset-btn" data-preset="30days" data-i18n="ptDate30Days">Last 30 Days</button>
                     <button class="date-preset-btn" data-preset="7days" data-i18n="ptDate7Days">Last 7 Days</button>
@@ -142,7 +142,7 @@
         <div id="compareSummarySection" class="compare-summary-section hidden">
             <div class="section-header-actions" style="margin-bottom: 8px;">
                 <h2 style="margin:0; border:none;" data-i18n="ptGroupComparisonTitle">Group Comparison Summary</h2>
-                <button id="clearCompareBtn" class="btn-secondary btn-icon" type="button" data-i18n="ptClearComparison">Clear Comparison</button>
+                <button id="clearCompareBtn" class="btn-secondary btn-icon" type="button" data-i18n="ptClearComparison" data-i18n-help="hhPtClearCompare" data-hover-help="Close the multi-group comparison panel.">Clear Comparison</button>
             </div>
             <div id="compareSummaryMeta" class="compare-meta"></div>
             <div class="table-container" style="margin-bottom: 0;">
@@ -281,10 +281,10 @@
                     <span id="sessionTimelineSubtitle" class="pt-timeline-subtitle"></span>
                 </div>
                 <div class="pt-timeline-header-actions">
-                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineExpandBtn" onclick="openSessionTimelineModal()" title="Full-screen timeline inspector">
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineExpandBtn" onclick="openSessionTimelineModal()" data-hover-help="Full-screen timeline inspector">
                         <img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" />
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineClosePanelBtn" onclick="closeSessionTimelinePanel()" title="Close timeline panel">
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineClosePanelBtn" onclick="closeSessionTimelinePanel()" data-hover-help="Close timeline panel">
                         <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
                     </button>
                 </div>
@@ -334,10 +334,10 @@
                 </div>
 
                 <div class="pt-timeline-controls-right">
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-title="ptTimelineExportPng" title="Export Timeline (PNG)">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
                         <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-title="ptTimelineExportSvg" title="Export Timeline (SVG)">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
                         <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
                     </button>
                 </div>
@@ -500,7 +500,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px; padding-right:32px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="rulesModalTitle" data-i18n="ptRulesModalTitle" style="margin:0;">Objectives & Automatic Grading Rules</h3>
-                    <button type="button" class="tut-trigger-btn" onclick="showPtRulesTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                    <button type="button" class="tut-trigger-btn" onclick="showPtRulesTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <label for="rulesModalGroupSelect" style="font-size:12px; font-weight:700; color:#444;" data-i18n="ptSelectGroup">Class / Group:</label>
@@ -749,9 +749,9 @@
             <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="detailModalTitle" style="margin:0;"></h3>
-                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" onclick="openStudentSessionTimelineFromModal()" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" title="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
+                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" onclick="openStudentSessionTimelineFromModal()" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" data-hover-help="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
                     <button type="button" class="btn btn-xs" id="pt-btn-student-dossier" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>
-                    <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-title="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                    <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
             </div>
@@ -1086,10 +1086,10 @@
                     <span id="modalTimelineSubtitle" class="pt-timeline-subtitle"></span>
                 </h3>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-title="ptTimelineExportPng" title="Export Timeline (PNG)">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
                         <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-title="ptTimelineExportSvg" title="Export Timeline (SVG)">
+                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
                         <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
                     </button>
                     <button class="modal-close" onclick="closeSessionTimelineModal()">&times;</button>
@@ -13420,7 +13420,7 @@
 <!-- Credits Modal -->
 <div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" data-i18n-title="gsToptClose" title="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" data-i18n-help="gsToptClose" data-hover-help="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
     <iframe src="about.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
   </div>
 </div>
