@@ -995,7 +995,7 @@
       'rgba(224, 242, 254, .95)', // light blue
       'rgba(252, 231, 243, .95)', // light pink
       'rgba(238, 238, 238, .95)', // light gray
-      'rgba(214, 183, 170, .3)'  // light brown
+      'rgba(214, 183, 170, .3)' // light brown
     ];
     const WN_HIGHLIGHT_COLORS = [
       'rgb(255 229 0)', // pastel yellow
@@ -1748,7 +1748,7 @@
             </select>
           </div>
           <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
-            <option value="solid"  ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
+            <option value="solid" ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
             <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
             <option value="dotted" ${p.borderStyle === 'dotted' ? 'selected' : ''}>${t('conPresetDotted')}</option>
             <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
@@ -1767,7 +1767,7 @@
             <button class="pe-fmt-btn${p.fmt.underline ? ' active' : ''}" data-fmt="under" onclick="this.classList.toggle('active')" title="${t('conPresetUnderlineTitle')}"><u>U</u></button>
             <button class="pe-fmt-btn${p.fmt.strike ? ' active' : ''}" data-fmt="strike" onclick="this.classList.toggle('active')" title="${t('conPresetStrikethroughTitle')}"><s>S</s></button>
           </div>
-          <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="notePresetEditorDeleteRow(${i})">🗑</button>
+          <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="notePresetEditorDeleteRow(${i})"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
         `;
 
         function _bindColorPair(btnEl, inputEl) {
@@ -1938,15 +1938,15 @@
       window.BOARD_CONFIG = bc;
       const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
       if (window.Desktop && typeof Desktop.saveText === 'function') {
-        try { await Desktop.saveText('user', 'board-config.js', lines); mdbToast('✅ Note presets saved to board-config.js'); }
-        catch (err) { mdbToast('⚠️ Could not save: ' + (err && err.message ? err.message : String(err))); }
+        try { await Desktop.saveText('user', 'board-config.js', lines); mdbToast(' Note presets saved to board-config.js'); }
+        catch (err) { mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err))); }
       } else {
         const blob = new Blob([lines], { type: 'text/javascript' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url; a.download = 'board-config.js'; a.click();
         URL.revokeObjectURL(url);
-        mdbToast('📥 board-config.js downloaded — replace the file in user/');
+        mdbToast(' board-config.js downloaded — replace the file in user/');
       }
       noteClosePresetEditor();
     };
@@ -1992,7 +1992,7 @@
       const hideItem = document.getElementById('wn-ctx-hide-item');
       const snippet = (noteData.text || '').trim().slice(0, 28) || 'Note';
       if (title) title.textContent = snippet + (noteData.text && noteData.text.length > 28 ? '…' : '');
-      if (hideItem) hideItem.textContent = noteData.hidden ? '👁 Reveal note' : '👁 Hide note';
+      if (hideItem) hideItem.textContent = noteData.hidden ? ' Reveal note' : ' Hide note';
       menu.classList.add('visible');
       const MARGIN = 8;
       menu.style.maxHeight = Math.max(120, window.innerHeight - 2 * MARGIN) + 'px';
@@ -2490,12 +2490,12 @@
           if (statusEl) statusEl.textContent = t('wnpSaved');
           setTimeout(() => wnpClose(), 1200);
         } else {
-          if (statusEl) statusEl.textContent = '✗ ' + (r && r.error || 'Error');
+          if (statusEl) statusEl.textContent = ' ' + (r && r.error || 'Error');
           if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
         }
       } catch (err) {
         const statusEl = document.getElementById('wn-planner-status');
-        if (statusEl) statusEl.textContent = '✗ ' + err.message;
+        if (statusEl) statusEl.textContent = ' ' + err.message;
         if (saveBtn) { saveBtn.disabled = false; saveBtn.style.opacity = ''; }
       }
     }
@@ -5524,7 +5524,7 @@
         return;
       }
       if (_conDefPickerChoices.length > 0 && selected.length === 0) {
-        if (typeof mdbToast === 'function') mdbToast('ℹ️ Select at least one meaning to add.');
+        if (typeof mdbToast === 'function') mdbToast('ℹ Select at least one meaning to add.');
         return;
       }
 
@@ -6089,11 +6089,11 @@
         // Normal text paste: normalize whitespace
         text = text
           .replace(/\u00A0|\u202F|\u2007|\u2060/g, ' ') // non-breaking / word-joiner spaces
-          .replace(/\r\n|\r/g, '\n')                     // normalize line endings
-          .replace(/[^\S\n]+/g, ' ')                     // collapse spaces/tabs (keep newlines)
-          .replace(/[ \t]+\n/g, '\n')                    // trim trailing spaces before newline
-          .replace(/\n[ \t]+/g, '\n')                    // trim leading spaces after newline
-          .replace(/\n{3,}/g, '\n\n');                   // max two consecutive blank lines
+          .replace(/\r\n|\r/g, '\n') // normalize line endings
+          .replace(/[^\S\n]+/g, ' ') // collapse spaces/tabs (keep newlines)
+          .replace(/[ \t]+\n/g, '\n') // trim trailing spaces before newline
+          .replace(/\n[ \t]+/g, '\n') // trim leading spaces after newline
+          .replace(/\n{3,}/g, '\n\n'); // max two consecutive blank lines
         document.execCommand('insertText', false, text);
         setTimeout(() => {
           wnNormalizeChecklistLists(ta, noteData);
@@ -7064,7 +7064,7 @@
 
       const delBtn = document.createElement('div');
       delBtn.className = 'wn-emoji-sticker-delete';
-      delBtn.textContent = '✕';
+      delBtn.textContent = 'x';
       delBtn.title = 'Remove';
       delBtn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
       delBtn.addEventListener('click', e => {
@@ -7193,7 +7193,7 @@
       // Reuse the standard TA import opener so shortcuts and modal state are initialised.
       taOpenImport();
       const confirmBtn = document.getElementById('ta-imp-confirm-btn');
-      if (confirmBtn) confirmBtn.textContent = '📝 Import into Constellation';
+      if (confirmBtn) confirmBtn.textContent = ' Import into Constellation';
     };
 
     // ── Student Input Note ─────────────────────────────────────────────

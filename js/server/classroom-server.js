@@ -23,7 +23,7 @@ const path   = require('path');
 const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
-const ROOT  = path.join(__dirname, '..');
+const ROOT  = path.join(__dirname, '..', '..');
 const PAGES = path.join(ROOT, 'pages');
 const PORT  = Number(process.env.PORT || process.env.QUIZ_PORT || 8787);
 

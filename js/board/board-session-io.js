@@ -928,7 +928,7 @@
       boardAutosaveFingerprint.constellation = '';
       boardReportActiveFileContext();
       if (window.conUpdatePageBar) window.conUpdatePageBar();
-      mdbToast('ℹ️ Current board unlinked from deleted file. It will not be recreated on close.');
+      mdbToast('ℹ Current board unlinked from deleted file. It will not be recreated on close.');
     }
 
     function historyEntryKey(entry) {
@@ -1255,36 +1255,36 @@
     async function historyArchiveEntry(entry) {
       if (!entry || !entry.target) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
-        mdbToast('⚠️ Archiving requires the Electron desktop app.');
+        mdbToast(' Archiving requires the Electron desktop app.');
         return;
       }
       try {
         await historyExecuteArchiveMove(entry, 'archive');
-        mdbToast('✔ Archived.');
+        mdbToast(' Archived.');
         historyUpdateArchiveState(entry, 'archive');
       } catch (error) {
-        mdbToast('⚠️ Could not archive: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not archive: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
     async function historyUnarchiveEntry(entry) {
       if (!entry || !entry.target) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
-        mdbToast('⚠️ Unarchiving requires the Electron desktop app.');
+        mdbToast(' Unarchiving requires the Electron desktop app.');
         return;
       }
       try {
         await historyExecuteArchiveMove(entry, 'unarchive');
-        mdbToast('✔ Unarchived.');
+        mdbToast(' Unarchived.');
         historyUpdateArchiveState(entry, 'unarchive');
       } catch (error) {
-        mdbToast('⚠️ Could not unarchive: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not unarchive: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
     async function historyArchiveSelected() {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
-        mdbToast('⚠️ Archiving requires the Electron desktop app.');
+        mdbToast(' Archiving requires the Electron desktop app.');
         return;
       }
       const toArchive = historyGetSortedEntries().filter(e => historySelectedKeys.has(historyEntryKey(e)));
@@ -1301,7 +1301,7 @@
           failed++;
         }
       }
-      mdbToast(failed ? '⚠️ Archived ' + done + ', ' + failed + ' failed.' : '✔ Archived ' + done + ' file(s).');
+      mdbToast(failed ? ' Archived ' + done + ', ' + failed + ' failed.' : ' Archived ' + done + ' file(s).');
       if (succeeded.length) {
         historyUpdateArchiveState(succeeded, 'archive');
       }
@@ -1309,7 +1309,7 @@
 
     async function historyUnarchiveSelected() {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
-        mdbToast('⚠️ Unarchiving requires the Electron desktop app.');
+        mdbToast(' Unarchiving requires the Electron desktop app.');
         return;
       }
       const toUnarchive = historyGetSortedEntries().filter(e => historySelectedKeys.has(historyEntryKey(e)));
@@ -1326,7 +1326,7 @@
           failed++;
         }
       }
-      mdbToast(failed ? '⚠️ Unarchived ' + done + ', ' + failed + ' failed.' : '✔ Unarchived ' + done + ' file(s).');
+      mdbToast(failed ? ' Unarchived ' + done + ', ' + failed + ' failed.' : ' Unarchived ' + done + ' file(s).');
       if (succeeded.length) {
         historyUpdateArchiveState(succeeded, 'unarchive');
       }
@@ -1349,7 +1349,7 @@
     async function historyZipArchivedEntries(entries) {
       if (!Array.isArray(entries) || !entries.length) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.zipAndDeleteArchived === 'function')) {
-        mdbToast('⚠️ Zipping archived files requires the Electron desktop app.');
+        mdbToast(' Zipping archived files requires the Electron desktop app.');
         return;
       }
 
@@ -1392,11 +1392,11 @@
         }
 
         const count = res.deletedCount || res.count || entries.length;
-        mdbToast('✔ Created ' + res.zipFilename + ' and deleted ' + count + ' original file(s).');
+        mdbToast(' Created ' + res.zipFilename + ' and deleted ' + count + ' original file(s).');
         historySelectedKeys.clear();
         historyRecordZipped(entries, res.zipFilename || requestedName, 'archived/' + (res.zipFilename || requestedName), target);
       } catch (error) {
-        mdbToast('⚠️ Could not zip files: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not zip files: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -1962,7 +1962,7 @@
         const emptyText = historyFilterText
           ? 'No files match "' + historyFilterText + '". Content search is loading — try again in a moment if results seem incomplete.'
           : historyViewTab === 'archived'
-            ? 'No archived files. Use the 🗄 Archive button on a file to move it here.'
+            ? 'No archived files. Use the Archive button on a file to move it here.'
             : 'No saved files found.';
         list.innerHTML = '<tr><td class="history-empty" colspan="7">' + emptyText + '</td></tr>';
         historyUpdateSelectionUI();
@@ -2429,7 +2429,7 @@
     async function historyExportSelected() {
       if (historySelectedKeys.size === 0) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.exportFiles === 'function')) {
-        mdbToast('⚠️ Exporting files requires the Electron desktop app.');
+        mdbToast(' Exporting files requires the Electron desktop app.');
         return;
       }
 
@@ -2477,21 +2477,21 @@
         const count = Array.isArray(result.exported) ? result.exported.length : 0;
         const errCount = Array.isArray(result.errors) ? result.errors.length : 0;
         if (errCount > 0) {
-          mdbToast('⚠️ Exported ' + count + ' file(s) with ' + errCount + ' error(s).');
+          mdbToast(' Exported ' + count + ' file(s) with ' + errCount + ' error(s).');
         } else {
-          mdbToast('✔ Exported ' + count + ' file(s) to folder.');
+          mdbToast(' Exported ' + count + ' file(s) to folder.');
         }
         historySelectedKeys.clear();
         historyRenderList();
       } catch (error) {
-        mdbToast('⚠️ Could not export files: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not export files: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
     async function historyDeleteSelected() {
       if (historySelectedKeys.size === 0) return;
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.deleteFile === 'function')) {
-        mdbToast('⚠️ Deleting files requires the Electron desktop app.');
+        mdbToast(' Deleting files requires the Electron desktop app.');
         return;
       }
 
@@ -2516,9 +2516,9 @@
           }
         }
         if (failed > 0) {
-          mdbToast('⚠️ Deleted ' + deleted + ' file(s), ' + failed + ' failed.');
+          mdbToast(' Deleted ' + deleted + ' file(s), ' + failed + ' failed.');
         } else {
-          mdbToast('✔ Deleted ' + deleted + ' selected file(s).');
+          mdbToast(' Deleted ' + deleted + ' selected file(s).');
         }
         historyRemoveEntries(deletedEntries);
       });
@@ -2526,7 +2526,7 @@
 
     async function historyDeleteAll() {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.deleteFile === 'function')) {
-        mdbToast('⚠️ Deleting files requires the Electron desktop app.');
+        mdbToast(' Deleting files requires the Electron desktop app.');
         return;
       }
 
@@ -2555,9 +2555,9 @@
           }
         }
         if (failed > 0) {
-          mdbToast('⚠️ Deleted ' + deleted + ' file(s), ' + failed + ' failed.');
+          mdbToast(' Deleted ' + deleted + ' file(s), ' + failed + ' failed.');
         } else {
-          mdbToast('✔ Deleted ' + deleted + ' file(s).');
+          mdbToast(' Deleted ' + deleted + ' file(s).');
         }
         historyRemoveEntries(deletedEntries);
       });
@@ -2619,7 +2619,7 @@
 
     async function boardOpenSessionInNewWindow(request = {}) {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function')) {
-        mdbToast('⚠️ Opening in a new window requires the Electron desktop app.');
+        mdbToast(' Opening in a new window requires the Electron desktop app.');
         return false;
       }
 
@@ -2631,7 +2631,7 @@
           : '';
         const entryId = String(request.entryId || '').trim();
         if (!mode || !entryId) {
-          mdbToast('⚠️ Could not open this session in a new window.');
+          mdbToast(' Could not open this session in a new window.');
           return false;
         }
         query.openLocalSession = '1';
@@ -2640,7 +2640,7 @@
       } else {
         const entry = request.entry;
         if (!(entry && entry.target && entry.filename)) {
-          mdbToast('⚠️ Could not open this file in a new window.');
+          mdbToast(' Could not open this file in a new window.');
           return false;
         }
         query.openSession = '1';
@@ -2668,7 +2668,7 @@
         }
         return true;
       } catch (error) {
-        mdbToast('⚠️ Could not open new window: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not open new window: ' + (error && error.message ? error.message : String(error)));
         return false;
       }
     }
@@ -2852,7 +2852,7 @@
         const wantsRelink = params.get('openPlannerRelink') === '1';
         boardClearPendingOpenQueryParams(params);
         if (!target || !filename) {
-          mdbToast('⚠️ Missing file details for opening this session.');
+          mdbToast(' Missing file details for opening this session.');
           return;
         }
         try {
@@ -2867,7 +2867,7 @@
               const chooseMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
                 ? i18n.t('boardDuplicateChooseTimeslot')
                 : 'Choose a class timeslot to link this duplicate file.';
-              mdbToast('📅 ' + chooseMsg);
+              mdbToast(' ' + chooseMsg);
             }
           }, 400);
         }
@@ -2885,7 +2885,7 @@
       const entryId = params.get('openLocalEntryId') || '';
       boardClearPendingOpenQueryParams(params);
       if (!(mode === 'constellation' || mode === 'notes' || mode === 'textanalysis') || !entryId) {
-        mdbToast('⚠️ Missing local session details for opening this session.');
+        mdbToast(' Missing local session details for opening this session.');
         return;
       }
 
@@ -2893,7 +2893,7 @@
       const entries = Array.isArray(store[mode]) ? store[mode] : [];
       const entry = entries.find(e => String(e && e.id) === String(entryId));
       if (!entry) {
-        mdbToast('⚠️ This saved session is no longer available.');
+        mdbToast(' This saved session is no longer available.');
         return;
       }
       boardRestoreLocalSessionEntry(mode, entry, { closePopup: false });
@@ -2929,7 +2929,7 @@
         }));
       } catch (_) { }
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function')) {
-        mdbToast('⚠️ Opening history files requires the Electron desktop app.');
+        mdbToast(' Opening history files requires the Electron desktop app.');
         return;
       }
 
@@ -3039,9 +3039,9 @@
           return;
         }
 
-        mdbToast('⚠️ This section is no longer available.');
+        mdbToast(' This section is no longer available.');
       } catch (error) {
-        mdbToast('⚠️ Could not load saved file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not load saved file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -3094,7 +3094,7 @@
       if (newFilename === entry.filename) { historyRenameCancel(); return; }
 
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameFile === 'function')) {
-        mdbToast('⚠️ Renaming files requires the Electron desktop app.');
+        mdbToast(' Renaming files requires the Electron desktop app.');
         return;
       }
 
@@ -3161,7 +3161,7 @@
         }
         historyUpdateRenamedEntry(entry.target, historyEntryRelativePath(entry), newFilename, newRelPath);
       } catch (error) {
-        mdbToast('⚠️ Could not rename file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not rename file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -3228,7 +3228,7 @@
       if (!entry) return;
 
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.deleteFile === 'function')) {
-        mdbToast('⚠️ Deleting files requires the Electron desktop app.');
+        mdbToast(' Deleting files requires the Electron desktop app.');
         return;
       }
 
@@ -3239,7 +3239,7 @@
         }
         historyRemoveEntry(entry.target, historyEntryRelativePath(entry));
       } catch (error) {
-        mdbToast('⚠️ Could not delete file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not delete file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -3337,7 +3337,7 @@
       if (!entry || !entry.target || !entry.filename) return;
 
       if (!(window.Desktop && Desktop.isElectron())) {
-        mdbToast('⚠️ Duplicating files requires the Electron desktop app.');
+        mdbToast(' Duplicating files requires the Electron desktop app.');
         return;
       }
 
@@ -3510,7 +3510,7 @@
             : duplicateFilename);
         historyUpsertEntry(entry.target, duplicateFilename, dupRelPath, parsedData || {});
 
-        mdbToast('✅ Duplicated: ' + duplicateFilename);
+        mdbToast(' Duplicated: ' + duplicateFilename);
 
         if (entry.section === 'constellation' && relinkAfterDuplicate) {
           const relPath = dupRelPath;
@@ -3521,11 +3521,11 @@
             section: 'constellation'
           });
           _conPendingDuplicateRelinkRename = true;
-          mdbToast('📅 Choose a class timeslot to link this duplicate file.');
+          mdbToast(' Choose a class timeslot to link this duplicate file.');
           bpShowAll();
         }
       } catch (error) {
-        mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -3540,7 +3540,7 @@
       _historyPreviewEntry = entry;
 
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function')) {
-        mdbToast('⚠️ Preview requires the Electron desktop app.');
+        mdbToast(' Preview requires the Electron desktop app.');
         return;
       }
 
@@ -3588,7 +3588,7 @@
         const datesEl = document.createElement('div');
         datesEl.style.cssText = 'font-size:0.72rem;color:#999;';
         datesEl.textContent =
-          (entry.createdAt ? 'Created: ' + boardFormatWhen(entry.createdAt) + '  ·  ' : '') +
+          (entry.createdAt ? 'Created: ' + boardFormatWhen(entry.createdAt) + ' · ' : '') +
           'Saved: ' + boardFormatWhen(entry.modifiedAt);
         meta.appendChild(datesEl);
         content.appendChild(meta);
@@ -3730,7 +3730,7 @@
         loadRow.style.cssText = 'margin-top:14px;';
         const loadBtn = document.createElement('button');
         loadBtn.className = 'action-btn';
-        loadBtn.textContent = '📂 Open Session';
+        loadBtn.textContent = ' Open Session';
         loadBtn.onclick = () => { historyPreviewClose(); historyLoadSavedFile(entry); };
         loadRow.appendChild(loadBtn);
         content.appendChild(loadRow);
@@ -3739,7 +3739,7 @@
         content.innerHTML = '';
         const errDiv = document.createElement('div');
         errDiv.style.cssText = 'color:#c00;font-size:0.8rem;padding:8px 0;';
-        errDiv.textContent = '⚠️ Error loading preview: ' + (error && error.message ? error.message : String(error));
+        errDiv.textContent = ' Error loading preview: ' + (error && error.message ? error.message : String(error));
         content.appendChild(errDiv);
       }
     }
@@ -3760,9 +3760,9 @@
 
 
 
-    let searchBookText = '';  // The full text of the imported book
+    let searchBookText = ''; // The full text of the imported book
     let searchParagraphs = [];
-    let searchResults = [];   // Array of search result objects
+    let searchResults = []; // Array of search result objects
     let searchAvailableBooks = [];
 
     function searchBuildParagraphs(text) {
@@ -3917,7 +3917,7 @@
       if (searchAvailableBooks.length > 0) {
         const allOpt = document.createElement('option');
         allOpt.value = '__all_books__';
-        allOpt.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : '📚 All Books';
+        allOpt.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : ' All Books';
         select.appendChild(allOpt);
       }
 
@@ -3945,7 +3945,7 @@
           });
         } else {
           const grp = document.createElement('optgroup');
-          grp.label = '📁 ' + fKey;
+          grp.label = ' ' + fKey;
           folders[fKey].forEach(book => {
             const opt = document.createElement('option');
             opt.value = book.id;
@@ -4087,7 +4087,7 @@
       }
 
       if (select.value === '__all_books__') {
-        searchSetBookStatus('📚 All Books mode: searches will query across all library books.');
+        searchSetBookStatus(' All Books mode: searches will query across all library books.');
         return;
       }
 
@@ -4228,7 +4228,7 @@
       }
 
       const titleEl = document.getElementById('ta-imp-title');
-      if (titleEl) titleEl.textContent = '📂 ' + (fileLabel || 'Imported book');
+      if (titleEl) titleEl.textContent = ' ' + (fileLabel || 'Imported book');
 
       const ta = document.getElementById('ta-imp-text');
       if (ta) {
@@ -4401,8 +4401,8 @@
       if (scopeBtn) {
         scopeBtn.classList.toggle('is-all-books', isAll);
         scopeBtn.textContent = isAll
-          ? (typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') || '📚 All Books' : '📚 All Books')
-          : (typeof i18n !== 'undefined' ? i18n.t('taImpScopeThisBook') || '📖 This Book' : '📖 This Book');
+          ? (typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') || ' All Books' : ' All Books')
+          : (typeof i18n !== 'undefined' ? i18n.t('taImpScopeThisBook') || ' This Book' : ' This Book');
       }
       if (searchInput) {
         searchInput.placeholder = isAll
@@ -4468,18 +4468,18 @@
           folderSelect.innerHTML = '';
           const optAll = document.createElement('option');
           optAll.value = '';
-          optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpAllFolders') : '📁 All Folders';
+          optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpAllFolders') : ' All Folders';
           folderSelect.appendChild(optAll);
 
           const optRoot = document.createElement('option');
           optRoot.value = '/';
-          optRoot.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpRootFolder') : '📁 / (Root)';
+          optRoot.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpRootFolder') : ' / (Root)';
           folderSelect.appendChild(optRoot);
 
           _taImportFolders.forEach(f => {
             const opt = document.createElement('option');
             opt.value = f;
-            opt.textContent = '📁 ' + f;
+            opt.textContent = ' ' + f;
             folderSelect.appendChild(opt);
           });
           folderSelect.value = '';
@@ -4515,7 +4515,7 @@
       if (filteredBooks.length > 0 || _taImportBooks.length > 0) {
         const optAll = document.createElement('option');
         optAll.value = '__all_books__';
-        optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : '📚 All Books';
+        optAll.textContent = typeof i18n !== 'undefined' ? i18n.t('taImpScopeAllBooks') : ' All Books';
         select.appendChild(optAll);
       }
 
@@ -4537,7 +4537,7 @@
             });
           } else {
             const grp = document.createElement('optgroup');
-            grp.label = '📁 ' + k;
+            grp.label = ' ' + k;
             groups[k].forEach(book => {
               const opt = document.createElement('option');
               opt.value = book.relativePath;
@@ -4652,7 +4652,7 @@
         if (ta) ta.value = 'Loading ' + label + '…';
 
         const titleEl = document.getElementById('ta-imp-title');
-        if (titleEl) titleEl.textContent = '📂 Loading…';
+        if (titleEl) titleEl.textContent = ' Loading…';
 
         const lowerPath = selectedPath.toLowerCase();
         const result = await Desktop.readByPath('customBooks', selectedPath, { encoding: 'base64' });
@@ -4679,7 +4679,7 @@
         taImportApplyText(text, selectedBook ? selectedBook.fileName : label);
       } catch (error) {
         const ta = document.getElementById('ta-imp-text');
-        if (ta) ta.value = '⚠ Could not load book: ' + (error && error.message ? error.message : String(error));
+        if (ta) ta.value = ' Could not load book: ' + (error && error.message ? error.message : String(error));
       } finally {
         select.disabled = false;
       }
@@ -4711,7 +4711,7 @@
       if (ta) ta.value = 'Reading file…';
 
       const titleEl = document.getElementById('ta-imp-title');
-      if (titleEl) titleEl.textContent = '📂 Reading…';
+      if (titleEl) titleEl.textContent = ' Reading…';
 
       const lowerName = file.name.toLowerCase();
       const isEpub = lowerName.endsWith('.epub');
@@ -4728,42 +4728,42 @@
               _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
-              if (ta) ta.value = '⚠ EPUB error: ' + err.message;
+              if (ta) ta.value = ' EPUB error: ' + err.message;
             });
           } else if (isMobi) {
             taMobiExtractTextAsync(e.target.result).then(text => {
               _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
-              if (ta) ta.value = '⚠ MOBI error: ' + err.message;
+              if (ta) ta.value = ' MOBI error: ' + err.message;
             });
           } else if (isDocx) {
             taDocxExtractTextAsync(e.target.result).then(text => {
               _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
-              if (ta) ta.value = '⚠ DOCX error: ' + err.message;
+              if (ta) ta.value = ' DOCX error: ' + err.message;
             });
           } else if (isOdt) {
             taOdtExtractTextAsync(e.target.result).then(text => {
               _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
-              if (ta) ta.value = '⚠ ODT error: ' + err.message;
+              if (ta) ta.value = ' ODT error: ' + err.message;
             });
           } else if (isPdf) {
             taPdfExtractTextAsync(e.target.result).then(text => {
               _taImportCurrentBookId = 'file:' + file.name;
               taImportApplyText(text, file.name);
             }).catch(err => {
-              if (ta) ta.value = '⚠ PDF error: ' + err.message;
+              if (ta) ta.value = ' PDF error: ' + err.message;
             });
           } else {
             _taImportCurrentBookId = 'file:' + file.name;
             taImportApplyText(taImportHtmlToText(e.target.result), file.name);
           }
         } catch (err) {
-          if (ta) ta.value = '⚠ Could not read file: ' + err.message;
+          if (ta) ta.value = ' Could not read file: ' + err.message;
         }
       };
       if (isBinary) reader.readAsArrayBuffer(file);
@@ -4977,11 +4977,11 @@
     function taEpubExtractText(arrayBuffer) {
       taEpubExtractTextAsync(arrayBuffer).then(text => {
         const titleEl = document.getElementById('ta-imp-title');
-        const fileLabel = titleEl ? titleEl.textContent.replace('📂 ', '') : 'Book';
+        const fileLabel = titleEl ? titleEl.textContent.replace(' ', '') : 'Book';
         taImportApplyText(text, fileLabel);
       }).catch(err => {
         const ta = document.getElementById('ta-imp-text');
-        if (ta) ta.value = '⚠ EPUB error: ' + err.message;
+        if (ta) ta.value = ' EPUB error: ' + err.message;
       });
       return '';
     }
@@ -5205,7 +5205,7 @@
       if (searchCount) searchCount.textContent = '';
 
       const titleEl = document.getElementById('ta-imp-title');
-      if (titleEl) titleEl.textContent = '📂 Import Book';
+      if (titleEl) titleEl.textContent = ' Import Book';
 
       const prevBtn = document.getElementById('ta-imp-search-prev');
       if (prevBtn) prevBtn.disabled = true;
@@ -5601,7 +5601,7 @@
 
             html += `<div class="ta-imp-search-item${idx === 0 ? ' is-active' : ''}" data-all-match-idx="${idx}">` +
               `<span class="ta-imp-search-badge">#${idx + 1}</span>` +
-              `<span class="ta-imp-search-book-tag" title="${esc(m.bookLabel)}">📖 ${esc(m.bookLabel)}</span>` +
+              `<span class="ta-imp-search-book-tag" title="${esc(m.bookLabel)}"> ${esc(m.bookLabel)}</span>` +
               `<span class="ta-imp-search-page">p. ${pageInfo.page}${m.isEstimated ? '~' : ''}</span>` +
               `<span class="ta-imp-search-snippet">…${esc(rawBefore)}<mark class="ta-search-mark">${esc(rawMatch)}</mark>${esc(rawAfter)}…</span>` +
             `</div>`;
@@ -5933,14 +5933,14 @@
       if (window._conImportTextCallback) {
         window._conImportTextCallback(text);
         taCloseImport();
-        mdbToast('📝 Text imported into Constellation.');
+        mdbToast(' Text imported into Constellation.');
       } else {
         const titleEl = document.getElementById('ta-imp-title');
-        const fileLabel = titleEl ? titleEl.textContent.replace('📂 ', '') : 'Book';
+        const fileLabel = titleEl ? titleEl.textContent.replace(' ', '') : 'Book';
         searchApplyBookText(text, fileLabel, '');
         taCloseImport();
         searchInitShortcutMenu();
-        mdbToast('📖 Book imported. You can now search for words.');
+        mdbToast(' Book imported. You can now search for words.');
       }
     }
 
@@ -5948,7 +5948,7 @@
       const wordInput = document.getElementById('search-word');
       const word = wordInput ? wordInput.value.trim().toLowerCase() : '';
       if (!word) {
-        mdbToast('⚠️ Please enter a word to search.');
+        mdbToast(' Please enter a word to search.');
         return;
       }
 
@@ -5959,7 +5959,7 @@
       }
 
       if (!searchBookText) {
-        mdbToast('⚠️ Please import a book first.');
+        mdbToast(' Please import a book first.');
         return;
       }
 
@@ -6159,7 +6159,7 @@
         div.dataset.searchIndex = String(index);
         const paraPct = searchGetParagraphPositionPercent(result);
         const paraInfo = paraPct === null ? '' : ` · Paragraph: ${paraPct}%`;
-        const bookTag = result.bookTitle ? ` · 📖 ${result.bookTitle}` : '';
+        const bookTag = result.bookTitle ? ` · ${result.bookTitle}` : '';
         const canAddPrevious = result.paragraphStartIndex > 0;
         const canAddNext = result.paragraphEndIndex < searchParagraphs.length - 1;
         div.innerHTML = `
@@ -6341,7 +6341,7 @@
         sfnOpen(filename, blob, target, () => _boardNewSessionClear(section), {
           customSave: async function (requestedName) {
             const saved = await conSaveSessionFolderBundle(requestedName, data);
-            mdbToast('✅ Saved: ' + saved.folderName + '/' + saved.filename);
+            mdbToast(' Saved: ' + saved.folderName + '/' + saved.filename);
             return saved.filename;
           }
         });
@@ -6480,13 +6480,13 @@
           const file = e.dataTransfer.files[0];
           if (!file) return;
           if (!/\.(js|json)$/i.test(file.name || '')) {
-            mdbToast('⚠️ Please drop a .js or .json session file.'); return;
+            mdbToast(' Please drop a .js or .json session file.'); return;
           }
           const reader = new FileReader();
           reader.onload = ev => {
             let data;
             try { data = boardParseSessionText(ev.target.result); }
-            catch { mdbToast('⚠️ Could not read file — make sure it is a valid session .js or .json file.'); return; }
+            catch { mdbToast(' Could not read file — make sure it is a valid session .js or .json file.'); return; }
             loadFn(data, file);
           };
           reader.readAsText(file);
@@ -6495,7 +6495,7 @@
 
       initDropzone('con-dropzone', (data, file) => {
         if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
-          mdbToast('⚠️ This file does not look like a Constellation save file.'); return;
+          mdbToast(' This file does not look like a Constellation save file.'); return;
         }
         _conCurrentFileName = global._conCurrentFileName = file && file.name ? (file.name.endsWith('.js') ? file.name : boardStripJsonExt(file.name) + '.js') : null;
         _conCurrentFolderName = global._conCurrentFolderName = null;
@@ -6516,7 +6516,7 @@
 
       initDropzone('ta-dropzone', (data, file) => {
         if (data._type !== 'textanalysis') {
-          mdbToast('⚠️ This file does not look like a Textual Analysis save file.'); return;
+          mdbToast(' This file does not look like a Textual Analysis save file.'); return;
         }
         _taCurrentFileName = file && file.name ? (file.name.endsWith('.js') ? file.name : boardStripJsonExt(file.name) + '.js') : null;
         _taRestoreSession(data);

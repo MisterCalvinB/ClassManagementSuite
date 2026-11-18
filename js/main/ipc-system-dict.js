@@ -1,7 +1,7 @@
 // Crash dumps, session context, screen capture, and quick dictionary IPC handlers extracted from electron-main.js
 'use strict';
 
-const { createDictionaryService } = require('../dictionary-service');
+const { createDictionaryService } = require('./dictionary-service');
 
 function registerSystemDictIpc(ctx) {
   const {
@@ -212,7 +212,7 @@ function registerSystemDictIpc(ctx) {
 
   // ── Quick Dictionary (worker-thread backed word bank search) ─────────────────
   const _dictionaryService = createDictionaryService({
-    workerPath: path.join(ROOT_DIR, 'js', 'dictionary-worker.js'),
+    workerPath: path.join(ROOT_DIR, 'js', 'workers', 'dictionary-worker.js'),
     getBankDirs: () => [
       getSaveTargets().customWordbanks,
       path.join(getBundledDataRoot(), 'wordbanks')

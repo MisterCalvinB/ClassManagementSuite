@@ -156,7 +156,7 @@
 
     /* --- Modal Controls --- */
     let _detCurrentWordKey = null;
-    let _detWordList = [];    // ordered list for next/prev navigation
+    let _detWordList = []; // ordered list for next/prev navigation
     let _detWordHistory = []; // history stack for back button
 
     function _detPopulateSynAnt(item) {
@@ -411,7 +411,7 @@
 
       // Ensure edit mode is off when opening
       document.getElementById('word-detail-overlay').classList.remove('det-editing');
-      document.getElementById('det-edit-btn').textContent = '✏️';
+      document.getElementById('det-edit-btn').textContent = '';
       document.getElementById('det-save-feedback').style.display = 'none';
 
       // View fields
@@ -483,7 +483,7 @@
     function detToggleEdit() {
       const overlay = document.getElementById('word-detail-overlay');
       const isEditing = overlay.classList.toggle('det-editing');
-      document.getElementById('det-edit-btn').textContent = isEditing ? '👁' : '✏️';
+      document.getElementById('det-edit-btn').textContent = isEditing ? '' : '';
       document.getElementById('det-save-feedback').style.display = 'none';
       if (isEditing) {
         const isElec = !!(window.Desktop && Desktop.isElectron());
@@ -511,7 +511,7 @@
     function detCancelEdit() {
       const overlay = document.getElementById('word-detail-overlay');
       overlay.classList.remove('det-editing');
-      document.getElementById('det-edit-btn').textContent = '✏️';
+      document.getElementById('det-edit-btn').textContent = '';
       document.getElementById('det-save-feedback').style.display = 'none';
       // Re-populate from live vocabBank (discard edits)
       if (_detCurrentWordKey) showWordDetail(_detCurrentWordKey, _wordDetailOnClose);
@@ -537,7 +537,7 @@
 
       if (!newWord) {
         const fb = document.getElementById('det-save-feedback');
-        fb.textContent = '⚠ Word is required.';
+        fb.textContent = ' Word is required.';
         fb.style.color = '#ff6b6b'; fb.style.display = 'inline';
         return;
       }
@@ -594,7 +594,7 @@
 
       // Exit edit mode
       document.getElementById('word-detail-overlay').classList.remove('det-editing');
-      document.getElementById('det-edit-btn').textContent = '✏️';
+      document.getElementById('det-edit-btn').textContent = '';
 
       const fb = document.getElementById('det-save-feedback');
       fb.style.color = '#4cff82'; fb.style.display = 'inline';
@@ -602,7 +602,7 @@
       if (target === 'main' && typeof awDownloadDB === 'function') {
         fb.textContent = '⏳ Saving to Main DB…';
         await awDownloadDB();
-        fb.textContent = '✓ Saved to Main DB!';
+        fb.textContent = ' Saved to Main DB!';
         setTimeout(() => { fb.style.display = 'none'; }, 2200);
       } else if (target === 'custom' && window.Desktop && Desktop.isElectron()) {
         fb.textContent = '⏳ Saving to Custom DB…';
@@ -626,17 +626,17 @@
         try {
           const ci2 = entries.findIndex(w => w.word.toLowerCase() === newWord.toLowerCase());
           if (ci2 !== -1) { entries[ci2] = entryForCustom; } else { entries.push(entryForCustom); }
-          const lines = entries.map(w => '  ' + JSON.stringify(w));
+          const lines = entries.map(w => ' ' + JSON.stringify(w));
           const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
           await Desktop.saveText('customData', filename, content);
-          fb.textContent = `✓ Saved to ${filename}!`;
+          fb.textContent = ` Saved to ${filename}!`;
         } catch (e3) {
-          fb.textContent = '⚠ Failed to save to custom DB.';
+          fb.textContent = ' Failed to save to custom DB.';
           fb.style.color = '#ff6b6b';
         }
         setTimeout(() => { fb.style.display = 'none'; }, 2200);
       } else {
-        fb.textContent = '✓ Saved!';
+        fb.textContent = ' Saved!';
         setTimeout(() => { fb.style.display = 'none'; }, 2200);
       }
     }
@@ -674,7 +674,7 @@
       if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
 
       const fb = document.getElementById('det-save-feedback');
-      fb.textContent = '✓ Deleted!';
+      fb.textContent = ' Deleted!';
       fb.style.color = '#4cff82';
       fb.style.display = 'inline';
 
@@ -688,7 +688,7 @@
     function hideWordDetail() {
       timerResume();
       document.getElementById('word-detail-overlay').classList.remove('active', 'det-editing');
-      document.getElementById('det-edit-btn').textContent = '✏️';
+      document.getElementById('det-edit-btn').textContent = '';
       _detZoomLevel = 1;
       const inner = document.querySelector('#word-detail-overlay .det-inner');
       if (inner) inner.style.transform = '';
@@ -708,7 +708,7 @@
       if (existing) existing.remove();
       const btn = document.createElement('button');
       btn.className = 'action-btn btn-explain';
-      btn.textContent = '📖 Explanation';
+      btn.textContent = ' Explanation';
       btn.onclick = () => showWordDetail(wordObj.word);
       container.appendChild(btn);
     }
@@ -1084,7 +1084,7 @@
 
     function isSimpleWord(item) {
       const w = item.word || '';
-      if (/[()]/.test(w)) return false;        // exclude parentheses
+      if (/[()]/.test(w)) return false; // exclude parentheses
       if (w.trim().includes(' ')) return false; // exclude multi-word
       return true;
     }
@@ -1620,7 +1620,7 @@
     }
 
     // ================================================================
-    // PLANNER TIMESLOT PICKER  (bp = board-planner)
+    // PLANNER TIMESLOT PICKER (bp = board-planner)
     // ================================================================
 
     function bpGetAllEntries() {
@@ -1905,11 +1905,11 @@
           historyRenderList();
         }
         conUpdateRenameButtonVisibility();
-        mdbToast('✅ Renamed to slot: ' + nextFilename);
+        mdbToast(' Renamed to slot: ' + nextFilename);
         return true;
       } catch (error) {
         console.error('conRenameCurrentBundleToPlannerSlot error:', error);
-        mdbToast('⚠️ Linked, but could not rename file to slot name.');
+        mdbToast(' Linked, but could not rename file to slot name.');
         return false;
       }
     }
@@ -1938,18 +1938,18 @@
 
     async function conRenameCurrentFileFromInput() {
       if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.renameByPath === 'function')) {
-        mdbToast('⚠️ Rename file is only supported in the Electron desktop app.');
+        mdbToast(' Rename file is only supported in the Electron desktop app.');
         return;
       }
       if (!_conCurrentFileName) {
-        mdbToast('⚠️ No saved file to rename.');
+        mdbToast(' No saved file to rename.');
         return;
       }
       const input = document.getElementById('con-title-input');
       if (!input) return;
       const rawName = String(input.value || '').trim();
       if (!rawName) {
-        mdbToast('⚠️ Title cannot be empty.');
+        mdbToast(' Title cannot be empty.');
         input.focus();
         return;
       }
@@ -1959,7 +1959,7 @@
         .replace(/\s+/g, ' ')
         .trim();
       if (!cleanBase) {
-        mdbToast('⚠️ Invalid characters in title.');
+        mdbToast(' Invalid characters in title.');
         return;
       }
 
@@ -2048,10 +2048,10 @@
           historyRenderList();
         }
         conUpdateRenameButtonVisibility();
-        mdbToast('✅ File renamed to: ' + cleanBase);
+        mdbToast(' File renamed to: ' + cleanBase);
       } catch (error) {
         console.error('Rename failed:', error);
-        mdbToast('⚠️ Could not rename file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not rename file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
@@ -2650,7 +2650,7 @@
           if (result && result.ok) {
             if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
           } else if (result && !result.ok && !result.canceled) {
-            if (typeof mdbToast === 'function') mdbToast('⚠️ Save failed: ' + (result.error || 'unknown'));
+            if (typeof mdbToast === 'function') mdbToast(' Save failed: ' + (result.error || 'unknown'));
             else showToast('Save failed: ' + (result.error || 'unknown'), true);
           }
         });
@@ -2676,10 +2676,10 @@
     let timerState = {
       running: false,
       paused: false,
-      elapsed: 0,       // seconds since timer started
-      tickId: null,     // setInterval id for the 1s tick
-      deductId: null,   // setInterval id for point deductions
-      graceId: null,    // setTimeout id for the grace period
+      elapsed: 0, // seconds since timer started
+      tickId: null, // setInterval id for the 1s tick
+      deductId: null, // setInterval id for point deductions
+      graceId: null, // setTimeout id for the grace period
     };
 
     function timerOpenSettings() {
@@ -2702,7 +2702,7 @@
       timerCfg.points = Math.max(1, points);
       timerCfg.interval = Math.max(5, interval);
       timerCloseSettings();
-      timerStop();   // stop any existing timer
+      timerStop(); // stop any existing timer
       timerStart();
     }
 
@@ -3228,7 +3228,7 @@
       const french = document.getElementById('aw-french').value.trim();
       const definition = _parseLines(document.getElementById('aw-definition').value);
       const exampleSentence = _parseLines(document.getElementById('aw-example').value);
-      if (!word) { awSetFeedback('aw-form-feedback', '⚠ Word is required.', 'err'); return; }
+      if (!word) { awSetFeedback('aw-form-feedback', ' Word is required.', 'err'); return; }
       const themeRaw = document.getElementById('aw-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
       const entry = { word, ipa: document.getElementById('aw-ipa').value.trim() || '', partOfSpeech: document.getElementById('aw-pos').value || '', level: document.getElementById('aw-level').value || '', theme: themeVal, french, definition, exampleSentence, synonyms: awParseCSV(document.getElementById('aw-synonyms').value), antonyms: awParseCSV(document.getElementById('aw-antonyms').value), _custom: true };
@@ -3249,11 +3249,11 @@
         const custom = awGetCustomWords(); const old = custom[awEditIdx];
         const bi = vocabBank.findIndex(v => v.word.toLowerCase() === old.word.toLowerCase() && v._custom);
         if (bi !== -1) vocabBank[bi] = entry; custom[awEditIdx] = entry; awSaveCustomWords(custom);
-        awSetFeedback('aw-form-feedback', `✓ "${word}" updated!`, 'ok'); awCancelEdit();
+        awSetFeedback('aw-form-feedback', ` "${word}" updated!`, 'ok'); awCancelEdit();
       } else {
-        if (vocabBank.find(v => v.word.toLowerCase() === word.toLowerCase())) { awSetFeedback('aw-form-feedback', `⚠ "${word}" already exists.`, 'err'); return; }
+        if (vocabBank.find(v => v.word.toLowerCase() === word.toLowerCase())) { awSetFeedback('aw-form-feedback', ` "${word}" already exists.`, 'err'); return; }
         vocabBank.push(entry); const custom = awGetCustomWords(); custom.push(entry); awSaveCustomWords(custom);
-        awSetFeedback('aw-form-feedback', `✓ "${word}" added!`, 'ok'); awClearForm();
+        awSetFeedback('aw-form-feedback', ` "${word}" added!`, 'ok'); awClearForm();
       }
       populateAllThemeMenus();
     }
@@ -3293,19 +3293,19 @@
     function awSubmitQuote() {
       const quote = document.getElementById('aw-quote-text').value.trim();
       const author = document.getElementById('aw-quote-author').value.trim();
-      if (!quote) { awSetFeedback('aw-quote-feedback', '⚠ Quote text is required.', 'err'); return; }
-      if (!author) { awSetFeedback('aw-quote-feedback', '⚠ Author is required.', 'err'); return; }
+      if (!quote) { awSetFeedback('aw-quote-feedback', ' Quote text is required.', 'err'); return; }
+      if (!author) { awSetFeedback('aw-quote-feedback', ' Author is required.', 'err'); return; }
       const entry = { quote, author, theme: document.getElementById('aw-quote-theme').value.trim() || '', explanation: document.getElementById('aw-quote-explanation').value.trim() || '', keywords: awParseCSV(document.getElementById('aw-quote-keywords').value), _custom: true };
       if (awEditQuoteIdx >= 0) {
         const custom = awGetCustomQuotes(); const old = custom[awEditQuoteIdx];
         const bi = quoteBank.findIndex(v => v.quote.toLowerCase() === old.quote.toLowerCase() && v._custom);
         if (bi !== -1) quoteBank[bi] = entry;
         custom[awEditQuoteIdx] = entry; awSaveCustomQuotes(custom);
-        awSetFeedback('aw-quote-feedback', `✓ Quote updated!`, 'ok'); awCancelEditQuote();
+        awSetFeedback('aw-quote-feedback', ` Quote updated!`, 'ok'); awCancelEditQuote();
       } else {
-        if (quoteBank.find(q => q.quote.toLowerCase() === quote.toLowerCase())) { awSetFeedback('aw-quote-feedback', '⚠ This quote already exists.', 'err'); return; }
+        if (quoteBank.find(q => q.quote.toLowerCase() === quote.toLowerCase())) { awSetFeedback('aw-quote-feedback', ' This quote already exists.', 'err'); return; }
         quoteBank.push(entry); const custom = awGetCustomQuotes(); custom.push(entry); awSaveCustomQuotes(custom);
-        awSetFeedback('aw-quote-feedback', `✓ Quote by ${author} added!`, 'ok'); awClearQuote();
+        awSetFeedback('aw-quote-feedback', ` Quote by ${author} added!`, 'ok'); awClearQuote();
       }
     }
 
@@ -3343,20 +3343,20 @@
     function awSubmitGap() {
       const sentence = document.getElementById('aw-gap-sentence').value.trim();
       const removed = document.getElementById('aw-gap-removed').value.trim();
-      if (!sentence) { awSetFeedback('aw-gap-feedback', '⚠ Sentence is required.', 'err'); return; }
-      if (!removed) { awSetFeedback('aw-gap-feedback', '⚠ Removed word(s) required.', 'err'); return; }
-      if (!sentence.toLowerCase().includes(removed.toLowerCase())) { awSetFeedback('aw-gap-feedback', `⚠ "${removed}" not found in the sentence.`, 'err'); return; }
+      if (!sentence) { awSetFeedback('aw-gap-feedback', ' Sentence is required.', 'err'); return; }
+      if (!removed) { awSetFeedback('aw-gap-feedback', ' Removed word(s) required.', 'err'); return; }
+      if (!sentence.toLowerCase().includes(removed.toLowerCase())) { awSetFeedback('aw-gap-feedback', ` "${removed}" not found in the sentence.`, 'err'); return; }
       const entry = { sentence, removedWord: removed, infinitive: document.getElementById('aw-gap-infinitive').value.trim() || '', grammarType: document.getElementById('aw-gap-grammar').value.trim() || '', level: document.getElementById('aw-gap-level').value || '', _custom: true };
       if (awEditGapIdx >= 0) {
         const custom = awGetCustomGaps(); const old = custom[awEditGapIdx];
         const bi = gapFillBank.findIndex(v => v.sentence.toLowerCase() === old.sentence.toLowerCase() && v._custom);
         if (bi !== -1) gapFillBank[bi] = entry;
         custom[awEditGapIdx] = entry; awSaveCustomGaps(custom);
-        awSetFeedback('aw-gap-feedback', '✓ Gap fill updated!', 'ok'); awCancelEditGap();
+        awSetFeedback('aw-gap-feedback', ' Gap fill updated!', 'ok'); awCancelEditGap();
       } else {
-        if (gapFillBank.find(g => g.sentence.toLowerCase() === sentence.toLowerCase())) { awSetFeedback('aw-gap-feedback', '⚠ This sentence already exists.', 'err'); return; }
+        if (gapFillBank.find(g => g.sentence.toLowerCase() === sentence.toLowerCase())) { awSetFeedback('aw-gap-feedback', ' This sentence already exists.', 'err'); return; }
         gapFillBank.push(entry); const custom = awGetCustomGaps(); custom.push(entry); awSaveCustomGaps(custom);
-        awSetFeedback('aw-gap-feedback', '✓ Gap fill sentence added!', 'ok'); awClearGap();
+        awSetFeedback('aw-gap-feedback', ' Gap fill sentence added!', 'ok'); awClearGap();
       }
     }
 
@@ -3393,26 +3393,26 @@
       const correct = document.getElementById('aw-error-correct').value.trim();
       const erroneous = document.getElementById('aw-error-erroneous').value.trim();
       const explanation = document.getElementById('aw-error-explanation').value.trim();
-      if (!correct) { awSetFeedback('aw-error-feedback', '⚠ Correct sentence is required.', 'err'); return; }
-      if (!erroneous) { awSetFeedback('aw-error-feedback', '⚠ Erroneous sentence is required.', 'err'); return; }
-      if (!explanation) { awSetFeedback('aw-error-feedback', '⚠ Explanation is required.', 'err'); return; }
+      if (!correct) { awSetFeedback('aw-error-feedback', ' Correct sentence is required.', 'err'); return; }
+      if (!erroneous) { awSetFeedback('aw-error-feedback', ' Erroneous sentence is required.', 'err'); return; }
+      if (!explanation) { awSetFeedback('aw-error-feedback', ' Explanation is required.', 'err'); return; }
       const entry = { correct, erroneous, explanation, _custom: true };
       if (awEditErrorIdx >= 0) {
         const custom = awGetCustomErrors(); const old = custom[awEditErrorIdx];
         const bi = errorBank.findIndex(v => v.correct.toLowerCase() === old.correct.toLowerCase() && v._custom);
         if (bi !== -1) errorBank[bi] = entry;
         custom[awEditErrorIdx] = entry; awSaveCustomErrors(custom);
-        awSetFeedback('aw-error-feedback', '✓ Error pair updated!', 'ok'); awCancelEditError();
+        awSetFeedback('aw-error-feedback', ' Error pair updated!', 'ok'); awCancelEditError();
       } else {
-        if (errorBank.find(e => e.correct.toLowerCase() === correct.toLowerCase())) { awSetFeedback('aw-error-feedback', '⚠ This correct sentence already exists.', 'err'); return; }
+        if (errorBank.find(e => e.correct.toLowerCase() === correct.toLowerCase())) { awSetFeedback('aw-error-feedback', ' This correct sentence already exists.', 'err'); return; }
         errorBank.push(entry); const custom = awGetCustomErrors(); custom.push(entry); awSaveCustomErrors(custom);
-        awSetFeedback('aw-error-feedback', '✓ Error pair added!', 'ok'); awClearError();
+        awSetFeedback('aw-error-feedback', ' Error pair added!', 'ok'); awClearError();
       }
     }
 
     // ---- BULK JSON (words only) ----
     // --- Bulk import state ---
-    let _awMergeQueue = [];      // [{incoming, existing}]
+    let _awMergeQueue = []; // [{incoming, existing}]
     let _awMergeAdded = 0;
     let _awMergeMerged = 0;
     let _awMergeReplaced = 0;
@@ -3422,10 +3422,10 @@
 
     function awSubmitBulk() {
       const raw = document.getElementById('aw-bulk-json').value.trim();
-      if (!raw) { awSetFeedback('aw-bulk-feedback', '⚠ Paste some JSON first.', 'err'); return; }
+      if (!raw) { awSetFeedback('aw-bulk-feedback', ' Paste some JSON first.', 'err'); return; }
       let parsed;
-      try { parsed = JSON.parse(raw); } catch (e) { awSetFeedback('aw-bulk-feedback', '⚠ Invalid JSON: ' + e.message, 'err'); return; }
-      if (!Array.isArray(parsed)) { awSetFeedback('aw-bulk-feedback', '⚠ JSON must be an array [ ... ]', 'err'); return; }
+      try { parsed = JSON.parse(raw); } catch (e) { awSetFeedback('aw-bulk-feedback', ' Invalid JSON: ' + e.message, 'err'); return; }
+      if (!Array.isArray(parsed)) { awSetFeedback('aw-bulk-feedback', ' JSON must be an array [ ... ]', 'err'); return; }
 
       _awMergeQueue = []; _awMergeAdded = 0; _awMergeMerged = 0; _awMergeReplaced = 0; _awMergeSkipped = 0; _awMergeInvalid = 0; _awMergeFilled = 0;
       const custom = awGetCustomWords();
@@ -3455,7 +3455,7 @@
 
       // Show diagnostic in UI so we can see what happened without DevTools
       const diagMsg = 'DB size: ' + vbSize + ' | parsed: ' + parsed.length + ' | duplicates found: ' + _awMergeQueue.length + ' | new: ' + _awMergeAdded;
-      awSetFeedback('aw-bulk-feedback', '🔍 ' + diagMsg, _awMergeQueue.length > 0 ? 'ok' : 'err');
+      awSetFeedback('aw-bulk-feedback', ' ' + diagMsg, _awMergeQueue.length > 0 ? 'ok' : 'err');
 
       if (_awMergeQueue.length > 0) {
         awMergeShowNext();
@@ -3561,7 +3561,7 @@
             ${(function () { const ex = _allVals(existing.definition).join(' / '), inc = _allVals(incoming.definition).join(' / '); return row('Definition', ex.substring(0, 80) + (ex.length > 80 ? '…' : ''), inc.substring(0, 80) + (inc.length > 80 ? '…' : ''), 'definition'); })()}
             ${(function () { const ex = _allVals(existing.exampleSentence).join(' / '), inc = _allVals(incoming.exampleSentence).join(' / '); return row('Example', ex.substring(0, 80) + (ex.length > 80 ? '…' : ''), inc.substring(0, 80) + (inc.length > 80 ? '…' : ''), 'exampleSentence'); })()}
           </tbody>
-        </table>${hasFillable ? `<div style="padding:8px 14px;background:#f0faf0;border-top:1px solid #c3e6c3;font-size:0.78rem;color:#1a7a1a;font-weight:700;">🪄 "Fill Empty Fields" will add: ${fillParts.join(', ')}</div>` : ''}`;
+        </table>${hasFillable ? `<div style="padding:8px 14px;background:#f0faf0;border-top:1px solid #c3e6c3;font-size:0.78rem;color:#1a7a1a;font-weight:700;"> "Fill Empty Fields" will add: ${fillParts.join(', ')}</div>` : ''}`;
 
       document.getElementById('aw-merge-overlay').style.display = 'flex';
     }
@@ -3653,7 +3653,7 @@
       if (_awMergeSkipped) parts.push(`${_awMergeSkipped} skipped`);
       if (_awMergeInvalid) parts.push(`${_awMergeInvalid} invalid`);
       const total = _awMergeAdded + _awMergeMerged + _awMergeFilled + _awMergeReplaced;
-      awSetFeedback('aw-bulk-feedback', `✓ ${parts.join(', ') || 'nothing to import'}`, total > 0 ? 'ok' : 'err');
+      awSetFeedback('aw-bulk-feedback', ` ${parts.join(', ') || 'nothing to import'}`, total > 0 ? 'ok' : 'err');
       if (total > 0) document.getElementById('aw-bulk-json').value = '';
     }
 
@@ -3669,7 +3669,7 @@
       tbody.innerHTML = custom.map((w, i) => `<tr>
         <td><strong>${w.word}</strong></td><td>${w.french || ''}</td><td>${w.partOfSpeech || ''}</td><td>${w.level || ''}</td><td>${getItemThemes(w).join(', ') || ''}</td>
         <td style="max-width:220px;color:#555;">${(w.definition || '').substring(0, 70)}${(w.definition || '').length > 70 ? '…' : ''}</td>
-        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditWord(${i})">✏️</button><button class="aw-delete-btn" onclick="awDeleteWord(${i})">✕</button></td>
+        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditWord(${i})"></button><button class="aw-delete-btn" onclick="awDeleteWord(${i})"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button></td>
       </tr>`).join('');
     }
     function awRenderManageQuotes() {
@@ -3678,7 +3678,7 @@
       tbody.innerHTML = custom.map((q, i) => `<tr>
         <td style="max-width:260px;font-style:italic;">"${q.quote.substring(0, 80)}${q.quote.length > 80 ? '…' : ''}"</td>
         <td>${q.author || ''}</td><td>${q.theme || ''}</td>
-        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditQuote(${i})">✏️</button><button class="aw-delete-btn" onclick="awDeleteQuote(${i})">✕</button></td>
+        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditQuote(${i})"></button><button class="aw-delete-btn" onclick="awDeleteQuote(${i})"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button></td>
       </tr>`).join('');
     }
     function awRenderManageGaps() {
@@ -3687,7 +3687,7 @@
       tbody.innerHTML = custom.map((g, i) => `<tr>
         <td style="max-width:220px;">${g.sentence.substring(0, 80)}${g.sentence.length > 80 ? '…' : ''}</td>
         <td><strong>${g.removedWord || ''}</strong></td><td>${g.grammarType || ''}</td><td>${g.level || ''}</td>
-        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditGap(${i})">✏️</button><button class="aw-delete-btn" onclick="awDeleteGap(${i})">✕</button></td>
+        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditGap(${i})"></button><button class="aw-delete-btn" onclick="awDeleteGap(${i})"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button></td>
       </tr>`).join('');
     }
     function awRenderManageErrors() {
@@ -3697,7 +3697,7 @@
         <td style="max-width:180px;color:#1a7a3a;">${e.correct.substring(0, 60)}${e.correct.length > 60 ? '…' : ''}</td>
         <td style="max-width:180px;color:#b91c1c;">${e.erroneous.substring(0, 60)}${e.erroneous.length > 60 ? '…' : ''}</td>
         <td style="max-width:200px;color:#555;">${(e.explanation || '').substring(0, 60)}${(e.explanation || '').length > 60 ? '…' : ''}</td>
-        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditError(${i})">✏️</button><button class="aw-delete-btn" onclick="awDeleteError(${i})">✕</button></td>
+        <td style="display:flex;gap:6px;"><button class="aw-edit-btn" onclick="awEditError(${i})"></button><button class="aw-delete-btn" onclick="awDeleteError(${i})"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button></td>
       </tr>`).join('');
     }
 
@@ -3744,7 +3744,7 @@
         const themes = getItemThemes(w);
         const themeVal = themes.length > 1 ? themes : (themes[0] || '');
         const starredPart = w.starred ? `, starred: true` : '';
-        return `  { word: ${JSON.stringify(w.word)}, ipa: ${JSON.stringify(w.ipa || '')}, partOfSpeech: ${JSON.stringify(w.partOfSpeech || '')}, level: ${JSON.stringify(w.level || '')}, theme: ${JSON.stringify(themeVal)}, definition: ${JSON.stringify(_allVals(w.definition))}, french: ${JSON.stringify(w.french || '')}, exampleSentence: ${JSON.stringify(_allVals(w.exampleSentence))}, synonyms: ${JSON.stringify(w.synonyms || [])}, antonyms: ${JSON.stringify(w.antonyms || [])}, otherForms: ${JSON.stringify(w.otherForms || [])}${starredPart} }`;
+        return ` { word: ${JSON.stringify(w.word)}, ipa: ${JSON.stringify(w.ipa || '')}, partOfSpeech: ${JSON.stringify(w.partOfSpeech || '')}, level: ${JSON.stringify(w.level || '')}, theme: ${JSON.stringify(themeVal)}, definition: ${JSON.stringify(_allVals(w.definition))}, french: ${JSON.stringify(w.french || '')}, exampleSentence: ${JSON.stringify(_allVals(w.exampleSentence))}, synonyms: ${JSON.stringify(w.synonyms || [])}, antonyms: ${JSON.stringify(w.antonyms || [])}, otherForms: ${JSON.stringify(w.otherForms || [])}${starredPart} }`;
       });
 
       return {
@@ -3757,7 +3757,7 @@
 
       if (window.Desktop && Desktop.isElectron()) {
         await Desktop.saveText('customWordbanks', 'wordDb.js', files.wordDb);
-        mdbToast('✅ Database files saved.');
+        mdbToast(' Database files saved.');
         return;
       }
 
@@ -3951,10 +3951,10 @@
     }
 
     let mdbSelectedWords = new Set(); // Set of word strings currently checked
-    let mdbPendingDelete = [];         // Words pending confirmation
+    let mdbPendingDelete = []; // Words pending confirmation
     let mdbCurrentTab = 'delete';
-    let mdbFilteredWords = [];         // full filtered word list
-    let mdbWordsShownCount = 200;       // how many rows are currently rendered
+    let mdbFilteredWords = []; // full filtered word list
+    let mdbWordsShownCount = 200; // how many rows are currently rendered
 
     function mdbOpen() {
       // Populate theme filter
@@ -4100,9 +4100,9 @@
       const to = document.getElementById('mdb-rename-to').value.trim();
       const fb = document.getElementById('mdb-rename-feedback');
 
-      if (!from) { fb.textContent = '⚠ Please select a theme to rename.'; fb.className = 'mdb-themes-feedback err'; return; }
-      if (!to) { fb.textContent = '⚠ Please enter a new name.'; fb.className = 'mdb-themes-feedback err'; return; }
-      if (from === to) { fb.textContent = '⚠ New name is the same as the current name.'; fb.className = 'mdb-themes-feedback err'; return; }
+      if (!from) { fb.textContent = ' Please select a theme to rename.'; fb.className = 'mdb-themes-feedback err'; return; }
+      if (!to) { fb.textContent = ' Please enter a new name.'; fb.className = 'mdb-themes-feedback err'; return; }
+      if (from === to) { fb.textContent = ' New name is the same as the current name.'; fb.className = 'mdb-themes-feedback err'; return; }
 
       const count = vocabBank.filter(w => getItemThemes(w).includes(from)).length;
       mdbApplyThemeRename(from, to);
@@ -4112,7 +4112,7 @@
       const allThemes = mdbGetAllThemes();
       tf.innerHTML = '<option value="">All Themes</option>' + allThemes.map(t => `<option value="${t}">${t}</option>`).join('');
 
-      fb.textContent = `✓ Renamed "${from}" → "${to}" (${count} word${count !== 1 ? 's' : ''} affected).`;
+      fb.textContent = ` Renamed "${from}" → "${to}" (${count} word${count !== 1 ? 's' : ''} affected).`;
       fb.className = 'mdb-themes-feedback ok';
       document.getElementById('mdb-rename-to').value = '';
       mdbRenderThemesTab();
@@ -4124,8 +4124,8 @@
       const target = document.getElementById('mdb-merge-target').value.trim();
       const fb = document.getElementById('mdb-merge-feedback');
 
-      if (selected.length < 2) { fb.textContent = '⚠ Select at least 2 themes to merge.'; fb.className = 'mdb-themes-feedback err'; return; }
-      if (!target) { fb.textContent = '⚠ Enter a target theme name.'; fb.className = 'mdb-themes-feedback err'; return; }
+      if (selected.length < 2) { fb.textContent = ' Select at least 2 themes to merge.'; fb.className = 'mdb-themes-feedback err'; return; }
+      if (!target) { fb.textContent = ' Enter a target theme name.'; fb.className = 'mdb-themes-feedback err'; return; }
 
       const affected = new Set(vocabBank.filter(w => getItemThemes(w).some(t => selected.includes(t))).map(w => w.word));
       mdbApplyThemeMerge(selected, target);
@@ -4135,7 +4135,7 @@
       const allThemes = mdbGetAllThemes();
       tf.innerHTML = '<option value="">All Themes</option>' + allThemes.map(t => `<option value="${t}">${t}</option>`).join('');
 
-      fb.textContent = `✓ Merged ${selected.length} themes into "${target}" (${affected.size} word${affected.size !== 1 ? 's' : ''} affected).`;
+      fb.textContent = ` Merged ${selected.length} themes into "${target}" (${affected.size} word${affected.size !== 1 ? 's' : ''} affected).`;
       fb.className = 'mdb-themes-feedback ok';
       document.getElementById('mdb-merge-target').value = '';
       mdbRenderThemesTab();
@@ -4205,8 +4205,8 @@
             </div>
           </div>
           <div style="font-size:0.8rem;color:#bbb;font-style:italic;">${(d => d.substring(0, 80) + (d.length > 80 ? '…' : ''))(_firstVal(w.definition))}</div>
-          <button class="mdb-word-del-btn" onclick="event.stopPropagation();mdbDeleteOne('${w.word.toLowerCase().replace(/'/g, "\\'")}')">🗑</button>
-          <button class="mdb-word-edit-btn" onclick="event.stopPropagation();mdbOpenEditWord('${w.word.toLowerCase().replace(/'/g, "\\'")}')">✏️</button>
+          <button class="mdb-word-del-btn" onclick="event.stopPropagation();mdbDeleteOne('${w.word.toLowerCase().replace(/'/g, "\\'")}')"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
+          <button class="mdb-word-edit-btn" onclick="event.stopPropagation();mdbOpenEditWord('${w.word.toLowerCase().replace(/'/g, "\\'")}')"></button>
         `;
         list.appendChild(row);
       });
@@ -4300,7 +4300,7 @@
       mdbRenderWords();
       mdbUpdateSelBar();
       // Show brief toast
-      mdbToast('✅ Words deleted from database');
+      mdbToast(' Words deleted from database');
     }
 
     function mdbCancelDelete() {
@@ -4323,7 +4323,7 @@
       const w = vocabBank.find(v => v.word && v.word.toLowerCase() === wordLower);
       if (!w) return;
       _mdbEditWordKey = wordLower;
-      document.getElementById('mdb-edit-modal-title').textContent = '✏️ Edit: ' + w.word;
+      document.getElementById('mdb-edit-modal-title').textContent = ' Edit: ' + w.word;
       document.getElementById('mdb-edit-word').value = w.word;
       document.getElementById('mdb-edit-french').value = w.french || '';
       document.getElementById('mdb-edit-ipa').value = w.ipa || '';
@@ -4351,8 +4351,8 @@
       const french = document.getElementById('mdb-edit-french').value.trim();
       const definition = _parseLines(document.getElementById('mdb-edit-definition').value);
       const exampleSentence = _parseLines(document.getElementById('mdb-edit-example').value);
-      if (!french) { mdbEditFeedback('⚠ French translation is required.', 'err'); return; }
-      if (!definition.length) { mdbEditFeedback('⚠ Definition is required.', 'err'); return; }
+      if (!french) { mdbEditFeedback(' French translation is required.', 'err'); return; }
+      if (!definition.length) { mdbEditFeedback(' Definition is required.', 'err'); return; }
 
       const themeRaw = document.getElementById('mdb-edit-theme').value.trim();
       const themeVal = themeRaw.includes(',') ? themeRaw.split(',').map(s => s.trim()).filter(Boolean) : (themeRaw || '');
@@ -4394,7 +4394,7 @@
 
       populateAllThemeMenus();
       mdbRenderWords();
-      mdbEditFeedback('✓ Saved!', 'ok');
+      mdbEditFeedback(' Saved!', 'ok');
       setTimeout(() => mdbCloseEditWord(), 800);
     }
 
@@ -4462,14 +4462,14 @@
       content.innerHTML = '';
 
       if (!wordDupGroups.length && !themeDupGroups.length) {
-        content.innerHTML = `<div class="mdb-no-dups"><span class="mdb-big-icon">✅</span>No duplicates found! Your database looks clean.</div>`;
+        content.innerHTML = `<div class="mdb-no-dups"><span class="mdb-big-icon"></span>No duplicates found! Your database looks clean.</div>`;
         return;
       }
 
       // Render exact word duplicates
       if (wordDupGroups.length) {
         const h = document.createElement('div');
-        h.innerHTML = `<div style="font-size:0.72rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #eee;">⚠️ Exact spelling duplicates (${wordDupGroups.length} group${wordDupGroups.length === 1 ? '' : 's'})</div>`;
+        h.innerHTML = `<div style="font-size:0.72rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#999;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #eee;"> Exact spelling duplicates (${wordDupGroups.length} group${wordDupGroups.length === 1 ? '' : 's'})</div>`;
         content.appendChild(h);
         wordDupGroups.forEach(group => {
           content.appendChild(mdbMakeDupGroup(group));
@@ -4479,7 +4479,7 @@
       // Render theme duplicates
       if (themeDupGroups.length) {
         const h = document.createElement('div');
-        h.innerHTML = `<div style="font-size:0.72rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#999;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #eee;">🏷️ Shared-theme groups — ${themeDupGroups.length} theme${themeDupGroups.length === 1 ? '' : 's'}</div>
+        h.innerHTML = `<div style="font-size:0.72rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#999;margin:20px 0 12px;padding-bottom:6px;border-bottom:1px solid #eee;"> Shared-theme groups — ${themeDupGroups.length} theme${themeDupGroups.length === 1 ? '' : 's'}</div>
           <p style="font-size:0.82rem;color:#999;margin:0 0 14px;font-style:italic;">These words share a theme. If any are redundant synonyms or accidental entries, you can remove duplicates here.</p>`;
         content.appendChild(h);
         themeDupGroups.forEach(({ theme, words }) => {
@@ -4611,8 +4611,8 @@
           <div class="mdb-dup-group-sub">${group.length} entries with identical spelling</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="mdb-dup-merge-btn mdb-btn-merge-themes" style="background:#fff;color:#111;border:2px solid #111;" title="Merge all themes into an array">🏷️ Merge Themes</button>
-          <button class="mdb-dup-merge-btn mdb-btn-merge-pos"    style="background:#fff;color:#111;border:2px solid #111;" title="Merge all word types into an array">📝 Merge Types</button>
+          <button class="mdb-dup-merge-btn mdb-btn-merge-themes" style="background:#fff;color:#111;border:2px solid #111;" title="Merge all themes into an array"> Merge Themes</button>
+          <button class="mdb-dup-merge-btn mdb-btn-merge-pos" style="background:#fff;color:#111;border:2px solid #111;" title="Merge all word types into an array"> Merge Types</button>
           <button class="mdb-dup-merge-btn" title="Keep the richest entry and auto-merge themes &amp; types">⚡ Keep Best Entry</button>
         </div>
       `;
@@ -4689,7 +4689,7 @@
         <div style="padding:10px 16px;display:flex;flex-wrap:wrap;gap:8px;">
           ${words.map(w => `<span style="display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border:1px solid #ddd;border-radius:4px;font-size:0.88rem;font-weight:600;background:#fff;">
             ${w.word}
-            <button onclick="mdbDeleteOne('${w.word.toLowerCase().replace(/'/g, "\\'")}'); this.closest('.mdb-dup-group').style.opacity='0.5';" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:0.9rem;padding:0 2px;" title="Delete this word">🗑</button>
+            <button onclick="mdbDeleteOne('${w.word.toLowerCase().replace(/'/g, "\\'")}'); this.closest('.mdb-dup-group').style.opacity='0.5';" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:0.9rem;padding:0 2px;" title="Delete this word"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
           </span>`).join('')}
         </div>
       `;
@@ -4701,7 +4701,7 @@
       container.querySelectorAll('.mdb-dup-keep-btn').forEach(b => {
         b.classList.remove('mdb-kept'); b.textContent = 'Keep this'; b.disabled = false;
       });
-      btn.classList.add('mdb-kept'); btn.textContent = '✓ Keeping'; btn.disabled = true;
+      btn.classList.add('mdb-kept'); btn.textContent = ' Keeping'; btn.disabled = true;
 
       const mergedThemes = mdbReadBar(themeBar, 'theme');
       const mergedPOS = mdbReadBar(posBar, 'pos');

@@ -35,13 +35,13 @@
   var invalidateThemeIndex = global.invalidateThemeIndex = window.invalidateThemeIndex = window.invalidateThemeIndex || function() {};
 
     // ================================================================
-    // CONSTELLATION PAGES STATE  (shared globally via board-state.js descriptors)
+    // CONSTELLATION PAGES STATE (shared globally via board-state.js descriptors)
     // ================================================================
     function board() { return document.getElementById('constellation-board'); }
     global.board = window.board = board;
     function svg() { return document.getElementById('constellation-svg'); }
     global.svg = window.svg = svg;
-    let _conCopiedPages = [];    // clipboard for copy/paste page(s)
+    let _conCopiedPages = []; // clipboard for copy/paste page(s)
     let _conPreviewSelectedIdx = new Set(); // checked page indices in Pages popup
     let _conAttachmentCounter = 0;
     // conAttachments is managed globally in board-state.js
@@ -234,7 +234,7 @@
       _bcApplyBoardLayout(layout, { resetHeight: true });
       conRenderBoardLayoutOptionsInContextMenu();
       if (!opts || !opts.silent) {
-        if (typeof mdbToast === 'function') mdbToast('📐 Board layout: ' + layout.preset);
+        if (typeof mdbToast === 'function') mdbToast(' Board layout: ' + layout.preset);
       }
       if (!opts || opts.persist !== false) {
         conPersistBoardLayoutConfig(layout);
@@ -290,7 +290,7 @@
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
         if (typeof mdbToast === 'function') {
-          mdbToast(normalized ? '🎨 Board background updated.' : '🧼 Board background reset.');
+          mdbToast(normalized ? ' Board background updated.' : ' Board background reset.');
         }
       }
       if (!opts || !opts.skipBroadcast) {
@@ -445,7 +445,7 @@
         board.style.backgroundSize = cWidth + 'px ' + cHeight + 'px';
         board.style.backgroundRepeat = 'no-repeat';
         board.style.backgroundPosition = 'top left';
-        if (!opts.silent && typeof mdbToast === 'function') mdbToast('🖼 PDF set as page background.');
+        if (!opts.silent && typeof mdbToast === 'function') mdbToast(' PDF set as page background.');
       } catch (e) {
         console.error('[BG PDF] render error:', e);
       }
@@ -462,7 +462,7 @@
       }
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
-      if (typeof mdbToast === 'function') mdbToast('🗑 Page background cleared.');
+      if (typeof mdbToast === 'function') mdbToast(' Page background cleared.');
     };
 
     window.conSetBoardBgCacheFromMirror = function (bg, render) {
@@ -1277,9 +1277,9 @@
           const parts = [];
           if (removedMedia > 0) parts.push(removedMedia + ' media item(s)');
           if (removedPdfBackground) parts.push('PDF background');
-          mdbToast('🧹 Removed from current page: ' + parts.join(' + ') + '.');
+          mdbToast(' Removed from current page: ' + parts.join(' + ') + '.');
         } else {
-          mdbToast('ℹ️ This attachment is not on the current page.');
+          mdbToast('ℹ This attachment is not on the current page.');
         }
       }
 
@@ -1330,7 +1330,7 @@
 
       conRenderAttachmentSummary();
       if (!(options && options.silent) && typeof mdbToast === 'function') {
-        mdbToast('🗑 Deleted attachment: ' + (removed && removed.name ? removed.name : 'file'));
+        mdbToast(' Deleted attachment: ' + (removed && removed.name ? removed.name : 'file'));
       }
       return true;
     }
@@ -1607,7 +1607,7 @@
       const addBtn = document.createElement('button');
       addBtn.type = 'button';
       addBtn.className = 'con-media-manage-btn';
-      addBtn.textContent = '📎 Attach';
+      addBtn.textContent = ' Attach';
       addBtn.onclick = () => {
         conRemoveInsertAttachmentChooser();
         window.conPickAttachments();
@@ -1616,7 +1616,7 @@
       const recordBtn = document.createElement('button');
       recordBtn.type = 'button';
       recordBtn.className = 'con-media-manage-btn';
-      recordBtn.textContent = t('recordAudio') || '🎙 Record Audio';
+      recordBtn.textContent = t('recordAudio') || ' Record Audio';
       recordBtn.onclick = () => {
         conRemoveInsertAttachmentChooser();
         conOpenRecordPopup();
@@ -1625,7 +1625,7 @@
       const removeAllBtn = document.createElement('button');
       removeAllBtn.type = 'button';
       removeAllBtn.className = 'con-media-manage-btn';
-      removeAllBtn.textContent = '🗑 Media';
+      removeAllBtn.textContent = ' Media';
       removeAllBtn.title = 'Remove all inserted image/audio/video objects';
       removeAllBtn.onclick = () => {
         window.conRemoveInsertedMedia();
@@ -1635,7 +1635,7 @@
       const clearPdfBtn = document.createElement('button');
       clearPdfBtn.type = 'button';
       clearPdfBtn.className = 'con-media-manage-btn';
-      clearPdfBtn.textContent = '🗑 PDF';
+      clearPdfBtn.textContent = ' PDF';
       clearPdfBtn.title = 'Remove inserted PDF boxes from this page';
       clearPdfBtn.onclick = () => {
         window.conClearPagePdfBackground();
@@ -1698,7 +1698,7 @@
 
         const label = document.createElement('div');
         label.className = 'con-media-manage-label';
-        const icon = att.kind === 'pics' ? '🖼' : att.kind === 'sounds' ? '🔊' : att.kind === 'videos' ? '🎬' : '📄';
+        const icon = att.kind === 'pics' ? '' : att.kind === 'sounds' ? '' : att.kind === 'videos' ? '' : '';
         const placedCount = conCountAttachmentPlacedOnCurrentPage(att.id);
         label.textContent = icon + ' ' + att.name + (placedCount > 0 ? (' (' + placedCount + ' on page)') : '');
 
@@ -1869,7 +1869,7 @@
 
       conPageBackgroundPdf = null;
       if (!options.silent && typeof mdbToast === 'function') {
-        mdbToast('📄 Inserted PDF as a resizable box.');
+        mdbToast(' Inserted PDF as a resizable box.');
       }
     }
     global.conRenderPagePdfBackground = window.conRenderPagePdfBackground = conRenderPagePdfBackground;
@@ -1889,8 +1889,8 @@
       conPageBackgroundPdf = null;
       conRenderPagePdfBackground({ silent: true });
       mdbToast(removeIds.size
-        ? ('🧹 Cleared ' + removeIds.size + ' PDF box(es) from this page.')
-        : 'ℹ️ No PDF boxes on this page.');
+        ? (' Cleared ' + removeIds.size + ' PDF box(es) from this page.')
+        : 'ℹ No PDF boxes on this page.');
     };
 
     async function conRenderPdfCanvas(item, canvas, contentEl) {
@@ -2186,7 +2186,7 @@
       const closeBtn = document.createElement('button');
       closeBtn.type = 'button';
       closeBtn.className = 'con-media-remove-btn';
-      closeBtn.textContent = '✕';
+      closeBtn.textContent = 'x';
       closeBtn.title = 'Remove media item';
       closeBtn.onclick = ev => {
         ev.preventDefault();
@@ -3188,8 +3188,8 @@
       window.conMediaClear();
       if (typeof mdbToast === 'function') {
         mdbToast(count > 0
-          ? ('🗑 Removed ' + count + ' inserted media object(s).')
-          : 'ℹ️ No inserted media objects to remove.');
+          ? (' Removed ' + count + ' inserted media object(s).')
+          : 'ℹ No inserted media objects to remove.');
       }
     };
 
@@ -3530,7 +3530,7 @@
         if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conImgConverting') : null) || 'Converting image...');
         const src = await conGetAttachmentDataUrl(att);
         if (!src) {
-          mdbToast('⚠️ Could not load image data for conversion.');
+          mdbToast(' Could not load image data for conversion.');
           window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
           return;
         }
@@ -3604,10 +3604,10 @@
 
         if (typeof conRenderAttachmentSummary === 'function') conRenderAttachmentSummary();
         window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
-        mdbToast('🖼 Converted: ' + newName + ' (' + conFormatFileSize(imgBlob.size) + ')');
+        mdbToast(' Converted: ' + newName + ' (' + conFormatFileSize(imgBlob.size) + ')');
       } catch (err) {
         console.error('[Image Conversion] Failed to convert image:', err);
-        mdbToast('⚠️ Conversion failed, adding original image.');
+        mdbToast(' Conversion failed, adding original image.');
         window.conInsertAttachmentById(att.id, Object.assign({}, opts, { skipConvertModal: true }));
       }
     };
@@ -3682,7 +3682,7 @@
       const chosenQuality = Number.isFinite(chosenQualityVal) ? Math.max(0.2, Math.min(1.0, chosenQualityVal / 100)) : 0.82;
 
       window.conPdfPagePickerClose();
-      if (selectedPages.length === 0) { mdbToast('ℹ️ No pages selected.'); return; }
+      if (selectedPages.length === 0) { mdbToast('ℹ No pages selected.'); return; }
 
       const insertAfterIdx = conCurrentPageIndex;
 
@@ -3693,7 +3693,7 @@
           let pdfDoc = att._pdfDoc;
           if (!pdfDoc) {
             const buf = await conGetAttachmentArrayBuffer(att);
-            if (!buf) { mdbToast('⚠️ Could not load PDF file data.'); return; }
+            if (!buf) { mdbToast(' Could not load PDF file data.'); return; }
             pdfDoc = await pdfjsLib.getDocument(conPdfGetDocumentParams({ data: new Uint8Array(buf) })).promise;
             att._pdfDoc = pdfDoc;
           }
@@ -3827,10 +3827,10 @@
               window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
             }
           }
-          mdbToast('🖼 Inserted ' + selectedPages.length + ' page' + (selectedPages.length === 1 ? '' : 's') + ' as compressed images.');
+          mdbToast(' Inserted ' + selectedPages.length + ' page' + (selectedPages.length === 1 ? '' : 's') + ' as compressed images.');
         } catch (err) {
           console.error('[PDF to Image] Failed to render PDF pages:', err);
-          mdbToast('⚠️ Error converting PDF pages to images: ' + (err && err.message ? err.message : err));
+          mdbToast(' Error converting PDF pages to images: ' + (err && err.message ? err.message : err));
         }
         return;
       }
@@ -3900,7 +3900,7 @@
           window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         }
       }
-      mdbToast('📄 Inserted ' + selectedPages.length + ' PDF page' + (selectedPages.length === 1 ? '' : 's') + ' as new board pages.');
+      mdbToast(' Inserted ' + selectedPages.length + ' PDF page' + (selectedPages.length === 1 ? '' : 's') + ' as new board pages.');
     };
 
     // -------------------------------------------------------
@@ -3908,7 +3908,7 @@
     window.conInsertAttachmentById = async function (attachmentId, options = {}) {
       const att = conFindAttachmentById(attachmentId);
       if (!att) {
-        mdbToast('⚠️ Attachment not found.');
+        mdbToast(' Attachment not found.');
         return;
       }
 
@@ -3934,8 +3934,8 @@
         const nodeId = conAddSoundNodeAt(att, posX, posY, pageNum);
         if (!options.silent) {
           if (typeof mdbToast === 'function') {
-            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('soundNodeAddedToast') : '🎵 Sound node added to board.';
-            mdbToast(toastMsg || '🎵 Sound node added to board.');
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('soundNodeAddedToast') : ' Sound node added to board.';
+            mdbToast(toastMsg || ' Sound node added to board.');
           }
         }
         return nodeId;
@@ -3952,15 +3952,15 @@
         const nodeId = conAddVideoNodeAt(att, posX, posY, pageNum);
         if (!options.silent) {
           if (typeof mdbToast === 'function') {
-            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeAddedToast') : '🎬 Video node added to board.';
-            mdbToast(toastMsg || '🎬 Video node added to board.');
+            const toastMsg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('videoNodeAddedToast') : ' Video node added to board.';
+            mdbToast(toastMsg || ' Video node added to board.');
           }
         }
         return nodeId;
       }
 
       if (att.kind !== 'pics' && att.kind !== 'videos') {
-        mdbToast('⚠️ This attachment type cannot be inserted.');
+        mdbToast(' This attachment type cannot be inserted.');
         return;
       }
 
@@ -4008,7 +4008,7 @@
       conMediaItems.push(item);
       conBuildMediaWidget(item);
       if (!(options && options.silent)) {
-        mdbToast('🧩 Inserted: ' + att.name);
+        mdbToast(' Inserted: ' + att.name);
       }
       if (typeof window._conMirrorBroadcast === 'function') {
         window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
@@ -4078,9 +4078,9 @@
         window.conShowAudioImportPill(lastAudioAtt);
       }
       if (rejected.length) {
-        mdbToast('⚠️ Ignored unsupported files: ' + rejected.slice(0, 3).join(', ') + (rejected.length > 3 ? '…' : ''));
+        mdbToast(' Ignored unsupported files: ' + rejected.slice(0, 3).join(', ') + (rejected.length > 3 ? '…' : ''));
       } else {
-        mdbToast('📎 Added ' + files.length + ' attachment(s).');
+        mdbToast(' Added ' + files.length + ' attachment(s).');
       }
     };
 
@@ -4151,10 +4151,10 @@
       }
 
       if (inserted > 0) {
-        const msg = '🧩 Inserted ' + inserted + ' file(s) from drop.' + (rejected ? ' Ignored ' + rejected + ' unsupported file(s).' : '');
+        const msg = ' Inserted ' + inserted + ' file(s) from drop.' + (rejected ? ' Ignored ' + rejected + ' unsupported file(s).' : '');
         if (typeof mdbToast === 'function') mdbToast(msg);
       } else if (rejected > 0) {
-        if (typeof mdbToast === 'function') mdbToast('⚠️ No supported files dropped.');
+        if (typeof mdbToast === 'function') mdbToast(' No supported files dropped.');
       }
 
       return { inserted, rejected };
@@ -4168,7 +4168,7 @@
     (function () {
       let conNodes = (global.conNodes = window.conNodes = (global.conNodes || []));
       let conEdges = (global.conEdges = window.conEdges = (global.conEdges || []));
-      let conMode = 'move';   // 'move' | 'connect' | 'delete'
+      let conMode = 'move'; // 'move' | 'connect' | 'delete'
       let conSnapEnabled = true; // snap-to-align when dragging elements or resizing notes
       function conToggleSnap() {
         conSnapEnabled = !conSnapEnabled;
@@ -4339,7 +4339,7 @@
       }
       window.conTableClearSelection = conTableClearSelection;
       window.conGetTableSelected = function () { return conTableSelected; };
-      let conConnSrc = null;  // id of first node in connect mode
+      let conConnSrc = null; // id of first node in connect mode
       let _conLinkSrc = null; // id of source element for Ctrl+J cross-type link mode
       let _conLinkSrcIds = []; // all source element IDs for Ctrl+J link mode
       let conNextId = 1;
@@ -4933,18 +4933,18 @@
       // 12 colour presets: [bg, textColor, borderColor]
       if (!CON_PALETTES || !CON_PALETTES.length) {
         CON_PALETTES = global.CON_PALETTES = [
-          ['#ffffff', '#111111', '#111111'],  // White (default)
-          ['#374151', '#ffffff', '#111111'],  // Dark Grey
-          ['#111111', '#ffffff', '#555555'],  // Black
-          ['#fee2e2', '#111111', '#dc2626'],  // Red
-          ['#ffedd5', '#111111', '#ea580c'],  // Orange
-          ['#fef3c7', '#111111', '#d97706'],  // Yellow
-          ['#dcfce7', '#111111', '#16a34a'],  // Green
-          ['#ccfbf1', '#111111', '#0d9488'],  // Teal
-          ['#dbeafe', '#111111', '#2563eb'],  // Blue
-          ['#e0f2fe', '#111111', '#0284c7'],  // Sky
-          ['#f3e8ff', '#111111', '#7c3aed'],  // Purple
-          ['#fce7f3', '#111111', '#db2777']  // Pink
+          ['#ffffff', '#111111', '#111111'], // White (default)
+          ['#374151', '#ffffff', '#111111'], // Dark Grey
+          ['#111111', '#ffffff', '#555555'], // Black
+          ['#fee2e2', '#111111', '#dc2626'], // Red
+          ['#ffedd5', '#111111', '#ea580c'], // Orange
+          ['#fef3c7', '#111111', '#d97706'], // Yellow
+          ['#dcfce7', '#111111', '#16a34a'], // Green
+          ['#ccfbf1', '#111111', '#0d9488'], // Teal
+          ['#dbeafe', '#111111', '#2563eb'], // Blue
+          ['#e0f2fe', '#111111', '#0284c7'], // Sky
+          ['#f3e8ff', '#111111', '#7c3aed'], // Purple
+          ['#fce7f3', '#111111', '#db2777'] // Pink
         ];
       }
       let conActivePalette = 0;
@@ -5218,7 +5218,7 @@
               </select>
             </div>
             <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
-              <option value="solid"  ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
+              <option value="solid" ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
               <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
               <option value="dotted" ${p.borderStyle === 'dotted' ? 'selected' : ''}>${t('conPresetDotted')}</option>
               <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
@@ -5229,9 +5229,9 @@
             </div>
             <select class="pe-shape" title="${t('conPresetShapeTitle')}">
               <option value="rectangle" ${(p.shape || 'rectangle') === 'rectangle' ? 'selected' : ''}>${t('conShapeRect')}</option>
-              <option value="oval"      ${p.shape === 'oval' ? 'selected' : ''}>${t('conShapeOval')}</option>
-              <option value="circle"    ${p.shape === 'circle' ? 'selected' : ''}>${t('conShapeCircle')}</option>
-              <option value="square"    ${p.shape === 'square' ? 'selected' : ''}>${t('conShapeSquare')}</option>
+              <option value="oval" ${p.shape === 'oval' ? 'selected' : ''}>${t('conShapeOval')}</option>
+              <option value="circle" ${p.shape === 'circle' ? 'selected' : ''}>${t('conShapeCircle')}</option>
+              <option value="square" ${p.shape === 'square' ? 'selected' : ''}>${t('conShapeSquare')}</option>
             </select>
             <div class="pe-font-wrap"></div>
             <div class="pe-unit-input-wrap">
@@ -5259,7 +5259,7 @@
               <button class="pe-fmt-btn${p.fmt.underline ? ' active' : ''}" data-fmt="under" onclick="this.classList.toggle('active')" title="${t('conPresetUnderlineTitle')}"><u>U</u></button>
               <button class="pe-fmt-btn${p.fmt.strike ? ' active' : ''}" data-fmt="strike" onclick="this.classList.toggle('active')" title="${t('conPresetStrikethroughTitle')}"><s>S</s></button>
             </div>
-            <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="conPresetEditorDeleteRow(${i})">🗑</button>
+            <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="conPresetEditorDeleteRow(${i})"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
           `;
 
           // Bind unit conversion on unit select changes
@@ -5495,7 +5495,7 @@
         // Collect from DOM
         _conPresetEditorFlushDOM();
         const result = _conPresetEditorDraft.filter(p => !!p.key);
-        if (!result.length) { mdbToast('⚠️ At least one preset required.'); return; }
+        if (!result.length) { mdbToast(' At least one preset required.'); return; }
 
         // Update in-memory config
         const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
@@ -5508,9 +5508,9 @@
         if (window.Desktop && typeof Desktop.saveText === 'function') {
           try {
             await Desktop.saveText('user', 'board-config.js', lines);
-            mdbToast('✅ Presets saved to board-config.js');
+            mdbToast(' Presets saved to board-config.js');
           } catch (err) {
-            mdbToast('⚠️ Could not save: ' + (err && err.message ? err.message : String(err)));
+            mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err)));
           }
         } else {
           const blob = new Blob([lines], { type: 'text/javascript' });
@@ -5518,7 +5518,7 @@
           const a = document.createElement('a');
           a.href = url; a.download = 'board-config.js'; a.click();
           URL.revokeObjectURL(url);
-          mdbToast('📥 board-config.js downloaded — replace the file in user/');
+          mdbToast(' board-config.js downloaded — replace the file in user/');
         }
         if (typeof conInitPresetButtons === 'function') conInitPresetButtons();
         conClosePresetEditor();
@@ -5645,7 +5645,7 @@
         if (typeof window._conBumpBoardRevision === 'function') window._conBumpBoardRevision();
         if (typeof window._conMirrorSendFullSnapshot === 'function') window._conMirrorSendFullSnapshot();
 
-        mdbToast('🗑 Board cleared');
+        mdbToast(' Board cleared');
       }
 
       window.conClearAll = function (options = {}) {
@@ -6512,7 +6512,7 @@
           function showSecondScreenBanner(onStartPresentation) {
             if (document.getElementById('second-screen-prompt-banner')) return;
             const promptMsg = typeof window.t === 'function' ? window.t('secondDisplayPrompt') : 'Second display detected! Would you like to launch Presentation Mode on monitor 2?';
-            const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : '📽️ Start Presentation Mode';
+            const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : ' Start Presentation Mode';
             const dismissBtnTxt = typeof window.t === 'function' ? window.t('btnDismissPrompt') : 'Dismiss';
             const banner = document.createElement('div');
             banner.id = 'second-screen-prompt-banner';
@@ -6523,7 +6523,7 @@
               styleEl.textContent = '@keyframes slideDownPrompt { from { transform: translateY(-20px); opacity:0; } to { transform: translateY(0); opacity:1; } }';
               document.head.appendChild(styleEl);
             }
-            banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🖥️</span><span>' + promptMsg + '</span></div>'
+            banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;"></span><span>' + promptMsg + '</span></div>'
               + '<div style="display:flex;align-items:center;gap:8px;margin-left:8px;">'
               + '<button type="button" id="btn-start-second-pres" style="padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg, #28a745, #208637);color:#fff;font-weight:700;font-size:0.8rem;cursor:pointer;box-shadow:0 2px 8px rgba(40,167,69,0.3);transition:transform 0.1s, background 0.15s;">' + startBtnTxt + '</button>'
               + '<button type="button" id="btn-dismiss-second-pres" style="padding:6px 10px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#ccc;font-weight:600;font-size:0.8rem;cursor:pointer;transition:background 0.15s;">' + dismissBtnTxt + '</button>'
@@ -6829,7 +6829,7 @@
 
         if (!matches || !matches.length) {
           if (typeof mdbToast === 'function') {
-            mdbToast(`⚠️ "${nodeWord || 'Word'}" was not found in the word bank.`);
+            mdbToast(` "${nodeWord || 'Word'}" was not found in the word bank.`);
           }
           return;
         }
@@ -6986,7 +6986,7 @@
                 if (newId && typeof conAddEdge === 'function') {
                   conAddEdge(node.id, newId);
                 }
-                if (typeof mdbToast === 'function') mdbToast(`✓ Added connected node "${form}"`);
+                if (typeof mdbToast === 'function') mdbToast(` Added connected node "${form}"`);
               } else {
                 conSafeClipboardCopy(form, `Copied form: "${form}"`);
               }
@@ -7269,13 +7269,13 @@
           const defs = Array.isArray(rawDefs) ? rawDefs : (rawDefs ? String(rawDefs).split(/\n+/) : []);
           if (defs.length) {
             blocks.push('Definitions:');
-            defs.forEach((d, dIdx) => blocks.push(`  ${dIdx + 1}. ${String(d).trim()}`));
+            defs.forEach((d, dIdx) => blocks.push(` ${dIdx + 1}. ${String(d).trim()}`));
           }
 
           const ex = e.exampleSentence || e.example;
           if (ex) {
             const exList = Array.isArray(ex) ? ex : [ex];
-            exList.forEach(x => blocks.push(`  Example: “${x}”`));
+            exList.forEach(x => blocks.push(` Example: “${x}”`));
           }
 
           if (e.synonyms && e.synonyms.length) {
@@ -7294,7 +7294,7 @@
         } else if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           navigator.clipboard.writeText(fullText).catch(() => {});
         }
-        if (typeof mdbToast === 'function') mdbToast(`✓ Copied all database info for "${mainWord}"`);
+        if (typeof mdbToast === 'function') mdbToast(` Copied all database info for "${mainWord}"`);
       };
 
       window.conNodeCardEditInDbManager = async function() {
@@ -7336,7 +7336,7 @@
       };
 
       // ================================================================
-      // CONSTELLATION → WORD DB QUICK-ADD / EDIT MODAL  (cwdb*)
+      // CONSTELLATION → WORD DB QUICK-ADD / EDIT MODAL (cwdb*)
       // ================================================================
       let _cwdbEditWord = null; // lowercase key of the word currently in modal
 
@@ -7352,11 +7352,11 @@
         fb.textContent = ''; fb.className = '';
 
         if (existingEntry && existingEntry._custom) {
-          title.textContent = '✏️ Edit in DB';
+          title.textContent = ' Edit in DB';
           note.textContent = `"${existingEntry.word}" is already a custom entry — editing will update it.`;
           note.className = 'show';
         } else if (existingEntry) {
-          title.textContent = '✏️ Edit in DB';
+          title.textContent = ' Edit in DB';
           note.textContent = `"${existingEntry.word}" already exists in the database — saving creates a custom override.`;
           note.className = 'show';
         } else {
@@ -7391,12 +7391,12 @@
         const exportBtn = document.getElementById('cwdb-save-export-btn');
         if (exportBtn) {
           exportBtn.style.display = isElec ? '' : 'none';
-          exportBtn.textContent = existingEntry ? '💾 Update in Main DB' : '💾 Save to Main DB';
+          exportBtn.textContent = existingEntry ? ' Update in Main DB' : ' Save to Main DB';
         }
         const customBtn = document.getElementById('cwdb-save-custom-btn');
         if (customBtn) {
           customBtn.style.display = isElec ? '' : 'none';
-          customBtn.textContent = existingEntry ? '📁 Update in Custom DB' : '📁 Save to Custom DB';
+          customBtn.textContent = existingEntry ? ' Update in Custom DB' : ' Save to Custom DB';
         }
 
         // Delete only makes sense for existing words
@@ -7434,9 +7434,9 @@
           const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
           listEl.innerHTML = existingFiles.map(fn =>
-            `<label class="cdbp-file-item"><input type="radio" name="cdbp-file" value="${esc(fn)}"><span>📄 ${esc(fn)}</span></label>`
+            `<label class="cdbp-file-item"><input type="radio" name="cdbp-file" value="${esc(fn)}"><span> ${esc(fn)}</span></label>`
           ).join('') +
-            `<label class="cdbp-file-item cdbp-new-item"><input type="radio" name="cdbp-file" value="__new__"><span>✨ New file…</span></label>`;
+            `<label class="cdbp-file-item cdbp-new-item"><input type="radio" name="cdbp-file" value="__new__"><span> New file…</span></label>`;
 
           newInput.value = '';
           newErr.textContent = '';
@@ -7472,8 +7472,8 @@
             if (!sel) { doCancel(); return; }
             if (sel.value === '__new__') {
               let name = newInput.value.trim();
-              if (!name) { newErr.textContent = '⚠ Please enter a file name.'; newInput.focus(); return; }
-              if (!/^[\w\- .]+$/.test(name)) { newErr.textContent = '⚠ Only letters, numbers, spaces, hyphens, dots allowed.'; newInput.focus(); return; }
+              if (!name) { newErr.textContent = ' Please enter a file name.'; newInput.focus(); return; }
+              if (!/^[\w\- .]+$/.test(name)) { newErr.textContent = ' Only letters, numbers, spaces, hyphens, dots allowed.'; newInput.focus(); return; }
               if (!name.endsWith('.js')) name += '.js';
               cleanup(); resolve(name);
             } else {
@@ -7568,7 +7568,7 @@
             vocabBank.some(v => v.word && v.word.toLowerCase() === entry.word.toLowerCase());
 
           const srcBadges = [...entry.srcs].map(s =>
-            `<span class="cde-src-badge cde-src-${s}">${s === 'node' ? '⬡' : '📌'} ${s}</span>`
+            `<span class="cde-src-badge cde-src-${s}">${s === 'node' ? '⬡' : ''} ${s}</span>`
           ).join(' ');
 
           const pgTxt = [...entry.pages].sort((a, b) => a - b).join(', ');
@@ -7579,7 +7579,7 @@
             <td class="cde-cell-word">${esc(entry.word)}${bookPgTxt}</td>
             <td class="cde-cell-src">${srcBadges}</td>
             <td class="cde-cell-pg" style="${multiPg ? '' : 'display:none'}">${pgTxt}</td>
-            <td class="cde-cell-indb">${inDb ? '<span class="cde-indb-yes" title="Already in word bank">✓</span>' : ''}</td>
+            <td class="cde-cell-indb">${inDb ? '<span class="cde-indb-yes" title="Already in word bank"></span>' : ''}</td>
             <td class="cde-cell-check"><label style="cursor:pointer;"><input type="checkbox" class="cde-cb" data-idx="${i}" checked></label></td>
           </tr>`;
         }).join('');
@@ -7600,7 +7600,7 @@
           .map(cb => _conDbExportWords[parseInt(cb.dataset.idx)])
           .filter(Boolean);
 
-        if (!selected.length) { mdbToast('⚠ No words selected.'); return; }
+        if (!selected.length) { mdbToast(' No words selected.'); return; }
 
         const keyword = (document.getElementById('con-db-export-keyword').value || '').trim();
 
@@ -7654,12 +7654,12 @@
         });
 
         const allEntries = [...entryMap.values()];
-        const lines = allEntries.map(w => '  ' + JSON.stringify(w));
+        const lines = allEntries.map(w => ' ' + JSON.stringify(w));
         const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
 
         try {
           await Desktop.saveText('customWordbanks', filename, content);
-          const msg = `✓ ${added} word${added !== 1 ? 's' : ''} added to ${filename}` +
+          const msg = ` ${added} word${added !== 1 ? 's' : ''} added to ${filename}` +
             (skipped > 0 ? ` (${skipped} already existed, kept unchanged)` : '');
           mdbToast(msg);
           conDbExportClose();
@@ -7679,7 +7679,7 @@
             }
           } catch (_) { }
         } catch (err) {
-          mdbToast('⚠ Save failed: ' + err);
+          mdbToast(' Save failed: ' + err);
         }
       }
       // ── end DB Export ────────────────────────────────────────────────────────
@@ -7761,7 +7761,7 @@
 
         if (target === 'main' && typeof awDownloadDB === 'function') {
           await awDownloadDB();
-          cwdbFeedback(`✓ "${wordDisplay}" saved — writing wordDb.js…`, 'ok');
+          cwdbFeedback(` "${wordDisplay}" saved — writing wordDb.js…`, 'ok');
           setTimeout(() => cwdbClose(), 1400);
         } else if (target === 'custom' && window.Desktop && Desktop.isElectron()) {
           const filename = await pickCustomDbFile();
@@ -7778,10 +7778,10 @@
             const { _custom, ...stripped } = entry;
             const ci2 = entries.findIndex(w => w.word.toLowerCase() === _cwdbEditWord);
             if (ci2 !== -1) { entries[ci2] = stripped; } else { entries.push(stripped); }
-            const lines = entries.map(w => '  ' + JSON.stringify(w));
+            const lines = entries.map(w => ' ' + JSON.stringify(w));
             const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
             await Desktop.saveText('customWordbanks', filename, content);
-            cwdbFeedback(`✓ "${wordDisplay}" saved to ${filename}!`, 'ok');
+            cwdbFeedback(` "${wordDisplay}" saved to ${filename}!`, 'ok');
             try {
               if (typeof initCustomDatabases === 'function') {
                 _customDbInitPromise = null;
@@ -7789,12 +7789,12 @@
               }
             } catch (_) {}
           } catch (e3) {
-            cwdbFeedback('⚠ Failed to save to custom DB.', 'err');
+            cwdbFeedback(' Failed to save to custom DB.', 'err');
             return;
           }
           setTimeout(() => cwdbClose(), 900);
         } else {
-          cwdbFeedback(`✓ "${wordDisplay}" saved!`, 'ok');
+          cwdbFeedback(` "${wordDisplay}" saved!`, 'ok');
           setTimeout(() => cwdbClose(), 900);
         }
       }
@@ -7803,7 +7803,7 @@
         if (!_cwdbEditWord) return;
         const existing = vocabBank.find(v => v.word && v.word.toLowerCase() === _cwdbEditWord);
         if (!existing) {
-          cwdbFeedback('⚠ Word is not in the database yet.', 'err');
+          cwdbFeedback(' Word is not in the database yet.', 'err');
           return;
         }
         const label = existing.word || _cwdbEditWord;
@@ -7844,7 +7844,7 @@
         }
         if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
 
-        cwdbFeedback(`✓ "${label}" deleted.`, 'ok');
+        cwdbFeedback(` "${label}" deleted.`, 'ok');
         setTimeout(() => cwdbClose(), 700);
       }
 
@@ -7872,21 +7872,21 @@
       // SHARED BOARD ANIMATIONS (15 Effects — Nodes, Notes, Groups)
       // ================================================================
       const CON_ANIMATIONS = [
-        { key: 'pulse',     i18nKey: 'conAnimPulse',     label: 'Pulse Glow' },
-        { key: 'blink',     i18nKey: 'conAnimBlink',     label: 'Attention Blink' },
-        { key: 'float',     i18nKey: 'conAnimFloat',     label: 'Gentle Float' },
+        { key: 'pulse', i18nKey: 'conAnimPulse', label: 'Pulse Glow' },
+        { key: 'blink', i18nKey: 'conAnimBlink', label: 'Attention Blink' },
+        { key: 'float', i18nKey: 'conAnimFloat', label: 'Gentle Float' },
         { key: 'heartbeat', i18nKey: 'conAnimHeartbeat', label: 'Heartbeat' },
-        { key: 'wiggle',    i18nKey: 'conAnimWiggle',    label: 'Wiggle' },
-        { key: 'bounce',    i18nKey: 'conAnimBounce',    label: 'Bounce' },
-        { key: 'ripple',    i18nKey: 'conAnimRipple',    label: 'Beacon Ripple' },
+        { key: 'wiggle', i18nKey: 'conAnimWiggle', label: 'Wiggle' },
+        { key: 'bounce', i18nKey: 'conAnimBounce', label: 'Bounce' },
+        { key: 'ripple', i18nKey: 'conAnimRipple', label: 'Beacon Ripple' },
         { key: 'spotlight', i18nKey: 'conAnimSpotlight', label: 'Spotlight Aura' },
-        { key: 'shimmer',   i18nKey: 'conAnimShimmer',   label: 'Shimmer Sheen' },
-        { key: 'tada',      i18nKey: 'conAnimTada',      label: 'Tada Callout' },
-        { key: 'invert',    i18nKey: 'conAnimInvert',    label: 'Inverse Colours' },
-        { key: 'orbit',     i18nKey: 'conAnimOrbit',     label: 'Orbiting Point' },
-        { key: 'elastic',   i18nKey: 'conAnimElastic',   label: 'Elastic Pop' },
-        { key: 'pendulum',  i18nKey: 'conAnimPendulum',  label: 'Pendulum Tilt' },
-        { key: 'hue_glow',  i18nKey: 'conAnimHueGlow',   label: 'Spectrum Glow' }
+        { key: 'shimmer', i18nKey: 'conAnimShimmer', label: 'Shimmer Sheen' },
+        { key: 'tada', i18nKey: 'conAnimTada', label: 'Tada Callout' },
+        { key: 'invert', i18nKey: 'conAnimInvert', label: 'Inverse Colours' },
+        { key: 'orbit', i18nKey: 'conAnimOrbit', label: 'Orbiting Point' },
+        { key: 'elastic', i18nKey: 'conAnimElastic', label: 'Elastic Pop' },
+        { key: 'pendulum', i18nKey: 'conAnimPendulum', label: 'Pendulum Tilt' },
+        { key: 'hue_glow', i18nKey: 'conAnimHueGlow', label: 'Spectrum Glow' }
       ];
       window.CON_ANIMATIONS = global.CON_ANIMATIONS = CON_ANIMATIONS;
 
@@ -12946,7 +12946,7 @@
       window.conAddTimerNodeAt = conAddTimerNodeAt;
 
       // ═══════════════════════════════════════════════════════
-      // RANDOM NUMBER NODE  —  =random(a,b)
+      // RANDOM NUMBER NODE — =random(a,b)
       // ═══════════════════════════════════════════════════════
 
       /**
@@ -13040,7 +13040,7 @@
         const rect = node.el.getBoundingClientRect();
 
         const titleEl = document.getElementById('con-random-popover-title');
-        const bodyEl  = document.getElementById('con-random-popover-actions');
+        const bodyEl = document.getElementById('con-random-popover-actions');
 
         if (titleEl && typeof i18n !== 'undefined') {
           titleEl.textContent = i18n.t('randomNodeTitle') || 'Random Number Node';
@@ -13071,7 +13071,7 @@
         if (py < 10) py = rect.bottom + 8;
         px = Math.max(10, Math.min(window.innerWidth - popW - 10, px));
         popover.style.left = px + 'px';
-        popover.style.top  = py + 'px';
+        popover.style.top = py + 'px';
 
         setTimeout(() => {
           document.addEventListener('mousedown', _conOnRandomPopoverOutside, true);
@@ -14405,7 +14405,7 @@
         if (!node) return;
         const att = (conAttachments || []).find(a => a && (a.id === node.videoAttachmentId || a.name === node.videoName || a.name === node.baseWord));
         if (!att) {
-          if (typeof mdbToast === 'function') mdbToast('⚠️ Video attachment not found.');
+          if (typeof mdbToast === 'function') mdbToast(' Video attachment not found.');
           return;
         }
         const x = node.x || 100;
@@ -16143,7 +16143,7 @@
       window.conBoardCtxConfirm = async function () {
         const inp = document.getElementById('con-board-ctx-input');
         const raw = (inp && inp.value.trim()) || '';
-        const pendingSrc = _pendingConnectSrcId;  // snapshot before close clears it
+        const pendingSrc = _pendingConnectSrcId; // snapshot before close clears it
         const pendingType = _pendingConnectType || 'none'; // snapshot arrow type
         const chosenLayout = conGetBoardCtxLayout();
         conBoardCtxClose();
@@ -16234,8 +16234,8 @@
           }
           if (!chainParts.length) return;
 
-          const chainAnchorIds = [];  // first node id of each segment (for chaining)
-          const chainNodeIds = [];    // all node ids (for spread)
+          const chainAnchorIds = []; // first node id of each segment (for chaining)
+          const chainNodeIds = []; // all node ids (for spread)
 
           const entryBase = entryBasePositions[entryIdx] || { x: originX, y: originY };
           const baseX = entryBase.x;
@@ -17228,7 +17228,7 @@
         });
 
         if (units.length < 2) {
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ No nearby words to spread here.');
+          if (typeof mdbToast === 'function') mdbToast('ℹ No nearby words to spread here.');
           return;
         }
 
@@ -17377,7 +17377,7 @@
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
         const totalMoved = _conCompactRunUnits(units, centX, centY, 4);
-        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         units.forEach(u => {
           u.n.x = u.cx - u.w / 2; u.n.y = u.cy - u.h / 2;
           u.n.el.style.transition = 'left 0.4s ease, top 0.4s ease';
@@ -17431,7 +17431,7 @@
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
         const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
-        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         conPushUndo();
         const bcx = bw / 2, bcy = bh / 2;
         units.forEach(unit => {
@@ -17498,11 +17498,11 @@
           if (!boxTouchesRegion(n.x, n.y, n.x + w, n.y + h)) return;
           units.push({ cx: n.x + w / 2, cy: n.y + h / 2, w, h, isGroup: false, node: n, locked: conIsNodeLocked(n) });
         });
-        if (units.length < 2) { if (typeof mdbToast === 'function') mdbToast('ℹ️ No nearby words to compact here.'); return; }
+        if (units.length < 2) { if (typeof mdbToast === 'function') mdbToast('ℹ No nearby words to compact here.'); return; }
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
         const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
-        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ️ Already as compact as possible.'); return; }
+        if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         conPushUndo();
         const boardCenterX = brd.clientWidth / 2, boardCenterY = brd.clientHeight / 2;
         units.forEach(unit => {
@@ -17595,7 +17595,7 @@
             showTrans: false,
             showIpa: false,
             casing: 'none',
-            maxWidth: null  // null = unconstrained; positive number = pixel cap with word-wrap
+            maxWidth: null // null = unconstrained; positive number = pixel cap with word-wrap
           };
         }
         if (typeof node.fmt.strike !== 'boolean') node.fmt.strike = false;
@@ -18664,7 +18664,7 @@
         _conRelPickerWords = words;
 
         document.getElementById('con-rel-picker-title').textContent =
-          relation === 'synonyms' ? '🔗 Add Synonyms' : '⚡ Add Antonyms';
+          relation === 'synonyms' ? ' Add Synonyms' : '⚡ Add Antonyms';
         document.getElementById('con-rel-picker-word-badge').textContent =
           node.baseWord || node.el.textContent.trim();
 
@@ -19243,8 +19243,8 @@
         if (selected.length === 0) {
           if (typeof mdbToast === 'function') {
             mdbToast(mode === 'ipa'
-              ? 'ℹ️ Select at least one IPA value to add.'
-              : 'ℹ️ Select at least one translation to add.');
+              ? 'ℹ Select at least one IPA value to add.'
+              : 'ℹ Select at least one translation to add.');
           }
           return;
         }
@@ -19254,7 +19254,7 @@
         const relation = mode === 'ipa' ? 'ipa' : 'translation';
         const created = conAddLinkedChildNodesFromText(node, selected, relation);
         if (!created && typeof mdbToast === 'function') {
-          mdbToast('ℹ️ Selected value(s) are already on the board.');
+          mdbToast('ℹ Selected value(s) are already on the board.');
         }
       };
 
@@ -20195,7 +20195,7 @@
         if (!allowWhileTyping && conClipboardTypingFocus()) return false;
         const payload = conClipboardBuildPayload();
         if (!payload) {
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select words, notes, drawings, shapes, or pictures first.');
+          if (typeof mdbToast === 'function') mdbToast('ℹ Select words, notes, drawings, shapes, or pictures first.');
           return false;
         }
         _conClipboardWrite(payload);
@@ -20213,7 +20213,7 @@
           _conOsClipboardWritePromise = writePromise;
         }
         const count = (payload.nodes || []).length + (payload.notes || []).length + (payload.groups || []).length + (payload.drawings || []).length + (payload.shapes || []).length + (payload.media || []).length;
-        if (typeof mdbToast === 'function') mdbToast('📋 Copied ' + count + ' item' + (count === 1 ? '' : 's'));
+        if (typeof mdbToast === 'function') mdbToast(' Copied ' + count + ' item' + (count === 1 ? '' : 's'));
         return true;
       };
 
@@ -20224,7 +20224,7 @@
         if (!allowWhileTyping && conClipboardTypingFocus()) return false;
         const payload = conClipboardBuildPayload();
         if (!payload) {
-          if (typeof mdbToast === 'function') mdbToast('ℹ️ Select words, notes, drawings, shapes, or pictures first.');
+          if (typeof mdbToast === 'function') mdbToast('ℹ Select words, notes, drawings, shapes, or pictures first.');
           return false;
         }
         _conClipboardWrite(payload);
@@ -20383,7 +20383,7 @@
               : { x: 40, y: 40 };
             // conInsertAttachmentById probes natural size internally; just pass position.
             window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
-            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+            if (typeof mdbToast === 'function') mdbToast(' Image pasted onto the board.');
             return true;
           } catch (err) {}
         }
@@ -20394,7 +20394,7 @@
         };
         if (typeof wnPasteAsConTable === 'function' && ((osHtml && osHtml.includes('<table')) || (plain && plain.includes('\t') && plain.includes('\n')))) {
           if (wnPasteAsConTable(mockClip, x, y)) {
-            if (typeof mdbToast === 'function') mdbToast('📊 Pasted table onto the board.');
+            if (typeof mdbToast === 'function') mdbToast(' Pasted table onto the board.');
             return true;
           }
         }
@@ -20411,7 +20411,7 @@
                 const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
                 if (el) el.classList.add('wn-selected');
               }
-              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+              if (typeof mdbToast === 'function') mdbToast(' Pasted text note onto the board.');
               return true;
             }
           }
@@ -20429,7 +20429,7 @@
           return ok;
         }
 
-        if (typeof mdbToast === 'function') mdbToast('ℹ️ Clipboard is empty. Copy something first.');
+        if (typeof mdbToast === 'function') mdbToast('ℹ Clipboard is empty. Copy something first.');
         return false;
       };
 
@@ -21108,7 +21108,7 @@
 
             // conInsertAttachmentById probes natural size internally; just pass position.
             window.conInsertAttachmentById(attachmentId, { x: pos.x, y: pos.y, silent: true });
-            if (typeof mdbToast === 'function') mdbToast('🖼 Image pasted onto the board.');
+            if (typeof mdbToast === 'function') mdbToast(' Image pasted onto the board.');
           });
           return;
         }
@@ -21161,7 +21161,7 @@
                 const el = typeof wnGetNoteElementById === 'function' ? wnGetNoteElementById(note.id) : null;
                 if (el) el.classList.add('wn-selected');
               }
-              if (typeof mdbToast === 'function') mdbToast('📝 Pasted text note onto the board.');
+              if (typeof mdbToast === 'function') mdbToast(' Pasted text note onto the board.');
             }
           }
           return;
@@ -21692,7 +21692,7 @@
         closeBtn.className = 'action-btn btn-grey con-numbering-toast-close';
         closeBtn.title = 'Dismiss';
         closeBtn.setAttribute('aria-label', 'Dismiss');
-        closeBtn.textContent = '✕';
+        closeBtn.textContent = 'x';
         closeBtn.addEventListener('click', function (e) {
           e.stopPropagation();
           conCloseNumberingChoiceToast();
@@ -21844,7 +21844,7 @@
           pill.innerHTML = `
             <img src="../assets/icons/page-number.svg" style="width:16px;height:16px;" alt="" />
             <span>${tMsg}</span>
-            <button type="button" class="action-btn btn-grey" onclick="conExitNumberingMode()" style="padding:2px 8px;font-size:0.75rem;margin-left:6px;">✕</button>
+            <button type="button" class="action-btn btn-grey" onclick="conExitNumberingMode()" style="padding:2px 8px;font-size:0.75rem;margin-left:6px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
           `;
           pill.style.display = 'inline-flex';
         } else {
@@ -24727,7 +24727,7 @@
     }
 
     // ================================================================
-    // CONSTELLATION — SPREAD / EQUALISE  (defined inside IIFE — see above)
+    // CONSTELLATION — SPREAD / EQUALISE (defined inside IIFE — see above)
     // ================================================================
     function conSpreadNodes_UNUSED() {
       const nodes = conGetNodes();
@@ -25033,21 +25033,21 @@
     // ================================================================
     (function () {
       const CON_EMOJIS = [
-        { e: '❤️', label: 'Heart' },
-        { e: '😊', label: 'Happy' },
-        { e: '😢', label: 'Sad' },
-        { e: '😲', label: 'Surprised' },
-        { e: '🤔', label: 'Puzzled' },
-        { e: '😠', label: 'Angry' },
-        { e: '🤢', label: 'Disgust' },
-        { e: '😱', label: 'Shocked' },
-        { e: '😨', label: 'Scared' },
-        { e: '😔', label: 'Sad / Down' },
-        { e: '😌', label: 'Relieved' },
-        { e: '🥰', label: 'In love' },
-        { e: '😤', label: 'Frustrated' },
-        { e: '😅', label: 'Nervous' },
-        { e: '🤩', label: 'Excited' }
+        { e: '❤', label: 'Heart' },
+        { e: '', label: 'Happy' },
+        { e: '', label: 'Sad' },
+        { e: '', label: 'Surprised' },
+        { e: '', label: 'Puzzled' },
+        { e: '', label: 'Angry' },
+        { e: '', label: 'Disgust' },
+        { e: '', label: 'Shocked' },
+        { e: '', label: 'Scared' },
+        { e: '', label: 'Sad / Down' },
+        { e: '', label: 'Relieved' },
+        { e: '', label: 'In love' },
+        { e: '', label: 'Frustrated' },
+        { e: '', label: 'Nervous' },
+        { e: '', label: 'Excited' }
       ];
 
       let _emojiTarget = null; // { type: 'node'|'note', id }
@@ -25180,7 +25180,7 @@
         });
         // Remove reaction button (spans full width in 4th row)
         const removeBtn = document.createElement('button');
-        removeBtn.textContent = '✕';
+        removeBtn.textContent = 'x';
         removeBtn.title = 'Remove reaction';
         removeBtn.style.cssText = 'grid-column: 1/-1; font-size:13px; color:#888; border-top:1px solid #eee; border-radius:0 0 6px 6px;';
         removeBtn.addEventListener('click', ev => {
@@ -25219,7 +25219,7 @@
       { name: 'Blue thin', color: '#1e88e5', opacity: 1, thickness: 2, shape: '' },
     ];
     const _BC_PEN_SHAPE_OPTIONS = [
-      { value: '', label: '✏ Freehand' },
+      { value: '', label: ' Freehand' },
       { value: 'rect', label: '▭ Rect' },
       { value: 'circle', label: '⬭ Ellipse' },
       { value: 'diamond', label: '◇ Diamond' },

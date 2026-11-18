@@ -6,14 +6,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Class Plan</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
-  <script src="../js/student-name-utils.js"></script>
-  <script src="../js/i18n.js"></script>
+  <script src="../js/shared/student-name-utils.js"></script>
+  <script src="../js/shared/i18n.js"></script>
   <script src="../electron-bridge.js"></script>
-  <script src="../js/pins.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/tutorial.js"></script>
+  <script src="../js/shared/pins.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
   <script>
   (function () {
@@ -747,11 +747,25 @@ function renderPlansList() {
         (plan.isTemporary ? '<span class="badge-temp">' + t('cpBadgeTemp') + '</span>' : '') +
       '</div>' +
       '<div class="plan-card-actions">' +
-        '<button class="pca-btn" onclick="event.stopPropagation();editPlanById(\'' + esc(plan.id) + '\')">' + t('cpBtnCardSettings') + '</button>' +
-        (!plan.isActive ? '<button class="pca-btn" onclick="event.stopPropagation();setActivePlan(\'' + esc(plan.id) + '\')">' + t('cpBtnSetActive') + '</button>' : '') +
-        '<button class="pca-btn" onclick="event.stopPropagation();printPlanById(\'' + esc(plan.id) + '\')" title="' + esc(t('cpPrint')) + '"><img src="../assets/icons/printer.svg" class="btn-icon" alt="Print" style="width:13px;height:13px;" /></button>' +
-        '<button class="pca-btn danger" onclick="event.stopPropagation();deletePlanById(\'' + esc(plan.id) + '\')" title="Delete"><img src="../assets/icons/close.svg" class="btn-icon" alt="Delete" style="width:12px;height:12px;" /></button>' +
+        '<button class="pca-btn" data-plan-action="edit" data-plan-id="' + esc(plan.id) + '">' + t('cpBtnCardSettings') + '</button>' +
+        (!plan.isActive ? '<button class="pca-btn" data-plan-action="active" data-plan-id="' + esc(plan.id) + '">' + t('cpBtnSetActive') + '</button>' : '') +
+        '<button class="pca-btn" data-plan-action="print" data-plan-id="' + esc(plan.id) + '" title="' + esc(t('cpPrint')) + '"><img src="../assets/icons/printer.svg" class="btn-icon" alt="Print" style="width:13px;height:13px;" /></button>' +
+        '<button class="pca-btn danger" data-plan-action="delete" data-plan-id="' + esc(plan.id) + '" title="Delete"><img src="../assets/icons/close.svg" class="btn-icon" alt="Delete" style="width:12px;height:12px;" /></button>' +
       '</div>';
+    if (!list._cpCardDelegated) {
+      list._cpCardDelegated = true;
+      list.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-plan-action]');
+        if (!btn) return;
+        e.stopPropagation();
+        var pid = btn.getAttribute('data-plan-id');
+        var act = btn.getAttribute('data-plan-action');
+        if (act === 'edit') editPlanById(pid);
+        else if (act === 'active') setActivePlan(pid);
+        else if (act === 'print') printPlanById(pid);
+        else if (act === 'delete') deletePlanById(pid);
+      });
+    }
     card.addEventListener('click', function () { openEditor(plan); });
     list.appendChild(card);
   });
@@ -1043,10 +1057,22 @@ function buildGridControls(plan) {
   bar.innerHTML = '';
   if (!plan.layoutType || plan.layoutType === 'grid') {
     bar.innerHTML =
-      '<button class="gc-btn" onclick="gridRemoveRow()">' + t('cpGridMinusRow') + '</button>' +
-      '<button class="gc-btn" onclick="gridAddRow()">' + t('cpGridPlusRow') + '</button>' +
-      '<button class="gc-btn" onclick="gridRemoveCol()">' + t('cpGridMinusCol') + '</button>' +
-      '<button class="gc-btn" onclick="gridAddCol()">' + t('cpGridPlusCol') + '</button>';
+      '<button class="gc-btn" data-grid-action="remove-row">' + t('cpGridMinusRow') + '</button>' +
+      '<button class="gc-btn" data-grid-action="add-row">' + t('cpGridPlusRow') + '</button>' +
+      '<button class="gc-btn" data-grid-action="remove-col">' + t('cpGridMinusCol') + '</button>' +
+      '<button class="gc-btn" data-grid-action="add-col">' + t('cpGridPlusCol') + '</button>';
+    if (!bar._cpGridDelegated) {
+      bar._cpGridDelegated = true;
+      bar.addEventListener('click', function (e) {
+        var btn = e.target.closest('button[data-grid-action]');
+        if (!btn) return;
+        var act = btn.getAttribute('data-grid-action');
+        if (act === 'remove-row') gridRemoveRow();
+        else if (act === 'add-row') gridAddRow();
+        else if (act === 'remove-col') gridRemoveCol();
+        else if (act === 'add-col') gridAddCol();
+      });
+    }
   }
 }
 
@@ -2010,203 +2036,7 @@ function buildPrintHtml(plan, isContentEditable) {
     body +
     teacherDeskHtml +
     '<footer>' + esc(footerText) + '</footer>' +
-    '<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    (function () {
-      var el = document.querySelector('[data-ev-1]');
-      if (!el) return;
-      var handler = function (event) { ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')}) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-2]');
-      if (!el) return;
-      var handler = function (event) { startCpTutorial() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-3]');
-      if (!el) return;
-      var handler = function (event) { onGroupChange(this.value) };
-      el.addEventListener('change', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-4]');
-      if (!el) return;
-      var handler = function (event) { onHalfChange(this.value) };
-      el.addEventListener('change', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-5]');
-      if (!el) return;
-      var handler = function (event) { deleteOrphanedGroup() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-6]');
-      if (!el) return;
-      var handler = function (event) { openNewPlanConfig() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-7]');
-      if (!el) return;
-      var handler = function (event) { randomAssign() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-8]');
-      if (!el) return;
-      var handler = function (event) { cpTogglePin() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-9]');
-      if (!el) return;
-      var handler = function (event) { editPlanSettings() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-10]');
-      if (!el) return;
-      var handler = function (event) { toggleExportMenu(event) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-11]');
-      if (!el) return;
-      var handler = function (event) { handleExportClick('pdf') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-12]');
-      if (!el) return;
-      var handler = function (event) { handleExportClick('csv') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-13]');
-      if (!el) return;
-      var handler = function (event) { handleExportClick('xlsx') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-14]');
-      if (!el) return;
-      var handler = function (event) { handleExportClick('docx') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-15]');
-      if (!el) return;
-      var handler = function (event) { handleExportClick('html') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-16]');
-      if (!el) return;
-      var handler = function (event) { manualSave() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-17]');
-      if (!el) return;
-      var handler = function (event) { if(event.target===this)closeCfgModal() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-18]');
-      if (!el) return;
-      var handler = function (event) { event.stopPropagation() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-19]');
-      if (!el) return;
-      var handler = function (event) { closeCfgModal() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-20]');
-      if (!el) return;
-      var handler = function (event) { cpPopulatePlannerSlots(this.value, null) };
-      el.addEventListener('change', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-21]');
-      if (!el) return;
-      var handler = function (event) { selectLayoutType('grid') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-22]');
-      if (!el) return;
-      var handler = function (event) { selectLayoutType('ushape') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-23]');
-      if (!el) return;
-      var handler = function (event) { selectLayoutType('pods') };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-24]');
-      if (!el) return;
-      var handler = function (event) { onRoomInputChanged() };
-      el.addEventListener('input', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-25]');
-      if (!el) return;
-      var handler = function (event) { onSavedLayoutSelect(this.value) };
-      el.addEventListener('change', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-26]');
-      if (!el) return;
-      var handler = function (event) { deleteSavedLayout() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-27]');
-      if (!el) return;
-      var handler = function (event) { addScheduleSlot() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-28]');
-      if (!el) return;
-      var handler = function (event) { closeCfgModal() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-29]');
-      if (!el) return;
-      var handler = function (event) { confirmPlanConfig() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-30]');
-      if (!el) return;
-      var handler = function (event) { if(event.target===this)_cfmCancel() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-31]');
-      if (!el) return;
-      var handler = function (event) { _cfmCancel() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ev-32]');
-      if (!el) return;
-      var handler = function (event) { _cfmOk() };
-      el.addEventListener('click', handler);
-    })();
-  });
-</script>
-</body></html>';
+    '</body></html>';
 }
 
 // ── Schedule ──────────────────────────────────────────────────────────────────
@@ -2454,6 +2284,202 @@ function deleteSavedLayout() {
     }
   });
 })();
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+      var el = document.querySelector('[data-ev-1]');
+      if (!el) return;
+      var handler = function (event) { ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')}) };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-2]');
+      if (!el) return;
+      var handler = function (event) { startCpTutorial() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-3]');
+      if (!el) return;
+      var handler = function (event) { onGroupChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-4]');
+      if (!el) return;
+      var handler = function (event) { onHalfChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-5]');
+      if (!el) return;
+      var handler = function (event) { deleteOrphanedGroup() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-6]');
+      if (!el) return;
+      var handler = function (event) { openNewPlanConfig() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-7]');
+      if (!el) return;
+      var handler = function (event) { randomAssign() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-8]');
+      if (!el) return;
+      var handler = function (event) { cpTogglePin() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-9]');
+      if (!el) return;
+      var handler = function (event) { editPlanSettings() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-10]');
+      if (!el) return;
+      var handler = function (event) { toggleExportMenu(event) };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-11]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('pdf') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-12]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('csv') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-13]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('xlsx') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-14]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('docx') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-15]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('html') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-16]');
+      if (!el) return;
+      var handler = function (event) { manualSave() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-17]');
+      if (!el) return;
+      var handler = function (event) { if(event.target===this)closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-18]');
+      if (!el) return;
+      var handler = function (event) { event.stopPropagation() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-19]');
+      if (!el) return;
+      var handler = function (event) { closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-20]');
+      if (!el) return;
+      var handler = function (event) { cpPopulatePlannerSlots(this.value, null) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-21]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('grid') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-22]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('ushape') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-23]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('pods') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-24]');
+      if (!el) return;
+      var handler = function (event) { onRoomInputChanged() };
+      el.addEventListener('input', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-25]');
+      if (!el) return;
+      var handler = function (event) { onSavedLayoutSelect(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-26]');
+      if (!el) return;
+      var handler = function (event) { deleteSavedLayout() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-27]');
+      if (!el) return;
+      var handler = function (event) { addScheduleSlot() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-28]');
+      if (!el) return;
+      var handler = function (event) { closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-29]');
+      if (!el) return;
+      var handler = function (event) { confirmPlanConfig() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-30]');
+      if (!el) return;
+      var handler = function (event) { if(event.target===this)_cfmCancel() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-31]');
+      if (!el) return;
+      var handler = function (event) { _cfmCancel() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-32]');
+      if (!el) return;
+      var handler = function (event) { _cfmOk() };
+      el.addEventListener('click', handler);
+    })();
+  });
 </script>
 </body>
 </html>

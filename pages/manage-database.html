@@ -10,21 +10,21 @@
   <script src="../modules/xlsx.min.js"></script>
   <script src="../modules/marked/marked.umd.js"></script>
   <script src="../electron-bridge.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/dom-sync.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/competence-aggregator-service.js"></script>
-  <script src="../js/links-service.js"></script>
-  <script src="../js/badge-sets-service.js"></script>
-  <script src="../js/mode-sets-service.js"></script>
-  <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/dom-sync.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/competence-aggregator-service.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/badge-sets-service.js"></script>
+  <script src="../js/shared/mode-sets-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
-  <script src="../js/slm-service.js"></script>
-  <script src="../js/slm-model-modal.js"></script>
-  <script src="../js/mdb-ai-service.js"></script>
+  <script src="../js/shared/slm-service.js"></script>
+  <script src="../js/shared/slm-model-modal.js"></script>
+  <script src="../js/pages/mdb-ai-service.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -73,12 +73,12 @@
     style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;flex-wrap:wrap;box-sizing:border-box;flex-shrink:0;">
     <span class="nav-brand"
       style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
-    <button onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html')"
+    <button data-mdbev-1="1"
       data-i18n="importShortcutBtn"
       style="margin-left:auto;background:#222;border:1.5px solid #444;color:#ddd;padding:5px 13px;border-radius:5px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
     <div id="app-hamburger" class="hm-wrap">
-      <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-      <button id="tut-trigger" class="tut-trigger-btn" onclick="startMdbTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button id="skm-trigger" class="tut-trigger-btn" data-mdbev-2="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" data-mdbev-3="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
       <div class="hm-menu"></div>
     </div>
@@ -96,7 +96,7 @@
           <div style="font-size:0.64rem;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:1px;"
             data-i18n="mdbSearchAllLabel">or search all databases</div>
           <input type="text" id="mdb-global-search" data-i18n-placeholder="mdbSearchAllPlaceholder"
-            placeholder="Search across all databases…" oninput="mdbGlobalSearchDebounced(this.value)"
+            placeholder="Search across all databases…" data-mdbev-4="1"
             style="width:100%;padding:9px 13px;border:1.5px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.9rem;outline:none;">
           <div id="mdb-global-results"
             style="display:none;max-height:400px;overflow-y:auto;border:1.5px solid #eee;border-radius:5px;background:#fff;text-align:left;">
@@ -109,48 +109,48 @@
           <div id="top-row">
             <h1 id="type-title"></h1>
             <div id="actions-row">
-              <button class="btn btn-primary btn-sm" onclick="openAdd()" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
-              <button class="btn btn-secondary btn-sm" onclick="openNewFile()" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
-              <button class="btn btn-secondary btn-sm" id="add-col-btn" onclick="openAddColumnModal()" data-i18n="mdbBtnAddColumn" data-i18n-help="hhMdbAddCol" data-hover-help="Add a custom metadata or translation column to this database."><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
-              <button class="btn btn-secondary btn-sm" id="ai-studio-btn" onclick="openMdbAiStudio()"
+              <button class="btn btn-primary btn-sm" data-mdbev-5="1" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
+              <button class="btn btn-secondary btn-sm" data-mdbev-6="1" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
+              <button class="btn btn-secondary btn-sm" id="add-col-btn" data-mdbev-7="1" data-i18n="mdbBtnAddColumn" data-i18n-help="hhMdbAddCol" data-hover-help="Add a custom metadata or translation column to this database."><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
+              <button class="btn btn-secondary btn-sm" id="ai-studio-btn" data-mdbev-8="1"
                 style="display:none;background:#e2c96e;font-weight:800;" data-i18n="mdbBtnAiStudio" data-hover-help="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Studio</button>
-              <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" onclick="copyAIPrompt(this)"
+              <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" data-mdbev-9="1"
                 style="display:none" data-i18n="mdbBtnAiPrompt" data-i18n-help="hhMdbAiPrompt" data-hover-help="Copy a ready-to-paste AI prompt formatted for this database's columns."><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> AI Prompt</button>
-              <button class="btn btn-secondary btn-sm" id="view-toggle-btn" onclick="toggleViewMode()"
+              <button class="btn btn-secondary btn-sm" id="view-toggle-btn" data-mdbev-10="1"
                 style="display:none" data-i18n-help="hhMdbViewToggle" data-hover-help="Switch between table view and card view."></button>
-              <button class="btn btn-secondary btn-sm" id="dedup-btn" onclick="deduplicateRecords()"
+              <button class="btn btn-secondary btn-sm" id="dedup-btn" data-mdbev-11="1"
                 style="display:none" data-i18n="mdbBtnRemoveDupes" data-i18n-help="hhMdbDedup" data-hover-help="Find and remove duplicate entries in the active database."><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Remove Dupes</button>
-              <button class="btn btn-secondary btn-sm" id="merge-btn" onclick="openMerge()" style="display:none"
+              <button class="btn btn-secondary btn-sm" id="merge-btn" data-mdbev-12="1" style="display:none"
                 data-i18n="mdbBtnMergeFiles" data-i18n-help="hhMdbMerge" data-hover-help="Merge records from another database file into this one."><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge Files</button>
-              <button class="btn btn-secondary btn-sm" id="file-links-btn" onclick="openActiveFileLinksModal()" style="display:none" data-i18n-help="hhMdbLinks" data-hover-help="Attach external links, tags, or curriculum units to this database file.">
+              <button class="btn btn-secondary btn-sm" id="file-links-btn" data-mdbev-13="1" style="display:none" data-i18n-help="hhMdbLinks" data-hover-help="Attach external links, tags, or curriculum units to this database file.">
                 <img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span id="file-links-btn-text">[LINKS &amp; TAGS]</span>
               </button>
               <div class="dropdown" id="export-dropdown" style="display:none">
-                <button class="btn btn-secondary btn-sm" id="export-btn" onclick="toggleExportMenu(event)">
+                <button class="btn btn-secondary btn-sm" id="export-btn" data-mdbev-14="1">
                   <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExport">Export</span>
                 </button>
                 <div class="dropdown-menu hidden" id="export-menu">
-                  <button class="dropdown-item" onclick="handleExportClick('csv')" data-i18n="mdbBtnExportCsv"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> CSV</button>
-                  <button class="dropdown-item" onclick="handleExportClick('pdf')" data-i18n="mdbBtnPrintPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print PDF</button>
-                  <button class="dropdown-item" onclick="handleExportClick('html')" data-i18n="mdbBtnExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export HTML (Editable)</button>
-                  <button class="dropdown-item" onclick="handleExportClick('html-filter')" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
-                  <button class="dropdown-item" onclick="handleExportClick('md')" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
-                  <button class="dropdown-item" onclick="handleExportClick('xlsx')" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
-                  <button class="dropdown-item" onclick="handleExportClick('ods')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
-                  <button class="dropdown-item" onclick="handleExportClick('docx')" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
+                  <button class="dropdown-item" data-mdbev-15="1" data-i18n="mdbBtnExportCsv"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> CSV</button>
+                  <button class="dropdown-item" data-mdbev-16="1" data-i18n="mdbBtnPrintPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print PDF</button>
+                  <button class="dropdown-item" data-mdbev-17="1" data-i18n="mdbBtnExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export HTML (Editable)</button>
+                  <button class="dropdown-item" data-mdbev-18="1" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
+                  <button class="dropdown-item" data-mdbev-19="1" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
+                  <button class="dropdown-item" data-mdbev-20="1" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
+                  <button class="dropdown-item" data-mdbev-21="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
+                  <button class="dropdown-item" data-mdbev-22="1" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
                 </div>
               </div>
-              <button class="btn btn-secondary btn-sm" id="batch-select-all-btn" onclick="batchSelectAll()"
+              <button class="btn btn-secondary btn-sm" id="batch-select-all-btn" data-mdbev-23="1"
                 style="display:none" data-i18n="mdbBtnSelectAll"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Select All</button>
-              <button class="btn btn-secondary btn-sm" id="batch-clear-btn" onclick="batchClearSelection()"
+              <button class="btn btn-secondary btn-sm" id="batch-clear-btn" data-mdbev-24="1"
                 style="display:none" data-i18n="mdbBtnClear"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> Clear</button>
-              <button class="btn btn-secondary btn-sm" id="batch-edit-btn" onclick="toggleBatchPanel()"
+              <button class="btn btn-secondary btn-sm" id="batch-edit-btn" data-mdbev-25="1"
                 style="display:none" disabled data-i18n="mdbBtnBatchEdit"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Batch Edit</button>
-              <button class="btn btn-secondary btn-sm" id="batch-autofill-btn" onclick="openBatchAutofillModal()"
+              <button class="btn btn-secondary btn-sm" id="batch-autofill-btn" data-mdbev-26="1"
                 style="display:none" disabled data-i18n="mdbBtnBatchAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Batch Autofill</button>
-              <button class="btn btn-secondary btn-sm" id="batch-copy-btn" onclick="openBatchCopyToModal()"
+              <button class="btn btn-secondary btn-sm" id="batch-copy-btn" data-mdbev-27="1"
                 style="display:none" disabled data-i18n="mdbBtnCopyToFile"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy to file…</button>
-              <button class="btn btn-danger btn-sm" id="batch-del-btn" onclick="deleteSelectedBatch()"
+              <button class="btn btn-danger btn-sm" id="batch-del-btn" data-mdbev-28="1"
                 style="display:none" disabled data-i18n="mdbBtnDelSelected"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Del Selected</button>
               <span id="batch-count" class="rec-count" style="display:none"></span>
               <span id="rec-count" class="rec-count"></span>
@@ -175,11 +175,11 @@
         </div>
         <div id="pagination" class="hidden">
           <span class="pg-info" id="pg-info"></span>
-          <button class="pg-btn" id="pg-prev" onclick="changePage(-1)" data-i18n="mdbPagPrev"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Prev</button>
-          <button class="pg-btn" id="pg-next" onclick="changePage(1)" data-i18n="mdbPagNext">Next <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
+          <button class="pg-btn" id="pg-prev" data-mdbev-29="1" data-i18n="mdbPagPrev"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Prev</button>
+          <button class="pg-btn" id="pg-next" data-mdbev-30="1" data-i18n="mdbPagNext">Next <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
           <label style="font-size:0.78rem;color:#888;display:flex;align-items:center;gap:5px;margin-left:10px;">
             <span data-i18n="mdbPerPage">Per page</span>
-            <select id="page-size-sel" onchange="setPageSize(this.value)"
+            <select id="page-size-sel" data-mdbev-31="1"
               style="border:1.5px solid #bbb;border-radius:4px;padding:2px 6px;font-family:inherit;font-size:0.78rem;background:#fff;">
               <option value="50">50</option>
               <option value="100" selected>100</option>
@@ -194,43 +194,43 @@
   </div><!-- #mdb-row -->
 
   <!-- Edit / Add Modal -->
-  <div id="edit-bg" class="modal-bg hidden" onclick="if(event.target===this)closeEdit()">
+  <div id="edit-bg" class="modal-bg hidden" data-mdbev-32="1">
     <div class="modal">
       <div class="modal-hd">
         <span id="edit-title" data-i18n="mdbEditModalTitle">Record</span>
-        <button class="modal-x" onclick="closeEdit()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-33="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="edit-body"></div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" id="edit-links-btn" style="margin-right:8px;display:none;" onclick="openRecordTagLinkModalFromEdit()"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> <span id="edit-links-btn-text">[LINKS &amp; TAGS]</span></button>
-        <button class="btn btn-secondary" id="edit-copy-to-btn" style="margin-right:auto;display:none;" onclick="openCopyToModalFromEdit()"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbBtnCopyToFile">Copy to file…</span></button>
-        <button class="btn btn-secondary" onclick="closeEdit()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" onclick="submitEdit()" data-i18n="mdbBtnSave"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save</button>
+        <button class="btn btn-secondary" id="edit-links-btn" style="margin-right:8px;display:none;" data-mdbev-34="1"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> <span id="edit-links-btn-text">[LINKS &amp; TAGS]</span></button>
+        <button class="btn btn-secondary" id="edit-copy-to-btn" style="margin-right:auto;display:none;" data-mdbev-35="1"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbBtnCopyToFile">Copy to file…</span></button>
+        <button class="btn btn-secondary" data-mdbev-36="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" data-mdbev-37="1" data-i18n="mdbBtnSave"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save</button>
       </div>
     </div>
   </div>
 
   <!-- Autofill Suggestions Modal -->
-  <div id="autofill-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeAutofill()">
+  <div id="autofill-bg" class="modal-bg hidden" style="z-index:1100;" data-mdbev-38="1">
     <div class="modal modal-sm">
       <div class="modal-hd">
         <span id="autofill-title" data-i18n="mdbAutofillModalTitle">Autofill Suggestions</span>
-        <button class="modal-x" onclick="closeAutofill()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-39="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="autofill-body"></div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeAutofill()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" onclick="applyAutofillSuggestions()" data-i18n="mdbAutofillApply"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Apply Selected Suggestions</button>
+        <button class="btn btn-secondary" data-mdbev-40="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" data-mdbev-41="1" data-i18n="mdbAutofillApply"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Apply Selected Suggestions</button>
       </div>
     </div>
   </div>
 
   <!-- Batch Autofill Modal -->
-  <div id="batch-autofill-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeBatchAutofillModal()">
+  <div id="batch-autofill-bg" class="modal-bg hidden" style="z-index:1100;" data-mdbev-42="1">
     <div class="modal" style="max-width:620px;">
       <div class="modal-hd">
         <span id="batch-autofill-title" data-i18n="mdbBatchAutofillModalTitle">Batch Autofill Settings &amp; Options</span>
-        <button class="modal-x" onclick="closeBatchAutofillModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-43="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="batch-autofill-body">
         <!-- Autofill Source Engine -->
@@ -238,15 +238,15 @@
           <label class="form-lbl" style="font-weight:800;margin-bottom:6px;" data-i18n="mdbBatchAutofillSourceEngine">Autofill Source Engine</label>
           <div style="display:flex;gap:12px;flex-wrap:wrap;">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
-              <input type="radio" name="baf-engine" id="baf-engine-hybrid" value="hybrid" checked onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <input type="radio" name="baf-engine" id="baf-engine-hybrid" value="hybrid" checked data-mdbev-44="1" style="accent-color:#111;">
               <span data-i18n="mdbBatchEngineHybrid">Local DB + ✨ AI Fallback (Recommended)</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
-              <input type="radio" name="baf-engine" id="baf-engine-local" value="local" onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <input type="radio" name="baf-engine" id="baf-engine-local" value="local" data-mdbev-45="1" style="accent-color:#111;">
               <span data-i18n="mdbBatchEngineLocal">Local DB Only</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;font-weight:700;">
-              <input type="radio" name="baf-engine" id="baf-engine-ai" value="ai_only" onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+              <input type="radio" name="baf-engine" id="baf-engine-ai" value="ai_only" data-mdbev-46="1" style="accent-color:#111;">
               <span data-i18n="mdbBatchEngineAi">✨ AI Generate All Missing</span>
             </label>
           </div>
@@ -257,11 +257,11 @@
           <label class="form-lbl" data-i18n="mdbBatchAutofillScopeLabel">Target Records</label>
           <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:2px;">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
-              <input type="radio" name="baf-scope" id="baf-scope-selected" value="selected" checked onchange="updateBatchAutofillPreview()">
+              <input type="radio" name="baf-scope" id="baf-scope-selected" value="selected" checked data-mdbev-47="1">
               <span id="baf-scope-selected-lbl">Selected records</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85rem;font-weight:600;">
-              <input type="radio" name="baf-scope" id="baf-scope-all" value="all" onchange="updateBatchAutofillPreview()">
+              <input type="radio" name="baf-scope" id="baf-scope-all" value="all" data-mdbev-48="1">
               <span id="baf-scope-all-lbl">All filtered records</span>
             </label>
           </div>
@@ -272,8 +272,8 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
             <label class="form-lbl" style="margin-bottom:0;" data-i18n="mdbBatchAutofillFields">Fields to Fill</label>
             <div style="display:flex;gap:6px;">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="batchAutofillSelectAllFields(true)" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnAll">All</button>
-              <button type="button" class="btn btn-secondary btn-sm" onclick="batchAutofillSelectAllFields(false)" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnNone">None</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-mdbev-49="1" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnAll">All</button>
+              <button type="button" class="btn btn-secondary btn-sm" data-mdbev-50="1" style="padding:2px 7px;font-size:0.75rem;" data-i18n="mdbBtnNone">None</button>
             </div>
           </div>
           <div id="baf-fields-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(170px, 1fr));gap:6px;max-height:160px;overflow-y:auto;border:1.5px solid #333;border-radius:6px;padding:8px 10px;background:#fafafa;">
@@ -285,11 +285,11 @@
           <label class="form-lbl" data-i18n="mdbBatchAutofillOverwriteMode">Overwrite Mode</label>
           <div style="display:flex;flex-direction:column;gap:6px;margin-top:2px;">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;">
-              <input type="radio" name="baf-overwrite" id="baf-overwrite-empty" value="empty" checked onchange="updateBatchAutofillPreview()">
+              <input type="radio" name="baf-overwrite" id="baf-overwrite-empty" value="empty" checked data-mdbev-51="1">
               <span data-i18n="mdbBatchAutofillOverwriteEmpty">Fill empty / missing fields only (Recommended)</span>
             </label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.83rem;">
-              <input type="radio" name="baf-overwrite" id="baf-overwrite-all" value="all" onchange="updateBatchAutofillPreview()">
+              <input type="radio" name="baf-overwrite" id="baf-overwrite-all" value="all" data-mdbev-52="1">
               <span data-i18n="mdbBatchAutofillOverwriteAll">Overwrite existing field values with found matches</span>
             </label>
           </div>
@@ -298,7 +298,7 @@
         <!-- Array Fields Strategy -->
         <div class="form-field" style="margin-bottom:12px;">
           <label class="form-lbl" for="baf-array-strategy" data-i18n="mdbBatchAutofillArrayStrategy">Array &amp; List Fields (Synonyms, Tags, Keywords)</label>
-          <select id="baf-array-strategy" style="width:100%;padding:5px 8px;border:1.5px solid #333;border-radius:5px;font-family:inherit;font-size:0.85rem;background:#fff;" onchange="updateBatchAutofillPreview()">
+          <select id="baf-array-strategy" style="width:100%;padding:5px 8px;border:1.5px solid #333;border-radius:5px;font-family:inherit;font-size:0.85rem;background:#fff;" data-mdbev-53="1">
             <option value="merge" selected data-i18n="mdbBatchAutofillArrayMerge">Merge unique items (Keep existing + add new)</option>
             <option value="replace" data-i18n="mdbBatchAutofillArrayReplace">Replace completely with found match</option>
             <option value="empty_only" data-i18n="mdbBatchAutofillArrayEmptyOnly">Fill only if existing array is empty</option>
@@ -312,8 +312,8 @@
         </div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeBatchAutofillModal()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" id="baf-apply-btn" onclick="executeBatchAutofill()" data-i18n="mdbBatchAutofillApply">
+        <button class="btn btn-secondary" data-mdbev-54="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" id="baf-apply-btn" data-mdbev-55="1" data-i18n="mdbBatchAutofillApply">
           <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBatchAutofillApply">Apply Batch Autofill</span>
         </button>
       </div>
@@ -321,7 +321,7 @@
   </div>
 
   <!-- AI Generation Studio Modal -->
-  <div id="ai-studio-bg" class="modal-bg hidden" style="z-index:1100;" onclick="if(event.target===this)closeMdbAiStudio()">
+  <div id="ai-studio-bg" class="modal-bg hidden" style="z-index:1100;" data-mdbev-56="1">
     <div class="modal modal-lg">
       <div class="modal-hd">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -337,11 +337,11 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
-          <button type="button" class="btn btn-secondary btn-sm" id="ai-studio-model-chip" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" data-hover-help="Manage Offline AI Models" style="font-size:0.73rem;padding:3px 8px;display:flex;align-items:center;gap:4px;">
+          <button type="button" class="btn btn-secondary btn-sm" id="ai-studio-model-chip" data-mdbev-57="1" data-hover-help="Manage Offline AI Models" style="font-size:0.73rem;padding:3px 8px;display:flex;align-items:center;gap:4px;">
             <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>Model</span>
           </button>
-          <button class="modal-x" onclick="closeMdbAiStudio()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+          <button class="modal-x" data-mdbev-58="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
         </div>
       </div>
 
@@ -350,11 +350,11 @@
         <div id="ai-studio-guide-banner" class="ai-type-guide-banner" style="display:none;"></div>
 
         <div class="ai-mode-tabs">
-          <button type="button" class="ai-mode-tab active" id="ai-tab-topic" onclick="MdbAi.switchStudioMode('topic')">
+          <button type="button" class="ai-mode-tab active" id="ai-tab-topic" data-mdbev-59="1">
             <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbAiModeTopic">From Topic / Prompt</span>
           </button>
-          <button type="button" class="ai-mode-tab" id="ai-tab-text" onclick="MdbAi.switchStudioMode('text')">
+          <button type="button" class="ai-mode-tab" id="ai-tab-text" data-mdbev-60="1">
             <img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbAiModeText">Extract from Text</span>
           </button>
@@ -412,15 +412,15 @@
             <div class="ai-progress-track"><div id="ai-studio-progress-fill" class="ai-progress-fill"></div></div>
             <span id="ai-studio-timer-remaining">~6s</span>
             <span id="ai-studio-timer-speed" style="color:#666;font-size:0.72rem;"></span>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="if(window.SlmService)window.SlmService.abort();" style="padding:2px 8px;font-size:0.72rem;">⏹ <span data-i18n="mdbAiStopGeneration">Stop</span></button>
+            <button type="button" class="btn btn-secondary btn-sm" data-mdbev-61="1" style="padding:2px 8px;font-size:0.72rem;">⏹ <span data-i18n="mdbAiStopGeneration">Stop</span></button>
           </div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:8px;">
-            <button type="button" class="btn btn-primary" id="ai-studio-generate-btn" onclick="MdbAi.runStudioGeneration()" style="font-weight:800;background:#e2c96e;padding:7px 18px;font-size:0.86rem;">
+            <button type="button" class="btn btn-primary" id="ai-studio-generate-btn" data-mdbev-62="1" style="font-weight:800;background:#e2c96e;padding:7px 18px;font-size:0.86rem;">
               <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
               <span data-i18n="mdbAiBtnGenerate">Generate Records</span>
             </button>
-            <button type="button" class="btn btn-secondary" onclick="MdbAi.copyPromptTemplate(this)" style="font-size:0.78rem;padding:6px 12px;">
+            <button type="button" class="btn btn-secondary" data-mdbev-63="1" style="font-size:0.78rem;padding:6px 12px;">
               <img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" />
               <span data-i18n="mdbAiBtnCopyPrompt">Copy Prompt Template</span>
             </button>
@@ -435,8 +435,8 @@
               <span id="ai-studio-review-count" style="font-size:0.72rem;color:#666;font-weight:600;"></span>
             </div>
             <div style="display:flex;gap:6px;">
-              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="MdbAi.studioSelectAll(true)" data-i18n="mdbAiSelectAll">Select All</button>
-              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" onclick="MdbAi.studioSelectAll(false)" data-i18n="mdbAiDeselectAll">Deselect All</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" data-mdbev-64="1" data-i18n="mdbAiSelectAll">Select All</button>
+              <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.7rem;padding:2px 6px;" data-mdbev-65="1" data-i18n="mdbAiDeselectAll">Deselect All</button>
             </div>
           </div>
           <div class="ai-review-body" id="ai-studio-review-body"></div>
@@ -446,8 +446,8 @@
       <div class="modal-ft" style="display:flex;align-items:center;justify-content:space-between;">
         <span id="ai-studio-selected-summary" style="font-size:0.8rem;font-weight:700;color:#555;"></span>
         <div style="display:flex;gap:8px;">
-          <button type="button" class="btn btn-secondary" onclick="closeMdbAiStudio()" data-i18n="mdbBtnCancel">Cancel</button>
-          <button type="button" class="btn btn-primary" id="ai-studio-insert-btn" onclick="MdbAi.insertStudioRecords()" disabled style="font-weight:800;background:#6abf8e;padding:7px 18px;">
+          <button type="button" class="btn btn-secondary" data-mdbev-66="1" data-i18n="mdbBtnCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" id="ai-studio-insert-btn" data-mdbev-67="1" disabled style="font-weight:800;background:#6abf8e;padding:7px 18px;">
             <img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbAiBtnInsert">Insert Records into File</span>
           </button>
@@ -465,18 +465,18 @@
           Continue?</p>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeDel()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-danger" onclick="doDel()" data-i18n="mdbBtnDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
+        <button class="btn btn-secondary" data-mdbev-68="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-danger" data-mdbev-69="1" data-i18n="mdbBtnDelete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Delete</button>
       </div>
     </div>
   </div>
 
   <!-- Merge Files Modal -->
-  <div id="merge-bg" class="modal-bg hidden" onclick="if(event.target===this)closeMerge()">
+  <div id="merge-bg" class="modal-bg hidden" data-mdbev-70="1">
     <div class="modal modal-sm">
       <div class="modal-hd">
         <span data-i18n="mdbMergeModalTitle">Merge Files</span>
-        <button class="modal-x" onclick="closeMerge()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-71="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd">
         <div class="form-field">
@@ -491,7 +491,7 @@
           <label class="form-lbl" data-i18n="mdbMergeSaveToLabel">Save merged records to</label>
           <div style="display:flex;flex-direction:column;gap:8px;">
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-              <input type="radio" name="merge-target" value="existing" onchange="updateMergeTarget()" checked>
+              <input type="radio" name="merge-target" value="existing" data-mdbev-72="1" checked>
               <span data-i18n="mdbMergeExistingFile">Existing file</span>
             </label>
             <div id="merge-existing-wrap" style="padding-left:20px;">
@@ -499,7 +499,7 @@
                 style="width:100%;border:1.5px solid #ccc;border-radius:5px;padding:5px 8px;font-family:inherit;font-size:0.85rem;background:#fff;"></select>
             </div>
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-              <input type="radio" name="merge-target" value="new" onchange="updateMergeTarget()">
+              <input type="radio" name="merge-target" value="new" data-mdbev-73="1">
               <span data-i18n="mdbMergeNewFile">New file</span>
             </label>
             <div id="merge-new-wrap" class="hidden" style="padding-left:20px;">
@@ -519,25 +519,25 @@
         <div id="merge-err" class="form-err" style="margin-top:8px;"></div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeMerge()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-danger" onclick="doMerge()" data-i18n="mdbBtnMergeSave"><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge &amp; Save</button>
+        <button class="btn btn-secondary" data-mdbev-74="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-danger" data-mdbev-75="1" data-i18n="mdbBtnMergeSave"><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge &amp; Save</button>
       </div>
     </div>
   </div>
 
   <!-- Copy to File Modal -->
-  <div id="copy-modal-bg" class="modal-bg hidden" onclick="if(event.target===this)closeCopyModal()">
+  <div id="copy-modal-bg" class="modal-bg hidden" data-mdbev-76="1">
     <div class="modal modal-sm">
       <div class="modal-hd">
         <span id="copy-modal-title" data-i18n="mdbCopyModalTitle">Copy Entry to Another File</span>
-        <button class="modal-x" onclick="closeCopyModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-77="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd">
         <div id="copy-entry-preview" style="font-size:0.85rem;margin-bottom:14px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;"></div>
 
         <div class="form-field" style="margin-bottom:12px;">
           <label class="form-lbl" style="font-size:0.82rem;font-weight:600;margin-bottom:4px;" data-i18n="mdbCopyTargetFile">Target File</label>
-          <select id="copy-target-select" class="form-control" style="width:100%;font-size:0.85rem;padding:6px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;" onchange="handleCopyTargetChange()"></select>
+          <select id="copy-target-select" class="form-control" style="width:100%;font-size:0.85rem;padding:6px 10px;border-radius:6px;border:1px solid #cbd5e1;background:#fff;" data-mdbev-78="1"></select>
         </div>
 
         <div id="copy-new-file-group" class="form-field hidden" style="margin-bottom:12px;">
@@ -553,44 +553,44 @@
         </div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeCopyModal()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" id="copy-confirm-btn" onclick="submitCopyModal()"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span id="copy-confirm-btn-label">Copy</span></button>
+        <button class="btn btn-secondary" data-mdbev-79="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" id="copy-confirm-btn" data-mdbev-80="1"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span id="copy-confirm-btn-label">Copy</span></button>
       </div>
     </div>
   </div>
 
   <!-- Competence Picker Modal for Criteria -->
-  <div id="mdb-comp-picker-bg" class="modal-bg hidden" style="z-index:1050;" onclick="if(event.target===this)closeMdbCompPicker()">
+  <div id="mdb-comp-picker-bg" class="modal-bg hidden" style="z-index:1050;" data-mdbev-81="1">
     <div class="modal" style="width:min(780px, 95vw); max-height:90vh;">
       <div class="modal-hd">
         <span data-i18n="gsCriteriaLinkedCompetences">Linked Competences</span>
-        <button class="modal-x" onclick="closeMdbCompPicker()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-82="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" style="display:flex;flex-direction:column;gap:10px;">
-        <input type="search" id="mdb-comp-picker-search" class="input" style="width:100%;box-sizing:border-box;border:2px solid #111;border-radius:6px;padding:7px 10px;font-family:inherit;font-size:0.87rem;" placeholder="Search competences by title, code, domain, level…" data-i18n-placeholder="gsSearchCompetences" oninput="filterMdbCompPicker()" />
+        <input type="search" id="mdb-comp-picker-search" class="input" style="width:100%;box-sizing:border-box;border:2px solid #111;border-radius:6px;padding:7px 10px;font-family:inherit;font-size:0.87rem;" placeholder="Search competences by title, code, domain, level…" data-i18n-placeholder="gsSearchCompetences" data-mdbev-83="1" />
         <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#f8fafc;padding:6px 10px;border-radius:6px;border:1px solid #e2e8f0;">
           <div style="display:flex;align-items:center;gap:4px;">
             <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterCategory">Domain</label>
-            <select id="mdb-comp-filter-category" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+            <select id="mdb-comp-filter-category" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" data-mdbev-84="1">
               <option value="all" data-i18n="gsCompFilterAllDomains">All Domains</option>
             </select>
           </div>
           <div style="display:flex;align-items:center;gap:4px;">
             <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterLevel">Level</label>
-            <select id="mdb-comp-filter-level" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+            <select id="mdb-comp-filter-level" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" data-mdbev-85="1">
               <option value="all" data-i18n="gsCompFilterAllLevels">All Levels</option>
             </select>
           </div>
           <div style="display:flex;align-items:center;gap:4px;">
             <label style="font-size:0.75rem;font-weight:700;color:#555;" data-i18n="gsCompFilterYear">Year</label>
-            <select id="mdb-comp-filter-year" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" onchange="filterMdbCompPicker()">
+            <select id="mdb-comp-filter-year" style="border:1px solid #ccc;border-radius:4px;padding:3px 6px;font-size:0.75rem;background:#fff;" data-mdbev-86="1">
               <option value="all" data-i18n="gsCompFilterAllYears">All Years</option>
             </select>
           </div>
           <div style="margin-left:auto;display:flex;gap:6px;">
-            <button type="button" id="mdb-comp-filter-show-selected" class="btn btn-secondary btn-sm" onclick="toggleMdbCompShowSelected(this)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterShowSelected">Selected</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="selectMdbCompVisible(true)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterSelectAll">Select Visible</button>
-            <button type="button" class="btn btn-secondary btn-sm" onclick="selectMdbCompVisible(false)" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterDeselectAll">Deselect Visible</button>
+            <button type="button" id="mdb-comp-filter-show-selected" class="btn btn-secondary btn-sm" data-mdbev-87="1" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterShowSelected">Selected</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-mdbev-88="1" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterSelectAll">Select Visible</button>
+            <button type="button" class="btn btn-secondary btn-sm" data-mdbev-89="1" style="font-size:0.72rem;padding:3px 7px;" data-i18n="gsCompFilterDeselectAll">Deselect Visible</button>
           </div>
         </div>
         <div id="mdb-comp-picker-list" style="flex:1;overflow-y:auto;max-height:380px;min-height:180px;border:1.5px solid #ccc;border-radius:6px;padding:8px;display:flex;flex-direction:column;gap:5px;background:#fff;"></div>
@@ -598,25 +598,25 @@
       <div class="modal-ft" style="display:flex;align-items:center;justify-content:space-between;">
         <span id="mdb-comp-picker-count" style="font-size:0.82rem;font-weight:700;color:#555;">0 selected</span>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-secondary" type="button" onclick="closeMdbCompPicker()" data-i18n="btnCancel">Cancel</button>
-          <button class="btn btn-primary" type="button" onclick="applyMdbCompPicker()" data-i18n="btnConfirm">Apply</button>
+          <button class="btn btn-secondary" type="button" data-mdbev-90="1" data-i18n="btnCancel">Cancel</button>
+          <button class="btn btn-primary" type="button" data-mdbev-91="1" data-i18n="btnConfirm">Apply</button>
         </div>
       </div>
     </div>
   </div>
 
   <!-- New File Modal -->
-  <div id="nf-bg" class="modal-bg hidden" onclick="if(event.target===this)closeNF()">
+  <div id="nf-bg" class="modal-bg hidden" data-mdbev-92="1">
     <div class="modal modal-sm">
       <div class="modal-hd">
         <span data-i18n="mdbNfModalTitle">New File</span>
-        <button class="modal-x" onclick="closeNF()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-93="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd">
         <div class="form-field">
           <label class="form-lbl" data-i18n="mdbNfFileNameLabel">File name</label>
           <input type="text" id="nf-name" data-i18n-placeholder="mdbNfPlaceholder" placeholder="e.g. my-words.js"
-            onkeydown="if(event.key==='Enter')doCreateFile()">
+            data-mdbev-94="1">
           <div id="nf-err" class="form-err"></div>
           <div id="nf-badges-seed-wrap" class="hidden" style="margin-top:12px;padding:8px 10px;background:#f5f5f0;border:1.5px solid #333;border-radius:6px;">
             <label style="display:flex;align-items:center;gap:8px;font-size:0.82rem;font-weight:600;cursor:pointer;">
@@ -635,18 +635,18 @@
         </div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeNF()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" onclick="doCreateFile()" data-i18n="mdbBtnCreate"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Create</button>
+        <button class="btn btn-secondary" data-mdbev-95="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" data-mdbev-96="1" data-i18n="mdbBtnCreate"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Create</button>
       </div>
     </div>
   </div>
 
   <!-- Column picker modal (CSV / PDF / HTML / Markdown / XLSX / DOCX) -->
-  <div id="col-picker-bg" class="modal-bg hidden" onclick="if(event.target===this)closeColPicker()">
+  <div id="col-picker-bg" class="modal-bg hidden" data-mdbev-97="1">
     <div class="modal" style="width:min(460px, 95vw);max-height:90vh;">
       <div class="modal-hd">
         <span id="col-picker-title" data-i18n="mdbColPickerTitleDefault">Select columns</span>
-        <button class="modal-x" onclick="closeColPicker()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-98="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" style="display:flex;flex-direction:column;gap:14px;overflow-y:auto;">
         <!-- Card Title Element Selection -->
@@ -668,41 +668,41 @@
               Columns to include
             </div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-secondary btn-sm" type="button" onclick="colPickerToggleAll(true)" data-i18n="mdbBtnAll" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> All</button>
-              <button class="btn btn-secondary btn-sm" type="button" onclick="colPickerToggleAll(false)" data-i18n="mdbBtnNone" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> None</button>
+              <button class="btn btn-secondary btn-sm" type="button" data-mdbev-99="1" data-i18n="mdbBtnAll" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> All</button>
+              <button class="btn btn-secondary btn-sm" type="button" data-mdbev-100="1" data-i18n="mdbBtnNone" style="padding:3px 8px;font-size:0.75rem;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> None</button>
             </div>
           </div>
           <div id="col-picker-list" style="display:flex;flex-direction:column;gap:7px;max-height:180px;overflow-y:auto;padding-right:4px;border:1.5px solid #ddd;border-radius:6px;padding:8px;background:#fafafa;"></div>
         </div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeColPicker()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" id="col-picker-confirm" onclick="colPickerConfirm()"
+        <button class="btn btn-secondary" data-mdbev-101="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" id="col-picker-confirm" data-mdbev-102="1"
           data-i18n="mdbBtnExport"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export</button>
       </div>
     </div>
   </div>
 
   <!-- Add Column Modal -->
-  <div id="add-col-bg" class="modal-bg hidden" onclick="if(event.target===this)closeAddColumnModal()">
+  <div id="add-col-bg" class="modal-bg hidden" data-mdbev-103="1">
     <div class="modal modal-sm">
       <div class="modal-hd">
         <span data-i18n="mdbModalAddColTitle">Add Column to Database</span>
-        <button class="modal-x" onclick="closeAddColumnModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-104="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd">
         <div class="form-field">
           <label class="form-lbl" for="add-col-key" data-i18n="mdbColKey">Column Key / Field</label>
-          <input type="text" id="add-col-key" data-i18n-placeholder="mdbColKeyPlaceholder" placeholder="e.g. difficulty, notes, level2" autocomplete="off" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+          <input type="text" id="add-col-key" data-i18n-placeholder="mdbColKeyPlaceholder" placeholder="e.g. difficulty, notes, level2" autocomplete="off" data-mdbev-105="1" />
           <div id="add-col-err" class="form-err"></div>
         </div>
         <div class="form-field">
           <label class="form-lbl" for="add-col-label" data-i18n="mdbColLabel">Display Label</label>
-          <input type="text" id="add-col-label" data-i18n-placeholder="mdbColLabelPlaceholder" placeholder="e.g. Difficulty Level" autocomplete="off" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+          <input type="text" id="add-col-label" data-i18n-placeholder="mdbColLabelPlaceholder" placeholder="e.g. Difficulty Level" autocomplete="off" data-mdbev-106="1" />
         </div>
         <div class="form-field">
           <label class="form-lbl" for="add-col-type" data-i18n="mdbColType">Data Type</label>
-          <select id="add-col-type" onchange="handleAddColTypeChange()">
+          <select id="add-col-type" data-mdbev-107="1">
             <option value="string" data-i18n="mdbColTypeString">Text (Short)</option>
             <option value="isLong" data-i18n="mdbColTypeLong">Text (Multiline)</option>
             <option value="number" data-i18n="mdbColTypeNumber">Number</option>
@@ -713,7 +713,7 @@
         </div>
         <div class="form-field" id="add-col-default-wrap">
           <label class="form-lbl" for="add-col-default" data-i18n="mdbColDefaultVal">Default Value</label>
-          <input type="text" id="add-col-default" data-i18n-placeholder="mdbColDefaultValPlaceholder" placeholder="Optional default value for existing records" onkeydown="if(event.key==='Enter')submitAddColumn()" />
+          <input type="text" id="add-col-default" data-i18n-placeholder="mdbColDefaultValPlaceholder" placeholder="Optional default value for existing records" data-mdbev-108="1" />
         </div>
         <div class="form-field">
           <label class="form-lbl" for="add-col-scope" data-i18n="mdbColScope">Apply To</label>
@@ -724,8 +724,8 @@
         </div>
       </div>
       <div class="modal-ft">
-        <button class="btn btn-secondary" onclick="closeAddColumnModal()" data-i18n="mdbBtnCancel">Cancel</button>
-        <button class="btn btn-primary" onclick="submitAddColumn()"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAddColumn">Add Column</span></button>
+        <button class="btn btn-secondary" data-mdbev-109="1" data-i18n="mdbBtnCancel">Cancel</button>
+        <button class="btn btn-primary" data-mdbev-110="1"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAddColumn">Add Column</span></button>
       </div>
     </div>
   </div>
@@ -760,16 +760,16 @@
   </div>
 
   <!-- Word Cross-Suite Usage & Reverse-Lookup Modal -->
-  <div id="word-usage-modal" class="modal-bg hidden" onclick="if(event.target===this)closeWordUsageModal()">
+  <div id="word-usage-modal" class="modal-bg hidden" data-mdbev-111="1">
     <div class="modal" style="max-width: 680px; width: 92%; max-height: 85vh; display: flex; flex-direction: column;">
       <div class="modal-hd" style="background:#fde047;border-bottom:2.5px solid #000;display:flex;align-items:center;justify-content:space-between;padding:12px 18px;">
         <span id="word-usage-title" style="font-weight:900;font-size:1.05rem;display:flex;align-items:center;color:#000;">Cross-Suite Usage</span>
-        <button class="modal-x" onclick="closeWordUsageModal()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+        <button class="modal-x" data-mdbev-112="1"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
       </div>
       <div class="modal-bd" id="word-usage-body" style="padding:16px 18px;overflow-y:auto;flex:1;">
       </div>
       <div class="modal-ft" style="display:flex;justify-content:flex-end;padding:10px 18px;border-top:2px solid #000;background:#fafafa;">
-        <button class="btn btn-secondary" onclick="closeWordUsageModal()">Close</button>
+        <button class="btn btn-secondary" data-mdbev-113="1">Close</button>
       </div>
     </div>
   </div>
@@ -920,10 +920,10 @@
         ? (curVal.length === 4 ? `#${curVal[1]}${curVal[1]}${curVal[2]}${curVal[2]}${curVal[3]}${curVal[3]}` : curVal)
         : '#16a34a';
       return `<div class="mdb-color-field-wrap">
-        <input type="color" id="${id}_picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" class="mdb-color-input-picker" oninput="mdbOnColorPickerInput('${id}', this.value)">
-        <input type="text" id="${id}" value="${esc(curVal)}" placeholder="#16a34a" class="mdb-color-input-text" oninput="mdbOnColorTextInput('${id}', this.value)">
+        <input type="color" id="${id}_picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" class="mdb-color-input-picker" data-mdb-input="color-picker" data-mdb-id="${esc(id)}">
+        <input type="text" id="${id}" value="${esc(curVal)}" placeholder="#16a34a" class="mdb-color-input-text" data-mdb-input="color-text" data-mdb-id="${esc(id)}">
         <div class="mdb-color-swatches">
-          ${MDB_COLOR_PRESETS.map(sw => `<button type="button" class="mdb-color-swatch-btn" onclick="mdbApplySwatch('${id}', '${sw.color}')" title="${esc(sw.label)}" style="background:${sw.color};"></button>`).join('')}
+          ${MDB_COLOR_PRESETS.map(sw => `<button type="button" class="mdb-color-swatch-btn" data-mdb-action="apply-swatch" data-mdb-id="${esc(id)}" data-mdb-color="${esc(sw.color)}" title="${esc(sw.label)}" style="background:${sw.color};"></button>`).join('')}
         </div>
       </div>`;
     }
@@ -966,7 +966,7 @@
             <img src="../assets/icons/award.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbInteractiveColorsHelper">${t('mdbInteractiveColorsHelper', 'Interactive Grade Color Pickers')}</span>
           </span>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="mdbApplyTrafficLightGradient('${id}')" style="font-size:0.72rem;padding:2px 7px;">
+          <button type="button" class="btn btn-secondary btn-sm" data-mdb-action="traffic-light" data-mdb-id="${esc(id)}" style="font-size:0.72rem;padding:2px 7px;">
             <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbBtnApplyColorGradient">${t('mdbBtnApplyColorGradient', 'Traffic Light Gradient')}</span>
           </button>
@@ -1004,7 +1004,7 @@
           : '#166534';
         return `<div class="mdb-grade-color-row" data-grade="${esc(item.grade)}">
           <span class="mdb-grade-badge">${esc(item.grade)}</span>
-          <input type="color" class="mdb-grade-color-picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" oninput="mdbOnGradePickerChange('${id}', '${esc(item.grade)}', this.value)">
+          <input type="color" class="mdb-grade-color-picker" value="${esc(pickerVal)}" title="${t('mdbColorPickerTooltip', 'Pick color')}" data-mdb-input="grade-color" data-mdb-id="${esc(id)}" data-mdb-grade="${esc(item.grade)}">
           <span class="mdb-grade-color-val">${esc(item.color || '—')}</span>
         </div>`;
       }).join('');
@@ -1743,7 +1743,7 @@
           const d = getTypeDef(key);
           if (!d) return '';
           return `
-      <div class="type-item" id="type-${d.key}" onclick="selectType('${d.key}')">
+      <div class="type-item" id="type-${d.key}" data-mdb-action="select-type" data-mdb-key="${esc(d.key)}">
         <img src="../assets/icons/${d.icon}" class="sidebar-icon" alt="" />
         <span class="type-label" data-i18n="${d.labelKey}">${t(d.labelKey)}</span>
         <span class="type-count" id="tc-${d.key}"><span class="ld ld-sm"></span></span>
@@ -1752,7 +1752,7 @@
 
         return `
     <div class="sb-section${isCollapsed ? ' collapsed' : ''}" id="sec-${sec.id}">
-      <div class="sb-section-hd" onclick="toggleSection('${sec.id}')">
+      <div class="sb-section-hd" data-mdb-action="toggle-section" data-mdb-id="${esc(sec.id)}">
         <img src="../assets/icons/chevron-down.svg" class="sb-section-chevron" alt="" />
         <span class="sb-section-title" data-i18n="${sec.labelKey}">${t(sec.labelKey)}</span>
         <span class="sb-section-count" id="sc-${sec.id}">–</span>
@@ -2553,11 +2553,11 @@
               : `<span class="pill-cnt">${f.records.length}</span>`;
         const canDl = f.status === 'loaded';
         const canDel = f.status !== 'loading';
-        return `<div class="file-pill${isActive ? ' pill-active' : ''}${f.status === 'loading' ? ' pill-loading' : ''}" onclick="toggleSource('${esc(f.name)}')">
+        return `<div class="file-pill${isActive ? ' pill-active' : ''}${f.status === 'loading' ? ' pill-loading' : ''}" data-mdb-action="toggle-source" data-mdb-name="${esc(f.name)}">
       <span class="pill-nm">${esc(f.name)}</span>
       ${statusBadge}
-      ${canDl ? `<button class="pill-dl" onclick="event.stopPropagation();downloadFile(${fi})" title="${t('mdbTitleDownload')}"><img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
-      ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})" title="${t('mdbTitleDeleteFile')}"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
+      ${canDl ? `<button class="pill-dl" data-mdb-action="download-file" data-mdb-fi="${fi}" title="${t('mdbTitleDownload')}"><img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
+      ${canDel ? `<button class="pill-del" data-mdb-action="delete-file" data-mdb-fi="${fi}" title="${t('mdbTitleDeleteFile')}"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
     </div>`;
       }).join('');
 
@@ -2567,7 +2567,7 @@
         const btnStyle = anySelected
           ? 'padding:3px 10px;border-radius:20px;border:1.5px solid #111;background:#111;color:#fff;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;'
           : 'padding:3px 10px;border-radius:20px;border:1.5px dashed #bbb;background:#fff;color:#888;font-size:0.78rem;cursor:pointer;font-family:inherit;white-space:nowrap;';
-        pills = `<button style="${btnStyle}" onclick="toggleAllSources()">${label}</button>` + pills;
+        pills = `<button style="${btnStyle}" data-mdb-action="toggle-all-sources">${label}</button>` + pills;
       }
 
       row.innerHTML = pills;
@@ -2642,9 +2642,9 @@
       let html = `<div class="fc" style="display:flex;align-items:flex-end;gap:6px;">
     <div>
       <span class="fl">${t('mdbFilterAllFields')}</span>
-      <input type="text" class="mdb-all-search" value="${esc(allVal)}" placeholder="${t('mdbFilterSearchAll')}" oninput="setAllFieldsFilterDebounced(this.value)" style="min-width:140px">
+      <input type="text" class="mdb-all-search" value="${esc(allVal)}" placeholder="${t('mdbFilterSearchAll')}" data-mdb-input="all-search" style="min-width:140px">
     </div>
-    <select id="mdb-scope-select" onchange="setSearchScope(this.value)" style="padding:5px 8px;border:1.5px solid #333;border-radius:6px;font-family:inherit;font-size:0.78rem;background:#fff;cursor:pointer;margin-bottom:1px;" title="${t('mdbScopeTooltip', 'Search scope')}">
+    <select id="mdb-scope-select" data-mdb-change="search-scope" style="padding:5px 8px;border:1.5px solid #333;border-radius:6px;font-family:inherit;font-size:0.78rem;background:#fff;cursor:pointer;margin-bottom:1px;" title="${t('mdbScopeTooltip', 'Search scope')}">
       <option value="all"${curScope === 'all' ? ' selected' : ''}>${t('mdbScopeAll', 'All fields')}</option>
       <option value="primary"${curScope === 'primary' ? ' selected' : ''}>${t('mdbScopePrimary', 'Primary term only (fastest)')}</option>
     </select>
@@ -2679,25 +2679,25 @@
 
             html += `<div class="fc mdb-ms-wrap" id="ms-wrap-${field.key}">
           <span class="fl">${esc(cap(field.key))}</span>
-          <button type="button" class="mdb-ms-btn ${count > 0 ? 'active' : ''}" id="ms-btn-${field.key}" onclick="toggleMdbDropdown('${field.key}', event)" title="${esc(tooltip)}">
+          <button type="button" class="mdb-ms-btn ${count > 0 ? 'active' : ''}" id="ms-btn-${field.key}" data-mdb-action="toggle-dropdown" data-mdb-key="${esc(field.key)}" title="${esc(tooltip)}">
             <span class="mdb-ms-label" id="ms-label-${field.key}">${esc(labelSummary)}</span>
             ${badgeHtml}
             <img src="../assets/icons/arrow-down.svg" class="btn-icon btn-icon-xs mdb-ms-arrow" alt="" />
           </button>
           <div class="mdb-ms-menu" id="ms-menu-${field.key}">
             <div class="mdb-ms-header">
-              <button type="button" class="mdb-ms-action-btn" onclick="mdbMsSelectAll('${field.key}', event)">${t('mdbBtnSelectAll')}</button>
-              <button type="button" class="mdb-ms-action-btn" onclick="mdbMsClear('${field.key}', event)">${t('mdbBtnClear')}</button>
+              <button type="button" class="mdb-ms-action-btn" data-mdb-action="ms-select-all" data-mdb-key="${esc(field.key)}">${t('mdbBtnSelectAll')}</button>
+              <button type="button" class="mdb-ms-action-btn" data-mdb-action="ms-clear" data-mdb-key="${esc(field.key)}">${t('mdbBtnClear')}</button>
             </div>
             ${field.uniqueVals.length > 6 ? `
             <div class="mdb-ms-search-wrap">
-              <input type="text" class="mdb-ms-search" placeholder="${t('mdbFilterPlaceholder')}" oninput="mdbMsFilterList(this)">
+              <input type="text" class="mdb-ms-search" placeholder="${t('mdbFilterPlaceholder')}" data-mdb-input="ms-filter">
             </div>` : ''}
             <div class="mdb-ms-list">
               ${field.uniqueVals.map(v => {
                 const isChecked = selectedVals.includes(v);
                 return `<label class="mdb-ms-item ${isChecked ? 'selected' : ''}">
-                  <input type="checkbox" class="mdb-ms-cb" value="${esc(v)}" ${isChecked ? 'checked' : ''} onchange="mdbMsToggle('${field.key}', this.value, this.checked)">
+                  <input type="checkbox" class="mdb-ms-cb" value="${esc(v)}" ${isChecked ? 'checked' : ''} data-mdb-change="ms-toggle" data-mdb-key="${esc(field.key)}">
                   <span class="mdb-ms-text" title="${esc(v)}">${esc(v) || '(empty)'}</span>
                 </label>`;
               }).join('')}
@@ -2708,7 +2708,7 @@
             const val = typeof curVal === 'string' ? curVal : '';
             html += `<div class="fc">
           <span class="fl">${esc(cap(field.key))}</span>
-          <input type="text" class="mdb-col-search" data-filter-key="${esc(field.key)}" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" oninput="setFilterDebounced('${field.key}', this.value)">
+          <input type="text" class="mdb-col-search" data-filter-key="${esc(field.key)}" value="${esc(val)}" placeholder="${t('mdbFilterPlaceholder')}" data-mdb-input="col-filter">
           </div>`;
           }
         }
@@ -2718,12 +2718,12 @@
       if (hasStarredField) {
         const starredActive = !!S.filters['_starred'];
         html += `<div class="fc"><label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;white-space:nowrap;font-size:0.82rem;">
-      <input type="checkbox" ${starredActive ? 'checked' : ''} onchange="setFilter('_starred', this.checked ? '1' : '')"> ${t('mdbStarredOnly')}
+      <input type="checkbox" ${starredActive ? 'checked' : ''} data-mdb-change="starred-filter"> ${t('mdbStarredOnly')}
     </label></div>`;
       }
 
       html += `<div class="fc" style="align-self:flex-end">
-    <button class="btn btn-secondary btn-sm" onclick="resetFilters()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> ${t('mdbFilterReset')}</button></div>`;
+    <button class="btn btn-secondary btn-sm" data-mdb-action="reset-filters"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> ${t('mdbFilterReset')}</button></div>`;
 
       bar.innerHTML = html;
 
@@ -3006,21 +3006,21 @@
       if (S._lastTheadSignature !== theadSig) {
         S._lastTheadSignature = theadSig;
         thead.innerHTML = `<tr>
-    ${isBatchMode ? `<th class="th-act" style="width:32px;min-width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} onchange="handleBatchCheckAll(this)" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
+    ${isBatchMode ? `<th class="th-act" style="width:32px;min-width:32px;padding:8px 4px 8px 11px;"><input type="checkbox" id="batch-check-all" ${allPageSelected ? 'checked' : ''} data-mdb-change="batch-check-all" title="${t('mdbTitleSelectAllPage')}"></th>` : ''}
     ${tableCols.map(f => {
         const cls = S.sortField === f.key ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : '';
         const w = colWidths[f.key];
         const wStyle = w ? `style="width:${w}px;min-width:${w}px;max-width:${w}px;"` : '';
         const displayLabel = esc(f.customLabel || (f.key === 'scoringDecisions' ? t('mdbColScoringDecisions') : (f.key === 'detailedDescription' ? t('mdbColDetailedDescription', 'Detailed Description') : ((S.typeKey === 'wordbanks' && f.key === 'picture') ? t('mdbColPicture', 'Picture') : cap(f.key)))));
         const badge = f.isCustom ? `<span class="th-custom-badge">custom</span>` : '';
-        return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} onclick="setSort('${f.key}')">
+        return `<th class="${cls}" data-col="${esc(f.key)}" ${wStyle} data-mdb-action="set-sort" data-mdb-key="${esc(f.key)}">
           <span class="th-label">${displayLabel}</span>${badge}
-          <button type="button" class="th-col-menu-btn" onclick="openColMenu(event, '${esc(f.key)}', ${Boolean(f.isCustom)})" title="Column options">⋮</button>
+          <button type="button" class="th-col-menu-btn" data-mdb-action="open-col-menu" data-mdb-key="${esc(f.key)}" data-mdb-custom="${Boolean(f.isCustom)}" title="Column options">⋮</button>
           <div class="col-resizer" data-col="${esc(f.key)}" title="Drag to resize, double-click to auto-fit"></div>
         </th>`;
       }).join('')}
-    <th class="th-add-col" title="${t('mdbBtnAddColumn')}"><button type="button" class="btn-add-col-th" onclick="openAddColumnModal()" title="${t('mdbBtnAddColumn')}">+</button></th>
-    ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" onclick="setSort('_src')">${t('mdbColSource')}</th>` : ''}
+    <th class="th-add-col" title="${t('mdbBtnAddColumn')}"><button type="button" class="btn-add-col-th" data-mdb-action="open-add-col" title="${t('mdbBtnAddColumn')}">+</button></th>
+    ${multiFile ? `<th class="${S.sortField === '_src' ? (S.sortDir === 'asc' ? 'sort-asc' : 'sort-desc') : ''}" data-mdb-action="set-sort" data-mdb-key="_src">${t('mdbColSource')}</th>` : ''}
     <th class="th-act">${t('mdbColActions')}</th>
   </tr>`;
         initColResizers();
@@ -3043,7 +3043,7 @@
         const bk = batchKey(row._fi, row._ri);
         const isSel = S.batchSel.has(bk);
         return `<tr${isSel ? ' class="row-selected"' : ''} data-batch-row="${esc(bk)}" data-fi="${row._fi}" data-ri="${row._ri}">
-      ${isBatchMode ? `<td style="width:32px;padding:7px 4px 7px 11px;"><input type="checkbox" class="batch-cb" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></td>` : ''}
+      ${isBatchMode ? `<td style="width:32px;padding:7px 4px 7px 11px;"><input type="checkbox" class="batch-cb" ${isSel ? 'checked' : ''} data-mdb-change="batch-select" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}"></td>` : ''}
       ${tableCols.map(f => {
         const isEditable = (f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key)) && f.key !== '_src';
         const w = colWidths[f.key];
@@ -3056,12 +3056,12 @@
       <td class="th-add-col-cell" style="width:44px;min-width:44px;"></td>
       ${multiFile ? `<td class="src-cell" title="${esc(row._src)}">${esc(row._src)}</td>` : ''}
       <td class="act-cell">
-        <button class="btn btn-sm btn-secondary" onclick="openEdit(${row._fi},${row._ri})"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
-        <button class="btn btn-sm btn-secondary" onclick="openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-        ${(S.typeKey === 'wordbanks') ? `<button class="btn btn-sm btn-secondary" onclick="openWordReverseLookup(${row._fi},${row._ri})" title="Cross-Suite Usage &amp; Reverse-Lookup"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [USAGE]</button>` : ''}
-        <button class="btn btn-sm btn-secondary" onclick="duplicateRecord(${row._fi},${row._ri})" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
-        <button class="btn btn-sm btn-secondary" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
-        <button class="btn btn-sm btn-danger" onclick="confirmDel(${row._fi},${row._ri})"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
+        <button class="btn btn-sm btn-secondary" data-mdb-action="open-edit" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}"><img src="../assets/icons/edit-word.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnEdit')}</button>
+        <button class="btn btn-sm btn-secondary" data-mdb-action="open-tag-link" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+        ${(S.typeKey === 'wordbanks') ? `<button class="btn btn-sm btn-secondary" data-mdb-action="word-usage" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="Cross-Suite Usage &amp; Reverse-Lookup"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /> [USAGE]</button>` : ''}
+        <button class="btn btn-sm btn-secondary" data-mdb-action="dup-rec" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbBtnDuplicate')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDuplicate')}</button>
+        <button class="btn btn-sm btn-secondary" data-mdb-action="copy-to" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnCopyToFile')}</button>
+        <button class="btn btn-sm btn-danger" data-mdb-action="confirm-del" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbBtnDel')}</button>
       </td>
     </tr>`;
       }).join('');
@@ -3076,7 +3076,7 @@
       if (S.typeKey === 'wordbanks' && field.key === 'picture') {
         const picSrc = String(val).trim();
         if (!picSrc) return '<span class="cell-empty">—</span>';
-        return `<div class="mdb-cell-pic-wrap"><img src="${esc(picSrc)}" class="mdb-cell-pic-thumb" alt="" loading="lazy" onclick="event.stopPropagation();mdbOpenPictureLightbox(this.src)" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline';" /><span class="mdb-cell-pic-err" style="display:none;">[!]</span></div>`;
+        return `<div class="mdb-cell-pic-wrap"><img src="${esc(picSrc)}" class="mdb-cell-pic-thumb" alt="" loading="lazy" data-mdb-action="pic-lightbox" /><span class="mdb-cell-pic-err" style="display:none;">[!]</span></div>`;
       }
       if (field.type === 'boolean') return val ? '' : '';
       if (field.type === 'number') return String(val);
@@ -3277,15 +3277,15 @@
       menu.id = 'active-col-menu';
 
       let menuHtml = `
-        <div class="col-menu-item" onclick="autoFitColumn('${esc(colKey)}'); closeAllColMenus();">
+        <div class="col-menu-item" data-mdb-action="col-autofit" data-mdb-key="${esc(colKey)}">
           <img src="../assets/icons/table.svg" class="btn-icon btn-icon-xs" alt="" />
           <span>Auto-fit Width</span>
         </div>
-        <div class="col-menu-item" onclick="resetColumnWidth('${S.typeKey}', '${esc(colKey)}'); closeAllColMenus();">
+        <div class="col-menu-item" data-mdb-action="col-reset-w" data-mdb-key="${esc(colKey)}">
           <img src="../assets/icons/refresh.svg" class="btn-icon btn-icon-xs" alt="" />
           <span>${t('mdbResetColWidth')}</span>
         </div>
-        <div class="col-menu-item" onclick="resetAllColumnWidths('${S.typeKey}'); closeAllColMenus();">
+        <div class="col-menu-item" data-mdb-action="col-reset-all-w">
           <img src="../assets/icons/clear.svg" class="btn-icon btn-icon-xs" alt="" />
           <span>${t('mdbResetAllColWidths')}</span>
         </div>
@@ -3294,7 +3294,7 @@
       if (isCustom) {
         menuHtml += `
           <div style="border-top:1px solid #eee;margin:3px 0;"></div>
-          <div class="col-menu-item danger" onclick="deleteCustomColumn('${esc(colKey)}'); closeAllColMenus();">
+          <div class="col-menu-item danger" data-mdb-action="col-delete" data-mdb-key="${esc(colKey)}">
             <img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>${t('mdbDeleteColumn')}</span>
           </div>
@@ -3460,8 +3460,8 @@
       } else if (isColorField({ key, type }, strVal)) {
         const pickerHex = isValidHexColor(strVal) ? (strVal.trim().length === 4 ? `#${strVal.trim()[1]}${strVal.trim()[1]}${strVal.trim()[2]}${strVal.trim()[2]}${strVal.trim()[3]}${strVal.trim()[3]}` : strVal.trim()) : '#16a34a';
         inputHtml = `<div class="cell-inline-color-wrap">
-          <input type="color" class="cell-inline-color-picker" value="${esc(pickerHex)}" oninput="this.nextElementSibling.value=this.value" title="Pick color" />
-          <input type="text" class="cell-inline-input" value="${esc(strVal)}" oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value))this.previousElementSibling.value=this.value" />
+          <input type="color" class="cell-inline-color-picker" value="${esc(pickerHex)}" data-mdb-input="inline-color-picker" title="Pick color" />
+          <input type="text" class="cell-inline-input" value="${esc(strVal)}" data-mdb-input="inline-color-text" />
         </div>`;
       } else {
         inputHtml = `<input type="text" class="cell-inline-input" value="${esc(strVal)}" />`;
@@ -4170,19 +4170,19 @@
             return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}" style="width:100%;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;border:2px solid #333;box-shadow:2px 2px 0 #555;border-radius:8px;">
               <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
                 <div style="display:flex;align-items:center;gap:8px;">
-                  <label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>
-                  <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:0;">
+                  <label class="chip-check" data-mdb-stop="1"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} data-mdb-change="batch-select" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}"></label>
+                  <div class="chip-body" data-mdb-action="open-edit" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:0;">
                     <span style="font-weight:800;font-size:0.95rem;color:#0f172a;">${esc(catName)}</span>
                     <span class="tag-more" style="background:${secColor}15;color:${secColor};border:1px solid ${secColor}40;font-weight:700;">${items.length} ${items.length === 1 ? 'chip' : 'chips'}</span>
                   </div>
                 </div>
                 <div style="display:flex;gap:4px;margin-left:auto;">
-                  <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-                  <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-                  <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                  <button class="chip-del" data-mdb-action="open-tag-link" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                  <button class="chip-del" data-mdb-action="copy-to" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+                  <button class="chip-del" data-mdb-action="confirm-del" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
                 </div>
               </div>
-              <div style="display:flex;flex-wrap:wrap;gap:4px;width:100%;cursor:pointer;" onclick="openEdit(${row._fi},${row._ri})">
+              <div style="display:flex;flex-wrap:wrap;gap:4px;width:100%;cursor:pointer;" data-mdb-action="open-edit" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}">
                 ${itemTags || '<span style="color:#94a3b8;font-size:0.78rem;font-style:italic;">No chips in this category yet. Click to add.</span>'}
               </div>
             </div>`;
@@ -4218,15 +4218,15 @@
         const bk = batchKey(row._fi, row._ri);
         const isSel = S.batchSel.has(bk);
         return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}">
-      ${isBatchMode ? `<label class="chip-check" onclick="event.stopPropagation()"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} onchange="toggleBatchSelect(${row._fi},${row._ri})"></label>` : ''}
-      <div class="chip-body" onclick="openEdit(${row._fi},${row._ri})">
-        ${chipPic ? `<img src="${esc(chipPic)}" class="mdb-chip-pic-thumb" alt="" loading="lazy" onerror="this.style.display='none'" />` : ''}
+      ${isBatchMode ? `<label class="chip-check" data-mdb-stop="1"><input type="checkbox" data-batch-key="${esc(bk)}" ${isSel ? 'checked' : ''} data-mdb-change="batch-select" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}"></label>` : ''}
+      <div class="chip-body" data-mdb-action="open-edit" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}">
+        ${chipPic ? `<img src="${esc(chipPic)}" class="mdb-chip-pic-thumb" alt="" loading="lazy" />` : ''}
         <span class="chip-main">${esc(main) || '<span style="color:#bbb">—</span>'}</span>
         ${sub ? `<span class="chip-sep">·</span><span class="chip-sub" title="${esc(sub)}">${esc(sub)}</span>` : ''}
       </div>
-      <button class="chip-del" onclick="event.stopPropagation();openRecordTagLinkModal(${row._fi},${row._ri})" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-      <button class="chip-del" onclick="openCopyToModal(${row._fi},${row._ri})" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
-      <button class="chip-del" onclick="confirmDel(${row._fi},${row._ri})" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+      <button class="chip-del" data-mdb-action="open-tag-link" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="Links &amp; Tags"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+      <button class="chip-del" data-mdb-action="copy-to" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbBtnCopyToFile')}"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+      <button class="chip-del" data-mdb-action="confirm-del" data-mdb-fi="${row._fi}" data-mdb-ri="${row._ri}" title="${t('mdbTitleDelete')}"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
     </div>`;
       }).join('');
     }
@@ -4551,7 +4551,7 @@
             hintDefault = 'One per line: grade: threshold percentage (e.g. 6: 90)';
           }
           const gradeHelper = (field.key === 'colors') ? buildGradeColorsHelperHtml(id, val, rec) : '';
-          input = `<textarea id="${id}" rows="5" placeholder="${esc(placeholder)}" oninput="${field.key === 'colors' ? `mdbSyncGradeColorsFromText('${id}')` : ''}">${escHtml(sv)}</textarea>
+          input = `<textarea id="${id}" rows="5" placeholder="${esc(placeholder)}"${field.key === 'colors' ? ` data-mdb-input="sync-grade-colors" data-mdb-id="${esc(id)}"` : ''}>${escHtml(sv)}</textarea>
                <div class="form-hint" data-i18n="${hintKey}">${t(hintKey, hintDefault)}</div>
                ${gradeHelper}`;
         } else {
@@ -4601,13 +4601,13 @@
         && !field.key.startsWith('_') && field.key !== 'id'
         && (field.type === 'string' || field.type === 'array' || field.type === 'number' || field.isLong);
       const actionBtn = isWordField
-        ? `<button type="button" class="btn btn-secondary btn-sm" onclick="if(typeof mdbTriggerFormAiAutofill==='function'){mdbTriggerFormAiAutofill();}else{triggerWordAutofill();}" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>`
+        ? `<button type="button" class="btn btn-secondary btn-sm" data-mdb-action="form-ai-autofill" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>`
         : (isCompCriteriaField
-          ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('competenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
+          ? `<button type="button" class="btn btn-secondary btn-sm" data-mdb-action="comp-picker" data-mdb-key="competenceIds" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
           : (isCompLinkedField
-            ? `<button type="button" class="btn btn-secondary btn-sm" onclick="openMdbCompetencePicker('linkedCompetenceIds')" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbLinkCompetence">${t('mdbLinkCompetence', 'Link Competence')}</span></button>`
+            ? `<button type="button" class="btn btn-secondary btn-sm" data-mdb-action="comp-picker" data-mdb-key="linkedCompetenceIds" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbLinkCompetence">${t('mdbLinkCompetence', 'Link Competence')}</span></button>`
             : (canAiField
-              ? `<button type="button" class="btn-field-ai" onclick="mdbTriggerFieldAiAutofill('${esc(field.key)}')" title="${t('mdbAiFieldFill', 'AI Suggest')}"><img src="../assets/icons/sparkles.svg" style="width:10px;height:10px;" alt="" /> AI</button>`
+              ? `<button type="button" class="btn-field-ai" data-mdb-action="field-ai-autofill" data-mdb-key="${esc(field.key)}" title="${t('mdbAiFieldFill', 'AI Suggest')}"><img src="../assets/icons/sparkles.svg" style="width:10px;height:10px;" alt="" /> AI</button>`
               : '')));
 
       if (isCompCriteriaField || isCompLinkedField) {
@@ -4731,24 +4731,19 @@
       const hasPic = Boolean(strVal);
       return `<div class="mdb-pic-field-wrap" id="${id}-wrap">
         <div class="mdb-pic-controls">
-          <input type="text" id="${id}" value="${esc(strVal)}" placeholder="${esc(t('mdbPictureUrlPlaceholder', 'Paste image URL or upload a file...'))}" oninput="mdbOnWordPictureInput('${id}')">
-          <input type="file" id="${id}-file" accept="image/*" style="display:none" onchange="mdbHandleWordPictureFile('${id}', this)">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('${id}-file')?.click()">
+          <input type="text" id="${id}" value="${esc(strVal)}" placeholder="${esc(t('mdbPictureUrlPlaceholder', 'Paste image URL or upload a file...'))}" data-mdb-input="word-pic" data-mdb-id="${esc(id)}">
+          <input type="file" id="${id}-file" accept="image/*" style="display:none" data-mdb-change="word-pic-file" data-mdb-id="${esc(id)}">
+          <button type="button" class="btn btn-secondary btn-sm" data-mdb-action="pic-choose" data-mdb-id="${esc(id)}">
             <img src="../assets/icons/upload.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbBtnChooseImage">${t('mdbBtnChooseImage', 'Choose Image')}</span>
           </button>
-          <button type="button" class="btn btn-danger btn-sm" id="${id}-clear" onclick="mdbClearWordPicture('${id}')" style="${hasPic ? '' : 'display:none;'}">
+          <button type="button" class="btn btn-danger btn-sm" id="${id}-clear" data-mdb-action="pic-clear" data-mdb-id="${esc(id)}" style="${hasPic ? '' : 'display:none;'}">
             <img src="../assets/icons/trash.svg" class="btn-icon btn-icon-xs" alt="" />
             <span data-i18n="mdbBtnRemoveImage">${t('mdbBtnRemoveImage', 'Remove')}</span>
           </button>
         </div>
-        <div class="mdb-pic-dropzone" id="${id}-dropzone" tabindex="0"
-          onclick="if(!event.target.closest('img'))document.getElementById('${id}-file')?.click()"
-          ondragover="event.preventDefault();this.classList.add('drag-over');"
-          ondragleave="this.classList.remove('drag-over');"
-          ondrop="mdbOnWordPictureDrop(event, '${id}')"
-          onpaste="mdbOnWordPicturePaste(event, '${id}')">
-          <img id="${id}-preview" class="mdb-pic-preview-img" src="${hasPic ? esc(strVal) : ''}" alt="" style="${hasPic ? '' : 'display:none;'}" onclick="event.stopPropagation();mdbOpenPictureLightbox(this.src)" onerror="this.style.display='none';" />
+        <div class="mdb-pic-dropzone" id="${id}-dropzone" tabindex="0" data-mdb-dropzone-id="${esc(id)}">
+          <img id="${id}-preview" class="mdb-pic-preview-img" src="${hasPic ? esc(strVal) : ''}" alt="" style="${hasPic ? '' : 'display:none;'}" data-mdb-action="pic-lightbox" />
           <div id="${id}-empty" class="mdb-pic-empty" style="${hasPic ? 'display:none;' : ''}">
             <img src="../assets/icons/media.svg" alt="" />
             <span data-i18n="mdbPictureDropHint">${t('mdbPictureDropHint', 'Drop an image here, paste (Ctrl+V), or click Choose Image')}</span>
@@ -4888,7 +4883,7 @@
       backdrop.innerHTML = `<div class="mdb-pic-lightbox-card">
         <div style="display:flex;align-items:center;justify-content:space-between;width:100%;gap:12px;">
           <strong style="font-size:0.9rem;color:#111;">${esc(t('mdbPicturePreviewTitle', 'Picture Preview'))}</strong>
-          <button type="button" class="modal-x" onclick="mdbClosePictureLightbox()"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
+          <button type="button" class="modal-x" data-mdb-action="close-lightbox"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" /></button>
         </div>
         <img src="${esc(src)}" class="mdb-pic-lightbox-img" alt="" />
       </div>`;
@@ -4918,10 +4913,10 @@
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <button type="button" class="btn btn-secondary" style="font-size:0.74rem;padding:4px 8px;" onclick="if(typeof openSlmModelManager==='function')openSlmModelManager();" title="${t('slmManageModelsTitle', 'Offline Language Models')}">
+          <button type="button" class="btn btn-secondary" style="font-size:0.74rem;padding:4px 8px;" data-mdb-action="open-slm-manager" title="${t('slmManageModelsTitle', 'Offline Language Models')}">
             <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
           </button>
-          <button type="button" class="btn btn-primary" id="mdb-ai-autofill-btn" style="font-size:0.76rem;padding:5px 10px;background:#e2c96e;font-weight:800;" onclick="if(typeof mdbTriggerFormAiAutofill==='function')mdbTriggerFormAiAutofill();">
+          <button type="button" class="btn btn-primary" id="mdb-ai-autofill-btn" style="font-size:0.76rem;padding:5px 10px;background:#e2c96e;font-weight:800;" data-mdb-action="form-ai-autofill">
             <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>${t('mdbBtnAutofill', 'Autofill')}</span>
           </button>
@@ -4996,9 +4991,9 @@
       if (isAdd) {
         // Tab bar
         html += `<div style="display:flex;margin-bottom:14px;border:1.5px solid #bbb;border-radius:5px;overflow:hidden;">
-      <button id="tab-btn-single" onclick="switchAddTab('single')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="filter:brightness(0) invert(1);" /> ${t('mdbTabSingle')}</button>
-      <button id="tab-btn-bulk" onclick="switchAddTab('bulk')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> ${t('mdbTabBulkJson')}</button>
-      <button id="tab-btn-ai" onclick="switchAddTab('ai')" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbTabAiGenerate', 'Generate with AI')}</button>
+      <button id="tab-btn-single" data-mdb-action="switch-add-tab" data-mdb-tab="single" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#111;color:#fff;cursor:pointer;"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="filter:brightness(0) invert(1);" /> ${t('mdbTabSingle')}</button>
+      <button id="tab-btn-bulk" data-mdb-action="switch-add-tab" data-mdb-tab="bulk" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> ${t('mdbTabBulkJson')}</button>
+      <button id="tab-btn-ai" data-mdb-action="switch-add-tab" data-mdb-tab="ai" style="flex:1;padding:6px 12px;font-size:0.82rem;font-weight:700;border:none;background:#fff;color:#111;border-left:1.5px solid #bbb;cursor:pointer;"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> ${t('mdbTabAiGenerate', 'Generate with AI')}</button>
     </div>`;
 
         html += infoBanner;
@@ -5578,7 +5573,7 @@
           <strong style="color:#1d4ed8;">${esc(code)}</strong>
           ${comp?._sourceDb ? `<span style="font-size:0.7rem;background:#dbeafe;color:#1e3a8a;border-radius:3px;padding:0 4px;">${esc(comp._sourceDb)}</span>` : ''}
           ${comp?.title && comp.title !== code ? `<span style="color:#334155;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(comp.title)}</span>` : ''}
-          <button type="button" onclick="removeFormCompChip('${esc(cid)}')" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+          <button type="button" data-mdb-action="remove-comp-chip" data-mdb-cid="${esc(cid)}" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
         </span>`;
       }).join('');
     }
@@ -6207,7 +6202,7 @@
                 Found in <strong>${totalMatches}</strong> total suite item${totalMatches === 1 ? '' : 's'}
               </div>
             </div>
-            <button class="btn btn-secondary btn-sm" onclick="openWordTagLinkModal('${escHtml(word)}')" style="display:inline-flex;align-items:center;gap:6px;">
+            <button class="btn btn-secondary btn-sm" data-mdb-action="word-tag-link" data-mdb-word="${escHtml(word)}" style="display:inline-flex;align-items:center;gap:6px;">
               <img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt="" />
               <span>[MANAGE LINKS &amp; TAGS]</span>
             </button>
@@ -6235,7 +6230,7 @@
                     <div style="font-weight:800;font-size:0.9rem;">${escHtml(m.title)}</div>
                     <div style="font-size:0.75rem;color:#64748b;">Appears on <strong>${m.count}</strong> node${m.count === 1 ? '' : 's'} • ${escHtml(m.filename)}</div>
                   </div>
-                  <button class="btn btn-primary btn-sm" onclick="jumpToBoardWord('${escHtml(m.filename)}', '${escHtml(m.nodeId || '')}')" style="display:inline-flex;align-items:center;gap:4px;">
+                  <button class="btn btn-primary btn-sm" data-mdb-action="jump-board" data-mdb-file="${escHtml(m.filename)}" data-mdb-node="${escHtml(m.nodeId || '')}" style="display:inline-flex;align-items:center;gap:4px;">
                     <img src="../assets/icons/board.svg" class="btn-icon btn-icon-xs" alt="" />
                     <span>[OPEN BOARD]</span>
                   </button>
@@ -6256,7 +6251,7 @@
                     <div style="font-weight:800;font-size:0.9rem;">${escHtml(t.title)}</div>
                     <div style="font-size:0.75rem;color:#64748b;">Targeted in Exercise${t.exerciseIndices.length === 1 ? '' : 's'}: <strong>${t.exerciseIndices.map(i => '#' + i).join(', ')}</strong></div>
                   </div>
-                  <button class="btn btn-primary btn-sm" onclick="jumpToTestExercise('${escHtml(t.filename)}', '${t.exerciseIndices[0]}')" style="display:inline-flex;align-items:center;gap:4px;">
+                  <button class="btn btn-primary btn-sm" data-mdb-action="jump-test" data-mdb-file="${escHtml(t.filename)}" data-mdb-ex="${t.exerciseIndices[0]}" style="display:inline-flex;align-items:center;gap:4px;">
                     <img src="../assets/icons/test-creator.svg" class="btn-icon btn-icon-xs" alt="" />
                     <span>[OPEN TEST EX: #${t.exerciseIndices[0]}]</span>
                   </button>
@@ -6277,7 +6272,7 @@
                     <div style="font-weight:800;font-size:0.9rem;">${escHtml(l.title)}</div>
                     <div style="font-size:0.75rem;color:#64748b;">${l.date ? `Scheduled for: <strong>${escHtml(l.date)}</strong> • ` : ''}${escHtml(l.filename)}</div>
                   </div>
-                  <button class="btn btn-primary btn-sm" onclick="jumpToLessonPlan('${escHtml(l.filename)}')" style="display:inline-flex;align-items:center;gap:4px;">
+                  <button class="btn btn-primary btn-sm" data-mdb-action="jump-lesson" data-mdb-file="${escHtml(l.filename)}" style="display:inline-flex;align-items:center;gap:4px;">
                     <img src="../assets/icons/lesson-creator.svg" class="btn-icon btn-icon-xs" alt="" />
                     <span>[OPEN LESSON]</span>
                   </button>
@@ -6730,7 +6725,7 @@
         listEl.innerHTML = eligibleFields.map(f => {
           const label = f.customLabel || cap(f.key);
           return `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.8rem;padding:4px 7px;border-radius:4px;border:1.5px solid #333;background:#fff;box-shadow:1px 1px 0 #333;font-weight:600;">
-            <input type="checkbox" class="baf-field-cb" value="${esc(f.key)}" checked onchange="updateBatchAutofillPreview()" style="accent-color:#111;">
+            <input type="checkbox" class="baf-field-cb" value="${esc(f.key)}" checked data-mdb-change="baf-preview" style="accent-color:#111;">
             <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(label)}">${esc(label)}</span>
           </label>`;
         }).join('');
@@ -7376,7 +7371,7 @@
       $('merge-checklist').innerHTML = loaded.map(f => {
         const fi = S.files.indexOf(f);
         return `<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.85rem;">
-      <input type="checkbox" class="merge-file-cb" value="${fi}" checked onchange="updateMergeInfo()">
+      <input type="checkbox" class="merge-file-cb" value="${fi}" checked data-mdb-change="merge-info">
       <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(f.name)}">${esc(f.name)}</span>
       <span style="font-size:0.75rem;color:#999;flex-shrink:0;">${f.records.length}</span>
     </label>`;
@@ -8404,11 +8399,11 @@ Rules:
       let colIdx = 0;
       const hdrCells = cols.map(f => {
         const currentIdx = colIdx++;
-        return `<th>${escHtml(cap(f.key))}<button class="remove-col-btn" onclick="removeColumn(${currentIdx})" title="Remove column">×</button></th>`;
+        return `<th>${escHtml(cap(f.key))}<button class="remove-col-btn" data-exp-rm-col="${currentIdx}" title="Remove column">×</button></th>`;
       });
       if (inclSrc) {
         const currentIdx = colIdx++;
-        hdrCells.push(`<th>Source<button class="remove-col-btn" onclick="removeColumn(${currentIdx})" title="Remove column">×</button></th>`);
+        hdrCells.push(`<th>Source<button class="remove-col-btn" data-exp-rm-col="${currentIdx}" title="Remove column">×</button></th>`);
       }
       const hdr = hdrCells.join('');
 
@@ -8510,9 +8505,9 @@ Rules:
   </div>
   ${filterLine}
   <div class="toolbar">
-    <input type="text" class="search-box" id="search-input" placeholder="Search rows..." oninput="filterTable()">
-    <button class="btn" onclick="downloadEditedHTML()">Download Edited HTML</button>
-    <button class="btn" onclick="window.print()">Print Page</button>
+    <input type="text" class="search-box" id="search-input" placeholder="Search rows...">
+    <button class="btn" id="btn-download-edited">Download Edited HTML</button>
+    <button class="btn" id="btn-print-page">Print Page</button>
   </div>
   <div class="table-wrap">
     <table id="data-table">
@@ -8571,6 +8566,15 @@ Rules:
       URL.revokeObjectURL(a.href);
       showToast('Downloaded edited HTML successfully!');
     }
+
+    document.getElementById('search-input')?.addEventListener('input', filterTable);
+    document.getElementById('btn-download-edited')?.addEventListener('click', downloadEditedHTML);
+    document.getElementById('btn-print-page')?.addEventListener('click', function () { window.print(); });
+    document.getElementById('data-table')?.addEventListener('click', function (e) {
+      const btn = e.target.closest('button[data-exp-rm-col]');
+      if (!btn) return;
+      removeColumn(parseInt(btn.getAttribute('data-exp-rm-col'), 10));
+    });
   ` + '</' + 'script>'}
 </body>
 </html>`;
@@ -9757,11 +9761,11 @@ Rules:
     <div class="action-bar">
       <button type="button" class="btn btn-secondary" id="btn-reset">Reset Filters</button>
       <button type="button" class="btn btn-primary" id="btn-csv">Download Filtered CSV</button>
-      <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
-      <button type="button" class="btn btn-secondary" id="btn-settings" onclick="openSettingsMenu(event)">⚙ Display Settings</button>
+      <button type="button" class="btn btn-secondary" id="btn-print-export">Print</button>
+      <button type="button" class="btn btn-secondary" id="btn-settings">⚙ Display Settings</button>
       <div class="view-switch" id="view-switch">
-        <button type="button" class="btn-view active" id="btn-view-cards" onclick="setViewMode('cards')"> Cards</button>
-        <button type="button" class="btn-view" id="btn-view-tables" onclick="setViewMode('tables')"> Tables</button>
+        <button type="button" class="btn-view active" id="btn-view-cards"> Cards</button>
+        <button type="button" class="btn-view" id="btn-view-tables"> Tables</button>
       </div>
       <span class="filter-hint" style="margin-left:auto;">Hold Ctrl/Cmd to multi-select. No selection = all included.</span>
     </div>
@@ -9775,13 +9779,13 @@ Rules:
   <section class="results-grid mode-cards" id="results-grid"></section>
 
   <!-- Display & Visibility Settings Modal -->
-  <div id="settings-backdrop" class="settings-backdrop hidden" onclick="closeSettingsMenu(event)">
-    <div class="settings-modal" onclick="event.stopPropagation()">
+  <div id="settings-backdrop" class="settings-backdrop hidden">
+    <div class="settings-modal" id="settings-modal">
       <div class="settings-modal-header">
         <div class="settings-modal-title">
           <span>⚙</span> <span>Display &amp; Visibility Settings</span>
         </div>
-        <button type="button" class="btn-close-modal" onclick="closeSettingsMenu()" title="Close Settings">×</button>
+        <button type="button" class="btn-close-modal" id="btn-settings-close" title="Close Settings">×</button>
       </div>
       <div class="settings-modal-body">
         
@@ -9789,8 +9793,8 @@ Rules:
           <div class="settings-section-header">
             <h4>Visible Columns &amp; Fields</h4>
             <div class="settings-quick-actions">
-              <button type="button" class="btn-quick" onclick="setAllColumnsVisible(true)">Show All</button>
-              <button type="button" class="btn-quick" onclick="setAllColumnsVisible(false)">Hide All</button>
+              <button type="button" class="btn-quick" id="btn-cols-show-all">Show All</button>
+              <button type="button" class="btn-quick" id="btn-cols-hide-all">Hide All</button>
             </div>
           </div>
           <p class="settings-section-desc">Toggle which fields and columns appear in Cards and Tables views.</p>
@@ -9801,8 +9805,8 @@ Rules:
           <div class="settings-section-header">
             <h4>UI Sections &amp; Elements</h4>
             <div class="settings-quick-actions">
-              <button type="button" class="btn-quick" onclick="setAllElementsVisible(true)">Show All</button>
-              <button type="button" class="btn-quick" onclick="setAllElementsVisible(false)">Hide All</button>
+              <button type="button" class="btn-quick" id="btn-elems-show-all">Show All</button>
+              <button type="button" class="btn-quick" id="btn-elems-hide-all">Hide All</button>
             </div>
           </div>
           <p class="settings-section-desc">Show or hide major interactive panels and visual elements.</p>
@@ -9811,8 +9815,8 @@ Rules:
 
       </div>
       <div class="settings-modal-footer">
-        <button type="button" class="btn btn-secondary" onclick="resetSettingsDefaults()">Restore Defaults</button>
-        <button type="button" class="btn btn-primary" id="btn-settings-done" onclick="closeSettingsMenu()">Done</button>
+        <button type="button" class="btn btn-secondary" id="btn-settings-reset">Restore Defaults</button>
+        <button type="button" class="btn btn-primary" id="btn-settings-done">Done</button>
       </div>
     </div>
   </div>
@@ -9933,7 +9937,7 @@ Rules:
         colContainer.innerHTML = COLS.map(col => {
           const isVisible = !hiddenCols.has(col.key);
           return '<label class="setting-check-item">' +
-            '<input type="checkbox" data-settings-col="' + esc(col.key) + '" ' + (isVisible ? 'checked' : '') + ' onchange="toggleColVisibility(\\\'' + esc(col.key) + '\\\', this.checked)">' +
+            '<input type="checkbox" data-settings-col="' + esc(col.key) + '" ' + (isVisible ? 'checked' : '') + '>' +
             '<span>' + esc(col.label) + '</span>' +
           '</label>';
         }).join('');
@@ -9943,7 +9947,7 @@ Rules:
         elemContainer.innerHTML = UI_ELEMENTS_CONFIG.map(elem => {
           const isVisible = !hiddenElements.has(elem.key);
           return '<label class="setting-check-item">' +
-            '<input type="checkbox" data-settings-elem="' + esc(elem.key) + '" ' + (isVisible ? 'checked' : '') + ' onchange="toggleElementVisibility(\\\'' + esc(elem.key) + '\\\', this.checked)">' +
+            '<input type="checkbox" data-settings-elem="' + esc(elem.key) + '" ' + (isVisible ? 'checked' : '') + '>' +
             '<span>' + esc(elem.label) + '</span>' +
           '</label>';
         }).join('');
@@ -10632,7 +10636,7 @@ Rules:
             const isActive = sortColumnKey === col.key;
             const arrow = isActive ? (sortDirection === 'asc' ? ' ▲' : ' ▼') : ' ↕';
             const cls = 'sortable-th' + (isActive ? ' active-sort' : '');
-            return '<th class="' + cls + '" data-sort-key="' + esc(col.key) + '" onclick="handleTableSort(this.dataset.sortKey)" title="Click to sort by ' + esc(col.label) + '">' +
+            return '<th class="' + cls + '" data-sort-key="' + esc(col.key) + '" title="Click to sort by ' + esc(col.label) + '">' +
               '<span>' + esc(col.label) + '</span><span class="sort-arrow">' + arrow + '</span>' +
             '</th>';
           }).join('');
@@ -10768,6 +10772,31 @@ Rules:
     searchInput.addEventListener('input', render);
     resetBtn.addEventListener('click', resetFilters);
     csvBtn.addEventListener('click', exportCSV);
+    document.getElementById('btn-print-export')?.addEventListener('click', function () { window.print(); });
+    document.getElementById('btn-settings')?.addEventListener('click', openSettingsMenu);
+    document.getElementById('btn-view-cards')?.addEventListener('click', function () { setViewMode('cards'); });
+    document.getElementById('btn-view-tables')?.addEventListener('click', function () { setViewMode('tables'); });
+    document.getElementById('settings-backdrop')?.addEventListener('click', closeSettingsMenu);
+    document.getElementById('settings-modal')?.addEventListener('click', function (e) { e.stopPropagation(); });
+    document.getElementById('btn-settings-close')?.addEventListener('click', function () { closeSettingsMenu(); });
+    document.getElementById('btn-settings-done')?.addEventListener('click', function () { closeSettingsMenu(); });
+    document.getElementById('btn-cols-show-all')?.addEventListener('click', function () { setAllColumnsVisible(true); });
+    document.getElementById('btn-cols-hide-all')?.addEventListener('click', function () { setAllColumnsVisible(false); });
+    document.getElementById('btn-elems-show-all')?.addEventListener('click', function () { setAllElementsVisible(true); });
+    document.getElementById('btn-elems-hide-all')?.addEventListener('click', function () { setAllElementsVisible(false); });
+    document.getElementById('btn-settings-reset')?.addEventListener('click', resetSettingsDefaults);
+    document.getElementById('settings-col-list')?.addEventListener('change', function (e) {
+      const inp = e.target.closest('input[data-settings-col]');
+      if (inp) toggleColVisibility(inp.getAttribute('data-settings-col'), inp.checked);
+    });
+    document.getElementById('settings-element-list')?.addEventListener('change', function (e) {
+      const inp = e.target.closest('input[data-settings-elem]');
+      if (inp) toggleElementVisibility(inp.getAttribute('data-settings-elem'), inp.checked);
+    });
+    resultsGrid?.addEventListener('click', function (e) {
+      const th = e.target.closest('th[data-sort-key]');
+      if (th) handleTableSort(th.dataset.sortKey);
+    });
 
     document.addEventListener('keydown', function(e) {
       if (e.key === 'Escape') {
@@ -11452,7 +11481,7 @@ Rules:
             <span>${t('mdbBtnBatchEdit')}</span>
             <span id="batch-panel-count-badge" class="tag" style="background:#e0f2fe;color:#0369a1;border:1.5px solid #0284c7;font-size:0.75rem;padding:2px 8px;font-weight:800;border-radius:12px;">${tFmt('mdbNSelected', { n: count })}</span>
           </div>
-          <button class="btn btn-secondary btn-sm" onclick="closeBatchPanel()" title="${t('mdbBatchClose') || 'Close'}">
+          <button class="btn btn-secondary btn-sm" data-mdb-action="close-batch" title="${t('mdbBatchClose') || 'Close'}">
             <img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="" />
           </button>
         </div>
@@ -11496,13 +11525,13 @@ Rules:
 
         <!-- ACTIONS ROW -->
         <div class="batch-actions-row">
-          <button class="btn btn-primary" onclick="applyBatchEdit()">
+          <button class="btn btn-primary" data-mdb-action="apply-batch">
             <img src="../assets/icons/check.svg" class="btn-icon" alt="" /> ${t('mdbBtnApply')}
           </button>
-          <button class="btn btn-secondary" onclick="openBatchAutofillModal()" title="${t('mdbBtnBatchAutofill') || 'Batch Autofill'}">
+          <button class="btn btn-secondary" data-mdb-action="batch-autofill" title="${t('mdbBtnBatchAutofill') || 'Batch Autofill'}">
             <img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> ${t('mdbBtnBatchAutofill') || 'Batch Autofill'}
           </button>
-          <button class="btn btn-secondary" onclick="closeBatchPanel()">
+          <button class="btn btn-secondary" data-mdb-action="close-batch">
             ${t('mdbBtnCancel')}
           </button>
           <div id="batch-feedback" style="font-size:0.85rem;font-weight:700;color:#1d4ed8;margin-left:8px;"></div>
@@ -11905,8 +11934,7 @@ Rules:
         return `<div data-type-key="${esc(r._typeKey)}" data-filename="${esc(r._file)}"
           data-record-index="${r._recordIndex}"
           style="display:flex;gap:10px;align-items:baseline;padding:7px 14px;border-bottom:1px solid #f0f0f0;cursor:pointer;"
-          onclick="openGlobalResult(this.dataset.typeKey,this.dataset.filename,+this.dataset.recordIndex)"
-          onmouseover="this.style.background='#f0f7ff'" onmouseout="this.style.background=''">
+          data-mdb-action="global-result">
           <span
             style="flex:1;min-width:0;font-weight:700;font-size:0.84rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
             title="${esc(String(primary))}">${esc(String(primary))}</span>
@@ -12109,6 +12137,7 @@ Rules:
     });
     document.addEventListener('DOMContentLoaded', init);
   </script>
+  <script src="../js/pages/manage-database-events.js"></script>
 </body>
 
 </html>

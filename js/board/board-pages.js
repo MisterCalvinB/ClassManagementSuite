@@ -283,7 +283,7 @@
         });
 
         // 8. Empty active live JS arrays so subsequent page restores or clear operations
-        //    NEVER call el.remove() on the detached DOM nodes preserved in cache.
+        // NEVER call el.remove() on the detached DOM nodes preserved in cache.
         const liveNodes = window.conGetNodes ? window.conGetNodes() : (typeof conNodes !== 'undefined' ? conNodes : null);
         if (liveNodes) liveNodes.length = 0;
         const liveEdges = window.conGetEdges ? window.conGetEdges() : (typeof conEdges !== 'undefined' ? conEdges : null);
@@ -757,7 +757,7 @@
           window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         }
         if (typeof mdbToast === 'function') {
-          mdbToast('↔️ Moved page ' + (fromIdx + 1) + ' to position ' + (toIdx + 1));
+          mdbToast('↔ Moved page ' + (fromIdx + 1) + ' to position ' + (toIdx + 1));
         }
       }
 
@@ -2673,7 +2673,7 @@
               ctx.font = Math.max(6, Math.min(11, Math.round(mh * 0.3))) + 'px sans-serif';
               ctx.textAlign = 'center';
               ctx.textBaseline = 'middle';
-              ctx.fillText('🖼️', mx + mw / 2, my + mh / 2);
+              ctx.fillText('', mx + mw / 2, my + mh / 2);
 
               const att = (typeof conFindAttachmentById === 'function' ? conFindAttachmentById(m.attachmentId || m.id) : null) || m;
               const src = (att && (att._cachedDataUrl || att._cachedObjectUrl)) || (m && m._cachedDataUrl) || (_conMirrorAttachmentPreload && _conMirrorAttachmentPreload[cacheKey]) || '';
@@ -2698,7 +2698,7 @@
             ctx.font = Math.max(5, Math.min(10, Math.round(mh * 0.22))) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('📄 PDF', mx + mw / 2, my + mh / 2);
+            ctx.fillText(' PDF', mx + mw / 2, my + mh / 2);
           } else {
             ctx.fillStyle = '#f5f5f0';
             ctx.strokeStyle = '#333333';
@@ -2709,7 +2709,7 @@
             ctx.font = Math.max(6, Math.min(12, Math.round(mh * 0.35))) + 'px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText(kind === 'sounds' ? '🔊' : '🎬', mx + mw / 2, my + mh / 2);
+            ctx.fillText(kind === 'sounds' ? '' : '', mx + mw / 2, my + mh / 2);
           }
         });
 
@@ -2898,7 +2898,7 @@
 
           const delBtn = document.createElement('button');
           delBtn.className = 'con-page-thumb-del';
-          delBtn.textContent = '✕';
+          delBtn.textContent = 'x';
           delBtn.title = 'Delete page';
           delBtn.onclick = function (e) {
             e.stopPropagation();
@@ -5143,7 +5143,7 @@
           listEl.appendChild(item);
         });
       } catch (error) {
-        listEl.innerHTML = '<div class="session-load-empty">⚠️ Could not read files: '
+        listEl.innerHTML = '<div class="session-load-empty"> Could not read files: '
           + boardEscapeHtml(error && error.message ? error.message : String(error)) + '</div>';
       }
     }
@@ -5170,7 +5170,7 @@
 
     function boardRestoreLocalSessionEntry(mode, entry, options = {}) {
       if (!entry || !entry.data) {
-        mdbToast('⚠️ This saved session is no longer available.');
+        mdbToast(' This saved session is no longer available.');
         return false;
       }
 
@@ -5178,7 +5178,7 @@
 
       if (mode === 'constellation') {
         if (entry.data._type !== 'constellation') {
-          mdbToast('⚠️ This entry is not a valid Constellation save.');
+          mdbToast(' This entry is not a valid Constellation save.');
           return false;
         }
         _conCurrentFileName = null;
@@ -5197,7 +5197,7 @@
         }
         navTo('constellation-section');
       } else {
-        mdbToast('⚠️ This section is no longer available.');
+        mdbToast(' This section is no longer available.');
         return false;
       }
 
@@ -5211,7 +5211,7 @@
       const entries = Array.isArray(store[sessionLoadMode]) ? store[sessionLoadMode] : [];
       const entry = entries.find(e => e.id === entryId);
       if (!entry || !entry.data) {
-        mdbToast('⚠️ This saved session is no longer available.');
+        mdbToast(' This saved session is no longer available.');
         renderSessionLoadPopup();
         return;
       }
@@ -5440,7 +5440,7 @@
       if (toast) {
         if (success) {
           const savedText = (typeof t === 'function' ? t('conAutosaved') : 'Saved');
-          toast.innerHTML = `<span class="con-autosave-check">✓</span><span class="con-autosave-text" data-i18n="conAutosaved">${savedText}</span>`;
+          toast.innerHTML = `<span class="con-autosave-check"></span><span class="con-autosave-text" data-i18n="conAutosaved">${savedText}</span>`;
         }
         if (_conAutosaveHideTimer) clearTimeout(_conAutosaveHideTimer);
         _conAutosaveHideTimer = setTimeout(() => {
@@ -5659,8 +5659,8 @@
           try {
             const title = (typeof t === 'function' ? t('conAutosaveCloseTitle') : '') || 'Unsaved Changes';
             const msg = (typeof t === 'function' ? t('conAutosaveOnClosePrompt') : '') || 'The board has unsaved changes. Would you like to save before closing?';
-            const yesText = (typeof t === 'function' ? (t('conCloseSaveBtn') || t('btnYes')) : '') || '💾 Save & Close';
-            const noText = (typeof t === 'function' ? (t('conCloseDiscardBtn') || t('btnNo')) : '') || '🗑 Discard';
+            const yesText = (typeof t === 'function' ? (t('conCloseSaveBtn') || t('btnYes')) : '') || ' Save & Close';
+            const noText = (typeof t === 'function' ? (t('conCloseDiscardBtn') || t('btnNo')) : '') || ' Discard';
             const cancelText = (typeof t === 'function' ? t('btnCancel') : '') || 'Cancel';
             const countdownMsg = (typeof t === 'function' ? t('conAutosaveCountdown') : '') || 'Saving automatically in {seconds}s...';
 
@@ -5766,7 +5766,7 @@
           if (result && result.ok) {
             if (window.showExportSuccessPopup) showExportSuccessPopup(result.path, filename);
           } else if (result && !result.ok && !result.canceled) {
-            if (typeof mdbToast === 'function') mdbToast('⚠️ Save failed: ' + (result.error || 'unknown'));
+            if (typeof mdbToast === 'function') mdbToast(' Save failed: ' + (result.error || 'unknown'));
           }
         });
       } else {
@@ -5896,7 +5896,7 @@
     async function conExportJS() {
       const data = conBuildSessionData();
       if (!conSessionHasContent(data)) {
-        mdbToast('⚠️ Nothing to export — add at least one node, note, or title first.');
+        mdbToast(' Nothing to export — add at least one node, note, or title first.');
         return;
       }
       const persistedData = boardBuildPersistedSessionData('constellation', data);
@@ -5921,16 +5921,16 @@
           const errCount = Array.isArray(result.errors) ? result.errors.length : 0;
           if (errCount > 0) {
             const firstError = errors[0] && errors[0].error ? ' First error: ' + errors[0].error : '';
-            mdbToast('⚠️ Exported Constellation folder with ' + errCount + ' error(s).' + firstError);
+            mdbToast(' Exported Constellation folder with ' + errCount + ' error(s).' + firstError);
           } else {
-            mdbToast('✔ Exported Constellation folder: ' + bundle.folderName);
+            mdbToast(' Exported Constellation folder: ' + bundle.folderName);
             if (window.showExportSuccessPopup && result.folderPath) {
               showExportSuccessPopup(result.folderPath, bundle.folderName, true);
             }
           }
           return;
         } catch (error) {
-          mdbToast('⚠️ Could not export Constellation folder: ' + (error && error.message ? error.message : String(error)));
+          mdbToast(' Could not export Constellation folder: ' + (error && error.message ? error.message : String(error)));
           return;
         }
       }
@@ -5978,7 +5978,7 @@
           const relPath = 'modules/lexend/lexend-latin-' + weight + '-normal.woff2';
           const r = await Desktop.readByPath('app', relPath, { encoding: 'base64' });
           if (r && r.ok && r.content) {
-            css += '@font-face {\n  font-family: \'Lexend\';\n  font-weight: ' + weight + ';\n  font-style: normal;\n  src: url(\'data:font/woff2;base64,' + r.content + '\') format(\'woff2\');\n}\n';
+            css += '@font-face {\n font-family: \'Lexend\';\n font-weight: ' + weight + ';\n font-style: normal;\n src: url(\'data:font/woff2;base64,' + r.content + '\') format(\'woff2\');\n}\n';
           }
         } catch (e) {
           console.warn('Failed to embed Lexend font weight ' + weight, e);
@@ -6104,13 +6104,13 @@
               if (window.showExportSuccessPopup && result.path) {
                 showExportSuccessPopup(result.path, result.name || targetFilename);
               } else if (typeof mdbToast === 'function') {
-                mdbToast('✓ PDF saved: ' + (result.name || targetFilename));
+                mdbToast(' PDF saved: ' + (result.name || targetFilename));
               }
             } else if (!result.ok && !result.canceled) {
-              mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+              mdbToast(' Could not save PDF: ' + (result.error || 'unknown error'));
             }
           }).catch(err => {
-            mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+            mdbToast(' Could not save PDF: ' + (err && err.message ? err.message : String(err)));
           });
         };
 
@@ -6997,7 +6997,7 @@
         ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText('⠿  Table', tx + 8, ty + barH / 2);
+        ctx.fillText('⠿ Table', tx + 8, ty + barH / 2);
 
         const gridY = ty + barH;
         ctx.fillStyle = tbl.defaultBg || '#ffffff';
@@ -7847,7 +7847,7 @@
         ctx.save(); ctx.globalAlpha = op; ctx.fillStyle = bg; ctx.fillRect(PAD + mx, PAD + my, mw, mh); ctx.restore();
       });
       const now = new Date();
-      const ts = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + '  ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+      const ts = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0') + '-' + String(now.getDate()).padStart(2, '0') + ' ' + String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
       ctx.font = '500 11px "Segoe UI",Arial,sans-serif'; ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
       ctx.fillText(ts, bw + PAD * 2 - 8, bh + PAD * 2 - 6);
       return { canvas, now, scale, PAD, bw, bh };
@@ -7875,7 +7875,7 @@
               if (res && res.ok) {
                 if (window.showExportSuccessPopup) showExportSuccessPopup(res.path, defaultFilename);
               } else if (res && !res.ok && !res.canceled) {
-                mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+                mdbToast(' Save failed: ' + (res.error || 'unknown'));
               }
             });
           };
@@ -7895,8 +7895,8 @@
         try {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
           const btn = document.querySelector('[onclick="conCopyPNG()"]');
-          if (btn) { const o = btn.textContent; btn.textContent = '✓ Copied!'; setTimeout(() => btn.textContent = o, 1800); }
-        } catch (err) { mdbToast('⚠️ Clipboard write failed — try Export PNG instead.'); }
+          if (btn) { const o = btn.textContent; btn.textContent = ' Copied!'; setTimeout(() => btn.textContent = o, 1800); }
+        } catch (err) { mdbToast(' Clipboard write failed — try Export PNG instead.'); }
       }, 'image/png');
     }
 
@@ -8148,7 +8148,7 @@
 
         result.canvas.toBlob(blob => {
           if (!blob) {
-            mdbToast('⚠️ Failed to encode WebP image.');
+            mdbToast(' Failed to encode WebP image.');
             return;
           }
           if (window.Desktop && Desktop.isElectron()) {
@@ -8167,13 +8167,13 @@
                   if (typeof showToast === 'function') {
                     showToast(i18n.t('conExportWebpSaved', { name: savedName }));
                   } else {
-                    mdbToast('✓ ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                    mdbToast(' ' + i18n.t('conExportWebpSaved', { name: savedName }));
                   }
                   if (window.showExportSuccessPopup && res.path) {
                     showExportSuccessPopup(res.path, savedName);
                   }
                 } else if (res && !res.ok && !res.canceled) {
-                  mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+                  mdbToast(' Save failed: ' + (res.error || 'unknown'));
                 }
               });
             };
@@ -8251,7 +8251,7 @@
         }
 
         if (webpEntries.length === 0) {
-          mdbToast('⚠️ No pages could be converted to WebP.');
+          mdbToast(' No pages could be converted to WebP.');
           return;
         }
 
@@ -8270,7 +8270,7 @@
                 if (typeof showToast === 'function') {
                   showToast(i18n.t('conExportWebpSaved', { name: savedName }));
                 } else {
-                  mdbToast('✓ ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                  mdbToast(' ' + i18n.t('conExportWebpSaved', { name: savedName }));
                 }
                 if (window.showExportSuccessPopup && res.path) {
                   showExportSuccessPopup(res.path, savedName);
@@ -8315,13 +8315,13 @@
               if (typeof showToast === 'function') {
                 showToast('WebP archive exported: ' + savedName);
               } else {
-                mdbToast('✓ WebP archive exported: ' + savedName);
+                mdbToast(' WebP archive exported: ' + savedName);
               }
               if (window.showExportSuccessPopup && res.path) {
                 showExportSuccessPopup(res.path, savedName, true);
               }
             } else if (res && !res.ok && !res.canceled) {
-              mdbToast('⚠️ Save failed: ' + (res.error || 'unknown'));
+              mdbToast(' Save failed: ' + (res.error || 'unknown'));
             }
           });
         } else {
@@ -8483,13 +8483,13 @@
               if (window.showExportSuccessPopup && result.path) {
                 showExportSuccessPopup(result.path, result.name || targetFilename);
               } else if (typeof mdbToast === 'function') {
-                mdbToast('✓ PDF saved: ' + (result.name || targetFilename));
+                mdbToast(' PDF saved: ' + (result.name || targetFilename));
               }
             } else if (!result.ok && !result.canceled) {
-              mdbToast('⚠️ Could not save PDF: ' + (result.error || 'unknown error'));
+              mdbToast(' Could not save PDF: ' + (result.error || 'unknown error'));
             }
           }).catch(err => {
-            mdbToast('⚠️ Could not save PDF: ' + (err && err.message ? err.message : String(err)));
+            mdbToast(' Could not save PDF: ' + (err && err.message ? err.message : String(err)));
           });
         };
 
@@ -8775,13 +8775,13 @@
         if (typeof showToast === 'function') {
           showToast(msg, false);
         } else if (typeof mdbToast === 'function') {
-          mdbToast('⚠️ ' + msg);
+          mdbToast(' ' + msg);
         }
         return;
       }
       const data = conBuildSessionData();
       if (!conSessionHasContent(data)) {
-        mdbToast('⚠️ Nothing to save yet. Add at least one node, note, or title first.');
+        mdbToast(' Nothing to save yet. Add at least one node, note, or title first.');
         return;
       }
 
@@ -8827,7 +8827,7 @@
         if (typeof conUpdateRenameButtonVisibility === 'function') conUpdateRenameButtonVisibility();
         boardPersistLocalSession('constellation', finalData || persistedData, { source: 'manual-save', name: savedName });
         boardSetDirty(false, { justSaved: true });
-        mdbToast('✅ Saved: ' + savedName);
+        mdbToast(' Saved: ' + savedName);
         if (folderName || savedName) conSaveHistorySnapshot(folderName, savedName, finalData || persistedData);
         if (typeof boardReportActiveFileContext === 'function') boardReportActiveFileContext();
         else if (typeof window.boardReportActiveFileContext === 'function') window.boardReportActiveFileContext();
@@ -8841,7 +8841,7 @@
       const _onSaveError = (err) => {
         _conIsSaving = false;
         _conPendingManualSave = false;
-        mdbToast('⚠️ Could not save Constellation: ' + (err && err.message ? err.message : String(err)));
+        mdbToast(' Could not save Constellation: ' + (err && err.message ? err.message : String(err)));
       };
 
       if (window.Desktop && Desktop.isElectron()) {
@@ -8952,22 +8952,22 @@
 
     async function conDuplicateCurrentFile() {
       if (!(window.Desktop && Desktop.isElectron())) {
-        mdbToast('⚠️ Duplicating files requires the Electron desktop app.');
+        mdbToast(' Duplicating files requires the Electron desktop app.');
         return;
       }
       if (typeof Desktop.saveFiles !== 'function' && typeof Desktop.saveBoardArchive !== 'function') {
-        mdbToast('⚠️ Duplicate is not available in this app version.');
+        mdbToast(' Duplicate is not available in this app version.');
         return;
       }
 
       const data = conBuildSessionData();
       if (!conSessionHasContent(data)) {
-        mdbToast('⚠️ Nothing to duplicate yet. Add at least one node, note, or title first.');
+        mdbToast(' Nothing to duplicate yet. Add at least one node, note, or title first.');
         return;
       }
 
       if (!_conCurrentFileName && !_conCurrentFolderName) {
-        mdbToast('⚠️ Save this board first, then duplicate the file.');
+        mdbToast(' Save this board first, then duplicate the file.');
         return;
       }
 
@@ -9006,7 +9006,7 @@
         if (typeof historyRenderList === 'function') historyRenderList();
 
         const toastMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('boardDuplicatedNewWindow') : 'Duplicated and opened in new window: ') + saved.filename;
-        mdbToast('✅ ' + toastMsg);
+        mdbToast(' ' + toastMsg);
 
         if (typeof boardOpenSessionInNewWindow === 'function') {
           const entry = {
@@ -9022,13 +9022,13 @@
           });
         }
       } catch (error) {
-        mdbToast('⚠️ Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
+        mdbToast(' Could not duplicate file: ' + (error && error.message ? error.message : String(error)));
       }
     }
 
     async function conOpenCurrentFileLocationFolder() {
       if (!(window.Desktop && Desktop.isElectron())) {
-        mdbToast('⚠️ Opening file locations is only available in the Desktop application.');
+        mdbToast(' Opening file locations is only available in the Desktop application.');
         return;
       }
       try {
@@ -9042,30 +9042,30 @@
         }
       } catch (err) {
         console.warn('[Board] Could not show in folder:', err);
-        mdbToast('⚠️ Could not open location folder: ' + (err && err.message ? err.message : String(err)));
+        mdbToast(' Could not open location folder: ' + (err && err.message ? err.message : String(err)));
       }
     }
     window.conOpenCurrentFileLocationFolder = conOpenCurrentFileLocationFolder;
 
     async function conOpenCurrentFileNative() {
       if (!(window.Desktop && Desktop.isElectron())) {
-        mdbToast('⚠️ Opening files natively is only available in the Desktop application.');
+        mdbToast(' Opening files natively is only available in the Desktop application.');
         return;
       }
       try {
         if (!_conCurrentFileName && !_conCurrentFolderName) {
           const msg = typeof i18n !== 'undefined' && i18n.t ? (i18n.t('conSaveFirstToOpenFile') || 'Please save the board first to open the file.') : 'Please save the board first to open the file.';
-          mdbToast('⚠️ ' + msg);
+          mdbToast(' ' + msg);
           return;
         }
         const rel = _conCurrentFolderName ? (_conCurrentFolderName + '/' + (_conCurrentFileName || 'index.html')) : _conCurrentFileName;
         const res = await Desktop.openNative('mindmaps', rel || _conCurrentFolderName);
         if (res && res.ok === false) {
-          mdbToast('⚠️ Could not open file: ' + (res.error || ''));
+          mdbToast(' Could not open file: ' + (res.error || ''));
         }
       } catch (err) {
         console.warn('[Board] Could not open file natively:', err);
-        mdbToast('⚠️ Could not open file: ' + (err && err.message ? err.message : String(err)));
+        mdbToast(' Could not open file: ' + (err && err.message ? err.message : String(err)));
       }
     }
     window.conOpenCurrentFileNative = conOpenCurrentFileNative;
@@ -9121,7 +9121,7 @@
         modal.innerHTML = '<div style="background:#fff;border-radius:10px;max-width:520px;width:93%;max-height:78vh;display:flex;flex-direction:column;box-shadow:0 8px 40px rgba(0,0,0,.35);">'
           + '<div style="display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid #e0e0e0;">'
           + '<span id="con-version-history-title" style="flex:1;font-size:.95rem;font-weight:800;"></span>'
-          + '<button onclick="document.getElementById(\'con-version-history-modal\').style.display=\'none\'" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:2px 8px;color:#666;line-height:1;">✕</button>'
+          + '<button onclick="document.getElementById(\'con-version-history-modal\').style.display=\'none\'" style="background:none;border:none;font-size:1.1rem;cursor:pointer;padding:2px 8px;color:#666;line-height:1;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>'
           + '</div>'
           + '<div id="con-version-history-body" style="overflow-y:auto;flex:1;min-height:80px;"></div>'
           + '</div>';
@@ -9196,8 +9196,8 @@
               _boardIsDirty = false;
             }, 200);
             modal.style.display = 'none';
-            mdbToast('✅ Version restored — save to keep the changes.');
-          } catch (e) { mdbToast('⚠️ Could not restore: ' + (e && e.message ? e.message : String(e))); }
+            mdbToast(' Version restored — save to keep the changes.');
+          } catch (e) { mdbToast(' Could not restore: ' + (e && e.message ? e.message : String(e))); }
         };
 
         const delBtn = document.createElement('button');
@@ -9211,7 +9211,7 @@
             if (!list.children.length) {
               body.innerHTML = '<div style="padding:24px;text-align:center;color:#888;font-size:.85rem;">No saved versions.</div>';
             }
-          } catch (e) { mdbToast('⚠️ Could not delete version.'); }
+          } catch (e) { mdbToast(' Could not delete version.'); }
         };
 
         row.appendChild(label);
@@ -9235,12 +9235,12 @@
           const arrayBuffer = await file.arrayBuffer();
           const parsed = await conParseBoardArchiveArrayBuffer(arrayBuffer);
           if (!parsed || !parsed.boardData) {
-            mdbToast('⚠️ Could not read .cstz archive.');
+            mdbToast(' Could not read .cstz archive.');
             return;
           }
           const data = parsed.boardData;
           if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
-            mdbToast('⚠️ This file does not look like a Constellation save file.');
+            mdbToast(' This file does not look like a Constellation save file.');
             return;
           }
           _conCurrentFileName = file.name;
@@ -9272,7 +9272,7 @@
           }, 200);
           return;
         } catch (err) {
-          mdbToast('⚠️ Could not parse .cstz archive: ' + (err && err.message ? err.message : String(err)));
+          mdbToast(' Could not parse .cstz archive: ' + (err && err.message ? err.message : String(err)));
           return;
         }
       }
@@ -9281,7 +9281,7 @@
       reader.onload = e => {
         let data;
         try { data = boardParseSessionText(e.target.result); }
-        catch { mdbToast('⚠️ Could not read file — make sure it is a valid Constellation .js, .json, or .cstz file.'); return; }
+        catch { mdbToast(' Could not read file — make sure it is a valid Constellation .js, .json, or .cstz file.'); return; }
         if (data && !data._type && (Array.isArray(data.nodes) || Array.isArray(data.pages))) {
           data._type = 'constellation';
         }
@@ -9297,7 +9297,7 @@
           }));
         }
         if (data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
-          mdbToast('⚠️ This file does not look like a Constellation save file.'); return;
+          mdbToast(' This file does not look like a Constellation save file.'); return;
         }
         _conCurrentFileName = file.name.endsWith('.js') ? file.name : boardStripJsonExt(file.name) + '.js';
         _conCurrentFolderName = null;
@@ -9344,7 +9344,7 @@
       if (!name) { nameInput.focus(); return; }
       const data = conBuildSessionData();
       if (!conSessionHasContent(data)) {
-        mdbToast('⚠️ Nothing to save as a template. Add at least one word first.');
+        mdbToast(' Nothing to save as a template. Add at least one word first.');
         return;
       }
       const templateData = Object.assign({}, data, { _type: 'constellation-template', _templateName: name });
@@ -9403,13 +9403,13 @@
         loadBtn.type = 'button';
         loadBtn.className = 'action-btn btn-grey';
         loadBtn.style.cssText = 'font-size:0.72rem;padding:4px 9px;white-space:nowrap;';
-        loadBtn.textContent = '📂 Load';
+        loadBtn.textContent = ' Load';
         loadBtn.onclick = () => conLoadTemplateByFilename(f.filename);
         const delBtn = document.createElement('button');
         delBtn.type = 'button';
         delBtn.className = 'con-template-del-btn';
         delBtn.title = 'Delete template';
-        delBtn.textContent = '✕';
+        delBtn.textContent = 'x';
         delBtn.onclick = () => conDeleteTemplate(f.filename);
         row.appendChild(nameEl);
         row.appendChild(metaEl);
@@ -9422,12 +9422,12 @@
     async function conLoadTemplateByFilename(filename) {
       if (!(window.Desktop && Desktop.isElectron())) return;
       const r = await Desktop.readText('constellationTemplates', filename);
-      if (!r || !r.ok) { mdbToast('⚠️ Could not read template file.'); return; }
+      if (!r || !r.ok) { mdbToast(' Could not read template file.'); return; }
       let data;
       try { data = boardParseSessionText(r.content); }
-      catch { mdbToast('⚠️ Template file is not valid session data.'); return; }
+      catch { mdbToast(' Template file is not valid session data.'); return; }
       if (data._type !== 'constellation-template' && data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
-        mdbToast('⚠️ This does not look like a valid Constellation template file.'); return;
+        mdbToast(' This does not look like a valid Constellation template file.'); return;
       }
       conCloseTemplatePopup();
       _conRestoreSession(data);
@@ -9442,12 +9442,12 @@
       reader.onload = e => {
         let data;
         try { data = boardParseSessionText(e.target.result); }
-        catch { mdbToast('⚠️ Could not read file — make sure it is a valid template .js or .json file.'); return; }
+        catch { mdbToast(' Could not read file — make sure it is a valid template .js or .json file.'); return; }
         if (data && !data._type && (Array.isArray(data.nodes) || Array.isArray(data.pages))) {
           data._type = 'constellation';
         }
         if (data._type !== 'constellation-template' && data._type !== 'constellation' && !String(data._type || '').endsWith('-constellation')) {
-          mdbToast('⚠️ This file does not look like a Constellation template or session file.'); return;
+          mdbToast(' This file does not look like a Constellation template or session file.'); return;
         }
         conCloseTemplatePopup();
         _conRestoreSession(data);

@@ -9,33 +9,33 @@
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/export-styles-service.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/links-service.js"></script>
-  <script src="../js/tag-link-modal.js"></script>
-  <script src="../js/import-utils.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/export-styles-service.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
+  <script src="../js/shared/import-utils.js"></script>
   <script src="../js/import-modules/admin-groups.js"></script>
-  <script src="../js/admin-groups-defaults.js"></script>
-  <script src="../js/admin-reports.js"></script>
-  <script src="../js/administrative-groups.js"></script>
+  <script src="../js/pages/admin-groups-defaults.js"></script>
+  <script src="../js/pages/admin-reports.js"></script>
+  <script src="../js/shared/administrative-groups.js"></script>
   <link rel="stylesheet" href="../css/administrative-groups.css">
-  <script src="../js/tutorial.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
 </head>
 <body data-neo-hover-all="1">
 
   <!-- Universal Navigation Bar -->
   <nav class="ag-nav" id="app-nav">
     <span class="nav-brand">
-      <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+      <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" data-agev-1="1" />
       <span data-i18n="agPageTitle">Administrative Group Management</span>
     </span>
     <div id="app-hamburger" class="hm-wrap">
-      <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle', 'Keyboard Shortcuts'), rows:[], noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-      <button class="tut-trigger-btn" onclick="startAgTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-      <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+      <button class="tut-trigger-btn" data-agev-2="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button class="tut-trigger-btn" data-agev-3="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" data-agev-4="1" /></button>
       <div class="hm-menu"></div>
     </div>
   </nav>
@@ -47,21 +47,21 @@
         <h1 class="ag-page-title" data-i18n="agPageTitle">Administrative Group Management</h1>
       </div>
       <div class="ag-actions-bar">
-        <input type="file" id="agDirectFileInput" accept=".pdf,.xlsx,.xls,.csv,.json" style="display:none;" onchange="window.handleDirectFile(event)">
-        <button type="button" class="btn btn-outline-primary" onclick="window.triggerDirectImport()" data-i18n-help="agBtnImportFileTitle" data-hover-help="Import student data to feed columns of Administrative Groups (PDF, XLSX, CSV, JSON)">
-          <img src="../assets/icons/import.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <input type="file" id="agDirectFileInput" accept=".pdf,.xlsx,.xls,.csv,.json" style="display:none;" data-agev-5="1">
+        <button type="button" class="btn btn-outline-primary" data-agev-6="1" data-i18n-help="agBtnImportFileTitle" data-hover-help="Import student data to feed columns of Administrative Groups (PDF, XLSX, CSV, JSON)">
+          <img src="../assets/icons/import.svg" class="btn-icon" alt="" data-agev-7="1" />
           <span data-i18n="agBtnImportFile">Import Student Data (PDF / File)</span>
         </button>
-        <button type="button" class="btn btn-primary" onclick="window.openExportModal()">
-          <img src="../assets/icons/export.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-primary" data-agev-8="1">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" data-agev-9="1" />
           <span data-i18n="agBtnExport">Export ▾</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="window.print()">
-          <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-10="1">
+          <img src="../assets/icons/printer.svg" class="btn-icon" alt="" data-agev-11="1" />
           <span data-i18n="agBtnPrint">Print</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="window.openSettingsModal()">
-          <img src="../assets/icons/gear.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-12="1">
+          <img src="../assets/icons/gear.svg" class="btn-icon" alt="" data-agev-13="1" />
           <span data-i18n="agBtnSettings">Settings</span>
         </button>
       </div>
@@ -72,25 +72,25 @@
     <div class="ag-toolbar">
       <div class="ag-toolbar-left">
         <select class="ag-select" id="groupSelect"></select>
-        <select class="ag-select" id="agPeriodSelect" onchange="window.onPeriodFilterChanged(this.value)" style="min-width:180px;">
+        <select class="ag-select" id="agPeriodSelect" data-agev-14="1" style="min-width:180px;">
           <option value="all" data-i18n="agPeriodAllYear">All Year (Cumulative)</option>
         </select>
         <div class="ag-search-wrap">
-          <img src="../assets/icons/search.svg" class="btn-icon ag-search-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/search.svg" class="btn-icon ag-search-icon" alt="" data-agev-15="1" />
           <input type="text" class="ag-input ag-search-input" id="studentSearchInput" placeholder="Search students..." data-i18n-placeholder="agSearchPlaceholder">
         </div>
       </div>
       <div class="ag-toolbar-right">
-        <button type="button" class="btn btn-outline-primary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('group-editor.html');else window.location.href='group-editor.html';" data-hover-help="Add, edit, or remove students in Group Editor">
-          <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-outline-primary" data-agev-16="1" data-hover-help="Add, edit, or remove students in Group Editor">
+          <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" data-agev-17="1" />
           <span data-i18n="agBtnManageInGroupEditor">Manage Roster in Group Editor</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html?dest=adminGroups');else window.location.href='import-tool.html?dest=adminGroups';">
-          <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-18="1">
+          <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-19="1" />
           <span data-i18n="agBtnImportWizard">Import Wizard</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="window.openResetAllModal()" style="color:#b91c1c;">
-          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-20="1" style="color:#b91c1c;">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-21="1" />
           <span data-i18n="agBtnResetAll">Reset / Erase All</span>
         </button>
       </div>
@@ -111,29 +111,29 @@
     <div class="ag-modal-box modal-wide">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" data-agev-22="1" />
           <span id="modalStudentName">Student Profile</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeStudentModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-23="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-24="1" /></button>
       </div>
       <div class="ag-modal-body">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
           <h3 style="font-size:0.95rem; font-weight:800;" data-i18n="agTimelineTitle">Disciplinary Action & Follow-up History</h3>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-outline-primary" onclick="window.attachPdfToCurrentStudent()" data-i18n-help="agBtnAttachPdfStudent" data-hover-help="Attach PDF to this student">
-              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-outline-primary" data-agev-25="1" data-i18n-help="agBtnAttachPdfStudent" data-hover-help="Attach PDF to this student">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" data-agev-26="1" />
               <span data-i18n="agBtnAttachPdf">+ Attach PDF</span>
             </button>
-            <button type="button" class="btn btn-secondary" onclick="window.openCurrentStudentLinks()" data-i18n-help="agBtnStudentLinks" data-hover-help="Open Links & Tags modal">
-              <img src="../assets/icons/links.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-secondary" data-agev-27="1" data-i18n-help="agBtnStudentLinks" data-hover-help="Open Links & Tags modal">
+              <img src="../assets/icons/links.svg" class="btn-icon" alt="" data-agev-28="1" />
               <span data-i18n="agBtnLinks">Links &amp; Tags</span>
             </button>
-            <button type="button" class="btn btn-outline-primary" onclick="window.generateQuickStudentReport()">
-              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-outline-primary" data-agev-29="1">
+              <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" data-agev-30="1" />
               <span data-i18n="agBtnGenerateStudentDossier">Student Dossier Report</span>
             </button>
-            <button type="button" class="btn btn-primary" onclick="window.openQuickActionMenu()">
-              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-primary" data-agev-31="1">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-32="1" />
               <span data-i18n="agBtnNewAction">+ Log New Action / Meeting</span>
             </button>
           </div>
@@ -142,11 +142,11 @@
         <div id="studentTimelineContainer"></div>
       </div>
       <div class="ag-modal-ft" style="justify-content:space-between;">
-        <button type="button" class="btn btn-danger" onclick="window.promptEraseStudent()">
-          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-danger" data-agev-33="1">
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-34="1" />
           <span data-i18n="agBtnEraseStudent">Erase Student</span>
         </button>
-        <button type="button" class="btn btn-secondary" onclick="window.closeStudentModal()" data-i18n="agBtnClose">Close</button>
+        <button type="button" class="btn btn-secondary" data-agev-35="1" data-i18n="agBtnClose">Close</button>
       </div>
     </div>
   </div>
@@ -156,10 +156,10 @@
     <div class="ag-modal-box">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/chat.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/chat.svg" class="btn-icon" alt="" data-agev-36="1" />
           <span>Log Follow-up Action — <span id="newActionStudentTitle"></span></span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeNewActionModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-37="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-38="1" /></button>
       </div>
       <div class="ag-modal-body" style="display:flex; flex-direction:column; gap:12px;">
         <div>
@@ -191,9 +191,9 @@
         </div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closeNewActionModal()" data-i18n="agBtnCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="window.submitNewAction()">
-          <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-39="1" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-agev-40="1">
+          <img src="../assets/icons/check.svg" class="btn-icon" alt="" data-agev-41="1" />
           <span data-i18n="agBtnSaveAction">Save Action</span>
         </button>
       </div>
@@ -205,30 +205,30 @@
     <div class="ag-modal-box modal-xl">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/export.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" data-agev-42="1" />
           <span data-i18n="agReportModalTitle">Administrative Report Exporter & Analytics</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeExportModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-43="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-44="1" /></button>
       </div>
       <div class="ag-modal-body" style="max-height: calc(85vh - 120px); overflow-y: auto;">
         
         <!-- Step 1: Report Scope Selector -->
         <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportScopeLabel">1. Select Report Scope</h4>
         <div class="ag-export-grid">
-          <div class="ag-export-card selected" data-scope="whole_class" onclick="window.selectReportScope('whole_class')">
-            <div class="ag-export-card-title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeWholeClass">Whole Class / Cohort Analytics</span></div>
+          <div class="ag-export-card selected" data-scope="whole_class" data-agev-45="1">
+            <div class="ag-export-card-title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" data-agev-46="1" /> <span data-i18n="agReportScopeWholeClass">Whole Class / Cohort Analytics</span></div>
             <div class="ag-export-card-desc" data-i18n="agReportScopeWholeClassDesc">Statistical overview, mean/median points, infraction breakdown, and risk distribution.</div>
           </div>
-          <div class="ag-export-card" data-scope="student_dossier" onclick="window.selectReportScope('student_dossier')">
-            <div class="ag-export-card-title"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeStudent">Individual Student Dossier</span></div>
+          <div class="ag-export-card" data-scope="student_dossier" data-agev-47="1">
+            <div class="ag-export-card-title"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" data-agev-48="1" /> <span data-i18n="agReportScopeStudent">Individual Student Dossier</span></div>
             <div class="ag-export-card-desc" data-i18n="agReportScopeStudentDesc">Detailed student profile, period progression, benchmark comparison vs class mean, and action timeline.</div>
           </div>
-          <div class="ag-export-card" data-scope="multi_student" onclick="window.selectReportScope('multi_student')">
-            <div class="ag-export-card-title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeMultiStudent">Multi-Student Comparative Analysis</span></div>
+          <div class="ag-export-card" data-scope="multi_student" data-agev-49="1">
+            <div class="ag-export-card-title"><img src="../assets/icons/award.svg" class="btn-icon" alt="" data-agev-50="1" /> <span data-i18n="agReportScopeMultiStudent">Multi-Student Comparative Analysis</span></div>
             <div class="ag-export-card-desc" data-i18n="agReportScopeMultiStudentDesc">Side-by-side comparison of selected students against class medians and category profiles.</div>
           </div>
-          <div class="ag-export-card" data-scope="category_table" onclick="window.selectReportScope('category_table')">
-            <div class="ag-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportScopeCategoryTable">Category Roster Export</span></div>
+          <div class="ag-export-card" data-scope="category_table" data-agev-51="1">
+            <div class="ag-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" data-agev-52="1" /> <span data-i18n="agReportScopeCategoryTable">Category Roster Export</span></div>
             <div class="ag-export-card-desc" data-i18n="agReportScopeCategoryTableDesc">Direct export of specific tables: Demographics, Accommodations, or Discipline.</div>
           </div>
         </div>
@@ -243,8 +243,8 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
             <label style="font-size:0.78rem; font-weight:800; text-transform:uppercase;" data-i18n="agReportSelectStudents">Select Students to Compare:</label>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.72rem;" onclick="window.toggleAllReportStudents(true)">Select All</button>
-              <button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.72rem;" onclick="window.toggleAllReportStudents(false)">Clear</button>
+              <button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.72rem;" data-agev-53="1">Select All</button>
+              <button type="button" class="btn btn-secondary" style="padding:3px 8px; font-size:0.72rem;" data-agev-54="1">Clear</button>
             </div>
           </div>
           <div id="agReportStudentsCheckboxList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap:6px; max-height:160px; overflow-y:auto; padding:4px;"></div>
@@ -270,31 +270,31 @@
         <!-- Step 4: Output Format -->
         <h4 style="font-size:0.82rem; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;" data-i18n="agExportFormatLabel">4. Select Output Action & Format</h4>
         <div class="ag-format-pills">
-          <div class="ag-format-pill selected" data-fmt="preview" onclick="window.selectExportFormat('preview')">
-            <img src="../assets/icons/search.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatPreview">Live Interactive Preview</span>
+          <div class="ag-format-pill selected" data-fmt="preview" data-agev-55="1">
+            <img src="../assets/icons/search.svg" class="btn-icon" alt="" data-agev-56="1" /> <span data-i18n="agReportFormatPreview">Live Interactive Preview</span>
           </div>
-          <div class="ag-format-pill" data-fmt="html" onclick="window.selectExportFormat('html')">
-            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatHtml">Standalone HTML Report</span>
+          <div class="ag-format-pill" data-fmt="html" data-agev-57="1">
+            <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" data-agev-58="1" /> <span data-i18n="agReportFormatHtml">Standalone HTML Report</span>
           </div>
-          <div class="ag-format-pill" data-fmt="pdf" onclick="window.selectExportFormat('pdf')">
-            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatPdf">Print / Direct PDF</span>
+          <div class="ag-format-pill" data-fmt="pdf" data-agev-59="1">
+            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" data-agev-60="1" /> <span data-i18n="agReportFormatPdf">Print / Direct PDF</span>
           </div>
-          <div class="ag-format-pill" data-fmt="xlsx" onclick="window.selectExportFormat('xlsx')">
-            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatXlsx">Excel Workbook (XLSX)</span>
+          <div class="ag-format-pill" data-fmt="xlsx" data-agev-61="1">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" data-agev-62="1" /> <span data-i18n="agReportFormatXlsx">Excel Workbook (XLSX)</span>
           </div>
-          <div class="ag-format-pill" data-fmt="csv" onclick="window.selectExportFormat('csv')">
-            <img src="../assets/icons/download.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatCsv">CSV Data</span>
+          <div class="ag-format-pill" data-fmt="csv" data-agev-63="1">
+            <img src="../assets/icons/download.svg" class="btn-icon" alt="" data-agev-64="1" /> <span data-i18n="agReportFormatCsv">CSV Data</span>
           </div>
-          <div class="ag-format-pill" data-fmt="docx" onclick="window.selectExportFormat('docx')">
-            <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> <span data-i18n="agReportFormatDocx">DOCX (Word)</span>
+          <div class="ag-format-pill" data-fmt="docx" data-agev-65="1">
+            <img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" data-agev-66="1" /> <span data-i18n="agReportFormatDocx">DOCX (Word)</span>
           </div>
         </div>
 
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closeExportModal()" data-i18n="agBtnCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="window.executeExport()">
-          <img src="../assets/icons/export.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-67="1" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-agev-68="1">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" data-agev-69="1" />
           <span id="agBtnExportActionText" data-i18n="agBtnExportNow">Generate & Export</span>
         </button>
       </div>
@@ -311,20 +311,20 @@
         </div>
         <div class="ag-preview-toolbar-actions">
           <div id="ag-preview-style-selector-wrap" style="display:inline-flex;align-items:center;margin-right:6px;"></div>
-          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.printPreviewReport()">
-            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-70="1">
+            <img src="../assets/icons/printer.svg" class="btn-icon" alt="" data-agev-71="1" />
             <span data-i18n="agBtnPrintReport">Print / PDF</span>
           </button>
-          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.downloadPreviewHtml()">
-            <img src="../assets/icons/download.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-72="1">
+            <img src="../assets/icons/download.svg" class="btn-icon" alt="" data-agev-73="1" />
             <span data-i18n="agBtnDownloadHtml">Download HTML</span>
           </button>
-          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.exportPreviewXlsx()">
-            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-74="1">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" data-agev-75="1" />
             <span data-i18n="agBtnExportXlsx">Export Excel</span>
           </button>
-          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.closeReportPreviewModal()">
-            <img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-76="1">
+            <img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-77="1" />
             <span data-i18n="agBtnClose">Close</span>
           </button>
         </div>
@@ -340,19 +340,19 @@
     <div class="ag-modal-box" style="max-width: 500px;">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/clock.svg" class="btn-icon" alt="" data-agev-78="1" />
           <span data-i18n="agModalSelectPeriodsTitle">Select Applicable Periods</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closePeriodChipsModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-79="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-80="1" /></button>
       </div>
       <div class="ag-modal-body">
         <p style="font-size:0.84rem; color:#475569; font-weight:700; margin-bottom:12px;" data-i18n="agModalSelectPeriodsDesc">Choose whether this sanction rule applies to the whole year, every individual period, or click to toggle specific period chips:</p>
         
         <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
-          <button type="button" class="ag-period-chip" id="chipPresetWholeYear" onclick="window.selectPeriodChipPreset('all')">
+          <button type="button" class="ag-period-chip" id="chipPresetWholeYear" data-agev-81="1">
             <span data-i18n="agPeriodAllYear">Whole Year (Cumulative)</span>
           </button>
-          <button type="button" class="ag-period-chip" id="chipPresetEachPeriod" onclick="window.selectPeriodChipPreset('any_period')">
+          <button type="button" class="ag-period-chip" id="chipPresetEachPeriod" data-agev-82="1">
             <span data-i18n="agPeriodEachPeriod">Each Period (Individually)</span>
           </button>
         </div>
@@ -365,9 +365,9 @@
         </div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closePeriodChipsModal()" data-i18n="agBtnCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="window.applyPeriodChipsSelection()">
-          <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-83="1" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-agev-84="1">
+          <img src="../assets/icons/check.svg" class="btn-icon" alt="" data-agev-85="1" />
           <span data-i18n="agBtnApplyPeriods">Apply Selection</span>
         </button>
       </div>
@@ -379,28 +379,28 @@
     <div class="ag-modal-box modal-wide">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/gear.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/gear.svg" class="btn-icon" alt="" data-agev-86="1" />
           <span data-i18n="agSettingsModalTitle">Rules & Discipline Settings</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeSettingsModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-87="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-88="1" /></button>
       </div>
       <div class="ag-modal-body">
         <!-- Settings Sub-Tabs -->
         <div class="ag-tabs-bar" style="margin-bottom:14px;">
-          <button type="button" class="ag-tab-btn active" id="tabBtnCfgTabs" onclick="window.switchSettingsTab('tabs')">
-            <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="ag-tab-btn active" id="tabBtnCfgTabs" data-agev-89="1">
+            <img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" data-agev-90="1" />
             <span data-i18n="agTabCfgTabs">1. View Tabs</span>
           </button>
-          <button type="button" class="ag-tab-btn" id="tabBtnCfgColumns" onclick="window.switchSettingsTab('columns')">
-            <img src="../assets/icons/table.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="ag-tab-btn" id="tabBtnCfgColumns" data-agev-91="1">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="" data-agev-92="1" />
             <span data-i18n="agTabCfgColumns">2. Spreadsheet Columns</span>
           </button>
-          <button type="button" class="ag-tab-btn" id="tabBtnCfgSanctions" onclick="window.switchSettingsTab('sanctions')">
-            <img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="ag-tab-btn" id="tabBtnCfgSanctions" data-agev-93="1">
+            <img src="../assets/icons/award.svg" class="btn-icon" alt="" data-agev-94="1" />
             <span data-i18n="agTabCfgSanctions">3. Sanction Rules & Thresholds</span>
           </button>
-          <button type="button" class="ag-tab-btn" id="tabBtnCfgPeriods" onclick="window.switchSettingsTab('periods')">
-            <img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="ag-tab-btn" id="tabBtnCfgPeriods" data-agev-95="1">
+            <img src="../assets/icons/clock.svg" class="btn-icon" alt="" data-agev-96="1" />
             <span data-i18n="agTabCfgPeriods">4. Periods & Terms</span>
           </button>
         </div>
@@ -409,8 +409,8 @@
         <div id="cfgTabContentTabs" class="cfg-tab-pane">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
             <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgTabsDesc">Customize navigation tabs for the main spreadsheet view: add custom tabs, rename, change icons, or delete tabs.</p>
-            <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingTab()">
-              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" data-agev-97="1">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-98="1" />
               <span data-i18n="agBtnAddTab">+ Add Tab</span>
             </button>
           </div>
@@ -435,23 +435,23 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
             <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgColumnsDesc">Fully customize all spreadsheet columns, infractions, and accommodations: edit titles, icons, tab assignments, point weights, visibility, and add or delete columns.</p>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
-              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingColumn()">
-                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" data-agev-99="1">
+                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-100="1" />
                 <span data-i18n="agBtnAddColumn">+ Add Column</span>
               </button>
-              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingInfractionColumn()">
-                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" data-agev-101="1">
+                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-102="1" />
                 <span data-i18n="agBtnAddInfractionCol">+ Add Infraction</span>
               </button>
-              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingAccommodationColumn()">
-                <img src="../assets/icons/award.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" data-agev-103="1">
+                <img src="../assets/icons/award.svg" class="btn-icon" alt="" data-agev-104="1" />
                 <span data-i18n="agBtnAddAccompCol">+ Add Accommodation</span>
               </button>
-              <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.toggleAllColumns(true)">
-                <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Show All
+              <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-105="1">
+                <img src="../assets/icons/check.svg" class="btn-icon" alt="" data-agev-106="1" /> Show All
               </button>
-              <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.toggleAllColumns(false)">
-                <img src="../assets/icons/clear.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /> Hide Optional
+              <button type="button" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-agev-107="1">
+                <img src="../assets/icons/clear.svg" class="btn-icon" alt="" data-agev-108="1" /> Hide Optional
               </button>
             </div>
           </div>
@@ -481,8 +481,8 @@
         <div id="cfgTabContentSanctions" class="cfg-tab-pane" style="display:none;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgSanctionsDesc">Set the threshold rules: if points reach X, trigger punishment/action (detention, extra homework, community service, meeting).</p>
-            <button type="button" class="btn btn-primary" onclick="window.addSettingSanction()">
-              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-primary" data-agev-109="1">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-110="1" />
               <span data-i18n="agBtnAddSanction">+ Add Sanction Rule</span>
             </button>
           </div>
@@ -509,19 +509,19 @@
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
             <p style="font-size:0.82rem; font-weight:700; color:#444;" data-i18n="agCfgPeriodsDesc">Configure school periods, trimesters, or semesters with their date ranges to track infraction progress.</p>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" onclick="window.addSettingPeriod()">
-                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <button type="button" class="btn btn-primary" style="padding:4px 10px; font-size:0.75rem;" data-agev-111="1">
+                <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-112="1" />
                 <span data-i18n="agBtnAddPeriod">+ Add Period</span>
               </button>
-              <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="window.generatePeriodsPreset('trimesters')">
+              <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" data-agev-113="1">
                 3 Trimesters
               </button>
-              <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="window.generatePeriodsPreset('semesters')">
+              <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" data-agev-114="1">
                 2 Semesters
               </button>
               <div style="display:inline-flex; align-items:center; gap:4px; margin-left:4px;">
                 <input type="number" id="agCustomPeriodsCountInput" class="ag-input" min="1" max="20" value="4" style="width:52px; padding:3px 6px; font-size:0.75rem; text-align:center; font-weight:800;" />
-                <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="window.generatePeriodsPreset('custom', document.getElementById('agCustomPeriodsCountInput').value)">
+                <button type="button" class="btn btn-secondary" style="padding:4px 8px; font-size:0.75rem;" data-agev-115="1">
                   <span data-i18n="agBtnGenerateCustomPeriods">Generate Periods</span>
                 </button>
               </div>
@@ -547,14 +547,14 @@
 
       </div>
       <div class="ag-modal-ft" style="justify-content: space-between;">
-        <button type="button" class="btn btn-secondary" onclick="window.resetSettingsToDefault()" style="color:#b91c1c;">
-          <img src="../assets/icons/clear.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-116="1" style="color:#b91c1c;">
+          <img src="../assets/icons/clear.svg" class="btn-icon" alt="" data-agev-117="1" />
           <span data-i18n="agBtnResetDefaults">Reset to Defaults</span>
         </button>
         <div style="display:flex; gap:10px;">
-          <button type="button" class="btn btn-secondary" onclick="window.closeSettingsModal()" data-i18n="agBtnCancel">Cancel</button>
-          <button type="button" class="btn btn-primary" onclick="window.saveSettings()">
-            <img src="../assets/icons/save.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <button type="button" class="btn btn-secondary" data-agev-118="1" data-i18n="agBtnCancel">Cancel</button>
+          <button type="button" class="btn btn-primary" data-agev-119="1">
+            <img src="../assets/icons/save.svg" class="btn-icon" alt="" data-agev-120="1" />
             <span data-i18n="agBtnSaveSettings">Save Settings</span>
           </button>
         </div>
@@ -567,10 +567,10 @@
     <div class="ag-modal-box" style="max-width:560px;">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/import.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/import.svg" class="btn-icon" alt="" data-agev-121="1" />
           <span data-i18n="agImportModalTitle">Confirm Import & Period Mode</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeImportConfirmModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-122="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-123="1" /></button>
       </div>
       <div class="ag-modal-body">
         <div id="agImportSummaryBanner" class="badge" style="background:#e0f2fe; color:#0369a1; padding:8px 12px; margin-bottom:14px; width:100%; display:block; font-size:0.85rem; font-weight:800; border:2px solid var(--neo-border-color); border-radius:var(--neo-radius-sm);">
@@ -581,7 +581,7 @@
         <div id="agImportStartRowWrap" style="margin-bottom:14px; display:none; background:#f8fafc; border:2px solid var(--neo-border-color); padding:10px 12px; border-radius:var(--neo-radius-md);">
           <label for="agImportStartRowSelect" style="font-weight:800; font-size:0.85rem; display:block; margin-bottom:4px;" data-i18n="agImportStartRowLabel">Start import from row / Header:</label>
           <p style="font-size:0.75rem; color:#64748b; margin-bottom:6px;" data-i18n="agImportStartRowHint">Change start row to skip file headers, document titles, or clutter.</p>
-          <select id="agImportStartRowSelect" class="ag-select" style="width:100%; font-weight:700;" onchange="window.onAgImportStartRowChange(this.value)"></select>
+          <select id="agImportStartRowSelect" class="ag-select" style="width:100%; font-weight:700;" data-agev-124="1"></select>
         </div>
 
         <!-- Import Mode: Add vs Overwrite -->
@@ -608,7 +608,7 @@
         <!-- Period Assignment -->
         <div style="margin-bottom:14px;">
           <label for="agImportPeriodSelect" style="font-weight:800; font-size:0.85rem; display:block; margin-bottom:6px;" data-i18n="agImportPeriodLabel">2. Assign to Period / Term:</label>
-          <select id="agImportPeriodSelect" class="ag-select" style="width:100%;" onchange="window.onImportPeriodSelectChange(this.value)">
+          <select id="agImportPeriodSelect" class="ag-select" style="width:100%;" data-agev-125="1">
           </select>
         </div>
 
@@ -625,9 +625,9 @@
         </div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closeImportConfirmModal()" data-i18n="agBtnCancel">Cancel</button>
-        <button type="button" class="btn btn-primary" onclick="window.executeConfirmedImport()">
-          <img src="../assets/icons/check.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+        <button type="button" class="btn btn-secondary" data-agev-126="1" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" data-agev-127="1">
+          <img src="../assets/icons/check.svg" class="btn-icon" alt="" data-agev-128="1" />
           <span data-i18n="agBtnConfirmImport">Confirm & Import Data</span>
         </button>
       </div>
@@ -639,19 +639,19 @@
     <div class="ag-modal-box" style="max-width:560px;">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-129="1" />
           <span data-i18n="agEraseModalTitle">Erase / Archive Student</span> — <span id="eraseModalStudentTitle"></span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeEraseStudentModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-130="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-131="1" /></button>
       </div>
       <div class="ag-modal-body">
         <p class="ag-erase-prompt" data-i18n="agEraseModalDesc">Where would you like to erase or archive this student?</p>
 
         <div class="ag-erase-grid">
           <!-- Option 1: Archive Student -->
-          <div class="ag-erase-card ag-erase-card-archive" onclick="window.executeEraseStudent('archive')">
+          <div class="ag-erase-card ag-erase-card-archive" data-agev-132="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/history.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/history.svg" class="btn-icon" alt="" data-agev-133="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -664,9 +664,9 @@
           </div>
 
           <!-- Option 2: Erase only from Administrative Groups -->
-          <div class="ag-erase-card ag-erase-card-admin" onclick="window.executeEraseStudent('admin-only')">
+          <div class="ag-erase-card ag-erase-card-admin" data-agev-134="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" data-agev-135="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -679,9 +679,9 @@
           </div>
 
           <!-- Option 3: Erase everywhere -->
-          <div class="ag-erase-card ag-erase-card-danger" onclick="window.executeEraseStudent('everywhere')">
+          <div class="ag-erase-card ag-erase-card-danger" data-agev-136="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-137="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -695,7 +695,7 @@
         </div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closeEraseStudentModal()" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-agev-138="1" data-i18n="agBtnCancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -705,19 +705,19 @@
     <div class="ag-modal-box" style="max-width:580px;">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-139="1" />
           <span data-i18n="agResetAllModalTitle">Reset & Erase All Students</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closeResetAllModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-140="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-141="1" /></button>
       </div>
       <div class="ag-modal-body">
         <p class="ag-erase-prompt" data-i18n="agResetAllModalDesc">Choose what action you want to perform for all students in the roster:</p>
 
         <div class="ag-erase-grid">
           <!-- Option 1: Archive & Clear All -->
-          <div class="ag-erase-card ag-erase-card-archive" onclick="window.executeResetAll('archive')">
+          <div class="ag-erase-card ag-erase-card-archive" data-agev-142="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/history.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/history.svg" class="btn-icon" alt="" data-agev-143="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -730,9 +730,9 @@
           </div>
 
           <!-- Option 2: Erase all only from Administrative Groups -->
-          <div class="ag-erase-card ag-erase-card-admin" onclick="window.executeResetAll('admin-only')">
+          <div class="ag-erase-card ag-erase-card-admin" data-agev-144="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" data-agev-145="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -745,9 +745,9 @@
           </div>
 
           <!-- Option 3: Erase all from everywhere -->
-          <div class="ag-erase-card ag-erase-card-danger" onclick="window.executeResetAll('everywhere')">
+          <div class="ag-erase-card ag-erase-card-danger" data-agev-146="1">
             <div class="ag-erase-card-icon">
-              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+              <img src="../assets/icons/delete.svg" class="btn-icon" alt="" data-agev-147="1" />
             </div>
             <div class="ag-erase-card-content">
               <div class="ag-erase-card-title">
@@ -761,7 +761,7 @@
         </div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closeResetAllModal()" data-i18n="agBtnCancel">Cancel</button>
+        <button type="button" class="btn btn-secondary" data-agev-148="1" data-i18n="agBtnCancel">Cancel</button>
       </div>
     </div>
   </div>
@@ -771,24 +771,24 @@
     <div class="ag-modal-box" style="max-width: 620px;">
       <div class="ag-modal-hd">
         <div class="ag-modal-title">
-          <img src="../assets/icons/clock.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+          <img src="../assets/icons/clock.svg" class="btn-icon" alt="" data-agev-149="1" />
           <span data-i18n="agBtnPeriodPdfsModalTitle">Period Attached PDFs &amp; Links</span>
         </div>
-        <button type="button" class="ag-modal-close" onclick="window.closePeriodAttachmentsModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
+        <button type="button" class="ag-modal-close" data-agev-150="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" data-agev-151="1" /></button>
       </div>
       <div class="ag-modal-body">
         <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:14px; gap:10px; flex-wrap:wrap; background:#f8fafc; border:2px solid var(--neo-border-color); padding:10px 12px; border-radius:var(--neo-radius-md);">
           <div style="flex:1; min-width:200px;">
             <label style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#64748b; display:block; margin-bottom:4px;" data-i18n="agSelectPeriodLabel">Select Period</label>
-            <select class="ag-select" id="agPeriodModalSelect" style="width:100%; font-weight:700;" onchange="window.onPeriodModalSelectChange(this.value)"></select>
+            <select class="ag-select" id="agPeriodModalSelect" style="width:100%; font-weight:700;" data-agev-152="1"></select>
           </div>
           <div style="display:flex; gap:8px;">
-            <button type="button" class="btn btn-primary" onclick="window.attachPdfToModalPeriod()">
-              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-primary" data-agev-153="1">
+              <img src="../assets/icons/plus.svg" class="btn-icon" alt="" data-agev-154="1" />
               <span data-i18n="agBtnAttachPdf">+ Attach PDF</span>
             </button>
-            <button type="button" class="btn btn-secondary" onclick="window.openModalPeriodLinks()">
-              <img src="../assets/icons/links.svg" class="btn-icon" alt="" onerror="this.style.display='none'" />
+            <button type="button" class="btn btn-secondary" data-agev-155="1">
+              <img src="../assets/icons/links.svg" class="btn-icon" alt="" data-agev-156="1" />
               <span data-i18n="agBtnLinks">Links &amp; Tags</span>
             </button>
           </div>
@@ -796,7 +796,7 @@
         <div id="periodAttachmentsContainer"></div>
       </div>
       <div class="ag-modal-ft">
-        <button type="button" class="btn btn-secondary" onclick="window.closePeriodAttachmentsModal()" data-i18n="agBtnClose">Close</button>
+        <button type="button" class="btn btn-secondary" data-agev-157="1" data-i18n="agBtnClose">Close</button>
       </div>
     </div>
   </div>
@@ -827,5 +827,6 @@
       } catch (e) {}
     });
   </script>
+  <script src="../js/pages/administrative-groups-events.js"></script>
 </body>
 </html>

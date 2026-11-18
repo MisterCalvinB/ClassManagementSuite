@@ -9,17 +9,17 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../electron-bridge.js"></script>
-  <script src="../js/pins.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/competence-aggregator-service.js"></script>
-  <script src="../js/links-service.js"></script>
-  <script src="../js/board-export-service.js"></script>
-  <script src="../js/tag-link-modal.js"></script>
-  <script src="../js/export-styles-service.js"></script>
+  <script src="../js/shared/pins.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/competence-aggregator-service.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/board-export-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
+  <script src="../js/shared/export-styles-service.js"></script>
   <script>
     (function () {
       function injectScript(src, name) {
@@ -100,9 +100,9 @@
     <span class="nav-brand"></span>
     <div class="hm-wrap" id="hmWrap">
       <button id="skm-trigger" class="tut-trigger-btn"
-        onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})"
+        data-plev-1="1"
         data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-      <button id="tut-trigger" class="tut-trigger-btn" onclick="startPlTutorial()" data-i18n="tourBtnLabel"
+      <button id="tut-trigger" class="tut-trigger-btn" data-plev-2="1" data-i18n="tourBtnLabel"
         data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
       <div class="hm-menu"></div>
@@ -118,63 +118,63 @@
     <div id="toolbar">
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarSetup">Setup</span>
-      <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem" data-i18n-help="hhPlannerAddTerm" data-hover-help="Create a new academic term with start/end dates and holidays.">+ Term</button>
-      <button class="tb-btn" onclick="openClassModal()" data-i18n="pl_btnClasses" data-i18n-help="hhPlannerClasses" data-hover-help="Configure class schedules, weekly slots, and class colors.">Classes</button>
-      <button class="tb-btn" onclick="openFieldsModal()" data-i18n="pl_btnFields" data-i18n-help="hhPlannerFields" data-hover-help="Add or customise extra fields shown inside lesson entries.">Fields</button>
+      <button class="tb-btn" data-plev-3="1" data-i18n="pl_btnAddSem" data-i18n-help="hhPlannerAddTerm" data-hover-help="Create a new academic term with start/end dates and holidays.">+ Term</button>
+      <button class="tb-btn" data-plev-4="1" data-i18n="pl_btnClasses" data-i18n-help="hhPlannerClasses" data-hover-help="Configure class schedules, weekly slots, and class colors.">Classes</button>
+      <button class="tb-btn" data-plev-5="1" data-i18n="pl_btnFields" data-i18n-help="hhPlannerFields" data-hover-help="Add or customise extra fields shown inside lesson entries.">Fields</button>
     </div>
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarView">View</span>
       <div class="tb-seg" id="pastBtn" role="group" aria-label="Past entries" data-i18n-help="hhPlannerPastToggle" data-hover-help="Show or hide entries from before today.">
-        <button type="button" class="tb-seg-opt active" data-state="hide" onclick="setShowPast(false)" data-i18n="pl_hidePast" aria-pressed="true">Hide past</button>
-        <button type="button" class="tb-seg-opt" data-state="show" onclick="setShowPast(true)" data-i18n="pl_showPast" aria-pressed="false">Show past</button>
+        <button type="button" class="tb-seg-opt active" data-state="hide" data-plev-6="1" data-i18n="pl_hidePast" aria-pressed="true">Hide past</button>
+        <button type="button" class="tb-seg-opt" data-state="show" data-plev-7="1" data-i18n="pl_showPast" aria-pressed="false">Show past</button>
       </div>
       <div class="tb-seg" id="outsideBtn" role="group" aria-label="Term scope" data-i18n-help="hhPlannerTermScope" data-hover-help="Switch between the active term only or all configured terms.">
-        <button type="button" class="tb-seg-opt active" data-state="active" onclick="setShowOutsideTerm(false)" data-i18n="pl_hideOutside" aria-pressed="true">Active term</button>
-        <button type="button" class="tb-seg-opt" data-state="all" onclick="setShowOutsideTerm(true)" data-i18n="pl_showOutside" aria-pressed="false">All terms</button>
+        <button type="button" class="tb-seg-opt active" data-state="active" data-plev-8="1" data-i18n="pl_hideOutside" aria-pressed="true">Active term</button>
+        <button type="button" class="tb-seg-opt" data-state="all" data-plev-9="1" data-i18n="pl_showOutside" aria-pressed="false">All terms</button>
       </div>
       <div class="tb-seg" id="viewBtn" role="group" aria-label="View mode" data-i18n-help="hhPlannerViewMode" data-hover-help="Switch between List, Day, Week, Month, and Year calendar views.">
-        <button type="button" class="tb-seg-opt active" data-state="list" onclick="setViewMode('list')" data-i18n="pl_viewList" aria-pressed="true">List</button>
-        <button type="button" class="tb-seg-opt" data-state="day" onclick="setViewMode('day')" data-i18n="pl_viewDay" aria-pressed="false">Day</button>
-        <button type="button" class="tb-seg-opt" data-state="week" onclick="setViewMode('week')" data-i18n="pl_viewWeek" aria-pressed="false">Week</button>
-        <button type="button" class="tb-seg-opt" data-state="month" onclick="setViewMode('month')" data-i18n="pl_viewMonth" aria-pressed="false">Month</button>
-        <button type="button" class="tb-seg-opt" data-state="year" onclick="setViewMode('year')" data-i18n="pl_viewYear" aria-pressed="false">Year</button>
+        <button type="button" class="tb-seg-opt active" data-state="list" data-plev-10="1" data-i18n="pl_viewList" aria-pressed="true">List</button>
+        <button type="button" class="tb-seg-opt" data-state="day" data-plev-11="1" data-i18n="pl_viewDay" aria-pressed="false">Day</button>
+        <button type="button" class="tb-seg-opt" data-state="week" data-plev-12="1" data-i18n="pl_viewWeek" aria-pressed="false">Week</button>
+        <button type="button" class="tb-seg-opt" data-state="month" data-plev-13="1" data-i18n="pl_viewMonth" aria-pressed="false">Month</button>
+        <button type="button" class="tb-seg-opt" data-state="year" data-plev-14="1" data-i18n="pl_viewYear" aria-pressed="false">Year</button>
       </div>
-      <button type="button" class="tb-btn" id="toolbarTodayBtn" onclick="goToToday()" data-i18n="pl_navToday" data-i18n-help="hhPlannerToday" data-hover-help="Jump directly to today's date in the current view.">Today</button>
+      <button type="button" class="tb-btn" id="toolbarTodayBtn" data-plev-15="1" data-i18n="pl_navToday" data-i18n-help="hhPlannerToday" data-hover-help="Jump directly to today's date in the current view.">Today</button>
       <div class="disp-wrap" id="dispWrap">
-        <button class="tb-btn" onclick="toggleDispPopover()" data-i18n="pl_btnDisplay" data-i18n-help="hhPlannerDisplay" data-hover-help="Toggle which entry details and calendar layers are visible.">Display ▾</button>
+        <button class="tb-btn" data-plev-16="1" data-i18n="pl_btnDisplay" data-i18n-help="hhPlannerDisplay" data-hover-help="Toggle which entry details and calendar layers are visible.">Display ▾</button>
         <div class="disp-popover" id="dispPopover">
           <div class="disp-section-title" data-i18n="pl_dispElements">Entry Elements</div>
           <label class="cb-label"><input type="checkbox" id="vo-time" checked
-              onchange="setViewOpt('time',this.checked)"> <span data-i18n="pl_viewTime">Time range</span></label>
+              data-plev-17="1"> <span data-i18n="pl_viewTime">Time range</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-classPill" checked
-              onchange="setViewOpt('classPill',this.checked)"> <span data-i18n="pl_viewClassPill">Class pill</span></label>
+              data-plev-18="1"> <span data-i18n="pl_viewClassPill">Class pill</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-badges" checked
-              onchange="setViewOpt('badges',this.checked)"> <span data-i18n="pl_viewBadges">Type badges</span></label>
+              data-plev-19="1"> <span data-i18n="pl_viewBadges">Type badges</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-topic" checked
-              onchange="setViewOpt('topic',this.checked)"> <span data-i18n="pl_viewTopic">Topic</span></label>
+              data-plev-20="1"> <span data-i18n="pl_viewTopic">Topic</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-linkedBadges" checked
-              onchange="setViewOpt('linkedBadges',this.checked)"> <span data-i18n="pl_viewLinkedBadges">Linked badges</span></label>
-          <label class="cb-label"><input type="checkbox" id="vo-details" onchange="setViewOpt('details',this.checked)">
+              data-plev-21="1"> <span data-i18n="pl_viewLinkedBadges">Linked badges</span></label>
+          <label class="cb-label"><input type="checkbox" id="vo-details" data-plev-22="1">
             <span data-i18n="pl_viewDetails">Detail fields</span></label>
-          <label class="cb-label"><input type="checkbox" id="vo-custom" onchange="setViewOpt('custom',this.checked)">
+          <label class="cb-label"><input type="checkbox" id="vo-custom" data-plev-23="1">
             <span data-i18n="pl_viewCustom">Custom fields</span></label>
           <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">
           <div class="disp-section-title" data-i18n="pl_dispLayers">Calendar Layers</div>
           <label class="cb-label"><input type="checkbox" id="vo-emptySlots" checked
-              onchange="setViewOpt('emptySlots',this.checked)"> <span data-i18n="pl_viewEmptySlots">Empty scheduled slots</span></label>
+              data-plev-24="1"> <span data-i18n="pl_viewEmptySlots">Empty scheduled slots</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-holidays" checked
-              onchange="setViewOpt('holidays',this.checked)"> <span data-i18n="pl_viewHolidays">Global holidays</span></label>
+              data-plev-25="1"> <span data-i18n="pl_viewHolidays">Global holidays</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-subscribed" checked
-              onchange="setViewOpt('subscribed',this.checked)"> <span data-i18n="pl_viewSubscribed">Calendar feed events</span></label>
+              data-plev-26="1"> <span data-i18n="pl_viewSubscribed">Calendar feed events</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-todos" checked
-              onchange="setViewOpt('todos',this.checked)"> <span data-i18n="pl_viewTodos">Due to-dos</span></label>
+              data-plev-27="1"> <span data-i18n="pl_viewTodos">Due to-dos</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-weekends" checked
-              onchange="setViewOpt('weekends',this.checked)"> <span data-i18n="pl_viewWeekends">Show weekends</span></label>
+              data-plev-28="1"> <span data-i18n="pl_viewWeekends">Show weekends</span></label>
           <hr style="border:none;border-top:1px solid #e0e0e0;margin:4px 0">
           <label class="cb-label"><input type="checkbox" id="vo-sub-future" checked
-              onchange="setSubFutureOnly(this.checked)"> <span data-i18n="pl_subFutureOnly">Show only upcoming / future events</span></label>
+              data-plev-29="1"> <span data-i18n="pl_subFutureOnly">Show only upcoming / future events</span></label>
           <label class="cb-label"><input type="checkbox" id="vo-auto-end5" checked
-              onchange="setAutoEnd5Min(this.checked)"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5
+              data-plev-30="1"> <span data-i18n="pl_autoEnd5Min">Auto end reminder (5
               min)</span></label>
         </div>
       </div>
@@ -182,14 +182,14 @@
 
     <div class="tb-group actions-group">
       <span class="tb-group-label" data-i18n="pl_toolbarActions">Actions</span>
-      <button class="tb-btn primary" onclick="openAddEntry(null,null,null)" data-i18n="pl_btnAddEntry" data-i18n-help="hhPlannerAddEntry" data-hover-help="Create a new lesson, test, or event entry in the planner.">+ Add
+      <button class="tb-btn primary" data-plev-31="1" data-i18n="pl_btnAddEntry" data-i18n-help="hhPlannerAddEntry" data-hover-help="Create a new lesson, test, or event entry in the planner.">+ Add
         Entry</button>
-      <button class="tb-btn" onclick="openExportModal()" data-i18n="pl_btnExport" data-i18n-help="hhPlannerExport" data-hover-help="Export planner schedule as PDF, ICS calendar, or printable handout.">Export</button>
-      <button class="tb-btn" onclick="openIcsImportModal()" data-i18n="pl_btnImportIcs" data-i18n-help="hhPlannerImportIcs" data-hover-help="Import events or holidays from an external .ics calendar file.">Import ICS</button>
-      <button class="tb-btn" onclick="openSubscriptionsModal()" data-i18n-help="hhPlannerFeeds" data-hover-help="Subscribe to live external calendar feeds (ICS URLs)."><img src="../assets/icons/feed.svg" class="btn-icon" alt="" style="width:12px; height:12px;" /> <span data-i18n="pl_btnSubscriptions">Calendar Feeds</span></button>
-      <button class="tb-btn" id="multiSelectBtn" onclick="toggleMultiSelectMode()"
+      <button class="tb-btn" data-plev-32="1" data-i18n="pl_btnExport" data-i18n-help="hhPlannerExport" data-hover-help="Export planner schedule as PDF, ICS calendar, or printable handout.">Export</button>
+      <button class="tb-btn" data-plev-33="1" data-i18n="pl_btnImportIcs" data-i18n-help="hhPlannerImportIcs" data-hover-help="Import events or holidays from an external .ics calendar file.">Import ICS</button>
+      <button class="tb-btn" data-plev-34="1" data-i18n-help="hhPlannerFeeds" data-hover-help="Subscribe to live external calendar feeds (ICS URLs)."><img src="../assets/icons/feed.svg" class="btn-icon" alt="" style="width:12px; height:12px;" /> <span data-i18n="pl_btnSubscriptions">Calendar Feeds</span></button>
+      <button class="tb-btn" id="multiSelectBtn" data-plev-35="1"
         data-i18n="pl_btnMultiSelect" data-i18n-help="hhPlannerMultiSelect" data-hover-help="Select multiple entries at once for batch moving, tagging, or deleting.">Select</button>
-      <button class="tb-btn" id="batchActionBtn" onclick="openBatchActionModal()" style="display:none;"
+      <button class="tb-btn" id="batchActionBtn" data-plev-36="1" style="display:none;"
         data-i18n="pl_btnBatchActions" disabled>Batch Actions</button>
       <span id="save-status"></span>
     </div>
@@ -199,17 +199,17 @@
       <div id="sem-chips" class="cls-chip-bar" style="display:none"></div>
       <div class="toolbar-sep"></div>
       <div id="class-filter-chips" class="cls-chip-bar">
-        <span class="cls-chip all-chip active" data-i18n="pl_allClasses" onclick="clearClassFilter()">All</span>
-        <span class="cls-chip" data-i18n="pl_unassigned" onclick="toggleUnassignedFilter()">Unassigned</span>
+        <span class="cls-chip all-chip active" data-i18n="pl_allClasses" data-plev-37="1">All</span>
+        <span class="cls-chip" data-i18n="pl_unassigned" data-plev-38="1">Unassigned</span>
       </div>
       <div class="toolbar-sep"></div>
       <div class="search-wrap">
-        <input type="search" id="entry-search-input" class="tb-input" data-i18n-placeholder="pl_searchPlaceholder" placeholder="Search entries…" oninput="onSearchInput(this.value)">
+        <input type="search" id="entry-search-input" class="tb-input" data-i18n-placeholder="pl_searchPlaceholder" placeholder="Search entries…" data-plev-39="1">
       </div>
       <div id="type-filter-chips" class="cls-chip-bar"></div>
     </div>
     <button type="button" class="tb-btn tb-autocollapse-btn" id="toolbarAutoCollapseBtn"
-      onclick="toggleToolbarAutoCollapse()" aria-pressed="false"
+      data-plev-40="1" aria-pressed="false"
       data-i18n-help="pl_toolbarAutoCollapseTitle" data-hover-help="Auto-collapse toolbar (expand on hover)">
       <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
       <span data-i18n="pl_toolbarAutoCollapse">Auto-hide</span>
@@ -233,9 +233,9 @@
     <div id="main">
       <div id="cal-nav-bar">
         <div class="cal-nav-controls">
-          <button type="button" class="cal-nav-btn" onclick="navigateView(-1)" data-i18n-help="pl_navPrev" data-hover-help="Previous">&lt;</button>
-          <button type="button" class="cal-nav-btn" onclick="goToToday()" data-i18n="pl_navToday">Today</button>
-          <button type="button" class="cal-nav-btn" onclick="navigateView(1)" data-i18n-help="pl_navNext" data-hover-help="Next">&gt;</button>
+          <button type="button" class="cal-nav-btn" data-plev-41="1" data-i18n-help="pl_navPrev" data-hover-help="Previous">&lt;</button>
+          <button type="button" class="cal-nav-btn" data-plev-42="1" data-i18n="pl_navToday">Today</button>
+          <button type="button" class="cal-nav-btn" data-plev-43="1" data-i18n-help="pl_navNext" data-hover-help="Next">&gt;</button>
         </div>
         <span id="cal-nav-title" class="cal-nav-title"></span>
         <span id="cal-nav-sub" class="cal-nav-sub" style="display:none"></span>
@@ -245,18 +245,18 @@
 
     <!-- ── Todo panel ── -->
     <div id="todo-panel">
-      <button class="tp-tab" id="tp-tab-btn" onclick="toggleTodoPanel()">
+      <button class="tp-tab" id="tp-tab-btn" data-plev-44="1">
         <span data-i18n="td_todoTitle">To-do</span>
       </button>
       <div class="tp-inner">
         <div class="tp-header">
           <span class="tp-title" data-i18n="td_todoTitle">To-do</span>
-          <button class="tp-icon-btn" onclick="openAddTodo()" data-i18n-help="td_addTodo">+</button>
-          <button class="tp-icon-btn" onclick="toggleTodoPanel()">◀</button>
+          <button class="tp-icon-btn" data-plev-45="1" data-i18n-help="td_addTodo">+</button>
+          <button class="tp-icon-btn" data-plev-46="1">◀</button>
         </div>
         <div class="tp-filter-bar">
           <label class="tp-cb-label">
-            <input type="checkbox" id="td-show-archived" onchange="renderTodos()">
+            <input type="checkbox" id="td-show-archived" data-plev-47="1">
             <span data-i18n="td_showDone">Show done</span>
           </label>
         </div>
@@ -270,9 +270,9 @@
     <div class="td-modal-box">
       <div class="td-modal-hd">
         <span class="td-modal-title" id="td-modal-title" data-i18n="td_addTodo">Add To-do</span>
-        <button type="button" class="tut-trigger-btn" onclick="startTodoModalTour()"
+        <button type="button" class="tut-trigger-btn" data-plev-48="1"
           style="margin-right:6px;font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel">▶ Tour</button>
-        <button class="td-modal-close" onclick="closeTodoModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="td-modal-close" data-plev-49="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="td-modal-body">
         <div>
@@ -287,7 +287,7 @@
           <div id="td-reminder-wrap">
             <label class="td-field-lbl" data-i18n="td_todoReminder">Reminder</label>
             <div class="td-rem-row">
-              <select id="td-reminder-type" class="td-select" onchange="tdToggleReminderFields()">
+              <select id="td-reminder-type" class="td-select" data-plev-50="1">
                 <option value="none" data-i18n="pl_reminderNone">None</option>
                 <option value="fixed" data-i18n="td_reminderFixed">On date/time</option>
               </select>
@@ -299,8 +299,8 @@
           <div class="td-section-hd">
             <label class="td-field-lbl" data-i18n="td_classes" style="margin-bottom:0">Classes</label>
             <div class="td-section-actions">
-              <button type="button" class="td-mini-btn" onclick="_tdSelectAllClasses()" data-i18n="td_selectAll">Select All</button>
-              <button type="button" class="td-mini-btn" onclick="_tdClearAllClasses()" data-i18n="td_clearAll">Clear</button>
+              <button type="button" class="td-mini-btn" data-plev-51="1" data-i18n="td_selectAll">Select All</button>
+              <button type="button" class="td-mini-btn" data-plev-52="1" data-i18n="td_clearAll">Clear</button>
             </div>
           </div>
           <div id="td-class-chips" class="td-chips-grid"></div>
@@ -337,14 +337,14 @@
           <div class="td-sub-add-row">
             <input type="text" id="td-subtask-add" class="td-input td-sub-add-input"
               data-i18n-placeholder="td_subtodoPlaceholder"
-              onkeydown="if(event.key==='Enter'){event.preventDefault();_tdModalAddSub()}">
-            <button class="td-sub-add-btn" onclick="_tdModalAddSub()">+</button>
+              data-plev-53="1">
+            <button class="td-sub-add-btn" data-plev-54="1">+</button>
           </div>
         </div>
       </div>
       <div class="td-modal-ft">
-        <button class="tb-btn" onclick="closeTodoModal()" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="saveTodo()" data-i18n="btnOk">Save</button>
+        <button class="tb-btn" data-plev-55="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-56="1" data-i18n="btnOk">Save</button>
       </div>
     </div>
   </div>
@@ -353,18 +353,18 @@
   <div id="gs-toast"></div>
 
   <!-- ════ BATCH ACTION MODAL ════ -->
-  <div class="modal-overlay" id="batchActionModal" onclick="if(event.target===this)closeModal('batchActionModal')">
-    <div class="modal-box" style="max-width: 420px;" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="batchActionModal" data-plev-57="1">
+    <div class="modal-box" style="max-width: 420px;" data-plev-58="1">
       <div class="modal-header">
         <h2 data-i18n="pl_batchModalTitle">Batch Actions</h2>
-        <button class="modal-close" onclick="closeModal('batchActionModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-59="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <p style="font-size: 0.85rem; color: #555; margin-bottom: 12px;" id="batch-selected-count-msg"></p>
 
         <div class="field-group">
           <label data-i18n="pl_batchSelectAction">Choose action to perform</label>
-          <select id="batch-action-select" class="field-select" onchange="onBatchActionSelectChange()">
+          <select id="batch-action-select" class="field-select" data-plev-60="1">
             <option value="" data-i18n="pl_batchActionSelectPrompt">-- Select an action --</option>
             <option value="delete" data-i18n="pl_batchActionDelete"> Delete selected entries</option>
             <option value="shift_dates" data-i18n="pl_batchActionShift"> Shift dates (move forward/backward)</option>
@@ -431,18 +431,18 @@
 
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="closeModal('batchActionModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="commitBatchAction()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-61="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-62="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ SEMESTER MODAL ════ -->
-  <div class="modal-overlay" id="semModal" onclick="if(event.target===this)closeModal('semModal')">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="semModal" data-plev-63="1">
+    <div class="modal-box" data-plev-64="1">
       <div class="modal-header">
         <h2 id="sem-modal-title" data-i18n="pl_semModalTitle">Term Setup</h2>
-        <button class="modal-close" onclick="closeModal('semModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-65="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="field-row">
@@ -469,31 +469,31 @@
         <div id="pl-cgd-hint"
           style="display:none;margin:-4px 0 10px;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
           <span id="pl-cgd-hint-text" style="flex:1;color:#2563a8;"></span>
-          <button onclick="fillDatesFromGroupEditor()"
+          <button data-plev-66="1"
             style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;"
             data-i18n="pl_useGroupDates">Use Group Editor dates</button>
         </div>
         <div class="field-group">
           <div class="modal-section-label" data-i18n="pl_holidays">Holidays</div>
           <div class="list-items" id="hol-list"></div>
-          <button class="add-link" onclick="addHolRow()" data-i18n="pl_addHoliday">+ Add Holiday</button>
+          <button class="add-link" data-plev-67="1" data-i18n="pl_addHoliday">+ Add Holiday</button>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="danger-btn" id="del-sem-btn" style="display:none;margin-right:auto" onclick="deleteActiveSem()"
+        <button class="danger-btn" id="del-sem-btn" style="display:none;margin-right:auto" data-plev-68="1"
           data-i18n="pl_deleteSem">Delete Term</button>
-        <button class="tb-btn" onclick="closeModal('semModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="saveSemModal()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-69="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-70="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ CLASS SETUP MODAL ════ -->
-  <div class="modal-overlay" id="classModal" onclick="if(event.target===this)closeModal('classModal')">
-    <div class="modal-box wide" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="classModal" data-plev-71="1">
+    <div class="modal-box wide" data-plev-72="1">
       <div class="modal-header">
         <h2 data-i18n="pl_classModalTitle">Class Setup</h2>
-        <button class="modal-close" onclick="closeModal('classModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-73="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="field-group">
@@ -510,7 +510,7 @@
             <div class="pl-year-add-row">
               <input type="text" id="cls-year-new" class="field-input" placeholder="e.g. 2026-2027" maxlength="9"
                 data-i18n-placeholder="pl_classYearPlaceholder">
-              <button type="button" class="add-link" onclick="addPlannerYearChip()" data-i18n="cpAddYear">Add</button>
+              <button type="button" class="add-link" data-plev-74="1" data-i18n="cpAddYear">Add</button>
             </div>
             <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px;">
               <div id="cls-sems-container" style="display:contents;"></div>
@@ -518,7 +518,7 @@
                 yr</span>
               <select id="pl-terms-per-year"
                 style="padding:3px 6px;font-size:0.82rem;border:1px solid #ccc;border-radius:4px;"
-                onchange="onPlannerTermsPerYearChange(this.value)">
+                data-plev-75="1">
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
@@ -532,36 +532,36 @@
           <div class="field-group">
             <div class="modal-section-label" data-i18n="pl_schedule">Weekly Schedule</div>
             <div class="list-items" id="sched-list"></div>
-            <button class="add-link" onclick="addSchedRow()" data-i18n="pl_addScheduleSlot">+ Add slot</button>
+            <button class="add-link" data-plev-76="1" data-i18n="pl_addScheduleSlot">+ Add slot</button>
           </div>
           <div class="field-group">
             <div class="modal-section-label" data-i18n="pl_objectives">Learning Objectives</div>
             <div class="list-items" id="obj-list"></div>
-            <button class="add-link" onclick="addObjRow('')" data-i18n="pl_addObjective">+ Add Objective</button>
+            <button class="add-link" data-plev-77="1" data-i18n="pl_addObjective">+ Add Objective</button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="danger-btn" id="del-cls-btn" style="display:none;margin-right:auto" onclick="deleteManualClass()"
+        <button class="danger-btn" id="del-cls-btn" style="display:none;margin-right:auto" data-plev-78="1"
           data-i18n="pl_deleteClass">Delete Class</button>
-        <button class="tb-btn" onclick="closeModal('classModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="saveClassPanel()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-79="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-80="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ ENTRY MODAL ════ -->
-  <div class="modal-overlay" id="entryModal" onclick="if(event.target===this)closeModal('entryModal')">
-    <div class="modal-box wide" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="entryModal" data-plev-81="1">
+    <div class="modal-box wide" data-plev-82="1">
       <div class="modal-header">
         <h2 id="entry-modal-title" data-i18n="pl_entryModalAdd">Add Entry</h2>
-        <button class="modal-close" onclick="closeModal('entryModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-83="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="field-group" id="dup-slot-picker-group" style="display:none;margin-bottom:12px;padding:10px 12px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px">
           <label style="font-weight:700;font-size:0.82rem;color:#1e293b;display:block;margin-bottom:4px" data-i18n="pl_targetSlot">Target Slot & Date</label>
           <div style="font-size:0.75rem;color:#64748b;margin-bottom:8px" data-i18n="pl_targetSlotHint">Choose an upcoming schedule slot and date to duplicate this entry to:</div>
-          <select id="dup-slot-select" class="field-select" onchange="onDupSlotSelectChange(this.value)" style="width:100%">
+          <select id="dup-slot-select" class="field-select" data-plev-84="1" style="width:100%">
             <option value="" data-i18n="pl_selectTargetSlot">— Select target slot & date —</option>
           </select>
           <div id="dup-slot-summary" style="margin-top:6px;font-size:0.78rem;font-weight:600;color:#2563eb"></div>
@@ -596,7 +596,7 @@
         <div class="field-row" id="e-recur-row" style="align-items:flex-start">
           <div class="field-group" style="flex:1">
             <label data-i18n="pl_entryRepeat">Repeat</label>
-            <select id="e-recur-freq" class="field-select" onchange="onEntryRecurChange()">
+            <select id="e-recur-freq" class="field-select" data-plev-85="1">
               <option value="" data-i18n="pl_recurNone">None</option>
               <option value="daily" data-i18n="pl_recurDaily">Daily</option>
               <option value="weekly" data-i18n="pl_recurWeekly">Weekly</option>
@@ -616,7 +616,7 @@
             <div style="display:flex;flex-direction:column;gap:5px">
               <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;cursor:pointer">
                 <input type="radio" name="e-recur-end" id="e-recur-end-count" value="count" checked
-                  onchange="onEntryRecurEndChange()">
+                  data-plev-86="1">
                 <span data-i18n="pl_recurAfter">After</span>
                 <input type="number" id="e-recur-count" class="field-input" min="1" max="365" value="5"
                   style="width:55px">
@@ -624,7 +624,7 @@
               </label>
               <label style="display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:600;cursor:pointer">
                 <input type="radio" name="e-recur-end" id="e-recur-end-until" value="until"
-                  onchange="onEntryRecurEndChange()">
+                  data-plev-87="1">
                 <span data-i18n="pl_recurUntil">Until</span>
                 <input type="date" id="e-recur-until" class="field-input" style="flex:1;min-width:120px">
               </label>
@@ -634,7 +634,7 @@
         <div class="field-row">
           <div class="field-group" style="flex:1">
             <label data-i18n="pl_entryType">Type</label>
-            <select id="e-type" class="field-select" onchange="onEntryTypeChange()">
+            <select id="e-type" class="field-select" data-plev-88="1">
               <option value="lesson" data-i18n="pl_typeLesson">Lesson</option>
               <option value="test" data-i18n="pl_typeTest">Test</option>
               <option value="assignment" data-i18n="pl_typeAssignment">Assignment Due</option>
@@ -674,7 +674,7 @@
         <div id="e-content-fields" style="display:flex;flex-direction:column;gap:13px">
           <div class="field-group">
             <label data-i18n="pl_entryObjective">Objective</label>
-            <select id="e-obj-sel" class="field-select" onchange="onObjSelChange()">
+            <select id="e-obj-sel" class="field-select" data-plev-89="1">
               <option value="">—</option>
               <option value="__other__" data-i18n="pl_objectiveOther">Other / custom</option>
             </select>
@@ -692,91 +692,91 @@
       </div>
       <div class="modal-footer">
         <button class="danger-btn" id="del-entry-btn" style="display:none;margin-right:auto"
-           onclick="deleteCurrentEntry()" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
-        <button class="tb-btn" id="links-entry-btn" style="display:none" onclick="plannerOpenLinksModalFromEntryModal()"
+           data-plev-90="1" data-i18n="pl_btnDeleteEntry">Delete Entry</button>
+        <button class="tb-btn" id="links-entry-btn" style="display:none" data-plev-91="1"
           data-i18n="pl_linksAndTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="pl_linksAndTags">[LINKS & TAGS]</span></button>
-        <button class="tb-btn" id="gs-entry-btn" style="display:none" onclick="plannerOpenGradeSheetModalAction()"
+        <button class="tb-btn" id="gs-entry-btn" style="display:none" data-plev-92="1"
           data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
-        <button class="tb-btn" id="cm-entry-btn" style="display:none" onclick="plannerOpenClassManagementModalAction()"
+        <button class="tb-btn" id="cm-entry-btn" style="display:none" data-plev-93="1"
           data-i18n="pl_openClassManagement">Open in Class Management</button>
-        <button class="tb-btn" id="lp-entry-btn" style="display:none" onclick="plannerLessonPlanEntryModalAction()"
+        <button class="tb-btn" id="lp-entry-btn" style="display:none" data-plev-94="1"
           data-i18n="pl_createLessonPlan">Create Lesson Plan</button>
-        <button class="tb-btn" id="board-entry-btn" style="display:none" onclick="plannerBoardEntryAction()"
+        <button class="tb-btn" id="board-entry-btn" style="display:none" data-plev-95="1"
           data-i18n="pl_boardCreate">Create board file</button>
-        <button class="tb-btn" id="board-link-entry-btn" style="display:none" onclick="plannerBoardLinkPickerModalAction()"
+        <button class="tb-btn" id="board-link-entry-btn" style="display:none" data-plev-96="1"
           data-i18n="pl_linkBoardFile">Link Existing Board File…</button>
-        <button class="tb-btn" id="dup-entry-btn" style="display:none" onclick="duplicateCurrentEntry()"
+        <button class="tb-btn" id="dup-entry-btn" style="display:none" data-plev-97="1"
           data-i18n="pl_btnDuplicate">Duplicate</button>
-        <button class="tb-btn" onclick="closeModal('entryModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="commitEntry()" data-i18n="pl_btnSaveEntry">Save Entry</button>
+        <button class="tb-btn" data-plev-98="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-99="1" data-i18n="pl_btnSaveEntry">Save Entry</button>
       </div>
     </div>
   </div>
 
-  <div id="planner-board-menu" class="planner-board-menu" onclick="event.stopPropagation()">
-    <button type="button" id="planner-links-menu-btn" onclick="plannerOpenLinksModalAction()"
+  <div id="planner-board-menu" class="planner-board-menu" data-plev-100="1">
+    <button type="button" id="planner-links-menu-btn" data-plev-101="1"
       data-i18n="pl_linksAndTags"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="pl_linksAndTags">[LINKS & TAGS]</span></button>
-    <button type="button" id="planner-open-doc-menu-btn" onclick="plannerOpenLinkedDocAction()" style="display:none;"
+    <button type="button" id="planner-open-doc-menu-btn" data-plev-102="1" style="display:none;"
       data-i18n="pl_openLinkedDoc">Open Linked Document</button>
-    <button type="button" id="planner-open-file-menu-btn" onclick="plannerOpenLinkedFileAction()" style="display:none;"
+    <button type="button" id="planner-open-file-menu-btn" data-plev-103="1" style="display:none;"
       data-i18n="pl_openLinkedFile">Open Linked File</button>
-    <button type="button" id="planner-gs-menu-btn" onclick="plannerOpenGradeSheetAction()" style="display:none;"
+    <button type="button" id="planner-gs-menu-btn" data-plev-104="1" style="display:none;"
       data-i18n="pl_openGradeSheet">Open in Grade Sheet</button>
-    <button type="button" id="planner-cm-menu-btn" onclick="plannerOpenClassManagementAction()"
+    <button type="button" id="planner-cm-menu-btn" data-plev-105="1"
       data-i18n="pl_openClassManagement">Open in Class Management</button>
-    <button type="button" id="planner-lp-menu-btn" onclick="plannerLessonPlanEntryAction()"
+    <button type="button" id="planner-lp-menu-btn" data-plev-106="1"
       data-i18n="pl_createLessonPlan">Create Lesson Plan</button>
-    <button type="button" id="planner-lp-link-btn" onclick="plannerLessonPlanLinkPickerAction()"
+    <button type="button" id="planner-lp-link-btn" data-plev-107="1"
       data-i18n="pl_linkLessonPlan">Link Existing Lesson Plan…</button>
-    <button type="button" id="planner-lp-unlink-btn" onclick="plannerLessonPlanUnlinkAction()" style="display:none;"
+    <button type="button" id="planner-lp-unlink-btn" data-plev-108="1" style="display:none;"
       data-i18n="pl_unlinkLessonPlan">Unlink Lesson Plan</button>
-    <button type="button" id="planner-lp-delete-btn" onclick="plannerLessonPlanDeleteAction()" style="display:none;color:#ef4444;"
+    <button type="button" id="planner-lp-delete-btn" data-plev-109="1" style="display:none;color:#ef4444;"
       data-i18n="pl_deleteLessonPlan">Delete Lesson Plan</button>
-    <button type="button" id="planner-board-menu-btn" onclick="plannerBoardEntryAction()"
+    <button type="button" id="planner-board-menu-btn" data-plev-110="1"
       data-i18n="pl_boardCreate">Create board file</button>
-    <button type="button" id="planner-board-link-btn" onclick="plannerBoardLinkPickerAction()"
+    <button type="button" id="planner-board-link-btn" data-plev-111="1"
       data-i18n="pl_linkBoardFile">Link Existing Board File…</button>
-    <button type="button" id="planner-board-unlink-btn" onclick="plannerBoardUnlinkAction()" style="display:none;"
+    <button type="button" id="planner-board-unlink-btn" data-plev-112="1" style="display:none;"
       data-i18n="pl_unlinkBoardFile">Unlink Board File</button>
   </div>
 
   <!-- ════ BOARD FILE LINK MODAL ════ -->
-  <div class="modal-overlay" id="boardLinkModal" onclick="if(event.target===this)closeModal('boardLinkModal')">
-    <div class="modal-box" style="max-width:480px;width:480px" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="boardLinkModal" data-plev-113="1">
+    <div class="modal-box" style="max-width:480px;width:480px" data-plev-114="1">
       <div class="modal-header">
         <h2 id="board-link-modal-title" data-i18n="pl_linkBoardFile">Link Existing Board File…</h2>
-        <button class="modal-close" onclick="closeModal('boardLinkModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-115="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
         <div id="board-link-slot-info" style="font-size:0.84rem;color:#333;background:#f5f5f0;padding:8px 12px;border-radius:6px;border:1.5px solid #333;"></div>
         <div class="field-group">
           <label data-i18n="pl_batchApplyBoardFilePrompt">Select saved Board file (.cstz) to link</label>
-          <select id="board-link-file-select" class="field-select" onchange="onBoardLinkFileSelectChange()"></select>
+          <select id="board-link-file-select" class="field-select" data-plev-116="1"></select>
         </div>
         <div id="board-link-multi-slots-section" class="field-group" style="display:none;">
           <label data-i18n="pl_boardLinkedSlots">Planner slots linked to this Board file</label>
           <div id="board-link-multi-slots-list" style="max-height:180px;overflow-y:auto;border:1.5px solid #333;border-radius:6px;background:#fafaf7;padding:6px;display:flex;flex-direction:column;gap:4px;"></div>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="tb-btn" onclick="boardLinkCreateNewAction()" data-i18n="pl_boardCreate">+ Create board file</button>
+          <button type="button" class="tb-btn" data-plev-117="1" data-i18n="pl_boardCreate">+ Create board file</button>
           <div style="display:flex;gap:6px;">
-            <button type="button" class="tb-btn" id="board-unlink-btn" style="display:none" onclick="boardLinkUnlinkAction()" data-i18n="pl_unlinkBoardFile">Unlink</button>
+            <button type="button" class="tb-btn" id="board-unlink-btn" style="display:none" data-plev-118="1" data-i18n="pl_unlinkBoardFile">Unlink</button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="closeModal('boardLinkModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="boardLinkConfirmAction()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-119="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-120="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ LESSON PLAN LINK MODAL ════ -->
-  <div class="modal-overlay" id="lpLinkModal" onclick="if(event.target===this)closeModal('lpLinkModal')">
-    <div class="modal-box" style="max-width:440px;width:440px" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="lpLinkModal" data-plev-121="1">
+    <div class="modal-box" style="max-width:440px;width:440px" data-plev-122="1">
       <div class="modal-header">
         <h2 id="lp-link-modal-title" data-i18n="pl_linkLessonPlan">Link Existing Lesson Plan…</h2>
-        <button class="modal-close" onclick="closeModal('lpLinkModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-123="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:12px">
         <div id="lp-link-slot-info" style="font-size:0.84rem;color:#444;background:#f8fafc;padding:8px 12px;border-radius:6px;border:1px solid #e2e8f0;"></div>
@@ -785,59 +785,59 @@
           <select id="lp-link-plan-select" class="field-select"></select>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:8px;flex-wrap:wrap;">
-          <button type="button" class="tb-btn" onclick="lpLinkCreateNewAction()" data-i18n="pl_createLessonPlan">+ Create New Plan</button>
+          <button type="button" class="tb-btn" data-plev-124="1" data-i18n="pl_createLessonPlan">+ Create New Plan</button>
           <div style="display:flex;gap:6px;">
-            <button type="button" class="tb-btn" id="lp-unlink-btn" style="display:none" onclick="lpLinkUnlinkAction()" data-i18n="pl_unlinkLessonPlan">Unlink</button>
-            <button type="button" class="danger-btn" id="lp-delete-btn" style="display:none" onclick="lpLinkDeleteAction()" data-i18n="pl_deleteLessonPlan">Delete Plan</button>
+            <button type="button" class="tb-btn" id="lp-unlink-btn" style="display:none" data-plev-125="1" data-i18n="pl_unlinkLessonPlan">Unlink</button>
+            <button type="button" class="danger-btn" id="lp-delete-btn" style="display:none" data-plev-126="1" data-i18n="pl_deleteLessonPlan">Delete Plan</button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="closeModal('lpLinkModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="lpLinkConfirmAction()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-127="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-128="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ CONFIRM MODAL ════ -->
-  <div class="modal-overlay" id="confirmModal" onclick="if(event.target===this)resolveConfirm(false)">
-    <div class="modal-box" style="width:400px" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="confirmModal" data-plev-129="1">
+    <div class="modal-box" style="width:400px" data-plev-130="1">
       <div class="modal-body" style="padding:22px 20px 14px">
         <p id="confirm-msg" style="font-size:.88rem;line-height:1.6;white-space:pre-wrap"></p>
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="resolveConfirm(false)" data-i18n="btnCancel">Cancel</button>
-        <button class="danger-btn" onclick="resolveConfirm(true)" id="confirm-ok" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-131="1" data-i18n="btnCancel">Cancel</button>
+        <button class="danger-btn" data-plev-132="1" id="confirm-ok" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ RECURRENCE SCOPE MODAL ════ -->
-  <div class="modal-overlay" id="recurScopeModal" style="display:none" onclick="cancelRecurScope()">
-    <div class="modal-box" style="max-width:360px;width:360px" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="recurScopeModal" style="display:none" data-plev-133="1">
+    <div class="modal-box" style="max-width:360px;width:360px" data-plev-134="1">
       <div class="modal-header">
         <h2 id="recur-scope-title" data-i18n="pl_recurScopeTitle">Edit recurring entry</h2>
       </div>
       <div class="modal-body" style="padding:14px;display:flex;flex-direction:column;gap:8px">
-        <button class="recur-scope-btn" onclick="applyRecurScope('this')"><span data-i18n="pl_recurScopeThis">This
+        <button class="recur-scope-btn" data-plev-135="1"><span data-i18n="pl_recurScopeThis">This
             occurrence only</span></button>
-        <button class="recur-scope-btn" onclick="applyRecurScope('all')"><span data-i18n="pl_recurScopeAll">All
+        <button class="recur-scope-btn" data-plev-136="1"><span data-i18n="pl_recurScopeAll">All
             occurrences</span></button>
-        <button class="recur-scope-btn" onclick="applyRecurScope('future')"><span data-i18n="pl_recurScopeFuture">This
+        <button class="recur-scope-btn" data-plev-137="1"><span data-i18n="pl_recurScopeFuture">This
             and future occurrences</span></button>
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="cancelRecurScope()" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn" data-plev-138="1" data-i18n="btnCancel">Cancel</button>
       </div>
     </div>
   </div>
 
   <!-- ════ EXPORT MODAL ════ -->
-  <div class="modal-overlay" id="exportModal" onclick="if(event.target===this)closeModal('exportModal')">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="exportModal" data-plev-139="1">
+    <div class="modal-box" data-plev-140="1">
       <div class="modal-header">
         <h2 data-i18n="pl_exportTitle">Export Planner</h2>
-        <button class="modal-close" onclick="closeModal('exportModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-141="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="field-group">
@@ -893,7 +893,7 @@
         <div class="field-group">
           <div class="modal-section-label" style="display:flex;align-items:center;justify-content:space-between">
             <span data-i18n="pl_exportElementStyles">Element Styling Options</span>
-            <button class="tb-btn small" type="button" onclick="resetExportStyles()" style="font-size:0.7rem;padding:2px 6px">Reset Styles</button>
+            <button class="tb-btn small" type="button" data-plev-142="1" style="font-size:0.7rem;padding:2px 6px">Reset Styles</button>
           </div>
           <div class="exp-style-accordion" id="exp-style-accordion"></div>
         </div>
@@ -907,27 +907,27 @@
           </div>
         </div>
         <div class="export-grid">
-          <button class="export-card" onclick="doExportIcs()">
+          <button class="export-card" data-plev-143="1">
             <span class="ec-icon"></span>
             <span class="ec-label" data-i18n="pl_exportIcsLabel">ICS Calendar</span>
             <span class="ec-desc" data-i18n="pl_exportIcsDesc">Import into Google / Apple Calendar (.ics)</span>
           </button>
-          <button class="export-card" onclick="doExportHtml()">
+          <button class="export-card" data-plev-144="1">
             <span class="ec-icon"></span>
             <span class="ec-label" data-i18n="pl_exportMdLabel">HTML Table</span>
             <span class="ec-desc" data-i18n="pl_exportMdDesc">Structured HTML table document (.html)</span>
           </button>
-          <button class="export-card" onclick="doExportCsv()">
+          <button class="export-card" data-plev-145="1">
             <span class="ec-icon"></span>
             <span class="ec-label" data-i18n="pl_exportCsvLabel">CSV Table</span>
             <span class="ec-desc" data-i18n="pl_exportCsvDesc">Spreadsheet-ready data (.csv)</span>
           </button>
-          <button class="export-card" onclick="doExportPdf()">
+          <button class="export-card" data-plev-146="1">
             <span class="ec-icon"></span>
             <span class="ec-label" data-i18n="pl_exportPdfLabel">PDF</span>
             <span class="ec-desc" data-i18n="pl_exportPdfDesc">Print-ready document (.pdf)</span>
           </button>
-          <button class="export-card" onclick="doExportDocx()">
+          <button class="export-card" data-plev-147="1">
             <span class="ec-icon"></span>
             <span class="ec-label" data-i18n="pl_exportDocxLabel">DOCX</span>
             <span class="ec-desc" data-i18n="pl_exportDocxDesc">Editable Word document (.docx)</span>
@@ -935,8 +935,8 @@
         </div>
       </div>
       <div class="modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
-        <button class="tb-btn" onclick="closeModal('exportModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn" type="button" onclick="openPlannerPreviewModal()" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#fff;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;cursor:pointer;">
+        <button class="tb-btn" data-plev-148="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn" type="button" data-plev-149="1" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#fff;border:2px solid #333;border-radius:6px;box-shadow:2px 2px 0 #555;cursor:pointer;">
           <img src="../assets/icons/eye.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
           <span data-i18n="exportPreviewBtn">Live Preview</span>
         </button>
@@ -954,15 +954,15 @@
         </div>
         <div style="display:flex;align-items:center;gap:8px;">
           <div id="pl-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
-          <button type="button" class="tb-btn" onclick="plOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+          <button type="button" class="tb-btn" data-plev-150="1" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
             <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
             <span data-i18n="tcPreviewOpenExternal">Open in System Browser</span>
           </button>
-          <button type="button" class="tb-btn" onclick="plPrintPreviewIframe()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+          <button type="button" class="tb-btn" data-plev-151="1" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
             <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
             <span data-i18n="btnPrint">Print</span>
           </button>
-          <button class="modal-close" onclick="closePlannerPreviewModal()" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+          <button class="modal-close" data-plev-152="1" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
         </div>
       </div>
       <div style="font-size:0.76rem;color:#555;font-weight:700;margin-bottom:8px;" data-i18n="exportLivePreviewModalSub">
@@ -972,16 +972,16 @@
         <iframe id="plPreviewIframe" style="width:100%;height:100%;border:none;background:#fff;" title="Planner Preview"></iframe>
       </div>
       <div class="modal-footer" style="margin-top:12px;border-top:2px solid #222;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
-        <button type="button" class="tb-btn" onclick="closePlannerPreviewModal()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
+        <button type="button" class="tb-btn" data-plev-153="1" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
           <img src="../assets/icons/arrow-left.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
           <span data-i18n="tcPreviewBackBtn">Back to Options</span>
         </button>
         <div style="display:flex;gap:8px;align-items:center;">
-          <button type="button" class="tb-btn" onclick="doExportHtmlFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #555;">
+          <button type="button" class="tb-btn" data-plev-154="1" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #555;">
             <img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
             <span data-i18n="pl_exportMdLabel">HTML Table</span>
           </button>
-          <button type="button" class="tb-btn primary" onclick="doExportPdfFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
+          <button type="button" class="tb-btn primary" data-plev-155="1" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
             <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
             <span data-i18n="pl_exportPdfLabel">PDF</span>
           </button>
@@ -991,39 +991,39 @@
   </div>
 
   <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
-  <div class="modal-overlay" id="pdfExportModal" onclick="if(event.target===this)closePdfExportModal(null)">
-    <div class="modal-box" style="max-width:420px;width:420px" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="pdfExportModal" data-plev-156="1">
+    <div class="modal-box" style="max-width:420px;width:420px" data-plev-157="1">
       <div class="modal-header">
         <h2 id="pdf-export-modal-title" data-i18n="deExportPdfDestinationTitle">Export PDF</h2>
-        <button class="modal-close" onclick="closePdfExportModal(null)"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-158="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body" style="padding:16px;display:flex;flex-direction:column;gap:10px">
         <p id="pdf-export-modal-text" style="margin:0 0 4px;font-size:0.92rem;line-height:1.4;color:var(--text-color, #333);" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</p>
-        <button class="tb-btn primary" id="btn-pdf-export-to-print" onclick="closePdfExportModal('to-print')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
-        <button class="tb-btn" id="btn-pdf-export-picker" onclick="closePdfExportModal('picker')" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
+        <button class="tb-btn primary" id="btn-pdf-export-to-print" data-plev-159="1" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
+        <button class="tb-btn" id="btn-pdf-export-picker" data-plev-160="1" style="padding:10px 14px;justify-content:center;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
       </div>
       <div class="modal-footer" style="padding:12px 16px;">
-        <button class="tb-btn" onclick="closePdfExportModal(null)" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn" data-plev-161="1" data-i18n="btnCancel">Cancel</button>
       </div>
     </div>
   </div>
 
   <!-- ════ ICS IMPORT MODAL ════ -->
-  <div class="modal-overlay" id="icsImportModal" onclick="if(event.target===this)closeModal('icsImportModal')">
-    <div class="modal-box wide" onclick="event.stopPropagation()" style="width:700px">
+  <div class="modal-overlay" id="icsImportModal" data-plev-162="1">
+    <div class="modal-box wide" data-plev-163="1" style="width:700px">
       <div class="modal-header">
         <h2 data-i18n="pl_icsImpTitle">Import ICS</h2>
-        <button class="modal-close" onclick="closeModal('icsImportModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-164="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="field-row">
           <div class="field-group" style="flex:2">
             <label data-i18n="pl_icsImpClass">Assign to class</label>
-            <select id="ics-imp-class" class="field-select" onchange="onIcsClassChange()">
+            <select id="ics-imp-class" class="field-select" data-plev-165="1">
               <option value="">—</option>
             </select>
             <input type="text" id="ics-new-class-input" class="field-input" style="margin-top:6px;display:none"
-              data-i18n-placeholder="pl_icsImpNewClassPlaceholder" oninput="renderIcsPreview()">
+              data-i18n-placeholder="pl_icsImpNewClassPlaceholder" data-plev-166="1">
           </div>
           <div class="field-group" style="flex:1">
             <label data-i18n="pl_icsImpType">Default type</label>
@@ -1037,16 +1037,16 @@
         </div>
         <div class="field-group">
           <label data-i18n="pl_icsImpFile">ICS file</label>
-          <input type="file" id="ics-imp-file" accept=".ics,.ical" onchange="onIcsFileChange()"
+          <input type="file" id="ics-imp-file" accept=".ics,.ical" data-plev-167="1"
             style="padding:6px 0;font-size:.82rem;width:100%;cursor:pointer">
         </div>
         <div id="ics-preview" style="display:none">
           <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
             <div style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#222;flex:1"
               data-i18n="pl_icsImpInSem">In active term</div>
-            <button class="add-link" onclick="icsSelectAll(true,'in')" data-i18n="pl_icsSelectAll">All</button>
+            <button class="add-link" data-plev-168="1" data-i18n="pl_icsSelectAll">All</button>
             <span style="color:#bbb;font-size:.8rem">/</span>
-            <button class="add-link" onclick="icsSelectAll(false,'in')" data-i18n="pl_icsSelectNone">None</button>
+            <button class="add-link" data-plev-169="1" data-i18n="pl_icsSelectNone">None</button>
           </div>
           <div style="border-bottom:2px solid #bbb;margin-bottom:4px"></div>
           <div id="ics-preview-in" style="max-height:240px;overflow-y:auto;border:1.5px solid #ccc;border-radius:4px">
@@ -1056,9 +1056,9 @@
               <div
                 style="font-size:.7rem;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:#222;flex:1"
                 data-i18n="pl_icsImpOutSem">Outside active term</div>
-              <button class="add-link" onclick="icsSelectAll(true,'out')" data-i18n="pl_icsSelectAll">All</button>
+              <button class="add-link" data-plev-170="1" data-i18n="pl_icsSelectAll">All</button>
               <span style="color:#bbb;font-size:.8rem">/</span>
-              <button class="add-link" onclick="icsSelectAll(false,'out')" data-i18n="pl_icsSelectNone">None</button>
+              <button class="add-link" data-plev-171="1" data-i18n="pl_icsSelectNone">None</button>
             </div>
             <div style="border-bottom:2px solid #bbb;margin-bottom:4px"></div>
             <p style="font-size:.75rem;color:#888;font-weight:600;margin-bottom:4px" data-i18n="pl_icsImpOutSemNote">
@@ -1070,48 +1070,48 @@
       </div>
       <div class="modal-footer">
         <span id="ics-parse-status" style="font-size:.75rem;color:#666;font-weight:700;margin-right:auto"></span>
-        <button class="tb-btn" onclick="closeModal('icsImportModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" id="ics-import-btn" onclick="doImportIcs()" style="display:none"
+        <button class="tb-btn" data-plev-172="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" id="ics-import-btn" data-plev-173="1" style="display:none"
           data-i18n="pl_icsImpBtnConfirm">Import Selected</button>
       </div>
     </div>
   </div>
 
   <!-- ════ CUSTOM FIELDS MODAL ════ -->
-  <div class="modal-overlay" id="fieldsModal" onclick="if(event.target===this)closeModal('fieldsModal')">
-    <div class="modal-box" onclick="event.stopPropagation()">
+  <div class="modal-overlay" id="fieldsModal" data-plev-174="1">
+    <div class="modal-box" data-plev-175="1">
       <div class="modal-header">
         <h2 data-i18n="pl_customFieldsTitle">Custom Fields</h2>
-        <button class="modal-close" onclick="closeModal('fieldsModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-176="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <div class="modal-section-label" data-i18n="pl_customFieldsTitle">Custom Fields</div>
         <p style="font-size:.8rem;color:#555;font-weight:600;margin-top:4px" data-i18n="pl_customFieldsHint">These extra
           fields appear on every entry.</p>
         <div class="list-items" id="fields-list" style="margin-top:6px"></div>
-        <button class="add-link" onclick="addCustomFieldRow()" data-i18n="pl_addCustomField">+ Add Field</button>
+        <button class="add-link" data-plev-177="1" data-i18n="pl_addCustomField">+ Add Field</button>
         <div class="modal-section-label" style="margin-top:14px" data-i18n="pl_customTypesTitle">Custom Types</div>
         <p style="font-size:.8rem;color:#555;font-weight:600;margin-top:4px" data-i18n="pl_customTypesHint">Add entry
           types beyond the built-in ones.</p>
         <div class="list-items" id="types-list" style="margin-top:6px"></div>
-        <button class="add-link" onclick="addCustomTypeRow()" data-i18n="pl_addCustomType">+ Add Type</button>
+        <button class="add-link" data-plev-178="1" data-i18n="pl_addCustomType">+ Add Type</button>
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="closeModal('fieldsModal')" data-i18n="btnCancel">Cancel</button>
-        <button class="tb-btn primary" onclick="saveCustomFields()" data-i18n="btnOk">OK</button>
+        <button class="tb-btn" data-plev-179="1" data-i18n="btnCancel">Cancel</button>
+        <button class="tb-btn primary" data-plev-180="1" data-i18n="btnOk">OK</button>
       </div>
     </div>
   </div>
 
   <!-- ════ CALENDAR SUBSCRIPTIONS MODAL ════ -->
-  <div class="modal-overlay" id="subscriptionsModal" onclick="if(event.target===this)closeModal('subscriptionsModal')">
-    <div class="modal-box wide" onclick="event.stopPropagation()" style="width:740px;max-width:95vw;">
+  <div class="modal-overlay" id="subscriptionsModal" data-plev-181="1">
+    <div class="modal-box wide" data-plev-182="1" style="width:740px;max-width:95vw;">
       <div class="modal-header">
         <div style="display:flex;align-items:center;gap:8px;">
           <img src="../assets/icons/feed.svg" class="btn-icon" style="width:12px;height:12px;" alt="" />
           <h2 data-i18n="pl_subModalTitle">Calendar Subscriptions (Google / iCal)</h2>
         </div>
-        <button class="modal-close" onclick="closeModal('subscriptionsModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-183="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body">
         <!-- Add / Edit Subscription Form -->
@@ -1158,8 +1158,8 @@
               </label>
             </div>
             <div style="display:flex;gap:6px;">
-              <button class="tb-btn" id="sub-cancel-edit-btn" onclick="resetSubscriptionForm()" style="display:none;" data-i18n="btnCancel">Cancel</button>
-              <button class="tb-btn primary" id="sub-save-btn" onclick="saveSubscriptionForm()"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> <span id="sub-save-btn-text" data-i18n="pl_subBtnAdd">+ Add Subscription</span></button>
+              <button class="tb-btn" id="sub-cancel-edit-btn" data-plev-184="1" style="display:none;" data-i18n="btnCancel">Cancel</button>
+              <button class="tb-btn primary" id="sub-save-btn" data-plev-185="1"><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> <span id="sub-save-btn-text" data-i18n="pl_subBtnAdd">+ Add Subscription</span></button>
             </div>
           </div>
         </div>
@@ -1168,34 +1168,34 @@
         <div style="margin-top:16px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
             <div style="font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#475569;" data-i18n="pl_btnSubscriptions">Active Subscriptions</div>
-            <button class="tb-btn" id="sub-sync-all-btn" onclick="syncAllSubscriptions(false)" style="padding:4px 8px;font-size:.74rem;"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subSyncAll">Sync All Feeds</span></button>
+            <button class="tb-btn" id="sub-sync-all-btn" data-plev-186="1" style="padding:4px 8px;font-size:.74rem;"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subSyncAll">Sync All Feeds</span></button>
           </div>
           <div class="feed-list" id="sub-feed-list"></div>
         </div>
       </div>
       <div class="modal-footer">
         <span id="sub-global-status" style="font-size:.75rem;font-weight:700;color:#64748b;margin-right:auto;"></span>
-        <button class="tb-btn" onclick="closeModal('subscriptionsModal')" data-i18n="exportCloseBtn">Close</button>
+        <button class="tb-btn" data-plev-187="1" data-i18n="exportCloseBtn">Close</button>
       </div>
     </div>
   </div>
 
   <!-- ════ SUBSCRIBED EVENT DETAIL MODAL ════ -->
-  <div class="modal-overlay" id="subscribedEventModal" onclick="if(event.target===this)closeModal('subscribedEventModal')">
-    <div class="modal-box" onclick="event.stopPropagation()" style="width:520px;max-width:92vw;">
+  <div class="modal-overlay" id="subscribedEventModal" data-plev-188="1">
+    <div class="modal-box" data-plev-189="1" style="width:520px;max-width:92vw;">
       <div class="modal-header">
         <div style="display:flex;align-items:center;gap:8px;">
           <img src="../assets/icons/feed.svg" class="btn-icon" style="width:18px;height:18px;" alt="" />
           <h2 data-i18n="pl_subEventDetailTitle">Calendar Event Details</h2>
         </div>
-        <button class="modal-close" onclick="closeModal('subscribedEventModal')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <button class="modal-close" data-plev-190="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div class="modal-body" id="sub-event-modal-body" style="font-size:.85rem;line-height:1.5;">
         <!-- Filled dynamically -->
       </div>
       <div class="modal-footer">
-        <button class="tb-btn" onclick="closeModal('subscribedEventModal')" data-i18n="exportCloseBtn">Close</button>
-        <button class="tb-btn primary" id="sub-event-convert-btn" onclick="convertCurrentSubscribedToLocal()"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subConvertToLocal">Convert to Local Planner Entry</span></button>
+        <button class="tb-btn" data-plev-191="1" data-i18n="exportCloseBtn">Close</button>
+        <button class="tb-btn primary" id="sub-event-convert-btn" data-plev-192="1"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="pl_subConvertToLocal">Convert to Local Planner Entry</span></button>
       </div>
     </div>
   </div>
@@ -3177,10 +3177,10 @@
       var maxTags = 3;
       for (var ti = 0; ti < Math.min(tags.length, maxTags); ti++) {
         var tg = tags[ti];
-        html += '<span class="planner-tag-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="Tag: ' + esc(tg) + '">[' + esc(tg) + ']</span>';
+        html += '<span class="planner-tag-badge" data-pl-action="open-entry-links" data-pl-entry="' + esc(entry.id) + '" title="Tag: ' + esc(tg) + '">[' + esc(tg) + ']</span>';
       }
       if (tags.length > maxTags) {
-        html += '<span class="planner-tag-badge" onclick="event.stopPropagation();openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(tags.slice(maxTags).join(', ')) + '">[+' + (tags.length - maxTags) + ']</span>';
+        html += '<span class="planner-tag-badge" data-pl-action="open-entry-links" data-pl-entry="' + esc(entry.id) + '" title="' + esc(tags.slice(maxTags).join(', ')) + '">[+' + (tags.length - maxTags) + ']</span>';
       }
 
       html += '</span>';
@@ -3776,7 +3776,7 @@
           html += '<div class="week-group' + (isCollapsed ? ' collapsed' : '') + (isPast ? ' week-past' : '') + '" data-week="' + (weekNum != null ? weekNum : '') + '">';
           if (weekNum !== null) {
             var weekLabel = totalWeeks > 0 ? tFmt('pl_weekLabel', { n: weekNum, total: totalWeeks }) : ('Week ' + weekNum);
-            html += '<div class="week-header' + (isPast ? ' week-hdr-past' : '') + '" id="week-hdr-' + weekNum + '" data-week="' + weekNum + '" onclick="togglePlannerWeek(this, event)">' +
+            html += '<div class="week-header' + (isPast ? ' week-hdr-past' : '') + '" id="week-hdr-' + weekNum + '" data-week="' + weekNum + '" data-pl-action="toggle-week">' +
               '<span class="week-hdr-title">' + esc(weekLabel) + '</span>' +
               '</div>';
           }
@@ -3835,13 +3835,11 @@
       var timeLabel = s.time || '';
       if (s.timeEnd) timeLabel += '–' + s.timeEnd;
       var isSelected = entry && selectedEntryIds.has(entry.id);
-      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSubscribed ? ' entry-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' + (isSubscribed ? '' : ' draggable="true"') : '') + ' style="--cls-color:' + color + '" onclick="rowClick(event,\'' +
-        esc(s.classId) + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' +
-        esc(s.timeEnd || '') + '\',\'' + (entry ? entry.id : '') + '\')">';
+      var r = '<div class="entry-row' + (isNoclass ? ' entry-noclass' : '') + (isSubscribed ? ' entry-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-date="' + esc(s.date) + '" data-classid="' + esc(s.classId || '') + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' + (isSubscribed ? '' : ' draggable="true"') : '') + ' style="--cls-color:' + color + '" data-pl-action="row-click">';
       r += '<div class="entry-color-bar"></div>';
       if (entry && !isSubscribed) r += '<span class="drag-handle" title="Drag to copy content" draggable="false">&#8942;</span>';
       if (multiSelectMode && entry) {
-        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' data-pl-action="toggle-select" data-pl-entry="' + esc(entry.id) + '">';
       }
       r += '<div class="entry-content">';
       r += '<div class="entry-inner">';
@@ -3873,13 +3871,13 @@
       }
       if (showDot) r += '<span class="part-dot" title="' + esc(t('pl_missingPart')) + '"></span>';
       if (viewOpts.linkedBadges) {
-        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
         var _lpLink = plannerLessonPlanForSlot(s, entry);
         if (_lpLink && _lpLink.plan) {
           var _lp = _lpLink.plan;
           var _lpTitle = t('pl_lessonPlanLinked') + ': ' + (_lp.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
           var _lpDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lp.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-          r += '<span class="lesson-plan-badge"' + _lpDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lp.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+          r += '<span class="lesson-plan-badge"' + _lpDragAttr + ' data-pl-action="open-lp" data-pl-plan="' + esc(_lp.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="' + esc(entry ? entry.id : '') + '" data-pl-topic="' + esc(entry && entry.topic ? entry.topic : '') + '" title="' + esc(_lpTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
         }
         var _boardLink = plannerBoardSessionsForSlot(s, entry);
         var _bSess = _boardLink.sessions;
@@ -3887,28 +3885,28 @@
           var _bLatest = _bSess.slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
           var _bTitle = t('pl_boardLinked') + (_bSess.length > 1 ? ' (' + _bSess.length + ')' : '') + ': ' + _bLatest.name + ' (Click to open · Drag to link to another slot)';
           var _bDragAttr = _bLatest.relativePath ? (' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bLatest.relativePath) + '" data-board-name="' + esc(_bLatest.name || '') + '" data-entry-id="' + esc(_boardLink.linkId) + '"') : '';
-          r += '<span class="board-session-badge"' + _bDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
+          r += '<span class="board-session-badge"' + _bDragAttr + ' data-pl-action="open-board" data-pl-linkid="' + esc(_boardLink.linkId) + '" title="' + esc(_bTitle) + '">' + esc(t('pl_boardOpen')) + '</span>';
         }
         r += buildPlannerEntryLinkBadgesHtml(entry);
       }
-      r += '<div class="entry-actions" onclick="event.stopPropagation()">';
+      r += '<div class="entry-actions" data-pl-stop="1">';
       if (entry) {
         if (isSubscribed) {
-          r += '<button class="entry-btn" onclick="openSubscribedEventModal(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_subEventDetailTitle')) + '"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /></button>';
+          r += '<button class="entry-btn" data-pl-action="open-sub-event" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_subEventDetailTitle')) + '"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /></button>';
         } else {
           var isPinned = plannerPins.some(function(p) {
             return p.type === 'planner-entry' && p.entryId === entry.id;
           });
           var pinTitle = isPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
           var pinIcon = '<img src="../assets/icons/pin.svg" class="btn-icon" width="12" height="12" alt="" />';
-          r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" onclick="toggleEntryPin(event, \'' + esc(entry.id) + '\', \'' + esc(s.classId) + '\', \'' + esc(s.date) + '\', \'' + esc(s.time || '') + '\', \'' + esc(s.timeEnd || '') + '\')" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
+          r += '<button class="entry-btn ' + (isPinned ? 'pinned' : '') + '" data-pl-action="toggle-pin" data-pl-entry="' + esc(entry.id) + '" data-pl-class="' + esc(s.classId) + '" data-pl-date="' + esc(s.date) + '" data-pl-time="' + esc(s.time || '') + '" data-pl-timeend="' + esc(s.timeEnd || '') + '" title="' + esc(pinTitle) + '">' + pinIcon + '</button>';
           var _linkCount = plannerEntryLinkCount(entry);
-          r += '<button class="entry-btn planner-links-btn' + (_linkCount > 0 ? ' has-links' : '') + '" onclick="openPlannerEntryLinks(\'' + esc(entry.id) + '\', event)" title="' + esc(t('pl_linksAndTags')) + '"><img src="../assets/icons/links.svg" class="btn-icon" width="16" height="16" alt="" />' + (_linkCount > 0 ? '<span class="planner-links-count">' + _linkCount + '</span>' : '') + '</button>';
-          r += '<button class="entry-btn" onclick="openEditEntry(\'' + esc(entry.id) + '\')" title="Edit">✏</button>';
+          r += '<button class="entry-btn planner-links-btn' + (_linkCount > 0 ? ' has-links' : '') + '" data-pl-action="open-entry-links" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_linksAndTags')) + '"><img src="../assets/icons/links.svg" class="btn-icon" width="16" height="16" alt="" />' + (_linkCount > 0 ? '<span class="planner-links-count">' + _linkCount + '</span>' : '') + '</button>';
+          r += '<button class="entry-btn" data-pl-action="edit-entry" data-pl-entry="' + esc(entry.id) + '" title="Edit">✏</button>';
         }
       } else
-        r += '<button class="entry-btn add-btn" onclick="openAddEntry(\'' + esc(s.classId) +
-          '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">+</button>';
+        r += '<button class="entry-btn add-btn" data-pl-action="add-entry" data-pl-class="' + esc(s.classId) +
+          '" data-pl-date="' + esc(s.date) + '" data-pl-time="' + esc(s.time || '') + '" data-pl-timeend="' + esc(s.timeEnd || '') + '">+</button>';
       r += '</div></div>';
       // Detail row
       if (entry && (viewOpts.details || viewOpts.custom)) {
@@ -3929,7 +3927,7 @@
           });
         }
         if (pillsHtml)
-          r += '<div class="entry-detail-row" onclick="event.stopPropagation()">' + pillsHtml + '</div>';
+          r += '<div class="entry-detail-row" data-pl-stop="1">' + pillsHtml + '</div>';
       }
       r += '</div></div>';
       return r;
@@ -4280,7 +4278,7 @@
         '<input type="date" class="field-input hol-date-end" value="' + esc(dateTo || '') + '">' +
         '<input type="text" class="field-input hol-label" value="' + esc(label || '') +
         '" placeholder="' + esc(t('pl_holidayLabelPlaceholder')) + '">' +
-        '<button class="rm-btn" onclick="this.closest(\'.hol-item\').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
+        '<button class="rm-btn" data-pl-rm=".hol-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       return div;
     }
     function addHolRow() { document.getElementById('hol-list').appendChild(makeHolRow('', '', '')); }
@@ -4352,14 +4350,14 @@
       var div = document.createElement('div'); div.className = 'obj-item';
       div.innerHTML = '<input type="text" class="field-input" value="' + esc(name || '') +
         '" placeholder="' + esc(t('pl_customFieldNamePlaceholder')) + '">' +
-        '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
+        '<button class="rm-btn" data-pl-rm=".obj-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       document.getElementById('fields-list').appendChild(div);
     }
     function addCustomTypeRow(name) {
       var div = document.createElement('div'); div.className = 'obj-item';
       div.innerHTML = '<input type="text" class="field-input" value="' + esc(name || '') +
         '" placeholder="' + esc(t('pl_customTypeNamePlaceholder')) + '">' +
-        '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
+        '<button class="rm-btn" data-pl-rm=".obj-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       document.getElementById('types-list').appendChild(div);
     }
     function saveCustomFields() {
@@ -4538,7 +4536,7 @@
       if (!list || !list.length) return '';
       return list.map(function (td) {
         var isDone = !!td.archivedAt;
-        return '<span class="todo-cal-chip' + (isDone ? ' is-done' : '') + '" onclick="event.stopPropagation();openEditTodo(\'' + esc(td.id) + '\')" title="' + esc(td.text || '') + '">' +
+        return '<span class="todo-cal-chip' + (isDone ? ' is-done' : '') + '" data-pl-action="edit-todo" data-pl-tdid="' + esc(td.id) + '" title="' + esc(td.text || '') + '">' +
           '<img src="../assets/icons/check.svg" style="width:11px;height:11px;flex-shrink:0" alt="" />' +
           '<span>' + esc(td.text || '') + '</span></span>';
       }).join('');
@@ -4691,10 +4689,10 @@
       var el = document.getElementById('color-row');
       var html = PRESET_COLORS.map(function (c) {
         return '<div class="color-swatch' + (c === selected ? ' selected' : '') +
-          '" style="background:' + c + '" title="' + c + '" onclick="pickColor(\'' + c + '\')"></div>';
+          '" style="background:' + c + '" title="' + c + '" data-pl-action="pick-color" data-pl-color="' + esc(c) + '"></div>';
       }).join('');
       html += '<div class="custom-color-wrap"><input type="color" id="custom-color" value="' + esc(selected) +
-        '" oninput="pickColor(this.value)"><label for="custom-color">' + esc(t('pl_customColor')) + '</label></div>';
+        '" data-pl-input="pick-color"><label for="custom-color">' + esc(t('pl_customColor')) + '</label></div>';
       el.innerHTML = html;
     }
     function pickColor(c) {
@@ -4734,7 +4732,7 @@
         '<span class="range-sep">–</span>' +
         '<input type="time" class="field-input time-end-inp" value="' + esc(timeEnd || '') + '">' +
         halfSel +
-        '<button class="rm-btn" onclick="this.closest(\'.sched-item\').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
+        '<button class="rm-btn" data-pl-rm=".sched-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       return div;
     }
     function addSchedRow() { document.getElementById('sched-list').appendChild(makeSchedRow(1, '08:00', '09:00', null)); }
@@ -4747,7 +4745,7 @@
       var div = document.createElement('div'); div.className = 'obj-item';
       div.innerHTML = '<input type="text" class="field-input" value="' + esc(text) +
         '" placeholder="' + esc(t('pl_objectivePlaceholder')) + '">' +
-        '<button class="rm-btn" onclick="this.closest(\'.obj-item\').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
+        '<button class="rm-btn" data-pl-rm=".obj-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       return div;
     }
     function addObjRow(text) { document.getElementById('obj-list').appendChild(makeObjRow(text || '')); }
@@ -7473,7 +7471,7 @@
       categories.forEach(function (cat, catIdx) {
         if (!cat.items.length) return;
         html += '<div class="exp-style-group">' +
-          '<div class="exp-style-group-header" onclick="this.nextElementSibling.style.display = (this.nextElementSibling.style.display === \'none\' ? \'flex\' : \'none\')">' +
+          '<div class="exp-style-group-header" data-pl-action="toggle-exp-group">' +
           '<span>' + esc(cat.title) + ' (' + cat.items.length + ')</span><span>▾</span>' +
           '</div>' +
           '<div class="exp-style-group-body" style="display:' + (catIdx === 0 ? 'flex' : 'none') + '">';
@@ -7497,14 +7495,14 @@
             '<span class="exp-preview-pill" style="' + esc(previewStyle) + '">' + esc(it.label) + '</span>' +
             '</div>' +
             '<div class="exp-style-controls">' +
-            '<input type="color" class="exp-style-color" value="' + esc(colorVal) + '" onchange="setExportStyle(\'' + esc(it.key) + '\', \'color\', this.value)" title="Color">' +
-            '<select class="exp-style-select" onchange="setExportStyle(\'' + esc(it.key) + '\', \'weight\', this.value)">' +
+            '<input type="color" class="exp-style-color" value="' + esc(colorVal) + '" data-pl-change="exp-style-color" data-pl-key="' + esc(it.key) + '" title="Color">' +
+            '<select class="exp-style-select" data-pl-change="exp-style-weight" data-pl-key="' + esc(it.key) + '">' +
             '<option value="normal"' + (isBold ? '' : ' selected') + '>Normal</option>' +
             '<option value="bold"' + (isBold ? ' selected' : '') + '>Bold</option>' +
             '</select>' +
-            '<button type="button" class="style-toggle-btn ' + (isUnderline ? 'active' : '') + '" onclick="toggleExportStyle(\'' + esc(it.key) + '\', \'underline\')" title="Underline"><u>U</u></button>' +
-            '<button type="button" class="style-toggle-btn ' + (isItalic ? 'active' : '') + '" onclick="toggleExportStyle(\'' + esc(it.key) + '\', \'italic\')" title="Italics"><i>I</i></button>' +
-            '<button type="button" class="style-reset-btn" onclick="resetExportStyleItem(\'' + esc(it.key) + '\')" title="Reset item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>' +
+            '<button type="button" class="style-toggle-btn ' + (isUnderline ? 'active' : '') + '" data-pl-action="toggle-exp-style" data-pl-key="' + esc(it.key) + '" data-pl-prop="underline" title="Underline"><u>U</u></button>' +
+            '<button type="button" class="style-toggle-btn ' + (isItalic ? 'active' : '') + '" data-pl-action="toggle-exp-style" data-pl-key="' + esc(it.key) + '" data-pl-prop="italic" title="Italics"><i>I</i></button>' +
+            '<button type="button" class="style-reset-btn" data-pl-action="reset-exp-style" data-pl-key="' + esc(it.key) + '" title="Reset item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>' +
             '</div></div>';
         });
 
@@ -9272,9 +9270,7 @@
           var lbl = (viewOpts.classPill ? clsName : '') + (viewOpts.topic && topic ? (viewOpts.classPill ? ': ' : '') + topic : '');
           if (!lbl) lbl = t('pl_allDay');
           var eid = s.entry ? s.entry.id : '';
-          html += '<span class="allday-pill" style="cursor:pointer" onclick="' +
-            (eid ? ('atCellClick(event,\'' + esc(eid) + '\')') : ('atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(dateStr) + '\',\'\',\'\')')) +
-            '">' + esc(lbl) + '</span>';
+          html += '<span class="allday-pill" style="cursor:pointer" data-pl-action="' + (eid ? 'at-cell-click' : 'at-cell-empty') + '" data-pl-entry="' + esc(eid) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(dateStr) + '" data-pl-time="" data-pl-timeend="">' + esc(lbl) + '</span>';
         });
         html += '</div>';
       }
@@ -9393,7 +9389,7 @@
         var dow = dateToDow[ds];
         var isDowPast = ds < todayStr;
         var shortD = new Date(ds + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-        html += '<th class="' + (isDowPast ? 'at-day-hdr-past' : '') + '" style="cursor:pointer" onclick="drillDownToView(\'day\',\'' + esc(ds) + '\')">' +
+        html += '<th class="' + (isDowPast ? 'at-day-hdr-past' : '') + '" style="cursor:pointer" data-pl-action="drill-day" data-pl-date="' + esc(ds) + '">' +
           esc(t(DAY_KEYS[dow])) + ' <span style="font-weight:500;opacity:0.75">' + esc(shortD) + '</span></th>';
       });
       html += '</tr></thead><tbody>';
@@ -9411,9 +9407,7 @@
             var lbl = (viewOpts.classPill ? clsName : '') + (viewOpts.topic && topic ? (viewOpts.classPill ? ': ' : '') + topic : '');
             if (!lbl) lbl = t('pl_allDay');
             var eid = s.entry ? s.entry.id : '';
-            html += '<span class="allday-pill" style="cursor:pointer" onclick="' +
-              (eid ? ('atCellClick(event,\'' + esc(eid) + '\')') : ('atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(ds) + '\',\'\',\'\')')) +
-              '">' + esc(lbl) + '</span>';
+            html += '<span class="allday-pill" style="cursor:pointer" data-pl-action="' + (eid ? 'at-cell-click' : 'at-cell-empty') + '" data-pl-entry="' + esc(eid) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(ds) + '" data-pl-time="" data-pl-timeend="">' + esc(lbl) + '</span>';
           });
           html += '</div></td>';
         });
@@ -9497,9 +9491,9 @@
           var daySlots = slotsByDate[ds] || [];
           var dayTodos = todosByDate[ds] || [];
 
-          html += '<div class="month-cell' + (isOutside ? ' outside' : '') + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" onclick="openAddEntry(\'\',\'' + esc(ds) + '\',\'\',\'\')">';
+          html += '<div class="month-cell' + (isOutside ? ' outside' : '') + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" data-pl-action="month-add" data-pl-date="' + esc(ds) + '">';
           html += '<div class="month-cell-hd">';
-          html += '<span class="month-day-num" onclick="event.stopPropagation();drillDownToView(\'day\',\'' + esc(ds) + '\')">' + cur.getDate() + '</span>';
+          html += '<span class="month-day-num" data-pl-action="drill-day" data-pl-date="' + esc(ds) + '">' + cur.getDate() + '</span>';
           if (holLbl) html += '<span class="allday-pill is-holiday" style="font-size:0.65rem;padding:1px 5px">' + esc(holLbl) + '</span>';
           html += '</div>';
 
@@ -9512,10 +9506,7 @@
             var color = (cfg.classes[s.classId] || {}).color || '#888888';
             var clsLabel = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
             var isSub = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
-            var clickHandler = entry
-              ? ('event.stopPropagation();atCellClick(event,\'' + esc(entry.id) + '\')')
-              : ('event.stopPropagation();atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(ds) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')');
-            html += '<div class="month-entry-chip' + (!entry ? ' is-empty' : '') + (isSub ? ' is-subscribed' : '') + '" data-date="' + esc(ds) + '" data-classid="' + esc(s.classId || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' style="--col:' + color + '" onclick="' + clickHandler + '">';
+            html += '<div class="month-entry-chip' + (!entry ? ' is-empty' : '') + (isSub ? ' is-subscribed' : '') + '" data-date="' + esc(ds) + '" data-classid="' + esc(s.classId || '') + '"' + (entry ? ' data-entry-id="' + esc(entry.id) + '"' : '') + ' data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + '" data-pl-action="' + (entry ? 'at-cell-click' : 'at-cell-empty') + '">';
             if (viewOpts.time && s.time) html += '<span class="month-chip-time">' + esc(s.time) + '</span>';
             if (viewOpts.classPill) html += '<span class="month-chip-cls">' + esc(clsLabel) + '</span>';
             if (viewOpts.badges && entry && entry.type) html += '<span class="entry-type-badge ' + typeBadgeCls(entry.type) + '" style="font-size:0.58rem;padding:0 4px">' + esc(typeLabel(entry.type)) + '</span>';
@@ -9529,7 +9520,7 @@
           }
           var totalCount = daySlots.length + dayTodos.length;
           if (totalCount > shown) {
-            html += '<button type="button" class="month-more-btn" onclick="event.stopPropagation();drillDownToView(\'day\',\'' + esc(ds) + '\')">' + esc(tFmt('pl_moreCount', { n: totalCount - shown })) + '</button>';
+            html += '<button type="button" class="month-more-btn" data-pl-action="drill-day" data-pl-date="' + esc(ds) + '">' + esc(tFmt('pl_moreCount', { n: totalCount - shown })) + '</button>';
           }
           html += '</div></div>';
         }
@@ -9575,7 +9566,7 @@
         var startOff = (mFirst.getDay() + 6) % 7;
 
         html += '<div class="year-month-card">';
-        html += '<div class="year-month-title" onclick="drillDownToView(\'month\',\'' + esc(mStartStr) + '\')"><span>' + esc(mTitle) + '</span><span>' + year + '</span></div>';
+        html += '<div class="year-month-title" data-pl-action="drill-month" data-pl-date="' + esc(mStartStr) + '"><span>' + esc(mTitle) + '</span><span>' + year + '</span></div>';
         html += '<div class="year-mini-dow">';
         miniDow.forEach(function (dow) {
           html += '<div class="year-mini-dow-cell">' + esc((t(DAY_KEYS[dow]) || '').slice(0, 2)) + '</div>';
@@ -9598,7 +9589,7 @@
             if (c.tests) tipParts.push(c.tests + ' ' + t('pl_typeTest'));
             if (c.todos) tipParts.push(c.todos + ' ' + t('td_todoTitle'));
           }
-          html += '<div class="year-day-cell' + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" title="' + esc(tipParts.join(' · ')) + '" onclick="drillDownToView(\'day\',\'' + esc(ds) + '\')">';
+          html += '<div class="year-day-cell' + (isToday ? ' is-today' : '') + (holLbl ? ' is-holiday' : '') + '" title="' + esc(tipParts.join(' · ')) + '" data-pl-action="drill-day" data-pl-date="' + esc(ds) + '">';
           html += '<span>' + dayNum + '</span>';
           html += '<div class="year-day-dots">';
           if (c) {
@@ -9634,7 +9625,7 @@
       if (!entry) {
         var emptyInfo = '';
         if (viewOpts.details || viewOpts.custom) emptyInfo = '<span class="at-cell-detail">' + esc(dateLabel) + '</span>';
-        return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId || '') + '\',\'' + esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
+        return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-empty">' +
           '<span class="at-class-title">' + esc(classLabel) + '</span>' +
           emptyInfo +
           '<span class="at-add">+</span>' +
@@ -9660,9 +9651,9 @@
       var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
       var isSubscribed = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
       var isSelected = selectedEntryIds.has(entry.id);
-      var r = '<div class="at-cell' + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      var r = '<div class="at-cell' + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-click">';
       if (multiSelectMode) {
-        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' data-pl-action="toggle-select" data-pl-entry="' + esc(entry.id) + '">';
       }
       if (viewOpts.time && timeLabel) {
         r += '<span class="at-time">' + esc(timeLabel) + '</span>';
@@ -9682,18 +9673,18 @@
       if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
       if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
       if (viewOpts.linkedBadges) {
-        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
         var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
         if (_lpMatrixLink && _lpMatrixLink.plan) {
           var _lpM = _lpMatrixLink.plan;
           var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
           var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-          r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpM.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+          r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' data-pl-action="open-lp" data-pl-plan="' + esc(_lpM.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="' + esc(entry ? entry.id : '') + '" data-pl-topic="' + esc(entry && entry.topic ? entry.topic : '') + '" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
         }
         if (_atBSess && _atBSess.length) {
           var _bMRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
           var _bMDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bMRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-          r += '<span class="board-session-badge"' + _bMDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+          r += '<span class="board-session-badge"' + _bMDragAttr + ' data-pl-action="open-board" data-pl-linkid="' + esc(_boardLink.linkId) + '" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
         }
         r += buildPlannerEntryLinkBadgesHtml(entry);
       }
@@ -9710,19 +9701,18 @@
       var _lpCellLink = plannerLessonPlanForSlot(s, entry);
 
       if (!entry) {
-        var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" onclick="atCellEmptyClick(event,\'' + esc(s.classId) + '\',\'' +
-          esc(s.date) + '\',\'' + esc(s.time || '') + '\',\'' + esc(s.timeEnd || '') + '\')">' +
+        var _empty = '<div class="at-cell-empty" data-classid="' + esc(s.classId) + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" data-pl-action="at-cell-empty">' +
           (timeLabel ? '<span class="at-time">' + esc(timeLabel) + '</span>' : '') +
           '<span class="at-add">+</span>';
         if (_lpCellLink && _lpCellLink.plan) {
           var _lpCEmpty = _lpCellLink.plan;
           var _lpCEmptyTitle = t('pl_lessonPlanLinked') + ': ' + (_lpCEmpty.title || 'Untitled');
-          _empty += '<span class="lesson-plan-badge" onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpCEmpty.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'\',\'\')" title="' + esc(_lpCEmptyTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+          _empty += '<span class="lesson-plan-badge" data-pl-action="open-lp" data-pl-plan="' + esc(_lpCEmpty.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="" data-pl-topic="" title="' + esc(_lpCEmptyTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
         }
         if (_atBSess && _atBSess.length) {
           var _bERel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
           var _bEDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bERel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id=""';
-          _empty += '<span class="board-session-badge"' + _bEDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+          _empty += '<span class="board-session-badge"' + _bEDragAttr + ' data-pl-action="open-board" data-pl-linkid="' + esc(_boardLink.linkId) + '" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
         }
         return _empty + '</div>';
       }
@@ -9732,9 +9722,9 @@
       var badgeText = type ? typeLabel(type) : '';
 
       var isSelected = selectedEntryIds.has(entry.id);
-      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" style="--col:' + color + '" onclick="atCellClick(event,\'' + esc(entry.id) + '\')">';
+      var r = '<div class="at-cell' + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" style="--col:' + color + '" data-pl-action="at-cell-click">';
       if (multiSelectMode) {
-        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' onclick="event.stopPropagation(); toggleEntrySelection(\'' + esc(entry.id) + '\')">';
+        r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' data-pl-action="toggle-select" data-pl-entry="' + esc(entry.id) + '">';
       }
       if (timeLabel) r += '<span class="at-time">' + esc(timeLabel) + '</span>';
       if (badgeText) {
@@ -9744,17 +9734,17 @@
         r += '<span class="' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
       }
       if (entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
-      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" onclick="event.stopPropagation();openLinkedGradeSheet(\'' + esc(entry.id) + '\')" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
       if (_lpCellLink && _lpCellLink.plan) {
         var _lpC = _lpCellLink.plan;
         var _lpCTitle = t('pl_lessonPlanLinked') + ': ' + (_lpC.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
         var _lpCDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpC.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-        r += '<span class="lesson-plan-badge"' + _lpCDragAttr + ' onclick="event.stopPropagation();openLinkedLessonPlan(\'' + esc(_lpC.id) + '\',\'' + esc(s.classId || '') + '\',\'' + esc(s.date || '') + '\',\'' + esc(entry ? entry.id : '') + '\',\'' + esc(entry && entry.topic ? entry.topic : '') + '\')" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
+        r += '<span class="lesson-plan-badge"' + _lpCDragAttr + ' data-pl-action="open-lp" data-pl-plan="' + esc(_lpC.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="' + esc(entry ? entry.id : '') + '" data-pl-topic="' + esc(entry && entry.topic ? entry.topic : '') + '" title="' + esc(_lpCTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
       }
       if (_atBSess && _atBSess.length) {
         var _bCRel = _atBSess[0] && _atBSess[0].relativePath ? _atBSess[0].relativePath : '';
         var _bCDragAttr = ' draggable="true" data-drag-type="board-session" data-board-relpath="' + esc(_bCRel) + '" data-board-linkid="' + esc(_boardLink.linkId) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
-        r += '<span class="board-session-badge"' + _bCDragAttr + ' onclick="event.stopPropagation();openLinkedBoard(\'' + esc(_boardLink.linkId) + '\')" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
+        r += '<span class="board-session-badge"' + _bCDragAttr + ' data-pl-action="open-board" data-pl-linkid="' + esc(_boardLink.linkId) + '" title="' + esc(t('pl_boardLinked')) + '">' + esc(t('pl_boardOpen')) + (_atBSess.length > 1 ? ' (' + _atBSess.length + ')' : '') + '</span>';
       }
       r += buildPlannerEntryLinkBadgesHtml(entry);
       r += '</div>';
@@ -10547,10 +10537,10 @@
           + '</div>'
           + '</div>'
           + '<div class="feed-actions">'
-          + '<button class="tb-btn" onclick="syncSubscription(\'' + esc(sub.id) + '\')" title="' + esc(t('pl_subSyncNow')) + '"><img src="../assets/icons/refresh.svg" class="btn-icon" id="sync-icon-' + esc(sub.id) + '" alt="" /> <span data-i18n="pl_subSyncNow">' + esc(t('pl_subSyncNow')) + '</span></button>'
-          + '<button class="tb-btn" onclick="editSubscription(\'' + esc(sub.id) + '\')" title="Edit"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>'
-          + '<button class="tb-btn" onclick="toggleSubscription(\'' + esc(sub.id) + '\')" title="' + (isEnabled ? 'Disable' : 'Enable') + '"><img src="../assets/icons/' + (isEnabled ? 'eye.svg' : 'lock.svg') + '" class="btn-icon" alt="" /></button>'
-          + '<button class="tb-btn" onclick="deleteSubscription(\'' + esc(sub.id) + '\')" title="Delete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>'
+          + '<button class="tb-btn" data-pl-action="sub-sync" data-pl-sub="' + esc(sub.id) + '" title="' + esc(t('pl_subSyncNow')) + '"><img src="../assets/icons/refresh.svg" class="btn-icon" id="sync-icon-' + esc(sub.id) + '" alt="" /> <span data-i18n="pl_subSyncNow">' + esc(t('pl_subSyncNow')) + '</span></button>'
+          + '<button class="tb-btn" data-pl-action="sub-edit" data-pl-sub="' + esc(sub.id) + '" title="Edit"><img src="../assets/icons/edit-word.svg" class="btn-icon" alt="" /></button>'
+          + '<button class="tb-btn" data-pl-action="sub-toggle" data-pl-sub="' + esc(sub.id) + '" title="' + (isEnabled ? 'Disable' : 'Enable') + '"><img src="../assets/icons/' + (isEnabled ? 'eye.svg' : 'lock.svg') + '" class="btn-icon" alt="" /></button>'
+          + '<button class="tb-btn" data-pl-action="sub-delete" data-pl-sub="' + esc(sub.id) + '" title="Delete"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /></button>'
           + '</div>'
           + '</div>';
       });
@@ -11126,9 +11116,9 @@
           subtodosHtml = '<div class="td-subtodos" data-parent="' + esc(td.id) + '">' +
             subs.map(function (st) {
               return '<div class="std-item">' +
-                '<div class="std-check' + (st.done ? ' std-checked' : '') + '" onclick="toggleSubtodoDone(\'' + esc(td.id) + '\',\'' + esc(st.id) + '\')"></div>' +
-                '<span class="std-text' + (st.done ? ' std-done-text' : '') + '" data-parent="' + esc(td.id) + '" data-sub="' + esc(st.id) + '" onclick="inlineEditSubtodo(\'' + esc(td.id) + '\',\'' + esc(st.id) + '\')">' + esc(st.text) + '</span>' +
-                '<button class="std-del" onclick="deleteSubtodo(\'' + esc(td.id) + '\',\'' + esc(st.id) + '\')">×</button>' +
+                '<div class="std-check' + (st.done ? ' std-checked' : '') + '" data-pl-action="toggle-subtodo" data-pl-tdid="' + esc(td.id) + '" data-pl-subid="' + esc(st.id) + '"></div>' +
+                '<span class="std-text' + (st.done ? ' std-done-text' : '') + '" data-parent="' + esc(td.id) + '" data-sub="' + esc(st.id) + '" data-pl-action="edit-subtodo">' + esc(st.text) + '</span>' +
+                '<button class="std-del" data-pl-action="del-subtodo" data-pl-tdid="' + esc(td.id) + '" data-pl-subid="' + esc(st.id) + '">×</button>' +
                 '</div>';
             }).join('') +
             '</div>';
@@ -11139,22 +11129,22 @@
         });
         var tdPinTitle = isTdPinned ? 'Unpin from sidebar' : 'Pin to sidebar';
         var tdPinIcon = isTdPinned ? '' : '';
-        var tdPinHtml = '<button class="td-act-btn ' + (isTdPinned ? 'pinned' : '') + '" onclick="toggleTodoPin(event, \'' + esc(td.id) + '\')" title="' + esc(tdPinTitle) + '">' + tdPinIcon + '</button>';
+        var tdPinHtml = '<button class="td-act-btn ' + (isTdPinned ? 'pinned' : '') + '" data-pl-action="toggle-td-pin" data-pl-tdid="' + esc(td.id) + '" title="' + esc(tdPinTitle) + '">' + tdPinIcon + '</button>';
 
         item.setAttribute('data-tdid', td.id);
         item.innerHTML =
-          '<div class="td-check ' + checkCls + '" onclick="toggleTodoDone(\'' + esc(td.id) + '\')"></div>' +
+          '<div class="td-check ' + checkCls + '" data-pl-action="toggle-td" data-pl-tdid="' + esc(td.id) + '"></div>' +
           '<div class="td-body">' +
           '<div class="td-text">' + esc(td.text) + '</div>' +
           (metaParts.length ? '<div class="td-meta">' + metaParts.join('') + '</div>' : '') +
           subtodosHtml +
-          '<button class="std-add-btn" onclick="startAddSubtodo(\'' + esc(td.id) + '\')">' + esc(t('td_addSubtodo')) + '</button>' +
+          '<button class="std-add-btn" data-pl-action="add-subtodo" data-pl-tdid="' + esc(td.id) + '">' + esc(t('td_addSubtodo')) + '</button>' +
           '</div>' +
           '<div class="td-actions">' +
           tdPinHtml +
-          '<button class="td-act-btn" onclick="openEditTodo(\'' + esc(td.id) + '\')" title="' + esc(t('td_editTodo')) + '">✎</button>' +
-          (td.links && td.links.entryId ? '<button class="td-act-btn" onclick="tdOpenEntry(\'' + esc(td.links.entryId) + '\')" title="→">→</button>' : '') +
-          '<button class="td-act-btn td-del-btn" onclick="deleteTodo(\'' + esc(td.id) + '\')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>' +
+          '<button class="td-act-btn" data-pl-action="edit-todo" data-pl-tdid="' + esc(td.id) + '" title="' + esc(t('td_editTodo')) + '">✎</button>' +
+          (td.links && td.links.entryId ? '<button class="td-act-btn" data-pl-action="td-open-entry" data-pl-entry="' + esc(td.links.entryId) + '" title="→">→</button>' : '') +
+          '<button class="td-act-btn td-del-btn" data-pl-action="del-todo" data-pl-tdid="' + esc(td.id) + '"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>' +
           '</div>';
         list.appendChild(item);
       });
@@ -11564,8 +11554,8 @@
   <div id="drag-copy-popover" role="dialog" aria-modal="true" aria-label="Copy lesson content">
     <p id="dcp-msg"></p>
     <div class="dcp-actions">
-      <button id="dcp-cancel" onclick="dragCopyCancel()">✕ Cancel</button>
-      <button id="dcp-yes" onclick="dragCopyConfirm()"> Copy</button>
+      <button id="dcp-cancel" data-plev-193="1">✕ Cancel</button>
+      <button id="dcp-yes" data-plev-194="1"> Copy</button>
     </div>
   </div>
   <script>
@@ -11590,6 +11580,7 @@
       });
     })();
   </script>
+  <script src="../js/pages/planner-events.js"></script>
 </body>
 
 </html>

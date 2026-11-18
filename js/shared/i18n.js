@@ -33,7 +33,7 @@
   function _getBaseJsDir() {
     try {
       if (typeof document !== 'undefined' && document.currentScript && document.currentScript.src) {
-        return document.currentScript.src.replace(/[^/\\]+$/, '');
+        return document.currentScript.src.replace(/(?:shared[/\\])?[^/\\]+$/, '');
       }
       if (typeof location !== 'undefined' && /\/pages\//.test(location.pathname)) {
         return '../js/';
@@ -57,7 +57,7 @@
   // Load dictionaries synchronously in Node, or via synchronous document.write during initial HTML parse.
   if (typeof require === 'function' && typeof module === 'object' && module.exports) {
     SUPPORTED_LANGS.forEach(function (l) {
-      try { STRINGS[l] = require('./i18n/' + l + '.js'); } catch (e) {}
+      try { STRINGS[l] = require('../i18n/' + l + '.js'); } catch (e) {}
     });
   } else if (typeof document !== 'undefined' && document.readyState === 'loading') {
     var _initialLang = _getLang();

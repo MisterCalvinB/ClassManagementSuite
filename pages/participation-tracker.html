@@ -7,19 +7,19 @@
     <title>Participation Tracker</title>
     <link rel="stylesheet" href="../modules/lexend/lexend.css">
     <script src="../modules/xlsx.min.js"></script>
-    <script src="../js/i18n.js"></script>
-    <script src="../js/student-name-utils.js"></script>
-    <script src="../js/shortcuts-modal.js"></script>
-    <script src="../js/tutorial.js"></script>
+    <script src="../js/shared/i18n.js"></script>
+    <script src="../js/shared/student-name-utils.js"></script>
+    <script src="../js/shared/shortcuts-modal.js"></script>
+    <script src="../js/shared/tutorial.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
-  <script src="../js/links-service.js"></script>
-  <script src="../js/board-export-service.js"></script>
-  <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/board-export-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
         <script src="../electron-bridge.js"></script>
-        <script src="../js/participation-grading.js"></script>
-        <script src="../js/dialogs.js"></script>
-        <script src="../js/export-styles-service.js"></script>
-        <script src="../js/menus.js"></script>
+        <script src="../js/shared/participation-grading.js"></script>
+        <script src="../js/shared/dialogs.js"></script>
+        <script src="../js/shared/export-styles-service.js"></script>
+        <script src="../js/shared/menus.js"></script>
         <script>
         (function () {
             function injectClassicScript(source, name) {
@@ -76,8 +76,8 @@
 <nav id="app-nav" style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;border-radius:6px;margin-bottom:16px;flex-wrap:wrap;box-sizing:border-box;">
   <span class="nav-brand" style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button class="tut-trigger-btn" onclick="showPtTour()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button class="tut-trigger-btn" data-ptev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+    <button class="tut-trigger-btn" data-ptev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
@@ -92,8 +92,8 @@
         <!-- Controls Section -->
         <div class="controls-section">
             <div class="control-group" style="width: 100%; flex: 1 1 100%; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px;">
-                <button class="btn-success btn-icon" id="openRulesBtn" onclick="openRulesModal()" data-i18n="ptBtnObjectives" data-i18n-help="hhPtObjectives" data-hover-help="Configure participation grading thresholds, points, and rules."><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
-                <button class="btn-primary btn-icon" id="exportBtn" onclick="openPtExportModal()" data-i18n="ptBtnExport" data-i18n-help="hhPtExport" data-hover-help="Export participation records to Excel, CSV, PDF, or HTML."><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
+                <button class="btn-success btn-icon" id="openRulesBtn" data-ptev-3="1" data-i18n="ptBtnObjectives" data-i18n-help="hhPtObjectives" data-hover-help="Configure participation grading thresholds, points, and rules."><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> Objectives & Grading</button>
+                <button class="btn-primary btn-icon" id="exportBtn" data-ptev-4="1" data-i18n="ptBtnExport" data-i18n-help="hhPtExport" data-hover-help="Export participation records to Excel, CSV, PDF, or HTML."><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export ▾</button>
                 <button class="btn-secondary btn-icon" id="printBtn" data-i18n="ptBtnPrint" data-i18n-help="hhPtPrint" data-hover-help="Print a formatted participation summary for the selected group."><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print</button>
                 <button class="btn-primary btn-icon" id="importBtn" data-i18n="ptBtnImport" data-i18n-help="hhPtImport" data-hover-help="Import and merge participation logs from another file or backup."><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge</button>
 
@@ -108,7 +108,7 @@
                 <label data-i18n="ptSelectGroup">Select Group</label>
                 <div class="group-buttons" id="groupButtons"></div>
                 <div style="margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;">
-                    <button id="toggleArchivedBtn" class="btn-secondary" onclick="toggleShowArchived()" style="font-size:11px; padding:3px 10px;" data-i18n="ptShowArchived" data-i18n-help="hhPtShowArchived" data-hover-help="Include archived class groups in the group selector.">Show archived</button>
+                    <button id="toggleArchivedBtn" class="btn-secondary" data-ptev-5="1" style="font-size:11px; padding:3px 10px;" data-i18n="ptShowArchived" data-i18n-help="hhPtShowArchived" data-hover-help="Include archived class groups in the group selector.">Show archived</button>
                     <button id="openCompareGroupsBtn" class="btn-secondary" type="button" style="font-size:11px; padding:3px 10px; background:#ddeef7; color:#2a6a92;" data-i18n="ptCompareGroups" data-i18n-help="hhPtCompareGroups" data-hover-help="Compare participation metrics side-by-side across multiple classes.">Compare groups</button>
                 </div>
                 <div class="group-meta-info" id="groupMetaInfo"></div>
@@ -241,7 +241,7 @@
         <div class="section-header-actions">
             <h2 data-i18n="ptHistoryTitle">Session History</h2>
             <div style="display:flex;gap:8px;align-items:center;">
-                <button class="btn-secondary btn-icon" id="historyColsBtn" type="button" onclick="openColumnsConfigModal('historyTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
+                <button class="btn-secondary btn-icon" id="historyColsBtn" type="button" data-ptev-6="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                 <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
             </div>
         </div>
@@ -282,10 +282,10 @@
                     <span id="sessionTimelineSubtitle" class="pt-timeline-subtitle"></span>
                 </div>
                 <div class="pt-timeline-header-actions">
-                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineExpandBtn" onclick="openSessionTimelineModal()" data-hover-help="Full-screen timeline inspector">
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineExpandBtn" data-ptev-7="1" data-hover-help="Full-screen timeline inspector">
                         <img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" />
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineClosePanelBtn" onclick="closeSessionTimelinePanel()" data-hover-help="Close timeline panel">
+                    <button type="button" class="btn-secondary btn-icon" id="ptTimelineClosePanelBtn" data-ptev-8="1" data-hover-help="Close timeline panel">
                         <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
                     </button>
                 </div>
@@ -299,14 +299,14 @@
                             <img src="../assets/icons/planner.svg" class="btn-icon" style="width:12px;height:12px;vertical-align:-1px;" alt="" />
                             <span data-i18n="ptTimelinePlannerSlot">Planner Slot</span>
                         </label>
-                        <select id="ptPlannerSlotSelect" class="pt-timeline-select" onchange="onTimelinePlannerSlotChange(this.value, false)">
+                        <select id="ptPlannerSlotSelect" class="pt-timeline-select" data-ptev-9="1">
                             <option value="none" data-i18n="ptTimelineNoSlot">No Planner Slot</option>
                         </select>
                     </div>
 
                     <div class="pt-timeline-control-group">
                         <label for="ptSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
-                        <select id="ptSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value)">
+                        <select id="ptSlotDurationSelect" class="pt-timeline-select" data-ptev-10="1">
                             <option value="slot" id="ptSlotOptionDuration" data-i18n="ptTimelineSlotOption" selected>Planner Slot</option>
                             <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
                             <option value="45">45 min</option>
@@ -320,7 +320,7 @@
 
                     <div class="pt-timeline-control-group">
                         <label for="ptTimeDisplaySelect">Display</label>
-                        <select id="ptTimeDisplaySelect" class="pt-timeline-select" onchange="onTimelineTimeDisplayChange(this.value)">
+                        <select id="ptTimeDisplaySelect" class="pt-timeline-select" data-ptev-11="1">
                             <option value="elapsed" selected data-i18n="ptTimelineDisplayElapsed">Elapsed Time (+00:00)</option>
                             <option value="clock" data-i18n="ptTimelineDisplayClock">Clock Time (HH:MM)</option>
                         </select>
@@ -328,17 +328,17 @@
 
                     <div class="pt-timeline-control-group">
                         <label for="ptStudentFilterSelect" data-i18n="ptColStudent">Student</label>
-                        <select id="ptStudentFilterSelect" class="pt-timeline-select" onchange="onTimelineStudentFilterChange(this.value)">
+                        <select id="ptStudentFilterSelect" class="pt-timeline-select" data-ptev-12="1">
                             <option value="" data-i18n="ptTimelineAllStudents">All Students</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="pt-timeline-controls-right">
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
+                    <button type="button" class="btn-secondary btn-icon" data-ptev-13="1" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
                         <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
+                    <button type="button" class="btn-secondary btn-icon" data-ptev-14="1" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
                         <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
                     </button>
                 </div>
@@ -346,22 +346,22 @@
 
             <!-- Filter Chips -->
             <div class="pt-timeline-filter-chips">
-                <button type="button" class="pt-filter-chip active" data-filter="points" onclick="toggleTimelineFilter('points', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="points" data-ptev-15="1">
                     <span class="pt-chip-dot" style="background:#6abf8e;"></span> <span data-i18n="ptTimelineFilterPoints">Points (+/-)</span>
                 </button>
-                <button type="button" class="pt-filter-chip active" data-filter="picks" onclick="toggleTimelineFilter('picks', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="picks" data-ptev-16="1">
                     <span class="pt-chip-dot" style="background:#8b7cc2;"></span> <span data-i18n="ptTimelineFilterPicks">Picks & Calls</span>
                 </button>
-                <button type="button" class="pt-filter-chip active" data-filter="timers" onclick="toggleTimelineFilter('timers', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="timers" data-ptev-17="1">
                     <span class="pt-chip-dot" style="background:#e2c96e;"></span> <span data-i18n="ptTimelineFilterTimers">Timers & Modes</span>
                 </button>
-                <button type="button" class="pt-filter-chip active" data-filter="teams" onclick="toggleTimelineFilter('teams', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="teams" data-ptev-18="1">
                     <span class="pt-chip-dot" style="background:#5b8fcc;"></span> <span data-i18n="ptTimelineFilterTeams">Teams & Roles</span>
                 </button>
-                <button type="button" class="pt-filter-chip active" data-filter="badges" onclick="toggleTimelineFilter('badges', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="badges" data-ptev-19="1">
                     <span class="pt-chip-dot" style="background:#e59a5a;"></span> <span data-i18n="ptTimelineFilterBadges">Badges & Notes</span>
                 </button>
-                <button type="button" class="pt-filter-chip active" data-filter="attendance" onclick="toggleTimelineFilter('attendance', this)">
+                <button type="button" class="pt-filter-chip active" data-filter="attendance" data-ptev-20="1">
                     <span class="pt-chip-dot" style="background:#94a3b8;"></span> <span data-i18n="ptTimelineFilterAttendance">Attendance</span>
                 </button>
             </div>
@@ -410,9 +410,9 @@
                     <span class="right-click-hint-banner" data-i18n="ptRightClickHint">Right-click any student row to edit past interactions & points</span>
                 </div>
                 <div style="display:flex;gap:8px;align-items:center;">
-                    <button class="btn-secondary btn-icon" id="classOverviewColsBtn" type="button" onclick="openColumnsConfigModal('classOverviewTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
+                    <button class="btn-secondary btn-icon" id="classOverviewColsBtn" type="button" data-ptev-21="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                     <button id="clearSessionFilterBtn" class="btn-secondary hidden" type="button" data-i18n="ptMsgClearSessionFilter">Clear Session Filter</button>
-                    <button id="sessionExamToggleBtn" class="btn-secondary btn-icon hidden" type="button" onclick="toggleSelectedSessionExam()"><img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" /> <span id="sessionExamToggleBtnText" data-i18n="ptActionMakeExam">Mark as Exam</span></button>
+                    <button id="sessionExamToggleBtn" class="btn-secondary btn-icon hidden" type="button" data-ptev-22="1"><img src="../assets/icons/test-creator.svg" class="btn-icon" alt="" /> <span id="sessionExamToggleBtnText" data-i18n="ptActionMakeExam">Mark as Exam</span></button>
                 </div>
             </div>
             <div class="table-container">
@@ -457,8 +457,8 @@
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                         <h3 style="margin:0; font-size:14px; font-weight:600; color:#444;" data-i18n="ptStudentTrendTitle">Student Performance Trend</h3>
                         <div style="display:flex; gap:6px;">
-                            <button class="date-preset-btn active" id="btnStudentTrendPoints" onclick="setStudentChartType('points')" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendPoints">Points & Picks</button>
-                            <button class="date-preset-btn" id="btnStudentTrendCumulative" onclick="setStudentChartType('cumulative')" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendCumulative">Cumulative Net Score</button>
+                            <button class="date-preset-btn active" id="btnStudentTrendPoints" data-ptev-23="1" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendPoints">Points & Picks</button>
+                            <button class="date-preset-btn" id="btnStudentTrendCumulative" data-ptev-24="1" style="padding:4px 10px; font-size:11px;" data-i18n="ptBtnTrendCumulative">Cumulative Net Score</button>
                         </div>
                     </div>
                     <canvas id="studentTrendChart" style="width: 100%; height: 220px; display: block;"></canvas>
@@ -466,7 +466,7 @@
 
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;margin-bottom:15px;">
                     <h3 data-i18n="ptStudentSessionHistory">Session History</h3>
-                    <button class="btn-secondary btn-icon" id="studentColsBtn" type="button" onclick="openColumnsConfigModal('studentTable')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
+                    <button class="btn-secondary btn-icon" id="studentColsBtn" type="button" data-ptev-25="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns ▾</span></button>
                 </div>
                 <div class="table-container">
                     <table id="studentTable">
@@ -497,15 +497,15 @@
     <!-- Rules and Grading Modal -->
     <div id="rulesModal" class="modal">
         <div class="modal-content">
-            <button class="close-modal" onclick="closeRulesModal()">&times;</button>
+            <button class="close-modal" data-ptev-26="1">&times;</button>
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:6px; padding-right:32px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="rulesModalTitle" data-i18n="ptRulesModalTitle" style="margin:0;">Objectives & Automatic Grading Rules</h3>
-                    <button type="button" class="tut-trigger-btn" onclick="showPtRulesTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                    <button type="button" class="tut-trigger-btn" data-ptev-27="1" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <label for="rulesModalGroupSelect" style="font-size:12px; font-weight:700; color:#444;" data-i18n="ptSelectGroup">Class / Group:</label>
-                    <select id="rulesModalGroupSelect" onchange="onRulesModalGroupChange(this.value)" style="padding:4px 8px; font-size:12px; font-weight:600; border:2px solid #ddd; border-radius:4px; background:#fff; outline:none; cursor:pointer; width:auto; min-width:180px;">
+                    <select id="rulesModalGroupSelect" data-ptev-28="1" style="padding:4px 8px; font-size:12px; font-weight:600; border:2px solid #ddd; border-radius:4px; background:#fff; outline:none; cursor:pointer; width:auto; min-width:180px;">
                         <option value="">Default (All Groups)</option>
                     </select>
                 </div>
@@ -520,16 +520,16 @@
                 <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                     <strong style="color:#333;" data-i18n="ptDateRange">Date Range:</strong>
                     <div style="display:flex; gap:5px; flex-wrap:wrap;">
-                        <button class="btn-preset-modal-all active" onclick="setModalDatePreset('all')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDateAll">All Data</button>
-                        <button class="btn-preset-modal-30" onclick="setModalDatePreset('30days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate30Days">Last 30 Days</button>
-                        <button class="btn-preset-modal-7" onclick="setModalDatePreset('7days')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate7Days">Last 7 Days</button>
-                        <button class="btn-preset-modal-semester" id="modalSemesterBtn" onclick="setModalDatePreset('semester')" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer; display:none;" data-i18n="ptDateSemester">Active Semester</button>
+                        <button class="btn-preset-modal-all active" data-ptev-29="1" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDateAll">All Data</button>
+                        <button class="btn-preset-modal-30" data-ptev-30="1" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate30Days">Last 30 Days</button>
+                        <button class="btn-preset-modal-7" data-ptev-31="1" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer;" data-i18n="ptDate7Days">Last 7 Days</button>
+                        <button class="btn-preset-modal-semester" id="modalSemesterBtn" data-ptev-32="1" style="background:#fff; border:1px solid #ccc; border-radius:3px; padding:3px 8px; font-size:11px; cursor:pointer; display:none;" data-i18n="ptDateSemester">Active Semester</button>
                     </div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <input type="date" id="modalDateFrom" onchange="onModalDateChange()" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
+                    <input type="date" id="modalDateFrom" data-ptev-33="1" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
                     <span data-i18n="ptDateTo">to</span>
-                    <input type="date" id="modalDateTo" onchange="onModalDateChange()" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
+                    <input type="date" id="modalDateTo" data-ptev-34="1" style="width:130px; padding:4px 6px; font-size:12px; border:2px solid #ddd; border-radius:4px; box-sizing:border-box; height:30px;">
                 </div>
             </div>
 
@@ -555,17 +555,17 @@
                         <!-- Rule rows added dynamically -->
                     </tbody>
                 </table>
-                <button onclick="addRuleRow()" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-top:10px;" onmouseover="this.style.borderColor='#111';this.style.color='#111';" onmouseout="this.style.borderColor='#ddd';this.style.color='#555';" data-i18n="ptBtnAddRule">+ Add Rule</button>
+                <button data-ptev-35="1" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-top:10px;" data-ptev-36="1" data-ptev-37="1" data-i18n="ptBtnAddRule">+ Add Rule</button>
             </div>
 
             <!-- Grade Scale Config -->
             <div style="background:#f9f9f9; padding:15px; border:2px solid #ddd; border-radius:6px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:15px; font-size:13px; box-sizing:border-box; box-shadow: 2px 2px 0 #eee;">
                 <div>
                     <label style="display:block; font-weight:600; margin-bottom:6px;" data-i18n="ptMaxGrade">Max Grade</label>
-                    <input type="number" id="rulesMaxGrade" value="20" oninput="updateProvisionalGradesPreview()" style="width:80px;">
+                    <input type="number" id="rulesMaxGrade" value="20" data-ptev-38="1" style="width:80px;">
                 </div>
                 <div style="display:flex; align-items:center; gap:8px; margin-top:20px;">
-                    <input type="checkbox" id="rulesScaleToMax" onchange="updateProvisionalGradesPreview()" style="width:16px; height:16px; cursor:pointer;">
+                    <input type="checkbox" id="rulesScaleToMax" data-ptev-39="1" style="width:16px; height:16px; cursor:pointer;">
                     <label for="rulesScaleToMax" style="font-weight:600; cursor:pointer;" data-i18n="ptScaleToMax">Scale score to fit Max Grade</label>
                 </div>
             </div>
@@ -587,19 +587,19 @@
                 </div>
                 <textarea id="provisionalGradesTextarea" readonly style="display:none;"></textarea>
                 <div style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;">
-                    <button onclick="copyProvisionalGrades()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
-                    <button onclick="exportGradesToGradeSheet(false)" style="background:#fff; color:#333; border:2px solid #333; border-radius:6px; box-shadow:3px 3px 0 #555; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptExportToGradeSheet">Export to Grade Sheet</button>
-                    <button onclick="exportGradesToGradeSheet(true)" style="background:#6abf8e; color:#111; border:2px solid #333; border-radius:6px; box-shadow:3px 3px 0 #555; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptLinkAutoUpdateGradeSheet">Link &amp; Auto-Update in Grade Sheet</button>
-                    <button onclick="openGradeSheetTool()" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.borderColor='#111';this.style.color='#111';" onmouseout="this.style.borderColor='#ddd';this.style.color='#555';" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
+                    <button data-ptev-40="1" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" data-ptev-41="1" data-ptev-42="1" data-i18n="ptCopyClipboardGrades">Copy grades to clipboard</button>
+                    <button data-ptev-43="1" style="background:#fff; color:#333; border:2px solid #333; border-radius:6px; box-shadow:3px 3px 0 #555; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptExportToGradeSheet">Export to Grade Sheet</button>
+                    <button data-ptev-44="1" style="background:#6abf8e; color:#111; border:2px solid #333; border-radius:6px; box-shadow:3px 3px 0 #555; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptLinkAutoUpdateGradeSheet">Link &amp; Auto-Update in Grade Sheet</button>
+                    <button data-ptev-45="1" style="background:#fff; color:#555; border:2px solid #ddd; border-radius:5px; padding:6px 12px; font-weight:700; font-size:0.75rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" data-ptev-46="1" data-ptev-47="1" data-i18n="ptLinkToGradeSheet">Open Grade Sheet tool</button>
                 </div>
             </div>
 
             <div class="button-group" style="border-top:2px solid #111; padding-top:15px; margin-top:15px;">
-                <button onclick="closeRulesModal()" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff';this.style.borderColor='#111'" onmouseout="this.style.background='#fff';this.style.color='#888';this.style.borderColor='#ccc'" data-i18n="ptBtnCancel">Cancel</button>
-                <button onclick="confirmNewRules()" style="background:#fff; color:#c33; border:2px solid #ecc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-left:auto;" onmouseover="this.style.background='#c33';this.style.color='#fff';this.style.borderColor='#c33'" onmouseout="this.style.background='#fff';this.style.color='#c33';this.style.borderColor='#ecc'" data-i18n="ptBtnNewRules">New Rules</button>
-                <button onclick="openExportRulesModal()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; display:inline-flex; align-items:center; gap:6px;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="ptBtnExportRules"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
-                <button onclick="loadRulesConfig()" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#111';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#111'" data-i18n="ptBtnLoadRules">Load Rules</button>
-                <button onclick="saveRulesConfig()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="ptBtnSaveRules">Save Rules</button>
+                <button data-ptev-48="1" style="background:#fff; color:#888; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" data-ptev-49="1" data-ptev-50="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button data-ptev-51="1" style="background:#fff; color:#c33; border:2px solid #ecc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; margin-left:auto;" data-ptev-52="1" data-ptev-53="1" data-i18n="ptBtnNewRules">New Rules</button>
+                <button data-ptev-54="1" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s; display:inline-flex; align-items:center; gap:6px;" data-ptev-55="1" data-ptev-56="1" data-i18n="ptBtnExportRules"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
+                <button data-ptev-57="1" style="background:#fff; color:#111; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" data-ptev-58="1" data-ptev-59="1" data-i18n="ptBtnLoadRules">Load Rules</button>
+                <button data-ptev-60="1" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px; transition:all 0.12s;" data-ptev-61="1" data-ptev-62="1" data-i18n="ptBtnSaveRules">Save Rules</button>
             </div>
         </div>
     </div>
@@ -609,14 +609,14 @@
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
                 <h3 data-i18n="ptNewRulesConfirmTitle">Clear Rules & Start Afresh</h3>
-                <button class="modal-close" onclick="closeConfirmNewRulesModal()">&times;</button>
+                <button class="modal-close" data-ptev-63="1">&times;</button>
             </div>
             <div style="margin-bottom: 20px; line-height: 1.6; color: #444; font-size: 0.9rem;" data-i18n="ptNewRulesConfirmMsg">
                 Are you sure you want to clear all current rules in the editor and start afresh?
             </div>
             <div class="button-group">
-                <button onclick="closeConfirmNewRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnCancel">Cancel</button>
-                <button onclick="clearAndStartNewRules()" style="background:#c33; color:#fff; border:2px solid #c33; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnClearRules">Clear Rules</button>
+                <button data-ptev-64="1" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnCancel">Cancel</button>
+                <button data-ptev-65="1" style="background:#c33; color:#fff; border:2px solid #c33; border-radius:5px; padding:8px 16px; font-weight:700; font-size:0.85rem; cursor:pointer;" data-i18n="ptBtnClearRules">Clear Rules</button>
             </div>
         </div>
     </div>
@@ -626,7 +626,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h3 data-i18n="ptSavedRulesTitle">Saved Rules Presets</h3>
-                <button class="modal-close" onclick="closeSavedRulesModal()">&times;</button>
+                <button class="modal-close" data-ptev-66="1">&times;</button>
             </div>
 
             <!-- Section to Save current rules as a named preset -->
@@ -634,7 +634,7 @@
                 <label style="display:block; font-weight:700; font-size:0.85rem; color:#333; margin-bottom:6px;" data-i18n="ptSaveAsPresetLabel">Save Current Rules as Preset</label>
                 <div style="display:flex; gap:8px;">
                     <input type="text" id="presetNameInput" placeholder="Preset name (e.g. Standard Participation)" style="flex:1; padding:8px 12px; border:2px solid #ddd; border-radius:5px; font-size:0.85rem;">
-                    <button onclick="saveCurrentRulesAsPreset()" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 14px; font-weight:700; font-size:0.8rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptBtnSavePreset">Save Preset</button>
+                    <button data-ptev-67="1" style="background:#111; color:#fff; border:2px solid #111; border-radius:5px; padding:8px 14px; font-weight:700; font-size:0.8rem; cursor:pointer; text-transform:uppercase; letter-spacing:0.5px;" data-i18n="ptBtnSavePreset">Save Preset</button>
                 </div>
             </div>
 
@@ -647,25 +647,25 @@
             </div>
 
             <div class="button-group" style="border-top:1px solid #eee; padding-top:12px; margin-top:15px;">
-                <button onclick="closeSavedRulesModal()" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:6px 14px; font-weight:700; font-size:0.8rem; cursor:pointer;" data-i18n="ptBtnClose">Close</button>
+                <button data-ptev-68="1" style="background:#fff; color:#555; border:2px solid #ccc; border-radius:5px; padding:6px 14px; font-weight:700; font-size:0.8rem; cursor:pointer;" data-i18n="ptBtnClose">Close</button>
             </div>
         </div>
     </div>
 
     <!-- ════ PDF EXPORT DESTINATION MODAL ════ -->
-    <div id="ptPdfExportModal" class="modal" onclick="if(event.target===this)closePtPdfExportModal(null)">
-        <div class="modal-content" style="max-width: 420px;" onclick="event.stopPropagation()">
-            <button class="close-modal" onclick="closePtPdfExportModal(null)" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+    <div id="ptPdfExportModal" class="modal" data-ptev-69="1">
+        <div class="modal-content" style="max-width: 420px;" data-ptev-70="1">
+            <button class="close-modal" data-ptev-71="1" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
             <div class="pt-export-modal-header" style="margin-bottom:12px;">
                 <h2 id="pt-pdf-export-title" data-i18n="deExportPdfDestinationTitle"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Export PDF</h2>
                 <div class="pt-export-subtitle" id="pt-pdf-export-text" data-i18n="deExportPdfDestinationPrompt">Where do you want to save the PDF?</div>
             </div>
             <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:16px;">
-                <button class="btn btn-primary" id="btn-pt-pdf-export-to-print" type="button" onclick="closePtPdfExportModal('to-print')" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
-                <button class="btn btn-secondary" id="btn-pt-pdf-export-picker" type="button" onclick="closePtPdfExportModal('picker')" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
+                <button class="btn btn-primary" id="btn-pt-pdf-export-to-print" type="button" data-ptev-72="1" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfToPrintFolder">Export to Print folder</button>
+                <button class="btn btn-secondary" id="btn-pt-pdf-export-picker" type="button" data-ptev-73="1" style="padding:10px 14px; justify-content:center; width:100%;" data-i18n="deExportPdfFilePicker">Choose with file picker</button>
             </div>
             <div style="display:flex; justify-content:flex-end;">
-                <button class="btn btn-secondary" type="button" onclick="closePtPdfExportModal(null)" data-i18n="btnCancel">Cancel</button>
+                <button class="btn btn-secondary" type="button" data-ptev-74="1" data-i18n="btnCancel">Cancel</button>
             </div>
         </div>
     </div>
@@ -673,7 +673,7 @@
     <!-- Export Rules Modal (Neobrutalist Popup) -->
     <div id="rulesExportModal" class="modal">
         <div class="modal-content" style="max-width: 620px;">
-            <button class="close-modal" onclick="closeExportRulesModal()" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+            <button class="close-modal" data-ptev-75="1" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
             <div class="pt-export-modal-header">
                 <h2><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="ptExportRulesModalTitle">Export Grading & Participation Rules</span></h2>
                 <div class="pt-export-subtitle" data-i18n="ptExportRulesSub">Export active objective grading rules to HTML, PDF, or Markdown format.</div>
@@ -704,7 +704,7 @@
                 <label class="pt-export-section-title"><span>Select Export Format</span></label>
                 <div class="pt-export-formats-grid" style="grid-template-columns: repeat(3, 1fr);">
                     <label class="pt-format-tile">
-                        <input type="radio" name="ptRulesExportFormat" value="html" checked onchange="updateRulesExportHint()">
+                        <input type="radio" name="ptRulesExportFormat" value="html" checked data-ptev-76="1">
                         <div class="pt-format-box">
                             <span class="pt-format-icon"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /></span>
                             <span class="pt-format-name">HTML</span>
@@ -712,7 +712,7 @@
                         </div>
                     </label>
                     <label class="pt-format-tile">
-                        <input type="radio" name="ptRulesExportFormat" value="pdf" onchange="updateRulesExportHint()">
+                        <input type="radio" name="ptRulesExportFormat" value="pdf" data-ptev-77="1">
                         <div class="pt-format-box">
                             <span class="pt-format-icon"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /></span>
                             <span class="pt-format-name">PDF</span>
@@ -720,7 +720,7 @@
                         </div>
                     </label>
                     <label class="pt-format-tile">
-                        <input type="radio" name="ptRulesExportFormat" value="md" onchange="updateRulesExportHint()">
+                        <input type="radio" name="ptRulesExportFormat" value="md" data-ptev-78="1">
                         <div class="pt-format-box">
                             <span class="pt-format-icon"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /></span>
                             <span class="pt-format-name">Markdown</span>
@@ -736,9 +736,9 @@
             </div>
 
             <div class="pt-export-footer">
-                <button type="button" class="btn-secondary" onclick="closeExportRulesModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button type="button" class="btn-secondary" onclick="previewExportRules()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
-                <button type="button" class="btn-primary" onclick="executeExportRules()" id="rulesConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
+                <button type="button" class="btn-secondary" data-ptev-79="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-secondary" data-ptev-80="1"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
+                <button type="button" class="btn-primary" data-ptev-81="1" id="rulesConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Rules</button>
             </div>
         </div>
     </div>
@@ -750,11 +750,11 @@
             <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <h3 id="detailModalTitle" style="margin:0;"></h3>
-                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" onclick="openStudentSessionTimelineFromModal()" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" data-hover-help="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
+                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" data-ptev-82="1" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" data-hover-help="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
                     <button type="button" class="btn btn-xs" id="pt-btn-student-dossier" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>
-                    <button type="button" class="tut-trigger-btn" onclick="showPtDetailTour()" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                    <button type="button" class="tut-trigger-btn" data-ptev-83="1" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
                 </div>
-                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                <button class="modal-close" data-ptev-84="1">&times;</button>
             </div>
 
             <div id="detailModalBody">
@@ -766,8 +766,8 @@
             </div>
 
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeDetailModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-primary" onclick="confirmSaveNotes()" data-i18n="ptBtnSaveNotes">Save Student Data</button>
+                <button class="btn-secondary" data-ptev-85="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-primary" data-ptev-86="1" data-i18n="ptBtnSaveNotes">Save Student Data</button>
             </div>
         </div>
     </div>
@@ -776,15 +776,15 @@
         <div class="modal-content" style="max-width: 400px;">
             <div class="modal-header">
                 <h3 data-i18n="ptConfirmSaveTitle">Confirm Save</h3>
-                <button class="modal-close" onclick="closeConfirmModal()">&times;</button>
+                <button class="modal-close" data-ptev-87="1">&times;</button>
             </div>
 
             <div id="confirmMessage" style="margin-bottom: 20px; line-height: 1.6;">
             </div>
 
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeConfirmModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-success" onclick="confirmAndSaveNotes()" data-i18n="ptBtnConfirmSave">Confirm Save</button>
+                <button class="btn-secondary" data-ptev-88="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-success" data-ptev-89="1" data-i18n="ptBtnConfirmSave">Confirm Save</button>
             </div>
         </div>
     </div>
@@ -797,12 +797,12 @@
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">
                 <h3 id="resetWarn1Title" data-i18n="ptResetWarn1Title"><img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Warning</h3>
-                <button class="modal-close" onclick="closeResetModal1()">&times;</button>
+                <button class="modal-close" data-ptev-90="1">&times;</button>
             </div>
             <div class="reset-warn-box" id="resetWarn1Body"></div>
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeResetModal1()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-danger" onclick="proceedResetStep2()" data-i18n="ptBtnProceed">Proceed</button>
+                <button class="btn-secondary" data-ptev-91="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-danger" data-ptev-92="1" data-i18n="ptBtnProceed">Proceed</button>
             </div>
         </div>
     </div>
@@ -812,12 +812,12 @@
         <div class="modal-content" style="max-width: 460px;">
             <div class="modal-header">
                 <h3 data-i18n="ptResetWarn2Title"><img src="../assets/icons/error.svg" class="btn-icon" alt="" /> Final Warning</h3>
-                <button class="modal-close" onclick="closeResetModal2()">&times;</button>
+                <button class="modal-close" data-ptev-93="1">&times;</button>
             </div>
             <div class="reset-warn-box2" id="resetWarn2Body"></div>
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeResetModal2()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-danger" onclick="executeReset()" data-i18n="ptBtnDeletePermanently">Yes, Delete Permanently</button>
+                <button class="btn-secondary" data-ptev-94="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-danger" data-ptev-95="1" data-i18n="ptBtnDeletePermanently">Yes, Delete Permanently</button>
             </div>
         </div>
     </div>
@@ -827,7 +827,7 @@
         <div class="modal-content" style="max-width: 600px;">
             <div class="modal-header">
                 <h3 data-i18n="ptImportTitle"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import & Merge Data Preview</h3>
-                <button class="modal-close" onclick="closeImportModal()" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+                <button class="modal-close" data-ptev-96="1" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
             </div>
 
             <div id="importPreviewContent" style="margin-bottom: 20px; max-height: 400px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 15px; background: #f9f9f9;">
@@ -848,8 +848,8 @@
             </div>
 
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeImportModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-primary" onclick="confirmImportAndMerge()" data-i18n="ptBtnMergeData">Merge Data</button>
+                <button class="btn-secondary" data-ptev-97="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-primary" data-ptev-98="1" data-i18n="ptBtnMergeData">Merge Data</button>
             </div>
         </div>
     </div>
@@ -858,19 +858,19 @@
         <div class="modal-content" style="max-width: 560px;">
             <div class="modal-header">
                 <h3 data-i18n="ptCompareGroupsTitle">Compare Groups</h3>
-                <button class="modal-close" onclick="closeCompareGroupsModal()">&times;</button>
+                <button class="modal-close" data-ptev-99="1">&times;</button>
             </div>
 
             <div style="margin-bottom: 12px;">
-                <button class="btn-secondary btn-icon" type="button" onclick="setCompareGroupsSelection(true)" data-i18n="ptBtnSelectAll">Select all</button>
-                <button class="btn-secondary btn-icon" type="button" onclick="setCompareGroupsSelection(false)" data-i18n="ptBtnClearAll">Clear all</button>
+                <button class="btn-secondary btn-icon" type="button" data-ptev-100="1" data-i18n="ptBtnSelectAll">Select all</button>
+                <button class="btn-secondary btn-icon" type="button" data-ptev-101="1" data-i18n="ptBtnClearAll">Clear all</button>
             </div>
 
             <div id="compareGroupsList" class="compare-groups-list"></div>
 
             <div class="button-group">
-                <button class="btn-secondary" onclick="closeCompareGroupsModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button class="btn-primary" onclick="applyCompareGroupsSelection()" data-i18n="ptBtnShowSummary">Show Summary</button>
+                <button class="btn-secondary" data-ptev-102="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button class="btn-primary" data-ptev-103="1" data-i18n="ptBtnShowSummary">Show Summary</button>
             </div>
         </div>
     </div>
@@ -883,18 +883,18 @@
                     <h3 id="columnsModalTitle" data-i18n="ptConfigureColumns">Configure Columns</h3>
                     <p style="margin: 4px 0 0; font-size: 12px; color: #555;" data-i18n="ptColumnsModalSub">Toggle visibility, change order, or adjust width for each column.</p>
                 </div>
-                <button class="modal-close" onclick="closeColumnsConfigModal()" aria-label="Close">&times;</button>
+                <button class="modal-close" data-ptev-104="1" aria-label="Close">&times;</button>
             </div>
 
             <div class="columns-modal-toolbar">
-                <button class="btn-secondary btn-icon" type="button" onclick="showAllColumnsInModal()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> <span data-i18n="ptColToggleShowAll">Show All</span></button>
-                <button class="btn-secondary btn-icon" type="button" onclick="resetColumnsOrderAndWidthsInModal()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="ptResetColumns">Reset Columns</span></button>
+                <button class="btn-secondary btn-icon" type="button" data-ptev-105="1"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> <span data-i18n="ptColToggleShowAll">Show All</span></button>
+                <button class="btn-secondary btn-icon" type="button" data-ptev-106="1"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> <span data-i18n="ptResetColumns">Reset Columns</span></button>
             </div>
 
             <div id="columnsModalList" class="columns-modal-list"></div>
 
             <div class="button-group">
-                <button class="btn-primary" onclick="closeColumnsConfigModal()" data-i18n="btn_done">Done</button>
+                <button class="btn-primary" data-ptev-107="1" data-i18n="btn_done">Done</button>
             </div>
         </div>
     </div>
@@ -902,7 +902,7 @@
     <!-- Export Options Modal (Neobrutalist Popup) -->
     <div id="ptExportModal" class="modal">
         <div class="modal-content">
-            <button class="close-modal" onclick="closePtExportModal()" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+            <button class="close-modal" data-ptev-108="1" aria-label="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
             <div class="pt-export-modal-header">
                 <h2><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="ptExportModalTitle">Export Student Statistics & Data</span></h2>
                 <div class="pt-export-subtitle" data-i18n="ptExportSub">Choose a category and format to export current data.</div>
@@ -914,7 +914,7 @@
                     <label class="pt-export-section-title">1. <span data-i18n="ptExportSelectCategory">Select Data Category or Report</span></label>
                     <div class="pt-export-options-list">
                         <label class="pt-export-option-card" style="background:#f0fdf4; border-color:#22c55e; border-width:2.5px;">
-                            <input type="radio" name="ptExportCategory" value="exhaustiveReport" onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="exhaustiveReport" data-ptev-109="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title" style="color:#15803d; font-weight:900;"><img src="../assets/icons/participation-tracker.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatExhaustiveReport">Exhaustive Visual Report (with Charts & Graphs)</span></div>
                                 <div class="pt-export-card-desc">Comprehensive analytical report featuring embedded vector SVG charts, distribution graphs, student scorecards, and multi-class comparisons.</div>
@@ -939,35 +939,35 @@
                         </div>
 
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="classOverview" checked onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="classOverview" checked data-ptev-110="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatClassOverview">Class Overview / Student Stats</span></div>
                                 <div class="pt-export-card-desc">Aggregated statistics per student (picks, pluses, minuses, badges, prov. grade, net score, trends).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="history" onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="history" data-ptev-111="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatSessionHistory">Session History</span></div>
                                 <div class="pt-export-card-desc">Session-by-session log with date, time, total picks, team points, badges, objectives, and notes.</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="studentDetail" onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="studentDetail" data-ptev-112="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/group-editor.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatStudentDetail">Individual Student History</span></div>
                                 <div class="pt-export-card-desc">Detailed session activity log (<span id="ptExportActiveStudentName">All Students</span>).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="groupComparison" onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="groupComparison" data-ptev-113="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatGroupComparison">Group Comparison Summary</span></div>
                                 <div class="pt-export-card-desc">Cross-group comparison breakdown (sessions, picks/student, pos/neg rates, net scores).</div>
                             </div>
                         </label>
                         <label class="pt-export-option-card">
-                            <input type="radio" name="ptExportCategory" value="provisionalGrades" onchange="togglePtReportSubOptions()">
+                            <input type="radio" name="ptExportCategory" value="provisionalGrades" data-ptev-114="1">
                             <div class="pt-export-card-body">
                                 <div class="pt-export-card-title"><img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" /> <span data-i18n="ptCatProvisionalGrades">Provisional Grades & Objectives</span></div>
                                 <div class="pt-export-card-desc">Detailed breakdown of objective rules met and calculated grades per student.</div>
@@ -1040,9 +1040,9 @@
             </div>
 
             <div class="pt-export-footer">
-                <button type="button" class="btn-secondary" onclick="closePtExportModal()" data-i18n="ptBtnCancel">Cancel</button>
-                <button type="button" class="btn-secondary" onclick="previewPtExport()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
-                <button type="button" class="btn-primary" onclick="executePtExport()" id="ptConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Now</button>
+                <button type="button" class="btn-secondary" data-ptev-115="1" data-i18n="ptBtnCancel">Cancel</button>
+                <button type="button" class="btn-secondary" data-ptev-116="1"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Live Preview</button>
+                <button type="button" class="btn-primary" data-ptev-117="1" id="ptConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export Now</button>
             </div>
         </div>
     </div>
@@ -1057,7 +1057,7 @@
                 </h3>
                 <div style="display: flex; align-items: center; gap: 8px;">
                     <div id="pt-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
-                    <button class="modal-close" onclick="closePtExportPreviewModal()">&times;</button>
+                    <button class="modal-close" data-ptev-118="1">&times;</button>
                 </div>
             </div>
             <div style="font-size: 11px; color: var(--neo-gray-dark, #475569); font-weight: 700; margin-bottom: 10px;" id="ptExportPreviewSub">
@@ -1069,9 +1069,9 @@
             </div>
 
             <div class="button-group" style="margin-top: 14px; display: flex; justify-content: space-between; align-items: center; border-top: 2px solid var(--neo-border-color, #333333); padding-top: 12px;">
-                <button type="button" class="btn-secondary" onclick="closePtExportPreviewModal()"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Options</button>
+                <button type="button" class="btn-secondary" data-ptev-119="1"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Back to Options</button>
                 <div style="display: flex; gap: 10px;">
-                    <button type="button" class="btn-primary" onclick="confirmExportFromPreview()" id="ptPreviewConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Confirm & Save File</button>
+                    <button type="button" class="btn-primary" data-ptev-120="1" id="ptPreviewConfirmExportBtn"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Confirm & Save File</button>
                 </div>
             </div>
         </div>
@@ -1087,13 +1087,13 @@
                     <span id="modalTimelineSubtitle" class="pt-timeline-subtitle"></span>
                 </h3>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelinePng()" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
+                    <button type="button" class="btn-secondary btn-icon" data-ptev-121="1" data-i18n-help="ptTimelineExportPng" data-hover-help="Export Timeline (PNG)">
                         <img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span>PNG</span>
                     </button>
-                    <button type="button" class="btn-secondary btn-icon" onclick="exportTimelineSvg()" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
+                    <button type="button" class="btn-secondary btn-icon" data-ptev-122="1" data-i18n-help="ptTimelineExportSvg" data-hover-help="Export Timeline (SVG)">
                         <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span>SVG</span>
                     </button>
-                    <button class="modal-close" onclick="closeSessionTimelineModal()">&times;</button>
+                    <button class="modal-close" data-ptev-123="1">&times;</button>
                 </div>
             </div>
 
@@ -1105,14 +1105,14 @@
                             <img src="../assets/icons/planner.svg" class="btn-icon" style="width:12px;height:12px;vertical-align:-1px;" alt="" />
                             <span data-i18n="ptTimelinePlannerSlot">Planner Slot</span>
                         </label>
-                        <select id="modalPlannerSlotSelect" class="pt-timeline-select" onchange="onTimelinePlannerSlotChange(this.value, true)">
+                        <select id="modalPlannerSlotSelect" class="pt-timeline-select" data-ptev-124="1">
                             <option value="none" data-i18n="ptTimelineNoSlot">No Planner Slot</option>
                         </select>
                     </div>
 
                     <div class="pt-timeline-control-group">
                         <label for="modalSlotDurationSelect" data-i18n="ptTimelineSlotDuration">Slot Duration</label>
-                        <select id="modalSlotDurationSelect" class="pt-timeline-select" onchange="onTimelineSlotDurationChange(this.value, true)">
+                        <select id="modalSlotDurationSelect" class="pt-timeline-select" data-ptev-125="1">
                             <option value="slot" id="modalSlotOptionDuration" data-i18n="ptTimelineSlotOption" selected>Planner Slot</option>
                             <option value="auto" data-i18n="ptTimelineSlotAuto">Auto (Span of events)</option>
                             <option value="45">45 min</option>
@@ -1126,7 +1126,7 @@
 
                     <div class="pt-timeline-control-group">
                         <label for="modalTimeDisplaySelect">Display</label>
-                        <select id="modalTimeDisplaySelect" class="pt-timeline-select" onchange="onTimelineTimeDisplayChange(this.value, true)">
+                        <select id="modalTimeDisplaySelect" class="pt-timeline-select" data-ptev-126="1">
                             <option value="elapsed" selected data-i18n="ptTimelineDisplayElapsed">Elapsed Time (+00:00)</option>
                             <option value="clock" data-i18n="ptTimelineDisplayClock">Clock Time (HH:MM)</option>
                         </select>
@@ -1134,29 +1134,29 @@
 
                     <div class="pt-timeline-control-group">
                         <label for="modalStudentFilterSelect" data-i18n="ptColStudent">Student</label>
-                        <select id="modalStudentFilterSelect" class="pt-timeline-select" onchange="onTimelineStudentFilterChange(this.value, true)">
+                        <select id="modalStudentFilterSelect" class="pt-timeline-select" data-ptev-127="1">
                             <option value="" data-i18n="ptTimelineAllStudents">All Students</option>
                         </select>
                     </div>
                 </div>
 
                 <div class="pt-timeline-filter-chips">
-                    <button type="button" class="pt-filter-chip active" data-filter="points" onclick="toggleTimelineFilter('points', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="points" data-ptev-128="1">
                         <span class="pt-chip-dot" style="background:#6abf8e;"></span> <span data-i18n="ptTimelineFilterPoints">Points (+/-)</span>
                     </button>
-                    <button type="button" class="pt-filter-chip active" data-filter="picks" onclick="toggleTimelineFilter('picks', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="picks" data-ptev-129="1">
                         <span class="pt-chip-dot" style="background:#8b7cc2;"></span> <span data-i18n="ptTimelineFilterPicks">Picks & Calls</span>
                     </button>
-                    <button type="button" class="pt-filter-chip active" data-filter="timers" onclick="toggleTimelineFilter('timers', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="timers" data-ptev-130="1">
                         <span class="pt-chip-dot" style="background:#e2c96e;"></span> <span data-i18n="ptTimelineFilterTimers">Timers & Modes</span>
                     </button>
-                    <button type="button" class="pt-filter-chip active" data-filter="teams" onclick="toggleTimelineFilter('teams', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="teams" data-ptev-131="1">
                         <span class="pt-chip-dot" style="background:#5b8fcc;"></span> <span data-i18n="ptTimelineFilterTeams">Teams & Roles</span>
                     </button>
-                    <button type="button" class="pt-filter-chip active" data-filter="badges" onclick="toggleTimelineFilter('badges', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="badges" data-ptev-132="1">
                         <span class="pt-chip-dot" style="background:#e59a5a;"></span> <span data-i18n="ptTimelineFilterBadges">Badges & Notes</span>
                     </button>
-                    <button type="button" class="pt-filter-chip active" data-filter="attendance" onclick="toggleTimelineFilter('attendance', this, true)">
+                    <button type="button" class="pt-filter-chip active" data-filter="attendance" data-ptev-133="1">
                         <span class="pt-chip-dot" style="background:#94a3b8;"></span> <span data-i18n="ptTimelineFilterAttendance">Attendance</span>
                     </button>
                 </div>
@@ -1206,9 +1206,9 @@
     <script>if (!window.electronApi || !window.electronApi.isElectron) { document.write('\x3Cscript src="user\/log\/group-participation\/cms-db.js">\x3C\/script>'); }</script>
     <script src="../js/pages/participation-tracker.js"></script>
 <!-- Credits Modal -->
-<div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
+<div id="credits-overlay" data-ptev-134="1" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-    <button onclick="closeCreditsModal()" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" data-i18n-help="gsToptClose" data-hover-help="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+    <button data-ptev-135="1" style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;" data-i18n-help="gsToptClose" data-hover-help="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
     <iframe src="about.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
   </div>
 </div>
@@ -1319,5 +1319,6 @@ window.showPtMainWindowTour = showPtMainWindowTour;
 window.showPtRulesTour = showPtRulesTour;
 window.showPtDetailTour = showPtDetailTour;
 </script>
+  <script src="../js/pages/participation-tracker-events.js"></script>
 </body>
 </html>

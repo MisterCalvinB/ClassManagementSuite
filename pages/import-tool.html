@@ -8,12 +8,12 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/import-utils.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/import-utils.js"></script>
   <script src="../js/import-modules/students.js"></script>
   <script src="../js/import-modules/class-groups.js"></script>
   <script src="../js/import-modules/admin-groups.js"></script>
@@ -732,12 +732,12 @@
         if (isHeader) {
           badgeHtml = '<span class="row-badge-header">' + tt('importRowHeaderTag', ' Header') + ' (#' + (i + 1) + ')</span>';
         } else if (isClutter) {
-          badgeHtml = '<span class="row-badge-clutter">' + tt('importRowClutterTag', 'Skipped') + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
+          badgeHtml = '<span class="row-badge-clutter">' + tt('importRowClutterTag', 'Skipped') + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" data-row-idx="' + i + '" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
         } else {
-          badgeHtml = '<span class="row-badge-data">' + tt('importRowDataTag', 'Data') + ' ' + (i - headerIdx) + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
+          badgeHtml = '<span class="row-badge-data">' + tt('importRowDataTag', 'Data') + ' ' + (i - headerIdx) + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" data-row-idx="' + i + '" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
         }
 
-        bodyHtml += '<tr class="' + rowClass + '" onclick="window.onStartRowSelectChange(' + i + ')" title="' + esc(isHeader ? 'Active Header Row' : 'Click to set as Header Row') + '">';
+        bodyHtml += '<tr class="' + rowClass + '" data-row-idx="' + i + '" title="' + esc(isHeader ? 'Active Header Row' : 'Click to set as Header Row') + '">';
         bodyHtml += '<td class="row-role-cell" style="text-align:center;">' + badgeHtml + '</td>';
 
         var cells = rawRows[i] || [];
@@ -754,6 +754,19 @@
         '</div>';
 
       table.innerHTML = '<thead>' + headHtml + '</thead><tbody>' + bodyHtml + '</tbody>';
+      if (!table._startRowDelegated) {
+        table._startRowDelegated = true;
+        table.addEventListener('click', function (e) {
+          var btn = e.target.closest('.btn-use-header');
+          var rowEl = btn || e.target.closest('tr[data-row-idx]');
+          if (!rowEl) return;
+          if (btn) e.stopPropagation();
+          var idx = parseInt(rowEl.getAttribute('data-row-idx'), 10);
+          if (!isNaN(idx) && typeof window.onStartRowSelectChange === 'function') {
+            window.onStartRowSelectChange(idx);
+          }
+        });
+      }
       
       var existingStats = wrap.querySelector('.preview-stats-bar');
       if (existingStats) existingStats.remove();
@@ -944,14 +957,26 @@
         var delIcon = isExcluded ? '↩' : '';
         return '<tr' + rowClass + '>' +
           fields.map(function (f) { return '<td>' + esc(String(obj[f.key] === undefined ? '' : obj[f.key])) + '</td>'; }).join('') +
-          '<td><button class="row-del-btn" onclick="toggleRowExclusion(' + rawIdx + ')" title="' + delTitle + '">' + delIcon + '</button></td>' +
+          '<td><button class="row-del-btn" data-raw-idx="' + rawIdx + '" title="' + delTitle + '">' + delIcon + '</button></td>' +
           '</tr>';
       }).filter(function (r) { return r !== null; });
 
       var head = '<tr>' +
         fields.map(function (f) { return '<th>' + esc(tt(f.i18nKey, f.key)) + '</th>'; }).join('') +
         '<th style="width:32px;"></th></tr>';
-      document.getElementById('mapping-preview-table').innerHTML = '<thead>' + head + '</thead><tbody>' + bodyRows.join('') + '</tbody>';
+      var previewTbl = document.getElementById('mapping-preview-table');
+      previewTbl.innerHTML = '<thead>' + head + '</thead><tbody>' + bodyRows.join('') + '</tbody>';
+      if (!previewTbl._exclDelegated) {
+        previewTbl._exclDelegated = true;
+        previewTbl.addEventListener('click', function (e) {
+          var btn = e.target.closest('.row-del-btn');
+          if (!btn) return;
+          var idx = parseInt(btn.getAttribute('data-raw-idx'), 10);
+          if (!isNaN(idx) && typeof window.toggleRowExclusion === 'function') {
+            window.toggleRowExclusion(idx);
+          }
+        });
+      }
       document.getElementById('mapping-preview-wrap').classList.add('visible');
 
       var exclCount = 0;

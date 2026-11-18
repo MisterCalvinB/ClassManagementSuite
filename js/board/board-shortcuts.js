@@ -98,7 +98,7 @@
   ];
 
   var _BC_PEN_SHAPE_OPTIONS = global._BC_PEN_SHAPE_OPTIONS = window._BC_PEN_SHAPE_OPTIONS = window._BC_PEN_SHAPE_OPTIONS || [
-    { value: '', label: '✏ Freehand' },
+    { value: '', label: ' Freehand' },
     { value: 'rect', label: '▭ Rect' },
     { value: 'circle', label: '⬭ Ellipse' },
     { value: 'diamond', label: '◇ Diamond' },
@@ -815,7 +815,7 @@
                 const y = coords && coords.y !== undefined ? coords.y : undefined;
                 window.conInsertPremadeItem(item, x, y);
                 if (typeof mdbToast === 'function') {
-                  mdbToast('✨ ' + (item.name || 'Library item'));
+                  mdbToast(' ' + (item.name || 'Library item'));
                 }
               }
             }
@@ -941,7 +941,7 @@
           btn.type = 'button';
           btn.className = 'action-btn btn-grey con-quick-action-btn' + (def.isLibraryItem ? ' con-quick-lib-btn' : '');
           btn.dataset.action = def.id;
-          btn.title = (def.isLibraryItem ? '✨ [Library] ' : '') + def.name + ' — ' + def.desc + scText;
+          btn.title = (def.isLibraryItem ? ' [Library] ' : '') + def.name + ' — ' + def.desc + scText;
           if (def.id === 'mouse_pointer' && (window._mirrorPointerOn || (typeof _mirrorPointerOn !== 'undefined' && _mirrorPointerOn))) {
             btn.classList.add('laser-btn-active', 'con-quick-active');
           }
@@ -1180,7 +1180,7 @@
         if (typeof mdbToast === 'function') {
           if (!isPinned) {
             const raw = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastPinnedLib') : null;
-            const msg = raw ? raw.replace('{name}', itemName) : ('📌 Pinned "' + itemName + '" to menu bar');
+            const msg = raw ? raw.replace('{name}', itemName) : (' Pinned "' + itemName + '" to menu bar');
             mdbToast(msg);
           } else {
             const raw = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conToastUnpinnedLib') : null;
@@ -1432,7 +1432,7 @@
           if (matchShortcutDef(def, sc, e)) {
             if (typeof window.conInsertPremadeItem === 'function') {
               window.conInsertPremadeItem(it);
-              if (typeof mdbToast === 'function') mdbToast('✨ ' + (it.name || 'Library item'));
+              if (typeof mdbToast === 'function') mdbToast(' ' + (it.name || 'Library item'));
             }
             e.preventDefault();
             return true;
@@ -2542,7 +2542,7 @@
         updatePreview();
 
         const removeBtn = document.createElement('button');
-        removeBtn.textContent = '✕';
+        removeBtn.textContent = 'x';
         removeBtn.className = 'bc-swatch-remove';
         removeBtn.title = 'Remove this swatch';
         removeBtn.style.cssText = 'width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0;font-size:0.7rem;';
@@ -2655,7 +2655,7 @@
 
         const input = document.createElement('input');
         input.type = 'text'; input.value = color; input.className = 'bc-swatch-input';
-        input.placeholder = 'CSS colour, e.g. #fff  ·  rgba(255,229,0,.9)  ·  blink';
+        input.placeholder = 'CSS colour, e.g. #fff · rgba(255,229,0,.9) · blink';
         input.oninput = () => {
           _bcApplySwatchPreview(preview, input.value.trim());
           _bcSyncPickerFromText(colorBtn, input.value.trim());
@@ -2667,7 +2667,7 @@
         };
 
         const removeBtn = document.createElement('button');
-        removeBtn.textContent = '✕'; removeBtn.className = 'bc-swatch-remove';
+        removeBtn.textContent = 'x'; removeBtn.className = 'bc-swatch-remove';
         removeBtn.title = 'Remove this colour';
         removeBtn.onclick = () => row.remove();
 
@@ -2870,9 +2870,9 @@
       if (window.Desktop && typeof Desktop.saveText === 'function') {
         try {
           await Desktop.saveText('user', 'board-config.js', lines);
-          mdbToast('✅ Customise settings saved to board-config.js');
+          mdbToast(' Customise settings saved to board-config.js');
         } catch (err) {
-          mdbToast('⚠️ Could not save: ' + (err && err.message ? err.message : String(err)));
+          mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err)));
         }
       } else {
         const blob = new Blob([lines], { type: 'text/javascript' });
@@ -2880,7 +2880,7 @@
         const a = document.createElement('a');
         a.href = url; a.download = 'board-config.js'; a.click();
         URL.revokeObjectURL(url);
-        mdbToast('📥 board-config.js downloaded — replace the file in user/');
+        mdbToast(' board-config.js downloaded — replace the file in user/');
       }
       boardCustomiseClose();
     }

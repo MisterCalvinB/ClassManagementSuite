@@ -8,11 +8,11 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/menus.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/menus.js"></script>
   <link rel="stylesheet" href="../css/database-converter.css">
 </head>
 <body data-neo-hover-all="1">
@@ -25,8 +25,8 @@
     </div>
     <div class="nav-actions">
       <a href="../launcher.html" class="btn-nav-back" data-i18n="btnBack">← Back</a>
-      <button class="tut-trigger-btn" id="skmBtn" onclick="openConverterShortcuts()" data-hover-help="Keyboard Shortcuts" data-i18n-help="skmTitle">⌨ ?</button>
-      <button class="tut-trigger-btn" id="tourBtn" onclick="startConverterTour()" data-hover-help="Tour" data-i18n-help="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button class="tut-trigger-btn" id="skmBtn" data-dcev-1="1" data-hover-help="Keyboard Shortcuts" data-i18n-help="skmTitle">⌨ ?</button>
+      <button class="tut-trigger-btn" id="tourBtn" data-dcev-2="1" data-hover-help="Tour" data-i18n-help="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <div id="app-hamburger" class="hm-wrap">
         <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
         <div class="hm-menu"></div>
@@ -45,7 +45,7 @@
         <p class="conv-subtitle" data-i18n="dbConvSubtitle">Convert between spreadsheets, database tables, JSON, SQL, and CMT application formats with live preview and schema editing.</p>
       </div>
       <div style="display: flex; gap: 8px;">
-        <button type="button" class="nb-btn nb-btn-sm" id="btnToggleLayout" onclick="toggleStudioLayout()" data-hover-help="Switch between split screen and full-width stacked view">
+        <button type="button" class="nb-btn nb-btn-sm" id="btnToggleLayout" data-dcev-3="1" data-hover-help="Switch between split screen and full-width stacked view">
           <span id="layoutIcon"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></span> <span id="layoutText">Full Width View</span>
         </button>
       </div>
@@ -65,15 +65,15 @@
               <span data-i18n="dbConvTabFile">Source Data</span>
             </h2>
             <div style="display: flex; gap: 8px;">
-              <button type="button" class="nb-btn nb-btn-sm" id="btnLoadSample" onclick="loadSampleData()" data-i18n="dbConvSampleBtn">Load Sample Table</button>
-              <button type="button" class="nb-btn nb-btn-sm nb-btn-danger" id="btnClearData" onclick="clearAllData()" data-i18n="dbConvClearBtn">Clear</button>
+              <button type="button" class="nb-btn nb-btn-sm" id="btnLoadSample" data-dcev-4="1" data-i18n="dbConvSampleBtn">Load Sample Table</button>
+              <button type="button" class="nb-btn nb-btn-sm nb-btn-danger" id="btnClearData" data-dcev-5="1" data-i18n="dbConvClearBtn">Clear</button>
             </div>
           </div>
 
           <!-- Input Mode Tabs -->
           <div class="nb-tabs">
-            <button type="button" class="nb-tab-btn active" id="tabBtnFile" onclick="switchInputTab('file')" data-i18n="dbConvTabFile">File Upload</button>
-            <button type="button" class="nb-tab-btn" id="tabBtnPaste" onclick="switchInputTab('paste')" data-i18n="dbConvTabPaste">Paste Raw Text</button>
+            <button type="button" class="nb-tab-btn active" id="tabBtnFile" data-dcev-6="1" data-i18n="dbConvTabFile">File Upload</button>
+            <button type="button" class="nb-tab-btn" id="tabBtnPaste" data-dcev-7="1" data-i18n="dbConvTabPaste">Paste Raw Text</button>
           </div>
 
           <!-- File Upload Dropzone -->
@@ -83,7 +83,7 @@
               <h3 class="nb-dropzone-title" data-i18n="dbConvDropTitle">Drag & drop your file here</h3>
               <p class="nb-dropzone-sub" data-i18n="dbConvDropSubtitle">Supports .xlsx, .xls, .ods, .csv, .tsv, .json, .jsonl, .sql, .xml, .html, .md</p>
               <button type="button" class="nb-btn nb-btn-primary" data-i18n="dbConvBrowseBtn">Browse File</button>
-              <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.ods,.json,.jsonl,.ndjson,.sql,.xml,.html,.htm,.md,.markdown,.txt" onchange="handleFileSelect(event)">
+              <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.ods,.json,.jsonl,.ndjson,.sql,.xml,.html,.htm,.md,.markdown,.txt" data-dcev-8="1">
             </div>
           </div>
 
@@ -91,7 +91,7 @@
           <div id="inputPanePaste" style="display: none;">
             <textarea class="nb-textarea" id="pasteInput" placeholder="Paste CSV, TSV, JSON, SQL INSERT, XML, or Markdown table content here..." data-i18n-placeholder="dbConvPastePlaceholder"></textarea>
             <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-              <button type="button" class="nb-btn nb-btn-primary" onclick="handlePasteParse()" data-i18n="dbConvDetectBtn">Parse Content</button>
+              <button type="button" class="nb-btn nb-btn-primary" data-dcev-9="1" data-i18n="dbConvDetectBtn">Parse Content</button>
             </div>
           </div>
 
@@ -100,13 +100,13 @@
             <!-- Sheet selector for Excel/ODS -->
             <div class="conv-meta-item" id="sheetSelectWrap" style="display: none;">
               <label for="sheetSelect" data-i18n="dbConvSheetLabel">Workbook Sheet:</label>
-              <select id="sheetSelect" class="nb-select" onchange="handleSheetChange()"></select>
+              <select id="sheetSelect" class="nb-select" data-dcev-10="1"></select>
             </div>
 
             <!-- Header Row Selector -->
             <div class="conv-meta-item">
               <label for="headerRowSelect" data-i18n="dbConvHeaderRowLabel">Header Row:</label>
-              <select id="headerRowSelect" class="nb-select" onchange="handleHeaderRowChange()">
+              <select id="headerRowSelect" class="nb-select" data-dcev-11="1">
                 <option value="auto" data-i18n="dbConvAutoDetect">Auto-detect</option>
                 <option value="0">Row 1</option>
                 <option value="1">Row 2</option>
@@ -132,7 +132,7 @@
               <img src="../assets/icons/gear.svg" class="btn-icon" alt="">
               <span data-i18n="dbConvSchemaTitle">Column Mapping & Transformations</span>
             </h2>
-            <button type="button" class="nb-btn nb-btn-sm" onclick="toggleSchemaPanel()" id="btnToggleSchema" data-i18n="dbConvToggleSchema">Toggle Schema</button>
+            <button type="button" class="nb-btn nb-btn-sm" data-dcev-12="1" id="btnToggleSchema" data-i18n="dbConvToggleSchema">Toggle Schema</button>
           </div>
 
           <div class="schema-panel-body" id="schemaBody">
@@ -140,7 +140,7 @@
             <div class="schema-preset-bar">
               <div class="schema-preset-controls">
                 <span class="schema-preset-label" data-i18n="dbConvModelPreset">Model Preset:</span>
-                <select id="schemaModelPresetSelect" class="nb-select" onchange="handleModelPresetChange(this.value)">
+                <select id="schemaModelPresetSelect" class="nb-select" data-dcev-13="1">
                   <option value="none" data-i18n="dbConvModelNone">None / Custom Generic Schema</option>
                   <optgroup label="Class Management Suite Models">
                     <option value="app-grade-criteria" data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</option>
@@ -151,11 +151,11 @@
                     <option value="app-admin-groups" data-i18n="dbConvAppAdminGroups">Admin Groups</option>
                   </optgroup>
                 </select>
-                <button type="button" class="nb-btn nb-btn-sm" onclick="autoMatchCurrentModelHeaders()" data-hover-help="Automatically match output headers to model fields" data-i18n="dbConvAutoMatch">
+                <button type="button" class="nb-btn nb-btn-sm" data-dcev-14="1" data-hover-help="Automatically match output headers to model fields" data-i18n="dbConvAutoMatch">
                   <img src="../assets/icons/check.svg" class="btn-icon" alt="">
                   <span>Auto-Match</span>
                 </button>
-                <button type="button" class="nb-btn nb-btn-sm" onclick="resetSchemaHeadersToSource()" data-hover-help="Reset all output headers to original source headers" data-i18n="dbConvResetHeaders">
+                <button type="button" class="nb-btn nb-btn-sm" data-dcev-15="1" data-hover-help="Reset all output headers to original source headers" data-i18n="dbConvResetHeaders">
                   <img src="../assets/icons/undo.svg" class="btn-icon" alt="">
                   <span>Reset Headers</span>
                 </button>
@@ -193,11 +193,11 @@
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <!-- Zero Horizontal Scroll Density Modes -->
               <div class="density-toggle-group" data-hover-help="Table Width & Text Wrapping Mode">
-                <button type="button" class="density-btn active" data-density="fit" onclick="setTableDensity('fit')" data-hover-help="Wrap text so all columns fit within container with NO horizontal scrolling">Fit (No Scroll)</button>
-                <button type="button" class="density-btn" data-density="truncate" onclick="setTableDensity('truncate')" data-hover-help="Compact single-line with ellipsis (hover to view full text)">Truncate</button>
-                <button type="button" class="density-btn" data-density="scroll" onclick="setTableDensity('scroll')" data-hover-help="Scrollable mode with full natural column widths">Scrollable</button>
+                <button type="button" class="density-btn active" data-density="fit" data-dcev-16="1" data-hover-help="Wrap text so all columns fit within container with NO horizontal scrolling">Fit (No Scroll)</button>
+                <button type="button" class="density-btn" data-density="truncate" data-dcev-17="1" data-hover-help="Compact single-line with ellipsis (hover to view full text)">Truncate</button>
+                <button type="button" class="density-btn" data-density="scroll" data-dcev-18="1" data-hover-help="Scrollable mode with full natural column widths">Scrollable</button>
               </div>
-              <input type="search" class="nb-input" id="tableFilterInput" placeholder="Filter rows..." data-i18n-placeholder="dbConvSearchPlaceholder" oninput="handleTableSearch(event)">
+              <input type="search" class="nb-input" id="tableFilterInput" placeholder="Filter rows..." data-i18n-placeholder="dbConvSearchPlaceholder" data-dcev-19="1">
             </div>
           </div>
 
@@ -213,7 +213,7 @@
             <div class="table-pagination">
               <div>
                 <label for="rowsPerPageSelect" data-i18n="dbConvRowsPerPage">Rows per page:</label>
-                <select id="rowsPerPageSelect" class="nb-select" onchange="handleRowsPerPageChange(event)">
+                <select id="rowsPerPageSelect" class="nb-select" data-dcev-20="1">
                   <option value="15">15</option>
                   <option value="25" selected>25</option>
                   <option value="50">50</option>
@@ -222,8 +222,8 @@
               </div>
               <div id="paginationLabel">Page 1 of 1</div>
               <div style="display: flex; gap: 4px;">
-                <button type="button" class="nb-btn nb-btn-sm" id="btnPrevPage" onclick="changePage(-1)">◀ Prev</button>
-                <button type="button" class="nb-btn nb-btn-sm" id="btnNextPage" onclick="changePage(1)">Next ▶</button>
+                <button type="button" class="nb-btn nb-btn-sm" id="btnPrevPage" data-dcev-21="1">◀ Prev</button>
+                <button type="button" class="nb-btn nb-btn-sm" id="btnNextPage" data-dcev-22="1">Next ▶</button>
               </div>
             </div>
           </div>
@@ -246,43 +246,43 @@
           <!-- Category 1: Universal Formats -->
           <div class="format-category-title" data-i18n="dbConvTargetCategoryGeneric">Universal Table & Database Formats</div>
           <div class="format-grid">
-            <button type="button" class="format-btn active" data-fmt="csv" onclick="selectTargetFormat('csv')">
+            <button type="button" class="format-btn active" data-fmt="csv" data-dcev-23="1">
               <img src="../assets/icons/table.svg" alt="" class="format-icon">
               <span>CSV</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="xlsx" onclick="selectTargetFormat('xlsx')">
+            <button type="button" class="format-btn" data-fmt="xlsx" data-dcev-24="1">
               <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
               <span>Excel (.xlsx)</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="json" onclick="selectTargetFormat('json')">
+            <button type="button" class="format-btn" data-fmt="json" data-dcev-25="1">
               <img src="../assets/icons/text.svg" alt="" class="format-icon">
               <span>JSON</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="tsv" onclick="selectTargetFormat('tsv')">
+            <button type="button" class="format-btn" data-fmt="tsv" data-dcev-26="1">
               <img src="../assets/icons/table.svg" alt="" class="format-icon">
               <span>TSV</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="ods" onclick="selectTargetFormat('ods')">
+            <button type="button" class="format-btn" data-fmt="ods" data-dcev-27="1">
               <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
               <span>ODS</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="jsonl" onclick="selectTargetFormat('jsonl')">
+            <button type="button" class="format-btn" data-fmt="jsonl" data-dcev-28="1">
               <img src="../assets/icons/text.svg" alt="" class="format-icon">
               <span>JSONL</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="sql" onclick="selectTargetFormat('sql')">
+            <button type="button" class="format-btn" data-fmt="sql" data-dcev-29="1">
               <img src="../assets/icons/manage-database.svg" alt="" class="format-icon">
               <span>SQL Dump</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="xml" onclick="selectTargetFormat('xml')">
+            <button type="button" class="format-btn" data-fmt="xml" data-dcev-30="1">
               <img src="../assets/icons/text.svg" alt="" class="format-icon">
               <span>XML</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="html" onclick="selectTargetFormat('html')">
+            <button type="button" class="format-btn" data-fmt="html" data-dcev-31="1">
               <img src="../assets/icons/layout.svg" alt="" class="format-icon">
               <span>HTML Table</span>
             </button>
-            <button type="button" class="format-btn" data-fmt="markdown" onclick="selectTargetFormat('markdown')">
+            <button type="button" class="format-btn" data-fmt="markdown" data-dcev-32="1">
               <img src="../assets/icons/document-editor.svg" alt="" class="format-icon">
               <span>Markdown</span>
             </button>
@@ -291,27 +291,27 @@
           <!-- Category 2: Class Management Suite Formats -->
           <div class="format-category-title" data-i18n="dbConvTargetCategoryApp">Class Management Suite Formats</div>
           <div class="format-grid">
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-grade-criteria" onclick="selectTargetFormat('app-grade-criteria')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-grade-criteria" data-dcev-33="1">
               <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</span>
             </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-competences" onclick="selectTargetFormat('app-competences')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-competences" data-dcev-34="1">
               <img src="../assets/icons/award.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppCompetences">Competence Bank</span>
             </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-class-groups" onclick="selectTargetFormat('app-class-groups')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-class-groups" data-dcev-35="1">
               <img src="../assets/icons/group-editor.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppClassGroups">Class Roster</span>
             </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-wordbank" onclick="selectTargetFormat('app-wordbank')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-wordbank" data-dcev-36="1">
               <img src="../assets/icons/book.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppWordbank">Vocabulary Bank</span>
             </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-quiz" onclick="selectTargetFormat('app-quiz')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-quiz" data-dcev-37="1">
               <img src="../assets/icons/quiz.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppQuiz">Quiz Questions</span>
             </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-admin-groups" onclick="selectTargetFormat('app-admin-groups')">
+            <button type="button" class="format-btn format-btn-app" data-fmt="app-admin-groups" data-dcev-38="1">
               <img src="../assets/icons/admin-groups.svg" alt="" class="format-icon">
               <span data-i18n="dbConvAppAdminGroups">Admin Groups</span>
             </button>
@@ -324,14 +324,14 @@
             <div id="optsCsv" class="format-options-block">
               <div class="format-options-row">
                 <label class="format-options-label" for="csvDelimSelect" data-i18n="dbConvCsvDelimiter">Delimiter:</label>
-                <select id="csvDelimSelect" class="nb-select" onchange="updateOutput()">
+                <select id="csvDelimSelect" class="nb-select" data-dcev-39="1">
                   <option value="," data-i18n="dbConvCsvComma">Comma (,)</option>
                   <option value=";" data-i18n="dbConvCsvSemicolon">Semicolon (;)</option>
                   <option value="&#9;" data-i18n="dbConvCsvTab">Tab (\t)</option>
                   <option value="|" data-i18n="dbConvCsvPipe">Pipe (|)</option>
                 </select>
                 <label class="format-options-label" style="margin-left: 12px;">
-                  <input type="checkbox" id="csvBomCheck" checked onchange="updateOutput()">
+                  <input type="checkbox" id="csvBomCheck" checked data-dcev-40="1">
                   <span data-i18n="dbConvCsvBom">Include UTF-8 BOM (Excel compatible)</span>
                 </label>
               </div>
@@ -341,13 +341,13 @@
             <div id="optsJson" class="format-options-block" style="display: none;">
               <div class="format-options-row">
                 <label class="format-options-label" for="jsonModeSelect" data-i18n="dbConvJsonMode">JSON Structure:</label>
-                <select id="jsonModeSelect" class="nb-select" onchange="updateOutput()">
+                <select id="jsonModeSelect" class="nb-select" data-dcev-41="1">
                   <option value="objects" data-i18n="dbConvJsonModeObjects">Array of Objects [{col: val}]</option>
                   <option value="arrays" data-i18n="dbConvJsonModeArrays">Array of Arrays [[val1, val2]]</option>
                   <option value="keyed" data-i18n="dbConvJsonModeKeyed">Dictionary Keyed by First Column</option>
                 </select>
                 <label class="format-options-label" for="jsonIndentSelect" style="margin-left: 12px;" data-i18n="dbConvJsonIndent">Formatting:</label>
-                <select id="jsonIndentSelect" class="nb-select" onchange="updateOutput()">
+                <select id="jsonIndentSelect" class="nb-select" data-dcev-42="1">
                   <option value="2" data-i18n="dbConvJsonIndent2">2 Spaces</option>
                   <option value="4" data-i18n="dbConvJsonIndent4">4 Spaces</option>
                   <option value="0" data-i18n="dbConvJsonMinified">Minified</option>
@@ -359,9 +359,9 @@
             <div id="optsSql" class="format-options-block" style="display: none;">
               <div class="format-options-row">
                 <label class="format-options-label" for="sqlTableInput" data-i18n="dbConvSqlTable">Table Name:</label>
-                <input type="text" id="sqlTableInput" class="nb-input" value="imported_data" oninput="updateOutput()">
+                <input type="text" id="sqlTableInput" class="nb-input" value="imported_data" data-dcev-43="1">
                 <label class="format-options-label" for="sqlDialectSelect" style="margin-left: 12px;" data-i18n="dbConvSqlDialect">SQL Dialect:</label>
-                <select id="sqlDialectSelect" class="nb-select" onchange="updateOutput()">
+                <select id="sqlDialectSelect" class="nb-select" data-dcev-44="1">
                   <option value="sqlite">SQLite</option>
                   <option value="postgres">PostgreSQL</option>
                   <option value="mysql">MySQL</option>
@@ -369,7 +369,7 @@
               </div>
               <div class="format-options-row" style="margin-top: 8px;">
                 <label class="format-options-label">
-                  <input type="checkbox" id="sqlCreateCheck" checked onchange="updateOutput()">
+                  <input type="checkbox" id="sqlCreateCheck" checked data-dcev-45="1">
                   <span data-i18n="dbConvSqlCreate">Include CREATE TABLE statement</span>
                 </label>
               </div>
@@ -379,9 +379,9 @@
             <div id="optsXml" class="format-options-block" style="display: none;">
               <div class="format-options-row">
                 <label class="format-options-label" for="xmlRootInput" data-i18n="dbConvXmlRoot">Root Tag:</label>
-                <input type="text" id="xmlRootInput" class="nb-input" value="dataset" oninput="updateOutput()">
+                <input type="text" id="xmlRootInput" class="nb-input" value="dataset" data-dcev-46="1">
                 <label class="format-options-label" for="xmlRowInput" style="margin-left: 12px;" data-i18n="dbConvXmlRow">Row Tag:</label>
-                <input type="text" id="xmlRowInput" class="nb-input" value="record" oninput="updateOutput()">
+                <input type="text" id="xmlRowInput" class="nb-input" value="record" data-dcev-47="1">
               </div>
             </div>
 
@@ -389,7 +389,7 @@
             <div id="optsHtml" class="format-options-block" style="display: none;">
               <div class="format-options-row">
                 <label class="format-options-label">
-                  <input type="checkbox" id="htmlStyleCheck" checked onchange="updateOutput()">
+                  <input type="checkbox" id="htmlStyleCheck" checked data-dcev-48="1">
                   <span data-i18n="dbConvHtmlStyled">Embed Neobrutalist CSS styling</span>
                 </label>
               </div>
@@ -402,7 +402,7 @@
                   <img src="../assets/icons/check.svg" alt="" style="width: 16px; height: 16px;">
                   <span id="appMappingNotice" data-i18n="dbConvAppAutoMappedNotice">Intelligent auto-mapping applied for target fields.</span>
                 </div>
-                <button type="button" class="nb-btn nb-btn-sm" onclick="autoMatchCurrentModelHeaders()" data-i18n="dbConvAutoMatch">Auto-Match</button>
+                <button type="button" class="nb-btn nb-btn-sm" data-dcev-49="1" data-i18n="dbConvAutoMatch">Auto-Match</button>
               </div>
 
               <!-- Interactive Field Mapping Matrix Card -->
@@ -446,11 +446,11 @@
 
           <!-- Action Buttons Bar -->
           <div class="conv-actions-bar">
-            <button type="button" class="nb-btn" id="btnCopyOutput" onclick="copyOutputToClipboard()" data-i18n="dbConvBtnCopy">
+            <button type="button" class="nb-btn" id="btnCopyOutput" data-dcev-50="1" data-i18n="dbConvBtnCopy">
               <img src="../assets/icons/copy.svg" class="btn-icon" alt="">
               <span>Copy Converted Output</span>
             </button>
-            <button type="button" class="nb-btn nb-btn-success" id="btnExportFile" onclick="exportConvertedFile()" data-i18n="dbConvBtnExport">
+            <button type="button" class="nb-btn nb-btn-success" id="btnExportFile" data-dcev-51="1" data-i18n="dbConvBtnExport">
               <img src="../assets/icons/download.svg" class="btn-icon" alt="">
               <span>Convert & Export File</span>
             </button>
@@ -1102,26 +1102,26 @@
 
           headerCellHtml = `
             <div class="schema-header-adjuster">
-              <select class="schema-field-select ${isKnown ? 'is-mapped' : ''}" onchange="handleSchemaFieldDropdownChange(${idx}, this.value)">
+              <select class="schema-field-select ${isKnown ? 'is-mapped' : ''}" data-dc-col-action="schema-field" data-dc-idx="${idx}">
                 ${optionsHtml}
               </select>
-              <input type="text" class="schema-header-input" value="${escapeHtml(col.name)}" placeholder="Output header..." oninput="handleSchemaHeaderInputChange(${idx}, this.value)">
+              <input type="text" class="schema-header-input" value="${escapeHtml(col.name)}" placeholder="Output header..." data-dc-col-input="schema-header" data-dc-idx="${idx}">
             </div>
           `;
         } else {
           headerCellHtml = `
-            <input type="text" class="nb-input" value="${escapeHtml(col.name)}" style="width: 140px; padding: 4px 6px;" oninput="updateColumnName(${idx}, this.value)">
+            <input type="text" class="nb-input" value="${escapeHtml(col.name)}" style="width: 140px; padding: 4px 6px;" data-dc-col-input="col-name" data-dc-idx="${idx}">
           `;
         }
 
         tr.innerHTML = `
           <td style="text-align: center;">
-            <input type="checkbox" ${col.included ? 'checked' : ''} onchange="toggleColumnIncluded(${idx}, this.checked)">
+            <input type="checkbox" ${col.included ? 'checked' : ''} data-dc-col-action="toggle-included" data-dc-idx="${idx}">
           </td>
           <td><strong>${escapeHtml(col.original)}</strong></td>
           <td>${headerCellHtml}</td>
           <td>
-            <select class="nb-select" style="padding: 4px;" onchange="updateColumnType(${idx}, this.value)">
+            <select class="nb-select" style="padding: 4px;" data-dc-col-action="col-type" data-dc-idx="${idx}">
               <option value="string" ${col.type === 'string' ? 'selected' : ''}>Text</option>
               <option value="number" ${col.type === 'number' ? 'selected' : ''}>Number</option>
               <option value="boolean" ${col.type === 'boolean' ? 'selected' : ''}>Boolean</option>
@@ -1130,7 +1130,7 @@
             </select>
           </td>
           <td>
-            <select class="nb-select" style="padding: 4px;" onchange="updateColumnTransform(${idx}, this.value)">
+            <select class="nb-select" style="padding: 4px;" data-dc-col-action="col-transform" data-dc-idx="${idx}">
               <option value="none" ${col.transform === 'none' ? 'selected' : ''}>None</option>
               <option value="trim" ${col.transform === 'trim' ? 'selected' : ''}>Trim Spaces</option>
               <option value="upper" ${col.transform === 'upper' ? 'selected' : ''}>UPPERCASE</option>
@@ -1140,14 +1140,42 @@
           </td>
           <td>
             <div style="display: flex; gap: 2px;">
-              <button type="button" class="nb-btn nb-btn-sm" onclick="moveColumn(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
-              <button type="button" class="nb-btn nb-btn-sm" onclick="moveColumn(${idx}, 1)" ${idx === state.columns.length - 1 ? 'disabled' : ''}>▼</button>
+              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="-1" data-dc-idx="${idx}" ${idx === 0 ? 'disabled' : ''}>▲</button>
+              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="1" data-dc-idx="${idx}" ${idx === state.columns.length - 1 ? 'disabled' : ''}>▼</button>
             </div>
           </td>
         `;
 
         tbody.appendChild(tr);
       });
+      if (!tbody._dcColsDelegated) {
+        tbody._dcColsDelegated = true;
+        tbody.addEventListener('change', function (e) {
+          var el = e.target.closest('[data-dc-col-action]');
+          if (!el) return;
+          var idx = parseInt(el.getAttribute('data-dc-idx'), 10);
+          var act = el.getAttribute('data-dc-col-action');
+          if (act === 'schema-field') handleSchemaFieldDropdownChange(idx, el.value);
+          else if (act === 'toggle-included') toggleColumnIncluded(idx, el.checked);
+          else if (act === 'col-type') updateColumnType(idx, el.value);
+          else if (act === 'col-transform') updateColumnTransform(idx, el.value);
+        });
+        tbody.addEventListener('input', function (e) {
+          var el = e.target.closest('[data-dc-col-input]');
+          if (!el) return;
+          var idx = parseInt(el.getAttribute('data-dc-idx'), 10);
+          var act = el.getAttribute('data-dc-col-input');
+          if (act === 'schema-header') handleSchemaHeaderInputChange(idx, el.value);
+          else if (act === 'col-name') updateColumnName(idx, el.value);
+        });
+        tbody.addEventListener('click', function (e) {
+          var btn = e.target.closest('button[data-dc-move]');
+          if (!btn) return;
+          var idx = parseInt(btn.getAttribute('data-dc-idx'), 10);
+          var delta = parseInt(btn.getAttribute('data-dc-move'), 10);
+          moveColumn(idx, delta);
+        });
+      }
     }
 
     function handleSchemaFieldDropdownChange(colIdx, val) {
@@ -1311,7 +1339,7 @@
             <span class="nb-badge nb-badge-blue" style="font-size: 0.7rem; padding: 2px 5px;">${escapeHtml(field.type || 'string')}</span>
           </td>
           <td>
-            <select class="nb-select" style="width: 100%; font-size: 0.8rem; padding: 4px;" onchange="handleMatrixColumnChange('${field.key}', this.value)">
+            <select class="nb-select" style="width: 100%; font-size: 0.8rem; padding: 4px;" data-dc-matrix-key="${escapeHtml(field.key)}">
               ${colOptionsHtml}
             </select>
           </td>
@@ -1320,6 +1348,14 @@
 
         tbody.appendChild(tr);
       });
+      if (!tbody._dcMatrixDelegated) {
+        tbody._dcMatrixDelegated = true;
+        tbody.addEventListener('change', function (e) {
+          var sel = e.target.closest('select[data-dc-matrix-key]');
+          if (!sel) return;
+          handleMatrixColumnChange(sel.getAttribute('data-dc-matrix-key'), sel.value);
+        });
+      }
 
       if (badge) {
         var allOk = mappedRequired === totalRequired;
@@ -2143,5 +2179,6 @@
       return s;
     }
   </script>
+  <script src="../js/pages/database-converter-events.js"></script>
 </body>
 </html>

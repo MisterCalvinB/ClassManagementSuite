@@ -7,15 +7,15 @@
   <title>Schedule Maker</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
-  <script src="../js/student-name-utils.js"></script>
-  <script src="../js/pins.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/tutorial.js"></script>
+  <script src="../js/shared/student-name-utils.js"></script>
+  <script src="../js/shared/pins.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
-  <script src="../js/export-styles-service.js"></script>
+  <script src="../js/shared/export-styles-service.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -951,8 +951,8 @@
 <nav id="app-nav">
   <span class="nav-brand"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button id="tut-trigger" class="tut-trigger-btn" onclick="startSmTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button id="skm-trigger" class="tut-trigger-btn" data-smev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+    <button id="tut-trigger" class="tut-trigger-btn" data-smev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
@@ -960,7 +960,7 @@
 <div class="sm-page">
 
   <header class="sm-header">
-    <button class="sm-back-btn" onclick="goBack()" data-i18n="smBack">← Launcher</button>
+    <button class="sm-back-btn" data-smev-3="1" data-i18n="smBack">← Launcher</button>
     <h1 class="sm-title" data-i18n="smTitle">Schedule Maker</h1>
     <p class="sm-subtitle" data-i18n="smSubtitle">Create and print oral exam schedules with concurrent preparation and examination timing.</p>
   </header>
@@ -985,7 +985,7 @@
       </div>
       <div class="sm-field">
         <label class="sm-label" data-i18n="smLabelGroup">Class / group</label>
-        <select id="sm-group" class="sm-input sm-select" onchange="smOnGroupChange(this.value)">
+        <select id="sm-group" class="sm-input sm-select" data-smev-4="1">
           <option value="" data-i18n="smGroupPlaceholder">— Select a group —</option>
         </select>
       </div>
@@ -1058,7 +1058,7 @@
           <span data-i18n="smOrderManual">Keep current</span>
         </label>
       </div>
-      <button class="sm-apply-btn" onclick="applyConfig()" data-i18n="smApplyBtn">Apply</button>
+      <button class="sm-apply-btn" data-smev-5="1" data-i18n="smApplyBtn">Apply</button>
     </div>
   </div>
 
@@ -1067,9 +1067,9 @@
     <div class="sm-order-header">
       <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionOrder">Student Order</div>
       <span class="sm-hint" data-i18n="smOrderHint">Drag rows to reorder students and breaks.</span>
-      <button id="sm-add-break-btn" class="sm-add-break-btn" onclick="addBreak()" disabled data-i18n="smAddBreak">+ Add Break</button>
-      <button id="sm-add-group-btn" class="sm-add-group-btn" onclick="openGroupModal('manual')" disabled data-i18n="smAddGroup">+ Add Group</button>
-      <button id="sm-auto-group-btn" class="sm-add-group-btn sm-auto-group-toolbar-btn" onclick="openGroupModal('auto')" disabled><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="smAutoGroup">Auto-Group</span></button>
+      <button id="sm-add-break-btn" class="sm-add-break-btn" data-smev-6="1" disabled data-i18n="smAddBreak">+ Add Break</button>
+      <button id="sm-add-group-btn" class="sm-add-group-btn" data-smev-7="1" disabled data-i18n="smAddGroup">+ Add Group</button>
+      <button id="sm-auto-group-btn" class="sm-add-group-btn sm-auto-group-toolbar-btn" data-smev-8="1" disabled><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="smAutoGroup">Auto-Group</span></button>
     </div>
     <div id="sm-order-list" class="sm-order-list">
       <div class="sm-order-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</div>
@@ -1108,42 +1108,42 @@
   <!-- ── Action bar ── -->
   <div class="sm-action-bar">
     <div class="dropdown" id="sm-export-dropdown" style="flex: 1;">
-      <button class="sm-action-btn primary" id="sm-export-btn" onclick="toggleExportMenu(event)" style="width: 100%;">
+      <button class="sm-action-btn primary" id="sm-export-btn" data-smev-9="1" style="width: 100%;">
         <span data-i18n="mdbBtnExport">Export</span> ▾
       </button>
       <div class="dropdown-menu hidden" id="sm-export-menu">
-        <button class="dropdown-item" onclick="handleExportClick('pdf')"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
-        <button class="dropdown-item" onclick="handleExportClick('csv')"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
-        <button class="dropdown-item" onclick="handleExportClick('xlsx')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
-        <button class="dropdown-item" onclick="handleExportClick('ods')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
-        <button class="dropdown-item" onclick="handleExportClick('docx')"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
-        <button class="dropdown-item" onclick="handleExportClick('html')"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
+        <button class="dropdown-item" data-smev-10="1"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
+        <button class="dropdown-item" data-smev-11="1"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
+        <button class="dropdown-item" data-smev-12="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+        <button class="dropdown-item" data-smev-13="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
+        <button class="dropdown-item" data-smev-14="1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
+        <button class="dropdown-item" data-smev-15="1"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
       </div>
     </div>
-    <button id="sm-save-btn" class="sm-action-btn" onclick="saveSchedule()" data-i18n="smBtnSave">Save</button>
-    <button id="sm-load-btn" class="sm-action-btn" onclick="openLoadModal()" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
-    <button id="sm-pin-btn" class="sm-action-btn" onclick="smTogglePin()" style="display:none" data-i18n-help="hhSmPin" data-hover-help="Pin this schedule to the Launcher quick-access bar."><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="smPinSchedule">Pin Schedule</span></button>
+    <button id="sm-save-btn" class="sm-action-btn" data-smev-16="1" data-i18n="smBtnSave">Save</button>
+    <button id="sm-load-btn" class="sm-action-btn" data-smev-17="1" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
+    <button id="sm-pin-btn" class="sm-action-btn" data-smev-18="1" style="display:none" data-i18n-help="hhSmPin" data-hover-help="Pin this schedule to the Launcher quick-access bar."><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="smPinSchedule">Pin Schedule</span></button>
   </div>
 </div>
 
 <!-- ── Load modal ── -->
-<div id="sm-load-modal" class="sm-modal-overlay" onclick="closeLoadModal(event)">
-  <div class="sm-modal-box" onclick="event.stopPropagation()">
+<div id="sm-load-modal" class="sm-modal-overlay" data-smev-19="1">
+  <div class="sm-modal-box" data-smev-20="1">
     <div class="sm-modal-title" data-i18n="smSavedSchedulesTitle">Saved Schedules</div>
     <div id="sm-modal-list" class="sm-modal-list">
       <div class="sm-modal-empty" data-i18n="smNoSaved">No saved schedules found.</div>
     </div>
-    <button class="sm-modal-close-btn" onclick="closeLoadModal()" data-i18n="btnCancel">Cancel</button>
+    <button class="sm-modal-close-btn" data-smev-21="1" data-i18n="btnCancel">Cancel</button>
   </div>
 </div>
 
 <!-- ── Group creation modal ── -->
-<div id="sm-group-modal" class="sm-group-modal-overlay" onclick="closeGroupModal(event)">
-  <div class="sm-group-modal-box" onclick="event.stopPropagation()">
+<div id="sm-group-modal" class="sm-group-modal-overlay" data-smev-22="1">
+  <div class="sm-group-modal-box" data-smev-23="1">
     <div class="sm-group-modal-title" data-i18n="smGroupModalTitle">Create Group / Team</div>
     <div class="sm-modal-tabs">
-      <button type="button" id="sm-tab-manual" class="sm-modal-tab active" onclick="smSwitchGroupTab('manual')" data-i18n="smTabManual" data-i18n-help="hhSmTabManual" data-hover-help="Manually pick students to form a group or pair.">Manual</button>
-      <button type="button" id="sm-tab-auto" class="sm-modal-tab" onclick="smSwitchGroupTab('auto')" data-i18n="smTabAuto" data-i18n-help="hhSmTabAuto" data-hover-help="Automatically generate balanced groups from the class roster.">Automatic</button>
+      <button type="button" id="sm-tab-manual" class="sm-modal-tab active" data-smev-24="1" data-i18n="smTabManual" data-i18n-help="hhSmTabManual" data-hover-help="Manually pick students to form a group or pair.">Manual</button>
+      <button type="button" id="sm-tab-auto" class="sm-modal-tab" data-smev-25="1" data-i18n="smTabAuto" data-i18n-help="hhSmTabAuto" data-hover-help="Automatically generate balanced groups from the class roster.">Automatic</button>
     </div>
 
     <!-- Manual tab panel -->
@@ -1155,8 +1155,8 @@
       <div class="sm-group-modal-footer">
         <input id="sm-group-modal-name" class="sm-group-modal-name-input" type="text"
                data-i18n-placeholder="smGroupNamePlaceholder" placeholder="Group name…">
-        <button type="button" class="sm-group-modal-cancel-btn" onclick="closeGroupModal()" data-i18n="btnCancel">Cancel</button>
-        <button type="button" class="sm-group-modal-create-btn" onclick="confirmCreateGroup()" data-i18n="smGroupCreateBtn">Create</button>
+        <button type="button" class="sm-group-modal-cancel-btn" data-smev-26="1" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="sm-group-modal-create-btn" data-smev-27="1" data-i18n="smGroupCreateBtn">Create</button>
       </div>
     </div>
 
@@ -1166,7 +1166,7 @@
       <div class="sm-auto-card">
         <div id="sm-auto-count-info" style="font-weight:800; font-size:0.86rem; color:#000;"></div>
         <label class="sm-auto-radio-label" style="font-weight:600; font-size:0.82rem; color:#555;">
-          <input type="checkbox" id="sm-auto-reset-existing" onchange="smUpdateAutoPreview()">
+          <input type="checkbox" id="sm-auto-reset-existing" data-smev-28="1">
           <span data-i18n="smAutoResetExisting">Ungroup existing groups first</span>
         </label>
       </div>
@@ -1175,17 +1175,17 @@
         <div class="sm-label" data-i18n="smAutoMethod">Grouping method</div>
         <div class="sm-auto-row">
           <label class="sm-auto-radio-label">
-            <input type="radio" name="sm-auto-mode" value="numGroups" checked onchange="smOnAutoModeChange()">
+            <input type="radio" name="sm-auto-mode" value="numGroups" checked data-smev-29="1">
             <span data-i18n="smAutoByNumGroups">By number of groups</span>
           </label>
-          <input type="number" id="sm-auto-num-groups" class="sm-auto-num-input" min="2" max="50" value="4" oninput="smUpdateAutoPreview()">
+          <input type="number" id="sm-auto-num-groups" class="sm-auto-num-input" min="2" max="50" value="4" data-smev-30="1">
         </div>
         <div class="sm-auto-row">
           <label class="sm-auto-radio-label">
-            <input type="radio" name="sm-auto-mode" value="sizeGroup" onchange="smOnAutoModeChange()">
+            <input type="radio" name="sm-auto-mode" value="sizeGroup" data-smev-31="1">
             <span data-i18n="smAutoBySizeGroup">By students per group</span>
           </label>
-          <input type="number" id="sm-auto-size-group" class="sm-auto-num-input" min="2" max="20" value="3" disabled oninput="smUpdateAutoPreview()">
+          <input type="number" id="sm-auto-size-group" class="sm-auto-num-input" min="2" max="20" value="3" disabled data-smev-32="1">
         </div>
       </div>
 
@@ -1195,18 +1195,18 @@
             <div class="sm-label" data-i18n="smAutoAssignment">Assignment</div>
             <div style="display:flex; gap:12px; margin-top:4px;">
               <label class="sm-auto-radio-label">
-                <input type="radio" name="sm-auto-order" value="random" checked onchange="smUpdateAutoPreview()">
+                <input type="radio" name="sm-auto-order" value="random" checked data-smev-33="1">
                 <span data-i18n="smAutoOrderRandom">Random</span>
               </label>
               <label class="sm-auto-radio-label">
-                <input type="radio" name="sm-auto-order" value="alpha" onchange="smUpdateAutoPreview()">
+                <input type="radio" name="sm-auto-order" value="alpha" data-smev-34="1">
                 <span data-i18n="smAutoOrderAlpha">Alphabetical</span>
               </label>
             </div>
           </div>
           <div>
             <div class="sm-label" data-i18n="smAutoPrefix">Group name prefix</div>
-            <input type="text" id="sm-auto-prefix" class="sm-input" style="width:110px; margin-top:4px; font-weight:700;" value="Group" oninput="smUpdateAutoPreview()">
+            <input type="text" id="sm-auto-prefix" class="sm-input" style="width:110px; margin-top:4px; font-weight:700;" value="Group" data-smev-35="1">
           </div>
         </div>
       </div>
@@ -1214,16 +1214,16 @@
       <div id="sm-auto-preview-box" class="sm-auto-preview-badge"></div>
 
       <div class="sm-group-modal-footer">
-        <button type="button" class="sm-group-modal-cancel-btn" onclick="closeGroupModal()" data-i18n="btnCancel">Cancel</button>
-        <button type="button" id="sm-auto-generate-btn" class="sm-group-modal-create-btn" onclick="confirmAutoGenerateGroups()" data-i18n="smAutoGenerateBtn">Generate Groups</button>
+        <button type="button" class="sm-group-modal-cancel-btn" data-smev-36="1" data-i18n="btnCancel">Cancel</button>
+        <button type="button" id="sm-auto-generate-btn" class="sm-group-modal-create-btn" data-smev-37="1" data-i18n="smAutoGenerateBtn">Generate Groups</button>
       </div>
     </div>
   </div>
 </div>
 
 <!-- ── Export Options Modal ── -->
-<div id="sm-export-modal" class="sm-export-modal-overlay" onclick="closeExportModal(event)">
-  <div class="sm-export-modal-box" onclick="event.stopPropagation()">
+<div id="sm-export-modal" class="sm-export-modal-overlay" data-smev-38="1">
+  <div class="sm-export-modal-box" data-smev-39="1">
     <div class="sm-export-modal-header">
       <div class="sm-export-modal-title">
         <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
@@ -1235,15 +1235,15 @@
     <div>
       <div class="sm-export-section-header" data-i18n="smExportPresetLabel">Quick Presets</div>
       <div class="sm-export-presets-bar">
-        <button type="button" class="sm-export-preset-btn active" id="sm-preset-examiner" onclick="applySmExportPreset('examiner')">
+        <button type="button" class="sm-export-preset-btn active" id="sm-preset-examiner" data-smev-40="1">
           <img src="../assets/icons/oral-marking.svg" class="btn-icon" alt="" />
           <span data-i18n="smExportPresetExaminer">Examiner Copy</span>
         </button>
-        <button type="button" class="sm-export-preset-btn" id="sm-preset-student" onclick="applySmExportPreset('student')">
+        <button type="button" class="sm-export-preset-btn" id="sm-preset-student" data-smev-41="1">
           <img src="../assets/icons/file-text.svg" class="btn-icon" alt="" />
           <span data-i18n="smExportPresetStudent">Student Noticeboard</span>
         </button>
-        <button type="button" class="sm-export-preset-btn" id="sm-preset-custom" onclick="applySmExportPreset('custom')">
+        <button type="button" class="sm-export-preset-btn" id="sm-preset-custom" data-smev-42="1">
           <img src="../assets/icons/gear.svg" class="btn-icon" alt="" />
           <span data-i18n="smExportPresetCustom">Custom</span>
         </button>
@@ -1261,19 +1261,19 @@
         <div class="sm-export-section-header" data-i18n="smExportOptColumns">Columns & Indicators</div>
         <div class="sm-export-options-grid">
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-num" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-num" data-smev-43="1">
             <span data-i18n="smExportOptNum">Slot Number (#)</span>
           </label>
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-sen" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-sen" data-smev-44="1">
             <span data-i18n="smExportOptSen">SEN Indicators & Badges</span>
           </label>
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-prep" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-prep" data-smev-45="1">
             <span data-i18n="smExportOptPrep">Preparation Start Time</span>
           </label>
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-exam-end" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-exam-end" data-smev-46="1">
             <span data-i18n="smExportOptExamEnd">Exam End Time</span>
           </label>
         </div>
@@ -1284,11 +1284,11 @@
         <div class="sm-export-section-header" data-i18n="smExportOptRows">Rows & Warnings</div>
         <div class="sm-export-options-grid">
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-breaks" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-breaks" data-smev-47="1">
             <span data-i18n="smExportOptBreaks">Include Break Rows</span>
           </label>
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-gaps" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-gaps" data-smev-48="1">
             <span data-i18n="smExportOptGaps">Include Gap / Examiner Wait Warnings</span>
           </label>
         </div>
@@ -1299,11 +1299,11 @@
         <div class="sm-export-section-header" data-i18n="smExportOptMetaSection">Headers & Summary</div>
         <div class="sm-export-options-grid">
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-meta" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-meta" data-smev-49="1">
             <span data-i18n="smExportOptMetadata">Header Info Box (Title, Room, Date)</span>
           </label>
           <label class="sm-export-checkbox-label">
-            <input type="checkbox" id="sm-exp-opt-footer" onchange="onSmExportOptionChange()">
+            <input type="checkbox" id="sm-exp-opt-footer" data-smev-50="1">
             <span data-i18n="smExportOptFooter">Schedule Duration Summary (Footer)</span>
           </label>
         </div>
@@ -1311,13 +1311,13 @@
     </div>
 
     <div class="sm-group-modal-footer" style="display:flex;justify-content:space-between;align-items:center;">
-      <button type="button" class="sm-group-modal-cancel-btn" onclick="closeExportModal()" data-i18n="btnCancel">Cancel</button>
+      <button type="button" class="sm-group-modal-cancel-btn" data-smev-51="1" data-i18n="btnCancel">Cancel</button>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button type="button" id="sm-btn-preview" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 12px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;" onclick="openSmPreviewModal()">
+        <button type="button" id="sm-btn-preview" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 12px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;" data-smev-52="1">
           <img src="../assets/icons/eye.svg" class="btn-icon" alt="" />
           <span data-i18n="exportPreviewBtn">Live Preview</span>
         </button>
-        <button type="button" id="sm-export-confirm-btn" class="sm-group-modal-create-btn" onclick="confirmSmExport()">
+        <button type="button" id="sm-export-confirm-btn" class="sm-group-modal-create-btn" data-smev-53="1">
           <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
           <span data-i18n="smBtnConfirmExport">Export File</span>
         </button>
@@ -1336,15 +1336,15 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <div id="sm-preview-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
-        <button type="button" class="btn" onclick="smOpenPreviewInExternalBrowser()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+        <button type="button" class="btn" data-smev-54="1" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
           <img src="../assets/icons/fullscreen.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
           <span data-i18n="tcPreviewOpenExternal">Open in System Browser</span>
         </button>
-        <button type="button" class="btn" onclick="smPrintPreviewIframe()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
+        <button type="button" class="btn" data-smev-55="1" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;font-size:0.78rem;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">
           <img src="../assets/icons/printer.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
           <span data-i18n="btnPrint">Print</span>
         </button>
-        <button class="btn" onclick="closeSmPreviewModal()" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;">&times;</button>
+        <button class="btn" data-smev-56="1" style="padding:4px 8px;font-weight:800;border:2px solid #333;border-radius:6px;cursor:pointer;">&times;</button>
       </div>
     </div>
     <div style="font-size:0.76rem;color:#555;font-weight:700;margin-bottom:8px;" data-i18n="exportLivePreviewModalSub">
@@ -1354,11 +1354,11 @@
       <iframe id="smPreviewIframe" style="width:100%;height:100%;border:none;background:#fff;" title="Schedule Preview"></iframe>
     </div>
     <div class="modal-footer" style="margin-top:12px;border-top:2px solid #222;padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
-      <button type="button" class="btn" onclick="closeSmPreviewModal()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
+      <button type="button" class="btn" data-smev-57="1" style="display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border:2px solid #333;border-radius:6px;background:#fff;cursor:pointer;">
         <img src="../assets/icons/arrow-left.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
         <span data-i18n="tcPreviewBackBtn">Back to Options</span>
       </button>
-      <button type="button" class="btn primary" onclick="confirmSmExportFromPreview()" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
+      <button type="button" class="btn primary" data-smev-58="1" style="display:inline-flex;align-items:center;gap:4px;padding:6px 14px;border:2px solid #333;border-radius:6px;background:#e2c96e;font-weight:800;cursor:pointer;box-shadow:2px 2px 0 #555;">
         <img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" style="width:13px;height:13px;" />
         <span data-i18n="btnExport">Export</span>
       </button>
@@ -3678,5 +3678,6 @@
     smUpdatePinButtonState();
   });
 </script>
+  <script src="../js/pages/schedule-maker-events.js"></script>
 </body>
 </html>

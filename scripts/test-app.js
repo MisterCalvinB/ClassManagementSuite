@@ -40,7 +40,7 @@ test('JS syntax check: root Electron files and all js/**/*.js parse cleanly', ()
 });
 
 test('i18n 4-language parity: fr, de, it have zero missing keys vs en', () => {
-  const i18n = require(path.join(ROOT, 'js', 'i18n.js'));
+  const i18n = require(path.join(ROOT, 'js', 'shared', 'i18n.js'));
   const S = i18n.STRINGS;
   assert.ok(S && S.en && S.fr && S.de && S.it, 'All 4 language dictionaries must load');
   const enKeys = Object.keys(S.en);
@@ -52,7 +52,7 @@ test('i18n 4-language parity: fr, de, it have zero missing keys vs en', () => {
 });
 
 test('i18n placeholder parity & runtime formatting (t / tFmt)', () => {
-  const i18n = require(path.join(ROOT, 'js', 'i18n.js'));
+  const i18n = require(path.join(ROOT, 'js', 'shared', 'i18n.js'));
   const S = i18n.STRINGS;
   const extractVars = (str) => {
     const matches = String(str).match(/\{[a-zA-Z0-9_]+\}/g) || [];
@@ -194,7 +194,7 @@ test('Main IPC modules export registration functions and contain no emojis', () 
     for (const def of mainDefs) {
       if (innerDefs.has(def) || def === 'https') continue;
       if (new RegExp(`\\b${def}\\b`).test(content) && !new RegExp(`\\b${def}\\b`).test(header)) {
-        const realUse = fileLines.some((l) => !l.trim().startsWith('//') && new RegExp(`(?<![.\\w$])${def}(?![\\w$:])`).test(l));
+        const realUse = fileLines.some((l) => !l.trim().startsWith('//') && new RegExp(`(?<![.\\w$:-])${def}(?![\\w$:-])`).test(l));
         assert.equal(
           realUse,
           false,
@@ -206,7 +206,7 @@ test('Main IPC modules export registration functions and contain no emojis', () 
 });
 
 test('ImportUtils pure helpers: UUIDs, header normalization, and autoDetectMapping', () => {
-  const code = fs.readFileSync(path.join(ROOT, 'js', 'import-utils.js'), 'utf8');
+  const code = fs.readFileSync(path.join(ROOT, 'js', 'shared', 'import-utils.js'), 'utf8');
   const ctx = { window: {} };
   vm.runInNewContext(code, ctx);
   const ImportUtils = ctx.window.ImportUtils;
@@ -266,7 +266,7 @@ test('zip-utils: crc32, DOS timestamp round-trip, and buildZip output structure'
 });
 
 test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve DOM node identity', () => {
-  const DomSync = require(path.join(ROOT, 'js', 'dom-sync.js'));
+  const DomSync = require(path.join(ROOT, 'js', 'shared', 'dom-sync.js'));
 
   const makeEl = (tag) => {
     const classes = new Set();

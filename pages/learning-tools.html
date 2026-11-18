@@ -8,11 +8,11 @@
   <title>Learning Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/menus.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/menus.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -206,11 +206,11 @@
   <nav id="app-nav">
     <span class="nav-brand"></span>
     <div id="app-hamburger" class="hm-wrap">
-      <button id="mute-btn" class="tut-trigger-btn" onclick="toggleMute()" data-i18n-help="btnMuteToggle" data-hover-help="Mute / Unmute Sound"><img src="../assets/icons/volume.svg" class="btn-icon" style="filter:invert(1);" alt="" /></button>
+      <button id="mute-btn" class="tut-trigger-btn" data-ltev-1="1" data-i18n-help="btnMuteToggle" data-hover-help="Mute / Unmute Sound"><img src="../assets/icons/volume.svg" class="btn-icon" style="filter:invert(1);" alt="" /></button>
       <button id="lt-skm-trigger" class="tut-trigger-btn"
-        onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[{keys:['Enter'],desc:t('skmLtSubmit')},{keys:['A-Z'],desc:t('skmLtHangmanType')}],noShortcutsText:t('skmNone')})"
+        data-ltev-2="1"
         data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-      <button id="lt-tut-trigger" class="tut-trigger-btn" onclick="startLtTutorial()" data-i18n="tourBtnLabel"
+      <button id="lt-tut-trigger" class="tut-trigger-btn" data-ltev-3="1" data-i18n="tourBtnLabel"
         data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" style="filter:invert(1);" alt="Menu" /></button>
       <div class="hm-menu"></div>
@@ -218,15 +218,15 @@
   </nav>
 
   <!-- Scroll to top button -->
-  <button id="scroll-top-btn" onclick="window.scrollTo({top:0,behavior:'smooth'})" data-hover-help="Back to top">↑</button>
+  <button id="scroll-top-btn" data-ltev-4="1" data-hover-help="Back to top">↑</button>
 
-  <div id="active-words-overlay" onclick="if(event.target===this)closeActiveWordsPopup()"
+  <div id="active-words-overlay" data-ltev-5="1"
     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9000;align-items:center;justify-content:center;">
     <div
       style="background:#fff;border-radius:10px;padding:20px 24px;max-width:560px;width:90%;max-height:70vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.25);">
       <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
         <span id="active-words-count" style="font-weight:700;font-size:.9rem;color:#555;"></span>
-        <button onclick="closeActiveWordsPopup()"
+        <button data-ltev-6="1"
           style="background:none;border:none;font-size:1.2rem;cursor:pointer;color:#888;line-height:1;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       </div>
       <div id="active-words-list"
@@ -236,7 +236,7 @@
   <div id="timer-settings-overlay">
     <div id="timer-settings-modal">
       <h3><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer Settings
-        <button onclick="timerCloseSettings()">x</button>
+        <button data-ltev-7="1">x</button>
       </h3>
       <div class="timer-settings-body">
         <div class="timer-field">
@@ -259,9 +259,9 @@
         </div>
       </div>
       <div class="timer-settings-footer">
-        <button class="action-btn btn-grey" onclick="timerCloseSettings()">Cancel</button>
-        <button class="action-btn" onclick="timerSaveAndStart()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start Timer</button>
-        <button class="action-btn btn-orange" onclick="timerStop(); timerCloseSettings()"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop Timer</button>
+        <button class="action-btn btn-grey" data-ltev-8="1">Cancel</button>
+        <button class="action-btn" data-ltev-9="1"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start Timer</button>
+        <button class="action-btn btn-orange" data-ltev-10="1"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop Timer</button>
       </div>
     </div>
   </div>
@@ -278,8 +278,8 @@
     <h1 data-i18n="excellent">Excellent!</h1>
     <p data-i18n="pointsAwarded">Points Awarded</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
-      <button class="action-btn" id="success-next-btn" onclick="hideSuccess();" data-i18n="btnNextWord">Next Word</button>
-      <button class="action-btn btn-grey" id="success-explain-btn" onclick="showCurrentWordDetail()"
+      <button class="action-btn" id="success-next-btn" data-ltev-11="1" data-i18n="btnNextWord">Next Word</button>
+      <button class="action-btn btn-grey" id="success-explain-btn" data-ltev-12="1"
         style="display:none;"><img src="../assets/icons/word-card.svg" class="btn-icon" alt="" /> Word Card</button>
     </div>
   </div>
@@ -289,20 +289,20 @@
     <h1 data-i18n="notQuite">Not Quite!</h1>
     <p id="failure-msg" data-i18n="betterLuck">Better luck next time</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px;">
-      <button class="action-btn btn-grey" onclick="hideFailure()" data-i18n="btnTryAgain">Try Again</button>
-      <button class="action-btn btn-grey" id="failure-explain-btn" onclick="showCurrentWordDetail()"
+      <button class="action-btn btn-grey" data-ltev-13="1" data-i18n="btnTryAgain">Try Again</button>
+      <button class="action-btn btn-grey" id="failure-explain-btn" data-ltev-14="1"
         style="display:none;"><img src="../assets/icons/word-card.svg" class="btn-icon" alt="" /> Word Card</button>
     </div>
   </div>
 
-  <div id="word-detail-overlay" onclick="if(event.target===this)hideWordDetail()">
+  <div id="word-detail-overlay" data-ltev-15="1">
     <div class="det-inner">
       <div id="det-zoom-controls">
-        <button class="det-zoom-btn" onclick="detZoom(-1)" data-hover-help="Decrease size">-</button>
-        <button class="det-zoom-btn" onclick="detZoom(1)" data-hover-help="Increase size">+</button>
-        <button class="det-zoom-btn" onclick="ltSpeakWord(document.getElementById('det-word').textContent)" data-i18n-help="btnListenWord" data-hover-help="Listen to pronunciation"><img src="../assets/icons/volume.svg" style="width:14px;height:14px;filter:invert(1);vertical-align:middle;" alt="" /></button>
+        <button class="det-zoom-btn" data-ltev-16="1" data-hover-help="Decrease size">-</button>
+        <button class="det-zoom-btn" data-ltev-17="1" data-hover-help="Increase size">+</button>
+        <button class="det-zoom-btn" data-ltev-18="1" data-i18n-help="btnListenWord" data-hover-help="Listen to pronunciation"><img src="../assets/icons/volume.svg" style="width:14px;height:14px;filter:invert(1);vertical-align:middle;" alt="" /></button>
       </div>
-      <button id="det-edit-btn" onclick="detToggleEdit()" data-hover-help="Edit this word"><img src="../assets/icons/edit.svg" style="width:16px;height:16px;filter:invert(1);vertical-align:middle;" alt="Edit" /></button>
+      <button id="det-edit-btn" data-ltev-19="1" data-hover-help="Edit this word"><img src="../assets/icons/edit.svg" style="width:16px;height:16px;filter:invert(1);vertical-align:middle;" alt="Edit" /></button>
 
       <div id="detail-content" style="display:contents">
         <!-- Word -->
@@ -406,25 +406,25 @@
 
       <!-- Save row (visible in edit mode) -->
       <div id="det-save-row">
-        <button class="action-btn" id="det-save-memory-btn" onclick="detSaveEdit('memory')"> Save</button>
-        <button class="action-btn" id="det-save-main-btn" onclick="detSaveEdit('main')" style="display:none;"> Save to
+        <button class="action-btn" id="det-save-memory-btn" data-ltev-20="1"> Save</button>
+        <button class="action-btn" id="det-save-main-btn" data-ltev-21="1" style="display:none;"> Save to
           Main DB</button>
-        <button class="action-btn" id="det-save-custom-btn" onclick="detSaveEdit('custom')" style="display:none;">
+        <button class="action-btn" id="det-save-custom-btn" data-ltev-22="1" style="display:none;">
           Save to Custom DB</button>
-        <button class="action-btn btn-grey" onclick="detCancelEdit()">Cancel</button>
+        <button class="action-btn btn-grey" data-ltev-23="1">Cancel</button>
         <span id="det-save-feedback"> Saved!</span>
       </div>
 
       <!-- Word navigation -->
       <div id="det-nav-controls" class="det-view">
-        <button class="det-nav-btn" id="det-nav-prev" onclick="detNavPrev()" data-hover-help="Previous word in list">←
+        <button class="det-nav-btn" id="det-nav-prev" data-ltev-24="1" data-hover-help="Previous word in list">←
           Prev</button>
-        <button class="det-nav-btn" id="det-nav-back" onclick="detNavBack()" data-hover-help="Go back to previous word seen">↩
+        <button class="det-nav-btn" id="det-nav-back" data-ltev-25="1" data-hover-help="Go back to previous word seen">↩
           Back</button>
-        <button class="det-nav-btn" id="det-nav-next" onclick="detNavNext()" data-hover-help="Next word in list">Next →</button>
+        <button class="det-nav-btn" id="det-nav-next" data-ltev-26="1" data-hover-help="Next word in list">Next →</button>
       </div>
 
-      <button class="action-btn btn-orange" style="margin-top:16px;" onclick="hideWordDetail()"
+      <button class="action-btn btn-orange" style="margin-top:16px;" data-ltev-27="1"
         data-i18n="btnClose">Close</button>
     </div><!-- /.det-inner -->
   </div>
@@ -432,9 +432,9 @@
   <!-- ============================================================ -->
   <!-- HELP OVERLAY -->
   <!-- ============================================================ -->
-  <div id="help-overlay" onclick="if(event.target===this)closeHelp()">
+  <div id="help-overlay" data-ltev-28="1">
     <div id="help-panel">
-      <button class="help-close" onclick="closeHelp()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+      <button class="help-close" data-ltev-29="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       <h2 data-i18n="helpTitle"><img src="../assets/icons/how-to.svg" class="main-hdr-icon" alt="" /> How It Works</h2>
       <p class="help-subtitle" data-i18n="helpSubtitle">A complete guide — filters, games, tools, and team mode.</p>
 
@@ -568,17 +568,17 @@
       </div>
 
       <div style="text-align:center; margin-top:10px;">
-        <button class="action-btn btn-grey" onclick="closeHelp()" data-i18n="btnGotIt">Got it — let's play!</button>
+        <button class="action-btn btn-grey" data-ltev-30="1" data-i18n="btnGotIt">Got it — let's play!</button>
       </div>
     </div>
   </div>
 
   <div id="group-selector-wrap">
     <label for="group-selector" data-i18n="groupSelectorLabel">Class</label>
-    <select id="group-selector" onchange="setActiveClassGroup(this.value)">
+    <select id="group-selector" data-ltev-31="1">
       <option value="">No class selected</option>
     </select>
-    <select id="group-half-selector" style="display:none; margin-top:4px;" onchange="setActiveHalfGroup(this.value)">
+    <select id="group-half-selector" style="display:none; margin-top:4px;" data-ltev-32="1">
       <option value="">½ All</option>
       <option value="A">½ A</option>
       <option value="B">½ B</option>
@@ -587,29 +587,29 @@
   <!-- ============================================================ -->
   <!-- MANAGE DATABASE OVERLAY -->
   <!-- ============================================================ -->
-  <div id="managedb-overlay" onclick="if(event.target===this)mdbClose()">
+  <div id="managedb-overlay" data-ltev-33="1">
     <div id="managedb-panel">
       <div id="managedb-header">
         <h2> Manage Database</h2>
-        <button id="managedb-close-btn" onclick="mdbClose()">✕ Close</button>
+        <button id="managedb-close-btn" data-ltev-34="1">✕ Close</button>
       </div>
       <div id="managedb-tabs">
-        <button class="mdb-tab active" id="mdb-tab-manage" onclick="mdbShowTab('manage')"> Manage Custom</button>
-        <button class="mdb-tab" id="mdb-tab-add" onclick="mdbShowTab('add')">➕ Add Words</button>
-        <button class="mdb-tab" id="mdb-tab-themes" onclick="mdbShowTab('themes')"> Themes</button>
-        <button class="mdb-tab" id="mdb-tab-dupes" onclick="mdbShowTab('dupes')"> Find Duplicates</button>
-        <button class="mdb-tab" id="mdb-tab-delete" onclick="mdbShowTab('delete')"> Delete Words</button>
+        <button class="mdb-tab active" id="mdb-tab-manage" data-ltev-35="1"> Manage Custom</button>
+        <button class="mdb-tab" id="mdb-tab-add" data-ltev-36="1">➕ Add Words</button>
+        <button class="mdb-tab" id="mdb-tab-themes" data-ltev-37="1"> Themes</button>
+        <button class="mdb-tab" id="mdb-tab-dupes" data-ltev-38="1"> Find Duplicates</button>
+        <button class="mdb-tab" id="mdb-tab-delete" data-ltev-39="1"> Delete Words</button>
       </div>
 
       <!-- DELETE TAB -->
       <div id="managedb-body">
         <div id="mdb-panel-delete" style="display:none;">
           <div id="managedb-search-row">
-            <input type="text" id="managedb-search" placeholder="Search words…" oninput="mdbRenderWords()">
-            <select id="managedb-theme-filter" onchange="mdbRenderWords()">
+            <input type="text" id="managedb-search" placeholder="Search words…" data-ltev-40="1">
+            <select id="managedb-theme-filter" data-ltev-41="1">
               <option value="">All Themes</option>
             </select>
-            <select id="managedb-source-filter" onchange="mdbRenderWords()">
+            <select id="managedb-source-filter" data-ltev-42="1">
               <option value="">All Sources</option>
               <option value="custom">Custom only</option>
               <option value="builtin">Built-in only</option>
@@ -617,9 +617,9 @@
           </div>
           <div id="managedb-sel-bar">
             <span id="managedb-sel-count">0 selected</span>
-            <button class="mdb-action-btn mdb-btn-grey" onclick="mdbSelectAll()">Select All</button>
-            <button class="mdb-action-btn mdb-btn-grey" onclick="mdbClearSel()">Clear</button>
-            <button class="mdb-action-btn mdb-btn-delete" id="mdb-delete-sel-btn" onclick="mdbRequestDeleteSelected()"
+            <button class="mdb-action-btn mdb-btn-grey" data-ltev-43="1">Select All</button>
+            <button class="mdb-action-btn mdb-btn-grey" data-ltev-44="1">Clear</button>
+            <button class="mdb-action-btn mdb-btn-delete" id="mdb-delete-sel-btn" data-ltev-45="1"
               disabled> Delete Selected</button>
           </div>
           <div id="managedb-word-list"></div>
@@ -633,7 +633,7 @@
               and the same <strong>word type</strong>.
               Choose which entry to keep — the others will be removed.
             </p>
-            <button class="mdb-action-btn mdb-btn-grey" onclick="mdbScanDuplicates()"> Rescan</button>
+            <button class="mdb-action-btn mdb-btn-grey" data-ltev-46="1"> Rescan</button>
           </div>
           <div id="mdb-dup-content"></div>
         </div>
@@ -648,19 +648,19 @@
             <div class="mdb-themes-row">
               <div class="mdb-themes-field">
                 <label class="mdb-themes-label">Current name</label>
-                <select id="mdb-rename-from" onchange="mdbUpdateRenameCount()">
+                <select id="mdb-rename-from" data-ltev-47="1">
                   <option value="">— choose theme —</option>
                 </select>
               </div>
               <div class="mdb-themes-arrow">→</div>
               <div class="mdb-themes-field">
                 <label class="mdb-themes-label">New name</label>
-                <input type="text" id="mdb-rename-to" placeholder="e.g. Daily Life" oninput="mdbUpdateRenameCount()">
+                <input type="text" id="mdb-rename-to" placeholder="e.g. Daily Life" data-ltev-48="1">
               </div>
               <div class="mdb-themes-field mdb-themes-field-btn">
                 <label class="mdb-themes-label">&nbsp;</label>
                 <button class="mdb-action-btn" style="background:#111;color:#fff;border-color:#111;"
-                  onclick="mdbRenameTheme()">Rename</button>
+                  data-ltev-49="1">Rename</button>
               </div>
             </div>
             <div id="mdb-rename-preview" class="mdb-themes-preview"></div>
@@ -686,11 +686,11 @@
                 <label class="mdb-themes-label">Merge into (target name)</label>
                 <input type="text" id="mdb-merge-target" placeholder="e.g. Emotions" list="mdb-merge-target-list"
                   style="width:100%;padding:8px 12px;border:2px solid #ccc;border-radius:5px;font-family:inherit;font-size:0.95rem;"
-                  oninput="mdbUpdateMergePreview()">
+                  data-ltev-50="1">
                 <datalist id="mdb-merge-target-list"></datalist>
                 <button class="mdb-action-btn"
                   style="background:#111;color:#fff;border-color:#111;margin-top:10px;width:100%;"
-                  onclick="mdbMergeThemes()"> Merge</button>
+                  data-ltev-51="1"> Merge</button>
               </div>
             </div>
             <div id="mdb-merge-preview" class="mdb-themes-preview" style="margin-top:12px;"></div>
@@ -706,11 +706,11 @@
 
           <!-- Sub-tabs -->
           <div class="aw-tabs" style="margin-bottom:0;">
-            <button class="aw-tab active" id="aw-tab-form" onclick="awSetTab('form')"> Words</button>
-            <button class="aw-tab" id="aw-tab-quote" onclick="awSetTab('quote')"> Quotes</button>
-            <button class="aw-tab" id="aw-tab-gap" onclick="awSetTab('gap')"> Gap Fill</button>
-            <button class="aw-tab" id="aw-tab-error" onclick="awSetTab('error')"> Find the Error</button>
-            <button class="aw-tab" id="aw-tab-bulk" onclick="awSetTab('bulk')"> Bulk JSON</button>
+            <button class="aw-tab active" id="aw-tab-form" data-ltev-52="1"> Words</button>
+            <button class="aw-tab" id="aw-tab-quote" data-ltev-53="1"> Quotes</button>
+            <button class="aw-tab" id="aw-tab-gap" data-ltev-54="1"> Gap Fill</button>
+            <button class="aw-tab" id="aw-tab-error" data-ltev-55="1"> Find the Error</button>
+            <button class="aw-tab" id="aw-tab-bulk" data-ltev-56="1"> Bulk JSON</button>
           </div>
 
           <!-- Form Tab -->
@@ -720,7 +720,7 @@
                 <label>Word <span class="aw-req">*</span></label>
                 <div style="display:flex;gap:8px;align-items:center;">
                   <input type="text" id="aw-word" placeholder="e.g. Ephemeral" style="flex:1;min-width:0;">
-                  <button type="button" id="aw-wiki-btn" class="action-btn btn-grey" onclick="awWikiLookup()"
+                  <button type="button" id="aw-wiki-btn" class="action-btn btn-grey" data-ltev-57="1"
                     data-hover-help="Auto-fill IPA, definition, synonyms and more from Wiktionary"
                     style="white-space:nowrap;padding:6px 12px;font-size:0.82rem;flex-shrink:0;"> Look up</button>
                 </div>
@@ -799,11 +799,11 @@
             <div id="aw-edit-banner"
               style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏ Editing: <span id="aw-edit-word-name"></span> — <button class="aw-inline-cancel"
-                onclick="awCancelEdit()">Cancel edit</button>
+                data-ltev-58="1">Cancel edit</button>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-              <button class="action-btn" id="aw-submit-btn" onclick="awSubmitForm()">➕ Add Word</button>
-              <button class="action-btn btn-grey" onclick="awClearForm()">Clear</button>
+              <button class="action-btn" id="aw-submit-btn" data-ltev-59="1">➕ Add Word</button>
+              <button class="action-btn btn-grey" data-ltev-60="1">Clear</button>
             </div>
           </div>
 
@@ -828,9 +828,9 @@
 ]'></textarea>
             <div id="aw-bulk-feedback" class="aw-feedback"></div>
             <div style="text-align:center;margin-top:14px;display:flex;gap:10px;justify-content:center;">
-              <button class="action-btn" onclick="awSubmitBulk()"> Import JSON</button>
+              <button class="action-btn" data-ltev-61="1"> Import JSON</button>
               <button class="action-btn btn-grey"
-                onclick="document.getElementById('aw-bulk-json').value=''">Clear</button>
+                data-ltev-62="1">Clear</button>
             </div>
           </div>
 
@@ -865,11 +865,11 @@
             <div id="aw-quote-edit-banner"
               style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
               ✏ Editing quote by: <span id="aw-quote-edit-author"></span> — <button class="aw-inline-cancel"
-                onclick="awCancelEditQuote()">Cancel edit</button>
+                data-ltev-63="1">Cancel edit</button>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
-              <button class="action-btn" id="aw-quote-submit-btn" onclick="awSubmitQuote()">➕ Add Quote</button>
-              <button class="action-btn btn-grey" onclick="awClearQuote()">Clear</button>
+              <button class="action-btn" id="aw-quote-submit-btn" data-ltev-64="1">➕ Add Quote</button>
+              <button class="action-btn btn-grey" data-ltev-65="1">Clear</button>
             </div>
           </div>
 
@@ -913,11 +913,11 @@
             <div id="aw-gap-feedback" class="aw-feedback"></div>
             <div id="aw-gap-edit-banner"
               style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
-              ✏ Editing sentence — <button class="aw-inline-cancel" onclick="awCancelEditGap()">Cancel edit</button>
+              ✏ Editing sentence — <button class="aw-inline-cancel" data-ltev-66="1">Cancel edit</button>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
-              <button class="action-btn" id="aw-gap-submit-btn" onclick="awSubmitGap()">➕ Add Gap Fill</button>
-              <button class="action-btn btn-grey" onclick="awClearGap()">Clear</button>
+              <button class="action-btn" id="aw-gap-submit-btn" data-ltev-67="1">➕ Add Gap Fill</button>
+              <button class="action-btn btn-grey" data-ltev-68="1">Clear</button>
             </div>
           </div>
 
@@ -941,12 +941,12 @@
             <div id="aw-error-feedback" class="aw-feedback"></div>
             <div id="aw-error-edit-banner"
               style="display:none;text-align:center;background:#f0f0f0;border:2px solid #111;border-radius:5px;padding:8px 14px;margin-top:12px;font-weight:700;font-size:0.88rem;">
-              ✏ Editing error pair — <button class="aw-inline-cancel" onclick="awCancelEditError()">Cancel
+              ✏ Editing error pair — <button class="aw-inline-cancel" data-ltev-69="1">Cancel
                 edit</button>
             </div>
             <div style="text-align:center;margin-top:18px;display:flex;gap:10px;justify-content:center;">
-              <button class="action-btn" id="aw-error-submit-btn" onclick="awSubmitError()">➕ Add Error Pair</button>
-              <button class="action-btn btn-grey" onclick="awClearError()">Clear</button>
+              <button class="action-btn" id="aw-error-submit-btn" data-ltev-70="1">➕ Add Error Pair</button>
+              <button class="action-btn btn-grey" data-ltev-71="1">Clear</button>
             </div>
           </div>
 
@@ -961,15 +961,15 @@
           style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:18px;">
           <span id="aw-manage-count" style="font-weight:700;color:#555;"></span>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="action-btn btn-grey" onclick="awDownloadDB()">⬇ Download Full DB</button>
-            <button class="action-btn btn-orange" onclick="awDeleteAll()"> Delete All Custom</button>
+            <button class="action-btn btn-grey" data-ltev-72="1">⬇ Download Full DB</button>
+            <button class="action-btn btn-orange" data-ltev-73="1"> Delete All Custom</button>
           </div>
         </div>
         <div class="aw-manage-tabs">
-          <button class="aw-manage-tab active" id="aw-mt-words" onclick="awSetManageTab('words')"> Words</button>
-          <button class="aw-manage-tab" id="aw-mt-quotes" onclick="awSetManageTab('quotes')"> Quotes</button>
-          <button class="aw-manage-tab" id="aw-mt-gaps" onclick="awSetManageTab('gaps')"> Gap Fill</button>
-          <button class="aw-manage-tab" id="aw-mt-errors" onclick="awSetManageTab('errors')"> Errors</button>
+          <button class="aw-manage-tab active" id="aw-mt-words" data-ltev-74="1"> Words</button>
+          <button class="aw-manage-tab" id="aw-mt-quotes" data-ltev-75="1"> Quotes</button>
+          <button class="aw-manage-tab" id="aw-mt-gaps" data-ltev-76="1"> Gap Fill</button>
+          <button class="aw-manage-tab" id="aw-mt-errors" data-ltev-77="1"> Errors</button>
         </div>
         <div id="aw-manage-words-panel">
           <table class="aw-manage-table">
@@ -1040,8 +1040,8 @@
       <!-- Confirm delete sticky bar -->
       <div id="mdb-confirm-bar">
         <span id="mdb-confirm-msg">Delete X words?</span>
-        <button class="mdb-confirm-yes" onclick="mdbConfirmDelete()">Yes, delete</button>
-        <button class="mdb-confirm-no" onclick="mdbCancelDelete()">Cancel</button>
+        <button class="mdb-confirm-yes" data-ltev-78="1">Yes, delete</button>
+        <button class="mdb-confirm-no" data-ltev-79="1">Cancel</button>
       </div>
     </div>
   </div>
@@ -1051,203 +1051,203 @@
     <div class="filter-bar">
       <div class="filter-col"><label class="filter-label" data-i18n="filterLevel">Level</label>
         <div class="theme-picker-wrap level-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Levels</button>
+            data-ltev-80="1">All Levels</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col filter-col-theme"><label class="filter-label" data-i18n="filterTheme">Theme</label>
         <div class="theme-picker-wrap" id="global-theme-picker"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Themes</button>
+            data-ltev-81="1">All Themes</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterType">Type</label>
         <div class="theme-picker-wrap pos-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Types</button>
+            data-ltev-82="1">All Types</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterLetter">Letter</label>
         <div class="theme-picker-wrap letter-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Letters</button>
+            data-ltev-83="1">All Letters</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterLength">Length</label>
         <div class="theme-picker-wrap length-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Lengths</button>
+            data-ltev-84="1">All Lengths</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterKeyword">Keywords</label>
         <div class="theme-picker-wrap keyword-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Keywords</button>
+            data-ltev-85="1">All Keywords</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterSource">Source</label>
         <div class="theme-picker-wrap source-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Sources</button>
+            data-ltev-86="1">All Sources</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterStarred">Starred</label><button type="button" id="lt-starred-toggle"
-          class="action-btn btn-grey" onclick="ltToggleStarredFilter()" style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnStarredAll">☆
+          class="action-btn btn-grey" data-ltev-87="1" style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnStarredAll">☆
           All</button></div>
-      <div class="filter-reset-col"><button class="action-btn btn-blue" onclick="showActiveWordsPopup()"
+      <div class="filter-reset-col"><button class="action-btn btn-blue" data-ltev-88="1"
           style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnWordsActive">Words Active</button><button
-          class="action-btn btn-grey" onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
+          class="action-btn btn-grey" data-ltev-89="1" data-i18n="btnReset">Reset</button></div>
     </div>
     <div id="team-setup">
       <h3 data-i18n="teamModeTitle"><img src="../assets/icons/group.svg" class="main-hdr-icon" alt="" /> Team Mode</h3>
       <div class="team-inputs" id="team-inputs-container"></div>
       <div id="team-mode-controls">
-        <button class="action-btn btn-blue" onclick="addTeam()" data-i18n="btnAddTeam">+ Add Team</button>
-        <button class="action-btn btn-orange" onclick="resetTeams()" data-i18n="btnResetScores">Reset Scores</button>
-        <button class="action-btn btn-grey" onclick="clearAllTeams()" data-i18n="btnClearTeams">Clear Teams</button>
+        <button class="action-btn btn-blue" data-ltev-90="1" data-i18n="btnAddTeam">+ Add Team</button>
+        <button class="action-btn btn-orange" data-ltev-91="1" data-i18n="btnResetScores">Reset Scores</button>
+        <button class="action-btn btn-grey" data-ltev-92="1" data-i18n="btnClearTeams">Clear Teams</button>
       </div>
       <div id="team-scoreboard" style="margin-top:15px;"></div>
     </div>
     <h3 class="section-label" data-i18n="secVocab"><img src="../assets/icons/book.svg" class="main-hdr-icon" alt="" /> Vocabulary Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn" onclick="navTo('match-game-section')" data-i18n="btnDefMatch"><img src="../assets/icons/match.svg" class="main-btn-icon" alt="" /> Definition Match</button>
-      <button class="menu-btn" onclick="navTo('hangman-game-section')" data-i18n="btnHangman"><img src="../assets/icons/hangman.svg" class="main-btn-icon" alt="" /> Hangman</button>
-      <button class="menu-btn" onclick="navTo('scramble-game-section')" data-i18n="btnScramble"><img src="../assets/icons/scramble.svg" class="main-btn-icon" alt="" /> Scrambled Word</button>
-      <button class="menu-btn" onclick="navTo('clue-game-section')" data-i18n="btnWordQuest"><img src="../assets/icons/search.svg" class="main-btn-icon" alt="" /> Word Quest</button>
-      <button class="menu-btn" onclick="navTo('ipa-game-section')" data-i18n="btnPhonetic"><img src="../assets/icons/ipa.svg" class="main-btn-icon" alt="" /> Phonetic Guess</button>
-      <button class="menu-btn" onclick="navTo('synonym-game-section')" data-i18n="btnSynAnt"><img src="../assets/icons/syn.svg" class="main-btn-icon" alt="" /> Synonyms &amp; Antonyms</button>
-      <button class="menu-btn" onclick="navTo('wordsearch-game-section')"><img src="../assets/icons/wordsearch.svg" class="main-btn-icon" alt="" /> Word Search</button>
+      <button class="menu-btn" data-ltev-93="1" data-i18n="btnDefMatch"><img src="../assets/icons/match.svg" class="main-btn-icon" alt="" /> Definition Match</button>
+      <button class="menu-btn" data-ltev-94="1" data-i18n="btnHangman"><img src="../assets/icons/hangman.svg" class="main-btn-icon" alt="" /> Hangman</button>
+      <button class="menu-btn" data-ltev-95="1" data-i18n="btnScramble"><img src="../assets/icons/scramble.svg" class="main-btn-icon" alt="" /> Scrambled Word</button>
+      <button class="menu-btn" data-ltev-96="1" data-i18n="btnWordQuest"><img src="../assets/icons/search.svg" class="main-btn-icon" alt="" /> Word Quest</button>
+      <button class="menu-btn" data-ltev-97="1" data-i18n="btnPhonetic"><img src="../assets/icons/ipa.svg" class="main-btn-icon" alt="" /> Phonetic Guess</button>
+      <button class="menu-btn" data-ltev-98="1" data-i18n="btnSynAnt"><img src="../assets/icons/syn.svg" class="main-btn-icon" alt="" /> Synonyms &amp; Antonyms</button>
+      <button class="menu-btn" data-ltev-99="1"><img src="../assets/icons/wordsearch.svg" class="main-btn-icon" alt="" /> Word Search</button>
     </div>
     <h3 class="section-label" data-i18n="secGrammar"><img src="../assets/icons/grammar.svg" class="main-hdr-icon" alt="" /> Grammar Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn" onclick="navTo('sentence-game-section')" data-i18n="btnSentence"><img src="../assets/icons/sentence.svg" class="main-btn-icon" alt="" /> Sentence Builder</button>
-      <button class="menu-btn" onclick="navTo('gap-game-section')" data-i18n="btnGapFill"><img src="../assets/icons/gapfill.svg" class="main-btn-icon" alt="" /> Gap Fill</button>
-      <button class="menu-btn" onclick="navTo('error-game-section')" data-i18n="btnFindError"><img src="../assets/icons/error.svg" class="main-btn-icon" alt="" /> Find the Error</button>
-      <button class="menu-btn" onclick="navTo('dictation-section')" data-i18n="btnDictation"><img src="../assets/icons/dictation.svg" class="main-btn-icon" alt="" /> Dictation</button>
-      <button class="menu-btn" onclick="navTo('order-sentences-section')"><img src="../assets/icons/order.svg" class="main-btn-icon" alt="" /> Order Sentences</button>
+      <button class="menu-btn" data-ltev-100="1" data-i18n="btnSentence"><img src="../assets/icons/sentence.svg" class="main-btn-icon" alt="" /> Sentence Builder</button>
+      <button class="menu-btn" data-ltev-101="1" data-i18n="btnGapFill"><img src="../assets/icons/gapfill.svg" class="main-btn-icon" alt="" /> Gap Fill</button>
+      <button class="menu-btn" data-ltev-102="1" data-i18n="btnFindError"><img src="../assets/icons/error.svg" class="main-btn-icon" alt="" /> Find the Error</button>
+      <button class="menu-btn" data-ltev-103="1" data-i18n="btnDictation"><img src="../assets/icons/dictation.svg" class="main-btn-icon" alt="" /> Dictation</button>
+      <button class="menu-btn" data-ltev-104="1"><img src="../assets/icons/order.svg" class="main-btn-icon" alt="" /> Order Sentences</button>
     </div>
     <h3 class="section-label" data-i18n="secOtherGames"><img src="../assets/icons/dice.svg" class="main-hdr-icon" alt="" /> Other Games</h3>
     <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('quiz-section')"><img src="../assets/icons/quiz.svg" class="main-btn-icon" alt="" /> Quiz</button>
-      <button class="menu-btn btn-grey" onclick="navTo('werewolf-section')"><img src="../assets/icons/werewolf.svg" class="main-btn-icon" alt="" /> Werewolf</button>
+      <button class="menu-btn btn-grey" data-ltev-105="1"><img src="../assets/icons/quiz.svg" class="main-btn-icon" alt="" /> Quiz</button>
+      <button class="menu-btn btn-grey" data-ltev-106="1"><img src="../assets/icons/werewolf.svg" class="main-btn-icon" alt="" /> Werewolf</button>
     </div>
     <h3 class="section-label" data-i18n="secTools"><img src="../assets/icons/learning-tools.svg" class="main-hdr-icon" alt="" /> Tools</h3>
     <div class="menu-grid">
-      <button class="menu-btn btn-grey" onclick="navTo('grammar-practice-section')" data-i18n="btnGrammarPractice"><img src="../assets/icons/grammar.svg" class="main-btn-icon" alt="" /> Grammar Practice</button>
-      <button class="menu-btn btn-grey" onclick="navTo('words-seen-today-section')" data-i18n="btnWordsSeenToday"><img src="../assets/icons/clock.svg" class="main-btn-icon" alt="" /> Words Seen Today</button>
-      <button class="menu-btn btn-grey" onclick="navTo('flip-game-section')" data-i18n="btnFlashCards"><img src="../assets/icons/word-card.svg" class="main-btn-icon" alt="" /> Flash Cards</button>
-      <button class="menu-btn btn-grey" onclick="navTo('quote-game-section')" data-i18n="btnQuoteAnalyser"><img src="../assets/icons/quote.svg" class="main-btn-icon" alt="" /> Quote Analyser</button>
-      <button class="menu-btn btn-grey" onclick="navTo('story-section')"><img src="../assets/icons/book.svg" class="main-btn-icon" alt="" /> Choose Your Story</button>
+      <button class="menu-btn btn-grey" data-ltev-107="1" data-i18n="btnGrammarPractice"><img src="../assets/icons/grammar.svg" class="main-btn-icon" alt="" /> Grammar Practice</button>
+      <button class="menu-btn btn-grey" data-ltev-108="1" data-i18n="btnWordsSeenToday"><img src="../assets/icons/clock.svg" class="main-btn-icon" alt="" /> Words Seen Today</button>
+      <button class="menu-btn btn-grey" data-ltev-109="1" data-i18n="btnFlashCards"><img src="../assets/icons/word-card.svg" class="main-btn-icon" alt="" /> Flash Cards</button>
+      <button class="menu-btn btn-grey" data-ltev-110="1" data-i18n="btnQuoteAnalyser"><img src="../assets/icons/quote.svg" class="main-btn-icon" alt="" /> Quote Analyser</button>
+      <button class="menu-btn btn-grey" data-ltev-111="1"><img src="../assets/icons/book.svg" class="main-btn-icon" alt="" /> Choose Your Story</button>
     </div>
     <div style="text-align:center; margin-top:24px;">
-      <button class="action-btn btn-grey help-btn" onclick="openHelp()" data-i18n="btnHelp" data-icon="../assets/icons/how-to.svg"><img src="../assets/icons/how-to.svg" class="main-btn-icon" alt="" /> How does everything work?</button>
+      <button class="action-btn btn-grey help-btn" data-ltev-112="1" data-i18n="btnHelp" data-icon="../assets/icons/how-to.svg"><img src="../assets/icons/how-to.svg" class="main-btn-icon" alt="" /> How does everything work?</button>
     </div>
   </div>
   <template id="filter-template">
     <div class="filter-bar">
       <div class="filter-col"><label class="filter-label" data-i18n="filterLevel">Level</label>
         <div class="theme-picker-wrap level-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Levels</button>
+            data-ltev-113="1">All Levels</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col filter-col-theme"><label class="filter-label" data-i18n="filterTheme">Theme</label>
         <div class="theme-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Themes</button>
+            data-ltev-114="1">All Themes</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterType">Type</label>
         <div class="theme-picker-wrap pos-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Types</button>
+            data-ltev-115="1">All Types</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterLetter">Letter</label>
         <div class="theme-picker-wrap letter-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Letters</button>
+            data-ltev-116="1">All Letters</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterLength">Length</label>
         <div class="theme-picker-wrap length-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Lengths</button>
+            data-ltev-117="1">All Lengths</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterKeyword">Keywords</label>
         <div class="theme-picker-wrap keyword-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Keywords</button>
+            data-ltev-118="1">All Keywords</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterSource">Source</label>
         <div class="theme-picker-wrap source-picker-wrap"><button type="button" class="theme-picker-btn"
-            onclick="themePickerToggle(this)">All Sources</button>
+            data-ltev-119="1">All Sources</button>
           <div class="theme-picker-dropdown"></div>
         </div>
       </div>
       <div class="filter-col"><label class="filter-label" data-i18n="filterStarred">Starred</label><button type="button"
-          class="action-btn btn-grey lt-starred-btn" onclick="ltToggleStarredFilter()"
+          class="action-btn btn-grey lt-starred-btn" data-ltev-120="1"
           style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnStarredAll">☆ All</button></div>
-      <div class="filter-reset-col"><button class="action-btn btn-blue" onclick="showActiveWordsPopup()"
+      <div class="filter-reset-col"><button class="action-btn btn-blue" data-ltev-121="1"
           style="padding:4px 10px;font-size:0.82rem;" data-i18n="btnWordsActive">Words Active</button><button class="action-btn btn-grey"
-          onclick="resetAllFilters()" data-i18n="btnReset">Reset</button></div>
+          data-ltev-122="1" data-i18n="btnReset">Reset</button></div>
     </div>
   </template>
   <div id="match-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-match" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-123="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-match" data-ltev-124="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="match-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleDefMatch">Definition Match</h2>
     <div class="hangman-tries-row" style="margin-bottom:14px;flex-wrap:wrap;gap:8px;">
       <span class="hangman-tries-label" data-i18n="matchPairsLabel">Pairs:</span>
-      <button class="hangman-tries-btn match-pairs-btn" onclick="matchSetPairs(4)">4</button>
-      <button class="hangman-tries-btn match-pairs-btn active" onclick="matchSetPairs(6)">6</button>
-      <button class="hangman-tries-btn match-pairs-btn" onclick="matchSetPairs(8)">8</button>
-      <button class="hangman-tries-btn match-pairs-btn" onclick="matchSetPairs(10)">10</button>
-      <button class="hangman-tries-btn match-pairs-btn" onclick="matchSetPairs(12)">12</button>
+      <button class="hangman-tries-btn match-pairs-btn" data-ltev-125="1">4</button>
+      <button class="hangman-tries-btn match-pairs-btn active" data-ltev-126="1">6</button>
+      <button class="hangman-tries-btn match-pairs-btn" data-ltev-127="1">8</button>
+      <button class="hangman-tries-btn match-pairs-btn" data-ltev-128="1">10</button>
+      <button class="hangman-tries-btn match-pairs-btn" data-ltev-129="1">12</button>
       <span class="hangman-tries-label" style="margin-left:12px;" data-i18n="matchModeLabel">Match:</span>
-      <button class="hangman-tries-btn match-mode-btn active" data-mode="def" onclick="matchSetMode('def')" data-i18n="matchModeDef">Definition</button>
-      <button class="hangman-tries-btn match-mode-btn" data-mode="trans" onclick="matchSetMode('trans')" data-i18n="matchModeTrans">Translation</button>
-      <button class="hangman-tries-btn match-mode-btn" data-mode="syn" onclick="matchSetMode('syn')" data-i18n="matchModeSyn">Synonym / IPA</button>
+      <button class="hangman-tries-btn match-mode-btn active" data-mode="def" data-ltev-130="1" data-i18n="matchModeDef">Definition</button>
+      <button class="hangman-tries-btn match-mode-btn" data-mode="trans" data-ltev-131="1" data-i18n="matchModeTrans">Translation</button>
+      <button class="hangman-tries-btn match-mode-btn" data-mode="syn" data-ltev-132="1" data-i18n="matchModeSyn">Synonym / IPA</button>
     </div>
     <div id="match-game" class="grid"></div>
-    <div class="center-container"><button class="action-btn" onclick="initMatchGame()" data-i18n="btnShuffle">Shuffle
+    <div class="center-container"><button class="action-btn" data-ltev-133="1" data-i18n="btnShuffle">Shuffle
         New Words</button></div>
   </div>
 
   <div id="flip-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
+    <button class="action-btn btn-back" data-ltev-134="1" data-i18n="btnBack">Back</button>
     <div id="flip-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleFlashCards">Flash Cards</h2>
     <div class="hangman-tries-row" style="margin-bottom:14px;flex-wrap:wrap;gap:8px;">
       <span class="hangman-tries-label" data-i18n="flipCountLabel">Cards:</span>
-      <button class="hangman-tries-btn flip-count-btn" onclick="flipSetCount(6)">6</button>
-      <button class="hangman-tries-btn flip-count-btn" onclick="flipSetCount(8)">8</button>
-      <button class="hangman-tries-btn flip-count-btn active" onclick="flipSetCount(12)">12</button>
-      <button class="action-btn btn-grey" style="padding:4px 12px;font-size:0.8rem;margin-left:8px;" onclick="flipToggleAllCards()" data-i18n="btnFlipAll"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" /> Flip All</button>
+      <button class="hangman-tries-btn flip-count-btn" data-ltev-135="1">6</button>
+      <button class="hangman-tries-btn flip-count-btn" data-ltev-136="1">8</button>
+      <button class="hangman-tries-btn flip-count-btn active" data-ltev-137="1">12</button>
+      <button class="action-btn btn-grey" style="padding:4px 12px;font-size:0.8rem;margin-left:8px;" data-ltev-138="1" data-i18n="btnFlipAll"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" /> Flip All</button>
     </div>
     <div id="flip-game" class="grid"></div>
-    <div class="center-container"><button class="action-btn" id="flip-new-cards-btn" onclick="initFlipGame()" data-i18n="btnNewCards">Get 12 New
+    <div class="center-container"><button class="action-btn" id="flip-new-cards-btn" data-ltev-139="1" data-i18n="btnNewCards">Get 12 New
         Cards</button></div>
   </div>
 
   <div id="hangman-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-hangman" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-140="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-hangman" data-ltev-141="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="hangman-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleHangman">Hangman</h2>
     <div class="hangman-tries-row">
       <span class="hangman-tries-label" data-i18n="tries">Tries:</span>
-      <button class="hangman-tries-btn" onclick="hSetMaxMistakes(4)">4</button>
-      <button class="hangman-tries-btn" onclick="hSetMaxMistakes(6)">6</button>
-      <button class="hangman-tries-btn active" onclick="hSetMaxMistakes(8)">8</button>
-      <button class="hangman-tries-btn" onclick="hSetMaxMistakes(10)">10</button>
-      <button class="hangman-tries-btn" onclick="hSetMaxMistakes(12)">12</button>
+      <button class="hangman-tries-btn" data-ltev-142="1">4</button>
+      <button class="hangman-tries-btn" data-ltev-143="1">6</button>
+      <button class="hangman-tries-btn active" data-ltev-144="1">8</button>
+      <button class="hangman-tries-btn" data-ltev-145="1">10</button>
+      <button class="hangman-tries-btn" data-ltev-146="1">12</button>
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;margin:8px 0;">
       <div id="hangman-svg-wrap" style="background:#ffffff;border:2px solid #333333;border-radius:8px;box-shadow:3px 3px 0 #555555;padding:8px 12px;display:flex;align-items:center;justify-content:center;">
@@ -1277,20 +1277,20 @@
       <input id="hangman-type-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
         spellcheck="false" placeholder="Type a letter or full word + Enter..."
         style="font-size:1.2rem;font-family:'Courier New',monospace;font-weight:700;letter-spacing:3px;text-align:center;padding:9px 16px;border:2px solid #333;border-radius:6px;width:100%;max-width:380px;background:#ffffff;color:#111;outline:none;transition:border-color 0.15s;"
-        oninput="hangmanHandleTyping(event)" onkeydown="hangmanHandleKey(event)" />
+        data-ltev-147="1" data-ltev-148="1" />
     </div>
     <div id="hangman-feedback" class="feedback hidden"></div>
     <div class="center-container">
-      <button class="action-btn btn-blue" id="hangman-clue-btn" onclick="revealHangmanClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-      <button class="action-btn btn-orange" onclick="revealHangmanAnswer()" data-i18n="btnRevealAnswer">Reveal
+      <button class="action-btn btn-blue" id="hangman-clue-btn" data-ltev-149="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+      <button class="action-btn btn-orange" data-ltev-150="1" data-i18n="btnRevealAnswer">Reveal
         Answer</button>
-      <button class="action-btn" onclick="selectRandomWord()" data-i18n="btnNextWord">Next Word</button>
+      <button class="action-btn" data-ltev-151="1" data-i18n="btnNextWord">Next Word</button>
     </div>
   </div>
 
   <div id="scramble-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-scramble" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-152="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-scramble" data-ltev-153="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="scramble-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleScramble">Scrambled Word</h2>
@@ -1301,22 +1301,22 @@
       <input id="scramble-type-input" type="text" autocomplete="off" autocorrect="off" autocapitalize="off"
         spellcheck="false" placeholder="...or type here"
         style="font-size:1.4rem;font-family:'Courier New',monospace;font-weight:700;letter-spacing:4px;text-align:center;padding:10px 16px;border:2px solid #333;border-radius:6px;width:100%;max-width:420px;background:#ffffff;color:#111;outline:none;transition:border-color 0.15s;"
-        oninput="scrambleHandleTyping(event)" onkeydown="scrambleHandleKey(event)" />
+        data-ltev-154="1" data-ltev-155="1" />
     </div>
     <div class="center-container">
-      <button class="action-btn" onclick="initScrambleGame()" data-i18n="btnNewWord">New Word</button>
-      <button class="action-btn btn-grey" onclick="clearScrambleAnswer()" data-i18n="btnClear">Clear</button>
-      <button class="action-btn btn-blue" id="scramble-letter-btn" onclick="revealScrambleNextLetter()" data-i18n="btnNextLetter"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> +1 Letter</button>
-      <button class="action-btn btn-blue" id="scramble-clue-btn" onclick="revealScrambleClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-      <button class="action-btn btn-blue" onclick="checkScramble()" data-i18n="btnSubmitAnswer">Submit Answer</button>
-      <button class="action-btn btn-orange" onclick="revealScrambleAnswer()" data-i18n="btnRevealAnswer">Reveal Answer</button>
+      <button class="action-btn" data-ltev-156="1" data-i18n="btnNewWord">New Word</button>
+      <button class="action-btn btn-grey" data-ltev-157="1" data-i18n="btnClear">Clear</button>
+      <button class="action-btn btn-blue" id="scramble-letter-btn" data-ltev-158="1" data-i18n="btnNextLetter"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> +1 Letter</button>
+      <button class="action-btn btn-blue" id="scramble-clue-btn" data-ltev-159="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+      <button class="action-btn btn-blue" data-ltev-160="1" data-i18n="btnSubmitAnswer">Submit Answer</button>
+      <button class="action-btn btn-orange" data-ltev-161="1" data-i18n="btnRevealAnswer">Reveal Answer</button>
     </div>
     <div id="scramble-feedback" class="feedback hidden"></div>
   </div>
 
   <div id="clue-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-clue" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-162="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-clue" data-ltev-163="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="clue-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleWordQuest">Word Quest</h2>
@@ -1332,18 +1332,18 @@
       <input type="text" id="clue-guess-input" class="guess-input"
         style="width: 70%; font-size: 1.3rem; margin-bottom: 20px;" placeholder="Type your guess here...">
       <div class="clue-actions">
-        <button class="action-btn" onclick="checkClueGuess()" data-i18n="btnSubmitAnswer">Submit Answer</button>
-        <button class="action-btn btn-blue" id="clue-unlock-btn" onclick="unlockClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-        <button class="action-btn btn-orange" id="clue-reveal-btn" onclick="revealClueAnswer()" data-i18n="btnRevealAnswer">Reveal Answer</button>
-        <button class="action-btn btn-grey" onclick="initClueGame()" data-i18n="btnNewWord">New Word</button>
+        <button class="action-btn" data-ltev-164="1" data-i18n="btnSubmitAnswer">Submit Answer</button>
+        <button class="action-btn btn-blue" id="clue-unlock-btn" data-ltev-165="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+        <button class="action-btn btn-orange" id="clue-reveal-btn" data-ltev-166="1" data-i18n="btnRevealAnswer">Reveal Answer</button>
+        <button class="action-btn btn-grey" data-ltev-167="1" data-i18n="btnNewWord">New Word</button>
       </div>
     </div>
     <div id="clue-feedback" class="feedback hidden"></div>
   </div>
 
   <div id="sentence-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-sentence" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-168="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-sentence" data-ltev-169="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="sentence-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleSentence">Sentence Builder</h2>
@@ -1353,17 +1353,17 @@
     <div id="sentence-hint-display" class="hint-display"></div>
     <div class="center-container">
       <button class="action-btn" id="check-sentence" data-i18n="btnSubmitAnswer">Submit Answer</button>
-      <button class="action-btn btn-grey" onclick="clearSentenceAttempt()" data-i18n="btnClear">Clear</button>
-      <button class="action-btn btn-orange" id="get-sentence-hint" onclick="getWordHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-      <button class="action-btn btn-grey" onclick="revealSentenceAnswer()" data-i18n="btnRevealAnswer">Reveal Answer</button>
-      <button class="action-btn btn-blue" onclick="selectRandomSentence()" data-i18n="btnNewSentence">New
+      <button class="action-btn btn-grey" data-ltev-170="1" data-i18n="btnClear">Clear</button>
+      <button class="action-btn btn-orange" id="get-sentence-hint" data-ltev-171="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+      <button class="action-btn btn-grey" data-ltev-172="1" data-i18n="btnRevealAnswer">Reveal Answer</button>
+      <button class="action-btn btn-blue" data-ltev-173="1" data-i18n="btnNewSentence">New
         Sentence</button>
     </div>
     <div id="sentence-feedback" class="feedback hidden"></div>
   </div>
 
   <div id="quote-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
+    <button class="action-btn btn-back" data-ltev-174="1" data-i18n="btnBack">Back</button>
     <div id="quote-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleQuote">Quote Analyser</h2>
@@ -1377,11 +1377,11 @@
       <input type="text" id="quote-guess-input" class="guess-input"
         style="width: 60%; font-size: 1.2rem; margin-bottom: 20px;" placeholder="Guess theme or keyword...">
       <div class="clue-actions">
-        <button class="action-btn" onclick="checkQuoteAnalysis()" data-i18n="btnSubmitGuess">Submit Guess</button>
-        <button class="action-btn btn-blue" id="quote-clue-btn" onclick="handleQuoteClue()">Clue</button>
-        <button class="action-btn btn-orange" onclick="revealFullAnalysis()" data-i18n="btnFullReveal">Full
+        <button class="action-btn" data-ltev-175="1" data-i18n="btnSubmitGuess">Submit Guess</button>
+        <button class="action-btn btn-blue" id="quote-clue-btn" data-ltev-176="1">Clue</button>
+        <button class="action-btn btn-orange" data-ltev-177="1" data-i18n="btnFullReveal">Full
           Reveal</button>
-        <button class="action-btn btn-grey" onclick="nextTeamTurn(); initQuoteGame();" data-i18n="btnNewQuote">New
+        <button class="action-btn btn-grey" data-ltev-178="1" data-i18n="btnNewQuote">New
           Quote</button>
       </div>
     </div>
@@ -1389,14 +1389,14 @@
   </div>
 
   <div id="gap-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-gap" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-179="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-gap" data-ltev-180="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="gap-team-ui" class="hidden"></div>
 
     <div class="filter-bar" id="gap-grammar-filter-bar">
       <div class="filter-col">
         <label class="filter-label">Level</label>
-        <select id="gap-level-select" onchange="clearGapUsed(); initGapGame()">
+        <select id="gap-level-select" data-ltev-181="1">
           <option value="all">All Levels</option>
           <option value="A1">A1</option>
           <option value="A2">A2</option>
@@ -1407,7 +1407,7 @@
       </div>
       <div class="filter-col">
         <label class="filter-label" data-i18n="targetGrammar">Target Grammar</label>
-        <select id="gap-grammar-select" class="grammar-select" onchange="clearGapUsed(); initGapGame()">
+        <select id="gap-grammar-select" class="grammar-select" data-ltev-182="1">
           <option value="all" selected data-i18n="allGrammar">All Grammar</option>
           <option value="Relatives">Relative Clauses</option>
           <option value="Conditionals">Conditionals</option>
@@ -1415,12 +1415,12 @@
       </div>
       <div class="filter-col">
         <label class="filter-label">Source</label>
-        <select id="gap-source-select" onchange="onGapSourceChanged()">
+        <select id="gap-source-select" data-ltev-183="1">
           <option value="all">All Databases</option>
         </select>
       </div>
       <div class="filter-reset-col">
-        <button class="action-btn btn-grey" onclick="clearGapUsed(); initGapGame()">Reset</button>
+        <button class="action-btn btn-grey" data-ltev-184="1">Reset</button>
       </div>
     </div>
     <h2 data-i18n="titleGapFill">Gap Fill Challenge</h2>
@@ -1430,27 +1430,27 @@
       <input type="text" id="gap-input" class="guess-input" style="width: 60%; font-size: 1.2rem; margin-bottom: 20px;"
         placeholder="Start typing the missing word...">
       <div class="clue-actions">
-        <button class="action-btn" onclick="checkGap()" data-i18n="btnSubmit">Submit</button>
-        <button class="action-btn btn-blue" id="gap-clue-btn" onclick="revealGapClue()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-        <button class="action-btn btn-orange" onclick="revealGap()" data-i18n="btnRevealAnswer">Reveal Answer</button>
-        <button class="action-btn btn-grey" onclick="initGapGame()" data-i18n="btnNewSentence">New Sentence</button>
+        <button class="action-btn" data-ltev-185="1" data-i18n="btnSubmit">Submit</button>
+        <button class="action-btn btn-blue" id="gap-clue-btn" data-ltev-186="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+        <button class="action-btn btn-orange" data-ltev-187="1" data-i18n="btnRevealAnswer">Reveal Answer</button>
+        <button class="action-btn btn-grey" data-ltev-188="1" data-i18n="btnNewSentence">New Sentence</button>
       </div>
     </div>
     <div id="gap-feedback" class="feedback hidden"></div>
   </div>
 
   <div id="error-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-error" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-189="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-error" data-ltev-190="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="error-team-ui" class="hidden"></div>
     <div id="error-filter-mount"></div>
 
     <h2 data-i18n="titleFindError" data-icon="../assets/icons/error.svg"><img src="../assets/icons/error.svg" class="main-hdr-icon" alt="" /> Find the Error</h2>
 
     <div class="error-mode-tabs">
-      <button class="error-mode-tab active" id="tab-spot" onclick="setErrorMode('spot')" data-i18n="btnSpotError" data-icon="../assets/icons/check-circle.svg"><img src="../assets/icons/check-circle.svg" class="btn-icon" alt="" />
+      <button class="error-mode-tab active" id="tab-spot" data-ltev-191="1" data-i18n="btnSpotError" data-icon="../assets/icons/check-circle.svg"><img src="../assets/icons/check-circle.svg" class="btn-icon" alt="" />
         Spot the Error</button>
-      <button class="error-mode-tab" id="tab-rewrite" onclick="setErrorMode('rewrite')" data-i18n="btnRewriteIt" data-icon="../assets/icons/edit.svg"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" />
+      <button class="error-mode-tab" id="tab-rewrite" data-ltev-192="1" data-i18n="btnRewriteIt" data-icon="../assets/icons/edit.svg"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" />
         Rewrite It</button>
     </div>
 
@@ -1460,8 +1460,8 @@
     <div id="error-spot-mode">
       <p style="text-align:center; color:#666; font-size:1rem; margin-bottom:14px;" data-i18n="whichCorrect">Which
         sentence is grammatically <strong>correct</strong>?</p>
-      <div id="error-choice-a" class="error-choice-btn" onclick="checkErrorChoice('A')"></div>
-      <div id="error-choice-b" class="error-choice-btn" onclick="checkErrorChoice('B')"></div>
+      <div id="error-choice-a" class="error-choice-btn" data-ltev-193="1"></div>
+      <div id="error-choice-b" class="error-choice-btn" data-ltev-194="1"></div>
       <div id="error-explanation" class="error-explanation-box"></div>
     </div>
 
@@ -1473,23 +1473,23 @@
       <textarea id="error-rewrite-input" class="error-rewrite-input" rows="2"
         placeholder="Edit the sentence here..."></textarea>
       <div class="clue-actions">
-        <button class="action-btn" onclick="checkRewrite()" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
-        <button class="action-btn btn-grey" onclick="resetRewriteInput()" data-i18n="btnResetSentence"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Reset Text</button>
-        <button class="action-btn btn-blue" id="error-hint-btn" onclick="showErrorHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
-        <button class="action-btn btn-orange" onclick="revealError()" data-i18n="btnRevealAnswer">Reveal Answer</button>
+        <button class="action-btn" data-ltev-195="1" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
+        <button class="action-btn btn-grey" data-ltev-196="1" data-i18n="btnResetSentence"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Reset Text</button>
+        <button class="action-btn btn-blue" id="error-hint-btn" data-ltev-197="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Clue</button>
+        <button class="action-btn btn-orange" data-ltev-198="1" data-i18n="btnRevealAnswer">Reveal Answer</button>
       </div>
       <div id="error-rewrite-explanation" class="error-explanation-box"></div>
     </div>
 
     <div class="center-container" style="margin-top:20px;">
-      <button class="action-btn btn-grey" id="error-next-btn" onclick="nextTeamTurn(); initErrorGame();"
+      <button class="action-btn btn-grey" id="error-next-btn" data-ltev-199="1"
         data-i18n="btnNextSentence">Next Sentence</button>
     </div>
   </div>
 
   <div id="ipa-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-ipa" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-200="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-ipa" data-ltev-201="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="ipa-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titlePhonetic" data-icon="../assets/icons/ipa.svg"><img src="../assets/icons/ipa.svg" class="main-hdr-icon" alt="" /> Phonetic Guess</h2>
@@ -1512,15 +1512,15 @@
     </div>
 
     <div class="ipa-mode-tabs">
-      <button class="ipa-tab active" id="ipa-tab-mcq" onclick="ipaSetMode('mcq')" data-i18n="btnMCQ" data-icon="../assets/icons/quiz.svg"><img src="../assets/icons/quiz.svg" class="btn-icon" alt="" /> Multiple
+      <button class="ipa-tab active" id="ipa-tab-mcq" data-ltev-202="1" data-i18n="btnMCQ" data-icon="../assets/icons/quiz.svg"><img src="../assets/icons/quiz.svg" class="btn-icon" alt="" /> Multiple
         Choice</button>
-      <button class="ipa-tab" id="ipa-tab-type" onclick="ipaSetMode('type')" data-i18n="btnTypeIt" data-icon="../assets/icons/keyboard.svg"><img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" /> Type It</button>
+      <button class="ipa-tab" id="ipa-tab-type" data-ltev-203="1" data-i18n="btnTypeIt" data-icon="../assets/icons/keyboard.svg"><img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" /> Type It</button>
     </div>
 
     <!-- The IPA display -->
     <div class="ipa-display" id="ipa-display">/ /</div>
     <div style="text-align:center;margin-top:-8px;margin-bottom:8px;">
-      <button type="button" class="action-btn btn-grey" style="padding:4px 12px;font-size:0.8rem;" onclick="if(ipaWordObj)ltSpeakWord(ipaWordObj.word)" data-i18n="btnListenAudio" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Listen</button>
+      <button type="button" class="action-btn btn-grey" style="padding:4px 12px;font-size:0.8rem;" data-ltev-204="1" data-i18n="btnListenAudio" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Listen</button>
     </div>
     <p class="ipa-phoneme-hint" id="ipa-pos-hint"></p>
 
@@ -1534,16 +1534,16 @@
       <input type="text" id="ipa-type-input" class="ipa-type-input" placeholder="Type the word…" autocomplete="off"
         autocorrect="off" spellcheck="false">
       <div class="clue-actions" style="margin-top:10px;">
-        <button class="action-btn" onclick="ipaCheckType()" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
-        <button class="action-btn btn-blue" id="ipa-hint-btn" onclick="ipaRevealHint()" data-i18n="btnHint" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
-        <button class="action-btn btn-orange" onclick="ipaRevealAnswer()" data-i18n="btnReveal">Reveal</button>
+        <button class="action-btn" data-ltev-205="1" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
+        <button class="action-btn btn-blue" id="ipa-hint-btn" data-ltev-206="1" data-i18n="btnHint" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
+        <button class="action-btn btn-orange" data-ltev-207="1" data-i18n="btnReveal">Reveal</button>
       </div>
     </div>
 
     <div class="ipa-result-box" id="ipa-result"></div>
 
     <div class="center-container" style="margin-top:16px;">
-      <button class="action-btn btn-grey" onclick="initIpaGame()" data-i18n="btnNextWord">Next Word</button>
+      <button class="action-btn btn-grey" data-ltev-208="1" data-i18n="btnNextWord">Next Word</button>
     </div>
   </div>
 
@@ -1551,8 +1551,8 @@
   <!-- SYNONYMS & ANTONYMS GAME -->
   <!-- ============================================================ -->
   <div id="synonym-game-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-    <button class="timer-btn" id="timer-btn-synonym" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-209="1" data-i18n="btnBack">Back</button>
+    <button class="timer-btn" id="timer-btn-synonym" data-ltev-210="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="synonym-team-ui" class="hidden"></div>
     <div class="filter-mount"></div>
     <h2 data-i18n="titleSynAnt" data-icon="../assets/icons/syn.svg"><img src="../assets/icons/syn.svg" class="main-hdr-icon" alt="" /> Synonyms &amp; Antonyms</h2>
@@ -1575,18 +1575,18 @@
 
     <!-- Mode tabs: MCQ vs Type -->
     <div class="syn-mode-tabs">
-      <button class="syn-tab active" id="syn-tab-mcq" onclick="synSetMode('mcq')" data-i18n="btnMCQ" data-icon="../assets/icons/quiz.svg"><img src="../assets/icons/quiz.svg" class="btn-icon" alt="" /> Multiple
+      <button class="syn-tab active" id="syn-tab-mcq" data-ltev-211="1" data-i18n="btnMCQ" data-icon="../assets/icons/quiz.svg"><img src="../assets/icons/quiz.svg" class="btn-icon" alt="" /> Multiple
         Choice</button>
-      <button class="syn-tab" id="syn-tab-type" onclick="synSetMode('type')" data-i18n="btnTypeIt" data-icon="../assets/icons/keyboard.svg"><img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" /> Type It</button>
+      <button class="syn-tab" id="syn-tab-type" data-ltev-212="1" data-i18n="btnTypeIt" data-icon="../assets/icons/keyboard.svg"><img src="../assets/icons/keyboard.svg" class="btn-icon" alt="" /> Type It</button>
     </div>
 
     <!-- Synonym / Antonym toggle -->
     <div class="syn-mode-toggle">
-      <button class="syn-toggle-btn active-syn" id="syn-toggle-syn" onclick="synSetRelation('synonym')"
+      <button class="syn-toggle-btn active-syn" id="syn-toggle-syn" data-ltev-213="1"
         data-i18n="btnSynonym" data-icon="../assets/icons/syn.svg"><img src="../assets/icons/syn.svg" class="btn-icon" alt="" /> Synonym</button>
-      <button class="syn-toggle-btn" id="syn-toggle-ant" onclick="synSetRelation('antonym')" data-i18n="btnAntonym" data-icon="../assets/icons/zap.svg"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+      <button class="syn-toggle-btn" id="syn-toggle-ant" data-ltev-214="1" data-i18n="btnAntonym" data-icon="../assets/icons/zap.svg"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
         Antonym</button>
-      <button class="syn-toggle-btn" id="syn-toggle-both" onclick="synSetRelation('both')"
+      <button class="syn-toggle-btn" id="syn-toggle-both" data-ltev-215="1"
         style="border-color:#999;color:#777;" data-i18n="btnBoth" data-icon="../assets/icons/swap.svg"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" /> Both</button>
     </div>
 
@@ -1597,8 +1597,8 @@
       <div class="syn-other" id="syn-other"></div>
       <div id="syn-def-clue" style="display:none;margin-top:8px;font-size:0.88rem;color:#444;font-style:italic;"></div>
       <div style="margin-top:8px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-        <button type="button" class="action-btn btn-grey" style="padding:3px 10px;font-size:0.76rem;" onclick="if(synWordObj)ltSpeakWord(synWordObj.word)" data-i18n="btnListenAudio" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Listen</button>
-        <button type="button" class="action-btn btn-grey" style="padding:3px 10px;font-size:0.76rem;" onclick="synToggleDefClue()" data-i18n="btnShowDefinition"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Definition</button>
+        <button type="button" class="action-btn btn-grey" style="padding:3px 10px;font-size:0.76rem;" data-ltev-216="1" data-i18n="btnListenAudio" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Listen</button>
+        <button type="button" class="action-btn btn-grey" style="padding:3px 10px;font-size:0.76rem;" data-ltev-217="1" data-i18n="btnShowDefinition"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Definition</button>
       </div>
     </div>
 
@@ -1616,9 +1616,9 @@
       <input type="text" id="syn-type-input" class="syn-type-input" placeholder="Type your answer…" autocomplete="off"
         autocorrect="off" spellcheck="false">
       <div class="clue-actions" style="margin-top:10px;">
-        <button class="action-btn" onclick="synCheckType()" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
-        <button class="action-btn btn-blue" id="syn-hint-btn" onclick="synRevealHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
-        <button class="action-btn btn-orange" onclick="synRevealAnswer()" data-i18n="btnReveal">Reveal</button>
+        <button class="action-btn" data-ltev-218="1" data-i18n="btnCheck" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
+        <button class="action-btn btn-blue" id="syn-hint-btn" data-ltev-219="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
+        <button class="action-btn btn-orange" data-ltev-220="1" data-i18n="btnReveal">Reveal</button>
       </div>
     </div>
 
@@ -1626,7 +1626,7 @@
     <div class="syn-result-box" id="syn-result"></div>
 
     <div class="center-container" style="margin-top:16px;">
-      <button class="action-btn btn-grey" onclick="initSynGame()" data-i18n="btnNextWord">Next Word</button>
+      <button class="action-btn btn-grey" data-ltev-221="1" data-i18n="btnNextWord">Next Word</button>
     </div>
   </div>
 
@@ -1636,8 +1636,8 @@
   <div id="wordsearch-game-section" class="game hidden">
     <div class="filter-mount"></div>
     <div class="game-nav-row">
-      <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
-      <button class="timer-btn" id="timer-btn-wordsearch" onclick="timerOpenSettings()"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+      <button class="action-btn btn-back" data-ltev-222="1" data-i18n="btnBack">Back</button>
+      <button class="timer-btn" id="timer-btn-wordsearch" data-ltev-223="1"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     </div>
     <div id="wordsearch-team-ui" class="hidden"></div>
     <h2><img src="../assets/icons/wordsearch.svg" class="main-hdr-icon" alt="" /> Word Search</h2>
@@ -1646,37 +1646,37 @@
       <div class="ws-control-group">
         <span class="ws-control-label">Grid Size</span>
         <div class="ws-size-btns">
-          <button class="ws-opt-btn" onclick="wsSetSize(10)">10×10</button>
-          <button class="ws-opt-btn active" onclick="wsSetSize(15)">15×15</button>
-          <button class="ws-opt-btn" onclick="wsSetSize(20)">20×20</button>
+          <button class="ws-opt-btn" data-ltev-224="1">10×10</button>
+          <button class="ws-opt-btn active" data-ltev-225="1">15×15</button>
+          <button class="ws-opt-btn" data-ltev-226="1">20×20</button>
         </div>
       </div>
       <div class="ws-control-group">
         <span class="ws-control-label">Hidden Words</span>
         <div class="ws-count-btns">
-          <button class="ws-opt-btn" onclick="wsSetCount(5)">5</button>
-          <button class="ws-opt-btn active" onclick="wsSetCount(8)">8</button>
-          <button class="ws-opt-btn" onclick="wsSetCount(10)">10</button>
+          <button class="ws-opt-btn" data-ltev-227="1">5</button>
+          <button class="ws-opt-btn active" data-ltev-228="1">8</button>
+          <button class="ws-opt-btn" data-ltev-229="1">10</button>
         </div>
       </div>
       <div class="ws-control-group">
         <span class="ws-control-label" data-i18n="wsDirectionsLabel">Directions</span>
         <div class="ws-dir-btns">
-          <button class="ws-opt-btn" data-dir="easy" onclick="wsSetDirMode('easy')" data-i18n="wsDirEasy">Easy</button>
-          <button class="ws-opt-btn active" data-dir="all" onclick="wsSetDirMode('all')" data-i18n="wsDirAll">All 8</button>
+          <button class="ws-opt-btn" data-dir="easy" data-ltev-230="1" data-i18n="wsDirEasy">Easy</button>
+          <button class="ws-opt-btn active" data-dir="all" data-ltev-231="1" data-i18n="wsDirAll">All 8</button>
         </div>
       </div>
       <div class="ws-control-group">
         <span class="ws-control-label">&nbsp;</span>
-        <button class="action-btn" onclick="initWordSearch()"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> New Grid</button>
+        <button class="action-btn" data-ltev-232="1"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> New Grid</button>
       </div>
       <div class="ws-control-group">
         <span class="ws-control-label">&nbsp;</span>
-        <button class="action-btn btn-blue" onclick="wsHintFirstLetter()" data-i18n="btnHint"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
+        <button class="action-btn btn-blue" data-ltev-233="1" data-i18n="btnHint"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
       </div>
       <div class="ws-control-group">
         <span class="ws-control-label">&nbsp;</span>
-        <button class="action-btn btn-orange" onclick="wsRevealAll()"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal Answers</button>
+        <button class="action-btn btn-orange" data-ltev-234="1"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal Answers</button>
       </div>
     </div>
 
@@ -1696,7 +1696,7 @@
   </div>
 
   <div id="story-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')" data-i18n="btnBack">Back</button>
+    <button class="action-btn btn-back" data-ltev-235="1" data-i18n="btnBack">Back</button>
     <h2><img src="../assets/icons/book.svg" class="main-hdr-icon" alt="" /> Choose Your Story</h2>
     <p style="text-align:center;color:#666;margin-top:-14px;margin-bottom:20px;font-size:0.9rem;">
       B2-level interactive narratives. Read carefully — your choices shape the story.
@@ -1704,7 +1704,7 @@
 
     <div class="center-container" style="margin-bottom:16px;gap:10px;">
       <label class="filter-label">Database:</label>
-      <select id="story-source-select" onchange="onStorySourceChanged()" style="padding: 5px; border-radius: 5px;">
+      <select id="story-source-select" data-ltev-236="1" style="padding: 5px; border-radius: 5px;">
         <option value="all">All Databases</option>
       </select>
     </div>
@@ -1720,8 +1720,8 @@
       <div class="story-reader-header">
         <span class="story-reader-emoji" id="story-reader-emoji"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /></span>
         <span class="story-reader-title" id="story-reader-title">Story</span>
-        <button class="action-btn btn-grey" id="story-step-back-btn" style="padding:5px 12px;font-size:0.8rem;display:none;" onclick="storyGoBackStep()" data-i18n="btnStoryBackStep"><img src="../assets/icons/undo.svg" class="btn-icon" alt="" /> Previous Step</button>
-        <button class="action-btn btn-grey" style="padding:5px 12px;font-size:0.8rem;" onclick="storyBackToLibrary()">All
+        <button class="action-btn btn-grey" id="story-step-back-btn" style="padding:5px 12px;font-size:0.8rem;display:none;" data-ltev-237="1" data-i18n="btnStoryBackStep"><img src="../assets/icons/undo.svg" class="btn-icon" alt="" /> Previous Step</button>
+        <button class="action-btn btn-grey" style="padding:5px 12px;font-size:0.8rem;" data-ltev-238="1">All
           Stories</button>
       </div>
 
@@ -1744,21 +1744,21 @@
   </div>
 
   <div id="grammar-practice-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
+    <button class="action-btn btn-back" data-ltev-239="1">← Back</button>
     <h2 data-i18n="titleGrammarPractice">Grammar Practice</h2>
 
     <!-- Mode Tabs -->
     <div class="gp-mode-tabs">
-      <button class="gp-tab active" id="gp-tab-reference" onclick="gpSetMode('reference')" data-i18n="btnReference" data-icon="../assets/icons/book.svg"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Reference</button>
-      <button class="gp-tab" id="gp-tab-quiz" onclick="gpSetMode('quiz')" data-i18n="btnQuiz" data-icon="../assets/icons/edit.svg"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" /> Quiz</button>
-      <button class="gp-tab" id="gp-tab-browse" onclick="gpSetMode('browse')" data-i18n="btnBrowse" data-icon="../assets/icons/folder.svg"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /> Browse by Topic</button>
+      <button class="gp-tab active" id="gp-tab-reference" data-ltev-240="1" data-i18n="btnReference" data-icon="../assets/icons/book.svg"><img src="../assets/icons/book.svg" class="btn-icon" alt="" /> Reference</button>
+      <button class="gp-tab" id="gp-tab-quiz" data-ltev-241="1" data-i18n="btnQuiz" data-icon="../assets/icons/edit.svg"><img src="../assets/icons/edit.svg" class="btn-icon" alt="" /> Quiz</button>
+      <button class="gp-tab" id="gp-tab-browse" data-ltev-242="1" data-i18n="btnBrowse" data-icon="../assets/icons/folder.svg"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" /> Browse by Topic</button>
     </div>
 
     <!-- Shared filters -->
     <div class="gp-filter-bar">
       <div>
         <label class="filter-label">Level:</label>
-        <select class="gp-select" id="gp-level-filter" onchange="gpApplyFilters()">
+        <select class="gp-select" id="gp-level-filter" data-ltev-243="1">
           <option value="all">All Levels</option>
           <option value="A1">A1</option>
           <option value="A2">A2</option>
@@ -1769,14 +1769,14 @@
       </div>
       <div>
         <label class="filter-label">Category:</label>
-        <select class="gp-select" id="gp-cat-filter" onchange="gpApplyFilters()">
+        <select class="gp-select" id="gp-cat-filter" data-ltev-244="1">
           <option value="all">All Categories</option>
         </select>
       </div>
       <div>
         <label class="filter-label">Search:</label>
         <input type="text" class="gp-select" id="gp-search" placeholder="e.g. passive, conditional…"
-          style="width:180px;" oninput="gpApplyFilters()">
+          style="width:180px;" data-ltev-245="1">
       </div>
     </div>
 
@@ -1809,10 +1809,10 @@
         <textarea class="gp-quiz-input" id="gp-quiz-input" rows="2" placeholder="Type your answer here…"></textarea>
         <div id="gp-hints-container" style="margin-bottom:12px;"></div>
         <div class="gp-actions">
-          <button class="action-btn btn-purple" onclick="gpCheckAnswer()" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
-          <button class="action-btn btn-blue" id="gp-hint-btn" onclick="gpShowHint()" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
-          <button class="action-btn btn-orange" onclick="gpRevealAnswer()" data-i18n="btnGpReveal" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal</button>
-          <button class="action-btn btn-grey" onclick="gpNextQuiz()" data-i18n="btnNext">Next →</button>
+          <button class="action-btn btn-purple" data-ltev-246="1" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check</button>
+          <button class="action-btn btn-blue" id="gp-hint-btn" data-ltev-247="1" data-icon="../assets/icons/lightbulb.svg"><img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" /> Hint</button>
+          <button class="action-btn btn-orange" data-ltev-248="1" data-i18n="btnGpReveal" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal</button>
+          <button class="action-btn btn-grey" data-ltev-249="1" data-i18n="btnNext">Next →</button>
         </div>
         <div class="gp-quiz-explanation" id="gp-quiz-explanation"></div>
         <div class="gp-related-tags" id="gp-related-tags" style="margin-top:14px;"></div>
@@ -1828,7 +1828,7 @@
       <!-- Topic detail panel -->
       <div id="gp-topic-detail" class="hidden" style="margin-top:20px;">
         <button class="action-btn btn-grey" style="margin-bottom:14px;"
-          onclick="document.getElementById('gp-topic-detail').classList.add('hidden'); document.getElementById('gp-browse-list').style.display='grid';">←
+          data-ltev-250="1">←
           Back to Topics</button>
         <div id="gp-topic-detail-content"></div>
       </div>
@@ -1836,13 +1836,13 @@
   </div>
 
   <div id="words-seen-today-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
+    <button class="action-btn btn-back" data-ltev-251="1">← Back</button>
     <h2 data-i18n="titleWordsSeenToday">Words Seen Today</h2>
     <p class="words-seen-meta" data-i18n="wordsSeenTodaySubtitle">Words shown in the vocabulary games today.</p>
     <div id="words-seen-today-count" class="words-seen-meta"></div>
     <div id="words-seen-today-list" class="vocab-flex-list"></div>
     <div style="text-align:center; margin-top:28px; border-top:2px solid #eee; padding-top:20px;">
-      <button class="wsh-toggle-btn" id="words-seen-history-toggle-btn" onclick="toggleWordsSeenHistory()" data-icon="../assets/icons/history.svg"><img src="../assets/icons/history.svg" class="btn-icon" alt="" /> Show
+      <button class="wsh-toggle-btn" id="words-seen-history-toggle-btn" data-ltev-252="1" data-icon="../assets/icons/history.svg"><img src="../assets/icons/history.svg" class="btn-icon" alt="" /> Show
         History</button>
     </div>
     <div id="words-seen-history-panel">
@@ -1855,7 +1855,7 @@
   <!-- DICTATION GAME -->
   <!-- ============================================================ -->
   <div id="dictation-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
+    <button class="action-btn btn-back" data-ltev-253="1">← Back</button>
     <div id="dictation-team-ui" class="hidden"></div>
     <h2 data-i18n="titleDictation">Dictation</h2>
     <p style="text-align:center;color:#666;margin-top:-12px;margin-bottom:20px;font-size:0.9rem;"
@@ -1869,7 +1869,7 @@
       <!-- Filters -->
       <div class="dict-filter-bar">
         <span class="filter-label">Level:</span>
-        <select id="dict-filter-level" onchange="dictRenderSetup()">
+        <select id="dict-filter-level" data-ltev-254="1">
           <option value="all">All</option>
           <option value="A2">A2</option>
           <option value="B1">B1</option>
@@ -1877,7 +1877,7 @@
           <option value="C1">C1</option>
         </select>
         <span class="filter-label">Theme:</span>
-        <select id="dict-filter-theme" onchange="dictRenderSetup()">
+        <select id="dict-filter-theme" data-ltev-255="1">
           <option value="all">All Themes</option>
         </select>
       </div>
@@ -1889,16 +1889,16 @@
       <p style="text-align:center;font-weight:800;text-transform:uppercase;letter-spacing:1px;font-size:0.8rem;color:#555;margin:24px 0 8px;"
         data-i18n="selectDifficulty">Select difficulty</p>
       <div class="dict-difficulty-row">
-        <button class="dict-diff-btn active" data-diff="easy" onclick="dictSetDifficulty('easy')">Easy <span
+        <button class="dict-diff-btn active" data-diff="easy" data-ltev-256="1">Easy <span
             style="font-size:0.75rem;font-weight:600;display:block;opacity:0.7;">10% hidden</span></button>
-        <button class="dict-diff-btn" data-diff="medium" onclick="dictSetDifficulty('medium')">Medium <span
+        <button class="dict-diff-btn" data-diff="medium" data-ltev-257="1">Medium <span
             style="font-size:0.75rem;font-weight:600;display:block;opacity:0.7;">50% hidden</span></button>
-        <button class="dict-diff-btn" data-diff="hard" onclick="dictSetDifficulty('hard')">Hard <span
+        <button class="dict-diff-btn" data-diff="hard" data-ltev-258="1">Hard <span
             style="font-size:0.75rem;font-weight:600;display:block;opacity:0.7;">90% hidden</span></button>
       </div>
 
       <div class="center-container" style="margin-top:20px;">
-        <button class="action-btn" onclick="dictStartGame()" data-i18n="btnStartDictation" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start Dictation</button>
+        <button class="action-btn" data-ltev-259="1" data-i18n="btnStartDictation" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start Dictation</button>
       </div>
     </div>
 
@@ -1939,9 +1939,9 @@
 
       <!-- TTS Audio Controls Bar -->
       <div id="dict-tts-bar" style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;padding:10px 14px;margin-bottom:14px;background:#ffffff;border:2px solid #333333;border-radius:10px;box-shadow:3px 3px 0 #555555;">
-        <button class="action-btn btn-blue" id="dict-tts-play-btn" onclick="dictSpeakFullText()" style="padding:7px 14px;font-size:0.84rem;" data-i18n="dictReadFull" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Read Full Text</button>
-        <button class="action-btn btn-purple" id="dict-tts-sent-btn" onclick="dictSpeakCurrentSentence()" style="padding:7px 14px;font-size:0.84rem;" data-i18n="dictReadSentence" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Read Current Sentence</button>
-        <button class="action-btn btn-grey" onclick="dictStopSpeech()" style="padding:7px 12px;font-size:0.84rem;" data-i18n="dictStopAudio" data-icon="../assets/icons/stop.svg"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop</button>
+        <button class="action-btn btn-blue" id="dict-tts-play-btn" data-ltev-260="1" style="padding:7px 14px;font-size:0.84rem;" data-i18n="dictReadFull" data-icon="../assets/icons/volume.svg"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Read Full Text</button>
+        <button class="action-btn btn-purple" id="dict-tts-sent-btn" data-ltev-261="1" style="padding:7px 14px;font-size:0.84rem;" data-i18n="dictReadSentence" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Read Current Sentence</button>
+        <button class="action-btn btn-grey" data-ltev-262="1" style="padding:7px 12px;font-size:0.84rem;" data-i18n="dictStopAudio" data-icon="../assets/icons/stop.svg"><img src="../assets/icons/stop.svg" class="btn-icon" alt="" /> Stop</button>
         <label style="display:inline-flex;align-items:center;gap:6px;font-size:0.8rem;font-weight:700;color:#444;margin-left:4px;">
           <span data-i18n="dictSpeedLabel">Speed:</span>
           <select id="dict-tts-rate" style="padding:4px 8px;border:2px solid #333333;border-radius:6px;font-weight:700;background:#f5f5f0;">
@@ -1966,10 +1966,10 @@
 
       <!-- Actions -->
       <div class="dict-actions">
-        <button class="action-btn" onclick="dictCheckAll()" data-i18n="btnCheckAll" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check All</button>
-        <button class="action-btn btn-blue" onclick="dictRevealAll()" data-i18n="btnRevealAll" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal All</button>
-        <button class="action-btn btn-orange" onclick="dictRehideAll()" data-i18n="btnRehide" data-icon="../assets/icons/refresh.svg"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Re-hide All</button>
-        <button class="action-btn btn-grey" onclick="dictReset()" data-i18n="btnNewText">↺ New Text</button>
+        <button class="action-btn" data-ltev-263="1" data-i18n="btnCheckAll" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check All</button>
+        <button class="action-btn btn-blue" data-ltev-264="1" data-i18n="btnRevealAll" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal All</button>
+        <button class="action-btn btn-orange" data-ltev-265="1" data-i18n="btnRehide" data-icon="../assets/icons/refresh.svg"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Re-hide All</button>
+        <button class="action-btn btn-grey" data-ltev-266="1" data-i18n="btnNewText">↺ New Text</button>
       </div>
     </div>
   </div>
@@ -1978,8 +1978,8 @@
   <!-- ORDER SENTENCES GAME -->
   <!-- ============================================================ -->
   <div id="order-sentences-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <button class="timer-btn" id="timer-btn-order" onclick="timerOpenSettings()" data-icon="../assets/icons/stopwatch.svg"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-267="1">← Back</button>
+    <button class="timer-btn" id="timer-btn-order" data-ltev-268="1" data-icon="../assets/icons/stopwatch.svg"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="order-team-ui" class="hidden"></div>
     <div id="os-filter-mount"></div>
     <h2 data-i18n="titleOrderSentences">Order Sentences</h2>
@@ -1992,16 +1992,16 @@
     <div id="os-sentence-list"></div>
 
     <div class="center-container" style="margin-top:20px;gap:10px;display:flex;justify-content:center;flex-wrap:wrap;">
-      <button class="action-btn" onclick="osCheck()" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check Order</button>
-      <button class="action-btn btn-blue" onclick="osReveal()" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal Answer</button>
-      <button class="action-btn btn-grey" onclick="osInit()">↺ New Set</button>
+      <button class="action-btn" data-ltev-269="1" data-icon="../assets/icons/check.svg"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Check Order</button>
+      <button class="action-btn btn-blue" data-ltev-270="1" data-icon="../assets/icons/eye.svg"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Reveal Answer</button>
+      <button class="action-btn btn-grey" data-ltev-271="1">↺ New Set</button>
     </div>
     <div id="os-feedback" class="feedback hidden"></div>
   </div>
 
   <div id="quiz-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
-    <button class="timer-btn" id="timer-btn-quiz" onclick="timerOpenSettings()" data-icon="../assets/icons/stopwatch.svg"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
+    <button class="action-btn btn-back" data-ltev-272="1">← Back</button>
+    <button class="timer-btn" id="timer-btn-quiz" data-ltev-273="1" data-icon="../assets/icons/stopwatch.svg"><img src="../assets/icons/stopwatch.svg" class="btn-icon" alt="" /> Timer</button>
     <div id="quiz-team-ui" class="hidden"></div>
     <h2 data-i18n="titleQuiz">Quiz</h2>
     <p style="text-align:center;color:#666;margin-top:-12px;margin-bottom:18px;font-size:0.9rem;">Kahoot-style multiple
@@ -2011,7 +2011,7 @@
       <div style="display:flex;gap:10px;align-items:end;justify-content:center;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;min-width:210px;">
           <span style="font-size:0.82rem;color:#666;">Mode</span>
-          <select id="quiz-play-mode" class="search-input" style="min-width:210px;" onchange="quizApplyModeUi()">
+          <select id="quiz-play-mode" class="search-input" style="min-width:210px;" data-ltev-274="1">
             <option value="single">Single Player</option>
             <option id="quiz-mode-mp-host-option" value="multiplayer-host" hidden>Multiplayer Host (WebSocket)</option>
           </select>
@@ -2019,19 +2019,19 @@
         <div id="quiz-mp-dev-controls" style="display:none;flex-direction:column;gap:4px;">
           <span style="font-size:0.82rem;color:#666;">Server</span>
           <div style="display:flex;">
-            <button id="quiz-mp-mode-local-btn" onclick="_quizMpSetMode('local')"
+            <button id="quiz-mp-mode-local-btn" data-ltev-275="1"
               style="padding:5px 12px;border:1.5px solid #2563eb;border-radius:4px 0 0 4px;background:#2563eb;color:#fff;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">Local</button>
-            <button id="quiz-mp-mode-external-btn" onclick="_quizMpSetMode('external')"
+            <button id="quiz-mp-mode-external-btn" data-ltev-276="1"
               style="padding:5px 12px;border:1.5px solid #d1d5db;border-left:none;border-radius:0 4px 4px 0;background:#f1f5f9;color:#334155;font-size:0.8rem;font-weight:700;cursor:pointer;white-space:nowrap;">External</button>
           </div>
           <input id="quiz-mp-server" class="search-input" type="text" placeholder="https://your-server.com"
             style="min-width:220px;display:none;" />
         </div>
-        <button class="action-btn btn-blue" id="quiz-mp-connect-btn" onclick="quizMpConnect()"
+        <button class="action-btn btn-blue" id="quiz-mp-connect-btn" data-ltev-277="1"
           style="display:none;">Connect</button>
-        <button class="action-btn btn-grey" id="quiz-mp-disconnect-btn" onclick="quizMpDisconnect()"
+        <button class="action-btn btn-grey" id="quiz-mp-disconnect-btn" data-ltev-278="1"
           style="display:none;">Disconnect</button>
-        <button class="action-btn btn-orange" id="quiz-mp-end-btn" onclick="quizMpEndGame()" style="display:none;">End
+        <button class="action-btn btn-orange" id="quiz-mp-end-btn" data-ltev-279="1" style="display:none;">End
           Game & Results</button>
       </div>
       <div id="quiz-mp-status" style="margin-top:10px;font-size:0.9rem;text-align:center;color:#666;">Single player is
@@ -2041,7 +2041,7 @@
         style="margin-top:12px;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;gap:10px;align-items:end;justify-content:center;flex-wrap:wrap;">
         <label style="display:flex;flex-direction:column;gap:4px;min-width:210px;">
           <span style="font-size:0.82rem;color:#666;">Sort Questions</span>
-          <select id="quiz-sort-mode" class="search-input" style="min-width:210px;" onchange="quizSortModeChanged()">
+          <select id="quiz-sort-mode" class="search-input" style="min-width:210px;" data-ltev-280="1">
             <option value="random">Random</option>
             <option value="theme-az">Theme (A-Z)</option>
             <option value="theme-za">Theme (Z-A)</option>
@@ -2052,7 +2052,7 @@
         <label style="display:flex;flex-direction:column;gap:4px;min-width:180px;">
           <span style="font-size:0.82rem;color:#666;">Filter By</span>
           <select id="quiz-filter-field" class="search-input" style="min-width:180px;"
-            onchange="quizFilterFieldChanged()">
+            data-ltev-281="1">
             <option value="none">No filter</option>
             <option value="theme">Theme</option>
             <option value="keyword">Keyword</option>
@@ -2060,7 +2060,7 @@
         </label>
         <label style="display:flex;flex-direction:column;gap:4px;min-width:220px;">
           <span style="font-size:0.82rem;color:#666;">Filter Value</span>
-          <select id="quiz-filter-value" class="search-input" style="min-width:220px;" onchange="quizFilterChanged()">
+          <select id="quiz-filter-value" class="search-input" style="min-width:220px;" data-ltev-282="1">
             <option value="">All</option>
           </select>
         </label>
@@ -2072,11 +2072,11 @@
           <label for="quiz-mp-class-select" style="font-size:0.82rem;color:#475569;font-weight:600;"
             data-i18n="groupSelectorLabel">Class</label>
           <select id="quiz-mp-class-select" class="search-input" style="min-width:210px;"
-            onchange="quizMpSelectClass(this.value)">
+            data-ltev-283="1">
             <option value="">No class selected</option>
           </select>
           <label for="quiz-mp-half" style="font-size:0.82rem;color:#475569;font-weight:600;">Half:</label>
-          <select id="quiz-mp-half" class="search-input" style="min-width:150px;" onchange="quizMpUpdateJoinDisplay()">
+          <select id="quiz-mp-half" class="search-input" style="min-width:150px;" data-ltev-284="1">
             <option value="">Full class</option>
             <option value="1">First half</option>
             <option value="2">Second half</option>
@@ -2120,14 +2120,14 @@
       <div id="quiz-choice-grid" class="ipa-choice-grid"></div>
       <div class="gp-quiz-explanation" id="quiz-explanation" style="margin-top:14px;"></div>
       <div class="gp-actions" style="margin-top:14px;">
-        <button class="action-btn btn-orange" onclick="quizRevealAnswer()"> Reveal</button>
-        <button class="action-btn btn-grey" onclick="quizNextQuestion()">Next Question →</button>
+        <button class="action-btn btn-orange" data-ltev-285="1"> Reveal</button>
+        <button class="action-btn btn-grey" data-ltev-286="1">Next Question →</button>
       </div>
     </div>
   </div>
 
   <div id="werewolf-section" class="game hidden">
-    <button class="action-btn btn-back" onclick="navTo('main-menu')">← Back</button>
+    <button class="action-btn btn-back" data-ltev-287="1">← Back</button>
     <h2> Werewolf Moderator</h2>
     <p style="text-align:center;color:#666;margin-top:-12px;margin-bottom:20px;font-size:0.95rem;">Run turn-taking
       phases with short animations and fully customizable instructions.</p>
@@ -2138,7 +2138,7 @@
         <div class="ww-fields">
           <div id="ww-fields-ordered"></div>
           <div style="margin-top:8px;">
-            <button class="action-btn btn-blue" type="button" onclick="wwAddExtraStep()">➕ Add Step</button>
+            <button class="action-btn btn-blue" type="button" data-ltev-288="1">➕ Add Step</button>
           </div>
           <div class="ww-inline-label" style="margin-top:10px;">Role Chips</div>
           <p class="ww-tip" style="margin-top:4px;">Click a role chip to insert that role in custom instructions. Drag
@@ -2148,39 +2148,39 @@
 
         <div class="ww-inline-controls" style="margin-top:12px;">
           <label class="ww-inline-label" for="ww-auto-enable">Auto-advance</label>
-          <input id="ww-auto-enable" type="checkbox" onchange="wwOnAutoSettingsChanged()">
+          <input id="ww-auto-enable" type="checkbox" data-ltev-289="1">
           <label class="ww-inline-label" for="ww-auto-seconds">Seconds</label>
           <input id="ww-auto-seconds" type="number" min="2" max="120" step="1" value="8"
-            onchange="wwOnAutoSettingsChanged()">
+            data-ltev-290="1">
         </div>
 
         <div class="ww-inline-controls" style="margin-top:8px;">
           <label class="ww-inline-label" for="ww-vote-timer-enable">Vote timer</label>
-          <input id="ww-vote-timer-enable" type="checkbox" onchange="wwOnVoteTimerSettingsChanged()">
+          <input id="ww-vote-timer-enable" type="checkbox" data-ltev-291="1">
           <label class="ww-inline-label" for="ww-vote-timer-seconds">Seconds</label>
           <input id="ww-vote-timer-seconds" type="number" min="5" max="180" step="1" value="30"
-            onchange="wwOnVoteTimerSettingsChanged()">
+            data-ltev-292="1">
         </div>
 
         <div class="ww-inline-controls" style="margin-top:10px;">
           <label class="ww-inline-label" for="ww-kill-sound-select">Kill sound</label>
-          <select id="ww-kill-sound-select" class="ww-select" onchange="wwOnKillSoundChange()">
+          <select id="ww-kill-sound-select" class="ww-select" data-ltev-293="1">
             <option value="">No sound</option>
           </select>
-          <button class="action-btn btn-grey" onclick="wwLoadKillSounds(true)">↻ Sounds</button>
-          <button class="action-btn btn-orange" onclick="wwPlayKillSound()"> Test</button>
+          <button class="action-btn btn-grey" data-ltev-294="1">↻ Sounds</button>
+          <button class="action-btn btn-orange" data-ltev-295="1"> Test</button>
         </div>
 
         <div class="center-container"
           style="margin-top:14px;gap:10px;display:flex;justify-content:center;flex-wrap:wrap;">
-          <button class="action-btn btn-purple" id="ww-present-btn" onclick="presentationToggle('werewolf-section')">
+          <button class="action-btn btn-purple" id="ww-present-btn" data-ltev-296="1">
             Presentation</button>
         </div>
 
         <div class="center-container"
           style="margin-top:10px;gap:10px;display:flex;justify-content:center;flex-wrap:wrap;">
-          <button class="action-btn btn-blue" onclick="wwSaveCustomConfig()"> Save Werewolf Setup</button>
-          <button class="action-btn btn-grey" onclick="wwLoadCustomConfig(true)"> Load Werewolf Setup</button>
+          <button class="action-btn btn-blue" data-ltev-297="1"> Save Werewolf Setup</button>
+          <button class="action-btn btn-grey" data-ltev-298="1"> Load Werewolf Setup</button>
           <span id="ww-save-status" class="ww-status">Not saved</span>
         </div>
       </div>
@@ -2200,14 +2200,14 @@
         <h3 class="ww-title">Students</h3>
         <div class="ww-inline-controls">
           <label class="ww-inline-label" for="ww-group-select">Class</label>
-          <select id="ww-group-select" class="ww-select" onchange="wwSetGroup(this.value)"></select>
-          <button class="action-btn btn-grey" onclick="wwUseActiveClassGroup()">Use active class</button>
-          <button class="action-btn btn-orange" onclick="wwClearStrikes()">Clear strikes</button>
+          <select id="ww-group-select" class="ww-select" data-ltev-299="1"></select>
+          <button class="action-btn btn-grey" data-ltev-300="1">Use active class</button>
+          <button class="action-btn btn-orange" data-ltev-301="1">Clear strikes</button>
         </div>
         <div class="ww-inline-controls" style="margin-top:8px;">
           <label class="ww-inline-label">Roles</label>
-          <button class="action-btn" onclick="wwOpenRoleAssignments()"> Roles</button>
-          <button class="action-btn btn-grey" onclick="wwResetAllRoles()">Reset Roles</button>
+          <button class="action-btn" data-ltev-302="1"> Roles</button>
+          <button class="action-btn btn-grey" data-ltev-303="1">Reset Roles</button>
         </div>
         <p class="ww-tip">Students are always loaded from the selected class. Assign roles and mark absences here, then
           click a student name to strike out or restore. Newly struck students trigger the selected kill sound.</p>
@@ -2218,18 +2218,18 @@
     </div>
 
     <div class="ww-fixed-controls">
-      <button class="action-btn" onclick="wwStartNight()"> Start Night</button>
-      <button class="action-btn btn-blue" onclick="wwNextTurn()">➡ Next Turn</button>
-      <button class="action-btn btn-grey" onclick="wwResetRound()">↺ Reset Round</button>
+      <button class="action-btn" data-ltev-304="1"> Start Night</button>
+      <button class="action-btn btn-blue" data-ltev-305="1">➡ Next Turn</button>
+      <button class="action-btn btn-grey" data-ltev-306="1">↺ Reset Round</button>
     </div>
 
-    <div id="ww-sound-choice-overlay" class="ww-choice-overlay" onclick="wwHandleTurnSoundChoiceOverlayClick(event)">
+    <div id="ww-sound-choice-overlay" class="ww-choice-overlay" data-ltev-307="1">
       <div class="ww-choice-modal" role="dialog" aria-modal="true" aria-labelledby="ww-sound-choice-title">
         <h3 id="ww-sound-choice-title">Play Turn Sound?</h3>
         <p id="ww-sound-choice-text">Do you want to play the sound for this turn?</p>
         <div class="ww-choice-actions">
-          <button class="action-btn" type="button" onclick="wwResolveTurnSoundChoice(true)">Yes</button>
-          <button class="action-btn btn-grey" type="button" onclick="wwResolveTurnSoundChoice(false)">No</button>
+          <button class="action-btn" type="button" data-ltev-308="1">Yes</button>
+          <button class="action-btn btn-grey" type="button" data-ltev-309="1">No</button>
         </div>
       </div>
     </div>
@@ -2242,7 +2242,7 @@
   <!-- ============================================================ -->
 
 
-  <script src="../js/dom-sync.js"></script>
+  <script src="../js/shared/dom-sync.js"></script>
   <script src="../js/pages/learning-tools.js"></script>
 
   <!-- ===================== PRE-GAME POPUP ===================== -->
@@ -2259,7 +2259,7 @@
       <div class="pregame-section-label">Timer</div>
       <div style="margin-bottom:12px;">
         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;font-size:0.95rem;">
-          <input type="checkbox" id="pregame-timer-enable" onchange="pregameToggleTimer()">
+          <input type="checkbox" id="pregame-timer-enable" data-ltev-310="1">
           Enable automatic timer
         </label>
       </div>
@@ -2284,8 +2284,8 @@
         </div>
       </div>
       <div class="timer-settings-footer" style="margin-top:24px;">
-        <button class="action-btn btn-grey" onclick="pregameCancel()">← Back</button>
-        <button class="action-btn" onclick="pregameStart()"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start the game!</button>
+        <button class="action-btn btn-grey" data-ltev-311="1">← Back</button>
+        <button class="action-btn" data-ltev-312="1"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start the game!</button>
       </div>
     </div>
   </div>
@@ -2301,8 +2301,8 @@
       <h3><img src="../assets/icons/award.svg" class="btn-icon" alt="" /> Game Over!</h3>
       <div id="endgame-scores"></div>
       <div class="timer-settings-footer" style="margin-top:20px;">
-        <button class="action-btn btn-grey" onclick="endgameClose(); navTo('main-menu');">← Main Menu</button>
-        <button class="action-btn" onclick="endgameClose()">Continue Playing</button>
+        <button class="action-btn btn-grey" data-ltev-313="1">← Main Menu</button>
+        <button class="action-btn" data-ltev-314="1">Continue Playing</button>
       </div>
     </div>
   </div>
@@ -2331,11 +2331,11 @@
     </div>
   </div>
   <!-- Credits Modal -->
-  <div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()"
+  <div id="credits-overlay" data-ltev-315="1"
     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
     <div
       style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-      <button onclick="closeCreditsModal()"
+      <button data-ltev-316="1"
         style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;"
         data-hover-help="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       <iframe src="about.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
@@ -2354,6 +2354,7 @@
     })();
   </script>
 
+  <script src="../js/pages/learning-tools-events.js"></script>
 </body>
 
 </html>

@@ -153,7 +153,7 @@ Class Management Tools features deep cross-tool synchronisation. Data edited in 
 <details>
 <summary><strong>Student Name Display Formatting & Custom Nicknames</strong></summary>
 
-The suite includes flexible student name formatting utilities (`js/student-name-utils.js`). In Group Editor, teachers can configure how student names appear across the application:
+The suite includes flexible student name formatting utilities (`js/shared/student-name-utils.js`). In Group Editor, teachers can configure how student names appear across the application:
 - **Global & Group Conventions**: Choose display styles such as *First Last* (e.g., "John Doe"), *Last First* (e.g., "DOE John"), *First only*, or *Last only*.
 - **Custom / Preferred Display Names**: Set custom nicknames or preferred names per student without modifying their official legal record.
 - All tools across the suite automatically respect the chosen display format.
@@ -190,7 +190,7 @@ Whenever files are exported from any tool across the suite:
 <details>
 <summary><strong>Multi-Model CSS Export System & Live Preview Engine</strong></summary>
 
-The suite features a centralized CSS export engine (`js/export-styles-service.js`) providing selectable typography, styling, and table formatting for document exports across **Lesson Creator**, **Test Creator**, **Grade Sheet**, **Schedule Maker**, **Planner**, **Administrative Groups**, and **Participation Tracker**:
+The suite features a centralized CSS export engine (`js/shared/export-styles-service.js`) providing selectable typography, styling, and table formatting for document exports across **Lesson Creator**, **Test Creator**, **Grade Sheet**, **Schedule Maker**, **Planner**, **Administrative Groups**, and **Participation Tracker**:
 - **5 Foundation CSS Models**:
   - **Light Neobrutalist**: Warm neutral background (`#f5f5f0`), 2px solid `#333333` charcoal borders, tactile `3px 3px 0 #555555` drop shadows, blocky radii, and Lexend typography.
   - **Modern Minimalist**: Crisp white/slate canvas, refined 1px hairline dividers (`#e2e8f0`), clean sans-serif typography, subtle rounded corners, and alternating table rows.
@@ -206,7 +206,7 @@ The suite features a centralized CSS export engine (`js/export-styles-service.js
 <details>
 <summary><strong>Universal Tagging, Bidirectional Linking & Context Inheritance</strong></summary>
 
-The suite includes a centralized graph engine and modal manager (`js/links-service.js`, `js/tag-link-modal.js`, `css/tag-link-modal.css`):
+The suite includes a centralized graph engine and modal manager (`js/shared/links-service.js`, `js/shared/tag-link-modal.js`, `css/tag-link-modal.css`):
 - **Universal Linking (`[LINKS: X]` & `[TAGS: Y]`)**: Connect documents, evaluation tests, student submissions, curriculum competences, criteria presets, and files/PDFs together with bidirectional edge tracking stored in `user/links-registry.json`.
 - **Autonomous Hierarchy Cascading**: Linking any entity automatically propagates and connects its upward container tree:
   - `student` $\rightarrow$ `class` $\rightarrow$ `level`
@@ -224,7 +224,7 @@ The suite includes a centralized graph engine and modal manager (`js/links-servi
   - **1-Click Presets**: Quick-select configurations for *Full 360° Dossier*, *Official Transcript*, *Evaluations & Feedback*, and *Executive Summary*.
   - **Granular Elements Selection Menu**: Per-item checkboxes and instant filter search bars for evaluations, competences, lessons, documents, mindmaps, and participation sessions, plus configurable font scaling (`Compact 90%`, `Standard 100%`, `Comfort 110%`).
   - **Participation & Engagement Reporting**: Exportable attendance rate summary, net score badges, engagement trend indicators ($\uparrow / \downarrow / \rightarrow$), provisional grades, teacher observation remarks, and detailed session-by-session history logs.
-  - **Vector SVG Mindmap Rendering & Embedding**: Converts linked `.cstz` archives and `.json` board sessions into crisp, high-resolution vector SVG diagrams and topic/concept index tables directly embedded within the printable dossier via the shared Headless Board Export Service (`js/board-export-service.js`). Supports complete geometric shapes, freehand pen drawings, rich sticky notes, rotated nodes, double/dashed borders, and custom palettes.
+  - **Vector SVG Mindmap Rendering & Embedding**: Converts linked `.cstz` archives and `.json` board sessions into crisp, high-resolution vector SVG diagrams and topic/concept index tables directly embedded within the printable dossier via the shared Headless Board Export Service (`js/shared/board-export-service.js`). Supports complete geometric shapes, freehand pen drawings, rich sticky notes, rotated nodes, double/dashed borders, and custom palettes.
   - **Standalone Mindmaps PDF Export (`[EXPORT MINDMAPS PDF ONLY]`)**: Compiles all selected board mindmaps into a standalone high-resolution multi-page PDF booklet powered by `BoardExportService` with embedded offline Lexend typography and Universal Destination saving.
   - **Clean Semantic HTML Export (`[EXPORT HTML]`)**: Exports clean semantic HTML with an embedded `<style>` block adhering to the `export-standards` skill, with universal destination saving and 1-click launch into **Document Editor** via `showExportSuccessPopup`.
   - **Direct Vector PDF Export (`[EXPORT PDF]`)**: High-fidelity vector PDF generation via `Desktop.printPdf()` with the Universal Destination Modal and `showExportSuccessPopup`.
@@ -388,7 +388,7 @@ Curriculum competences can be linked across distinct databases (e.g. mapping Nat
 
 ### Universal Cross-App Tagging, Linking & Contextual Inheritance Engine
 
-Class Management Tools features a unified, cross-application **Tagging, Linking, and Contextual Inheritance Engine** (`js/links-service.js` & `js/tag-link-modal.js`):
+Class Management Tools features a unified, cross-application **Tagging, Linking, and Contextual Inheritance Engine** (`js/shared/links-service.js` & `js/shared/tag-link-modal.js`):
 - **Universal Graph Architecture**: Stores bidirectional entity relationships and global `#tags` safely in `user/links-registry.json` using standardized Uniform Resource Names (URNs: `cmt:<type>:<id>#<anchor>`).
 - **Deep Planner Integration (`cmt:planner:<entryId>`)**: Connects scheduled slots directly to Board constellation maps (`cmt:board:...`), Grade Sheet evaluations (`cmt:gradesheet:...`), Lesson Plans (`cmt:lesson:...`), Markdown handouts (`cmt:doc:...`), and attached files or PDFs (`cmt:file:...`).
 - **Board Session & Node-Level Deep Linking**: Both active Board sessions (`cmt:board:<filename>`) and individual canvas word nodes (`cmt:board-node:<filename>:<nodeId>`) can be linked to lesson plans, handouts, assessments, and universal `#tags`. Nodes display compact plain-text badges (`[PLAN]`, `[DOC]`, `[PDF]`, `[TEST]`, `[#TAG]`) with 1-click navigation.
@@ -396,7 +396,7 @@ Class Management Tools features a unified, cross-application **Tagging, Linking,
 - **Deep-Link Node Focus & Pulse**: Navigating to a board node from Planner, Document Editor, or another window automatically centers the canvas and triggers a smooth pulse halo.
 - **Vocabulary Database Mind Maps & Sync**: Teachers can cluster words from `vocabBank` by category or part of speech into radial mind maps with a central hub node, and sync new brainstormed nodes back to the vocabulary database in 1 click.
 - **Contextual Inheritance & Regressive Auto-Linking**: Items automatically inherit defaults and propagate relationships regressively across the entire Suite. When a constellation mindmap is associated with a Planner timeslot, links to the class group, academic year, curriculum level, and associated grade sheets are created automatically. Conversely, linking a class group to a Planner event automatically bridges the associated grade sheets and all active Board constellation sessions.
-- **Strict Plain-Text Neobrutalist UI**: A dedicated, reusable modal component (`js/tag-link-modal.js` and `css/tag-link-modal.css`) built with crisp 1.5px–2px solid borders, tactile offset shadows, high-contrast fills, and ultra-compact plain-text badges and capsule buttons (`[OPEN]`, `[UNLINK]`, `[ADD TAG]`, `[ATTACH FILE / PDF]`, `[CLOSE]`) engineered for maximum link overview density.
+- **Strict Plain-Text Neobrutalist UI**: A dedicated, reusable modal component (`js/shared/tag-link-modal.js` and `css/tag-link-modal.css`) built with crisp 1.5px–2px solid borders, tactile offset shadows, high-contrast fills, and ultra-compact plain-text badges and capsule buttons (`[OPEN]`, `[UNLINK]`, `[ADD TAG]`, `[ATTACH FILE / PDF]`, `[CLOSE]`) engineered for maximum link overview density.
 - **Grouped Link Sorting by Type**: Connected items (`cmt-lm-links-container`) are automatically grouped into clean, compact subheadings (`DOCUMENTS`, `CLASSES & STUDENTS`, `LESSONS & PLANNER`, `BOARD MINDMAPS`, `GRADE SHEETS & EVALUATIONS`, `CURRICULUM & RUBRICS`, `DATABASES & QUESTION BANKS`, `FILES & ATTACHMENTS`) and sorted alphabetically by title within each group.
 - **Embedded File Previewer**: PDFs, images, and audio attachments open in a clean in-app previewer with page pagination, audio playback, and an `[OPEN IN DEFAULT APP]` external launcher.
 - **Multi-Window Sync**: Communicates across all open windows via `BroadcastChannel('cmt-links-sync')` to update link badges and count indicators in real time at 60fps without full page reloads.
@@ -452,7 +452,7 @@ Vocabulary decks (with optional word pictures via upload, drag-and-drop, clipboa
 
 ### Classroom Server & Remote ↔ Class Management, Board & Quiz
 
-The built-in WebSocket classroom server (`js/classroom-server.js`) enables mobile remote control for timers and scoring, live student note submission onto Board, and multiplayer quiz hosting in [Quiz Player](#learning-toolshtml).
+The built-in WebSocket classroom server (`js/server/classroom-server.js`) enables mobile remote control for timers and scoring, live student note submission onto Board, and multiplayer quiz hosting in [Quiz Player](#learning-toolshtml).
 
 ---
 
@@ -727,7 +727,7 @@ Offline-first **Video & Sound Converter** with visual waveform trimming, audio e
 Offline-first **Quick Dictionary** designed for instantaneous, sub-millisecond keyword lookup through vocabulary databases and word banks stored in `user/custom-data/wordbanks/`.
 
 #### Key Features & Architecture
-- **Dedicated Background Worker Thread (`js/dictionary-worker.js`)**:
+- **Dedicated Background Worker Thread (`js/workers/dictionary-worker.js`)**:
   - Word bank parsing (JSON-compatible array extraction with VM sandbox fallback) and memory indexing run fully off the main thread, keeping the Electron shell and UI completely non-blocking.
   - Slim entry extraction holds only essential display attributes in memory (`word`, `ipa`, `pos`, `level`, `theme`, `definition`, `examples`, `synonyms`, `antonyms`, `forms`).
 - **Tiered Search Scope Options**:
@@ -1023,7 +1023,7 @@ Active classroom control panel for student scoring, timers, class working modes,
 - **Presentation View**: Projects roster state, active badges, and points onto a second screen with independent freeze controls.
 - **Phone Remote (beta)**:
   - *Local Mode*: Node server on port `8787` for local WiFi mobile scoring.
-  - *External Mode*: Connects via WebSocket relay (`js/classroom-server.js`) for internet access.
+  - *External Mode*: Connects via WebSocket relay (`js/server/classroom-server.js`) for internet access.
 - **Session & Student ID Integrity Safeguards**: Guarantees strictly unique session timestamps (`session.id`) across quick saves, autosaves, and multi-class batches, preventing accidental state clobbering.
 - **Comprehensive Interaction & Pedagogical Timeline Logging**: In addition to pluses and minuses, every significant classroom event is logged into `sessionHistory` with ISO timestamps, elapsed offsets, and rich metadata (`meta: { durationSec, remainingSec, studentId, teamId, isAbsent, inExam }`). Events captured include timer starts/stops/expirations, random student and team picks, attendance toggles (absent/present), working mode transitions (Quiet Work, Group Work, Conversation), and exam session activations. Powers the interactive multi-track timeline visualization in Participation Tracker.
 - **Exam Session Mode & Automated Planner Test Detection**: Right-clicking any student on the roster offers **Exam Session** to mark all students as sitting an examination with a purple status banner and student exam badges. Selecting a class with a test scheduled for today in Weekly Lesson Planner automatically prompts the teacher to activate Exam Session mode. Marking a session as an exam immediately creates and persists the session file to disk (`user/groupParticipation/<class>/YYYY-MM-DD_<class>.js`) even without any student points or interactions, and tags the session with `isExam: true` so it is isolated from regular classroom participation scoring. When activated, the Exam Session banner automatically detects linked [Grade Sheet](#grade-sheethtml) tests, displays an interactive quick link chip with 1-click deep navigation directly into Grade Sheet, and synchronizes student absences bidirectionally in real-time over `BroadcastChannel ('cmt-grades')` and direct disk storage.
@@ -1381,7 +1381,7 @@ Comprehensive analytics dashboard sourcing session data from [Class Management](
 - **Full Localization (i18n)**: Fully translated UI across English, French, German, and Italian.
 - **Session & Student Overviews**: Detailed tabular logs per session and per student.
 - **Collision Auto-Healing**: Automatically de-collides session timestamps and student IDs on load and disk persistence, ensuring overlapping saves from multiple classes or devices are never dropped, overwritten, or cross-contaminated.
-- **Provisional Grading Engine & Live Grade Sheet Link**: Custom rule configurator (`js/participation-grading.js`) converting participation points into grades, with both one-time **Export to Grade Sheet** and persistent **Link & Auto-Update in Grade Sheet**. Once linked (from Participation Tracker or directly inside Grade Sheet's *Test Actions*), any number of participation test slots per class/term automatically recalculate and overwrite scores and rule criteria points whenever Class Management saves sessions or Participation Tracker updates rules, with selectable date scopes (*Current Term/Semester*, *Custom Date Range*, or *All Recorded Sessions*).
+- **Provisional Grading Engine & Live Grade Sheet Link**: Custom rule configurator (`js/shared/participation-grading.js`) converting participation points into grades, with both one-time **Export to Grade Sheet** and persistent **Link & Auto-Update in Grade Sheet**. Once linked (from Participation Tracker or directly inside Grade Sheet's *Test Actions*), any number of participation test slots per class/term automatically recalculate and overwrite scores and rule criteria points whenever Class Management saves sessions or Participation Tracker updates rules, with selectable date scopes (*Current Term/Semester*, *Custom Date Range*, or *All Recorded Sessions*).
 - **Multi-Track Session Interaction Timeline & Flow Visualization**: High-DPI HTML5 Canvas multi-track interactive timeline graph accessible via the **Timeline** button on any Session History row or clicking the row directly:
   - *Track 1 (Intervals & Modes)*: Color-coded Neobrutalist duration blocks for timers, active working modes, and team work sessions with elapsed duration readouts.
   - *Track 2 (Cumulative Pacing)*: Step/area cumulative engagement curve illustrating classroom pedagogical momentum and call-and-response rhythm throughout the lesson.

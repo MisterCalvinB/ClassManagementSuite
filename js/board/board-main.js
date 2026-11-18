@@ -19,7 +19,7 @@
             syncBtn.disabled = !(res && res.ok && res.syncLocation);
             syncBtn.title = (res && res.ok && res.syncLocation)
               ? 'Sync with: ' + res.syncLocation
-              : 'No sync location configured — set one in ⚙️ Data';
+              : 'No sync location configured — set one in ⚙ Data';
           }).catch(() => { syncBtn.disabled = true; });
         }
 
@@ -37,7 +37,7 @@
             relativePath: relPath,
             target: 'mindmaps'
           }).then(pinned => {
-            pinBtn.textContent = pinned ? '📌 Unpin Map' : '📌 Pin Map';
+            pinBtn.textContent = pinned ? ' Unpin Map' : ' Pin Map';
           });
         } else if (pinBtn) {
           if (pinDiv) pinDiv.style.display = 'none';
@@ -57,11 +57,11 @@
       const isPinned = await Pins.isPinned(itemInfo);
       if (isPinned) {
         await Pins.unpinItem(itemInfo);
-        mdbToast('📌 Unpinned from sidebar');
+        mdbToast(' Unpinned from sidebar');
       } else {
         const prettyName = boardStripJsonExt(_conCurrentFileName);
         await Pins.pinItem(Object.assign({ title: prettyName }, itemInfo));
-        mdbToast('📌 Pinned to sidebar');
+        mdbToast(' Pinned to sidebar');
       }
     }
 
@@ -81,7 +81,7 @@
 
     async function downloadData() {
       if (!Desktop.isElectron()) {
-        mdbToast('⚠️ Save as Zip is only available in the desktop app.');
+        mdbToast(' Save as Zip is only available in the desktop app.');
         return;
       }
       const btn = document.getElementById('save-sync-btn');
@@ -93,14 +93,14 @@
         if (!result) { btn.textContent = origText; btn.disabled = false; return; }
         if (result.canceled) { btn.textContent = origText; btn.disabled = false; return; }
         if (result.ok) {
-          mdbToast('✓ Zip saved!');
+          mdbToast(' Zip saved!');
         } else {
-          mdbToast('⚠️ Save failed: ' + (result.error || 'Unknown error'));
+          mdbToast(' Save failed: ' + (result.error || 'Unknown error'));
         }
         btn.textContent = origText;
         btn.disabled = false;
       } catch (err) {
-        mdbToast('⚠️ Save error: ' + (err && err.message ? err.message : err));
+        mdbToast(' Save error: ' + (err && err.message ? err.message : err));
         btn.textContent = origText;
         btn.disabled = false;
       }
@@ -108,7 +108,7 @@
 
     async function uploadData() {
       if (!Desktop.isElectron()) {
-        mdbToast('⚠️ Load from Zip is only available in the desktop app.');
+        mdbToast(' Load from Zip is only available in the desktop app.');
         return;
       }
       const btn = document.getElementById('save-sync-btn');
@@ -124,7 +124,7 @@
           return;
         }
         if (!result.ok) {
-          mdbToast('⚠️ Load failed: ' + (result.error || 'Unknown error'));
+          mdbToast(' Load failed: ' + (result.error || 'Unknown error'));
           btn.textContent = origText;
           btn.disabled = false;
           return;
@@ -141,7 +141,7 @@
         btn.textContent = origText;
         btn.disabled = false;
       } catch (err) {
-        mdbToast('⚠️ Load error: ' + (err && err.message ? err.message : err));
+        mdbToast(' Load error: ' + (err && err.message ? err.message : err));
         btn.textContent = origText;
         btn.disabled = false;
       }
@@ -149,12 +149,12 @@
 
     async function syncData() {
       if (!Desktop.isElectron() || !window.electronApi || !window.electronApi.runSync) {
-        mdbToast('⚠️ Sync is only available in the desktop app.');
+        mdbToast(' Sync is only available in the desktop app.');
         return;
       }
       const locRes = await window.electronApi.getSyncLocation().catch(() => null);
       if (!locRes || !locRes.ok || !locRes.syncLocation) {
-        mdbToast('⚠️ No sync location configured — set one in ⚙️ Data.');
+        mdbToast(' No sync location configured — set one in ⚙ Data.');
         return;
       }
       const btn = document.getElementById('save-sync-btn');
@@ -164,18 +164,18 @@
       try {
         const res = await window.electronApi.runSync({ mode: 'both' });
         if (!res || !res.ok) {
-          mdbToast('⚠️ Sync failed: ' + (res && res.error ? res.error : 'Unknown error'));
+          mdbToast(' Sync failed: ' + (res && res.error ? res.error : 'Unknown error'));
           btn.textContent = origText; btn.disabled = false;
           return;
         }
         if (res.conflicts && res.conflicts.length > 0) {
-          mdbToast('⚠️ Sync has ' + res.conflicts.length + ' conflict(s). Resolve them in ⚙️ Data.');
+          mdbToast(' Sync has ' + res.conflicts.length + ' conflict(s). Resolve them in ⚙ Data.');
         } else {
-          mdbToast('✓ Sync complete — ' + (res.copied || 0) + ' file(s) updated.');
+          mdbToast(' Sync complete — ' + (res.copied || 0) + ' file(s) updated.');
         }
         btn.textContent = origText; btn.disabled = false;
       } catch (err) {
-        mdbToast('⚠️ Sync error: ' + (err && err.message ? err.message : err));
+        mdbToast(' Sync error: ' + (err && err.message ? err.message : err));
         btn.textContent = origText; btn.disabled = false;
       }
     }
@@ -202,8 +202,8 @@
       modal.innerHTML = `
           <div id="restore-conflict-modal">
             <h3>
-              <span>⚠️ File Conflicts Detected</span>
-              <button onclick="document.getElementById('restore-conflict-overlay').remove()">✕</button>
+              <span> File Conflicts Detected</span>
+              <button onclick="document.getElementById('restore-conflict-overlay').remove()"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
             </h3>
             <div id="restore-conflict-body">
               <p>Some files already exist. Choose what to do for each:</p>
@@ -248,16 +248,16 @@
       try {
         const result = await Desktop.applyRestoreChoices({ zipPath, choices: choiceMap });
         if (result && result.ok) {
-          mdbToast('✓ Data restored successfully! ' + (result.restored || 0) + ' files restored.');
+          mdbToast(' Data restored successfully! ' + (result.restored || 0) + ' files restored.');
           document.getElementById('restore-conflict-overlay')?.remove();
           setTimeout(() => { location.reload(); }, 1500);
         } else {
-          mdbToast('⚠️ Restore failed: ' + (result?.error || 'Unknown error'));
+          mdbToast(' Restore failed: ' + (result?.error || 'Unknown error'));
           btn.textContent = origText;
           btn.disabled = false;
         }
       } catch (err) {
-        mdbToast('⚠️ Restore error: ' + (err && err.message ? err.message : err));
+        mdbToast(' Restore error: ' + (err && err.message ? err.message : err));
         btn.textContent = origText;
         btn.disabled = false;
       }

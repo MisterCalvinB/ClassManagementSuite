@@ -7,18 +7,18 @@
   <title>Group Editor</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <script src="../electron-bridge.js"></script>
-  <script src="../js/student-name-utils.js"></script>
-  <script src="../js/i18n.js"></script>
-  <script src="../js/shortcuts-modal.js"></script>
-  <script src="../js/dialogs.js"></script>
-  <script src="../js/menus.js"></script>
-  <script src="../js/tutorial.js"></script>
-  <script src="../js/import-utils.js"></script>
-  <script src="../js/competence-aggregator-service.js"></script>
+  <script src="../js/shared/student-name-utils.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/shortcuts-modal.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/import-utils.js"></script>
+  <script src="../js/shared/competence-aggregator-service.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
-  <script src="../js/links-service.js"></script>
-  <script src="../js/board-export-service.js"></script>
-  <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/board-export-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/stylesheet.css">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -876,26 +876,26 @@
 <nav id="app-nav">
   <span class="nav-brand"></span>
   <div id="app-hamburger" class="hm-wrap">
-    <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button id="tut-trigger" class="tut-trigger-btn" onclick="startGeTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button id="skm-trigger" class="tut-trigger-btn" data-geev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+    <button id="tut-trigger" class="tut-trigger-btn" data-geev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
 </nav>
 <div class="ge-page">
   <header class="ge-header">
-    <button class="ge-back-btn" onclick="goBack()" data-i18n="geBack">← Launcher</button>
+    <button class="ge-back-btn" data-geev-3="1" data-i18n="geBack">← Launcher</button>
     <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
     <div class="ge-csv-bar">
-      <button class="ge-csv-btn" onclick="openAllStudentsModal()" data-hover-help="View and manage all students in the roster, highlight unassigned students, archive or delete them" data-i18n="geAllStudentsBtn"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" onerror="this.remove()" /> All Students</button>
-      <button class="ge-csv-btn" onclick="checkAndMergeDuplicateStudents()" data-hover-help="Check for students sharing the same name across different UUIDs and merge them" data-i18n="geMergeCheckBtn"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" onerror="this.remove()" /> Merge Duplicates</button>
-      <button class="ge-csv-btn" onclick="if(window.Desktop && Desktop.isElectron()) Desktop.openTool('import-tool.html'); else window.open('../pages/import-tool.html')" data-hover-help="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
-      <button class="ge-csv-btn" onclick="exportCsv()" data-hover-help="Export all groups and students to a CSV file"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export CSV</button>
+      <button class="ge-csv-btn" data-geev-4="1" data-hover-help="View and manage all students in the roster, highlight unassigned students, archive or delete them" data-i18n="geAllStudentsBtn"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" data-geev-5="1" /> All Students</button>
+      <button class="ge-csv-btn" data-geev-6="1" data-hover-help="Check for students sharing the same name across different UUIDs and merge them" data-i18n="geMergeCheckBtn"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" data-geev-7="1" /> Merge Duplicates</button>
+      <button class="ge-csv-btn" data-geev-8="1" data-hover-help="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
+      <button class="ge-csv-btn" data-geev-9="1" data-hover-help="Export all groups and students to a CSV file"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export CSV</button>
     </div>
     <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
   </header>
 
-  <input type="file" id="csv-import-input" accept=".csv,text/csv" style="display:none" onchange="handleCsvImport(event)">
+  <input type="file" id="csv-import-input" accept=".csv,text/csv" style="display:none" data-geev-10="1">
 
   <div id="ge-notice" style="display:none;" class="ge-notice"></div>
 
@@ -913,16 +913,16 @@
       <span class="ge-active-label" data-i18n="geActiveSemEnd">End date</span>
       <input id="ge-active-sem-end" class="ge-active-date" type="date">
       <span class="ge-active-label" data-i18n="geTermsPerYear">Terms / yr</span>
-      <select id="ge-terms-per-year" class="ge-active-select" onchange="onTermsPerYearChange(this.value)" style="width:52px;">
+      <select id="ge-terms-per-year" class="ge-active-select" data-geev-11="1" style="width:52px;">
         <option value="2">2</option>
         <option value="3">3</option>
         <option value="4">4</option>
       </select>
-      <button class="ge-csv-btn" onclick="syncFromPlanner()" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" data-hover-help="Fill dates from Planner terms"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> Planner</button>
+      <button class="ge-csv-btn" data-geev-12="1" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" data-hover-help="Fill dates from Planner terms"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> Planner</button>
     </div>
     <div id="ge-planner-hint" style="display:none;margin:6px 0 0;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
       <span id="ge-planner-hint-text" style="flex:1;color:#2563a8;"></span>
-      <button onclick="syncFromPlanner()" data-i18n="gePlannerSyncBtn" data-i18n-help="hhGeSyncPlanner" data-hover-help="Pull active term dates directly from Planner configuration." style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;">↕ Planner</button>
+      <button data-geev-13="1" data-i18n="gePlannerSyncBtn" data-i18n-help="hhGeSyncPlanner" data-hover-help="Pull active term dates directly from Planner configuration." style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;">↕ Planner</button>
     </div>
     <p class="ge-active-hint" data-i18n="geActiveContextHint">Default year and semester for new groups and other tools.</p>
   </div>
@@ -934,7 +934,7 @@
       <span id="ge-pt-count" style="font-size:0.9em;font-weight:500;color:#7aace8;"></span>
     </div>
     <div id="ge-pt-list"></div>
-    <button class="ge-pt-add-btn" onclick="openPlannerTermForm(null)" data-i18n="geAddPlannerTerm" data-i18n-help="hhGeAddTerm" data-hover-help="Create a new academic term and holidays for Planner.">+ New Term</button>
+    <button class="ge-pt-add-btn" data-geev-14="1" data-i18n="geAddPlannerTerm" data-i18n-help="hhGeAddTerm" data-hover-help="Create a new academic term and holidays for Planner.">+ New Term</button>
     <div id="ge-pt-form" style="display:none;margin-top:12px;padding:12px 14px;background:#fff;border:1.5px solid #b3d4f5;border-radius:6px;">
       <div class="ge-active-banner-label" id="ge-pt-form-title" style="margin-bottom:10px;" data-i18n="gePlannerTermCreateTitle">New Planner Term</div>
       <div class="ge-active-banner-fields" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
@@ -958,12 +958,12 @@
       <div style="margin-top:10px;">
         <div class="ge-section-title" style="margin-bottom:6px;" data-i18n="gePlannerTermHolidays">Holidays</div>
         <div id="ge-pt-hol-list"></div>
-        <button class="eg-s-add" style="margin-top:5px;" onclick="addPlannerHolRow('','','')" data-i18n="geAddHoliday">+ Holiday</button>
+        <button class="eg-s-add" style="margin-top:5px;" data-geev-15="1" data-i18n="geAddHoliday">+ Holiday</button>
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
-        <button onclick="savePlannerTerm()" data-i18n-help="hhGeSavePlanner" data-hover-help="Save this term and its holidays directly to planner-config.js." style="padding:6px 14px;background:#2563a8;color:#fff;border:none;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;transition:background 0.1s;" onmouseover="this.style.background='#1e4f8a'" onmouseout="this.style.background='#2563a8'" data-i18n="gePlannerTermSave">Save to Planner</button>
-        <button onclick="closePlannerTermForm()" style="padding:6px 14px;background:#fff;color:#555;border:1.5px solid #bbb;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;" data-i18n="btnCancel">Cancel</button>
-        <button id="ge-pt-delete-btn" data-i18n-help="hhGeDeleteTerm" data-hover-help="Delete this term from Planner configuration." style="display:none;padding:6px 14px;background:#fff;color:#c33;border:1.5px solid #c33;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;margin-left:auto;" onclick="deletePlannerTerm()" onmouseover="this.style.background='#c33';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#c33'" data-i18n="gePlannerTermDelete">Delete Term</button>
+        <button data-geev-16="1" data-i18n-help="hhGeSavePlanner" data-hover-help="Save this term and its holidays directly to planner-config.js." style="padding:6px 14px;background:#2563a8;color:#fff;border:none;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;transition:background 0.1s;" data-geev-17="1" data-geev-18="1" data-i18n="gePlannerTermSave">Save to Planner</button>
+        <button data-geev-19="1" style="padding:6px 14px;background:#fff;color:#555;border:1.5px solid #bbb;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;" data-i18n="btnCancel">Cancel</button>
+        <button id="ge-pt-delete-btn" data-i18n-help="hhGeDeleteTerm" data-hover-help="Delete this term from Planner configuration." style="display:none;padding:6px 14px;background:#fff;color:#c33;border:1.5px solid #c33;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;margin-left:auto;" data-geev-20="1" data-geev-21="1" data-geev-22="1" data-i18n="gePlannerTermDelete">Delete Term</button>
       </div>
     </div>
   </div>
@@ -971,8 +971,8 @@
   <!-- End-of-semester archive offer -->
   <div id="ge-eos-banner" style="display:none;" class="ge-eos-banner">
     <span class="ge-eos-msg" id="ge-eos-msg"></span>
-    <button class="ge-eos-archive" id="ge-eos-archive-btn" onclick="eosArchive()"></button>
-    <button class="ge-eos-dismiss" onclick="eosDismiss()" id="ge-eos-dismiss-btn"></button>
+    <button class="ge-eos-archive" id="ge-eos-archive-btn" data-geev-23="1"></button>
+    <button class="ge-eos-dismiss" data-geev-24="1" id="ge-eos-dismiss-btn"></button>
   </div>
 
   <div class="ge-section-title" data-i18n="geActiveGroups">Active Groups</div>
@@ -984,7 +984,7 @@
     <div class="ge-add-row">
       <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
       <textarea id="new-group-students" class="ge-add-students" rows="1"
-        placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" oninput="autoResizeStudents(this)"></textarea>
+        placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" data-geev-25="1"></textarea>
       <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
       <select id="new-group-semester" class="ge-add-select">
         <option value="">—</option>
@@ -1003,12 +1003,12 @@
         <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
         <span data-i18n="geAdminGroup">Admin</span>
       </label>
-      <button class="ge-add-btn" onclick="addNewGroupRow()" data-i18n="geAddBtn">Add</button>
+      <button class="ge-add-btn" data-geev-26="1" data-i18n="geAddBtn">Add</button>
     </div>
   </div>
 
   <div class="ge-save-bar">
-    <button id="ge-save-btn" class="ge-save-btn" onclick="saveGroupsToFile()" data-i18n="geSaveBtn" data-i18n-help="hhGeSaveGroups" data-hover-help="Write all roster and class changes to user/class-groups.js."><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save to class-groups.js</button>
+    <button id="ge-save-btn" class="ge-save-btn" data-geev-27="1" data-i18n="geSaveBtn" data-i18n-help="hhGeSaveGroups" data-hover-help="Write all roster and class changes to user/class-groups.js."><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save to class-groups.js</button>
   </div>
 </div>
 
@@ -1019,9 +1019,9 @@
     <p style="font-size:0.78rem;color:#666;margin:0 0 14px;" data-i18n="geExportPickerHint">Click pills to toggle. All selected by default.</p>
     <div id="ge-export-picker-pills" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
-      <button onclick="exportPickerToggleAll()" style="padding:5px 12px;border:2px solid #999;border-radius:5px;font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;background:#fff;color:#555;" data-i18n="geExportPickerToggleAll">Toggle all</button>
-      <button onclick="closeExportPicker()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
-      <button onclick="confirmExportCsv()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:background 0.1s;" onmouseover="this.style.background='#333'" onmouseout="this.style.background='#111'" data-i18n="geExportPickerConfirm">Export</button>
+      <button data-geev-28="1" style="padding:5px 12px;border:2px solid #999;border-radius:5px;font-family:inherit;font-size:0.78rem;font-weight:700;cursor:pointer;background:#fff;color:#555;" data-i18n="geExportPickerToggleAll">Toggle all</button>
+      <button data-geev-29="1" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" data-geev-30="1" data-geev-31="1" data-i18n="btnCancel">Cancel</button>
+      <button data-geev-32="1" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:background 0.1s;" data-geev-33="1" data-geev-34="1" data-i18n="geExportPickerConfirm">Export</button>
     </div>
   </div>
 </div>
@@ -1032,7 +1032,7 @@
     <p id="ge-planner-picker-msg" style="font-size:0.88rem;font-weight:700;margin-bottom:14px;"></p>
     <div id="ge-planner-picker-btns" style="display:flex;flex-direction:column;gap:8px;"></div>
     <div style="margin-top:16px;display:flex;justify-content:flex-end;">
-      <button onclick="closePlannerPicker()" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
+      <button data-geev-35="1" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" data-geev-36="1" data-geev-37="1" data-i18n="btnCancel">Cancel</button>
     </div>
   </div>
 </div>
@@ -1042,9 +1042,9 @@
   <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:440px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
     <p id="ge-delete-warn-msg" style="font-size:0.95rem;line-height:1.55;margin-bottom:20px;white-space:pre-line;"></p>
     <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
-      <button onclick="cancelDeleteWarn()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
-      <button id="ge-delete-warn-archive" onclick="archiveDeleteWarn()" data-i18n-help="hhGeArchiveInstead" data-hover-help="Move this class to archive so historical grades and sessions stay intact." style="padding:8px 18px;border:2px solid #e67700;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#e67700;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#e67700';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#e67700'" data-i18n="geDeleteWarnArchiveBtn">Archive instead</button>
-      <button onclick="confirmDeleteWarn()" data-i18n-help="hhGeDeletePerm" data-hover-help="Permanently delete this class group from the active roster." style="padding:8px 18px;border:2px solid #c0392b;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#c0392b;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#c0392b'" onmouseout="this.style.background='#c0392b';this.style.color='#fff'" data-i18n="geDeleteWarnDeleteBtn">Delete permanently</button>
+      <button data-geev-38="1" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" data-geev-39="1" data-geev-40="1" data-i18n="btnCancel">Cancel</button>
+      <button id="ge-delete-warn-archive" data-geev-41="1" data-i18n-help="hhGeArchiveInstead" data-hover-help="Move this class to archive so historical grades and sessions stay intact." style="padding:8px 18px;border:2px solid #e67700;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#e67700;transition:background 0.1s,color 0.1s;" data-geev-42="1" data-geev-43="1" data-i18n="geDeleteWarnArchiveBtn">Archive instead</button>
+      <button data-geev-44="1" data-i18n-help="hhGeDeletePerm" data-hover-help="Permanently delete this class group from the active roster." style="padding:8px 18px;border:2px solid #c0392b;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#c0392b;color:#fff;transition:all 0.12s;" data-geev-45="1" data-geev-46="1" data-i18n="geDeleteWarnDeleteBtn">Delete permanently</button>
     </div>
   </div>
 </div>
@@ -1054,8 +1054,8 @@
   <div style="background:#fff;border-radius:10px;padding:28px 28px 20px;max-width:400px;width:90%;box-shadow:0 8px 40px rgba(0,0,0,0.18);">
     <p id="ge-confirm-msg" style="font-size:0.95rem;line-height:1.55;margin-bottom:20px;white-space:pre-line;"></p>
     <div style="display:flex;gap:10px;justify-content:flex-end;">
-      <button onclick="cancelConfirm()" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" onmouseover="this.style.background='#000';this.style.color='#fff'" onmouseout="this.style.background='#fff';this.style.color='#000'" data-i18n="btnCancel">Cancel</button>
-      <button id="ge-confirm-ok" onclick="okConfirm()" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" onmouseover="this.style.background='#fff';this.style.color='#111'" onmouseout="this.style.background='#111';this.style.color='#fff'" data-i18n="btnOk">OK</button>
+      <button data-geev-47="1" style="padding:8px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;transition:background 0.1s,color 0.1s;" data-geev-48="1" data-geev-49="1" data-i18n="btnCancel">Cancel</button>
+      <button id="ge-confirm-ok" data-geev-50="1" style="padding:8px 18px;border:2px solid #111;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#111;color:#fff;transition:all 0.12s;" data-geev-51="1" data-geev-52="1" data-i18n="btnOk">OK</button>
     </div>
   </div>
 </div>
@@ -1066,9 +1066,9 @@
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
       <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geMatchModalTitle">Student Match Detected</h3>
       <div style="display:flex;gap:6px;">
-        <button type="button" onclick="geMatchSetAll('reuse')" data-i18n-help="hhGeMatchReuse" data-hover-help="Link imported students to existing UUIDs to preserve their history." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMatchBtnReuseAll">Reuse all UUIDs</button>
-        <button type="button" onclick="geMatchSetAll('new')" data-i18n-help="hhGeMatchNew" data-hover-help="Create fresh student UUIDs for all imported entries." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMatchBtnNewAll">Create all as new</button>
-        <button type="button" onclick="geMatchSetAll('ignore')" data-i18n-help="hhGeMatchIgnore" data-hover-help="Skip reconciling matched students." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;color:#64748b;cursor:pointer;" data-i18n="geMatchBtnIgnoreAll">Do nothing</button>
+        <button type="button" data-geev-53="1" data-i18n-help="hhGeMatchReuse" data-hover-help="Link imported students to existing UUIDs to preserve their history." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMatchBtnReuseAll">Reuse all UUIDs</button>
+        <button type="button" data-geev-54="1" data-i18n-help="hhGeMatchNew" data-hover-help="Create fresh student UUIDs for all imported entries." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMatchBtnNewAll">Create all as new</button>
+        <button type="button" data-geev-55="1" data-i18n-help="hhGeMatchIgnore" data-hover-help="Skip reconciling matched students." style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #cbd5e1;border-radius:4px;background:#fff;color:#64748b;cursor:pointer;" data-i18n="geMatchBtnIgnoreAll">Do nothing</button>
       </div>
     </div>
     <p style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMatchModalDesc">Some imported students match existing records in the student roster. Choose whether to reuse their UUID to track history across groups, create a new student, or update their information.</p>
@@ -1087,8 +1087,8 @@
     </div>
 
     <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-      <button type="button" onclick="window._geMatchCancelCb && window._geMatchCancelCb()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
-      <button type="button" onclick="window._geMatchConfirmCb && window._geMatchConfirmCb()" style="padding:7px 16px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMatchBtnConfirm">Apply & Continue</button>
+      <button type="button" data-geev-56="1" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
+      <button type="button" data-geev-57="1" style="padding:7px 16px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMatchBtnConfirm">Apply & Continue</button>
     </div>
   </div>
 </div>
@@ -1103,10 +1103,10 @@
       </div>
       <div style="display:flex;align-items:center;gap:12px;">
         <div id="ge-merge-batch-bar" style="display:flex;gap:6px;">
-          <button type="button" onclick="geMergeSetAll('primary')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMergeBtnMergeAll">Merge all</button>
-          <button type="button" onclick="geMergeSetAll('ignore')" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMergeBtnIgnoreAll">Do nothing (Keep all)</button>
+          <button type="button" data-geev-58="1" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;" data-i18n="geMergeBtnMergeAll">Merge all</button>
+          <button type="button" data-geev-59="1" style="padding:4px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #94a3b8;border-radius:4px;background:#fff;color:#475569;cursor:pointer;" data-i18n="geMergeBtnIgnoreAll">Do nothing (Keep all)</button>
         </div>
-        <button type="button" onclick="closeMergeModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
+        <button type="button" data-geev-60="1" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
       </div>
     </div>
     <p id="ge-merge-desc" style="font-size:0.8rem;color:#555;margin:8px 0 0;" data-i18n="geMergeModalDesc">The following students share the exact same name across different UUID records. Choose which primary UUID to keep for each student. All classes, historical enrollments, and performance links will be merged into the primary UUID.</p>
@@ -1125,8 +1125,8 @@
     </div>
 
     <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;">
-      <button type="button" onclick="closeMergeModal()" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
-      <button type="button" onclick="applyStudentMerges()" style="padding:7px 18px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMergeBtnConfirm">Merge Selected Duplicates</button>
+      <button type="button" data-geev-61="1" style="padding:7px 16px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Cancel</button>
+      <button type="button" data-geev-62="1" style="padding:7px 18px;border:2px solid #2563a8;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#2563a8;color:#fff;" data-i18n="geMergeBtnConfirm">Merge Selected Duplicates</button>
     </div>
   </div>
 </div>
@@ -1139,24 +1139,24 @@
         <h3 style="font-size:1.15rem;font-weight:800;margin:0;" data-i18n="geAllStudentsModalTitle">All Students Directory</h3>
         <p id="ge-all-students-subtitle" style="font-size:0.78rem;color:#64748b;margin:3px 0 0;"></p>
       </div>
-      <button type="button" onclick="closeAllStudentsModal()" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
+      <button type="button" data-geev-63="1" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#64748b;padding:0 4px;">&times;</button>
     </div>
 
     <!-- Search & Filters Toolbar -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:240px;">
-        <input type="text" id="ge-all-students-search" oninput="renderAllStudentsTable()" placeholder="Filter by name, class, UUID..." data-i18n-placeholder="geAllStudentsSearchPlaceholder" style="padding:7px 12px;font-size:0.82rem;border:1.5px solid #cbd5e1;border-radius:6px;width:100%;max-width:320px;">
+        <input type="text" id="ge-all-students-search" data-geev-64="1" placeholder="Filter by name, class, UUID..." data-i18n-placeholder="geAllStudentsSearchPlaceholder" style="padding:7px 12px;font-size:0.82rem;border:1.5px solid #cbd5e1;border-radius:6px;width:100%;max-width:320px;">
         <div style="display:flex;gap:4px;">
-          <button type="button" id="ge-filter-all-btn" onclick="setAllStudentsFilter('all')" class="ge-ast-filter active" data-i18n="geAllStudentsFilterAll">All</button>
-          <button type="button" id="ge-filter-unassigned-btn" onclick="setAllStudentsFilter('unassigned')" class="ge-ast-filter" style="border-color:#f59e0b;color:#b45309;" data-i18n="geAllStudentsFilterUnassigned"> Unassigned</button>
-          <button type="button" id="ge-filter-groups-btn" onclick="setAllStudentsFilter('groups')" class="ge-ast-filter" data-i18n="geAllStudentsFilterInGroups">In Groups</button>
+          <button type="button" id="ge-filter-all-btn" data-geev-65="1" class="ge-ast-filter active" data-i18n="geAllStudentsFilterAll">All</button>
+          <button type="button" id="ge-filter-unassigned-btn" data-geev-66="1" class="ge-ast-filter" style="border-color:#f59e0b;color:#b45309;" data-i18n="geAllStudentsFilterUnassigned"> Unassigned</button>
+          <button type="button" id="ge-filter-groups-btn" data-geev-67="1" class="ge-ast-filter" data-i18n="geAllStudentsFilterInGroups">In Groups</button>
         </div>
       </div>
 
       <!-- Quick Batch Unassigned Actions -->
       <div id="ge-unassigned-batch-bar" style="display:flex;gap:6px;">
-        <button type="button" onclick="archiveAllUnassigned()" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fffbeb;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveUnassigned">Archive All Unassigned</button>
-        <button type="button" onclick="deleteAllUnassigned()" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fef2f2;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteUnassigned">Delete All Unassigned</button>
+        <button type="button" data-geev-68="1" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fffbeb;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveUnassigned">Archive All Unassigned</button>
+        <button type="button" data-geev-69="1" style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fef2f2;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteUnassigned">Delete All Unassigned</button>
       </div>
     </div>
 
@@ -1165,7 +1165,7 @@
       <table class="ge-match-table">
         <thead>
           <tr>
-            <th style="width:36px;text-align:center;"><input type="checkbox" id="ge-ast-select-all" onchange="toggleAllStudentsSelection(this.checked)"></th>
+            <th style="width:36px;text-align:center;"><input type="checkbox" id="ge-ast-select-all" data-geev-70="1"></th>
             <th data-i18n="geAllStudentsColStudent" style="width:200px;">Student</th>
             <th data-i18n="geAllStudentsColInfo" style="width:170px;">Details</th>
             <th data-i18n="geAllStudentsColGroups">Assigned Groups</th>
@@ -1181,12 +1181,12 @@
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
       <div id="ge-ast-selected-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="ge-ast-selected-count" style="font-size:0.78rem;font-weight:700;color:#475569;">0 selected</span>
-        <button type="button" id="ge-ast-btn-merge-sel" onclick="mergeSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" data-i18n="geAllStudentsMergeSelected"><img src="../assets/icons/merge.svg" style="width:13px;height:13px;" alt=""> Merge Selected (0)</button>
-        <button type="button" id="ge-ast-btn-arc-sel" onclick="archiveSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fff;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveSelected">Archive Selected</button>
-        <button type="button" id="ge-ast-btn-del-sel" onclick="deleteSelectedStudents()" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteSelected">Delete Selected</button>
+        <button type="button" id="ge-ast-btn-merge-sel" data-geev-71="1" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#eff6ff;color:#2563a8;cursor:pointer;display:inline-flex;align-items:center;gap:5px;" data-i18n="geAllStudentsMergeSelected"><img src="../assets/icons/merge.svg" style="width:13px;height:13px;" alt=""> Merge Selected (0)</button>
+        <button type="button" id="ge-ast-btn-arc-sel" data-geev-72="1" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #d97706;border-radius:4px;background:#fff;color:#b45309;cursor:pointer;" data-i18n="geAllStudentsArchiveSelected">Archive Selected</button>
+        <button type="button" id="ge-ast-btn-del-sel" data-geev-73="1" disabled style="padding:6px 12px;font-size:0.75rem;font-weight:700;border:1.5px solid #ef4444;border-radius:4px;background:#fff;color:#dc2626;cursor:pointer;" data-i18n="geAllStudentsDeleteSelected">Delete Selected</button>
       </div>
       <div>
-        <button type="button" onclick="closeAllStudentsModal()" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Close</button>
+        <button type="button" data-geev-74="1" style="padding:7px 18px;border:2px solid #000;border-radius:5px;font-family:inherit;font-size:0.85rem;font-weight:700;cursor:pointer;background:#fff;color:#000;" data-i18n="btnCancel">Close</button>
       </div>
     </div>
   </div>
@@ -4730,5 +4730,6 @@
     }
   });
 </script>
+  <script src="../js/pages/group-editor-events.js"></script>
 </body>
 </html>
