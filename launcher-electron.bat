@@ -1,5 +1,6 @@
 @echo off
 setlocal
+set "ELECTRON_RUN_AS_NODE="
 cd /d "%~dp0"
 
 set "ELECTRON_EXE=%~dp0node_modules\electron\dist\electron.exe"

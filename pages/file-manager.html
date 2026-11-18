@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' file: data: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>File Manager</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
@@ -16,13 +17,14 @@
   <script src="../js/board-export-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
   <link rel="stylesheet" href="../css/file-manager.css">
+  <script src="../js/tutorial.js"></script>
 </head>
 <body data-neo-hover-all="1">
 <nav id="app-nav">
   <span class="nav-brand"></span>
   <div id="app-hamburger" class="hm-wrap">
     <button class="tut-trigger-btn" onclick="openFmShortcuts()" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')})" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button class="tut-trigger-btn" onclick="startFmTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" aria-label="Open menu">☰</button>
     <div class="hm-menu"></div>
   </div>
@@ -4442,6 +4444,32 @@ function openFmShortcuts() {
     window.initDossiersTabControls();
   }
 })();
+</script>
+<script>
+  function startFmTutorial() {
+    if (typeof Tutorial === 'undefined') return;
+    var steps = [
+      { selector: '#rfSearch', title: t('tutFm1Title'), text: t('tutFm1Text') },
+      { selector: '.tabs', title: t('tutFm2Title'), text: t('tutFm2Text') },
+      { selector: '#rfList', title: t('tutFm3Title'), text: t('tutFm3Text') }
+    ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
+    if (!steps.length) return;
+    Tutorial.start(steps, {
+      next: t('tutNext', 'Next'),
+      prev: t('tutPrev', 'Back'),
+      skip: t('tutSkip', 'Skip'),
+      done: t('tutDone', 'Done')
+    });
+  }
+  window.startFmTutorial = startFmTutorial;
+  document.addEventListener('DOMContentLoaded', function () {
+    try {
+      if (!localStorage.getItem('cmt-tour-seen-file-manager')) {
+        localStorage.setItem('cmt-tour-seen-file-manager', '1');
+        setTimeout(startFmTutorial, 600);
+      }
+    } catch (e) {}
+  });
 </script>
 </body>
 </html>

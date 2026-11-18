@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Administrative Group Management</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
@@ -21,6 +22,7 @@
   <script src="../js/admin-reports.js"></script>
   <script src="../js/administrative-groups.js"></script>
   <link rel="stylesheet" href="../css/administrative-groups.css">
+  <script src="../js/tutorial.js"></script>
 </head>
 <body data-neo-hover-all="1">
 
@@ -32,6 +34,7 @@
     </span>
     <div id="app-hamburger" class="hm-wrap">
       <button class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle', 'Keyboard Shortcuts'), rows:[], noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button class="tut-trigger-btn" onclick="startAgTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" onerror="this.style.display='none'" /></button>
       <div class="hm-menu"></div>
     </div>
@@ -798,5 +801,31 @@
     </div>
   </div>
 
+  <script>
+    function startAgTutorial() {
+      if (typeof Tutorial === 'undefined') return;
+      var steps = [
+        { selector: '#groupSelect', title: t('tutAg1Title'), text: t('tutAg1Text') },
+        { selector: '.ag-actions-bar', title: t('tutAg2Title'), text: t('tutAg2Text') },
+        { selector: '#agMainTabsBar', title: t('tutAg3Title'), text: t('tutAg3Text') }
+      ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
+      if (!steps.length) return;
+      Tutorial.start(steps, {
+        next: t('tutNext', 'Next'),
+        prev: t('tutPrev', 'Back'),
+        skip: t('tutSkip', 'Skip'),
+        done: t('tutDone', 'Done')
+      });
+    }
+    window.startAgTutorial = startAgTutorial;
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (!localStorage.getItem('cmt-tour-seen-administrative-groups')) {
+          localStorage.setItem('cmt-tour-seen-administrative-groups', '1');
+          setTimeout(startAgTutorial, 600);
+        }
+      } catch (e) {}
+    });
+  </script>
 </body>
 </html>

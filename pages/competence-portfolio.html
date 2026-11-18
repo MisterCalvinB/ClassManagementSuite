@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' file: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Competence Portfolio — Class Management Tools</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
@@ -14,6 +15,7 @@
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <script src="../js/links-service.js"></script>
   <script src="../js/tag-link-modal.js"></script>
+  <script src="../js/tutorial.js"></script>
 </head>
 <body data-neo-hover-all="1">
 
@@ -44,6 +46,10 @@
 
     <!-- Actions -->
     <div class="cp-top-actions">
+      <button type="button" class="cp-btn" onclick="startCpTutorial()" data-i18n-help="tourBtnLabel" data-hover-help="Tour">
+        <img src="../assets/icons/play.svg" alt="" />
+        <span data-i18n="tourBtnLabel">Tour</span>
+      </button>
       <button type="button" class="cp-btn" onclick="cpRefreshPortfolio()" data-hover-help="Reload data">
         <img src="../assets/icons/refresh.svg" alt="" />
         <span data-i18n="btnReload">Refresh</span>
@@ -1531,6 +1537,32 @@
       );
       io.observe(sentinel);
     })();
+  </script>
+  <script>
+    function startCpTutorial() {
+      if (typeof Tutorial === 'undefined') return;
+      var steps = [
+        { selector: '#cp-class-select', title: t('tutCp1Title'), text: t('tutCp1Text') },
+        { selector: '#kpi-total', title: t('tutCp2Title'), text: t('tutCp2Text') },
+        { selector: '.cp-top-actions', title: t('tutCp3Title'), text: t('tutCp3Text') }
+      ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
+      if (!steps.length) return;
+      Tutorial.start(steps, {
+        next: t('tutNext', 'Next'),
+        prev: t('tutPrev', 'Back'),
+        skip: t('tutSkip', 'Skip'),
+        done: t('tutDone', 'Done')
+      });
+    }
+    window.startCpTutorial = startCpTutorial;
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (!localStorage.getItem('cmt-tour-seen-competence-portfolio')) {
+          localStorage.setItem('cmt-tour-seen-competence-portfolio', '1');
+          setTimeout(startCpTutorial, 600);
+        }
+      } catch (e) {}
+    });
   </script>
 </body>
 </html>

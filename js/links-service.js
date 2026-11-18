@@ -4572,7 +4572,7 @@
       matchedSubdirs.forEach(function(sub) {
         var cMeta = subdirMetaMap[sub] || {};
         var cid = cMeta.classId || sub;
-        var cName = cMeta.className || resolveClassName(cid) || cid;
+        var cName = resolveClassName(cid) || cMeta.className || cid;
         var cTests = tests.filter(function(t) { return t.meta && (t.meta.classId === cid || t.meta.classId === sub); });
         var cS1 = cTests.filter(function(t) { return t.semester === 'sem1'; });
         var cS2 = cTests.filter(function(t) { return t.semester === 'sem2'; });

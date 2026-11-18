@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' file: data: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document Editor</title>
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
@@ -52,6 +53,7 @@
       height: 14px;
     }
   </style>
+  <script src="../js/tutorial.js"></script>
 </head>
 
 <body data-neo-hover-all="1">
@@ -60,6 +62,7 @@
   <nav id="app-nav">
     <span class="nav-brand"></span>
     <div class="nav-sep"></div>
+    <button class="nav-btn" id="de-tour-btn" onclick="startDeTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />Tour</button>
 
     <!-- File menu -->
     <div class="nav-group">
@@ -8228,6 +8231,17 @@
       return null;
     }
 
+    function deResolveClassName(classId, fallbackName) {
+      if (!classId) return fallbackName || '';
+      const liveMeta = (mpState && mpState.classesMeta) ? mpState.classesMeta[classId] : null;
+      if (liveMeta && liveMeta.name) return liveMeta.name;
+      if (typeof LinksService !== 'undefined' && typeof LinksService.resolveClassName === 'function') {
+        const resolved = LinksService.resolveClassName(classId);
+        if (resolved && resolved !== classId) return resolved;
+      }
+      return fallbackName || classId;
+    }
+
     async function updateDeDocLinksBadge() {
       const btn = document.getElementById('btn-de-doc-links');
       const textSpan = document.getElementById('btn-de-doc-links-text');
@@ -8263,9 +8277,10 @@
         let classLink = links.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
         if (classLink) {
           _deLinkedClassId = classLink.otherUrn.slice('cmt:class:'.length);
-          let cName = (classLink.meta && classLink.meta.className) ||
-            (window.mpState && mpState.classesMeta && mpState.classesMeta[_deLinkedClassId] && mpState.classesMeta[_deLinkedClassId].name) ||
-            _deLinkedClassId;
+          if (typeof mpInit === 'function' && !mpState.loaded) {
+            await mpInit();
+          }
+          let cName = deResolveClassName(_deLinkedClassId, classLink.meta && classLink.meta.className);
           _deLinkedClassName = cName;
           if (classBtn) {
             classBtn.style.display = 'inline-flex';
@@ -8274,7 +8289,7 @@
             classBtn.style.borderColor = '#000';
             if (classLabel) classLabel.textContent = `[CLASS: ${cName}]`;
           }
-        } else if (window.mpState && mpState.connectedClassId) {
+        } else if (mpState && mpState.connectedClassId) {
           _deLinkedClassId = mpState.connectedClassId;
           _deLinkedClassName = (mpState.connectedClass && mpState.connectedClass.name) || mpState.connectedClassId;
           if (classBtn) {
@@ -8577,6 +8592,9 @@
         } catch (_) {}
       }
 
+      if (typeof mpInit === 'function' && !mpState.loaded) {
+        await mpInit();
+      }
       const execBtn = document.getElementById('de-btn-exec-handout');
       if (sel) {
         if (!_deAllSavedLessons.length) {
@@ -8587,7 +8605,8 @@
           sel.innerHTML = '<option value="">' + (t('deSelectLessonPrompt') || 'Select a lesson plan…') + '</option>' +
             _deAllSavedLessons.map((l, idx) => {
               const subPart = l.subject ? (' • ' + l.subject) : '';
-              const clsPart = l.classId ? (' [' + l.classId + ']') : '';
+              const clsName = l.classId ? deResolveClassName(l.classId, l.data && l.data.className) : '';
+              const clsPart = clsName ? (' [' + clsName + ']') : '';
               return '<option value="' + idx + '">' + escHtml(l.title + subPart + clsPart) + '</option>';
             }).join('');
 
@@ -8622,7 +8641,8 @@
 
       if (previewBox) previewBox.style.display = 'block';
       document.getElementById('de-lesson-preview-title').textContent = lesson.title || 'Lesson';
-      document.getElementById('de-lesson-preview-meta').textContent = (lesson.subject || 'Subject') + (lesson.classId ? (' • Class ' + lesson.classId) : '');
+      const previewClsName = lesson.classId ? deResolveClassName(lesson.classId, lesson.data && lesson.data.className) : '';
+      document.getElementById('de-lesson-preview-meta').textContent = (lesson.subject || 'Subject') + (previewClsName ? (' • Class ' + previewClsName) : '');
 
       const d = lesson.data || {};
       let words = [];
@@ -8674,6 +8694,10 @@
       const title = _deSelectedLessonData.title || 'Student Handout';
       const subject = _deSelectedLessonData.subject || '';
       const classId = _deSelectedLessonData.classId || '';
+      if (classId && typeof mpInit === 'function' && !mpState.loaded) {
+        await mpInit();
+      }
+      const classDisplayName = classId ? deResolveClassName(classId, d.className || _deSelectedLessonData.className) : '';
       const objectives = d.objectives || d.goals || [];
       const sections = Array.isArray(d.sections) ? d.sections : (Array.isArray(d.phases) ? d.phases : []);
 
@@ -8691,7 +8715,7 @@
         if (doHeader) {
           generated += `<div class="handout-header" style="border:2px solid #000;padding:12px;margin-bottom:20px;background:#fef08a;">\n` +
             `  <div style="display:flex;justify-content:space-between;margin-bottom:8px;font-size:0.85rem;font-weight:bold;">\n` +
-            `    <span>${escHtml(subject)} • ${escHtml(classId ? ('Class ' + classId) : '')}</span>\n` +
+            `    <span>${escHtml(subject)} • ${escHtml(classDisplayName ? ('Class ' + classDisplayName) : '')}</span>\n` +
             `    <span>Date: ________________________</span>\n` +
             `  </div>\n` +
             `  <h1 style="margin:4px 0 8px 0;font-size:1.6rem;text-transform:uppercase;">${escHtml(title)}</h1>\n` +
@@ -8770,7 +8794,7 @@
         // Markdown / Typst output
         if (doHeader) {
           generated += `# ${title}\n\n` +
-            `**Subject:** ${subject} | **Class:** ${classId} | **Date:** ________________________  \n` +
+            `**Subject:** ${subject} | **Class:** ${classDisplayName} | **Date:** ________________________  \n` +
             `**Student Name:** __________________________________________________  \n\n---\n\n`;
         }
 
@@ -8853,10 +8877,11 @@
           }
         });
         if (classId && !_deLinkedClassId) {
+          const resolvedClassName = classDisplayName || deResolveClassName(classId, _deSelectedLessonData.className);
           await LinksService.addLink(docUrn, 'cmt:class:' + classId, {
             relation: 'curriculum_class',
             meta: {
-              className: classId,
+              className: resolvedClassName,
               docTitle: currentDocName || title
             }
           });
@@ -12055,15 +12080,25 @@
       previewEnabled: false,
       previewStudentIndex: 0
     };
+    window.mpState = mpState;
+    let _mpInitPromise = null;
 
     async function mpInit() {
       if (mpState.loaded) return;
-      if (window.MailpostingService) {
-        const res = await MailpostingService.loadClassGroups();
-        mpState.classesMeta = res.meta || {};
-        mpState.studentRoster = res.roster || {};
-        mpState.loaded = true;
-        mpPopulateClassSelects();
+      if (_mpInitPromise) return _mpInitPromise;
+      _mpInitPromise = (async () => {
+        if (window.MailpostingService) {
+          const res = await MailpostingService.loadClassGroups();
+          mpState.classesMeta = res.meta || {};
+          mpState.studentRoster = res.roster || {};
+          mpState.loaded = true;
+          mpPopulateClassSelects();
+        }
+      })();
+      try {
+        await _mpInitPromise;
+      } finally {
+        _mpInitPromise = null;
       }
     }
 
@@ -12898,6 +12933,32 @@
       }
 
       updateDocIndicator();
+    });
+  </script>
+  <script>
+    function startDeTutorial() {
+      if (typeof Tutorial === 'undefined') return;
+      var steps = [
+        { selector: '#app-nav', title: t('tutDe1Title'), text: t('tutDe1Text') },
+        { selector: '#de-tour-btn', title: t('tutDe2Title'), text: t('tutDe2Text') },
+        { selector: '#pl-close-btn', title: t('tutDe3Title'), text: t('tutDe3Text') }
+      ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
+      if (!steps.length) return;
+      Tutorial.start(steps, {
+        next: t('tutNext', 'Next'),
+        prev: t('tutPrev', 'Back'),
+        skip: t('tutSkip', 'Skip'),
+        done: t('tutDone', 'Done')
+      });
+    }
+    window.startDeTutorial = startDeTutorial;
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (!localStorage.getItem('cmt-tour-seen-document-editor')) {
+          localStorage.setItem('cmt-tour-seen-document-editor', '1');
+          setTimeout(startDeTutorial, 700);
+        }
+      } catch (e) {}
     });
   </script>
 </body>

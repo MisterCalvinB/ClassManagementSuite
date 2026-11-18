@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lesson Companion — Timings & Plan</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
@@ -422,6 +423,7 @@
       font-weight: 700;
     }
   </style>
+  <script src="../js/tutorial.js"></script>
 </head>
 <body data-neo-hover-all="1">
 
@@ -436,14 +438,15 @@
     </div>
     <div class="comp-header-actions">
       <button type="button" class="comp-icon-btn active" id="pinBtn" onclick="toggleAlwaysOnTop()" data-hover-help="Always on Top">
-        <span>📌</span>
+        <img src="../assets/icons/pin.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
       </button>
       <button type="button" class="comp-icon-btn" onclick="syncFromStorage()" data-hover-help="Sync / Refresh">
-        <span>🔄</span>
+        <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
       </button>
       <button type="button" class="comp-icon-btn" onclick="runInClassManagement()" data-hover-help="Run in Class Management">
         <span>CMS</span>
       </button>
+      <button type="button" class="comp-icon-btn" onclick="startLcCompTutorial()" data-i18n-help="tourBtnLabel" data-hover-help="Tour">?</button>
     </div>
   </div>
 
@@ -924,6 +927,32 @@
       }
 
     })();
+  </script>
+  <script>
+    function startLcCompTutorial() {
+      if (typeof Tutorial === 'undefined') return;
+      var steps = [
+        { selector: '.comp-header-title-wrap', title: t('tutLcComp1Title'), text: t('tutLcComp1Text') },
+        { selector: '.comp-header-actions', title: t('tutLcComp2Title'), text: t('tutLcComp2Text') },
+        { selector: '#phasesContainer', title: t('tutLcComp3Title'), text: t('tutLcComp3Text') }
+      ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
+      if (!steps.length) return;
+      Tutorial.start(steps, {
+        next: t('tutNext', 'Next'),
+        prev: t('tutPrev', 'Back'),
+        skip: t('tutSkip', 'Skip'),
+        done: t('tutDone', 'Done')
+      });
+    }
+    window.startLcCompTutorial = startLcCompTutorial;
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        if (!localStorage.getItem('cmt-tour-seen-lesson-companion')) {
+          localStorage.setItem('cmt-tour-seen-lesson-companion', '1');
+          setTimeout(startLcCompTutorial, 600);
+        }
+      } catch (e) {}
+    });
   </script>
 </body>
 </html>

@@ -4489,8 +4489,9 @@
     }
     window.characterNetworkToggleAll = characterNetworkToggleAll;
 
-    function characterNetworkAddCustomChar() {
-      const name = prompt(typeof i18n !== 'undefined' ? i18n.t('charNetCharCol') : 'Character name:');
+    async function characterNetworkAddCustomChar() {
+      const msg = typeof i18n !== 'undefined' ? i18n.t('charNetCharCol') : 'Character name:';
+      const name = typeof showPrompt === 'function' ? await showPrompt(msg, '') : prompt(msg);
       if (!name || !name.trim()) return;
 
       const newChar = {

@@ -507,16 +507,62 @@
 
     var linksCount = document.getElementById('cmt-lm-links-count');
     var linksContainer = document.getElementById('cmt-lm-links-container');
-    var totalLinks = context.direct.length + context.inherited.length;
-    if (linksCount) linksCount.textContent = totalLinks;
+
+    function getCanonicalLinkKey(link) {
+      if (!link || !link.otherUrn) return '';
+      return (window.LinksService && typeof window.LinksService.canonicalizeUrn === 'function')
+        ? window.LinksService.canonicalizeUrn(link.otherUrn)
+        : link.otherUrn;
+    }
 
     _currentLinkedUrns = new Set();
-    context.direct.forEach(function(l) {
-      if (l && l.otherUrn) _currentLinkedUrns.add(window.LinksService ? window.LinksService.canonicalizeUrn(l.otherUrn) : l.otherUrn);
+    var allItems = [];
+    var itemsByKey = Object.create(null);
+
+    context.direct.forEach(function(link) {
+      var key = getCanonicalLinkKey(link);
+      if (key) _currentLinkedUrns.add(key);
+      var item = resolveLinkItem(link, false);
+      if (key && itemsByKey[key]) {
+        var existing = itemsByKey[key];
+        // Prefer manual direct link over inferred direct link if both exist
+        if (existing.isInferred && !item.isInferred) {
+          existing.link = item.link;
+          existing.isInferred = false;
+          existing.cascadeType = item.cascadeType;
+          existing.typeLabel = item.typeLabel;
+          existing.title = item.title || existing.title;
+          existing.sub = item.sub || existing.sub;
+        } else if (!existing.sub && item.sub) {
+          existing.sub = item.sub;
+        }
+      } else {
+        if (key) itemsByKey[key] = item;
+        allItems.push(item);
+      }
     });
-    context.inherited.forEach(function(l) {
-      if (l && l.otherUrn) _currentLinkedUrns.add(window.LinksService ? window.LinksService.canonicalizeUrn(l.otherUrn) : l.otherUrn);
+
+    context.inherited.forEach(function(link) {
+      var key = getCanonicalLinkKey(link);
+      if (key) _currentLinkedUrns.add(key);
+      var inhItem = resolveLinkItem(link, true);
+      if (key && itemsByKey[key]) {
+        var existing = itemsByKey[key];
+        existing.alsoInherited = true;
+        if (!existing.inheritedFrom && link && link.inheritedFrom) {
+          existing.inheritedFrom = link.inheritedFrom;
+        }
+        if (!existing.sub && inhItem.sub) {
+          existing.sub = inhItem.sub;
+        }
+      } else {
+        if (key) itemsByKey[key] = inhItem;
+        allItems.push(inhItem);
+      }
     });
+
+    var totalLinks = allItems.length;
+    if (linksCount) linksCount.textContent = totalLinks;
 
     if (linksContainer) {
       linksContainer.innerHTML = '';
@@ -601,14 +647,6 @@
             match: function() { return true; }
           }
         ];
-
-        var allItems = [];
-        context.direct.forEach(function(link) {
-          allItems.push(resolveLinkItem(link, false));
-        });
-        context.inherited.forEach(function(link) {
-          allItems.push(resolveLinkItem(link, true));
-        });
 
         var groupBuckets = groupsDef.map(function(g) {
           return { id: g.id, title: g.title, items: [] };
@@ -731,11 +769,7 @@
     var badgeClass = 'cmt-lm-badge';
     var badgeText = '[' + typeLabel + ']';
 
-    if (cascadeType === 'lesson_competence') {
-      badgeClass = 'cmt-lm-badge inferred-container';
-      badgeText = '[FROM LESSON]';
-    } else if (isInherited) {
-      badgeClass = 'cmt-lm-badge inherited';
+    function getInheritedBadgeText() {
       var rawInherited = (_currentOpts && (_currentOpts.className || _currentOpts.classId)) || 'CLASS';
       var resolvedInherited = rawInherited;
       if (window.LinksService && typeof window.LinksService.resolveClassName === 'function') {
@@ -747,7 +781,15 @@
       if (window.LinksService && typeof window.LinksService.cleanDisplayString === 'function') {
         resolvedInherited = window.LinksService.cleanDisplayString(resolvedInherited);
       }
-      badgeText = '[INHERITED: ' + resolvedInherited.toUpperCase() + ']';
+      return '[INHERITED: ' + resolvedInherited.toUpperCase() + ']';
+    }
+
+    if (cascadeType === 'lesson_competence') {
+      badgeClass = 'cmt-lm-badge inferred-container';
+      badgeText = '[FROM LESSON]';
+    } else if (isInherited) {
+      badgeClass = 'cmt-lm-badge inherited';
+      badgeText = getInheritedBadgeText();
     } else if (isInferred) {
       if (p && p.type === 'class') {
         badgeClass = 'cmt-lm-badge inferred-class';
@@ -767,6 +809,10 @@
       badgeText = '[' + typeLabel + ']';
     }
 
+    var extraInheritedBadge = (item.alsoInherited && !isInherited)
+      ? '<span class="cmt-lm-badge inherited">' + escapeHtml(getInheritedBadgeText()) + '</span>'
+      : '';
+
     var iconSrc = getLinksIconPath();
       var dossierActionBtn = (p && p.type === 'student')
         ? '<button type="button" class="cmt-lm-btn" id="btn-dossier-link" style="background:#e2c96e;font-weight:800;" title="' + t('lmStudentDossier', '360° Academic Dossier') + '"><img src="' + iconSrc + '" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>'
@@ -777,6 +823,7 @@
           '<div class="cmt-lm-link-title-line">' +
             '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' +
             '<span class="' + badgeClass + '">' + escapeHtml(badgeText) + '</span>' +
+            extraInheritedBadge +
             '<span class="cmt-lm-link-title">' + escapeHtml(title) + '</span>' +
           '</div>' +
           (sub ? '<span class="cmt-lm-link-sub">' + escapeHtml(sub) + '</span>' : '') +
