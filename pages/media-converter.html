@@ -37,15 +37,15 @@
         <span data-i18n="modeConverter">Batch Converter</span>
       </button>
       <button type="button" class="mode-tab-btn" id="tabEditorMode" data-mode="editor">
-        <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
+        <img src="../assets/icons/scissors.svg" class="js-media-fallback-icon" alt="" />
         <span data-i18n="modeTimelineEditor">Video &amp; Sound Editor (Movie Maker)</span>
       </button>
     </div>
     <div class="header-actions">
-      <button class="btn btn-sm" id="mediaTourBtn" onclick="if(window.startMediaConverterTour)window.startMediaConverterTour();" data-i18n-help="btnTour" data-hover-help="Interactive Tour">
+      <button class="btn btn-sm" id="mediaTourBtn" data-i18n-help="btnTour" data-hover-help="Interactive Tour">
         <img src="../assets/icons/how-to.svg" alt="" /> <span data-i18n="tour">Tour</span>
       </button>
-      <button class="btn btn-sm" onclick="if(window.Desktop&&window.Desktop.openTool)window.Desktop.openTool('launcher.html');else window.location.href='../launcher.html';" data-i18n-help="btnLauncher" data-hover-help="Back to Launcher">
+      <button class="btn btn-sm" id="mediaLauncherBtn" data-i18n-help="btnLauncher" data-hover-help="Back to Launcher">
         <img src="../assets/icons/launcher.svg" alt="" /> <span data-i18n="launcher">Launcher</span>
       </button>
     </div>
@@ -424,7 +424,7 @@
     <section class="card-panel" id="trimmerPanel" style="display: none;">
       <div class="panel-header">
         <div class="panel-title">
-          <img src="../assets/icons/scissors.svg" onerror="this.src='../assets/icons/media.svg'" alt="" />
+          <img src="../assets/icons/scissors.svg" class="js-media-fallback-icon" alt="" />
           <span data-i18n="trimmerTitle">Visual Timeline &amp; Trimming</span>
         </div>
       </div>
@@ -647,5 +647,25 @@
     </div>
   </div>
 
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.js-media-fallback-icon').forEach(function (img) {
+        img.addEventListener('error', function () { img.src = '../assets/icons/media.svg'; });
+      });
+      var tourBtn = document.getElementById('mediaTourBtn');
+      if (tourBtn) {
+        tourBtn.addEventListener('click', function () {
+          if (window.startMediaConverterTour) window.startMediaConverterTour();
+        });
+      }
+      var launcherBtn = document.getElementById('mediaLauncherBtn');
+      if (launcherBtn) {
+        launcherBtn.addEventListener('click', function () {
+          if (window.Desktop && window.Desktop.openTool) window.Desktop.openTool('launcher.html');
+          else window.location.href = '../launcher.html';
+        });
+      }
+    });
+  </script>
 </body>
 </html>

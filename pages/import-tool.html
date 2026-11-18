@@ -37,8 +37,8 @@
   <nav id="app-nav">
     <span class="nav-brand"></span>
     <div id="app-hamburger" class="hm-wrap">
-      <button id="skm-trigger" class="tut-trigger-btn" onclick="openImportShortcutsModal()" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-      <button id="tut-trigger" class="tut-trigger-btn" onclick="startImportTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button id="skm-trigger" class="tut-trigger-btn" data-ev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" data-ev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
       <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
       <div class="hm-menu"></div>
     </div>
@@ -83,7 +83,7 @@
         <div class="group-options" id="admin-group-info">
           <h4 data-i18n="importAdminGroupPickLabel">Target Administrative Group</h4>
           <div id="admin-group-target-text" style="font-size:0.88rem; font-weight:800; color:#111; display:flex; align-items:center; gap:8px;">
-            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" onerror="this.style.display='none'" />
+            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" data-ev-3="1" />
             <span id="admin-group-target-name"></span>
           </div>
           <div id="admin-group-target-sub" style="font-size:0.75rem; color:#64748b; margin-top:4px;"></div>
@@ -93,8 +93,8 @@
         <div class="group-options" id="group-options">
           <h4 data-i18n="importGroupPickLabel">Assign to group</h4>
           <div class="grp-toggle">
-            <button class="grp-toggle-btn active" id="grp-btn-new" onclick="setGroupMode('new')" data-i18n="importGroupNew">Create new group</button>
-            <button class="grp-toggle-btn" id="grp-btn-existing" onclick="setGroupMode('existing')" data-i18n="importGroupExisting">Use existing group</button>
+            <button class="grp-toggle-btn active" id="grp-btn-new" data-ev-4="1" data-i18n="importGroupNew">Create new group</button>
+            <button class="grp-toggle-btn" id="grp-btn-existing" data-ev-5="1" data-i18n="importGroupExisting">Use existing group</button>
           </div>
 
           <!-- New group fields -->
@@ -139,20 +139,20 @@
         <div class="group-options" id="wb-options">
           <h4 id="wb-pick-label" data-i18n="importWbPickLabel">Target file</h4>
           <div class="grp-toggle">
-            <button class="grp-toggle-btn active" id="wb-btn-new" onclick="setWbMode('new')" data-i18n="importWbNew">Create new file</button>
-            <button class="grp-toggle-btn" id="wb-btn-existing" onclick="setWbMode('existing')" data-i18n="importWbExisting">Add to existing file</button>
+            <button class="grp-toggle-btn active" id="wb-btn-new" data-ev-6="1" data-i18n="importWbNew">Create new file</button>
+            <button class="grp-toggle-btn" id="wb-btn-existing" data-ev-7="1" data-i18n="importWbExisting">Add to existing file</button>
           </div>
           <div id="wb-new-fields">
             <div class="grp-field">
               <label data-i18n="importWbFileName">File name *</label>
-              <input type="text" id="wb-new-name" placeholder="e.g. vocabulary" oninput="onWbNewNameChange()">
+              <input type="text" id="wb-new-name" placeholder="e.g. vocabulary" data-ev-8="1">
               <small style="color:#888;font-size:0.72rem;" data-i18n="importWbFileNameHint">.js will be added automatically</small>
             </div>
           </div>
           <div id="wb-existing-fields" style="display:none;">
             <div class="grp-field">
               <label data-i18n="importWbExistingLabel">Existing wordbank</label>
-              <select id="wb-existing-select" onchange="onWbExistingChange()">
+              <select id="wb-existing-select" data-ev-9="1">
                 <option value="" data-i18n="loading">Loading…</option>
               </select>
             </div>
@@ -167,16 +167,16 @@
         <div class="step-title" data-i18n="importStep2Title">Choose a file to import</div>
 
         <div class="drop-zone" id="drop-zone">
-          <div class="drop-icon">📂</div>
+          <div class="drop-icon"></div>
           <div class="drop-main" data-i18n="importStep2Drop">Drop file here or</div>
-          <button class="drop-browse" onclick="document.getElementById('file-input').click()" data-i18n="importStep2Browse">Browse</button>
+          <button class="drop-browse" data-ev-10="1" data-i18n="importStep2Browse">Browse</button>
           <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON, PDF</div>
         </div>
         <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json,.pdf">
 
         <div class="file-info" id="file-info">
           <span class="file-info-name" id="file-info-name"></span>
-          <button class="file-info-remove" onclick="clearFile()" data-hover-help="Remove">✕</button>
+          <button class="file-info-remove" data-ev-11="1" data-hover-help="Remove"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
         </div>
 
         <!-- Start Row & Header Selection Control -->
@@ -187,7 +187,7 @@
               <span class="start-row-hint" data-i18n="importStartRowHint">Select the header row to skip document titles and clutter.</span>
             </div>
             <div class="start-row-picker-wrap">
-              <select id="start-row-select" class="start-row-select" onchange="onStartRowSelectChange(this.value)"></select>
+              <select id="start-row-select" class="start-row-select" data-ev-12="1"></select>
             </div>
           </div>
         </div>
@@ -226,17 +226,17 @@
         <div class="step-title" data-i18n="importStep4Title">Preview import</div>
 
         <div class="ok-banner" id="ok-banner">
-          <span>✓</span>
+          <span></span>
           <span data-i18n="importStep4NoConflicts">No conflicts found — all rows are new.</span>
         </div>
 
         <div class="conflict-header" id="conflict-header" style="display:none;">
-          <span class="ci-icon">⚠</span>
+          <span class="ci-icon"></span>
           <span class="ci-text" id="conflict-count-text"></span>
           <div class="conflict-bulk">
-            <button onclick="applyBulkConflict('skip')" data-i18n="importStep4Skip">Skip all</button>
-            <button onclick="applyBulkConflict('overwrite')" data-i18n="importStep4Overwrite">Overwrite all</button>
-            <button onclick="applyBulkConflict('new')" data-i18n="importStep4New">Import all as new</button>
+            <button data-ev-13="1" data-i18n="importStep4Skip">Skip all</button>
+            <button data-ev-14="1" data-i18n="importStep4Overwrite">Overwrite all</button>
+            <button data-ev-15="1" data-i18n="importStep4New">Import all as new</button>
           </div>
         </div>
 
@@ -252,7 +252,7 @@
 
       <!-- ── STEP 5 ── -->
       <div class="step" id="step-5">
-        <div class="done-icon">✅</div>
+        <div class="done-icon"></div>
         <div class="done-title" data-i18n="importStep5Title">Import complete!</div>
         <div class="done-stats">
           <div class="done-stat">
@@ -269,22 +269,22 @@
           </div>
         </div>
         <div class="done-actions">
-          <button class="btn btn-primary" id="btn-done-action" style="display:none;" onclick="doneAction()">Open</button>
-          <button class="btn btn-secondary" onclick="resetWizard()" data-i18n="importBtnImportAnother">Import another file</button>
-          <button class="btn btn-secondary" onclick="if(window.Desktop && Desktop.isElectron()) window.close()" data-i18n="importBtnClose">Close</button>
+          <button class="btn btn-primary" id="btn-done-action" style="display:none;" data-ev-16="1">Open</button>
+          <button class="btn btn-secondary" data-ev-17="1" data-i18n="importBtnImportAnother">Import another file</button>
+          <button class="btn btn-secondary" data-ev-18="1" data-i18n="importBtnClose">Close</button>
         </div>
       </div>
 
       <!-- ── Footer ── -->
       <div class="wizard-footer" id="wizard-footer">
         <div class="left">
-          <button class="btn btn-secondary" id="btn-back" onclick="goBack()" style="display:none;" data-i18n="importBtnBack">← Back</button>
+          <button class="btn btn-secondary" id="btn-back" data-ev-19="1" style="display:none;" data-i18n="importBtnBack">← Back</button>
         </div>
         <div class="right" style="display:flex; align-items:center; gap:10px;">
           <span class="saving-msg" id="saving-msg">
             <span>⏳</span><span data-i18n="importSaving">Saving…</span>
           </span>
-          <button class="btn btn-primary" id="btn-next" onclick="goNext()" data-i18n="importBtnNext">Next →</button>
+          <button class="btn btn-primary" id="btn-next" data-ev-20="1" data-i18n="importBtnNext">Next →</button>
         </div>
       </div>
 
@@ -357,16 +357,16 @@
     });
 
     var selectedModule = MODULES[0];
-    var groupMode = 'new';     // 'new' | 'existing'
-    var wbMode = 'new';        // 'new' | 'existing'
-    var parsedFile = null;     // {headers, rows}
-    var columnMapping = {};    // {fieldKey: colIndex|null}
+    var groupMode = 'new'; // 'new' | 'existing'
+    var wbMode = 'new'; // 'new' | 'existing'
+    var parsedFile = null; // {headers, rows}
+    var columnMapping = {}; // {fieldKey: colIndex|null}
     var excludedRows = new Set(); // raw row indices excluded from import
-    var mappedRows = [];       // array of {fieldKey: value} objects
+    var mappedRows = []; // array of {fieldKey: value} objects
     var conflictDecisions = {}; // {rowIndex: 'skip'|'overwrite'|'new'}
-    var existingStudents = [];  // loaded from students.js
-    var existingGroups = null;  // loaded class-groups data
-    var existingWordbank = [];  // loaded from selected wb file
+    var existingStudents = []; // loaded from students.js
+    var existingGroups = null; // loaded class-groups data
+    var existingWordbank = []; // loaded from selected wb file
 
     // ── i18n helper ────────────────────────────────────────────
     function tt(key, fallback) {
@@ -730,11 +730,11 @@
         
         var badgeHtml = '';
         if (isHeader) {
-          badgeHtml = '<span class="row-badge-header">' + tt('importRowHeaderTag', '👑 Header') + ' (#' + (i + 1) + ')</span>';
+          badgeHtml = '<span class="row-badge-header">' + tt('importRowHeaderTag', ' Header') + ' (#' + (i + 1) + ')</span>';
         } else if (isClutter) {
-          badgeHtml = '<span class="row-badge-clutter">' + tt('importRowClutterTag', 'Skipped') + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '">👑</button>';
+          badgeHtml = '<span class="row-badge-clutter">' + tt('importRowClutterTag', 'Skipped') + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
         } else {
-          badgeHtml = '<span class="row-badge-data">' + tt('importRowDataTag', 'Data') + ' ' + (i - headerIdx) + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '">👑</button>';
+          badgeHtml = '<span class="row-badge-data">' + tt('importRowDataTag', 'Data') + ' ' + (i - headerIdx) + ' (#' + (i + 1) + ')</span><button type="button" class="btn-use-header" onclick="event.stopPropagation(); window.onStartRowSelectChange(' + i + ')" title="' + esc(tt('importRowUseAsHeader', 'Use as Header')) + '"></button>';
         }
 
         bodyHtml += '<tr class="' + rowClass + '" onclick="window.onStartRowSelectChange(' + i + ')" title="' + esc(isHeader ? 'Active Header Row' : 'Click to set as Header Row') + '">';
@@ -749,8 +749,8 @@
       }
 
       var statsHtml = '<div class="preview-stats-bar">' +
-        '<span>👑 ' + tt('importRowHeaderTag', 'Header Row') + ': <strong>#' + (headerIdx + 1) + '</strong> (' + esc(parsedFile.headers.join(' | ').substring(0, 45)) + '...)</span>' +
-        '<span>📊 <strong>' + parsedFile.rows.length + '</strong> ' + tt('importRowsTotal', 'data rows') + (headerIdx > 0 ? (' (' + headerIdx + ' ' + tt('importRowsExcluded', 'clutter rows skipped') + ')') : '') + '</span>' +
+        '<span> ' + tt('importRowHeaderTag', 'Header Row') + ': <strong>#' + (headerIdx + 1) + '</strong> (' + esc(parsedFile.headers.join(' | ').substring(0, 45)) + '...)</span>' +
+        '<span> <strong>' + parsedFile.rows.length + '</strong> ' + tt('importRowsTotal', 'data rows') + (headerIdx > 0 ? (' (' + headerIdx + ' ' + tt('importRowsExcluded', 'clutter rows skipped') + ')') : '') + '</span>' +
         '</div>';
 
       table.innerHTML = '<thead>' + headHtml + '</thead><tbody>' + bodyHtml + '</tbody>';
@@ -787,7 +787,7 @@
 
         var tdField = document.createElement('td');
         tdField.innerHTML = label + (field.required ? '<span class="req-star">*</span>' : '');
-        if (isAuto) tdField.innerHTML += '<span class="auto-tag">' + tt('importStep3AutoDetect', '✓') + '</span>';
+        if (isAuto) tdField.innerHTML += '<span class="auto-tag">' + tt('importStep3AutoDetect', '') + '</span>';
 
         var tdSel = document.createElement('td');
         var container = document.createElement('div');
@@ -941,7 +941,7 @@
         var isExcluded = excludedRows.has(rawIdx);
         var rowClass = isExcluded ? ' class="excluded-row"' : '';
         var delTitle = esc(tt(isExcluded ? 'importRowRestore' : 'importRowDelete', isExcluded ? 'Restore' : 'Exclude'));
-        var delIcon = isExcluded ? '↩' : '🗑';
+        var delIcon = isExcluded ? '↩' : '';
         return '<tr' + rowClass + '>' +
           fields.map(function (f) { return '<td>' + esc(String(obj[f.key] === undefined ? '' : obj[f.key])) + '</td>'; }).join('') +
           '<td><button class="row-del-btn" onclick="toggleRowExclusion(' + rawIdx + ')" title="' + delTitle + '">' + delIcon + '</button></td>' +
@@ -1046,7 +1046,7 @@
             }).join(', ');
             var hint = document.createElement('div');
             hint.style.cssText = 'font-size:0.72rem;color:#2563a8;margin-top:4px;font-weight:600;';
-            hint.textContent = '📚 ' + tt('importConflictEnrollmentHistory', 'Past groups: {list}').replace('{list}', pastList);
+            hint.textContent = ' ' + tt('importConflictEnrollmentHistory', 'Past groups: {list}').replace('{list}', pastList);
             tdStatus.appendChild(hint);
           }
         } else {
@@ -1643,9 +1643,134 @@
     }
 
     window.openImportShortcutsModal = openImportShortcutsModal;
-    window.startImportTutorial       = startImportTutorial;
+    window.startImportTutorial = startImportTutorial;
 
   })();
   </script>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+      var el = document.querySelector('[data-ev-1]');
+      if (!el) return;
+      var handler = function (event) { openImportShortcutsModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-2]');
+      if (!el) return;
+      var handler = function (event) { startImportTutorial() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-3]');
+      if (!el) return;
+      var handler = function (event) { this.style.display='none' };
+      el.addEventListener('error', handler);
+      if (el.tagName === 'IMG' && el.complete && el.naturalWidth === 0) handler.call(el, new Event('error'));
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-4]');
+      if (!el) return;
+      var handler = function (event) { setGroupMode('new') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-5]');
+      if (!el) return;
+      var handler = function (event) { setGroupMode('existing') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-6]');
+      if (!el) return;
+      var handler = function (event) { setWbMode('new') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-7]');
+      if (!el) return;
+      var handler = function (event) { setWbMode('existing') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-8]');
+      if (!el) return;
+      var handler = function (event) { onWbNewNameChange() };
+      el.addEventListener('input', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-9]');
+      if (!el) return;
+      var handler = function (event) { onWbExistingChange() };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-10]');
+      if (!el) return;
+      var handler = function (event) { document.getElementById('file-input').click() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-11]');
+      if (!el) return;
+      var handler = function (event) { clearFile() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-12]');
+      if (!el) return;
+      var handler = function (event) { onStartRowSelectChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-13]');
+      if (!el) return;
+      var handler = function (event) { applyBulkConflict('skip') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-14]');
+      if (!el) return;
+      var handler = function (event) { applyBulkConflict('overwrite') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-15]');
+      if (!el) return;
+      var handler = function (event) { applyBulkConflict('new') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-16]');
+      if (!el) return;
+      var handler = function (event) { doneAction() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-17]');
+      if (!el) return;
+      var handler = function (event) { resetWizard() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-18]');
+      if (!el) return;
+      var handler = function (event) { if(window.Desktop && Desktop.isElectron()) window.close() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-19]');
+      if (!el) return;
+      var handler = function (event) { goBack() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-20]');
+      if (!el) return;
+      var handler = function (event) { goNext() };
+      el.addEventListener('click', handler);
+    })();
+  });
+</script>
 </body>
 </html>

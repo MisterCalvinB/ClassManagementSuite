@@ -824,7 +824,7 @@
     };
 
     // ─────────────────────────────────────────────────────────────────────
-    // SESSION CACHE  (loaded file data, keyed by typeKey)
+    // SESSION CACHE (loaded file data, keyed by typeKey)
     // ─────────────────────────────────────────────────────────────────────
     const typeCache = {};
 
@@ -833,14 +833,14 @@
     // ─────────────────────────────────────────────────────────────────────
     const S = {
       typeKey: null,
-      files: [],        // [{name, varName, records:[]}]
-      counts: {},       // {typeKey: fileCount}
-      schema: [],       // [{key, type, isLong, longArray, uniqueVals, useSelect}]
+      files: [], // [{name, varName, records:[]}]
+      counts: {}, // {typeKey: fileCount}
+      schema: [], // [{key, type, isLong, longArray, uniqueVals, useSelect}]
       sortField: null,
       sortDir: 'asc',
-      filters: {},      // {fieldKey: value} — '_srcMulti' (Set) for source multi-select
+      filters: {}, // {fieldKey: value} — '_srcMulti' (Set) for source multi-select
       viewMode: 'table', // 'table' | 'chips'
-      editMode: null,   // 'add' | 'edit'
+      editMode: null, // 'add' | 'edit'
       editFI: null,
       editRI: null,
       delFI: null,
@@ -1272,7 +1272,7 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // GLOBAL SEARCH CACHE  (populated lazily in the background)
+    // GLOBAL SEARCH CACHE (populated lazily in the background)
     // _gsc[typeKey] is undefined until that type is fully scanned;
     // after scanning it is set to { filename: { records[], varName } }.
     // ─────────────────────────────────────────────────────────────────────
@@ -2556,8 +2556,8 @@
         return `<div class="file-pill${isActive ? ' pill-active' : ''}${f.status === 'loading' ? ' pill-loading' : ''}" onclick="toggleSource('${esc(f.name)}')">
       <span class="pill-nm">${esc(f.name)}</span>
       ${statusBadge}
-      ${canDl ? `<button class="pill-dl"  onclick="event.stopPropagation();downloadFile(${fi})"  title="${t('mdbTitleDownload')}"><img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
-      ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})"  title="${t('mdbTitleDeleteFile')}"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
+      ${canDl ? `<button class="pill-dl" onclick="event.stopPropagation();downloadFile(${fi})" title="${t('mdbTitleDownload')}"><img src="../assets/icons/download.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
+      ${canDel ? `<button class="pill-del" onclick="event.stopPropagation();deleteDBFile(${fi})" title="${t('mdbTitleDeleteFile')}"><img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" /></button>` : ''}
     </div>`;
       }).join('');
 
@@ -3078,7 +3078,7 @@
         if (!picSrc) return '<span class="cell-empty">—</span>';
         return `<div class="mdb-cell-pic-wrap"><img src="${esc(picSrc)}" class="mdb-cell-pic-thumb" alt="" loading="lazy" onclick="event.stopPropagation();mdbOpenPictureLightbox(this.src)" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.style.display='inline';" /><span class="mdb-cell-pic-err" style="display:none;">[!]</span></div>`;
       }
-      if (field.type === 'boolean') return val ? '✓' : '✗';
+      if (field.type === 'boolean') return val ? '' : '';
       if (field.type === 'number') return String(val);
       if (field.type === 'array') {
         const arr = Array.isArray(val) ? val : [val];
@@ -3450,7 +3450,7 @@
       if (key === 'comments') placeholder = '6: Excellent\n5: Good\n4: Satisfactory';
       else if (key === 'colors') placeholder = '6: #166534\n5: #22c55e\n4: #eab308';
       else if (key === 'thresholds') placeholder = '6: 90\n5.5: 80\n5: 70';
-      else if (key === 'scoringDecisions' || key === 'markingDecisions') placeholder = '[\n  {\n    "classTitle": "6A",\n    "testName": "Test 1",\n    "rules": ["Rule 1", "Rule 2"]\n  }\n]';
+      else if (key === 'scoringDecisions' || key === 'markingDecisions') placeholder = '[\n {\n "classTitle": "6A",\n "testName": "Test 1",\n "rules": ["Rule 1", "Rule 2"]\n }\n]';
 
       let inputHtml = '';
       if (isLong || isStructuredKeyValue || key === 'scoringDecisions' || key === 'markingDecisions') {
@@ -4379,7 +4379,7 @@
         </select>`;
       } else if (S.typeKey === 'badgebanks' && (field.key === 'icon' || field.key === 'label' || field.key === 'meaning' || field.key === 'coefficient')) {
         let ph = '';
-        if (field.key === 'icon') ph = 'e.g. ⭐, 🎯, A+ (max 8 chars)';
+        if (field.key === 'icon') ph = 'e.g. ⭐, , A+ (max 8 chars)';
         else if (field.key === 'label') ph = 'e.g. Active Participation';
         else if (field.key === 'meaning') ph = 'e.g. Solid work, focus and perseverance';
         else if (field.key === 'coefficient') ph = 'e.g. 1, -1, 2';
@@ -4436,12 +4436,12 @@
         input = `<select id="${id}">${sizeOpts.map(o => `<option value="${o.val}"${curSize === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
       } else if (S.typeKey === 'modebanks' && (field.key === 'icon' || field.key === 'name' || field.key === 'shortcutKey' || field.key === 'title' || field.key === 'subtitle' || field.key === 'pictureSrc' || field.key === 'soundFile' || field.key === 'soundVol')) {
         let ph = '';
-        if (field.key === 'icon') ph = 'e.g. 🤫, 💬, 👥, 🎯 (emoji or icon name)';
+        if (field.key === 'icon') ph = 'e.g. , , , (emoji or icon name)';
         else if (field.key === 'name') ph = 'e.g. Quiet, Talk, Group, Debate';
         else if (field.key === 'shortcutKey') ph = 'e.g. 1, 2, 3 (1-9)';
         else if (field.key === 'title') ph = 'e.g. Quiet Work';
         else if (field.key === 'subtitle') ph = 'e.g. Work independently on your tasks';
-        else if (field.key === 'pictureSrc') ph = 'e.g. 🤫 or image URL / path';
+        else if (field.key === 'pictureSrc') ph = 'e.g. or image URL / path';
         else if (field.key === 'soundFile') ph = 'e.g. focus-bell.mp3 (optional audio file)';
         else if (field.key === 'soundVol') ph = 'e.g. 20 (volume 0-100)';
         const maxLenAttr = field.key === 'shortcutKey' ? ' maxlength="2"' : (field.key === 'icon' ? ' maxlength="16"' : '');
@@ -4491,7 +4491,7 @@
             }
           }
         }
-        const placeholder = '[\n  {\n    "classTitle": "6A",\n    "testName": "Test 1",\n    "rules": ["Rule 1", "Rule 2"]\n  }\n]';
+        const placeholder = '[\n {\n "classTitle": "6A",\n "testName": "Test 1",\n "rules": ["Rule 1", "Rule 2"]\n }\n]';
         input = `<textarea id="${id}" rows="6" style="font-family:monospace;font-size:0.8rem;" placeholder="${esc(placeholder)}">${escHtml(sv)}</textarea>
              <div class="form-hint" data-i18n="mdbHintScoringDecisions">${t('mdbHintScoringDecisions', 'Test scoring rules and decisions per class')}</div>`;
       } else if (field.type === 'array') {
@@ -5029,7 +5029,7 @@
         html += `<div id="tab-bulk-content" class="hidden">
       <div class="form-field">
         <label class="form-lbl">${t('mdbJsonArray')}</label>
-        <textarea id="ff-_bulk" rows="13" placeholder='[\n  {"field": "value"},\n  {"field": "value"}\n]' style="font-family:monospace;font-size:0.8rem"></textarea>
+        <textarea id="ff-_bulk" rows="13" placeholder='[\n {"field": "value"},\n {"field": "value"}\n]' style="font-family:monospace;font-size:0.8rem"></textarea>
         <div class="form-hint">${t('mdbHintBulkAdd')}</div>
         <div id="bulk-err" class="form-err"></div>
       </div>
@@ -5578,7 +5578,7 @@
           <strong style="color:#1d4ed8;">${esc(code)}</strong>
           ${comp?._sourceDb ? `<span style="font-size:0.7rem;background:#dbeafe;color:#1e3a8a;border-radius:3px;padding:0 4px;">${esc(comp._sourceDb)}</span>` : ''}
           ${comp?.title && comp.title !== code ? `<span style="color:#334155;max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(comp.title)}</span>` : ''}
-          <button type="button" onclick="removeFormCompChip('${esc(cid)}')" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove">✕</button>
+          <button type="button" onclick="removeFormCompChip('${esc(cid)}')" style="border:none;background:none;color:#94a3b8;font-weight:700;font-size:0.85rem;cursor:pointer;padding:0 2px;line-height:1;margin-left:2px;" title="Remove"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
         </span>`;
       }).join('');
     }
@@ -7287,10 +7287,10 @@
               showExportSuccessPopup(res.path, res.name || file.name);
             }
           } else if (res && !res.ok && !res.canceled) {
-            showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (res.error || 'unknown error'), true);
+            showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (res.error || 'unknown error'), true);
           }
         } catch (err) {
-          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (err && err.message ? err.message : String(err)), true);
+          showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save file: ') + (err && err.message ? err.message : String(err)), true);
         }
       } else {
         const blob = new Blob([content], { type: 'text/javascript' });
@@ -7852,7 +7852,7 @@ Format:
     "title": "Example Story",
     "theme": "Work",
     "level": "B2",
-    "coverEmoji": "💼",
+    "coverEmoji": "",
     "synopsis": "...",
     "stages": {
       "start": {
@@ -9758,10 +9758,10 @@ Rules:
       <button type="button" class="btn btn-secondary" id="btn-reset">Reset Filters</button>
       <button type="button" class="btn btn-primary" id="btn-csv">Download Filtered CSV</button>
       <button type="button" class="btn btn-secondary" onclick="window.print()">Print</button>
-      <button type="button" class="btn btn-secondary" id="btn-settings" onclick="openSettingsMenu(event)">⚙️ Display Settings</button>
+      <button type="button" class="btn btn-secondary" id="btn-settings" onclick="openSettingsMenu(event)">⚙ Display Settings</button>
       <div class="view-switch" id="view-switch">
-        <button type="button" class="btn-view active" id="btn-view-cards" onclick="setViewMode('cards')">🗂️ Cards</button>
-        <button type="button" class="btn-view" id="btn-view-tables" onclick="setViewMode('tables')">📊 Tables</button>
+        <button type="button" class="btn-view active" id="btn-view-cards" onclick="setViewMode('cards')"> Cards</button>
+        <button type="button" class="btn-view" id="btn-view-tables" onclick="setViewMode('tables')"> Tables</button>
       </div>
       <span class="filter-hint" style="margin-left:auto;">Hold Ctrl/Cmd to multi-select. No selection = all included.</span>
     </div>
@@ -9779,7 +9779,7 @@ Rules:
     <div class="settings-modal" onclick="event.stopPropagation()">
       <div class="settings-modal-header">
         <div class="settings-modal-title">
-          <span>⚙️</span> <span>Display &amp; Visibility Settings</span>
+          <span>⚙</span> <span>Display &amp; Visibility Settings</span>
         </div>
         <button type="button" class="btn-close-modal" onclick="closeSettingsMenu()" title="Close Settings">×</button>
       </div>
@@ -10367,7 +10367,7 @@ Rules:
               const optsHtml = opts.map(opt => {
                 const isCorrect = correct && (opt.trim().toLowerCase() === correct);
                 return '<div class="quiz-option' + (isCorrect ? ' quiz-correct' : '') + '">' +
-                  (isCorrect ? '<span>✓</span>' : '<span>•</span>') +
+                  (isCorrect ? '<span></span>' : '<span>•</span>') +
                   '<span>' + esc(opt) + '</span>' +
                 '</div>';
               }).join('');
@@ -10383,7 +10383,7 @@ Rules:
         if (col.key === 'teacherAction' || col.key === 'studentAction') {
           if (!hideBody) {
             const isTeacher = col.key === 'teacherAction';
-            const actionIcon = isTeacher ? '🧑‍🏫 Teacher Action' : '🧑‍🎓 Student Action';
+            const actionIcon = isTeacher ? '‍ Teacher Action' : '‍ Student Action';
             const actionBg = isTeacher ? '#f0fdf4' : '#eff6ff';
             longDescHtml += '<div class="action-box" style="background:' + actionBg + ';">' +
               '<div class="action-box-title">' + actionIcon + '</div>' +
@@ -10401,7 +10401,7 @@ Rules:
           return;
         }
         if (col.key === 'correction') {
-          if (!hideBadges) badges.push('<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>');
+          if (!hideBadges) badges.push('<span class="badge badge-correct"> ' + esc(rawVal) + '</span>');
           return;
         }
 
@@ -10536,7 +10536,7 @@ Rules:
         const correct = String(row.correctAnswer || row.answer || '').trim().toLowerCase();
         return '<div class="table-options-list">' + opts.map(opt => {
           const isCorrect = correct && (opt.trim().toLowerCase() === correct);
-          return '<span class="table-option-item' + (isCorrect ? ' opt-correct' : '') + '">' + (isCorrect ? '✓ ' : '• ') + esc(opt) + '</span>';
+          return '<span class="table-option-item' + (isCorrect ? ' opt-correct' : '') + '">' + (isCorrect ? ' ' : '• ') + esc(opt) + '</span>';
         }).join('') + '</div>';
       }
 
@@ -10546,7 +10546,7 @@ Rules:
 
       // Error / Correction
       if (col.key === 'error') return '<span class="badge badge-error">❌ ' + esc(rawVal) + '</span>';
-      if (col.key === 'correction') return '<span class="badge badge-correct">✓ ' + esc(rawVal) + '</span>';
+      if (col.key === 'correction') return '<span class="badge badge-correct"> ' + esc(rawVal) + '</span>';
 
       // Badges
       if (col.key === 'pos' || col.key === 'level' || col.key === 'category' || col.key === 'theme' || col.key === 'partofspeech' || col.key === 'cefr' || col.key === 'domain' || col.key === 'scale') {
@@ -10854,7 +10854,7 @@ Rules:
           showToast(isOds ? 'LibreOffice Calc spreadsheet exported successfully.' : (t('mdbExportSuccessXlsx') || 'Excel spreadsheet exported successfully.'));
         }
       } catch (err) {
-        showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save spreadsheet: ') + (err && err.message ? err.message : String(err)), true);
+        showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save spreadsheet: ') + (err && err.message ? err.message : String(err)), true);
       }
     }
 
@@ -10965,7 +10965,7 @@ Rules:
             showExportSuccessPopup(result.path, result.name || filename);
           }
         }).catch(err => {
-          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save DOCX: ') + (err && err.message ? err.message : String(err)), true);
+          showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save DOCX: ') + (err && err.message ? err.message : String(err)), true);
         });
       }
     }
@@ -11134,11 +11134,11 @@ Rules:
                 showExportSuccessPopup(result.path, result.name || finalFilename);
               }
             } else if (!result.ok && !result.canceled) {
-              showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (result.error || 'unknown error'), true);
+              showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (result.error || 'unknown error'), true);
             }
           });
         }).catch(err => {
-          showToast('⚠️ ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (err && err.message ? err.message : String(err)), true);
+          showToast(' ' + (t('mdbErrSaveFailed') || 'Could not save PDF: ') + (err && err.message ? err.message : String(err)), true);
         });
       } else {
         let iframe = document.getElementById('mdb-pdf-iframe');
@@ -11477,7 +11477,7 @@ Rules:
             </div>
             <div class="batch-form-field" style="flex:1;min-width:160px;">
               <label for="be-suffix">${t('mdbBatchSuffix') || 'Suffix (appended)'}</label>
-              <input type="text" id="be-suffix" placeholder="${t('mdbBatchSuffixPlaceholder') || 'e.g.  (Term 1), -v2'}">
+              <input type="text" id="be-suffix" placeholder="${t('mdbBatchSuffixPlaceholder') || 'e.g. (Term 1), -v2'}">
             </div>
           </div>
         </div>

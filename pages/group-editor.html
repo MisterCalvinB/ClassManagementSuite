@@ -878,7 +878,7 @@
   <div id="app-hamburger" class="hm-wrap">
     <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
     <button id="tut-trigger" class="tut-trigger-btn" onclick="startGeTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-    <button class="hm-btn" aria-label="Open menu">☰</button>
+    <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
 </nav>
@@ -1148,7 +1148,7 @@
         <input type="text" id="ge-all-students-search" oninput="renderAllStudentsTable()" placeholder="Filter by name, class, UUID..." data-i18n-placeholder="geAllStudentsSearchPlaceholder" style="padding:7px 12px;font-size:0.82rem;border:1.5px solid #cbd5e1;border-radius:6px;width:100%;max-width:320px;">
         <div style="display:flex;gap:4px;">
           <button type="button" id="ge-filter-all-btn" onclick="setAllStudentsFilter('all')" class="ge-ast-filter active" data-i18n="geAllStudentsFilterAll">All</button>
-          <button type="button" id="ge-filter-unassigned-btn" onclick="setAllStudentsFilter('unassigned')" class="ge-ast-filter" style="border-color:#f59e0b;color:#b45309;" data-i18n="geAllStudentsFilterUnassigned">⚠️ Unassigned</button>
+          <button type="button" id="ge-filter-unassigned-btn" onclick="setAllStudentsFilter('unassigned')" class="ge-ast-filter" style="border-color:#f59e0b;color:#b45309;" data-i18n="geAllStudentsFilterUnassigned"> Unassigned</button>
           <button type="button" id="ge-filter-groups-btn" onclick="setAllStudentsFilter('groups')" class="ge-ast-filter" data-i18n="geAllStudentsFilterInGroups">In Groups</button>
         </div>
       </div>
@@ -1562,7 +1562,7 @@
               result.content +
               '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA' +
               ' : { classGroups: (typeof CLASS_GROUPS !== "undefined" ? CLASS_GROUPS : null),' +
-              '   classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
+              ' classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : null) };'
             );
             const parsed = fn();
             rawData = (parsed && parsed.classGroups) ? parsed.classGroups : {};
@@ -1765,7 +1765,7 @@
     if (!form) return;
     const titleEl = document.getElementById('ge-pt-form-title');
     const labelEl = document.getElementById('ge-pt-label');
-    const yearEl  = document.getElementById('ge-pt-year');
+    const yearEl = document.getElementById('ge-pt-year');
     const startEl = document.getElementById('ge-pt-start');
     const endEl = document.getElementById('ge-pt-end');
     const holList = document.getElementById('ge-pt-hol-list');
@@ -1853,7 +1853,7 @@
       return;
     }
     const label = (document.getElementById('ge-pt-label')?.value.trim()) || '';
-    const year  = (document.getElementById('ge-pt-year')?.value.trim()) || '';
+    const year = (document.getElementById('ge-pt-year')?.value.trim()) || '';
     const start = document.getElementById('ge-pt-start')?.value || '';
     const end = document.getElementById('ge-pt-end')?.value || '';
     if (!label) {
@@ -1943,7 +1943,7 @@
     if (_plannerSemesters.length === 1 && activeSem) {
       const label = activeSem.label || ('S1');
       const start = activeSem.semesterStart || '';
-      const end   = activeSem.semesterEnd   || '';
+      const end = activeSem.semesterEnd || '';
       if (!start && !end) return; // nothing useful to offer
       msg = typeof tFmt === 'function'
         ? tFmt('gePlannerHintSingle', { label, start: start || '?', end: end || '?' })
@@ -2056,18 +2056,18 @@
       if (m.halfGroups && (m.halfGroups.A?.length || m.halfGroups.B?.length)) metaEntry.halfGroups = m.halfGroups;
       if (m.students && m.students.length) metaEntry.students = m.students;
       if (m.archived) metaEntry.archived = true;
-      return `    ${JSON.stringify(uuid)}: ${JSON.stringify(metaEntry)}`;
+      return ` ${JSON.stringify(uuid)}: ${JSON.stringify(metaEntry)}`;
     });
     const ac = _readActiveBanner();
     return [
       'const CLASS_GROUPS_DATA = {',
-      `  "activeYear": ${JSON.stringify(ac.activeYear)},`,
-      `  "activeSemester": ${JSON.stringify(ac.activeSemester)},`,
-      `  "activeSemesterStart": ${JSON.stringify(ac.activeSemesterStart)},`,
-      `  "activeSemesterEnd": ${JSON.stringify(ac.activeSemesterEnd)},`,
-      '  "classGroupsMeta": {',
-      metaLines.join(',\n').split('\n').map(l => '  ' + l).join('\n'),
-      '  }',
+      ` "activeYear": ${JSON.stringify(ac.activeYear)},`,
+      ` "activeSemester": ${JSON.stringify(ac.activeSemester)},`,
+      ` "activeSemesterStart": ${JSON.stringify(ac.activeSemesterStart)},`,
+      ` "activeSemesterEnd": ${JSON.stringify(ac.activeSemesterEnd)},`,
+      ' "classGroupsMeta": {',
+      metaLines.join(',\n').split('\n').map(l => ' ' + l).join('\n'),
+      ' }',
       '};',
       '',
       'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};',
@@ -2928,7 +2928,7 @@
     archiveBtn.title = isArchived
       ? (typeof t === 'function' ? t('geUnarchiveTitle') : 'Unarchive this group')
       : (typeof t === 'function' ? t('geArchiveTitle') : 'Archive this group');
-    archiveBtn.textContent = isArchived ? '↩' : '📦';
+    archiveBtn.textContent = isArchived ? '↩' : '';
     archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
     archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
     archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
@@ -3353,7 +3353,7 @@
 
     const archiveBtn = document.createElement('button');
     archiveBtn.type = 'button';
-    archiveBtn.textContent = '📦';
+    archiveBtn.textContent = '';
     archiveBtn.title = typeof t === 'function' ? t('geSaveFirstTitle') : 'Save first to enable archiving';
     archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
     archiveBtn.disabled = true;
@@ -3669,7 +3669,7 @@
 
     const saveBtn = document.getElementById('ge-save-btn');
     const orig = saveBtn.textContent;
-    saveBtn.textContent = typeof t === 'function' ? t('geSaved') : '✓ Saved!';
+    saveBtn.textContent = typeof t === 'function' ? t('geSaved') : ' Saved!';
     saveBtn.disabled = true;
     setTimeout(() => {
       saveBtn.textContent = orig;
@@ -3799,16 +3799,16 @@
 
     const find = (...terms) => headers.findIndex(h => terms.some(t => h.includes(t)));
     const idx = {
-      group:      find('group'),
-      firstName:  find('first', 'firstname', 'fn', 'prenom', 'prénom'),
-      lastName:   find('last', 'lastname', 'ln', 'nom', 'surname'),
+      group: find('group'),
+      firstName: find('first', 'firstname', 'fn', 'prenom', 'prénom'),
+      lastName: find('last', 'lastname', 'ln', 'nom', 'surname'),
       customName: find('customname', 'custom', 'nickname', 'surnom', 'alias', 'pseudo', 'spitzname', 'soprannome'),
-      dob:        find('dob', 'birth', 'date', 'born'),
+      dob: find('dob', 'birth', 'date', 'born'),
       adminClass: find('adminclass', 'admin', 'class'),
-      year:       find('year', 'annee', 'année'),
-      semester:   find('sem'),
-      level:      find('level', 'lvl'),
-      sen:        find('sen', 'special'),
+      year: find('year', 'annee', 'année'),
+      semester: find('sem'),
+      level: find('level', 'lvl'),
+      sen: find('sen', 'special'),
     };
 
     // adminClass should not steal "group" if both match "class"
@@ -3827,9 +3827,9 @@
       if (!groups[gName]) { groups[gName] = []; meta[gName] = {}; }
 
       const fn = idx.firstName >= 0 ? (cols[idx.firstName] || '').trim().toUpperCase() : '';
-      const ln = idx.lastName  >= 0 ? (cols[idx.lastName]  || '').trim().toUpperCase() : '';
+      const ln = idx.lastName >= 0 ? (cols[idx.lastName] || '').trim().toUpperCase() : '';
       const cn = idx.customName >= 0 ? (cols[idx.customName] || '').trim() : '';
-      const dob = idx.dob      >= 0 ? (cols[idx.dob]       || '').trim() : '';
+      const dob = idx.dob >= 0 ? (cols[idx.dob] || '').trim() : '';
       const ac = idx.adminClass >= 0 ? (cols[idx.adminClass] || '').trim().toUpperCase() : '';
       const senRaw = idx.sen >= 0 ? (cols[idx.sen] || '').trim().toLowerCase() : '';
       const isSen = senRaw === 'true' || senRaw === 'yes' || senRaw === '1' || senRaw === 'x';
@@ -3917,7 +3917,7 @@
       
       const optReuse = document.createElement('option');
       optReuse.value = 'reuse';
-      optReuse.textContent = typeof t === 'function' ? t('geMatchActionReuse') : '🔗 Reuse UUID (Track history)';
+      optReuse.textContent = typeof t === 'function' ? t('geMatchActionReuse') : ' Reuse UUID (Track history)';
       optReuse.selected = true;
 
       const optNew = document.createElement('option');
@@ -3926,7 +3926,7 @@
 
       const optUpdate = document.createElement('option');
       optUpdate.value = 'update';
-      optUpdate.textContent = typeof t === 'function' ? t('geMatchActionUpdate') : '📝 Update Existing Info';
+      optUpdate.textContent = typeof t === 'function' ? t('geMatchActionUpdate') : ' Update Existing Info';
 
       const optIgnore = document.createElement('option');
       optIgnore.value = 'ignore';
@@ -4037,9 +4037,9 @@
         rawMeta[uuid].name = gName;
         rawMeta[uuid].students = studentUuids;
         const m = newMeta[gName] || {};
-        if (m.year)     rawMeta[uuid].year = m.year;
+        if (m.year) rawMeta[uuid].year = m.year;
         if (m.semester) rawMeta[uuid].semester = m.semester;
-        if (m.level)    rawMeta[uuid].level = m.level;
+        if (m.level) rawMeta[uuid].level = m.level;
       });
 
       renderGroupsList();
@@ -4393,7 +4393,7 @@
     const btnUnassigned = document.getElementById('ge-filter-unassigned-btn');
     const btnGroups = document.getElementById('ge-filter-groups-btn');
     if (btnAll) btnAll.textContent = (typeof t === 'function' ? t('geAllStudentsFilterAll') : 'All ({count})').replace('{count}', String(totalCount));
-    if (btnUnassigned) btnUnassigned.textContent = (typeof t === 'function' ? t('geAllStudentsFilterUnassigned') : '⚠️ Unassigned ({count})').replace('{count}', String(unassignedCount));
+    if (btnUnassigned) btnUnassigned.textContent = (typeof t === 'function' ? t('geAllStudentsFilterUnassigned') : ' Unassigned ({count})').replace('{count}', String(unassignedCount));
     if (btnGroups) btnGroups.textContent = (typeof t === 'function' ? t('geAllStudentsFilterInGroups') : 'In Groups ({count})').replace('{count}', String(inGroupsCount));
 
     // Update subtitle
@@ -4488,7 +4488,7 @@
       const tdGroups = document.createElement('td');
       if (st.isUnassigned) {
         tdGroups.innerHTML = `<span style="font-size:0.72rem;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fde68a;padding:2px 8px;border-radius:4px;display:inline-flex;align-items:center;gap:4px;">
-          ⚠️ ${typeof t === 'function' ? t('geAllStudentsUnassignedBadge') : 'No Group Assigned'}
+           ${typeof t === 'function' ? t('geAllStudentsUnassignedBadge') : 'No Group Assigned'}
         </span>`;
       } else {
         let groupsHtml = '<div style="display:flex;flex-wrap:wrap;gap:4px;">';
@@ -4498,7 +4498,7 @@
           groupsHtml += `<span style="font-size:0.72rem;font-weight:600;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;padding:2px 6px;border-radius:4px;">${g.name}${yr}${sem}</span>`;
         });
         st.archivedGroups.forEach(g => {
-          groupsHtml += `<span style="font-size:0.72rem;font-weight:600;color:#64748b;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 6px;border-radius:4px;" title="Archived group">📂 ${g.name}</span>`;
+          groupsHtml += `<span style="font-size:0.72rem;font-weight:600;color:#64748b;background:#f1f5f9;border:1px solid #cbd5e1;padding:2px 6px;border-radius:4px;" title="Archived group"> ${g.name}</span>`;
         });
         groupsHtml += '</div>';
         tdGroups.innerHTML = groupsHtml;
@@ -4699,12 +4699,12 @@
   // ── Tutorial ─────────────────────────────────────────────────
   function startGeTutorial() {
     Tutorial.start([
-      { selector: '#app-hamburger',   title: t('tutGe1Title'), text: t('tutGe1Text') },
+      { selector: '#app-hamburger', title: t('tutGe1Title'), text: t('tutGe1Text') },
       { selector: '.ge-active-banner', title: t('tutGe2Title'), text: t('tutGe2Text') },
-      { selector: '#ge-groups-body',  title: t('tutGe3Title'), text: t('tutGe3Text') },
-      { selector: '.ge-csv-bar',      title: t('tutGe4Title'), text: t('tutGe4Text') },
-      { selector: '.ge-add-section',  title: t('tutGe5Title'), text: t('tutGe5Text') },
-      { selector: '.ge-save-bar',     title: t('tutGe6Title'), text: t('tutGe6Text') }
+      { selector: '#ge-groups-body', title: t('tutGe3Title'), text: t('tutGe3Text') },
+      { selector: '.ge-csv-bar', title: t('tutGe4Title'), text: t('tutGe4Text') },
+      { selector: '.ge-add-section', title: t('tutGe5Title'), text: t('tutGe5Text') },
+      { selector: '.ge-save-bar', title: t('tutGe6Title'), text: t('tutGe6Text') }
     ], {
       next: t('tutNext'),
       prev: t('tutPrev'),

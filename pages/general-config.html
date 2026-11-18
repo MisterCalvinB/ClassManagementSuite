@@ -27,21 +27,21 @@
 
     <div class="gc-container">
       <div class="gc-sidebar">
-        <div class="gc-sidebar-item active" data-tab="general" onclick="gcSetTab('general')" data-i18n="gcTabGeneral">
+        <div class="gc-sidebar-item active" data-tab="general" data-i18n="gcTabGeneral">
           General</div>
-        <div class="gc-sidebar-item" data-tab="storage" onclick="gcSetTab('storage')" data-i18n="gcTabStorage">Storage
+        <div class="gc-sidebar-item" data-tab="storage" data-i18n="gcTabStorage">Storage
           &amp; Sync</div>
-        <div class="gc-sidebar-item" data-tab="remote" onclick="gcSetTab('remote')" data-i18n="gcTabRemote">Remote
+        <div class="gc-sidebar-item" data-tab="remote" data-i18n="gcTabRemote">Remote
           Server</div>
-        <div class="gc-sidebar-item" data-tab="notes" onclick="gcSetTab('notes')" data-i18n="gcTabNotes">App Notes</div>
+        <div class="gc-sidebar-item" data-tab="notes" data-i18n="gcTabNotes">App Notes</div>
       </div>
       <div class="gc-content">
         <div class="gc-collapse-controls">
-          <button type="button" class="btn btn-outline" onclick="startGcTutorial()"
+          <button type="button" class="btn btn-outline" id="gcTourBtn"
             style="padding:4px 10px; font-size:0.75rem; font-weight:700;" data-i18n="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-          <button type="button" class="btn btn-outline" onclick="gcExpandAll()"
+          <button type="button" class="btn btn-outline" id="gcExpandAllBtn"
             style="padding:4px 10px; font-size:0.75rem; font-weight:700;" data-i18n="gcExpandAll">Expand All</button>
-          <button type="button" class="btn btn-outline" onclick="gcCollapseAll()"
+          <button type="button" class="btn btn-outline" id="gcCollapseAllBtn"
             style="padding:4px 10px; font-size:0.75rem; font-weight:700;" data-i18n="gcCollapseAll">Collapse
             All</button>
         </div>
@@ -263,7 +263,7 @@
                   <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-whisper-model" style="font-weight: 700; color: #337a4e;">Whisper Tiny (Quantized)</span>
                 </div>
               </div>
-              <button type="button" class="btn" onclick="openWhisperModelManager({ onModelChanged: gcRefreshWhisperModel })" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              <button type="button" class="btn" id="gcManageWhisperBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 <img src="../assets/icons/gear.svg" style="width: 15px; height: 15px;" alt="" />
                 <span data-i18n="whisperManageModels">Manage Models...</span>
               </button>
@@ -281,7 +281,7 @@
                   <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-slm-model" data-slm-active-label style="font-weight: 700; color: #337a4e;">Loading…</span>
                 </div>
               </div>
-              <button type="button" class="btn" onclick="openSlmModelManager({ onModelChanged: gcRefreshSlmModel })" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+              <button type="button" class="btn" id="gcManageSlmBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
                 <img src="../assets/icons/brain.svg" style="width: 15px; height: 15px;" alt="" />
                 <span data-i18n="slmManageModels">Manage AI Models...</span>
               </button>
@@ -300,7 +300,7 @@
               <button class="btn btn-outline" id="changeDataBtn" data-i18n="gcChangeFolder">Change folder…</button>
               <button class="btn btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
               <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
-              <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" onclick="gcOpenCrashDumps()" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
+              <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
             </div>
             <div class="status" style="margin-top:8px;" id="dataStatus"></div>
 
@@ -643,7 +643,7 @@
             <h2 data-i18n="gcArchiveSectionTitle">Year-End &amp; Term Archiving</h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcArchiveSectionDesc">Archive past lessons, grades, attendance, and session files in one click to prepare a fresh workspace for the new school year.</p>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn" type="button" id="openArchivingWizardBtn" onclick="gcOpenArchivingWizard()" data-i18n="gcArchiveWizardBtn">Open Archiving Wizard…</button>
+              <button class="btn" type="button" id="openArchivingWizardBtn" data-i18n="gcArchiveWizardBtn">Open Archiving Wizard…</button>
             </div>
           </section>
 
@@ -940,13 +940,13 @@
   </div>
 
   <!-- ── credits modal ────────────────────────────────── -->
-  <div id="credits-overlay" onclick="if(event.target===this)closeCreditsModal()"
+  <div id="credits-overlay"
     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:99999;align-items:center;justify-content:center;">
     <div
       style="background:#fff;border-radius:8px;max-width:520px;width:90%;overflow:hidden;position:relative;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
-      <button onclick="closeCreditsModal()"
+      <button id="gcCloseCreditsBtn"
         style="position:absolute;top:8px;right:10px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#666;z-index:1;line-height:1;"
-        data-i18n-help="gsToptClose" data-hover-help="Close">✕</button>
+        data-i18n-help="gsToptClose" data-hover-help="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
       <iframe src="about.html" style="width:100%;height:320px;border:none;display:block;"></iframe>
     </div>
   </div>
@@ -3551,12 +3551,12 @@
     }
 
     var RESET_FOLDER_DEFS = [
-      { id: 'mindmaps',           label: 'Board sessions',     desc: 'Constellation maps and board session saves' },
-      { id: 'grades',             label: 'Grades',             desc: 'Grade log records' },
-      { id: 'gradeSheet',         label: 'Grade sheets',       desc: 'Grade sheet documents' },
+      { id: 'mindmaps', label: 'Board sessions', desc: 'Constellation maps and board session saves' },
+      { id: 'grades', label: 'Grades', desc: 'Grade log records' },
+      { id: 'gradeSheet', label: 'Grade sheets', desc: 'Grade sheet documents' },
       { id: 'groupParticipation', label: 'Participation logs', desc: 'Group participation tracking records' },
-      { id: 'customData',         label: 'Custom content',     desc: 'Wordbanks, books, dictations, quizzes and other custom data' },
-      { id: 'classPlans',         label: 'Class plans',        desc: 'Saved class plan documents' }
+      { id: 'customData', label: 'Custom content', desc: 'Wordbanks, books, dictations, quizzes and other custom data' },
+      { id: 'classPlans', label: 'Class plans', desc: 'Saved class plan documents' }
     ];
 
     function resetShowStep(n) {
@@ -3590,7 +3590,7 @@
 
         var cb = document.createElement('input');
         cb.type = 'checkbox';
-        cb.id   = 'resetCb_' + def.id;
+        cb.id = 'resetCb_' + def.id;
         cb.addEventListener('change', function() {
           lbl.classList.toggle('checked', cb.checked);
           resetUpdateStep2Btn();
@@ -3599,7 +3599,7 @@
         var body = document.createElement('div');
         body.className = 'reset-folder-item-body';
         body.innerHTML = '<div class="reset-folder-label">' + escHtml(def.label) + '</div>' +
-                         '<div class="reset-folder-desc">'  + escHtml(def.desc)  + '</div>';
+                         '<div class="reset-folder-desc">' + escHtml(def.desc) + '</div>';
 
         lbl.appendChild(cb);
         lbl.appendChild(body);
@@ -3607,7 +3607,7 @@
       });
 
       // Reset "Everything" checkbox state
-      var everyCb   = document.getElementById('resetEverythingCb');
+      var everyCb = document.getElementById('resetEverythingCb');
       var everyItem = document.getElementById('resetEverythingItem');
       everyCb.checked = false;
       everyItem.classList.remove('checked');
@@ -3820,7 +3820,7 @@
     window.gcOpenCrashDumps = gcOpenCrashDumps;
 
     document.addEventListener('DOMContentLoaded', async function () {
-      await init();  // reads config from file, populates path boxes
+      await init(); // reads config from file, populates path boxes
       initGeneralConfigCollapsible();
       initResetApp();
       handleInitialNavigation();
@@ -3847,6 +3847,29 @@
     }
     window.startGcTutorial = startGcTutorial;
     document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('.gc-sidebar-item[data-tab]').forEach(function (item) {
+        item.addEventListener('click', function () {
+          if (typeof gcSetTab === 'function') gcSetTab(item.getAttribute('data-tab'));
+        });
+      });
+      var on = function (id, fn) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', fn);
+      };
+      on('gcTourBtn', startGcTutorial);
+      on('gcExpandAllBtn', function () { if (typeof gcExpandAll === 'function') gcExpandAll(); });
+      on('gcCollapseAllBtn', function () { if (typeof gcCollapseAll === 'function') gcCollapseAll(); });
+      on('gcManageWhisperBtn', function () { if (typeof openWhisperModelManager === 'function') openWhisperModelManager({ onModelChanged: gcRefreshWhisperModel }); });
+      on('gcManageSlmBtn', function () { if (typeof openSlmModelManager === 'function') openSlmModelManager({ onModelChanged: gcRefreshSlmModel }); });
+      on('openCrashDumpsBtn', function () { if (typeof gcOpenCrashDumps === 'function') gcOpenCrashDumps(); });
+      on('openArchivingWizardBtn', function () { if (typeof gcOpenArchivingWizard === 'function') gcOpenArchivingWizard(); });
+      on('gcCloseCreditsBtn', function () { if (typeof closeCreditsModal === 'function') closeCreditsModal(); });
+      var creditsOverlay = document.getElementById('credits-overlay');
+      if (creditsOverlay) {
+        creditsOverlay.addEventListener('click', function (e) {
+          if (e.target === creditsOverlay && typeof closeCreditsModal === 'function') closeCreditsModal();
+        });
+      }
       try {
         if (!localStorage.getItem('cmt-tour-seen-general-config')) {
           localStorage.setItem('cmt-tour-seen-general-config', '1');

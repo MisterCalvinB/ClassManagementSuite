@@ -816,7 +816,7 @@
             function showSecondScreenBanner(onStartPresentation) {
                 if (document.getElementById('second-screen-prompt-banner')) return;
                 const promptMsg = typeof window.t === 'function' ? window.t('secondDisplayPrompt') : 'Second display detected! Would you like to launch Presentation Mode on monitor 2?';
-                const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : '📽️ Start Presentation Mode';
+                const startBtnTxt = typeof window.t === 'function' ? window.t('btnStartPresentation') : 'Start Presentation Mode';
                 const dismissBtnTxt = typeof window.t === 'function' ? window.t('btnDismissPrompt') : 'Dismiss';
                 const banner = document.createElement('div');
                 banner.id = 'second-screen-prompt-banner';
@@ -827,7 +827,7 @@
                     styleEl.textContent = '@keyframes slideDownPrompt { from { transform: translateY(-20px); opacity:0; } to { transform: translateY(0); opacity:1; } }';
                     document.head.appendChild(styleEl);
                 }
-                banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;">🖥️</span><span>' + promptMsg + '</span></div>'
+                banner.innerHTML = '<div style="display:flex;align-items:center;gap:8px;"><span style="font-size:1.2rem;"></span><span>' + promptMsg + '</span></div>'
                     + '<div style="display:flex;align-items:center;gap:8px;margin-left:8px;">'
                     + '<button type="button" id="btn-start-second-pres" style="padding:6px 12px;border:none;border-radius:8px;background:linear-gradient(135deg, #28a745, #208637);color:#fff;font-weight:700;font-size:0.8rem;cursor:pointer;box-shadow:0 2px 8px rgba(40,167,69,0.3);transition:transform 0.1s, background 0.15s;">' + startBtnTxt + '</button>'
                     + '<button type="button" id="btn-dismiss-second-pres" style="padding:6px 10px;border:1px solid rgba(255,255,255,0.2);border-radius:8px;background:transparent;color:#ccc;font-weight:600;font-size:0.8rem;cursor:pointer;transition:background 0.15s;">' + dismissBtnTxt + '</button>'
@@ -1447,7 +1447,7 @@
 
             let html = '';
             if (rootFiles.length) {
-                html += `<optgroup label="📁 General / Root">`;
+                html += `<optgroup label="General / Root">`;
                 html += rootFiles.map(item =>
                     `<option value="${escapeSettingsHtml(item.full)}" ${normalizedSelected === item.full ? 'selected' : ''}>${escapeSettingsHtml(item.name)}</option>`
                 ).join('');
@@ -1457,7 +1457,7 @@
             const sortedFolders = Array.from(folderGroups.keys()).sort((a, b) => a.localeCompare(b));
             for (const folder of sortedFolders) {
                 const items = folderGroups.get(folder);
-                html += `<optgroup label="📁 ${escapeSettingsHtml(folder)}">`;
+                html += `<optgroup label="${escapeSettingsHtml(folder)}">`;
                 html += items.map(item =>
                     `<option value="${escapeSettingsHtml(item.full)}" ${normalizedSelected === item.full ? 'selected' : ''}>${escapeSettingsHtml(item.name)}</option>`
                 ).join('');
@@ -1589,7 +1589,7 @@
                     <input type="text" class="settings-startup-select scb-name" value="${escapeSettingsHtml(item.label)}" placeholder="Button name">
                     <select class="settings-startup-select scb-file">${optionHtml}</select>
                     <button class="settings-custom-mini-btn" onclick="previewCustomButtonSound(${index})" type="button">▶</button>
-                    <button class="settings-custom-mini-btn danger" onclick="removeCustomButtonRow(${index})" type="button">✕</button>
+                    <button class="settings-custom-mini-btn danger" onclick="removeCustomButtonRow(${index})" type="button"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
                 </div>
             `;
             }).join('');
@@ -3136,7 +3136,7 @@
             closeEditTeamsModal();
             renderRoster();
             renderRanking();
-            mdbToast('✅ Teams saved to config.js');
+            mdbToast('Teams saved to config.js');
         }
 
         function resetTeamSettings() {
@@ -3437,7 +3437,7 @@
                                 style="width:14px; height:14px; cursor:pointer;">
                             strike
                         </label>
-                        <span style="font-size:0.72rem; color:#2255aa; font-style:italic; white-space:nowrap;">🔒 built-in</span>
+                        <span style="font-size:0.72rem; color:#2255aa; font-style:italic; white-space:nowrap;">built-in</span>
                     </div>
                     <textarea class="badge-editor-meaning" placeholder="Meaning / note"
                         style="width:100%; min-height:40px; padding:8px; border:1px solid #ccc; border-radius:5px; box-sizing:border-box; resize:vertical;">${escapeSettingsHtml(badge.meaning || '')}</textarea>
@@ -3589,7 +3589,7 @@
             updateCmsBadgeSetChip();
             closeEditBadgesModal();
             renderRoster();
-            const toastMsg = (chosenSetId === 'default') ? '✅ Badges saved to config.js' : `✅ Badges saved to ${chosenSetId}.js`;
+            const toastMsg = (chosenSetId === 'default') ? 'Badges saved to config.js' : `Badges saved to ${chosenSetId}.js`;
             mdbToast(toastMsg);
             if (typeof _remotePushStateDebounced === 'function') _remotePushStateDebounced();
         }
@@ -3722,8 +3722,8 @@
             if (!r || r.canceled) return;
             if (r.errors && r.errors.length) {
                 const names = r.errors.map(e => e.name).join(', ');
-                if (typeof mdbToast === 'function') mdbToast('⚠ ' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
-                else showToast('⚠ ' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
+                if (typeof mdbToast === 'function') mdbToast('' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
+                else showToast('' + (t('es_import_errors') || 'Some files could not be imported') + ': ' + names);
             }
             if (r.copied && r.copied.length) {
                 await refreshSoundFileList(true);
@@ -3782,8 +3782,8 @@
 
             if (showFeedback) {
                 const message = availableSoundFiles.length
-                    ? `🔊 ${availableSoundFiles.length} sound file${availableSoundFiles.length === 1 ? '' : 's'} found in user/custom-data/sounds (including subfolders)`
-                    : '🔊 No sound files found in user/custom-data/sounds yet';
+                    ? `${availableSoundFiles.length} sound file${availableSoundFiles.length === 1 ? '' : 's'} found in user/custom-data/sounds (including subfolders)`
+                    : 'No sound files found in user/custom-data/sounds yet';
                 if (typeof mdbToast === 'function') mdbToast(message);
                 else showToast(message);
             }
@@ -3852,7 +3852,7 @@
                         Rhythm
                         <select class="sound-rhythm" onchange="syncSoundBuilderToTextarea('${slotKey}')" style="padding:8px; border:1px solid #ccc; border-radius:5px;">${rhythmMarkup}</select>
                     </label>
-                    <button onclick="removeSoundBuilderRow('${slotKey}', ${index})" title="Remove tune" style="padding:8px 10px; border:2px solid #b33; border-radius:5px; background:#fff; color:#b33; font-weight:700; cursor:pointer;">✕</button>
+                    <button onclick="removeSoundBuilderRow('${slotKey}', ${index})" title="Remove tune" style="padding:8px 10px; border:2px solid #b33; border-radius:5px; background:#fff; color:#b33; font-weight:700; cursor:pointer;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
                 </div>`;
             }).join('');
         }
@@ -3876,7 +3876,7 @@
                     </div>
                     <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
                         <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; color:#555; font-weight:700; white-space:nowrap;">
-                            🔊
+                            
                             <input type="range" class="sound-volume-slider" min="0" max="100" value="${cfg.volume}" step="1"
                                 oninput="this.nextElementSibling.textContent = this.value"
                                 style="width:80px; cursor:pointer; accent-color:#111;">
@@ -4232,7 +4232,7 @@
             }
 
             closeEditSoundsModal();
-            if (typeof mdbToast === 'function') mdbToast('✅ Sounds saved to config.js');
+            if (typeof mdbToast === 'function') mdbToast('Sounds saved to config.js');
         }
 
         async function resetSoundSettings() {
@@ -4244,7 +4244,7 @@
                 showToast('Reset failed: ' + (result?.error || 'Unable to save config.js'), true);
                 return;
             }
-            if (typeof mdbToast === 'function') mdbToast('🔊 Default sounds restored');
+            if (typeof mdbToast === 'function') mdbToast('Default sounds restored');
         }
 
         function toggleHelp() {
@@ -4857,7 +4857,7 @@
             </span>
             <div style="display: flex; gap: 4px; flex-shrink: 0;">
                 <button style="padding: 4px 10px; font-size: 0.75rem; font-weight: 700; background: #16a34a; border: 2px solid #16a34a; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#16a34a';" onmouseout="this.style.background='#16a34a';this.style.color='#fff';" onclick="loadTeamSetup('${escapedTitle}')">Load</button>
-                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteTeamSetup('${escapedTitle}')">✕</button>
+                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteTeamSetup('${escapedTitle}')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
             </div>
         `;
                 container.appendChild(item);
@@ -5365,7 +5365,7 @@
             </span>
             <div style="display: flex; gap: 4px; flex-shrink: 0;">
                 <button style="padding: 4px 10px; font-size: 0.75rem; font-weight: 700; background: #16a34a; border: 2px solid #16a34a; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#16a34a';" onmouseout="this.style.background='#16a34a';this.style.color='#fff';" onclick="loadRolesSetup('${escapedTitle}')">Load</button>
-                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteRolesSetup('${escapedTitle}')">✕</button>
+                <button style="padding: 4px 8px; font-size: 0.75rem; font-weight: 700; background: #dc2626; border: 2px solid #dc2626; color: #fff; border-radius: 4px; cursor: pointer; transition: all 0.12s; font-family: inherit; line-height: 1.2;" onmouseover="this.style.background='#fff';this.style.color='#dc2626';" onmouseout="this.style.background='#dc2626';this.style.color='#fff';" onclick="deleteRolesSetup('${escapedTitle}')"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
             </div>
         `;
                 container.appendChild(item);
@@ -5615,7 +5615,7 @@
             renderRolesLibrary();
 
             if (result?.ok) {
-                mdbToast('✅ Roles saved to config.js');
+                mdbToast('Roles saved to config.js');
                 console.log('config.js saved successfully');
             } else {
                 showToast('Save failed: ' + (result?.error || 'Unable to save config.js'), true);
@@ -10566,7 +10566,7 @@
                     const folderPath = lastSlash !== -1 ? rel.slice(0, lastSlash) : '';
                     const fileName = lastSlash !== -1 ? rel.slice(lastSlash + 1) : rel;
                     const sel = (file === currentFile) ? ' selected' : '';
-                    const folderBadge = folderPath ? `<span class="mp3-picker-folder-tag" style="display:inline-block; font-size:0.62rem; font-weight:700; opacity:0.6; margin-right:4px;">📁 ${escapeSettingsHtml(folderPath)}/</span>` : '';
+                    const folderBadge = folderPath ? `<span class="mp3-picker-folder-tag" style="display:inline-block; font-size:0.62rem; font-weight:700; opacity:0.6; margin-right:4px;">${escapeSettingsHtml(folderPath)}/</span>` : '';
                     return `<button class="mp3-picker-item${sel}" onclick="selectMp3File('${file.replace(/'/g, '\\\'')}')">${folderBadge}<span class="mp3-picker-name">${escapeSettingsHtml(fileName)}</span></button>`;
                 }).join('');
             }
@@ -13611,7 +13611,7 @@ syncState();
                 return `<div class="comment-note-entry">
             <div class="comment-note-time">${n.datetime}</div>
             <div class="comment-note-text">${n.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-            <button class="comment-note-delete" onclick="deleteNote(${realIdx})" title="Delete this note">✕</button>
+            <button class="comment-note-delete" onclick="deleteNote(${realIdx})" title="Delete this note"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
         </div>`;
             }).join('');
         }
@@ -15408,7 +15408,7 @@ syncState();
                 const hasCustom = customMap[def.id] !== undefined;
 
                 const conflictHtml = conflictWith
-                    ? `<span class="skm-conflict-tag" title="${t('shortcuts_conflict') || 'Conflict with'}: ${conflictWith}">⚠️ ${conflictWith}</span>`
+                    ? `<span class="skm-conflict-tag" title="${t('shortcuts_conflict') || 'Conflict with'}: ${conflictWith}">${conflictWith}</span>`
                     : '';
 
                 const keyButtonHtml = isRecording
@@ -15416,7 +15416,7 @@ syncState();
                     : `<button class="skm-btn-key" onclick="startRecordingShortcut('${def.id}', event)" title="${t('shortcuts_rebind_btn') || 'Click to rebind'}">${formatShortcutKeyHtml(sc)}</button>${conflictHtml}`;
 
                 const clearBtnHtml = (sc && sc.key)
-                    ? `<button class="skm-btn-icon-action" onclick="clearShortcutSingle('${def.id}', event)" title="${t('shortcuts_clear_btn') || 'Clear shortcut'}">✕</button>`
+                    ? `<button class="skm-btn-icon-action" onclick="clearShortcutSingle('${def.id}', event)" title="${t('shortcuts_clear_btn') || 'Clear shortcut'}"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>`
                     : '';
 
                 const resetBtnHtml = hasCustom
@@ -16539,7 +16539,7 @@ syncState();
             const sessions = await getTimeMachineSessions({ forceRefresh: true });
 
             if (sessions.length === 0) {
-                container.innerHTML = '<div class="tm-empty">No saved sessions yet.<br>Use 💾 Save to DB to record a session.</div>';
+                container.innerHTML = '<div class="tm-empty">No saved sessions yet.<br>Use Save to DB to record a session.</div>';
                 return;
             }
 
@@ -16580,7 +16580,7 @@ syncState();
                 <div class="tm-session-actions">
                     <button class="tm-btn-load" onclick="loadTimeMachineSession(${i})">👁 View</button>
                     <button class="tm-btn-apply" onclick="applyTimeMachineToNow(${i}, event)">✔ Apply to Now</button>
-                    <button class="tm-btn-delete" onclick="deleteTimeMachineSession(${i}, event)" ${canDelete ? '' : 'disabled title="Log sessions are read-only in Time Machine"'}>✕</button>
+                    <button class="tm-btn-delete" onclick="deleteTimeMachineSession(${i}, event)" ${canDelete ? '' : 'disabled title="Log sessions are read-only in Time Machine"'}><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
                 </div>
             </li>`;
             });
@@ -17344,7 +17344,7 @@ syncState();
                 .map(sanitizeSessionForInteractionExport)
                 .filter(Boolean);
             if (sessions.length === 0) {
-                showToast('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
+                showToast('No active-group sessions to export yet.\nUse Save to DB or Save Active Classes first.');
                 return;
             }
 
@@ -17371,7 +17371,7 @@ syncState();
                 .map(sanitizeSessionForInteractionExport)
                 .filter(Boolean);
             if (sessions.length === 0) {
-                showToast('No active-group sessions to export yet.\nUse 💾 Save to DB or 💾💾 Save Active Classes first.');
+                showToast('No active-group sessions to export yet.\nUse Save to DB or Save Active Classes first.');
                 return;
             }
 

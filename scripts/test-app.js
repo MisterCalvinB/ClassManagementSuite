@@ -175,6 +175,34 @@ test('Main IPC modules export registration functions and contain no emojis', () 
       }
     }
   }
+
+  // Deep cross-audit: verify no js/main/*.js references an electron-main.js top-level symbol without receiving/declaring it
+  const mainSrc = fs.readFileSync(path.join(ROOT, 'electron-main.js'), 'utf8');
+  const mainDefs = new Set();
+  for (const m of mainSrc.matchAll(/^(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/gm)) mainDefs.add(m[1]);
+  for (const m of mainSrc.matchAll(/^(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/gm)) mainDefs.add(m[1]);
+
+  for (const file of walkFiles(path.join(ROOT, 'js', 'main'), '.js')) {
+    const content = fs.readFileSync(file, 'utf8');
+    const fnIdx = content.indexOf('function ');
+    const header = content.slice(0, fnIdx !== -1 ? fnIdx + 1200 : 1200);
+    const innerDefs = new Set();
+    for (const m of content.matchAll(/(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g)) innerDefs.add(m[1]);
+    for (const m of content.matchAll(/(?:const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g)) innerDefs.add(m[1]);
+
+    const fileLines = content.split(/\r?\n/);
+    for (const def of mainDefs) {
+      if (innerDefs.has(def) || def === 'https') continue;
+      if (new RegExp(`\\b${def}\\b`).test(content) && !new RegExp(`\\b${def}\\b`).test(header)) {
+        const realUse = fileLines.some((l) => !l.trim().startsWith('//') && new RegExp(`(?<![.\\w$])${def}(?![\\w$:])`).test(l));
+        assert.equal(
+          realUse,
+          false,
+          `${path.relative(ROOT, file)} references electron-main.js symbol "${def}" without receiving/declaring it`
+        );
+      }
+    }
+  }
 });
 
 test('ImportUtils pure helpers: UUIDs, header normalization, and autoDetectMapping', () => {

@@ -82,8 +82,8 @@
 <nav id="app-nav">
   <span class="nav-brand">Class Plan</span>
   <div id="app-hamburger" class="hm-wrap">
-    <button id="skm-trigger" class="tut-trigger-btn" onclick="ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')})" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button id="tut-trigger" class="tut-trigger-btn" onclick="startCpTutorial()" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+    <button id="skm-trigger" class="tut-trigger-btn" data-ev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+    <button id="tut-trigger" class="tut-trigger-btn" data-ev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
     <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
     <div class="hm-menu"></div>
   </div>
@@ -94,15 +94,15 @@
   <!-- ── Plans sidebar ── -->
   <div id="plans-sidebar">
     <div id="sidebar-header">
-      <select id="group-sel" onchange="onGroupChange(this.value)"></select>
-      <select id="cp-half-sel" style="display:none;" onchange="onHalfChange(this.value)">
+      <select id="group-sel" data-ev-3="1"></select>
+      <select id="cp-half-sel" style="display:none;" data-ev-4="1">
         <option value="" data-i18n="cpHalfAll">— All —</option>
         <option value="A">½ A</option>
         <option value="B">½ B</option>
       </select>
       <div id="cp-active-context" style="display:none; font-size:0.72rem; font-weight:700; color:#888; letter-spacing:0.3px; padding:0 2px;"></div>
-      <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#ffffff;color:#c96b6b;border:1.5px solid var(--neo-border-color);border-radius:6px;font-size:.8rem;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:6px;" onclick="deleteOrphanedGroup()"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> <span data-i18n="cpBtnDelete">Delete orphaned group</span></button>
-      <button id="new-plan-btn" onclick="openNewPlanConfig()" data-i18n="cpNewPlan">+ New Plan</button>
+      <button id="delete-orphan-btn" style="display:none;width:100%;padding:7px;background:#ffffff;color:#c96b6b;border:1.5px solid var(--neo-border-color);border-radius:6px;font-size:.8rem;font-weight:700;cursor:pointer;align-items:center;justify-content:center;gap:6px;" data-ev-5="1"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> <span data-i18n="cpBtnDelete">Delete orphaned group</span></button>
+      <button id="new-plan-btn" data-ev-6="1" data-i18n="cpNewPlan">+ New Plan</button>
     </div>
     <div id="sidebar-body">
       <div id="plans-list"></div>
@@ -123,22 +123,22 @@
           onblur="onNameBlur(this)"></span>
         <span id="editor-plan-meta"></span>
         <div id="editor-actions">
-          <button class="btn-ghost" onclick="randomAssign()" data-i18n-help="hhCpRandom" data-hover-help="Randomly assign students to seats (respecting pinned seats)."><img src="../assets/icons/dice.svg" class="btn-icon" alt="" /> <span data-i18n="cpRandom">Random</span></button>
-          <button class="btn-ghost" id="cp-pin-btn" onclick="cpTogglePin()" style="display:none" data-i18n-help="hhCpPin" data-hover-help="Pin this seating plan to the Launcher quick-access bar."><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="cpPin">Pin</span></button>
-          <button class="btn-ghost" onclick="editPlanSettings()"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="cpSettings">Settings</span></button>
+          <button class="btn-ghost" data-ev-7="1" data-i18n-help="hhCpRandom" data-hover-help="Randomly assign students to seats (respecting pinned seats)."><img src="../assets/icons/dice.svg" class="btn-icon" alt="" /> <span data-i18n="cpRandom">Random</span></button>
+          <button class="btn-ghost" id="cp-pin-btn" data-ev-8="1" style="display:none" data-i18n-help="hhCpPin" data-hover-help="Pin this seating plan to the Launcher quick-access bar."><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="cpPin">Pin</span></button>
+          <button class="btn-ghost" data-ev-9="1"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="cpSettings">Settings</span></button>
           <div class="dropdown" id="cp-export-dropdown" style="display: inline-block;">
-            <button class="btn-ghost" id="cp-export-btn" onclick="toggleExportMenu(event)">
+            <button class="btn-ghost" id="cp-export-btn" data-ev-10="1">
               <span data-i18n="mdbBtnExport">Export</span> ▾
             </button>
             <div class="dropdown-menu hidden" id="cp-export-menu">
-              <button class="dropdown-item" onclick="handleExportClick('pdf')"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
-              <button class="dropdown-item" onclick="handleExportClick('csv')"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
-              <button class="dropdown-item" onclick="handleExportClick('xlsx')"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
-              <button class="dropdown-item" onclick="handleExportClick('docx')"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
-              <button class="dropdown-item" onclick="handleExportClick('html')"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
+              <button class="dropdown-item" data-ev-11="1"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
+              <button class="dropdown-item" data-ev-12="1"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
+              <button class="dropdown-item" data-ev-13="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+              <button class="dropdown-item" data-ev-14="1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
+              <button class="dropdown-item" data-ev-15="1"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
             </div>
           </div>
-          <button class="btn-solid" id="save-btn" onclick="manualSave()" data-i18n="cpSave">Save</button>
+          <button class="btn-solid" id="save-btn" data-ev-16="1" data-i18n="cpSave">Save</button>
         </div>
       </div>
 
@@ -161,23 +161,23 @@
 </div>
 
 <!-- ── Config modal ── -->
-<div id="cfg-modal" class="modal-overlay" onclick="if(event.target===this)closeCfgModal()">
-  <div class="modal-box" onclick="event.stopPropagation()">
-    <button class="modal-close" onclick="closeCfgModal()"><img src="../assets/icons/close.svg" class="btn-icon" alt="Close" style="width:14px;height:14px;" /></button>
+<div id="cfg-modal" class="modal-overlay" data-ev-17="1">
+  <div class="modal-box" data-ev-18="1">
+    <button class="modal-close" data-ev-19="1"><img src="../assets/icons/close.svg" class="btn-icon" alt="Close" style="width:14px;height:14px;" /></button>
     <div id="cfg-title" class="modal-title" data-i18n="cpModalTitleNew">New Plan</div>
     <input type="hidden" id="cfg-edit-id">
 
     <label class="form-label" data-i18n="cpLabelClass">Class</label>
-    <select id="cfg-group" class="form-input" onchange="cpPopulatePlannerSlots(this.value, null)"></select>
+    <select id="cfg-group" class="form-input" data-ev-20="1"></select>
 
     <label class="form-label" data-i18n="cpLabelPlanName">Plan name</label>
     <input type="text" id="cfg-name" class="form-input" data-i18n-placeholder="cpPlaceholderPlanName" placeholder="e.g. Normal Seating" maxlength="60">
 
     <label class="form-label" data-i18n="cpLabelLayout">Layout type</label>
     <div class="layout-btns">
-      <div class="layout-btn active" data-lt="grid" onclick="selectLayoutType('grid')"><img src="../assets/icons/grid.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutGrid">Grid</span></div>
-      <div class="layout-btn" data-lt="ushape" onclick="selectLayoutType('ushape')"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutUShape">U-Shape</span></div>
-      <div class="layout-btn" data-lt="pods" onclick="selectLayoutType('pods')"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutPods">Pods</span></div>
+      <div class="layout-btn active" data-lt="grid" data-ev-21="1"><img src="../assets/icons/grid.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutGrid">Grid</span></div>
+      <div class="layout-btn" data-lt="ushape" data-ev-22="1"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutUShape">U-Shape</span></div>
+      <div class="layout-btn" data-lt="pods" data-ev-23="1"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> <span data-i18n="cpLayoutPods">Pods</span></div>
     </div>
 
     <!-- Grid dims -->
@@ -236,11 +236,11 @@
 
     <label class="form-label" data-i18n="cpLabelRoom">Room number</label>
     <div style="display:flex; gap:8px; align-items:center; margin-bottom: 10px;">
-      <input type="text" id="cfg-room" class="form-input" style="flex:1; margin-bottom:0;" data-i18n-placeholder="cpPlaceholderRoom" placeholder="e.g. B204" maxlength="30" oninput="onRoomInputChanged()">
-      <select id="cfg-saved-layouts" class="form-input" style="width:180px; margin-bottom:0;" onchange="onSavedLayoutSelect(this.value)">
+      <input type="text" id="cfg-room" class="form-input" style="flex:1; margin-bottom:0;" data-i18n-placeholder="cpPlaceholderRoom" placeholder="e.g. B204" maxlength="30" data-ev-24="1">
+      <select id="cfg-saved-layouts" class="form-input" style="width:180px; margin-bottom:0;" data-ev-25="1">
         <option value="" data-i18n="cpLabelLoadLayout">— Load Room Layout —</option>
       </select>
-      <button type="button" id="cfg-delete-layout-btn" class="btn-ghost" style="padding: 0 10px; margin-bottom:0; display:none; height: 36px; border: 1.5px solid var(--neo-border-color); border-radius: 4px;" onclick="deleteSavedLayout()" data-hover-help="Delete this classroom layout"><img src="../assets/icons/delete.svg" class="btn-icon" alt="Delete" style="width:14px;height:14px;" /></button>
+      <button type="button" id="cfg-delete-layout-btn" class="btn-ghost" style="padding: 0 10px; margin-bottom:0; display:none; height: 36px; border: 1.5px solid var(--neo-border-color); border-radius: 4px;" data-ev-26="1" data-hover-help="Delete this classroom layout"><img src="../assets/icons/delete.svg" class="btn-icon" alt="Delete" style="width:14px;height:14px;" /></button>
     </div>
 
     <label class="form-label" data-i18n="cpLabelNameDisplay">Name display on desks</label>
@@ -256,7 +256,7 @@
 
     <label class="form-label" data-i18n="cpLabelSchedule">Weekly schedule</label>
     <div id="cfg-schedule-slots"></div>
-    <button class="add-slot-btn" onclick="addScheduleSlot()" data-i18n="cpAddSlot">+ Add slot</button>
+    <button class="add-slot-btn" data-ev-27="1" data-i18n="cpAddSlot">+ Add slot</button>
 
     <div style="margin-top:13px;display:flex;align-items:center;gap:8px;">
       <input type="checkbox" id="cfg-temp" style="width:16px;height:16px;cursor:pointer;">
@@ -264,19 +264,19 @@
     </div>
 
     <div class="modal-actions">
-      <button class="btn-ghost" style="background:#fff;" onclick="closeCfgModal()" data-i18n="cpBtnCancel">Cancel</button>
-      <button class="btn-solid" onclick="confirmPlanConfig()" data-i18n="cpBtnOpenEditor">Open Editor →</button>
+      <button class="btn-ghost" style="background:#fff;" data-ev-28="1" data-i18n="cpBtnCancel">Cancel</button>
+      <button class="btn-solid" data-ev-29="1" data-i18n="cpBtnOpenEditor">Open Editor →</button>
     </div>
   </div>
 </div>
 
 <!-- ── Confirm dialog ── -->
-<div id="cp-confirm" onclick="if(event.target===this)_cfmCancel()">
+<div id="cp-confirm" data-ev-30="1">
   <div id="cp-confirm-box">
     <div id="cp-confirm-msg"></div>
     <div id="cp-confirm-btns">
-      <button class="btn-ghost" style="background:#fff;" onclick="_cfmCancel()" data-i18n="cpBtnCancel">Cancel</button>
-      <button class="btn-solid" onclick="_cfmOk()" data-i18n="cpBtnConfirm">Confirm</button>
+      <button class="btn-ghost" style="background:#fff;" data-ev-31="1" data-i18n="cpBtnCancel">Cancel</button>
+      <button class="btn-solid" data-ev-32="1" data-i18n="cpBtnConfirm">Confirm</button>
     </div>
   </div>
 </div>
@@ -2010,7 +2010,203 @@ function buildPrintHtml(plan, isContentEditable) {
     body +
     teacherDeskHtml +
     '<footer>' + esc(footerText) + '</footer>' +
-    '</body></html>';
+    '<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    (function () {
+      var el = document.querySelector('[data-ev-1]');
+      if (!el) return;
+      var handler = function (event) { ShortcutsModal.open({title:t('skmTitle'),rows:[],noShortcutsText:t('skmNone')}) };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-2]');
+      if (!el) return;
+      var handler = function (event) { startCpTutorial() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-3]');
+      if (!el) return;
+      var handler = function (event) { onGroupChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-4]');
+      if (!el) return;
+      var handler = function (event) { onHalfChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-5]');
+      if (!el) return;
+      var handler = function (event) { deleteOrphanedGroup() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-6]');
+      if (!el) return;
+      var handler = function (event) { openNewPlanConfig() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-7]');
+      if (!el) return;
+      var handler = function (event) { randomAssign() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-8]');
+      if (!el) return;
+      var handler = function (event) { cpTogglePin() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-9]');
+      if (!el) return;
+      var handler = function (event) { editPlanSettings() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-10]');
+      if (!el) return;
+      var handler = function (event) { toggleExportMenu(event) };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-11]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('pdf') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-12]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('csv') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-13]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('xlsx') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-14]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('docx') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-15]');
+      if (!el) return;
+      var handler = function (event) { handleExportClick('html') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-16]');
+      if (!el) return;
+      var handler = function (event) { manualSave() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-17]');
+      if (!el) return;
+      var handler = function (event) { if(event.target===this)closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-18]');
+      if (!el) return;
+      var handler = function (event) { event.stopPropagation() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-19]');
+      if (!el) return;
+      var handler = function (event) { closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-20]');
+      if (!el) return;
+      var handler = function (event) { cpPopulatePlannerSlots(this.value, null) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-21]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('grid') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-22]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('ushape') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-23]');
+      if (!el) return;
+      var handler = function (event) { selectLayoutType('pods') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-24]');
+      if (!el) return;
+      var handler = function (event) { onRoomInputChanged() };
+      el.addEventListener('input', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-25]');
+      if (!el) return;
+      var handler = function (event) { onSavedLayoutSelect(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-26]');
+      if (!el) return;
+      var handler = function (event) { deleteSavedLayout() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-27]');
+      if (!el) return;
+      var handler = function (event) { addScheduleSlot() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-28]');
+      if (!el) return;
+      var handler = function (event) { closeCfgModal() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-29]');
+      if (!el) return;
+      var handler = function (event) { confirmPlanConfig() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-30]');
+      if (!el) return;
+      var handler = function (event) { if(event.target===this)_cfmCancel() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-31]');
+      if (!el) return;
+      var handler = function (event) { _cfmCancel() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-32]');
+      if (!el) return;
+      var handler = function (event) { _cfmOk() };
+      el.addEventListener('click', handler);
+    })();
+  });
+</script>
+</body></html>';
 }
 
 // ── Schedule ──────────────────────────────────────────────────────────────────
