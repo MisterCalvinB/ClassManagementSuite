@@ -14639,6 +14639,27 @@
         popup.style.maxHeight = Math.max(160, window.innerHeight - my - 8) + 'px';
       }
 
+      async function _conSyncWebBookmark(title, url, tags, existingBookmarkId) {
+        if (typeof BookmarksService === 'undefined' || !url) return null;
+        try {
+          if (existingBookmarkId && typeof BookmarksService.update === 'function') {
+            const updated = await BookmarksService.update(existingBookmarkId, { title, url, tags });
+            if (updated) return updated;
+          }
+          if (typeof BookmarksService.getAll === 'function') {
+            const all = await BookmarksService.getAll();
+            const normUrl = String(url).trim().toLowerCase();
+            const match = Array.isArray(all) ? all.find(b => b && b.url && String(b.url).trim().toLowerCase() === normUrl) : null;
+            if (match && typeof BookmarksService.update === 'function') {
+              return await BookmarksService.update(match.id, { title, url, tags });
+            }
+          }
+          return await BookmarksService.add({ title, url, tags });
+        } catch (_) {
+          return null;
+        }
+      }
+
       function conAddLinkNodeAt(linkData, x, y, pageNum) {
         const title = (linkData && (linkData.title || linkData.text || linkData.url)) || 'Link';
         const id = conAddWordAt(title, x, y, pageNum);
@@ -14651,6 +14672,7 @@
         node.linkTitle = (linkData && linkData.title) || title;
         node.linkSubTitle = (linkData && (linkData.subtitle || linkData.subTitle || linkData.domain)) || '';
         node.linkUrn = (linkData && linkData.urn) || '';
+        node.bookmarkId = (linkData && linkData.bookmarkId) || null;
         node.tags = Array.isArray(linkData && linkData.tags) ? [...linkData.tags] : [];
 
         conRenderNodeLabel(node);
@@ -14686,7 +14708,9 @@
       }
 
       async function conActivateLinkNode(nodeOrId) {
-        const node = (typeof nodeOrId === 'object' && nodeOrId) ? nodeOrId : (conNodes || []).find(n => n && n.id === nodeOrId);
+        const node = (typeof nodeOrId === 'object' && nodeOrId)
+          ? nodeOrId
+          : (conNodes || []).find(n => n && (n.id === nodeOrId || String(n.id) === String(nodeOrId)));
         if (!node) return;
 
         const linkType = node.linkType || 'web';
@@ -14876,6 +14900,11 @@
         }
 
         // 5. Web URL (Default)
+        if (!target) return;
+        if (/^(?:javascript|vbscript|data):/i.test(target)) {
+          if (typeof showToast === 'function') showToast('Blocked unsafe URL scheme', true);
+          return;
+        }
         let url = target;
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         if (window.Desktop && typeof Desktop.openWebWindow === 'function') {
@@ -14889,6 +14918,10 @@
       window.conActivateLinkNode = global.conActivateLinkNode = conActivateLinkNode;
 
       window.conLinkStyleOpen = function (e, node) {
+        if (typeof conCtxClose === 'function') conCtxClose();
+        else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+
         _conActiveLinkNode = node;
         var overlay = document.getElementById('con-link-style-overlay');
         var popup = document.getElementById('con-link-style-popup');
@@ -14950,7 +14983,12 @@
         var node = _conActiveLinkNode;
         window.conLinkStyleDismiss();
         if (!node) return;
-        let url = node.linkTarget || '';
+        let url = String(node.linkTarget || '').trim();
+        if (!url) return;
+        if (/^(?:javascript|vbscript|data):/i.test(url)) {
+          if (typeof showToast === 'function') showToast('Blocked unsafe URL scheme', true);
+          return;
+        }
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         if (window.Desktop && typeof Desktop.openWebWindow === 'function') {
           Desktop.openWebWindow(url, node.linkTitle || node.baseWord);
@@ -14963,7 +15001,12 @@
         var node = _conActiveLinkNode;
         window.conLinkStyleDismiss();
         if (!node) return;
-        let url = node.linkTarget || '';
+        let url = String(node.linkTarget || '').trim();
+        if (!url) return;
+        if (/^(?:javascript|vbscript|data):/i.test(url)) {
+          if (typeof showToast === 'function') showToast('Blocked unsafe URL scheme', true);
+          return;
+        }
         if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
         if (window.Desktop && typeof Desktop.openExternal === 'function') {
           Desktop.openExternal(url);
@@ -15011,9 +15054,11 @@
         window.conLinkStyleDismiss();
         if (!node) return;
         const target = node.linkTarget || node.linkUrn || '';
-        if (target && navigator.clipboard) {
+        if (target && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
           navigator.clipboard.writeText(target).then(() => {
             if (typeof showToast === 'function') showToast(typeof i18n !== 'undefined' ? i18n.t('conLinkTargetCopied') || 'Target copied to clipboard' : 'Target copied to clipboard');
+          }).catch(() => {
+            if (typeof showToast === 'function') showToast('Clipboard unavailable', true);
           });
         }
       };
@@ -15030,12 +15075,14 @@
         if (!_conActiveLinkNode) return;
         _conActiveLinkNode.locked = !_conActiveLinkNode.locked;
         if (_conActiveLinkNode.el) _conActiveLinkNode.el.classList.toggle('con-locked', !!_conActiveLinkNode.locked);
+        if (typeof conSyncNodeLockState === 'function') conSyncNodeLockState(_conActiveLinkNode);
         var btn = document.getElementById('con-link-sp-lock-btn');
         if (btn) {
           btn.innerHTML = '<img src="../assets/icons/' + (_conActiveLinkNode.locked ? 'unlock' : 'lock') + '.svg" class="btn-icon" alt="" />';
           btn.classList.toggle('active', !!_conActiveLinkNode.locked);
           btn.title = _conActiveLinkNode.locked ? 'Unlock' : 'Lock';
         }
+        if (typeof conPushUndo === 'function') conPushUndo();
       };
 
       window.conLinkSpDelete = function () {
@@ -15057,6 +15104,11 @@
       var _conLinkModalDocRawItems = [];
 
       window.conOpenLinkEditModal = async function (node) {
+        if (typeof conCtxClose === 'function') conCtxClose();
+        else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+        if (typeof window.conLinkStyleDismiss === 'function') window.conLinkStyleDismiss();
+
         _conLinkModalTargetNode = node || null;
         var modal = document.getElementById('con-link-edit-modal');
         if (!modal) return;
@@ -15106,6 +15158,9 @@
 
         _populateLinkModalLists(node);
         modal.style.display = 'flex';
+        if (initialType === 'web' && webUrlInput) {
+          setTimeout(() => { try { webUrlInput.focus(); webUrlInput.select(); } catch (_) {} }, 30);
+        }
       };
 
       window.conCloseLinkEditModal = function () {
@@ -15146,14 +15201,15 @@
         }
 
         const rootLabel = typeof i18n !== 'undefined' ? i18n.t('conLinkBreadcrumbRoot') || 'Root' : 'Root';
+        const folderIcon = '<img src="../assets/icons/folder.svg" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" alt="" />';
 
         if (!curPath) {
-          bcContainer.innerHTML = `<span class="cle-crumb-current">📁 ${escHtml(rootLabel)}</span>`;
+          bcContainer.innerHTML = `<span class="cle-crumb-current">${folderIcon}${escHtml(rootLabel)}</span>`;
           return;
         }
 
         const parts = curPath.split('/').filter(Boolean);
-        let html = `<span class="cle-crumb-link" onclick="conLinkModalNavToPath('${type}', '')">📁 ${escHtml(rootLabel)}</span>`;
+        let html = `<span class="cle-crumb-link" data-nav-type="${escHtml(type)}" data-nav-path="" onclick="conLinkModalNavToPath(this.dataset.navType, this.dataset.navPath)">${folderIcon}${escHtml(rootLabel)}</span>`;
 
         let cumPath = '';
         parts.forEach((p, idx) => {
@@ -15163,7 +15219,7 @@
             html += `<span class="cle-crumb-current">${escHtml(p)}</span>`;
           } else {
             const thisPath = cumPath;
-            html += `<span class="cle-crumb-link" onclick="conLinkModalNavToPath('${type}', '${escHtml(thisPath)}')">${escHtml(p)}</span>`;
+            html += `<span class="cle-crumb-link" data-nav-type="${escHtml(type)}" data-nav-path="${escHtml(thisPath)}" onclick="conLinkModalNavToPath(this.dataset.navType, this.dataset.navPath)">${escHtml(p)}</span>`;
           }
         });
 
@@ -15443,15 +15499,15 @@
           bHtml += `<div class="cle-folder-row" onclick="conLinkModalNavUp('board')" style="background:#f8fafc;font-weight:700;color:#475569;">
             <img src="../assets/icons/folder.svg" style="width:15px;height:15px;opacity:0.7;" alt="" />
             <span>.. (${escHtml(upText)})</span>
-            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">⬆</span>
+            <img src="../assets/icons/arrow-up.svg" style="width:12px;height:12px;opacity:0.6;margin-left:auto;" alt="" />
           </div>`;
         }
 
         sortedDirs.forEach(d => {
-          bHtml += `<div class="cle-folder-row" onclick="conLinkModalNavEnter('board', '${escHtml(d.name)}')" title="Open folder">
+          bHtml += `<div class="cle-folder-row" data-nav-type="board" data-nav-path="${escHtml(d.name)}" onclick="conLinkModalNavEnter(this.dataset.navType, this.dataset.navPath)" title="Open folder">
             <img src="../assets/icons/folder.svg" style="width:16px;height:16px;" alt="" />
             <strong>${escHtml(d.name)}</strong>
-            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">Folder ▶</span>
+            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;display:inline-flex;align-items:center;gap:3px;">Folder <img src="../assets/icons/arrow-right.svg" style="width:10px;height:10px;opacity:0.75;" alt="" /></span>
           </div>`;
         });
 
@@ -15551,15 +15607,15 @@
           dHtml += `<div class="cle-folder-row" onclick="conLinkModalNavUp('doc')" style="background:#f8fafc;font-weight:700;color:#475569;">
             <img src="../assets/icons/folder.svg" style="width:15px;height:15px;opacity:0.7;" alt="" />
             <span>.. (${escHtml(upText)})</span>
-            <span style="font-size:0.75rem;opacity:0.6;margin-left:auto;">⬆</span>
+            <img src="../assets/icons/arrow-up.svg" style="width:12px;height:12px;opacity:0.6;margin-left:auto;" alt="" />
           </div>`;
         }
 
         sortedDirs.forEach(d => {
-          dHtml += `<div class="cle-folder-row" onclick="conLinkModalNavEnter('doc', '${escHtml(d.name)}')" title="Open folder">
+          dHtml += `<div class="cle-folder-row" data-nav-type="doc" data-nav-path="${escHtml(d.name)}" onclick="conLinkModalNavEnter(this.dataset.navType, this.dataset.navPath)" title="Open folder">
             <img src="../assets/icons/folder.svg" style="width:16px;height:16px;" alt="" />
             <strong>${escHtml(d.name)}</strong>
-            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;">Folder ▶</span>
+            <span style="font-size:0.7rem;font-weight:700;color:#64748b;margin-left:auto;background:#e2e8f0;border:1px solid #cbd5e1;padding:1px 6px;border-radius:10px;display:inline-flex;align-items:center;gap:3px;">Folder <img src="../assets/icons/arrow-right.svg" style="width:10px;height:10px;opacity:0.75;" alt="" /></span>
           </div>`;
         });
 
@@ -15621,6 +15677,8 @@
         let urn = '';
         let tags = [];
 
+        let bookmarkId = (_conLinkModalTargetNode && _conLinkModalTargetNode.bookmarkId) || null;
+
         if (tab === 'web') {
           lType = 'web';
           const uInput = document.getElementById('cle-web-url');
@@ -15631,16 +15689,31 @@
             if (typeof showToast === 'function') showToast('Please enter a URL', true);
             return;
           }
+          if (/^(?:javascript|vbscript|data):/i.test(target)) {
+            if (typeof showToast === 'function') showToast('Blocked unsafe URL scheme', true);
+            return;
+          }
           if (!/^https?:\/\//i.test(target)) target = 'https://' + target;
           let domain = '';
           try { domain = new URL(target).hostname.replace(/^www\./i, ''); } catch (_) {}
           title = (tInput && tInput.value.trim()) ? tInput.value.trim() : (domain || target);
           subtitle = domain;
           if (tagsInput && tagsInput.value.trim()) {
-            tags = tagsInput.value.split(/[,\s]+/).map(t => t.trim().startsWith('#') ? t.trim() : '#' + t.trim()).filter(Boolean);
+            const seenTags = new Set();
+            tagsInput.value.split(/[,\s]+/).forEach(raw => {
+              const clean = raw.trim();
+              if (!clean || clean === '#') return;
+              const norm = (clean.startsWith('#') ? clean : '#' + clean).toLowerCase();
+              if (!seenTags.has(norm)) {
+                seenTags.add(norm);
+                tags.push(norm);
+              }
+            });
           }
-          if (typeof BookmarksService !== 'undefined') {
-            await BookmarksService.add({ title, url: target, tags });
+          const bm = await _conSyncWebBookmark(title, target, tags, bookmarkId);
+          if (bm && bm.id) {
+            bookmarkId = bm.id;
+            urn = 'cmt:bookmark:' + bm.id;
           }
         } else if (tab === 'canvas') {
           lType = 'canvas';
@@ -15691,13 +15764,20 @@
 
         if (_conLinkModalTargetNode) {
           const node = _conLinkModalTargetNode;
+          node.isRandom = false;
+          node.isTimer = false;
+          node.isSound = false;
+          node.isVideo = false;
           node.isLink = true;
           node.linkType = lType;
           node.linkTarget = target;
           node.linkTitle = title;
           node.linkSubTitle = subtitle;
           node.linkUrn = urn;
+          node.bookmarkId = (lType === 'web') ? bookmarkId : null;
           node.tags = tags;
+          node.baseWord = title;
+          if (node.el) node.el.dataset.baseWord = title;
           conRenderNodeLabel(node);
           if (typeof conPushUndo === 'function') conPushUndo();
           if (typeof showToast === 'function') showToast('Link updated');
@@ -15711,6 +15791,7 @@
             target,
             subtitle,
             urn,
+            bookmarkId: (lType === 'web') ? bookmarkId : null,
             tags
           }, cx, cy);
           if (typeof showToast === 'function') showToast('Link node created');
@@ -21054,16 +21135,19 @@
           if (/^https?:\/\/[^\s]+$/i.test(plain) && typeof window.conAddLinkNodeAt === 'function') {
             let domain = '';
             try { domain = new URL(plain).hostname.replace(/^www\./i, ''); } catch (_) { domain = 'Web Link'; }
-            window.conAddLinkNodeAt({
+            const newId = window.conAddLinkNodeAt({
               title: domain,
               url: plain,
               linkType: 'web',
               subtitle: domain,
               tags: ['#web']
             }, x, y);
-            if (typeof BookmarksService !== 'undefined') {
-              BookmarksService.add({ title: domain, url: plain, tags: ['#web'] });
-            }
+            _conSyncWebBookmark(domain, plain, ['#web'], null).then(bm => {
+              if (bm && bm.id) {
+                const n = conNodes.find(it => it && it.id === newId);
+                if (n) { n.bookmarkId = bm.id; n.linkUrn = 'cmt:bookmark:' + bm.id; }
+              }
+            });
             if (typeof showToast === 'function') showToast('Created link node from URL');
             return;
           }
@@ -22130,16 +22214,19 @@
             const dropY = e.clientY - brdRect.top + brd.scrollTop;
             let domain = '';
             try { domain = new URL(cleanUrl).hostname.replace(/^www\./i, ''); } catch (_) { domain = 'Web Link'; }
-            window.conAddLinkNodeAt({
+            const newId = window.conAddLinkNodeAt({
               title: domain,
               url: cleanUrl,
               linkType: 'web',
               subtitle: domain,
               tags: ['#web']
             }, dropX, dropY);
-            if (typeof BookmarksService !== 'undefined') {
-              BookmarksService.add({ title: domain, url: cleanUrl, tags: ['#web'] });
-            }
+            _conSyncWebBookmark(domain, cleanUrl, ['#web'], null).then(bm => {
+              if (bm && bm.id) {
+                const n = conNodes.find(it => it && it.id === newId);
+                if (n) { n.bookmarkId = bm.id; n.linkUrn = 'cmt:bookmark:' + bm.id; }
+              }
+            });
             if (typeof showToast === 'function') showToast('Created link node from dropped URL');
             return;
           }

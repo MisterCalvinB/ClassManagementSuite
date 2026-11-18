@@ -45,9 +45,13 @@
     window.escapeHtml = escapeHtml;
   }
 
+  function _isPagesPath() {
+    return typeof window !== 'undefined' && window.location && window.location.pathname &&
+      (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+  }
+
   function getLinksIconPath() {
-    var isSubPage = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
-    return (isSubPage ? '../' : '') + 'assets/icons/links.svg';
+    return (_isPagesPath() ? '../' : '') + 'assets/icons/links.svg';
   }
 
   function ensureStylesheet() {
@@ -56,9 +60,48 @@
     link.id = 'cmt-tag-link-modal-css';
     link.rel = 'stylesheet';
     // Handle both root-relative and subfolder-relative paths
-    var isSubPage = window.location.pathname.includes('/pages/');
-    link.href = (isSubPage ? '../' : '') + 'css/tag-link-modal.css';
+    link.href = (_isPagesPath() ? '../' : '') + 'css/tag-link-modal.css';
     document.head.appendChild(link);
+  }
+
+  var _escapeListenerAttached = false;
+  function ensureEscapeListener() {
+    if (_escapeListenerAttached || typeof window === 'undefined') return;
+    _escapeListenerAttached = true;
+    window.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape') return;
+      var preview = document.getElementById('cmt-preview-modal-overlay');
+      if (preview && preview.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        closePreview();
+        return;
+      }
+      var dossierPdf = document.getElementById('cmt-dossier-pdf-modal-overlay');
+      if (dossierPdf && dossierPdf.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        closeDossierPdfExportModal();
+        return;
+      }
+      var dossierOverlay = document.getElementById('cmt-dossier-modal-overlay');
+      if (dossierOverlay && dossierOverlay.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        closeStudentDossier();
+        return;
+      }
+      var linkOverlay = document.getElementById('cmt-link-modal-overlay');
+      if (linkOverlay && linkOverlay.classList.contains('open')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        close();
+      }
+    });
   }
 
   function ensureModalDom() {
@@ -207,28 +250,14 @@
     });
     filePicker.addEventListener('change', handleFilePicked);
 
-    // Escape Key Listener
-    window.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        var preview = document.getElementById('cmt-preview-modal-overlay');
-        if (preview && preview.classList.contains('open')) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          closePreview();
-        } else if (overlay && overlay.classList.contains('open')) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          close();
-        }
-      }
-    });
+    // Escape Key Listener (shared across all TagLinkModal overlays)
+    ensureEscapeListener();
   }
 
   function ensurePreviewDom() {
     if (document.getElementById('cmt-preview-modal-overlay')) return;
     ensureStylesheet();
+    ensureEscapeListener();
 
     var overlay = document.createElement('div');
     overlay.id = 'cmt-preview-modal-overlay';
@@ -409,8 +438,8 @@
       btn.className = 'cmt-lm-existing-tag-chip';
       btn.title = t('lmClickToAdd', 'Click to add tag');
       btn.innerHTML =
-        '<span class="cmt-lm-chip-label">+ ' + item.tag + '</span>' +
-        (item.count ? '<span class="cmt-lm-chip-count">' + item.count + '</span>' : '');
+        '<span class="cmt-lm-chip-label">+ ' + escapeHtml(item.tag) + '</span>' +
+        (item.count ? '<span class="cmt-lm-chip-count">' + escapeHtml(item.count) + '</span>' : '');
       btn.addEventListener('click', async function(ev) {
         ev.preventDefault();
         if (!_currentOpts || !window.LinksService) return;
@@ -609,7 +638,7 @@
           var groupHdr = document.createElement('div');
           groupHdr.className = 'cmt-lm-type-group-hdr';
           groupHdr.innerHTML =
-            '<span class="cmt-lm-type-group-title">' + b.title + '</span>' +
+            '<span class="cmt-lm-type-group-title">' + escapeHtml(b.title) + '</span>' +
             '<span class="cmt-lm-type-group-count">' + b.items.length + '</span>';
           groupWrap.appendChild(groupHdr);
 
@@ -747,10 +776,10 @@
         '<div class="cmt-lm-link-info">' +
           '<div class="cmt-lm-link-title-line">' +
             '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' +
-            '<span class="' + badgeClass + '">' + badgeText + '</span>' +
-            '<span class="cmt-lm-link-title">' + title + '</span>' +
+            '<span class="' + badgeClass + '">' + escapeHtml(badgeText) + '</span>' +
+            '<span class="cmt-lm-link-title">' + escapeHtml(title) + '</span>' +
           '</div>' +
-          (sub ? '<span class="cmt-lm-link-sub">' + sub + '</span>' : '') +
+          (sub ? '<span class="cmt-lm-link-sub">' + escapeHtml(sub) + '</span>' : '') +
         '</div>' +
         '<div class="cmt-lm-link-actions">' +
           dossierActionBtn +
@@ -2073,10 +2102,10 @@
       '<div class="cmt-lm-link-info">' +
         '<div class="cmt-lm-link-title-line">' +
           (isAlreadyLinked ? '<img src="' + iconSrc + '" class="cmt-lm-ref-icon" alt="" />' : '') +
-          '<span class="cmt-lm-badge">' + item.badge + '</span>' +
-          '<span class="cmt-lm-link-title">' + displayTitle + '</span>' +
+          '<span class="cmt-lm-badge">' + escapeHtml(item.badge) + '</span>' +
+          '<span class="cmt-lm-link-title">' + escapeHtml(displayTitle) + '</span>' +
         '</div>' +
-        '<span class="cmt-lm-link-sub">' + item.subtitle + '</span>' +
+        '<span class="cmt-lm-link-sub">' + escapeHtml(item.subtitle) + '</span>' +
       '</div>' +
       '<div style="display:flex;align-items:center;gap:4px;">' +
         candDossierBtn +
@@ -2277,7 +2306,7 @@
   // ── Embedded Previewer Modal ────────────────────────────────────────────────
   async function ensurePdfjsLib() {
     if (window._cmtPdfjsLib) return window._cmtPdfjsLib;
-    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var isSubPage = _isPagesPath();
     var prefix = isSubPage ? '../' : '';
     try {
       var mod = await import(prefix + 'modules/pdf.min.mjs');
@@ -2307,7 +2336,7 @@
     titleEl.textContent = title || cleanPath.split('/').pop() || 'FILE PREVIEW';
     pathEl.textContent = cleanPath;
 
-    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var isSubPage = _isPagesPath();
     var rootPrefix = isSubPage ? '../' : '';
 
     // Resolve URL for media / iframe
@@ -2319,6 +2348,13 @@
         resolvedUrl = rootPrefix + 'user/' + cleanPath;
       }
     }
+
+    openOsBtn.onclick = function() {
+      openInOs(cleanPath);
+    };
+
+    overlay.classList.add('open');
+    if (document.body) document.body.classList.add('cmt-modal-open');
 
     var lower = cleanPath.toLowerCase();
     if (lower.endsWith('.pdf')) {
@@ -2489,9 +2525,9 @@
     } else {
       bodyEl.classList.remove('is-pdf');
       if (lower.endsWith('.png') || lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.webp') || lower.endsWith('.svg')) {
-        bodyEl.innerHTML = '<img src="' + resolvedUrl + '" alt="Preview" />';
+        bodyEl.innerHTML = '<img src="' + escapeHtml(resolvedUrl) + '" alt="Preview" />';
       } else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg') || lower.endsWith('.m4a')) {
-        bodyEl.innerHTML = '<audio controls autoplay src="' + resolvedUrl + '"></audio>';
+        bodyEl.innerHTML = '<audio controls autoplay src="' + escapeHtml(resolvedUrl) + '"></audio>';
       } else {
         bodyEl.innerHTML =
           '<div class="cmt-lm-empty">' +
@@ -2506,25 +2542,18 @@
         }
       }
     }
-
-    openOsBtn.onclick = function() {
-      openInOs(cleanPath);
-    };
-
-    overlay.classList.add('open');
-    if (document.body) document.body.classList.add('cmt-modal-open');
   }
 
   function openInOs(filePath) {
     if (!filePath) return;
     var clean = String(filePath).trim().replace(/^cmt:(?:file|doc|document|submission|handout):/i, '');
-    if (window.Desktop && typeof window.Desktop.openPath === 'function') {
+    var isElectronEnv = window.Desktop && typeof window.Desktop.isElectron === 'function' && window.Desktop.isElectron();
+    if (isElectronEnv && typeof window.Desktop.openPath === 'function') {
       window.Desktop.openPath(clean);
-    } else if (window.Desktop && typeof window.Desktop.openNative === 'function') {
+    } else if (isElectronEnv && typeof window.Desktop.openNative === 'function') {
       window.Desktop.openNative(clean);
     } else {
-      var isSub = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
-      var prefix = isSub ? '../' : '';
+      var prefix = _isPagesPath() ? '../' : '';
       var url = clean.startsWith('http') || clean.startsWith('/') ? clean : (prefix + (clean.startsWith('user/') ? clean : ('user/' + clean)));
       window.open(url, '_blank');
     }
@@ -2628,6 +2657,7 @@
   function ensureDossierDom() {
     if (document.getElementById('cmt-dossier-modal-overlay')) return;
     ensureStylesheet();
+    ensureEscapeListener();
 
     var iconSrc = getLinksIconPath();
     var isSubPage = typeof window !== 'undefined' && window.location.pathname.includes('/pages/');
@@ -3091,6 +3121,7 @@
   function ensureDossierPdfModalDom() {
     if (document.getElementById('cmt-dossier-pdf-modal-overlay')) return;
     ensureStylesheet();
+    ensureEscapeListener();
 
     var overlay = document.createElement('div');
     overlay.id = 'cmt-dossier-pdf-modal-overlay';
@@ -3312,7 +3343,8 @@
       await ensureBoardExportService();
       for (var i = 0; i < options.selectedBoards.length; i++) {
         var bUrn = options.selectedBoards[i];
-        if (!_dossierMindmapCache[bUrn]) {
+        var bRel = normalizeMindmapRelPath(bUrn);
+        if (bRel && !_dossierMindmapCache[bRel]) {
           await loadBoardMindmapData(bUrn);
         }
       }
@@ -3953,8 +3985,8 @@
       return true;
     });
 
-    // Recompute accurate performance averages if specific evaluations are filtered for export
-    if (selectedEvalsSet && filteredEvals.length !== evals.length) {
+    // Recompute accurate performance averages if specific evaluations or semester are filtered for export
+    if ((selectedEvalsSet || semFilter !== 'all') && filteredEvals.length !== evals.length) {
       function calcExportSemAvg(tList) {
         var fixedSum = 0, fixedPct = 0, normalSum = 0, normalWeight = 0, scoredCount = 0;
         tList.forEach(function(t) {
@@ -4044,7 +4076,7 @@
     var pageSize = options.pageSize === 'Letter' ? 'letter' : 'A4';
     var orientation = options.orientation === 'landscape' ? 'landscape' : 'portrait';
     var baseFontSize = options.fontScale === 'sm' ? '8.5pt' : (options.fontScale === 'lg' ? '10.5pt' : '9.5pt');
-    var isSubPage = typeof window !== 'undefined' && window.location.pathname && (window.location.pathname.includes('/pages/') || window.location.pathname.includes('\\pages\\'));
+    var isSubPage = _isPagesPath();
     var rootPrefix = isSubPage ? '../' : '';
 
     var html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="utf-8">\n<title>' + esc(st.name || 'Student') + ' — ' + esc(t('lmDossierPdfDocHeader', 'Academic Dossier') || 'Academic Dossier') + '</title>\n' +
@@ -4523,7 +4555,7 @@
               (evItem.subtitle && !isGsTest ? ('<div class="pdf-item-sub">' + esc(evItem.subtitle) + '</div>') : '');
 
           if (options.includeNotes !== false && notes.length > 0) {
-            html += '<div class="pdf-item-notes">💬 ' + esc(notes.join(' • ')) + '</div>';
+            html += '<div class="pdf-item-notes">[NOTE] ' + esc(notes.join(' • ')) + '</div>';
           }
 
           if (options.includeCriteria !== false && critList.length > 0 && Object.keys(critRes).length > 0) {
@@ -4724,7 +4756,7 @@
       }
 
       if (options.includePtNotes !== false && pt.notes && pt.notes.length > 0) {
-        html += '<div class="pdf-item-notes" style="margin-bottom:6px;">💬 <b>' + esc(t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</b> ' + esc(pt.notes.join(' • ')) + '</div>';
+        html += '<div class="pdf-item-notes" style="margin-bottom:6px;">[NOTE] <b>' + esc(t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</b> ' + esc(pt.notes.join(' • ')) + '</div>';
       }
 
       if (options.includePtSessions !== false && filteredPtSessions.length > 0) {
@@ -4753,7 +4785,7 @@
             if (bNames.length > 0) detailsParts.push('[' + bNames.join(', ') + ']');
           }
           if (ps.notes) {
-            detailsParts.push('💬 ' + ps.notes);
+            detailsParts.push('[NOTE] ' + ps.notes);
           }
           html +=
             '<tr>' +
@@ -5098,6 +5130,28 @@
       } catch (err) {
         console.error('exportDossierMindmapsPdf error:', err);
       }
+    } else {
+      var win = window.open('', '_blank');
+      if (win && win.document) {
+        win.document.write(fullHtml);
+        win.document.close();
+        win.focus();
+        setTimeout(function() {
+          try { win.print(); } catch (e) {}
+        }, 400);
+      } else {
+        var blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = defaultName.replace(/\.pdf$/, '.html');
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(function() {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
+      }
     }
   }
 
@@ -5287,7 +5341,7 @@
           if (!cData) return;
           var cAvgText = cData.yearAverage != null ? cData.yearAverage : (cData.sem1Average != null ? cData.sem1Average : (cData.sem2Average != null ? cData.sem2Average : null));
           html += '<div style="display:inline-flex;align-items:center;gap:4px;background:#fff;border:1px solid #333;border-radius:4px;padding:2px 6px;">' +
-            '<strong style="color:#111;">' + (cData.className || cId) + ':</strong> ' +
+            '<strong style="color:#111;">' + esc(cData.className || cId) + ':</strong> ' +
             (cAvgText != null ? ('<span class="cmt-dossier-grade-pill ' + getGradePillClass(cAvgText, 6) + '" style="font-size:0.75rem;padding:1px 4px;">' + cAvgText + '</span>') : '<span style="color:#777;">–</span>') +
           '</div>';
         });
@@ -5321,31 +5375,31 @@
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
               '<div class="cmt-dossier-item-top">' +
-                '<span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;">' + (evItem.badge || '[EVAL]') + '</span>' +
-                '<span class="cmt-dossier-item-title">' + (evItem.title || evItem.urn) + '</span>' +
+                '<span class="cmt-lm-badge" style="background:#5b8fcc;color:#fff;">' + esc(evItem.badge || '[EVAL]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + esc(evItem.title || evItem.urn) + '</span>' +
                 (isGsTest ?
-                  ('<span class="cmt-dossier-grade-pill ' + pillClass + '">' + scoreFormatted + '</span>') : '') +
+                  ('<span class="cmt-dossier-grade-pill ' + pillClass + '">' + esc(scoreFormatted) + '</span>') : '') +
                 (isGsTest && fixedW != null ?
-                  ('<span class="cmt-dossier-coeff-pill">Fixed: ' + fixedW + '%</span>') :
-                  (isGsTest && coeff != null && coeff !== 1 ? ('<span class="cmt-dossier-coeff-pill">Coeff: ' + coeff + '</span>') : '')) +
+                  ('<span class="cmt-dossier-coeff-pill">Fixed: ' + esc(fixedW) + '%</span>') :
+                  (isGsTest && coeff != null && coeff !== 1 ? ('<span class="cmt-dossier-coeff-pill">Coeff: ' + esc(coeff) + '</span>') : '')) +
                 (isOverridden ?
-                  ('<span class="cmt-dossier-override-pill">' + (t('lmDossierOverrideBadge', 'OVERRIDE') || 'OVERRIDE') + '</span>') : '') +
+                  ('<span class="cmt-dossier-override-pill">' + esc(t('lmDossierOverrideBadge', 'OVERRIDE') || 'OVERRIDE') + '</span>') : '') +
               '</div>' +
-              (evItem.subtitle && !isGsTest ? ('<span class="cmt-dossier-item-sub">' + evItem.subtitle + '</span>') : '') +
-              (isGsTest && evItem.testDate ? ('<span class="cmt-dossier-item-sub">' + evItem.testDate + '</span>') : '') +
+              (evItem.subtitle && !isGsTest ? ('<span class="cmt-dossier-item-sub">' + esc(evItem.subtitle) + '</span>') : '') +
+              (isGsTest && evItem.testDate ? ('<span class="cmt-dossier-item-sub">' + esc(evItem.testDate) + '</span>') : '') +
               (notes.length > 0 ?
-                ('<div class="cmt-dossier-item-notes"><span>💬 ' + notes.map(function(n) { return String(n).replace(/</g, '&lt;').replace(/>/g, '&gt;'); }).join(' • ') + '</span></div>') : '') +
+                ('<div class="cmt-dossier-item-notes"><span>[NOTE] ' + notes.map(function(n) { return esc(n); }).join(' • ') + '</span></div>') : '') +
               (critList.length > 0 && Object.keys(critRes).length > 0 ?
                 ('<div class="cmt-dossier-item-criteria">' +
                   critList.map(function(cr) {
                     var r = critRes[cr.id];
                     if (!r || r.points == null) return '';
-                    return '<span class="cmt-dossier-crit-chip">' + (cr.name || cr.label || cr.id) + ': <b>' + r.points + '</b>' + (cr.maxPoints ? '/' + cr.maxPoints : '') + '</span>';
+                    return '<span class="cmt-dossier-crit-chip">' + esc(cr.name || cr.label || cr.id) + ': <b>' + esc(r.points) + '</b>' + (cr.maxPoints ? '/' + esc(cr.maxPoints) : '') + '</span>';
                   }).filter(Boolean).join('') +
                 '</div>') : '') +
             '</div>' +
             '<div class="cmt-dossier-item-actions">' +
-              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + evItem.urn + '" title="' + (t('lmDossierOpenInGs', 'Open in Grade Sheet') || 'Open in Grade Sheet') + '">' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + esc(evItem.urn) + '" title="' + esc(t('lmDossierOpenInGs', 'Open in Grade Sheet') || 'Open in Grade Sheet') + '">' +
                 (isGsTest ? ('<img src="' + gsIcon + '" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />') : '') +
                 t('lmOpen', '[OPEN]') +
               '</button>' +
@@ -5371,13 +5425,13 @@
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
               '<div class="cmt-dossier-item-top">' +
-                '<span class="cmt-lm-badge" style="background:#6abf8e;color:#111;">' + (cpItem.badge || '[COMPETENCE]') + '</span>' +
-                '<span class="cmt-dossier-item-title">' + (cpItem.title || cpItem.urn) + '</span>' +
+                '<span class="cmt-lm-badge" style="background:#6abf8e;color:#111;">' + esc(cpItem.badge || '[COMPETENCE]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + esc(cpItem.title || cpItem.urn) + '</span>' +
               '</div>' +
-              (cpItem.subtitle ? '<span class="cmt-dossier-item-sub">' + cpItem.subtitle + '</span>' : '') +
+              (cpItem.subtitle ? '<span class="cmt-dossier-item-sub">' + esc(cpItem.subtitle) + '</span>' : '') +
             '</div>' +
             '<div class="cmt-dossier-item-actions">' +
-              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + cpItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + esc(cpItem.urn) + '">' + t('lmOpen', '[OPEN]') + '</button>' +
             '</div>' +
           '</div>';
       });
@@ -5400,13 +5454,13 @@
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
               '<div class="cmt-dossier-item-top">' +
-                '<span class="cmt-lm-badge" style="background:#e2c96e;color:#111;">' + (lsItem.badge || '[LESSON]') + '</span>' +
-                '<span class="cmt-dossier-item-title">' + (lsItem.title || lsItem.urn) + '</span>' +
+                '<span class="cmt-lm-badge" style="background:#e2c96e;color:#111;">' + esc(lsItem.badge || '[LESSON]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + esc(lsItem.title || lsItem.urn) + '</span>' +
               '</div>' +
-              (lsItem.subtitle ? '<span class="cmt-dossier-item-sub">' + lsItem.subtitle + '</span>' : '') +
+              (lsItem.subtitle ? '<span class="cmt-dossier-item-sub">' + esc(lsItem.subtitle) + '</span>' : '') +
             '</div>' +
             '<div class="cmt-dossier-item-actions">' +
-              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + lsItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + esc(lsItem.urn) + '">' + t('lmOpen', '[OPEN]') + '</button>' +
             '</div>' +
           '</div>';
       });
@@ -5438,14 +5492,14 @@
           '<div class="cmt-dossier-item">' +
             '<div class="cmt-dossier-item-info">' +
               '<div class="cmt-dossier-item-top">' +
-                '<span class="cmt-lm-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';">' + (docItem.badge || '[DOC]') + '</span>' +
-                '<span class="cmt-dossier-item-title">' + (docItem.title || docItem.urn) + '</span>' +
+                '<span class="cmt-lm-badge" style="background:' + badgeBg + ';color:' + badgeColor + ';">' + esc(docItem.badge || '[DOC]') + '</span>' +
+                '<span class="cmt-dossier-item-title">' + esc(docItem.title || docItem.urn) + '</span>' +
               '</div>' +
-              (docItem.subtitle ? '<span class="cmt-dossier-item-sub">' + docItem.subtitle + '</span>' : '') +
+              (docItem.subtitle ? '<span class="cmt-dossier-item-sub">' + esc(docItem.subtitle) + '</span>' : '') +
             '</div>' +
             '<div class="cmt-dossier-item-actions">' +
-              (isFile ? '<button type="button" class="cmt-lm-btn cmt-dos-btn-prev" data-urn="' + docItem.urn + '" data-title="' + (docItem.title || '') + '">' + t('lmPreview', '[PREVIEW]') + '</button>' : '') +
-              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + docItem.urn + '">' + t('lmOpen', '[OPEN]') + '</button>' +
+              (isFile ? '<button type="button" class="cmt-lm-btn cmt-dos-btn-prev" data-urn="' + esc(docItem.urn) + '" data-title="' + esc(docItem.title || '') + '">' + t('lmPreview', '[PREVIEW]') + '</button>' : '') +
+              '<button type="button" class="cmt-lm-btn primary cmt-dos-btn-open" data-urn="' + esc(docItem.urn) + '">' + t('lmOpen', '[OPEN]') + '</button>' +
             '</div>' +
           '</div>';
       });
@@ -5507,7 +5561,7 @@
       html += '<div class="cmt-lm-empty" style="padding:6px 0;">' + t('lmNoPtSessionsStudent', 'No participation records found for this student.') + '</div>';
     } else {
       if (pt.notes && pt.notes.length > 0) {
-        html += '<div class="cmt-dossier-item" style="background:#fffbeb;border:1.5px dashed #d97706;margin-bottom:6px;"><div class="cmt-dossier-item-info"><span style="font-size:0.75rem;font-weight:800;color:#92400e;">💬 ' + (t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</span><span class="cmt-dossier-item-sub" style="color:#78350f;margin-top:2px;">' + esc(pt.notes.join(' • ')) + '</span></div></div>';
+        html += '<div class="cmt-dossier-item" style="background:#fffbeb;border:1.5px dashed #d97706;margin-bottom:6px;"><div class="cmt-dossier-item-info"><span style="font-size:0.75rem;font-weight:800;color:#92400e;">[NOTE] ' + esc(t('lmDossierFeedback', 'Teacher Feedback:') || 'Teacher Feedback:') + '</span><span class="cmt-dossier-item-sub" style="color:#78350f;margin-top:2px;">' + esc(pt.notes.join(' • ')) + '</span></div></div>';
       }
 
       sortedPtSessions.forEach(function(ps) {
@@ -5526,7 +5580,7 @@
                 deltaBadge +
                 (ps.isPicked ? '<span class="cmt-dossier-coeff-pill">[PICKED]</span>' : '') +
               '</div>' +
-              (ps.notes ? ('<div class="cmt-dossier-item-notes"><span>💬 ' + esc(ps.notes) + '</span></div>') : '') +
+              (ps.notes ? ('<div class="cmt-dossier-item-notes"><span>[NOTE] ' + esc(ps.notes) + '</span></div>') : '') +
               (bChips ? ('<div class="cmt-dossier-item-criteria" style="margin-top:3px;">' + bChips + '</div>') : '') +
             '</div>' +
           '</div>';

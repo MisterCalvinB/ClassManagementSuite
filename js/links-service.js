@@ -175,7 +175,7 @@
       normId = normId.replace(/^user\/(?:mindmaps|constellations|board)\//i, '').replace(/^(?:mindmaps|constellations|board)\//i, '');
       return makeUrn('board', normId, p.anchor);
     }
-    if (type === 'gradesheet' || type === 'gradesheets' || type === 'eval' || type === 'evaluation' || type === 'grade') {
+    if (type === 'gradesheet' || type === 'gradesheets' || type === 'grade') {
       return makeUrn('gradesheet', id, p.anchor);
     }
     if (type === 'year' || type === 'academic_year' || type === 'school_year' || type === 'academicyear') {
@@ -2394,7 +2394,7 @@
       plannerUrn = cUrn1;
       lessonUrn = cUrn2;
       boardUrn = _findLinkedBoardForUrn(plannerUrn, reg);
-    } else if (p1.type === 'board' && p1 === p2) {
+    } else if (p1.type === 'board' && cUrn1 === cUrn2) {
       boardUrn = cUrn1;
       lessonUrn = _findLinkedLessonForUrn(boardUrn, reg);
       plannerUrn = _findLinkedPlannerForUrn(boardUrn, reg);
@@ -3018,6 +3018,12 @@
         var bFile = parsed.id.split(':')[0];
         classId = resolveClassGroupFromFilename(bFile);
         if (classId && !classIds.includes(classId)) classIds.push(classId);
+      } else if (parsed.type === 'lesson' || parsed.type === 'test' || parsed.type === 'planner' || parsed.type === 'slot') {
+        var resolvedC = _resolveUrnClassGroup(cUrn);
+        if (resolvedC) {
+          classId = resolvedC;
+          if (!classIds.includes(classId)) classIds.push(classId);
+        }
       }
     }
 
@@ -3115,13 +3121,30 @@
 
     var topCrit = criteriaPresets[0] || null;
     var topScale = gradingScales[0] || null;
-    var topInherited = inheritedLinks[0] || null;
+    var topInherited = (topCrit && topCrit.inheritedFrom) ? topCrit : ((topScale && topScale.inheritedFrom) ? topScale : (inheritedLinks[0] || null));
     var critPresetVal = topCrit ? ((topCrit.meta && (topCrit.meta.bank || topCrit.meta.label)) || (parseUrn(topCrit.otherUrn) && parseUrn(topCrit.otherUrn).id) || null) : null;
     var scaleVal = topScale ? ((topScale.meta && (topScale.meta.modelKey || topScale.meta.label)) || (parseUrn(topScale.otherUrn) && parseUrn(topScale.otherUrn).id) || null) : null;
-    var inhFromVal = topInherited ? ((topInherited.targetMeta && topInherited.targetMeta.title) || (topInherited.meta && topInherited.meta.label) || (parseUrn(topInherited.inheritedFrom) && parseUrn(topInherited.inheritedFrom).id) || null) : null;
+
+    var inhFromVal = null;
+    if (topInherited && topInherited.inheritedFrom) {
+      var pInh = parseUrn(topInherited.inheritedFrom);
+      if (pInh) {
+        if (pInh.type === 'class') {
+          inhFromVal = resolveClassName(pInh.id) || pInh.id;
+        } else if (pInh.type === 'level') {
+          inhFromVal = 'Level ' + String(pInh.id).toUpperCase();
+        } else {
+          inhFromVal = pInh.id;
+        }
+      } else {
+        inhFromVal = topInherited.inheritedFrom;
+      }
+    }
+    var resolvedLevel = entityRef.level || (classId ? resolveClassLevel(classId) : '') || '';
 
     return {
       urn: entityUrn,
+      level: resolvedLevel,
       direct: directLinks,
       inherited: inheritedLinks,
       tags: directTags,
@@ -3140,7 +3163,7 @@
    * Opens any URN in the appropriate tool window with deep-link query params.
    */
   async function openUrn(urnStr) {
-    var p = parseUrn(urnStr);
+    var p = parseUrn(canonicalizeUrn(urnStr));
     if (!p) return false;
 
     var desktop = (typeof window !== 'undefined' && window.Desktop) ? window.Desktop : null;
@@ -3582,13 +3605,18 @@
 
       case 'file': {
         // Launch file via default OS app or in-app previewer
-        if (desktop) {
+        var isElectronEnv = desktop && typeof desktop.isElectron === 'function' && desktop.isElectron();
+        if (isElectronEnv) {
+          var normFilePath = String(p.id || '').replace(/\\/g, '/').replace(/^\/+/, '');
+          var hasTargetOrAbs = /^[a-zA-Z]:\//.test(normFilePath) ||
+            /^(user|grades|mindmaps|docEditorDocs|lessons|tests|config|data)\//i.test(normFilePath);
+          var nativeArg = hasTargetOrAbs ? normFilePath : ('user/' + normFilePath);
           if (typeof desktop.openNative === 'function') {
-            desktop.openNative(p.id);
+            desktop.openNative(nativeArg);
             return true;
           }
           if (typeof desktop.openPath === 'function') {
-            desktop.openPath(p.id);
+            desktop.openPath(nativeArg);
             return true;
           }
         }
@@ -3597,6 +3625,20 @@
           return true;
         }
         window.open(p.id, '_blank');
+        return true;
+      }
+
+      case 'dossier':
+      case 'student-360':
+      case 'student_360': {
+        if (typeof window.TagLinkModal !== 'undefined' && typeof window.TagLinkModal.openStudentDossier === 'function') {
+          window.TagLinkModal.openStudentDossier(p.id);
+          return true;
+        }
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('group-editor.html', { query: { studentId: p.id } });
+        }
+        window.open(resolvePageUrl('group-editor.html') + '?studentId=' + encodeURIComponent(p.id), '_blank');
         return true;
       }
 
@@ -4346,7 +4388,7 @@
         if (!testData) continue;
 
         var fileRelPath = relevantTestFiles[j].relativePath;
-        var fileSubdir = fileRelPath.split('/')[0] || '';
+        var fileSubdir = fileRelPath.includes('/') ? fileRelPath.split('/').slice(0, -1).join('/') : '';
         var expectedStudentId = matchedStudentIdBySubdir[fileSubdir] || gsStudentId || studentId;
 
         var rawSem = String(testData.semester || '').toLowerCase().trim();

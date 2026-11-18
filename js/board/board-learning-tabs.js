@@ -2426,6 +2426,7 @@
               target: target,
               subtitle: it.subtitle || it.badge || '',
               urn: it.urn || '',
+              bookmarkId: (it.subType === 'web-bookmarks' && it.raw && it.raw.id) ? it.raw.id : null,
               tags: it.tags || []
             }, nx, ny);
           } else if (addWordFn) {

@@ -2269,6 +2269,7 @@
             linkTitle: n.linkTitle || null,
             linkSubTitle: n.linkSubTitle || null,
             linkUrn: n.linkUrn || null,
+            bookmarkId: n.bookmarkId || null,
             tags: (Array.isArray(n.tags) && n.tags.length) ? n.tags.slice() : undefined
           })),
           notes: selectedNotes.map(n => ({
@@ -2420,6 +2421,7 @@
             linkTitle: node.linkTitle || null,
             linkSubTitle: node.linkSubTitle || null,
             linkUrn: node.linkUrn || null,
+            bookmarkId: node.bookmarkId || null,
             tags: (Array.isArray(node.tags) && node.tags.length) ? node.tags.slice() : undefined
           }],
           notes: attachedNote ? [{
@@ -4429,6 +4431,7 @@
             linkTitle: n.linkTitle || null,
             linkSubTitle: n.linkSubTitle || null,
             linkUrn: n.linkUrn || null,
+            bookmarkId: n.bookmarkId || null,
             tags: (Array.isArray(n.tags) && n.tags.length) ? n.tags.slice() : undefined,
             competences: (Array.isArray(n.competences) && n.competences.length) ? n.competences.slice() : undefined,
             shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || (n.el && n.el.dataset.shape)) : conNormalizeNodeShapeSafe(n.shape || (n.el && n.el.dataset.shape))),
@@ -11483,6 +11486,7 @@
             existing.linkTitle = n.linkTitle || null;
             existing.linkSubTitle = n.linkSubTitle || null;
             existing.linkUrn = n.linkUrn || null;
+            existing.bookmarkId = n.bookmarkId || null;
             existing.tags = Array.isArray(n.tags) ? n.tags.slice() : [];
             existing.shape = (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle'));
             existing.borderWidth = n.borderWidth || null;
@@ -11581,6 +11585,7 @@
               linkTitle: n.linkTitle || null,
               linkSubTitle: n.linkSubTitle || null,
               linkUrn: n.linkUrn || null,
+              bookmarkId: n.bookmarkId || null,
               tags: Array.isArray(n.tags) ? n.tags.slice() : [],
               shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
               borderWidth: n.borderWidth || null,
@@ -12388,6 +12393,7 @@
           linkTitle: n.linkTitle || null,
           linkSubTitle: n.linkSubTitle || null,
           linkUrn: n.linkUrn || null,
+          bookmarkId: n.bookmarkId || null,
           tags: Array.isArray(n.tags) ? n.tags.slice() : [],
           shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
           borderWidth: n.borderWidth || null,

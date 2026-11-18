@@ -283,7 +283,7 @@
           case 'question_only': return q;
           case 'question_answer': return ans ? `${q} — Answer: ${ans}` : q;
           case 'full_mcq': return optionsList ? `${q}\n${optionsList}` : q;
-          case 'question_explanation': return exp ? `${q}\n💡 ${exp}` : q;
+          case 'question_explanation': return exp ? `${q}\nNote: ${exp}` : q;
           case 'both_dash': return ans ? `${q} — ${ans}` : q;
           case 'both_paren': return ans ? `${q} (${ans})` : q;
           case 'both_newline': return ans ? `${q}\nAnswer: ${ans}` : q;
@@ -311,7 +311,7 @@
         switch (fieldChoice) {
           case 'title_only': return title;
           case 'transcript_full': return transcript || title;
-          case 'prompt_audio': return `🔊 ${title}`;
+          case 'prompt_audio': return `[Audio] ${title}`;
           default: return transcript ? `${title}\n${transcript}` : title;
         }
       }
@@ -348,8 +348,8 @@
         switch (fieldChoice) {
           case 'erroneous': return err;
           case 'corrected': return corr || err;
-          case 'error_correction_pair': return corr ? `❌ ${err}\n✅ ${corr}` : err;
-          default: return corr ? `${err} ➔ ${corr}` : err;
+          case 'error_correction_pair': return corr ? `${err}\n-> ${corr}` : err;
+          default: return corr ? `${err} -> ${corr}` : err;
         }
       }
 
@@ -359,7 +359,7 @@
         switch (fieldChoice) {
           case 'scrambled': return scrambled;
           case 'ordered': return ordered || scrambled;
-          default: return ordered ? `${scrambled} ➔ ${ordered}` : scrambled;
+          default: return ordered ? `${scrambled} -> ${ordered}` : scrambled;
         }
       }
 
@@ -1993,11 +1993,12 @@
         if (Array.isArray(rawBms)) {
           rawBms.forEach((bm, idx) => {
             if (!bm || !bm.url) return;
+            const bmId = bm.id || `bm_${idx}`;
             const domain = bm.domain || (function (u) { try { return new URL(u).hostname.replace(/^www\./i, ''); } catch (_) { return ''; } })(bm.url);
             const firstTag = (Array.isArray(bm.tags) && bm.tags.length) ? bm.tags[0].replace(/^#/, '') : (domain || 'Web');
             webBookmarks.push({
-              id: bm.id || `bm_${idx}`,
-              urn: `cmt:bookmark:${bm.id}`,
+              id: bmId,
+              urn: `cmt:bookmark:${bmId}`,
               domain: 'bookmarks',
               subType: 'web-bookmarks',
               title: bm.title || bm.url,
@@ -2018,17 +2019,21 @@
         const mindmapRecords = [];
         if (isEl && typeof window.Desktop.listFiles === 'function') {
           try {
-            const mList = await window.Desktop.listFiles('user', { subFolder: 'constellations', extensions: ['.json'] });
-            const mFiles = mList?.files || (Array.isArray(mList) ? mList : []);
-            mFiles.forEach((f, idx) => {
-              const fname = typeof f === 'string' ? f : f.filename;
-              if (!fname) return;
+            let mList = await window.Desktop.listFiles('mindmaps', { extensions: ['.json', '.cstz', '.cst', '.js'] });
+            let mFiles = mList?.files || (Array.isArray(mList) ? mList : []);
+            if (mFiles.length === 0) {
+              mList = await window.Desktop.listFiles('user', { subFolder: 'constellations', extensions: ['.json', '.cstz', '.cst', '.js'] });
+              mFiles = mList?.files || (Array.isArray(mList) ? mList : []);
+            }
+            mFiles.forEach((f) => {
+              const fname = typeof f === 'string' ? f : (f.filename || f.name);
+              if (!fname || /\.(v\d{8}-\d{6}|tmp|bak)\./i.test(fname)) return;
               mindmapRecords.push({
                 id: fname,
                 urn: `cmt:board:${fname}`,
                 domain: 'bookmarks',
                 subType: 'board-mindmaps',
-                title: fname.replace(/\.json$/i, ''),
+                title: fname.replace(/\.(json|cstz|cst|js)$/i, ''),
                 subtitle: 'Mindmap Session',
                 badge: 'BOARD',
                 level: '',
@@ -2046,17 +2051,17 @@
         const docRecords = [];
         if (isEl && typeof window.Desktop.listFiles === 'function') {
           try {
-            const dList = await window.Desktop.listFiles('docEditorDocs', { extensions: ['.md'] });
+            const dList = await window.Desktop.listFiles('docEditorDocs', { extensions: ['.md', '.markdown'] });
             const dFiles = dList?.files || (Array.isArray(dList) ? dList : []);
-            dFiles.forEach((f, idx) => {
-              const fname = typeof f === 'string' ? f : f.filename;
-              if (!fname) return;
+            dFiles.forEach((f) => {
+              const fname = typeof f === 'string' ? f : (f.filename || f.name);
+              if (!fname || /\.(v\d{8}-\d{6}|tmp|bak)\./i.test(fname)) return;
               docRecords.push({
                 id: fname,
                 urn: `cmt:doc:${fname}`,
                 domain: 'bookmarks',
                 subType: 'doceditor-docs',
-                title: fname.replace(/\.md$/i, ''),
+                title: fname.replace(/\.(md|markdown)$/i, ''),
                 subtitle: 'Markdown Document',
                 badge: 'DOC',
                 level: '',
@@ -2300,12 +2305,15 @@
   // ---------------------------------------------------------------------------
   // UI Dialog Template Construction
   // ---------------------------------------------------------------------------
+  let _uimpKeydownBound = false;
+
   function _ensureModalDom() {
     let overlay = document.getElementById('universal-importer-overlay');
     if (overlay) return overlay;
 
     overlay = document.createElement('div');
     overlay.id = 'universal-importer-overlay';
+    overlay.setAttribute('onclick', 'if(event.target===this)UniversalImporter.close();');
     overlay.innerHTML = `
       <div id="universal-importer-modal" role="dialog" aria-modal="true">
         <!-- Header -->
@@ -2346,7 +2354,7 @@
           <div style="display:flex; align-items:flex-end; padding-bottom:4px;">
             <label class="uimp-checkbox-label">
               <input type="checkbox" id="uimp-filter-starred" onchange="UniversalImporter._onFilterChange('starred')" />
-              <span>★ Starred</span>
+              ${renderSvgIcon('star.svg')} <span data-i18n="uimpFilterStarred">Starred</span>
             </label>
           </div>
         </div>
@@ -2391,13 +2399,13 @@
               ${renderSvgIcon('export.svg')} <span data-i18n="uimpBtnExportFile">Export to File…</span>
             </button>
             <button type="button" class="uimp-btn-primary" onclick="UniversalImporter.confirmInsert()">
-              ${renderSvgIcon('plus.svg')} <span id="uimp-insert-btn-label" data-i18n="uimpBtnInsert">＋ Insert</span>
+              ${renderSvgIcon('plus.svg')} <span id="uimp-insert-btn-label" data-i18n="uimpBtnInsert">Insert</span>
             </button>
           </div>
         </div>
 
         <!-- Sub-Dialog: Export to File -->
-        <div id="uimp-export-dialog">
+        <div id="uimp-export-dialog" onclick="if(event.target===this)UniversalImporter.closeExportDialog();">
           <div class="uimp-export-box">
             <div class="uimp-header">
               <div class="uimp-header-title">
@@ -2424,6 +2432,24 @@
     `;
 
     document.body.appendChild(overlay);
+    if (!_uimpKeydownBound) {
+      _uimpKeydownBound = true;
+      document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        const ov = document.getElementById('universal-importer-overlay');
+        if (!ov || !ov.classList.contains('active')) return;
+        const expDlg = document.getElementById('uimp-export-dialog');
+        if (expDlg && expDlg.classList.contains('active')) {
+          e.preventDefault();
+          e.stopPropagation();
+          closeExportDialog();
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        UniversalImporter.close();
+      }, true);
+    }
     return overlay;
   }
 
@@ -2775,8 +2801,8 @@
     let html = visible.map(item => {
       const isSelected = _state.selectedItems.has(item.id);
       return `
-        <div class="uimp-card ${isSelected ? 'selected' : ''}" data-id="${escHtml(item.id)}" onclick="UniversalImporter.toggleItem('${escHtml(item.id)}')">
-          <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); UniversalImporter.toggleItem('${escHtml(item.id)}')" />
+        <div class="uimp-card ${isSelected ? 'selected' : ''}" data-id="${escHtml(item.id)}" onclick="UniversalImporter.toggleItem(this.dataset.id)">
+          <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); UniversalImporter.toggleItem(this.closest('.uimp-card').dataset.id)" />
           <div class="uimp-card-body">
             <div class="uimp-card-top">
               <span class="uimp-card-title">${escHtml(item.title)}</span>
@@ -3548,10 +3574,10 @@
             }
             _cache.loaded = false;
             _cache.loadPromise = null;
-            await _loadData(true);
+            await _loadAllData(true);
             _renderFilterOptions();
-            _renderItems();
-            _updateSelectedCount();
+            _renderItemsList();
+            _updateSelectedCounter();
           }
         };
         reader.readAsText(file);
@@ -3563,20 +3589,25 @@
       if (typeof showPrompt !== 'function') return;
       const url = await showPrompt('Enter Web Bookmark URL:', 'https://');
       if (!url || !url.trim() || url.trim() === 'https://') return;
+      const cleanUrl = url.trim();
+      if (/^(?:javascript|vbscript|data):/i.test(cleanUrl)) {
+        if (typeof showToast === 'function') showToast('Blocked unsafe URL scheme', true);
+        return;
+      }
       const title = await showPrompt('Enter Bookmark Title (optional):', '');
       if (typeof window !== 'undefined' && window.BookmarksService && typeof window.BookmarksService.add === 'function') {
         await window.BookmarksService.add({
-          url: url.trim(),
+          url: cleanUrl,
           title: title ? title.trim() : '',
           tags: ['#web']
         });
         if (typeof showToast === 'function') showToast('Bookmark added');
         _cache.loaded = false;
         _cache.loadPromise = null;
-        await _loadData(true);
+        await _loadAllData(true);
         _renderFilterOptions();
-        _renderItems();
-        _updateSelectedCount();
+        _renderItemsList();
+        _updateSelectedCounter();
       }
     },
 

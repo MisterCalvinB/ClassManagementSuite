@@ -4057,7 +4057,9 @@
         var inheritedCtx = null;
         if (typeof LinksService !== 'undefined') {
           try {
-            inheritedCtx = await LinksService.resolveContext({ type: 'class', id: cId, classId: cId });
+            var testCtxType = (currentTest && currentTest.id) ? 'test' : 'class';
+            var testCtxId = (currentTest && currentTest.id) ? currentTest.id : cId;
+            inheritedCtx = await LinksService.resolveContext({ type: testCtxType, id: testCtxId, classId: cId });
           } catch (_) {}
         }
 

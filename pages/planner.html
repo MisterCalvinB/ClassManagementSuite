@@ -109,7 +109,12 @@
   </nav>
 
   <!-- ── Toolbar ── -->
-  <div id="toolbar">
+  <div id="toolbar-wrap">
+    <div id="toolbar-hover-bar" data-i18n-title="pl_toolbarHoverHint" title="Hover to show toolbar">
+      <img src="../assets/icons/chevron-down.svg" class="tb-hover-icon" alt="" />
+      <span data-i18n="pl_toolbarLabel">Toolbar</span>
+    </div>
+    <div id="toolbar">
     <div class="tb-group">
       <span class="tb-group-label" data-i18n="pl_toolbarSetup">Setup</span>
       <button class="tb-btn" onclick="openSemModal(null)" data-i18n="pl_btnAddSem">+ Term</button>
@@ -202,6 +207,13 @@
       </div>
       <div id="type-filter-chips" class="cls-chip-bar"></div>
     </div>
+    <button type="button" class="tb-btn tb-autocollapse-btn" id="toolbarAutoCollapseBtn"
+      onclick="toggleToolbarAutoCollapse()" aria-pressed="false"
+      data-i18n-title="pl_toolbarAutoCollapseTitle" title="Auto-collapse toolbar (expand on hover)">
+      <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
+      <span data-i18n="pl_toolbarAutoCollapse">Auto-hide</span>
+    </button>
+  </div>
   </div>
 
   <!-- ── Planner body ── -->
@@ -1762,8 +1774,39 @@
       render();
     }
 
+    // ── Toolbar Auto-collapse ──────────────────────────────────────────────────
+    var _TOOLBAR_AUTOCOLLAPSE_KEY = 'planner_toolbar_autocollapse';
+
+    function applyToolbarAutoCollapse(enabled) {
+      var wrap = document.getElementById('toolbar-wrap');
+      var btn = document.getElementById('toolbarAutoCollapseBtn');
+      if (wrap) wrap.classList.toggle('autocollapse', !!enabled);
+      if (btn) {
+        btn.classList.toggle('active', !!enabled);
+        btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+      }
+    }
+
+    function toggleToolbarAutoCollapse(forceState) {
+      var wrap = document.getElementById('toolbar-wrap');
+      var current = wrap ? wrap.classList.contains('autocollapse') : false;
+      var next = typeof forceState === 'boolean' ? forceState : !current;
+      applyToolbarAutoCollapse(next);
+      try { localStorage.setItem(_TOOLBAR_AUTOCOLLAPSE_KEY, next ? '1' : '0'); } catch (_) { }
+    }
+
+    function initToolbarAutoCollapse() {
+      var saved = false;
+      try { saved = localStorage.getItem(_TOOLBAR_AUTOCOLLAPSE_KEY) === '1'; } catch (_) { }
+      applyToolbarAutoCollapse(saved);
+    }
+
     // ── Tutorial ───────────────────────────────────────────────────────────────
     function startPlTutorial() {
+      var tbWrap = document.getElementById('toolbar-wrap');
+      if (tbWrap && tbWrap.classList.contains('autocollapse')) {
+        tbWrap.classList.add('force-open');
+      }
       if (!_todoPanelOpen) toggleTodoPanel();
       var labels = { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') };
       Tutorial.start([
@@ -1779,6 +1822,15 @@
         { selector: '.tp-header', title: t('tutPl8Title'), text: t('tutPl8Text') },
         { selector: '#td-list', title: t('tutPl9Title'), text: t('tutPl9Text') }
       ], labels);
+      if (tbWrap && tbWrap.classList.contains('force-open')) {
+        var obs = new MutationObserver(function () {
+          if (!document.getElementById('tut-overlay')) {
+            tbWrap.classList.remove('force-open');
+            obs.disconnect();
+          }
+        });
+        obs.observe(document.body, { childList: true });
+      }
     }
 
     function startTodoModalTour() {
@@ -1800,6 +1852,7 @@
       initHamburger('hmWrap');
       applyTranslations();
       window._cmtApplyNavBrand();
+      initToolbarAutoCollapse();
       loadViewOpts();
       await loadData();
       render();

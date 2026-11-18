@@ -4866,6 +4866,36 @@
               meta: { label: 'Class ' + (getClassLabel(classId) || classId) }
             });
           }
+          if (classId && typeof LinksService.resolveContext === 'function') {
+            LinksService.resolveContext({ type: 'lesson', id: currentPlan.id, classId: classId }).then(function (ctx) {
+              if (!ctx) return;
+              if (ctx.level && !currentPlan.yearLevel) {
+                var yrEl2 = document.getElementById('planYearLevel');
+                var dYrEl2 = document.getElementById('drawerFilterYear');
+                var tLvl2 = String(ctx.level).toLowerCase();
+                if (yrEl2) {
+                  for (var k2 = 0; k2 < yrEl2.options.length; k2++) {
+                    var yv2 = yrEl2.options[k2].value.toLowerCase();
+                    if (yv2 === tLvl2 || yv2.includes(tLvl2) || tLvl2.includes(yv2)) {
+                      yrEl2.selectedIndex = k2;
+                      currentPlan.yearLevel = yrEl2.value;
+                      break;
+                    }
+                  }
+                }
+                if (dYrEl2) {
+                  for (var m2 = 0; m2 < dYrEl2.options.length; m2++) {
+                    var dyv2 = dYrEl2.options[m2].value.toLowerCase();
+                    if (dyv2 === tLvl2 || dyv2.includes(tLvl2) || tLvl2.includes(dyv2)) {
+                      dYrEl2.selectedIndex = m2;
+                      break;
+                    }
+                  }
+                }
+                if (typeof renderDrawer === 'function') renderDrawer();
+              }
+            }).catch(function () {});
+          }
           if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
         }
         lcOnPlanDirty();

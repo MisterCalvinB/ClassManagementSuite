@@ -15948,7 +15948,7 @@
         updateToptPresetsForBank(selectedFilename);
 
         if (typeof LinksService !== 'undefined') {
-          LinksService.resolveContext({ type: 'class', id: classObj.id }).then(inheritedCtx => {
+          LinksService.resolveContext({ type: 'eval', id: `${classObj.id}:${sem}:${testIndex}`, classId: classObj.id }).then(inheritedCtx => {
             if (!inheritedCtx) return;
             if (inheritedCtx.criteriaPreset && !config.criteriaBank) {
               const matchedBank = _availableCriteriaBanks.find(b => b.filename === inheritedCtx.criteriaPreset || b.name === inheritedCtx.criteriaPreset);
@@ -15957,10 +15957,46 @@
                 updateToptPresetsForBank(matchedBank.filename);
               }
             }
+            if (inheritedCtx.gradingScale && (!config.grading || !config.grading.modelKey || config.grading.modelKey === 'custom') && !_toptGradingChanged) {
+              const scaleKey = String(inheritedCtx.gradingScale).trim();
+              const scaleBanks = (typeof _availableScaleBanks !== 'undefined' && Array.isArray(_availableScaleBanks))
+                ? _availableScaleBanks.map(b => b.filename)
+                : ['grade-scale-models.js'];
+              let matchedBankFn = null;
+              let matchedModelKey = null;
+              for (const bankFn of scaleBanks) {
+                const models = typeof getScaleModelsList === 'function' ? getScaleModelsList(bankFn) : [];
+                const hit = models.find(m =>
+                  m.key === scaleKey ||
+                  (m.label && m.label.toLowerCase() === scaleKey.toLowerCase())
+                );
+                if (hit) {
+                  matchedBankFn = bankFn;
+                  matchedModelKey = hit.key;
+                  break;
+                }
+                if (bankFn === scaleKey && models.length > 0) {
+                  matchedBankFn = bankFn;
+                  matchedModelKey = models[0].key;
+                  break;
+                }
+              }
+              if (matchedModelKey) {
+                if (matchedBankFn) {
+                  gradingDraft.scaleBank = matchedBankFn;
+                  const scaleBankEl = document.getElementById('topt-grading-scale-bank');
+                  if (scaleBankEl) scaleBankEl.value = matchedBankFn;
+                }
+                gradingDraft.pendingModelKey = matchedModelKey;
+                gradingDraft.modelKey = matchedModelKey;
+                if (typeof rebuildModelChips === 'function') rebuildModelChips();
+                if (typeof updateLiveGradePreview === 'function') updateLiveGradePreview();
+              }
+            }
             const inheritBadge = document.getElementById("topt-criteria-inherited-badge");
             if (inheritBadge) {
-              if (inheritedCtx.inheritedFrom || inheritedCtx.criteriaPreset) {
-                const label = inheritedCtx.inheritedFrom ? `[INHERITED: ${inheritedCtx.inheritedFrom}]` : `[LINKED: ${inheritedCtx.criteriaPreset}]`;
+              if (inheritedCtx.inheritedFrom || inheritedCtx.criteriaPreset || inheritedCtx.gradingScale) {
+                const label = inheritedCtx.inheritedFrom ? `[INHERITED: ${inheritedCtx.inheritedFrom}]` : `[LINKED: ${inheritedCtx.criteriaPreset || inheritedCtx.gradingScale}]`;
                 inheritBadge.textContent = label;
                 inheritBadge.style.display = "inline-block";
               } else {
@@ -22606,8 +22642,8 @@
             const numOnlyBtn = document.createElement('button');
             numOnlyBtn.type = 'button';
             numOnlyBtn.className = 'gs-chip-remark-btn gs-chip-remark-btn-num-only';
-            numOnlyBtn.title = t('gsChipCommentSaveNumOnly', 'Save number only');
-            numOnlyBtn.setAttribute('aria-label', t('gsChipCommentSaveNumOnly', 'Save number only'));
+            numOnlyBtn.title = t('gsChipCommentSaveNumOnly', 'Assign number & save');
+            numOnlyBtn.setAttribute('aria-label', t('gsChipCommentSaveNumOnly', 'Assign number & save'));
             numOnlyBtn.innerHTML = '<img src="../assets/icons/number-badge.svg" style="width:12px;height:12px;display:block;" alt="" />';
             numOnlyBtn.addEventListener('click', () => {
               let numVal = String(numInput.value || '').trim();
@@ -22615,7 +22651,7 @@
                 numVal = String(getNextObservationRemarkNumber(_studentModalDraft?.draftSections || (section ? [section] : []), remarksList));
               }
               remarksList[idx].num = numVal;
-              remarksList[idx].text = '';
+              remarksList[idx].text = String(textInput.value || '');
               submitRemarks(remarksList);
             });
 

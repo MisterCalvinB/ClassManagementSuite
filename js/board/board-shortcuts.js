@@ -525,6 +525,16 @@
         if (typeof window.conIsLinkModeActive === 'function' && window.conIsLinkModeActive()) { if (typeof window.conCancelLinkMode === 'function') window.conCancelLinkMode(); return; }
         if (typeof window.conGetMode === 'function' && window.conGetMode() === 'draw') { if (typeof window.conSetMode === 'function') window.conSetMode('move'); return; }
         if (typeof _taDrawActive !== 'undefined' && _taDrawActive && typeof window.taToggleDrawMode === 'function') { window.taToggleDrawMode(); return; }
+        const linkEditModal = document.getElementById('con-link-edit-modal');
+        if (linkEditModal && linkEditModal.style.display === 'flex') {
+          if (typeof window.conCloseLinkEditModal === 'function') window.conCloseLinkEditModal();
+          return;
+        }
+        const linkStyleOverlay = document.getElementById('con-link-style-overlay');
+        if (linkStyleOverlay && linkStyleOverlay.classList.contains('active')) {
+          if (typeof window.conLinkStyleDismiss === 'function') window.conLinkStyleDismiss();
+          return;
+        }
         if (typeof window.conCtxClose === 'function') window.conCtxClose();
         if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
         if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
