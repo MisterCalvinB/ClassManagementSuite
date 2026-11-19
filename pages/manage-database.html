@@ -856,6 +856,7 @@
       batchSel: new Set(),
       _lastTheadSignature: null,
     };
+    window.S = S;
 
     // ─────────────────────────────────────────────────────────────────────
     // UTILITIES
@@ -1277,6 +1278,7 @@
     // after scanning it is set to { filename: { records[], varName } }.
     // ─────────────────────────────────────────────────────────────────────
     const _gsc = {};
+    window._gsc = _gsc;
 
     function _normalizeFileList(res) {
       if (Array.isArray(res)) return res;
@@ -4650,7 +4652,7 @@
   </div>`;
     }
 
-    let _activeFormSchema = null;
+    var _activeFormSchema = null;
 
     function getMergedFormSchema(rec = {}) {
       const defaultFields = getDefaultSchema(S.typeKey);
@@ -6332,8 +6334,8 @@
     // ─────────────────────────────────────────────────────────────────────
     // AUTOFILL
     // ─────────────────────────────────────────────────────────────────────
-    let _autofillPendingSuggestions = null;
-    let _autofillContext = null; // { mode: 'form' | 'record', fi, ri, rec }
+    var _autofillPendingSuggestions = null;
+    var _autofillContext = null; // { mode: 'form' | 'record', fi, ri, rec }
 
     function getRecordSearchTerm(rec) {
       if (!rec || typeof rec !== 'object') return '';

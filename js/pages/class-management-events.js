@@ -1377,6 +1377,25 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('timer-overlay-minimize-btn');
+      if (!el) return;
+      el.addEventListener('click', function () { minimizeTimerFullscreen(); });
+    })();
+    (function () {
+      var pill = document.getElementById('timer-minimized-pill');
+      if (pill) {
+        pill.addEventListener('click', function () { restoreTimerFullscreen(); });
+      }
+      var restoreBtn = document.querySelector('#timer-minimized-pill .timer-pill-restore-btn');
+      if (restoreBtn) {
+        restoreBtn.addEventListener('click', function (event) { event.stopPropagation(); restoreTimerFullscreen(); });
+      }
+      var closeBtn = document.querySelector('#timer-minimized-pill .timer-pill-close-btn');
+      if (closeBtn) {
+        closeBtn.addEventListener('click', function (event) { event.stopPropagation(); closeTimerFullscreen(); });
+      }
+    })();
+    (function () {
       var el = document.querySelector('[data-cmev-230]');
       if (!el) return;
       var handler = function (event) { overlaySetNoise('white', event) };

@@ -1087,7 +1087,7 @@
 
             function dragMouseDown(e) {
                 if (window.innerWidth <= 720) return;
-                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input') || e.target.closest('#mode-minimized-pill') || e.target.closest('#ucm-dock-timer-readout')) return;
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('button') || e.target.closest('input') || e.target.closest('#mode-minimized-pill') || e.target.closest('#timer-minimized-pill') || e.target.closest('#ucm-dock-timer-readout')) return;
                 e = e || window.event;
                 hasDragged = false;
                 if (e.type === 'touchstart') {
@@ -1220,15 +1220,18 @@
                 (typeof stopwatchPaused !== 'undefined' && stopwatchPaused)
             );
             const hasTimerSeg = timerRunning || anyOverlayControlsActive;
+            const timerMinActive = !!(typeof isTimerFullscreenMinimised !== 'undefined' && isTimerFullscreenMinimised && typeof isTimerFullscreenActive !== 'undefined' && isTimerFullscreenActive);
             const modeMinActive = !!(typeof isModeMinimised !== 'undefined' && isModeMinimised && typeof activeWorkingModeId !== 'undefined' && activeWorkingModeId);
             const soundActive = !!(typeof whiteNoisePlaying !== 'undefined' && whiteNoisePlaying) && !modeOverlayActive;
             const presActive = !!(typeof _presWindowOpen !== 'undefined' && _presWindowOpen);
 
             const timerSeg = document.getElementById('ucm-dock-timer-seg');
+            const timerMinSeg = document.getElementById('timer-minimized-pill');
             const modeSeg = document.getElementById('mode-minimized-pill');
             const soundSeg = document.getElementById('ucm-dock-sound-seg');
             const presSeg = document.getElementById('cms-pres-popup');
 
+            const sepTimerMin = document.getElementById('ucm-dock-sep-timer-min');
             const sepMode = document.getElementById('ucm-dock-sep-mode');
             const sepSound = document.getElementById('ucm-dock-sep-sound');
             const sepPres = document.getElementById('ucm-dock-sep-pres');
@@ -1260,6 +1263,10 @@
                         add30Btn.style.display = isSw ? 'none' : 'inline-flex';
                     }
                 }
+            }
+
+            if (timerMinSeg) {
+                timerMinSeg.style.display = timerMinActive ? 'inline-flex' : 'none';
             }
 
             if (modeSeg) {
@@ -1300,9 +1307,10 @@
                 presSeg.style.display = presActive ? 'inline-flex' : 'none';
             }
 
-            if (sepMode) sepMode.style.display = (!effectiveCollapsed && hasTimerSeg && modeMinActive) ? 'block' : 'none';
-            if (sepSound) sepSound.style.display = (!effectiveCollapsed && (hasTimerSeg || modeMinActive) && soundActive) ? 'block' : 'none';
-            if (sepPres) sepPres.style.display = (!effectiveCollapsed && (hasTimerSeg || modeMinActive || soundActive) && presActive) ? 'block' : 'none';
+            if (sepTimerMin) sepTimerMin.style.display = (!effectiveCollapsed && hasTimerSeg && timerMinActive) ? 'block' : 'none';
+            if (sepMode) sepMode.style.display = (!effectiveCollapsed && (hasTimerSeg || timerMinActive) && modeMinActive) ? 'block' : 'none';
+            if (sepSound) sepSound.style.display = (!effectiveCollapsed && (hasTimerSeg || timerMinActive || modeMinActive) && soundActive) ? 'block' : 'none';
+            if (sepPres) sepPres.style.display = (!effectiveCollapsed && (hasTimerSeg || timerMinActive || modeMinActive || soundActive) && presActive) ? 'block' : 'none';
 
             const collapsedBadge = document.getElementById('ucm-dock-collapsed-badge');
             if (collapsedBadge) {
@@ -1321,7 +1329,7 @@
                 }
             }
 
-            const anyActive = hasTimerSeg || modeMinActive || soundActive || presActive;
+            const anyActive = hasTimerSeg || timerMinActive || modeMinActive || soundActive || presActive;
             const wasVisible = isWidgetVisible(dock);
             dock.classList.toggle('is-collapsed', effectiveCollapsed);
             dock.style.display = anyActive ? 'inline-flex' : 'none';
@@ -1956,6 +1964,16 @@
                     const copy = { ...m };
                     if (copy.picture && typeof copy.picture === 'object' && copy.picture.src) {
                         copy.picture = { ...copy.picture, src: sanitizeModeImgSrc(copy.picture.src) };
+                        copy.pictureSrc = copy.picture.src;
+                    }
+                    // Heal legacy/out-of-sync entries where saveModeFromEditor updated nested sound/text/picture without flat fields
+                    if (copy.sound && typeof copy.sound === 'object') {
+                        if (copy.sound.type && copy.sound.type !== 'none' && (!copy.soundType || copy.soundType === 'none')) {
+                            copy.soundType = copy.sound.type;
+                            if (copy.sound.file !== undefined) copy.soundFile = copy.sound.file;
+                            if (copy.sound.volume !== undefined) copy.soundVol = copy.sound.volume;
+                            if (copy.sound.chime !== undefined) copy.soundChime = !!copy.sound.chime;
+                        }
                     }
                     return copy;
                 });
@@ -11284,6 +11302,9 @@
             if (broadcast && !PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
                 _broadcastAnimation('overlay-view-change', { view: viewMode });
             }
+            if (typeof isTimerFullscreenMinimised !== 'undefined' && isTimerFullscreenMinimised && typeof updateTimerMinimisedPill === 'function') {
+                updateTimerMinimisedPill();
+            }
         }
 
         function toggleOverlayMergedView() {
@@ -11322,12 +11343,20 @@
             }
         }
 
+        let isTimerFullscreenActive = false;
+        let isTimerFullscreenMinimised = false;
+
         function openTimerFullscreen(initialView = null) {
             document.getElementById('timer-popup').classList.remove('open');
             syncPopupSettingsToOverlay();
             syncOverlayTimerModeState();
             updateOverlayTransportControls();
             if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
+
+            isTimerFullscreenActive = true;
+            isTimerFullscreenMinimised = false;
+            const _tPill = document.getElementById('timer-minimized-pill');
+            if (_tPill) _tPill.style.display = 'none';
 
             const overlay = document.getElementById('timer-overlay');
             overlay.classList.add('active');
@@ -11350,9 +11379,71 @@
             if (!PRESENTATION_MODE && typeof _broadcastAnimation === 'function') {
                 _broadcastAnimation('timer-fullscreen-open', { view: viewToSet, theater: overlayTheaterMode });
             }
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
+        }
+
+        function updateTimerMinimisedPill() {
+            if (PRESENTATION_MODE) return;
+            const iconImg = document.getElementById('timer-pill-icon-img');
+            const titleEl = document.getElementById('timer-pill-title');
+            const view = overlayCurrentView || 'timer';
+            let iconSrc = '../assets/icons/clock.svg';
+            let label = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('timer_view_timer', 'Timer') : 'Timer';
+            if (view === 'stopwatch') {
+                iconSrc = '../assets/icons/stopwatch.svg';
+                label = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('timer_view_stopwatch', 'Stopwatch') : 'Stopwatch';
+            } else if (view === 'clock') {
+                iconSrc = '../assets/icons/calendar.svg';
+                label = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('timer_view_clock', 'Clock') : 'Clock';
+            } else if (view === 'merged') {
+                iconSrc = '../assets/icons/split.svg';
+                label = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t('timer_view_merged', 'Dual View') : 'Dual View';
+            }
+            if (iconImg) {
+                if (window.DomSync) window.DomSync.setAttr(iconImg, 'src', iconSrc);
+                else if (iconImg.getAttribute('src') !== iconSrc) iconImg.setAttribute('src', iconSrc);
+            }
+            if (titleEl && titleEl.textContent !== label) titleEl.textContent = label;
+        }
+
+        function minimizeTimerFullscreen() {
+            if (PRESENTATION_MODE) return;
+            const overlay = document.getElementById('timer-overlay');
+            if (!overlay || !overlay.classList.contains('active')) return;
+
+            syncOverlaySettingsToPopup();
+            isTimerFullscreenActive = true;
+            isTimerFullscreenMinimised = true;
+            overlay.classList.remove('active');
+            if (overlayClockInterval) {
+                clearInterval(overlayClockInterval);
+                overlayClockInterval = null;
+            }
+            document.removeEventListener('keydown', onOverlayKeyDown);
+
+            // If a mode overlay was underneath, minimize it too so the main classroom UI is revealed
+            const modeOverlay = document.getElementById('mode-animation-overlay');
+            if (modeOverlay && modeOverlay.classList.contains('active') && typeof minimizeMode === 'function') {
+                minimizeMode();
+            }
+
+            updateTimerMinimisedPill();
+            if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
+        }
+
+        function restoreTimerFullscreen() {
+            if (PRESENTATION_MODE) return;
+            isTimerFullscreenMinimised = false;
+            const _tPill = document.getElementById('timer-minimized-pill');
+            if (_tPill) _tPill.style.display = 'none';
+            openTimerFullscreen(overlayCurrentView || 'timer');
         }
 
         function closeTimerFullscreen() {
+            isTimerFullscreenActive = false;
+            isTimerFullscreenMinimised = false;
+            const _tPill = document.getElementById('timer-minimized-pill');
+            if (_tPill) _tPill.style.display = 'none';
             syncOverlaySettingsToPopup();
             const overlay = document.getElementById('timer-overlay');
             overlay.classList.remove('active');
@@ -14397,6 +14488,33 @@ syncState();
             }).join('');
         }
 
+        async function persistActiveModes() {
+            const setId = (typeof activeModeSetId !== 'undefined' && activeModeSetId) ? activeModeSetId : 'default';
+            if (typeof ModeSets !== 'undefined' && typeof ModeSets.setCachedDefs === 'function') {
+                ModeSets.setCachedDefs(setId, classModes);
+            }
+            if (setId === 'default') {
+                return persistSettingsToUserFile();
+            }
+            // Custom mode set: persist directly to user/custom-data/modes/<setId>.js
+            if (typeof Desktop !== 'undefined' && typeof Desktop.saveText === 'function') {
+                const normalized = (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeDefs === 'function')
+                    ? ModeSets.normalizeDefs(classModes)
+                    : classModes;
+                const filename = /\.js$/i.test(setId) ? setId : `${setId}.js`;
+                const fileContent = `// Custom Mode Database — Class Management Tools\nconst customModeBank = ${JSON.stringify(normalized, null, 2)};\n`;
+                const res = await Desktop.saveText('customModes', filename, fileContent);
+                try {
+                    if (typeof BroadcastChannel !== 'undefined') {
+                        const ch = new BroadcastChannel('cmt-modebanks');
+                        ch.postMessage({ type: 'modebanks-updated', filename, timestamp: Date.now() });
+                        ch.close();
+                    }
+                } catch (_) { }
+                return res;
+            }
+        }
+
         function reorderMode(index, delta) {
             const target = index + delta;
             if (target < 0 || target >= classModes.length) return;
@@ -14404,7 +14522,7 @@ syncState();
             classModes.splice(target, 0, item);
             renderModeManagerList();
             renderTimerModeShortcuts();
-            persistSettingsToUserFile().catch(err => console.warn('reorderMode config save error:', err));
+            persistActiveModes().catch(err => console.warn('reorderMode config save error:', err));
         }
 
         function createNewMode() {
@@ -14414,9 +14532,21 @@ syncState();
                 name: 'Custom Mode',
                 icon: '⭐️',
                 shortcutKey: String(Math.min(classModes.length + 1, 9)),
+                title: 'Custom Mode',
+                subtitle: 'Follow instructions',
+                textColor: '#ffffff',
+                textSize: 'large',
+                pictureType: 'emoji',
+                pictureSrc: '⭐️',
+                pictureAnim: 'pulse',
+                pictureFit: 'fit',
+                soundType: 'none',
+                soundFile: '',
+                soundVol: 20,
+                soundChime: false,
                 text: { title: 'Custom Mode', subtitle: 'Follow instructions', size: 'large', color: '#ffffff' },
-                picture: { type: 'emoji', src: '⭐️', animation: 'pulse' },
-                sound: { type: 'none', volume: 20, chime: false },
+                picture: { type: 'emoji', src: '⭐️', animation: 'pulse', fit: 'fit' },
+                sound: { type: 'none', file: '', volume: 20, chime: false },
                 isBuiltIn: false
             };
             classModes.push(newMode);
@@ -14436,7 +14566,7 @@ syncState();
             classModes.push(dup);
             renderModeManagerList();
             renderTimerModeShortcuts();
-            persistSettingsToUserFile().catch(err => console.warn('duplicateMode save config:', err));
+            persistActiveModes().catch(err => console.warn('duplicateMode save config:', err));
         }
 
         async function deleteMode(modeId) {
@@ -14450,7 +14580,7 @@ syncState();
                 classModes.splice(index, 1);
                 renderModeManagerList();
                 renderTimerModeShortcuts();
-                persistSettingsToUserFile().catch(err => console.warn('deleteMode save config:', err));
+                persistActiveModes().catch(err => console.warn('deleteMode save config:', err));
             }
         }
 
@@ -14463,7 +14593,7 @@ syncState();
                 classModes = JSON.parse(JSON.stringify(DEFAULT_CLASS_MODES));
                 renderModeManagerList();
                 renderTimerModeShortcuts();
-                persistSettingsToUserFile().catch(err => console.warn('resetModesToDefault save config:', err));
+                persistActiveModes().catch(err => console.warn('resetModesToDefault save config:', err));
             }
         }
 
@@ -14961,6 +15091,18 @@ syncState();
             mode.name = name;
             mode.icon = icon;
             mode.shortcutKey = shortcutKey;
+            mode.title = textTitle;
+            mode.subtitle = textSubtitle;
+            mode.textColor = textColor;
+            mode.textSize = textSize;
+            mode.pictureType = picType;
+            mode.pictureSrc = picSrc;
+            mode.pictureAnim = picAnim;
+            mode.pictureFit = picFit;
+            mode.soundType = soundType;
+            mode.soundFile = soundFile;
+            mode.soundVol = soundVol;
+            mode.soundChime = soundChime;
             mode.text = { title: textTitle, subtitle: textSubtitle, color: textColor, size: textSize };
             mode.picture = { type: picType, src: picSrc, animation: picAnim, fit: picFit };
             mode.sound = { type: soundType, file: soundFile, volume: soundVol, chime: soundChime };
@@ -14968,7 +15110,7 @@ syncState();
             closeModeEditor();
             renderModeManagerList();
             renderTimerModeShortcuts();
-            persistSettingsToUserFile().catch(err => console.warn('saveModeFromEditor config save error:', err));
+            persistActiveModes().catch(err => console.warn('saveModeFromEditor config save error:', err));
 
             // CRITICAL FIX: If the edited mode is currently active, apply changes immediately!
             if (activeWorkingModeId === mode.id || (activeWorkingModeId && mode.name.toLowerCase() === activeWorkingModeId.toLowerCase())) {
@@ -15110,6 +15252,10 @@ syncState();
             if (_pill) _pill.style.display = 'none';
 
             // Close fullscreen timer overlay so the mode overlay is visible on top
+            isTimerFullscreenActive = false;
+            isTimerFullscreenMinimised = false;
+            const _tPill = document.getElementById('timer-minimized-pill');
+            if (_tPill) _tPill.style.display = 'none';
             document.getElementById('timer-overlay').classList.remove('active');
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             const overlay = document.getElementById('mode-animation-overlay');
