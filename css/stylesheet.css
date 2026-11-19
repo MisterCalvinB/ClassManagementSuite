@@ -15018,6 +15018,19 @@ h1#main-title {
   animation: modeBounce 1.5s infinite ease-in-out;
 }
 
+.anim-rotate {
+  animation: modeRotate 8s infinite linear;
+}
+
+@keyframes modeRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes modePulse {
   0% {
     transform: scale(1);
@@ -17452,8 +17465,8 @@ h1#main-title {
   transform: translate(-50%, -50%);
   width: 98vw;
   height: 98vh;
-  background: #fff;
-  border: 3px solid #111;
+  background: #f5f5f0;
+  border: 2px solid #333333;
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   z-index: 9999;
@@ -17464,6 +17477,27 @@ h1#main-title {
   padding-top: 20px;
   padding-bottom: 92px;
   box-sizing: border-box;
+}
+
+#mode-animation-content {
+  position: relative;
+  z-index: 2;
+  max-width: 92vw;
+}
+
+#mode-animation-overlay.mode-dark-bg .custom-mode-title,
+#mode-animation-overlay.mode-dark-bg .custom-mode-subtitle,
+#mode-animation-overlay.mode-dark-bg .quiet-label,
+#mode-animation-overlay.mode-dark-bg .quiet-subtitle,
+#mode-animation-overlay.mode-dark-bg .conversation-label,
+#mode-animation-overlay.mode-dark-bg .conversation-subtitle,
+#mode-animation-overlay.mode-dark-bg .group-mode-label,
+#mode-animation-overlay.mode-dark-bg .group-subtext {
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
+}
+
+#mode-animation-overlay.mode-dark-bg .group-arrow {
+  color: #f8fafc;
 }
 
 #mode-animation-overlay.active {
@@ -18068,7 +18102,7 @@ h1#main-title {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 4px;
-  color: #222;
+  color: inherit;
   animation: quietPulse 3s ease-in-out infinite;
 }
 
@@ -18095,11 +18129,11 @@ h1#main-title {
   }
 
   20% {
-    opacity: 0.1;
+    opacity: 0.42;
   }
 
   80% {
-    opacity: 0.05;
+    opacity: 0.25;
   }
 
   100% {
@@ -18161,8 +18195,9 @@ h1#main-title {
 
 .speech-bubble {
   position: absolute;
-  background: #f0f0f0;
-  border: 3px solid #111;
+  background: #ffffff;
+  color: #111111;
+  border: 3px solid #333333;
   border-radius: 18px;
   padding: 14px 20px;
   font-size: clamp(1rem, 1.5vw, 1.6rem);
@@ -18253,7 +18288,7 @@ h1#main-title {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 3px;
-  color: #111;
+  color: inherit;
 }
 
 /* ---- GROUP BUTTONS MODE ---- */
@@ -18355,15 +18390,261 @@ h1#main-title {
   font-weight: 900;
   text-transform: uppercase;
   letter-spacing: 3px;
-  color: #111;
+  color: inherit;
 }
 
 .group-subtext {
   font-size: clamp(0.8rem, 2vw, 1.2rem);
-  color: #555;
+  color: inherit;
+  opacity: 0.85;
   font-weight: 600;
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+/* ============================================================
+   AMBIENT MODE BACKGROUND ANIMATIONS (10 TYPES, 60FPS GPU)
+   ============================================================ */
+
+.mode-animation-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* 1. Slow Gradient Shift */
+.mode-bg-gradient-shift {
+  background: #f5f5f0;
+}
+.mode-bg-gradient-shift::before,
+.mode-bg-gradient-shift::after {
+  content: '';
+  position: absolute;
+  inset: -35%;
+  border-radius: 50%;
+  opacity: 0.55;
+  will-change: transform;
+}
+.mode-bg-gradient-shift::before {
+  background: radial-gradient(circle at 30% 35%, #e2c96e 0%, #d97fa8 42%, transparent 72%);
+  animation: modeGradDriftA 22s ease-in-out infinite alternate;
+}
+.mode-bg-gradient-shift::after {
+  background: radial-gradient(circle at 70% 65%, #5b8fcc 0%, #6abf8e 45%, transparent 74%);
+  animation: modeGradDriftB 26s ease-in-out infinite alternate;
+}
+@keyframes modeGradDriftA {
+  0%   { transform: translate(-8%, -6%) scale(1); }
+  50%  { transform: translate(10%, 8%) scale(1.12); }
+  100% { transform: translate(-4%, 12%) scale(1.04); }
+}
+@keyframes modeGradDriftB {
+  0%   { transform: translate(8%, 6%) scale(1.05); }
+  50%  { transform: translate(-10%, -6%) scale(1.15); }
+  100% { transform: translate(6%, -10%) scale(1); }
+}
+
+/* 2. Shimmering Dots */
+.mode-bg-shimmer-dots {
+  background: radial-gradient(circle at 50% 45%, #fafaf7 0%, #eae9e0 100%);
+}
+.mode-bg-dot {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.15;
+  will-change: transform, opacity;
+  animation: modeDotShimmer 4s ease-in-out infinite;
+}
+@keyframes modeDotShimmer {
+  0%, 100% { transform: scale(0.75); opacity: 0.18; }
+  50%      { transform: scale(1.35); opacity: 0.72; }
+}
+
+/* 3. Aurora Waves (Dark) */
+.mode-bg-aurora-waves {
+  background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #0f293a 100%);
+}
+.mode-aurora-band {
+  position: absolute;
+  left: -25%;
+  width: 150%;
+  height: 55%;
+  border-radius: 50%;
+  opacity: 0.38;
+  will-change: transform, opacity;
+}
+.mode-aurora-band-1 {
+  top: -15%;
+  background: radial-gradient(ellipse at center, #6abf8e 0%, rgba(106, 191, 142, 0) 70%);
+  animation: modeAuroraSweep 18s ease-in-out infinite alternate;
+}
+.mode-aurora-band-2 {
+  top: 22%;
+  background: radial-gradient(ellipse at center, #5b8fcc 0%, rgba(91, 143, 204, 0) 70%);
+  animation: modeAuroraSweep 23s ease-in-out infinite alternate-reverse;
+}
+.mode-aurora-band-3 {
+  bottom: -18%;
+  background: radial-gradient(ellipse at center, #8b7cc2 0%, rgba(139, 124, 194, 0) 70%);
+  animation: modeAuroraSweep 20s ease-in-out infinite alternate;
+}
+@keyframes modeAuroraSweep {
+  0%   { transform: translate(-6%, 0) rotate(-3deg) scale(1); opacity: 0.3; }
+  50%  { transform: translate(6%, 5%) rotate(3deg) scale(1.1); opacity: 0.5; }
+  100% { transform: translate(-4%, -4%) rotate(-2deg) scale(1.03); }
+}
+
+/* 4. Floating Geometric Shapes */
+.mode-bg-floating-shapes {
+  background: #f5f5f0;
+}
+.mode-bg-shape {
+  position: absolute;
+  bottom: -60px;
+  border: 2.5px solid #5b8fcc;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: modeShapeFloat 14s linear infinite;
+}
+.mode-bg-shape-circle  { border-radius: 50%; }
+.mode-bg-shape-square  { border-radius: 6px; }
+.mode-bg-shape-diamond { border-radius: 4px; }
+@keyframes modeShapeFloat {
+  0%   { transform: translateY(0) rotate(0deg) scale(0.85); opacity: 0; }
+  15%  { opacity: 0.35; }
+  85%  { opacity: 0.28; }
+  100% { transform: translateY(-110vh) rotate(180deg) scale(1.1); opacity: 0; }
+}
+
+/* 5. Breathing Halo */
+.mode-bg-breathing-halo {
+  background: radial-gradient(circle at center, #ffffff 0%, #eef2f6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-halo-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(91, 143, 204, 0.32);
+  background: radial-gradient(circle, rgba(106, 191, 142, 0.14) 0%, rgba(91, 143, 204, 0.04) 70%, transparent 100%);
+  will-change: transform, opacity;
+  animation: modeHaloBreathe 6s ease-in-out infinite;
+}
+.mode-halo-ring-1 { width: 26vmin; height: 26vmin; animation-delay: 0s; }
+.mode-halo-ring-2 { width: 44vmin; height: 44vmin; animation-delay: -0.6s; }
+.mode-halo-ring-3 { width: 64vmin; height: 64vmin; animation-delay: -1.2s; }
+@keyframes modeHaloBreathe {
+  0%, 100% { transform: scale(0.88); opacity: 0.35; }
+  50%      { transform: scale(1.18); opacity: 0.85; }
+}
+
+/* 6. Water Ripples */
+.mode-bg-ripple-rings {
+  background: linear-gradient(180deg, #f0f6fa 0%, #e4eff7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mode-ripple-ring {
+  position: absolute;
+  width: 24vmin;
+  height: 24vmin;
+  border-radius: 50%;
+  border: 2px solid rgba(74, 171, 172, 0.55);
+  will-change: transform, opacity;
+  animation: modeRippleExpand 6.4s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;
+}
+@keyframes modeRippleExpand {
+  0%   { transform: scale(0.4); opacity: 0.75; }
+  100% { transform: scale(4.2); opacity: 0; }
+}
+
+/* 7. Starfield Twinkle (Dark) */
+.mode-bg-starfield-twinkle {
+  background: radial-gradient(ellipse at 50% 30%, #1e293b 0%, #0f172a 70%, #090d16 100%);
+}
+.mode-bg-star {
+  position: absolute;
+  border-radius: 50%;
+  background: #f8fafc;
+  box-shadow: 0 0 6px rgba(248, 250, 252, 0.7);
+  will-change: transform, opacity;
+  animation: modeStarTwinkle 3s ease-in-out infinite;
+}
+@keyframes modeStarTwinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50%      { opacity: 0.95; transform: scale(1.4); }
+}
+
+/* 8. Soft Lava Blobs */
+.mode-bg-lava-blobs {
+  background: #f5f5f0;
+}
+.mode-lava-blob {
+  position: absolute;
+  border-radius: 48% 52% 62% 38% / 44% 55% 45% 56%;
+  opacity: 0.26;
+  will-change: transform;
+}
+.mode-lava-blob-1 { width: 34vmin; height: 34vmin; top: 8%; left: 10%; animation: modeLavaA 18s ease-in-out infinite alternate; }
+.mode-lava-blob-2 { width: 28vmin; height: 28vmin; top: 55%; left: 18%; animation: modeLavaB 22s ease-in-out infinite alternate; }
+.mode-lava-blob-3 { width: 38vmin; height: 38vmin; top: 18%; right: 12%; animation: modeLavaB 20s ease-in-out infinite alternate-reverse; }
+.mode-lava-blob-4 { width: 26vmin; height: 26vmin; bottom: 10%; right: 20%; animation: modeLavaA 24s ease-in-out infinite alternate-reverse; }
+.mode-lava-blob-5 { width: 22vmin; height: 22vmin; top: 42%; left: 44%; animation: modeLavaA 16s ease-in-out infinite alternate; }
+@keyframes modeLavaA {
+  0%   { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50%  { transform: translate(6vw, -4vh) scale(1.12) rotate(45deg); }
+  100% { transform: translate(-4vw, 5vh) scale(0.95) rotate(90deg); }
+}
+@keyframes modeLavaB {
+  0%   { transform: translate(0, 0) scale(1.05) rotate(0deg); }
+  50%  { transform: translate(-6vw, 5vh) scale(0.92) rotate(-45deg); }
+  100% { transform: translate(5vw, -5vh) scale(1.1) rotate(-90deg); }
+}
+
+/* 9. Gentle Confetti Drift */
+.mode-bg-confetti-drift {
+  background: #fafaf7;
+}
+.mode-confetti-piece {
+  position: absolute;
+  top: -24px;
+  width: 10px;
+  height: 18px;
+  border-radius: 4px;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: modeConfettiFall 9s linear infinite;
+}
+@keyframes modeConfettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 0; }
+  10%  { opacity: 0.55; }
+  90%  { opacity: 0.45; }
+  100% { transform: translateY(108vh) rotate(360deg); opacity: 0; }
+}
+
+/* 10. Warm Horizon Glow */
+.mode-bg-horizon-glow {
+  background: linear-gradient(180deg, #fdf8ec 0%, #fae6c8 58%, #f3c8a5 100%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.mode-horizon-sun {
+  width: 58vmin;
+  height: 58vmin;
+  margin-bottom: -24vmin;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(226, 201, 110, 0.78) 0%, rgba(212, 137, 90, 0.42) 55%, transparent 75%);
+  will-change: transform, opacity;
+  animation: modeHorizonPulse 8s ease-in-out infinite;
+}
+@keyframes modeHorizonPulse {
+  0%, 100% { transform: scale(0.95); opacity: 0.75; }
+  50%      { transform: scale(1.12); opacity: 1; }
 }
 
 /* ============================================================

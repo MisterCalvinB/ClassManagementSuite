@@ -15748,7 +15748,7 @@ syncState();
         function buildConversationMode(mode) {
             const title = mode?.text?.title || mode?.name || 'Conversation';
             const subtitle = mode?.text?.subtitle || '';
-            const color = mode?.text?.color || '#ffffff';
+            const color = resolveModeTextColor(mode?.text?.color, mode?.picture?.animation);
             const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
         <div class="conversation-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
@@ -15796,7 +15796,7 @@ syncState();
         function buildGroupMode(mode) {
             const title = mode?.text?.title || mode?.name || 'Group Work';
             const subtitle = mode?.text?.subtitle !== undefined ? mode.text.subtitle : 'Work together with your team';
-            const color = mode?.text?.color || '#ffffff';
+            const color = resolveModeTextColor(mode?.text?.color, mode?.picture?.animation);
             const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
         <div class="group-mode-anim ${sizeClass}" style="color:${color}; text-align:center;">
