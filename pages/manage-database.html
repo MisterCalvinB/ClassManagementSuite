@@ -5410,6 +5410,9 @@
       S.editMode = S.editFI = S.editRI = null;
       _activeFormSchema = null;
       _activeFormCompDraft = [];
+      if (window.MdbAi && typeof window.MdbAi.resetAddModalState === 'function') {
+        window.MdbAi.resetAddModalState();
+      }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -6736,6 +6739,9 @@
     }
 
     function closeBatchAutofillModal() {
+      if (typeof MdbAi !== 'undefined' && typeof MdbAi.isBatchRunning === 'function' && MdbAi.isBatchRunning()) {
+        MdbAi.cancelBatchAutofill();
+      }
       $('batch-autofill-bg').classList.add('hidden');
     }
 
@@ -6772,8 +6778,29 @@
 
       const engineMode = document.querySelector('input[name="baf-engine"]:checked')?.value || 'hybrid';
       if (engineMode === 'hybrid' || engineMode === 'ai_only') {
-        const engineLabel = engineMode === 'hybrid' ? 'Local DB + ✨ AI Fallback' : '✨ AI Generate All Missing';
-        previewText.textContent = `Ready to autofill ${targetItems.length} records (${requestedFields.length} fields) using ${engineLabel}.`;
+        let recordsToFill = 0;
+        let fieldsToFill = 0;
+        for (const item of targetItems) {
+          let recNeedsFill = false;
+          for (const fKey of requestedFields) {
+            const curVal = item.rec[fKey];
+            const isCurEmpty = curVal === undefined || curVal === null || curVal === '' || (Array.isArray(curVal) && curVal.length === 0);
+            if (isCurEmpty || overwriteMode === 'all' || (Array.isArray(curVal) && arrayStrategy === 'merge' && engineMode === 'hybrid')) {
+              if (!(Array.isArray(curVal) && !isCurEmpty && arrayStrategy === 'empty_only')) {
+                recNeedsFill = true;
+                fieldsToFill++;
+              }
+            }
+          }
+          if (recNeedsFill) recordsToFill++;
+        }
+        if (recordsToFill === 0) {
+          previewText.textContent = t('mdbBatchAutofillPreviewNone') || 'All selected fields are already filled in the target records.';
+          if (applyBtn) applyBtn.disabled = true;
+          return;
+        }
+        const engineLabel = engineMode === 'hybrid' ? 'Local DB + AI Fallback' : 'AI Generate All Missing';
+        previewText.textContent = `Ready to autofill ${recordsToFill} / ${targetItems.length} records (${fieldsToFill} field slots) using ${engineLabel}.`;
         if (applyBtn) applyBtn.disabled = false;
         return;
       }
@@ -6840,6 +6867,12 @@
     }
 
     async function executeBatchAutofill() {
+      if (typeof MdbAi !== 'undefined' && typeof MdbAi.isBatchRunning === 'function' && MdbAi.isBatchRunning()) {
+        MdbAi.cancelBatchAutofill();
+        showToast('Cancelling batch autofill...');
+        return;
+      }
+
       const scope = document.querySelector('input[name="baf-scope"]:checked')?.value || 'selected';
       const overwriteMode = document.querySelector('input[name="baf-overwrite"]:checked')?.value || 'empty';
       const arrayStrategy = $('baf-array-strategy')?.value || 'merge';
@@ -6864,15 +6897,13 @@
         const originalHtml = applyBtn ? applyBtn.innerHTML : '';
 
         if (applyBtn) {
-          applyBtn.textContent = '⏹ ' + (t('btnCancel') || 'Cancel');
-          applyBtn.onclick = function () {
-            if (typeof MdbAi !== 'undefined') MdbAi.cancelBatchAutofill();
-            showToast('Cancelling batch autofill…');
-          };
+          applyBtn.textContent = (t('btnCancel') || 'Cancel');
         }
 
         try {
           const result = await MdbAi.runBatchAutofill(targetItems, requestedFields, engineMode, {
+            overwriteMode,
+            arrayStrategy,
             onProgress: function (prog) {
               if (previewText) {
                 previewText.textContent = `[${prog.current} / ${prog.total}] ${prog.percent}% — ${prog.status}`;
@@ -6880,16 +6911,25 @@
             }
           });
 
+          if (!result || result.alreadyRunning) return;
+
           closeBatchAutofillModal();
           S.schema = buildSchema(getAllRecords());
+          renderFilePills();
           renderTable();
-          showToast(`Batch autofill complete: updated ${result.updatedCount} records.`);
+          if (result.cancelled) {
+            showToast(`Batch autofill cancelled. Saved ${result.updatedCount} updated record(s).`);
+          } else if (result.updatedCount === 0) {
+            showToast(t('mdbBatchAutofillNoMatches') || 'No records were updated.', true);
+          } else {
+            const failNote = result.failedCount > 0 ? ` (${result.failedCount} failed)` : '';
+            showToast(`Batch autofill complete: updated ${result.updatedCount} record(s)${failNote}.`);
+          }
         } catch (err) {
           showToast('Batch autofill: ' + (err && err.message ? err.message : String(err)), true);
         } finally {
           if (applyBtn) {
             applyBtn.innerHTML = originalHtml;
-            applyBtn.onclick = executeBatchAutofill;
           }
         }
         return;

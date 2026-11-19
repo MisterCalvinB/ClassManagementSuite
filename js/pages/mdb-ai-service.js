@@ -10,7 +10,10 @@
 
   var _batchCancelRequested = false;
   var _isBatchRunning = false;
+  var _batchAbortController = null;
   var _isStudioGenerating = false;
+  var _isFieldGenerating = false;
+  var _isRecordAutofillRunning = false;
   var _studioMode = 'topic'; // 'topic' | 'text'
   var _generatedRecords = [];
 
@@ -618,13 +621,78 @@
     return 'title';
   }
 
+  var PLACEHOLDER_ECHOES = new Set([
+    'value', 'traduction', 'item1', 'item2', 'first', 'second', '/.../', '...', 'n/a', 'na',
+    'none', 'unknown', 'tbd', 'example', 'clear definition.', 'an example sentence.',
+    'a brief pedagogical definition.', 'she used the term in a clear sentence.',
+    '/ˈsæm.pəl/', 'ˈsæm.pəl'
+  ]);
+
+  function _isPlaceholderEcho(val) {
+    if (val === undefined || val === null) return true;
+    var s = String(val).trim().toLowerCase();
+    return !s || PLACEHOLDER_ECHOES.has(s) || /^<[^>]+>$/.test(s);
+  }
+
+  function _parseBooleanField(val) {
+    if (typeof val === 'boolean') return val;
+    var s = String(val).trim().toLowerCase();
+    if (s === 'false' || s === '0' || s === 'no' || s === 'off') return false;
+    if (s === 'true' || s === '1' || s === 'yes' || s === 'on') return true;
+    return Boolean(val);
+  }
+
+  function _coerceFieldValue(val, fieldKey, fieldDef) {
+    if (val === undefined || val === null || val === '') return undefined;
+    var type = (fieldDef && fieldDef.type) || 'string';
+
+    if (fieldKey === 'level' || fieldKey === 'cefr') {
+      var cefrMatch = String(val).toUpperCase().match(/\b(A1|A2|B1|B2|C1|C2)\b/);
+      return cefrMatch ? cefrMatch[1] : undefined;
+    }
+
+    if (type === 'array') {
+      var arr = Array.isArray(val)
+        ? val.map(function (x) { return String(x == null ? '' : x).trim(); })
+        : String(val).split(/,\s*|\r?\n/).map(function (s) { return s.trim(); });
+      arr = arr.filter(function (item) { return item && !_isPlaceholderEcho(item); });
+      return arr.length > 0 ? arr : undefined;
+    }
+
+    if (type === 'boolean') {
+      return _parseBooleanField(val);
+    }
+
+    if (type === 'number') {
+      var num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[^\d.-]/g, ''));
+      return Number.isFinite(num) ? num : undefined;
+    }
+
+    if (type === 'object') {
+      if (typeof val === 'object' && !Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          var parsedObj = JSON.parse(val);
+          if (parsedObj && typeof parsedObj === 'object' && !Array.isArray(parsedObj)) return parsedObj;
+        } catch (_) {}
+      }
+      return undefined;
+    }
+
+    var strVal = Array.isArray(val) ? val.filter(Boolean).join(', ') : (typeof val === 'object' ? JSON.stringify(val) : String(val));
+    strVal = strVal.trim();
+    if (_isPlaceholderEcho(strVal)) return undefined;
+    if (fieldKey === 'partOfSpeech' || fieldKey === 'pos') strVal = strVal.toLowerCase();
+    return strVal;
+  }
+
   /**
    * Universal Schema-Driven Prompt Builder for missing fields
    */
   function mdbBuildPrompt(rec, typeKey, requestedFieldKeys, schema) {
     schema = schema || [];
     var primaryKey = mdbGetPrimaryFieldKey(typeKey);
-    var primaryVal = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || '';
+    var primaryVal = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || rec.quote || rec.rule || rec.question || rec.code || rec.label || '';
 
     // Collect already filled non-empty fields
     var filledEntries = [];
@@ -649,42 +717,45 @@
 
       if (key === 'level' || key === 'cefr') {
         fieldInstructions.push('"' + key + '": CEFR level (one of A1, A2, B1, B2, C1, C2)');
-        exampleObj[key] = 'B1';
+        exampleObj[key] = '<A1|A2|B1|B2|C1|C2>';
       } else if (key === 'partOfSpeech' || key === 'pos') {
         fieldInstructions.push('"' + key + '": lowercase part of speech (noun, verb, adjective, adverb, preposition, conjunction, phrase)');
-        exampleObj[key] = 'noun';
+        exampleObj[key] = '<part_of_speech>';
       } else if (key === 'ipa') {
-        fieldInstructions.push('"' + key + '": standard IPA phonetic transcription');
-        exampleObj[key] = '/.../';
+        fieldInstructions.push('"' + key + '": standard IPA phonetic transcription' + (primaryVal ? (' of "' + primaryVal + '"') : '') + ' enclosed in slashes /.../');
+        exampleObj[key] = '<IPA>';
       } else if (key === 'french' || key === 'german' || key === 'italian') {
-        fieldInstructions.push('"' + key + '": natural translation in ' + key.toUpperCase());
-        exampleObj[key] = 'traduction';
+        fieldInstructions.push('"' + key + '": natural ' + key + ' translation' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        exampleObj[key] = '<' + key + '_translation>';
       } else if (key === 'definition') {
-        fieldInstructions.push('"' + key + '": concise 1-sentence pedagogical definition');
-        exampleObj[key] = fieldDef.type === 'array' ? ['Clear definition.'] : 'Clear definition.';
+        fieldInstructions.push('"' + key + '": concise 1-sentence pedagogical definition' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        exampleObj[key] = fieldDef.type === 'array' ? ['<definition>'] : '<definition>';
       } else if (key === 'exampleSentence') {
-        fieldInstructions.push('"' + key + '": natural illustrative sentence using the word in context');
-        exampleObj[key] = fieldDef.type === 'array' ? ['An example sentence.'] : 'An example sentence.';
+        fieldInstructions.push('"' + key + '": natural illustrative sentence using "' + (primaryVal || 'the term') + '" in context');
+        exampleObj[key] = fieldDef.type === 'array' ? ['<example_sentence>'] : '<example_sentence>';
       } else if (typeDesc === 'array') {
         fieldInstructions.push('"' + key + '": JSON array of strings' + extra);
-        exampleObj[key] = ['item1', 'item2'];
+        exampleObj[key] = ['<item>'];
       } else if (typeDesc === 'boolean') {
         fieldInstructions.push('"' + key + '": boolean (true/false)');
         exampleObj[key] = true;
       } else if (typeDesc === 'number') {
         fieldInstructions.push('"' + key + '": number');
         exampleObj[key] = 1;
+      } else if (typeDesc === 'object') {
+        fieldInstructions.push('"' + key + '": JSON object' + extra);
+        exampleObj[key] = {};
       } else {
         fieldInstructions.push('"' + key + '": string' + extra);
-        exampleObj[key] = 'value';
+        exampleObj[key] = '<value>';
       }
     });
 
     var systemPrompt = [
       'You are an expert curriculum and language education AI assistant autofilling educational database records.',
-      'Respond ONLY with a valid JSON object containing the requested target fields.',
-      'Do not include markdown prose, conversational preamble, or explanations.',
-      'Example response structure:',
+      'Respond ONLY with a valid JSON object containing the requested target fields with real, accurate values for the Primary Item.',
+      'Replace every <...> placeholder with actual generated content. Do not include markdown prose, conversational preamble, or explanations.',
+      'Expected JSON schema:',
       JSON.stringify(exampleObj, null, 2)
     ].join('\n');
 
@@ -705,12 +776,14 @@
   /**
    * Generate AI predictions for missing fields in a single record
    */
-  async function mdbGenerateAiFields(rec, typeKey, requestedFieldKeys, schema) {
+  async function mdbGenerateAiFields(rec, typeKey, requestedFieldKeys, schema, options) {
     if (!window.SlmService) {
       throw new Error('AI Service is unavailable.');
     }
+    options = options || {};
 
     var promptData = mdbBuildPrompt(rec, typeKey, requestedFieldKeys, schema);
+    var scaledTokens = Math.min(1024, Math.max(128, (requestedFieldKeys ? requestedFieldKeys.length : 1) * 72));
 
     var res = await window.SlmService.generateJson({
       systemPrompt: promptData.systemPrompt,
@@ -718,15 +791,20 @@
       assistantPrefix: '{',
       expectObject: true,
       temperature: 0.2,
-      maxNewTokens: 480,
-      promptDownloadIfMissing: true
+      maxNewTokens: options.maxNewTokens || scaledTokens,
+      signal: options.signal || null,
+      promptDownloadIfMissing: options.promptDownloadIfMissing !== false
     });
 
     if (res && res.aborted) {
       return { ok: false, aborted: true };
     }
     if (!res || !res.ok || !res.data) {
-      throw new Error((res && res.error) || 'Could not parse AI response');
+      return {
+        ok: false,
+        aborted: false,
+        error: (res && res.error) || 'Could not parse AI response'
+      };
     }
 
     var data = res.data;
@@ -738,13 +816,10 @@
     requestedFieldKeys.forEach(function (k) {
       if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
         var fieldDef = (schema || []).find(function (f) { return f && f.key === k; });
-        var val = data[k];
-        if (fieldDef && fieldDef.type === 'array' && !Array.isArray(val)) {
-          val = String(val).split(/,\s*|\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
-        } else if (fieldDef && fieldDef.type === 'string' && Array.isArray(val)) {
-          val = val.join(', ');
+        var coerced = _coerceFieldValue(data[k], k, fieldDef);
+        if (coerced !== undefined) {
+          cleanedResult[k] = coerced;
         }
-        cleanedResult[k] = val;
       }
     });
 
@@ -767,17 +842,23 @@
   }
 
   /**
-   * Quick Field Autofill Trigger from form [✨ AI] button
+   * Quick Field Autofill Trigger from form AI button
    */
   async function mdbTriggerFieldAiAutofill(fieldKey) {
+    if (_isFieldGenerating) return;
     var el = document.getElementById('ff-' + fieldKey);
     if (!el) return;
 
-    var primaryKey = mdbGetPrimaryFieldKey(window.S ? window.S.typeKey : 'wordbanks');
+    var typeKey = window.S ? window.S.typeKey : 'wordbanks';
+    var primaryKey = mdbGetPrimaryFieldKey(typeKey);
     var primaryEl = document.getElementById('ff-' + primaryKey)
       || document.getElementById('ff-word')
       || document.getElementById('ff-title')
       || document.getElementById('ff-name')
+      || document.getElementById('ff-sentence')
+      || document.getElementById('ff-quote')
+      || document.getElementById('ff-rule')
+      || document.getElementById('ff-question')
       || document.querySelector('#edit-body input[type="text"]');
 
     var primaryVal = (primaryEl ? primaryEl.value : '').trim();
@@ -800,17 +881,29 @@
       }
     });
 
+    _isFieldGenerating = true;
     var origPlaceholder = el.placeholder;
-    el.placeholder = '✨ ' + _t('mdbAiGenerating', 'Generating…');
+    el.placeholder = _t('mdbAiGenerating', 'Generating...');
     el.disabled = true;
 
     try {
-      var genVal = await mdbGenerateSingleField(formRec, fieldKey, activeSchema, window.S ? window.S.typeKey : 'wordbanks');
+      var res = await mdbGenerateAiFields(formRec, typeKey, [fieldKey], activeSchema);
+      if (res && res.aborted) {
+        return;
+      }
+      if (!res || !res.ok) {
+        throw new Error((res && res.error) || 'Could not parse AI response');
+      }
+      var genVal = (res.data && res.data[fieldKey] !== undefined) ? res.data[fieldKey] : null;
       if (genVal !== null && genVal !== undefined) {
+        var fieldDef = activeSchema.find(function (f) { return f && f.key === fieldKey; });
         if (el.type === 'checkbox') {
           el.checked = Boolean(genVal);
         } else if (Array.isArray(genVal)) {
-          el.value = genVal.join(', ');
+          var sep = (fieldDef && fieldDef.longArray) ? '\n' : ', ';
+          el.value = genVal.join(sep);
+        } else if (typeof genVal === 'object') {
+          el.value = JSON.stringify(genVal, null, 2);
         } else {
           el.value = String(genVal);
         }
@@ -820,7 +913,7 @@
         setTimeout(function () { el.classList.remove('ai-pulsing-input'); }, 1400);
 
         if (typeof window.showToast === 'function') {
-          window.showToast(_t('mdbAutofillApplied', '✓ Field completed by AI.'));
+          window.showToast(_t('mdbAutofillApplied', 'Field completed by AI.'));
         }
       } else {
         if (typeof window.showToast === 'function') {
@@ -833,9 +926,10 @@
         window.showToast('AI Autofill: ' + (err && err.message ? err.message : String(err)), true);
       }
     } finally {
+      _isFieldGenerating = false;
       el.disabled = false;
       el.placeholder = origPlaceholder;
-      el.focus();
+      if (document.body.contains(el)) el.focus();
     }
   }
 
@@ -843,12 +937,17 @@
    * Single-Record Autofill Trigger from Form (#edit-bg)
    */
   async function mdbTriggerFormAiAutofill() {
-    var primaryKey = mdbGetPrimaryFieldKey(window.S ? window.S.typeKey : 'wordbanks');
+    if (_isRecordAutofillRunning) return;
+    var typeKey = window.S ? window.S.typeKey : 'wordbanks';
+    var primaryKey = mdbGetPrimaryFieldKey(typeKey);
     var primaryEl = document.getElementById('ff-' + primaryKey)
       || document.getElementById('ff-word')
       || document.getElementById('ff-title')
       || document.getElementById('ff-name')
       || document.getElementById('ff-sentence')
+      || document.getElementById('ff-quote')
+      || document.getElementById('ff-rule')
+      || document.getElementById('ff-question')
       || document.querySelector('#edit-body input[type="text"]');
 
     var primaryVal = (primaryEl ? primaryEl.value : '').trim();
@@ -887,11 +986,12 @@
       return;
     }
 
+    _isRecordAutofillRunning = true;
     var btn = document.getElementById('mdb-ai-autofill-btn');
     var originalBtnHtml = btn ? btn.innerHTML : '';
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" style="animation:spin 1s linear infinite;" alt="" /> ' + _t('mdbAiGenerating', 'Generating…');
+      btn.innerHTML = '<img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" style="animation:spin 1s linear infinite;" alt="" /> ' + _t('mdbAiGenerating', 'Generating...');
     }
 
     try {
@@ -916,23 +1016,28 @@
       });
 
       var stillNeeded = missingKeys.filter(function (k) { return !fieldSuggestions[k] || fieldSuggestions[k].length === 0; });
+      var aiAborted = false;
 
       if (stillNeeded.length > 0) {
-        var aiRes = await mdbGenerateAiFields(formRec, window.S ? window.S.typeKey : 'wordbanks', stillNeeded, activeSchema);
-        if (aiRes && aiRes.ok && aiRes.data) {
-          sources.add('✨ Offline AI (SLM)');
+        var aiRes = await mdbGenerateAiFields(formRec, typeKey, stillNeeded, activeSchema);
+        if (aiRes && aiRes.aborted) {
+          aiAborted = true;
+        } else if (aiRes && aiRes.ok && aiRes.data) {
+          sources.add('Offline AI (SLM)');
           Object.keys(aiRes.data).forEach(function (k) {
             var v = aiRes.data[k];
             if (v !== undefined && v !== null && v !== '') {
               if (!fieldSuggestions[k]) fieldSuggestions[k] = [];
-              fieldSuggestions[k].push({ val: v, filename: '✨ AI Model', isAi: true });
+              fieldSuggestions[k].push({ val: v, filename: 'AI Model', isAi: true });
             }
           });
+        } else if (aiRes && !aiRes.ok && Object.keys(fieldSuggestions).length === 0) {
+          throw new Error(aiRes.error || 'Could not parse AI response');
         }
       }
 
       if (Object.keys(fieldSuggestions).length === 0) {
-        if (typeof window.showToast === 'function') {
+        if (!aiAborted && typeof window.showToast === 'function') {
           window.showToast(_t('mdbAutofillNoMatches', 'No matches found.'), true);
         }
         return;
@@ -947,6 +1052,7 @@
         window.showToast('AI Autofill: ' + (err && err.message ? err.message : String(err)), true);
       }
     } finally {
+      _isRecordAutofillRunning = false;
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = originalBtnHtml;
@@ -1015,11 +1121,13 @@
    * Row Context Menu Autofill Trigger (Hybrid Local DB + AI Fallback)
    */
   async function mdbTriggerRecordAutofill(fi, ri) {
+    if (_isRecordAutofillRunning) return;
     var file = window.S && window.S.files && window.S.files[fi];
     if (!file || !file.records[ri]) return;
     var rec = file.records[ri];
-    var primaryKey = mdbGetPrimaryFieldKey(window.S.typeKey);
-    var targetWord = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || '';
+    var typeKey = window.S.typeKey;
+    var primaryKey = mdbGetPrimaryFieldKey(typeKey);
+    var targetWord = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || rec.quote || rec.rule || rec.question || rec.code || rec.label || '';
 
     if (!targetWord) {
       if (typeof window.showToast === 'function') {
@@ -1045,6 +1153,7 @@
       return;
     }
 
+    _isRecordAutofillRunning = true;
     try {
       var localHits = (typeof window.findAutofillHits === 'function')
         ? window.findAutofillHits(targetWord).filter(function (h) { return !(h.filename === file.name && h.rec === rec); })
@@ -1070,23 +1179,31 @@
       });
 
       var stillNeeded = missingKeys.filter(function (k) { return !fieldSuggestions[k] || fieldSuggestions[k].length === 0; });
+      var aiAborted = false;
 
       if (stillNeeded.length > 0) {
-        var aiRes = await mdbGenerateAiFields(rec, window.S.typeKey, stillNeeded, activeSchema);
-        if (aiRes && aiRes.ok && aiRes.data) {
-          sources.add('✨ Offline AI (SLM)');
+        if (typeof window.showToast === 'function') {
+          window.showToast(_t('mdbAiGenerating', 'Generating AI suggestions...'));
+        }
+        var aiRes = await mdbGenerateAiFields(rec, typeKey, stillNeeded, activeSchema);
+        if (aiRes && aiRes.aborted) {
+          aiAborted = true;
+        } else if (aiRes && aiRes.ok && aiRes.data) {
+          sources.add('Offline AI (SLM)');
           Object.keys(aiRes.data).forEach(function (k) {
             var v = aiRes.data[k];
             if (v !== undefined && v !== null && v !== '') {
               if (!fieldSuggestions[k]) fieldSuggestions[k] = [];
-              fieldSuggestions[k].push({ val: v, filename: '✨ AI Model', isAi: true });
+              fieldSuggestions[k].push({ val: v, filename: 'AI Model', isAi: true });
             }
           });
+        } else if (aiRes && !aiRes.ok && Object.keys(fieldSuggestions).length === 0) {
+          throw new Error(aiRes.error || 'Could not parse AI response');
         }
       }
 
       if (Object.keys(fieldSuggestions).length === 0) {
-        if (typeof window.showToast === 'function') {
+        if (!aiAborted && typeof window.showToast === 'function') {
           window.showToast(_t('mdbAutofillNoMatches', 'No matching data found.'), true);
         }
         return;
@@ -1100,110 +1217,240 @@
       if (typeof window.showToast === 'function') {
         window.showToast('Autofill error: ' + (err && err.message ? err.message : String(err)), true);
       }
+    } finally {
+      _isRecordAutofillRunning = false;
     }
+  }
+
+  function _mergeUniqueStrings(existing, additions) {
+    if (typeof window.mergeTagList === 'function') {
+      return window.mergeTagList(existing, additions);
+    }
+    var out = [];
+    var seen = new Set();
+    var src = Array.isArray(existing) ? existing : [];
+    src.concat(additions || []).forEach(function (v) {
+      var trimmed = String(v == null ? '' : v).trim();
+      var lo = trimmed.toLowerCase();
+      if (trimmed && !seen.has(lo)) {
+        seen.add(lo);
+        out.push(trimmed);
+      }
+    });
+    return out;
+  }
+
+  function _cloneValue(val) {
+    if (Array.isArray(val)) return val.slice();
+    if (val && typeof val === 'object') return JSON.parse(JSON.stringify(val));
+    return val;
   }
 
   /**
    * Execute Batch Autofill across selected records
    */
   async function mdbRunBatchAutofill(targetItems, requestedFields, engineMode, options) {
-    if (_isBatchRunning) return;
+    if (_isBatchRunning) {
+      return { ok: false, updatedCount: 0, skippedCount: 0, failedCount: 0, alreadyRunning: true };
+    }
     _isBatchRunning = true;
     _batchCancelRequested = false;
+    _batchAbortController = typeof AbortController !== 'undefined' ? new AbortController() : null;
 
     options = options || {};
     var onProgress = options.onProgress || function () {};
+    var overwriteMode = options.overwriteMode || 'empty'; // 'empty' | 'all'
+    var arrayStrategy = options.arrayStrategy || 'merge'; // 'merge' | 'replace' | 'empty_only'
     var schema = (window.S && window.S.schema) || [];
     var typeKey = (window.S && window.S.typeKey) || 'wordbanks';
+    var primaryKey = mdbGetPrimaryFieldKey(typeKey);
 
-    var total = targetItems.length;
+    var total = Array.isArray(targetItems) ? targetItems.length : 0;
     var updatedRecordCount = 0;
+    var skippedCount = 0;
+    var failedCount = 0;
     var filesToSave = new Set();
 
-    for (var i = 0; i < total; i++) {
-      if (_batchCancelRequested) break;
+    try {
+      for (var i = 0; i < total; i++) {
+        if (_batchCancelRequested) break;
 
-      var item = targetItems[i];
-      var rec = item.rec;
-      var file = item.file;
-      var fi = item.fi;
+        var item = targetItems[i];
+        var rec = item && item.rec;
+        var file = item && item.file;
+        var fi = item && item.fi;
+        if (!rec || !file) {
+          skippedCount++;
+          continue;
+        }
 
-      onProgress({
-        current: i + 1,
-        total: total,
-        percent: Math.round(((i + 1) / total) * 100),
-        status: 'Processing record ' + (i + 1) + ' of ' + total + '…'
-      });
+        onProgress({
+          current: i + 1,
+          total: total,
+          percent: Math.round(((i + 1) / Math.max(1, total)) * 100),
+          status: 'Processing record ' + (i + 1) + ' of ' + total + '...'
+        });
 
-      var missing = requestedFields.filter(function (fKey) {
-        var v = rec[fKey];
-        return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
-      });
+        var targetFieldsForRec = requestedFields.filter(function (fKey) {
+          var v = rec[fKey];
+          var isEmpty = v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+          if (isEmpty) return true;
+          if (Array.isArray(v)) {
+            if (arrayStrategy === 'empty_only') return false;
+            if (arrayStrategy === 'merge') return true;
+            return overwriteMode === 'all';
+          }
+          return overwriteMode === 'all';
+        });
 
-      if (missing.length === 0) continue;
+        if (targetFieldsForRec.length === 0) {
+          skippedCount++;
+          continue;
+        }
 
-      var fieldValuesToApply = {};
+        var fieldValuesToApply = {};
+        var primaryVal = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || rec.quote || rec.rule || rec.question || rec.code || rec.label || '';
 
-      if (engineMode === 'local' || engineMode === 'hybrid') {
-        var primaryKey = mdbGetPrimaryFieldKey(typeKey);
-        var primaryVal = rec[primaryKey] || rec.word || rec.title || rec.english || '';
-        if (primaryVal && typeof window.findAutofillHits === 'function') {
-          var hits = window.findAutofillHits(primaryVal).filter(function (h) {
-            return !(h.filename === file.name && h.rec === rec);
-          });
-          if (hits.length > 0) {
-            var bestHit = hits[0].rec;
-            missing.forEach(function (fKey) {
-              if (bestHit[fKey] !== undefined && bestHit[fKey] !== null && bestHit[fKey] !== '') {
-                fieldValuesToApply[fKey] = bestHit[fKey];
+        if (engineMode === 'local' || engineMode === 'hybrid') {
+          if (primaryVal && typeof window.findAutofillHits === 'function') {
+            var hits = window.findAutofillHits(primaryVal).filter(function (h) {
+              return !(h.filename === file.name && h.rec === rec);
+            });
+            if (hits.length > 0) {
+              var bestCand = hits[0].rec;
+              if (typeof window.scoreCandidateRecord === 'function') {
+                var bestScore = -1;
+                hits.forEach(function (h) {
+                  var sc = window.scoreCandidateRecord(h.rec, targetFieldsForRec);
+                  if (sc > bestScore) {
+                    bestScore = sc;
+                    bestCand = h.rec;
+                  }
+                });
               }
-            });
+              if (bestCand) {
+                targetFieldsForRec.forEach(function (fKey) {
+                  var candVal = bestCand[fKey];
+                  if (candVal !== undefined && candVal !== null && candVal !== '' && !(Array.isArray(candVal) && candVal.length === 0)) {
+                    fieldValuesToApply[fKey] = candVal;
+                  }
+                });
+              }
+            }
+          }
+        }
+
+        var remainingForAi = targetFieldsForRec.filter(function (k) {
+          if (fieldValuesToApply[k] !== undefined) return false;
+          var cur = rec[k];
+          var isEmpty = cur === undefined || cur === null || cur === '' || (Array.isArray(cur) && cur.length === 0);
+          if (isEmpty) return true;
+          if (overwriteMode === 'all') return true;
+          return false;
+        });
+
+        if ((engineMode === 'hybrid' || engineMode === 'ai_only') && remainingForAi.length > 0) {
+          var hasAnyContext = Boolean(String(primaryVal || '').trim()) || Object.keys(rec).some(function (k) {
+            return !k.startsWith('_') && rec[k] !== undefined && rec[k] !== null && rec[k] !== '' && !(Array.isArray(rec[k]) && rec[k].length === 0);
+          });
+
+          if (!hasAnyContext) {
+            skippedCount++;
+          } else {
+            try {
+              var aiRes = await mdbGenerateAiFields(rec, typeKey, remainingForAi, schema, {
+                signal: _batchAbortController ? _batchAbortController.signal : null,
+                promptDownloadIfMissing: i === 0
+              });
+              if (aiRes && aiRes.aborted) {
+                _batchCancelRequested = true;
+                break;
+              }
+              if (aiRes && !aiRes.ok && aiRes.error === 'no-model-installed') {
+                throw new Error('No offline AI model is installed.');
+              }
+              if (aiRes && aiRes.ok && aiRes.data) {
+                Object.keys(aiRes.data).forEach(function (k) {
+                  fieldValuesToApply[k] = aiRes.data[k];
+                });
+              } else if (aiRes && !aiRes.ok) {
+                failedCount++;
+              }
+            } catch (aiErr) {
+              console.warn('[MdbAiBatch] Record AI generation skipped:', aiErr);
+              failedCount++;
+              if (aiErr && /no offline ai model/i.test(aiErr.message || '')) {
+                throw aiErr;
+              }
+            }
+          }
+        }
+
+        var didUpdate = false;
+        Object.keys(fieldValuesToApply).forEach(function (fKey) {
+          var newVal = fieldValuesToApply[fKey];
+          var curVal = rec[fKey];
+          var isCurEmpty = curVal === undefined || curVal === null || curVal === '' || (Array.isArray(curVal) && curVal.length === 0);
+
+          if (isCurEmpty) {
+            rec[fKey] = _cloneValue(newVal);
+            didUpdate = true;
+          } else if (Array.isArray(curVal) && Array.isArray(newVal)) {
+            if (arrayStrategy === 'merge') {
+              var merged = _mergeUniqueStrings(curVal, newVal);
+              if (merged.length > curVal.length) {
+                rec[fKey] = merged;
+                didUpdate = true;
+              }
+            } else if (arrayStrategy === 'replace' && overwriteMode === 'all') {
+              rec[fKey] = _cloneValue(newVal);
+              didUpdate = true;
+            }
+          } else if (overwriteMode === 'all') {
+            rec[fKey] = _cloneValue(newVal);
+            didUpdate = true;
+          }
+        });
+
+        if (didUpdate) {
+          updatedRecordCount++;
+          filesToSave.add(fi);
+        }
+      }
+
+      for (var fiIdx of filesToSave) {
+        if (typeof window.saveFile === 'function') {
+          var savedOk = await window.saveFile(fiIdx);
+          if (savedOk && window._gsc && window.S && window.S.files && window.S.files[fiIdx]) {
+            var savedFile = window.S.files[fiIdx];
+            if (window._gsc[typeKey] && window._gsc[typeKey][savedFile.name]) {
+              window._gsc[typeKey][savedFile.name].records = savedFile.records;
+            }
           }
         }
       }
 
-      var remainingMissing = missing.filter(function (k) { return fieldValuesToApply[k] === undefined; });
-      if ((engineMode === 'hybrid' || engineMode === 'ai_only') && remainingMissing.length > 0) {
-        try {
-          var aiRes = await mdbGenerateAiFields(rec, typeKey, remainingMissing, schema);
-          if (aiRes && aiRes.ok && aiRes.data) {
-            Object.keys(aiRes.data).forEach(function (k) {
-              fieldValuesToApply[k] = aiRes.data[k];
-            });
-          }
-        } catch (aiErr) {
-          console.warn('[MdbAiBatch] Record AI generation skipped:', aiErr);
-        }
-      }
-
-      var didUpdate = false;
-      Object.keys(fieldValuesToApply).forEach(function (fKey) {
-        var val = fieldValuesToApply[fKey];
-        rec[fKey] = Array.isArray(val) ? val.slice() : (typeof val === 'object' && val !== null ? JSON.parse(JSON.stringify(val)) : val);
-        didUpdate = true;
-      });
-
-      if (didUpdate) {
-        updatedRecordCount++;
-        filesToSave.add(fi);
-      }
+      return {
+        ok: true,
+        updatedCount: updatedRecordCount,
+        skippedCount: skippedCount,
+        failedCount: failedCount,
+        cancelled: _batchCancelRequested
+      };
+    } finally {
+      _isBatchRunning = false;
+      _batchAbortController = null;
     }
-
-    for (var fiIdx of filesToSave) {
-      if (typeof window.saveFile === 'function') {
-        await window.saveFile(fiIdx);
-      }
-    }
-
-    _isBatchRunning = false;
-    return {
-      updatedCount: updatedRecordCount,
-      cancelled: _batchCancelRequested
-    };
   }
 
   function mdbCancelBatchAutofill() {
     _batchCancelRequested = true;
+    if (_batchAbortController) {
+      try { _batchAbortController.abort(); } catch (_) {}
+    }
+    if (window.SlmService && typeof window.SlmService.abort === 'function') {
+      window.SlmService.abort();
+    }
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -1228,15 +1475,18 @@
     var promptTemplate = (window.AI_PROMPTS && window.AI_PROMPTS[typeKey]) || '';
     var useCefr = typeCfg.showCefr !== false && cefrLevel && cefrLevel !== 'Any';
 
+    var isWordbank = typeKey === 'wordbanks';
     var systemPrompt = [
-      'You are an expert language teacher and educational lexicographer.',
+      'You are an expert language teacher and educational curriculum designer.',
       'Your task is to generate exactly ' + count + ' structured ' + typeTitle + ' records in valid JSON format.',
       'CRITICAL INSTRUCTIONS:',
       '1. Respond ONLY with a valid JSON array of objects (starting with [ and ending with ]).',
       '2. Do NOT write conversational preamble, commentary, metadata, or markdown fences.',
-      '3. Each object represents one real vocabulary word related to the topic. NEVER output the topic title itself as a word.',
-      '4. NEVER output field names, language names, or instruction phrases as vocabulary words.',
-      useCefr ? ('5. Ensure language difficulty and vocabulary match CEFR level ' + cefrLevel + '.') : ''
+      isWordbank
+        ? '3. Each object represents one real vocabulary word related to the topic. NEVER output the topic title itself as a word.'
+        : ('3. Each object must represent one complete, concrete ' + typeTitle + ' entry matching the schema. NEVER echo placeholder examples.'),
+      '4. NEVER output field names, language names, or instruction phrases as record values.',
+      useCefr ? ('5. Ensure language difficulty and content match CEFR level ' + cefrLevel + '.') : ''
     ].filter(Boolean).join('\n');
 
     var schemaDescription = '';
@@ -1291,10 +1541,18 @@
       schemaDescription += '\n\nType-Specific Schema Requirements:\n- ' + typeCfg.schemaInstructions.join('\n- ');
     }
 
+    var taskInstruction = isWordbank
+      ? (mode === 'text'
+        ? 'Extract and generate ' + count + ' vocabulary records from the provided passage.'
+        : 'Generate ' + count + ' distinct vocabulary words related to the topic "' + promptText + '". (Do NOT use "' + promptText + '" as a word).')
+      : (mode === 'text'
+        ? 'Extract and generate ' + count + ' structured ' + typeTitle + ' records from the provided source text.'
+        : 'Generate ' + count + ' distinct, realistic ' + typeTitle + ' records for the topic "' + promptText + '".');
+
     var userPrompt = [
       'Target Database: ' + typeTitle,
       'Theme / Topic: ' + promptText,
-      'Task: ' + (mode === 'text' ? 'Extract and generate ' + count + ' vocabulary records from the provided passage.' : 'Generate ' + count + ' distinct vocabulary words related to the topic "' + promptText + '". (Do NOT use "' + promptText + '" as a word).'),
+      'Task: ' + taskInstruction,
       'Number of Records Requested: ' + count,
       useCefr ? ('Target CEFR Level: ' + cefrLevel) : '',
       extraFocus ? ('Special Instructions / Focus: ' + extraFocus) : '',
@@ -1395,7 +1653,7 @@
           if (promptLower && wordLower === promptLower) return false;
 
           // Reject if word is an instruction or placeholder sentence
-          if (rawWord.split(/\s+/).length > 4 || rawWord.length > 35) return false;
+          if (typeKey === 'wordbanks' && (rawWord.split(/\s+/).length > 5 || rawWord.length > 45)) return false;
           if (/example\s*sentence|illustrat|target\s*word|equivalent|translation/i.test(rawWord)) return false;
 
           // Reject if word is a metadata keyword or language name
@@ -1416,6 +1674,11 @@
           var fieldDef = schema.find(function (f) { return f && f.key === k; });
           if (fieldDef && fieldDef.type === 'array' && !Array.isArray(val)) {
             val = String(val).split(/,\s*|\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+          } else if (fieldDef && fieldDef.type === 'number' && typeof val !== 'number') {
+            var parsedNum = parseFloat(String(val).replace(/[^\d.-]/g, ''));
+            if (Number.isFinite(parsedNum)) val = parsedNum;
+          } else if (fieldDef && fieldDef.type === 'boolean' && typeof val !== 'boolean') {
+            val = _parseBooleanField(val);
           }
           clean[k] = val;
         });
@@ -1825,9 +2088,16 @@
         if (fieldDef && fieldDef.type === 'array') {
           recObj[fKey] = val ? val.split(/,\s*|\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean) : [];
         } else if (fieldDef && fieldDef.type === 'number') {
-          recObj[fKey] = val ? Number(val) : 0;
+          var numVal = Number(val);
+          recObj[fKey] = (val !== '' && Number.isFinite(numVal)) ? numVal : 0;
         } else if (fieldDef && fieldDef.type === 'boolean') {
-          recObj[fKey] = val === 'true' || val === '1';
+          recObj[fKey] = _parseBooleanField(val);
+        } else if (fieldDef && fieldDef.type === 'object') {
+          if (val && (val.startsWith('{') || val.startsWith('['))) {
+            try { recObj[fKey] = JSON.parse(val); } catch (_) { recObj[fKey] = val; }
+          } else {
+            recObj[fKey] = val;
+          }
         } else {
           recObj[fKey] = val;
         }
@@ -1842,30 +2112,45 @@
       return;
     }
 
-    targetFile.records.push(...selectedRecords);
+    var insertBtn = document.getElementById('ai-studio-insert-btn');
+    if (insertBtn) insertBtn.disabled = true;
 
-    if (typeof window.saveFile === 'function') {
-      var savedOk = await window.saveFile(fi);
-      if (!savedOk) {
-        targetFile.records.splice(-selectedRecords.length, selectedRecords.length);
-        return;
+    try {
+      if (!Array.isArray(targetFile.records)) targetFile.records = [];
+      targetFile.records.push(...selectedRecords);
+
+      if (typeof window.saveFile === 'function') {
+        var savedOk = await window.saveFile(fi);
+        if (!savedOk) {
+          targetFile.records.splice(-selectedRecords.length, selectedRecords.length);
+          return;
+        }
       }
-    }
 
-    mdbCloseAiStudio();
+      if (window._gsc && window.S && window.S.typeKey && window._gsc[window.S.typeKey] && window._gsc[window.S.typeKey][targetFile.name]) {
+        window._gsc[window.S.typeKey][targetFile.name].records = targetFile.records;
+      }
 
-    if (typeof window.buildSchema === 'function' && typeof window.getAllRecords === 'function') {
-      window.S.schema = window.buildSchema(window.getAllRecords());
-    }
-    if (typeof window.renderAll === 'function') {
-      window.renderAll();
-    }
+      mdbCloseAiStudio();
 
-    if (typeof window.showToast === 'function') {
-      var msg = _t('mdbAiSuccessInserted', 'Added {count} record(s) to {file}.')
-        .replace('{count}', selectedRecords.length)
-        .replace('{file}', targetFile.name);
-      window.showToast(msg);
+      if (typeof window.buildSchema === 'function' && typeof window.getAllRecords === 'function') {
+        window.S.schema = window.buildSchema(window.getAllRecords());
+      }
+      if (typeof window.renderFilePills === 'function') {
+        window.renderFilePills();
+      }
+      if (typeof window.renderAll === 'function') {
+        window.renderAll();
+      }
+
+      if (typeof window.showToast === 'function') {
+        var msg = _t('mdbAiSuccessInserted', 'Added {count} record(s) to {file}.')
+          .replace('{count}', selectedRecords.length)
+          .replace('{file}', targetFile.name);
+        window.showToast(msg);
+      }
+    } finally {
+      if (insertBtn) insertBtn.disabled = false;
     }
   }
 
@@ -2013,7 +2298,17 @@
 
   var _addModalPendingRecords = [];
 
+  function mdbResetAddModalState() {
+    if (_isStudioGenerating && window.SlmService && typeof window.SlmService.abort === 'function') {
+      window.SlmService.abort();
+    }
+    _stopTimer(false, 'add-tab-ai-timer-bar', 'add-tab-ai-progress-fill');
+    _isStudioGenerating = false;
+    _addModalPendingRecords = [];
+  }
+
   async function mdbRunAddModalAiGeneration() {
+    if (_isStudioGenerating) return;
     var promptEl = document.getElementById('add-tab-ai-prompt');
     var promptVal = (promptEl ? promptEl.value : '').trim();
     if (!promptVal) {
@@ -2052,7 +2347,9 @@
         fillId: 'add-tab-ai-progress-fill'
       });
 
-      if (res && res.records && res.records.length > 0) {
+      if (res && res.aborted) {
+        return;
+      } else if (res && res.records && res.records.length > 0) {
         _addModalPendingRecords = res.records;
         var resWrap = document.getElementById('add-tab-ai-results');
         var listEl = document.getElementById('add-tab-ai-preview-list');
@@ -2071,7 +2368,11 @@
           }).join('\n');
         }
         if (typeof window.showToast === 'function') {
-          window.showToast('✓ Generated ' + res.records.length + ' record(s). Ready to insert.');
+          window.showToast('Generated ' + res.records.length + ' record(s). Ready to insert.');
+        }
+      } else {
+        if (typeof window.showToast === 'function') {
+          window.showToast('No structured records could be extracted.', true);
         }
       }
     } catch (err) {
@@ -2095,36 +2396,52 @@
     var targetFile = window.S && window.S.files && window.S.files[fi];
     if (!targetFile) return;
 
-    if (targetFile.status === 'pending' && typeof window.loadFileContent === 'function' && window.getTypeDef) {
-      await window.loadFileContent(fi, window.getTypeDef(window.S.typeKey));
-    }
+    var insertBtn = document.getElementById('add-tab-ai-insert-btn');
+    if (insertBtn) insertBtn.disabled = true;
 
-    targetFile.records.push(..._addModalPendingRecords);
-    if (typeof window.saveFile === 'function') {
-      var savedOk = await window.saveFile(fi);
-      if (!savedOk) {
-        targetFile.records.splice(-_addModalPendingRecords.length, _addModalPendingRecords.length);
-        return;
+    try {
+      if (targetFile.status === 'pending' && typeof window.loadFileContent === 'function' && window.getTypeDef) {
+        await window.loadFileContent(fi, window.getTypeDef(window.S.typeKey));
       }
-    }
 
-    if (typeof window.closeEdit === 'function') {
-      window.closeEdit();
-    }
-    if (typeof window.buildSchema === 'function' && typeof window.getAllRecords === 'function') {
-      window.S.schema = window.buildSchema(window.getAllRecords());
-    }
-    if (typeof window.renderAll === 'function') {
-      window.renderAll();
-    }
+      var insertedCount = _addModalPendingRecords.length;
+      if (!Array.isArray(targetFile.records)) targetFile.records = [];
+      targetFile.records.push(..._addModalPendingRecords);
+      if (typeof window.saveFile === 'function') {
+        var savedOk = await window.saveFile(fi);
+        if (!savedOk) {
+          targetFile.records.splice(-insertedCount, insertedCount);
+          return;
+        }
+      }
 
-    if (typeof window.showToast === 'function') {
-      var msg = _t('mdbAiSuccessInserted', 'Added {count} record(s) to {file}.')
-        .replace('{count}', _addModalPendingRecords.length)
-        .replace('{file}', targetFile.name);
-      window.showToast(msg);
+      if (window._gsc && window.S && window.S.typeKey && window._gsc[window.S.typeKey] && window._gsc[window.S.typeKey][targetFile.name]) {
+        window._gsc[window.S.typeKey][targetFile.name].records = targetFile.records;
+      }
+
+      _addModalPendingRecords = [];
+      if (typeof window.closeEdit === 'function') {
+        window.closeEdit();
+      }
+      if (typeof window.buildSchema === 'function' && typeof window.getAllRecords === 'function') {
+        window.S.schema = window.buildSchema(window.getAllRecords());
+      }
+      if (typeof window.renderFilePills === 'function') {
+        window.renderFilePills();
+      }
+      if (typeof window.renderAll === 'function') {
+        window.renderAll();
+      }
+
+      if (typeof window.showToast === 'function') {
+        var msg = _t('mdbAiSuccessInserted', 'Added {count} record(s) to {file}.')
+          .replace('{count}', insertedCount)
+          .replace('{file}', targetFile.name);
+        window.showToast(msg);
+      }
+    } finally {
+      if (insertBtn) insertBtn.disabled = false;
     }
-    _addModalPendingRecords = [];
   }
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -2158,7 +2475,8 @@
     isStudioGenerating: function () { return _isStudioGenerating; },
     renderAddAiTabContent: mdbRenderAddAiTabContent,
     runAddModalAiGeneration: mdbRunAddModalAiGeneration,
-    insertAddModalAiRecords: mdbInsertAddModalAiRecords
+    insertAddModalAiRecords: mdbInsertAddModalAiRecords,
+    resetAddModalState: mdbResetAddModalState
   };
 
   global.mdbTriggerFormAiAutofill = mdbTriggerFormAiAutofill;

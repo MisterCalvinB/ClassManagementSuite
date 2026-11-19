@@ -1183,8 +1183,29 @@ const SLM_MODEL_SPECS = {
     downloadSizeBytes: 367000000,
     huggingFaceRepo: 'onnx-community/SmolLM2-360M-Instruct-ONNX',
     onnxRemoteFile: 'onnx/model_quantized.onnx',
-    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    onnxLocalFile: 'onnx/model_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'model',
     descriptionKey: 'slmUltraFastDesc'
+  },
+  'slm-gemma3-270m': {
+    id: 'slm-gemma3-270m',
+    name: 'Gemma 3 — 270M Instruct (Ultra Fast)',
+    tier: 'ultra',
+    isBundled: false,
+    speedRating: '4/4',
+    relativeSpeed: '0.6×',
+    ramEstimate: '~420 MB',
+    diskSize: '~325 MB',
+    sizeBytes: 323175770,
+    downloadSizeBytes: 323175770,
+    huggingFaceRepo: 'onnx-community/gemma-3-270m-it-ONNX',
+    onnxRemoteFiles: ['onnx/model_q4.onnx', 'onnx/model_q4.onnx_data'],
+    onnxLocalFile: 'onnx/model_q4.onnx',
+    dtype: 'q4',
+    modelFileName: 'model',
+    useExternalData: true,
+    descriptionKey: 'slmGemma3270mDesc'
   },
   'slm-fast': {
     id: 'slm-fast',
@@ -1199,8 +1220,47 @@ const SLM_MODEL_SPECS = {
     downloadSizeBytes: 523585050,
     huggingFaceRepo: 'onnx-community/Qwen2.5-0.5B-Instruct',
     onnxRemoteFile: 'onnx/model_quantized.onnx',
-    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    onnxLocalFile: 'onnx/model_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'model',
     descriptionKey: 'slmFastDesc'
+  },
+  'slm-qwen3-0.6b': {
+    id: 'slm-qwen3-0.6b',
+    name: 'Qwen 3 — 0.6B Instruct (Fast)',
+    tier: 'fast',
+    isBundled: false,
+    speedRating: '3/3',
+    relativeSpeed: '1.1×',
+    ramEstimate: '~800 MB',
+    diskSize: '~590 MB',
+    sizeBytes: 617687575,
+    downloadSizeBytes: 617687575,
+    huggingFaceRepo: 'onnx-community/Qwen3-0.6B-ONNX',
+    onnxRemoteFile: 'onnx/model_quantized.onnx',
+    onnxLocalFile: 'onnx/model_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'model',
+    descriptionKey: 'slmQwen306bDesc'
+  },
+  'slm-gemma3-1b': {
+    id: 'slm-gemma3-1b',
+    name: 'Gemma 3 — 1B Instruct (Balanced)',
+    tier: 'balanced',
+    isBundled: false,
+    speedRating: '2/3',
+    relativeSpeed: '~1.8×',
+    ramEstimate: '~1.2 GB',
+    diskSize: '~860 MB',
+    sizeBytes: 859454179,
+    downloadSizeBytes: 859454179,
+    huggingFaceRepo: 'onnx-community/gemma-3-1b-it-ONNX',
+    onnxRemoteFiles: ['onnx/model_q4.onnx', 'onnx/model_q4.onnx_data'],
+    onnxLocalFile: 'onnx/model_q4.onnx',
+    dtype: 'q4',
+    modelFileName: 'model',
+    useExternalData: true,
+    descriptionKey: 'slmGemma31bDesc'
   },
   'slm-balanced': {
     id: 'slm-balanced',
@@ -1215,8 +1275,28 @@ const SLM_MODEL_SPECS = {
     downloadSizeBytes: 1590442786,
     huggingFaceRepo: 'onnx-community/Qwen2.5-1.5B-Instruct',
     onnxRemoteFile: 'onnx/model_quantized.onnx',
-    onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    onnxLocalFile: 'onnx/model_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'model',
     descriptionKey: 'slmBalancedDesc'
+  },
+  'slm-qwen3-1.7b': {
+    id: 'slm-qwen3-1.7b',
+    name: 'Qwen 3 — 1.7B Instruct (Quality)',
+    tier: 'deep',
+    isBundled: false,
+    speedRating: '1/3',
+    relativeSpeed: '~2.8×',
+    ramEstimate: '~2.1 GB',
+    diskSize: '~1.62 GB',
+    sizeBytes: 1742387852,
+    downloadSizeBytes: 1742387852,
+    huggingFaceRepo: 'onnx-community/Qwen3-1.7B-ONNX',
+    onnxRemoteFile: 'onnx/model_quantized.onnx',
+    onnxLocalFile: 'onnx/model_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'model',
+    descriptionKey: 'slmQwen317bDesc'
   },
   'slm-deep': {
     id: 'slm-deep',
@@ -1232,6 +1312,8 @@ const SLM_MODEL_SPECS = {
     huggingFaceRepo: 'Xenova/Qwen1.5-1.8B-Chat',
     onnxRemoteFile: 'onnx/decoder_model_merged_quantized.onnx',
     onnxLocalFile: 'onnx/decoder_model_merged_quantized.onnx',
+    dtype: 'q8',
+    modelFileName: 'decoder_model_merged',
     descriptionKey: 'slmDeepDesc'
   }
 };
@@ -1332,11 +1414,34 @@ async function isSlmModelInstalled(modelId) {
   const userModelDir = path.join(userModelsDir, modelId);
   const cfgPath = path.join(userModelDir, 'config.json');
   const tokPath = path.join(userModelDir, 'tokenizer.json');
-  const onnxPath = path.join(userModelDir, spec.onnxLocalFile);
-  if (fsSync.existsSync(cfgPath) && fsSync.existsSync(tokPath) && fsSync.existsSync(onnxPath)) {
-    patchOnnxIrVersionSync(onnxPath);
+  if (!fsSync.existsSync(cfgPath) || !fsSync.existsSync(tokPath)) {
+    return { installed: false, dir: '', basePath: '' };
+  }
+
+  const requiredOnnxFiles = Array.isArray(spec.onnxRemoteFiles) && spec.onnxRemoteFiles.length
+    ? spec.onnxRemoteFiles
+    : [spec.onnxLocalFile];
+
+  let allOnnxExist = requiredOnnxFiles.every(rel => fsSync.existsSync(path.join(userModelDir, rel)));
+  let resolvedModelFileName = spec.modelFileName || 'model';
+
+  // Backward compatibility: older v2 downloads saved model_quantized.onnx as decoder_model_merged_quantized.onnx
+  if (!allOnnxExist && spec.onnxLocalFile === 'onnx/model_quantized.onnx') {
+    const legacyOnnxPath = path.join(userModelDir, 'onnx/decoder_model_merged_quantized.onnx');
+    if (fsSync.existsSync(legacyOnnxPath)) {
+      allOnnxExist = true;
+      resolvedModelFileName = 'decoder_model_merged';
+      patchOnnxIrVersionSync(legacyOnnxPath);
+    }
+  }
+
+  if (allOnnxExist) {
+    const primaryOnnxPath = path.join(userModelDir, spec.onnxLocalFile);
+    if (fsSync.existsSync(primaryOnnxPath)) {
+      patchOnnxIrVersionSync(primaryOnnxPath);
+    }
     patchTokenizerCompatibilitySync(tokPath);
-    return { installed: true, dir: userModelDir, basePath: userModelsDir };
+    return { installed: true, dir: userModelDir, basePath: userModelsDir, modelFileName: resolvedModelFileName };
   }
   return { installed: false, dir: '', basePath: '' };
 }
@@ -1370,6 +1475,9 @@ ipcMain.handle('slm:list-models', async () => {
         sizeBytes: sizeBytes,
         modelDir: status.dir,
         basePath: status.basePath,
+        dtype: spec.dtype || 'q8',
+        modelFileName: status.modelFileName || spec.modelFileName || 'model',
+        useExternalData: Boolean(spec.useExternalData),
         descriptionKey: spec.descriptionKey
       });
     }
@@ -1492,9 +1600,13 @@ ipcMain.handle('slm:download-model', async (event, request = {}) => {
 
     notifyProgress({ phase: 'downloading', loadedBytes: 0, totalBytes: totalExpectedBytes, percent: 0 });
 
+    const onnxEntries = Array.isArray(spec.onnxRemoteFiles) && spec.onnxRemoteFiles.length
+      ? spec.onnxRemoteFiles.map(f => ({ remote: f, local: f, required: true }))
+      : [{ remote: spec.onnxRemoteFile, local: spec.onnxLocalFile, required: true }];
+
     const filesToDownload = [
       ...SLM_TEXT_FILES.map(f => ({ remote: f.name, local: f.name, required: f.required })),
-      { remote: spec.onnxRemoteFile, local: spec.onnxLocalFile, required: true }
+      ...onnxEntries
     ];
 
     for (const fileSpec of filesToDownload) {
@@ -1562,8 +1674,9 @@ ipcMain.handle('slm:download-model', async (event, request = {}) => {
     const checkCfg = path.join(stageDir, 'config.json');
     const checkTok = path.join(stageDir, 'tokenizer.json');
     const checkOnnx = path.join(stageDir, spec.onnxLocalFile);
+    const allOnnxPresent = onnxEntries.every(entry => fsSync.existsSync(path.join(stageDir, entry.local)));
 
-    if (!fsSync.existsSync(checkCfg) || !fsSync.existsSync(checkTok) || !fsSync.existsSync(checkOnnx)) {
+    if (!fsSync.existsSync(checkCfg) || !fsSync.existsSync(checkTok) || !allOnnxPresent) {
       throw new Error('Downloaded SLM model is incomplete: missing required config, tokenizer, or ONNX files');
     }
 

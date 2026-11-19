@@ -133,7 +133,8 @@
           }
 
           transcriber = await tf.pipeline('automatic-speech-recognition', modelId, {
-            quantized: true
+            dtype: 'q8',
+            local_files_only: true
           });
 
           currentModelId = modelId;

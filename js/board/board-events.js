@@ -952,6 +952,12 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('con-ctx-transcript-btn');
+      if (!el) return;
+      var handler = function (event) { if (typeof window.conCtxTranscribeSound === 'function') window.conCtxTranscribeSound(); };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
       var el = document.querySelector('[data-bev-159]');
       if (!el) return;
       var handler = function (event) { conCtxExtractAudioToSoundNode() };
@@ -1012,15 +1018,9 @@
       el.addEventListener('click', handler);
     })();
     (function () {
-      var el = document.querySelector('[data-bev-169]');
+      var el = document.getElementById('con-ctx-ai-studio-btn');
       if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'expand', preset: 'related' }, this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-bev-170]');
-      if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'write', preset: 'sentences' }, this) };
+      var handler = function (event) { if (typeof boardAiOpenPopover === 'function') boardAiOpenPopover({}, this); };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -1378,15 +1378,9 @@
       el.addEventListener('click', handler);
     })();
     (function () {
-      var el = document.querySelector('[data-bev-230]');
+      var el = document.getElementById('con-ctx-multi-ai-studio-btn');
       if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'expand', preset: 'bridge' }, this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-bev-231]');
-      if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'write', preset: 'paragraph' }, this) };
+      var handler = function (event) { if (typeof boardAiOpenPopover === 'function') boardAiOpenPopover({}, this); };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -4150,15 +4144,9 @@
       el.addEventListener('click', handler);
     })();
     (function () {
-      var el = document.querySelector('[data-bev-692]');
+      var el = document.getElementById('wn-sp-ai-studio-btn');
       if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'expand', preset: 'extract' }, this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-bev-693]');
-      if (!el) return;
-      var handler = function (event) { boardAiOpenPopover({ tab: 'write', preset: 'analysis' }, this) };
+      var handler = function (event) { if (typeof boardAiOpenPopover === 'function') boardAiOpenPopover({}, this); };
       el.addEventListener('click', handler);
     })();
     (function () {

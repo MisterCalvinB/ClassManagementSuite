@@ -15,6 +15,7 @@
   var currentModelId = '';
   var currentBasePath = '';
   var abortedRequests = new Set();
+  var activeStoppers = {};
   var idleTimer = null;
   var IDLE_DISPOSE_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -60,7 +61,20 @@
     }
   }
 
-  async function loadModel(modelId, customBasePath) {
+  function _resolveModelSpecOptions(modelId, modelMeta) {
+    var meta = modelMeta || {};
+    var isGemma3 = String(modelId || '').indexOf('slm-gemma3') === 0;
+    var dtype = meta.dtype || (isGemma3 ? 'q4' : 'q8');
+    var modelFileName = meta.modelFileName || (modelId === 'slm-deep' ? 'decoder_model_merged' : 'model');
+    var useExternalData = meta.useExternalData !== undefined ? Boolean(meta.useExternalData) : isGemma3;
+    return {
+      dtype: dtype,
+      modelFileName: modelFileName,
+      useExternalData: useExternalData
+    };
+  }
+
+  async function loadModel(modelId, customBasePath, modelMeta) {
     modelId = modelId || currentModelId || 'slm-fast';
     if (generator && currentModelId === modelId && (!customBasePath || customBasePath === currentBasePath)) {
       resetIdleTimer();
@@ -138,20 +152,64 @@
           });
         }
 
-        generator = await tf.pipeline('text-generation', modelId, {
-          quantized: true,
-          local_files_only: true,
-          progress_callback: function (prog) {
-            if (prog && prog.status === 'progress') {
-              postMessage({
-                type: 'model-load-progress',
-                modelId: modelId,
-                file: prog.file || '',
-                progress: prog.progress || 0
-              });
-            }
+        var progressCb = function (prog) {
+          if (prog && prog.status === 'progress') {
+            postMessage({
+              type: 'model-load-progress',
+              modelId: modelId,
+              file: prog.file || '',
+              progress: prog.progress || 0
+            });
           }
-        });
+        };
+
+        var useWebGpu = false;
+        try {
+          if (typeof self.navigator !== 'undefined' && self.navigator.gpu && typeof self.navigator.gpu.requestAdapter === 'function') {
+            var adapter = await self.navigator.gpu.requestAdapter();
+            if (adapter) useWebGpu = true;
+          }
+        } catch (_) {
+          useWebGpu = false;
+        }
+
+        var specOpts = _resolveModelSpecOptions(modelId, modelMeta);
+        var allowWebGpuForDtype = (specOpts.dtype === 'q4' || specOpts.dtype === 'q4f16');
+
+        if (useWebGpu && allowWebGpuForDtype) {
+          try {
+            var gpuOpts = {
+              device: 'webgpu',
+              dtype: specOpts.dtype,
+              model_file_name: specOpts.modelFileName,
+              local_files_only: true,
+              progress_callback: progressCb
+            };
+            if (specOpts.useExternalData) {
+              gpuOpts.use_external_data_format = true;
+            }
+            generator = await tf.pipeline('text-generation', modelId, gpuOpts);
+            postMessage({ type: 'worker-log', message: 'SLM model [' + modelId + '] initialized with WebGPU acceleration.' });
+          } catch (gpuErr) {
+            postMessage({ type: 'worker-log', message: 'WebGPU init failed (' + (gpuErr && gpuErr.message ? gpuErr.message : gpuErr) + '), falling back to CPU WASM.' });
+            generator = null;
+          }
+        }
+
+        if (!generator) {
+          var cpuOpts = {
+            device: 'wasm',
+            dtype: specOpts.dtype,
+            model_file_name: specOpts.modelFileName,
+            local_files_only: true,
+            progress_callback: progressCb
+          };
+          if (specOpts.useExternalData) {
+            cpuOpts.use_external_data_format = true;
+          }
+          generator = await tf.pipeline('text-generation', modelId, cpuOpts);
+          postMessage({ type: 'worker-log', message: 'SLM model [' + modelId + '] initialized with CPU WASM.' });
+        }
 
         currentModelId = modelId;
         currentBasePath = modelBasePath;
@@ -199,9 +257,10 @@
     var requestId = data.requestId || ('req-' + Date.now());
     var modelId = data.modelId || currentModelId || 'slm-fast';
     var basePath = data.basePath || currentBasePath;
+    var modelMeta = data.modelMeta || null;
 
     try {
-      var pipe = await loadModel(modelId, basePath);
+      var pipe = await loadModel(modelId, basePath, modelMeta);
       if (!pipe) {
         throw new Error('SLM pipeline could not be initialized.');
       }
@@ -224,14 +283,20 @@
       // If messages is a structured Chat, format it into ChatML text prompt with optional assistant prefix
       var assistantPrefix = String(data.assistantPrefix || '');
       var inputForPipe = messages;
+      var usedChatTemplate = false;
       if (Array.isArray(inputForPipe)) {
         var templated;
         try {
-          templated = pipe.tokenizer.apply_chat_template(inputForPipe, { tokenize: false, add_generation_prompt: true });
+          templated = pipe.tokenizer.apply_chat_template(inputForPipe, {
+            tokenize: false,
+            add_generation_prompt: true,
+            enable_thinking: false
+          });
         } catch (_) {
           templated = buildFallbackChatPrompt(inputForPipe);
         }
         inputForPipe = templated + assistantPrefix;
+        usedChatTemplate = true;
       } else if (!inputForPipe) {
         inputForPipe = String(data.userPrompt || data.prompt || '');
         if (assistantPrefix) {
@@ -251,31 +316,34 @@
       var firstTokenTime = 0;
       var totalTokensGenerated = 0;
 
-      var genOptions = {
-        max_new_tokens: maxNewTokens,
-        temperature: temperature,
-        do_sample: doSample,
-        top_k: topK,
-        repetition_penalty: repetitionPenalty,
-        return_full_text: false,
-        callback_function: function (beams) {
-          if (abortedRequests.has(requestId)) {
-            if (Array.isArray(beams)) {
-              for (var b = 0; b < beams.length; b++) {
-                beams[b].done = true;
-              }
-            }
+      var tf = self.transformers;
+      var stoppingCriteria = null;
+      var interruptCriteria = null;
+      if (tf && tf.StoppingCriteriaList && tf.InterruptableStoppingCriteria) {
+        stoppingCriteria = new tf.StoppingCriteriaList();
+        interruptCriteria = new tf.InterruptableStoppingCriteria();
+        stoppingCriteria.push(interruptCriteria);
+        activeStoppers[requestId] = interruptCriteria;
+      }
+
+      var generatedIds = [];
+      var isFirstPut = true;
+      var streamer = {
+        put: function (value) {
+          if (isFirstPut) {
+            isFirstPut = false;
             return;
           }
-          if (!Array.isArray(beams) || !beams[0] || !beams[0].output_token_ids) return;
+          if (abortedRequests.has(requestId)) {
+            if (interruptCriteria) interruptCriteria.interrupt();
+            return;
+          }
+          if (!value || !value[0]) return;
           try {
-            var beam = beams[0];
-            var promptLen = (beam.input && beam.input.dims && beam.input.dims.length)
-              ? beam.input.dims[beam.input.dims.length - 1]
-              : 0;
-            var generatedIds = promptLen > 0
-              ? beam.output_token_ids.slice(promptLen)
-              : beam.output_token_ids;
+            var batchRow = value[0];
+            for (var ti = 0; ti < batchRow.length; ti++) {
+              generatedIds.push(batchRow[ti]);
+            }
 
             totalTokensGenerated = generatedIds.length;
             if (!firstTokenTime && totalTokensGenerated > 0) {
@@ -361,14 +429,29 @@
               });
             }
 
-            if (shouldStop && Array.isArray(beams)) {
-              for (var sb = 0; sb < beams.length; sb++) {
-                beams[sb].done = true;
-              }
+            if (shouldStop && interruptCriteria) {
+              interruptCriteria.interrupt();
             }
           } catch (_) {}
-        }
+        },
+        end: function () {}
       };
+
+      var genOptions = {
+        max_new_tokens: maxNewTokens,
+        temperature: temperature,
+        do_sample: doSample,
+        top_k: topK,
+        repetition_penalty: repetitionPenalty,
+        return_full_text: false,
+        streamer: streamer
+      };
+      if (usedChatTemplate) {
+        genOptions.add_special_tokens = false;
+      }
+      if (stoppingCriteria) {
+        genOptions.stopping_criteria = stoppingCriteria;
+      }
 
       var result = await pipe(inputForPipe, genOptions);
       resetIdleTimer();
@@ -426,6 +509,7 @@
         oom: isOomErr
       });
     } finally {
+      delete activeStoppers[requestId];
       abortedRequests.delete(requestId);
     }
   }
@@ -437,7 +521,7 @@
     switch (data.type) {
       case 'init':
       case 'switch-model':
-        loadModel(data.modelId, data.basePath).catch(function () {});
+        loadModel(data.modelId, data.basePath, data.modelMeta).catch(function () {});
         break;
 
       case 'generate':
@@ -447,6 +531,9 @@
       case 'abort':
         if (data.requestId) {
           abortedRequests.add(data.requestId);
+          if (activeStoppers[data.requestId]) {
+            try { activeStoppers[data.requestId].interrupt(); } catch (_) {}
+          }
         }
         break;
 

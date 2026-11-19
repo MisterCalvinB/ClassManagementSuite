@@ -1,6 +1,6 @@
 /**
- * Class Management Tools — Board AI Studio (Mind Mapping & Textual Analysis)
- * Powered by local offline Small Language Models via window.SlmService (transformers.js).
+ * Class Management Tools — Board Ask AI Popover
+ * Simple, fast Q&A popover with an integrated answer panel powered by local offline SLMs (window.SlmService).
  */
 (function (global) {
   'use strict';
@@ -8,159 +8,16 @@
   var Board = global.Board = global.Board || {};
 
   var _popoverEl = null;
-  var _activeTab = 'expand'; // 'expand' | 'write'
-  var _expandPreset = 'related'; // 'related' | 'lexical' | 'extract' | 'bridge'
-  var _nodeCount = 4;
-  var _writePreset = 'sentences'; // 'sentences' | 'paragraph' | 'gapfill' | 'questions' | 'analysis'
-  var _cefrLevel = 'B1';
-  var _targetMode = 'new_note'; // 'new_note' | 'append_note'
-  var _groundInText = true;
   var _isGenerating = false;
-  var _contextOverride = null; // { nodeId?, noteId?, boardX?, boardY?, initialTab?, initialPreset? }
-
-  // Generation Timer & Metrics State
-  var _timerInterval = null;
+  var _contextOverride = null; // { nodeId?, noteId?, boardX?, boardY? }
+  var _activeContext = null;   // { nodes, notes, anchorX, anchorY }
+  var _contextDismissed = false;
+  var _lastAnswerText = '';
+  var _lastUserPrompt = '';
+  var _lastSysPrompt = '';
+  var _answerLength = 'brief'; // 'brief' | 'long'
   var _genStartTime = 0;
-  var _firstTokenTime = 0;
-  var _tokenCount = 0;
-  var _targetTokenEstimate = 50;
-  var _lastMeasuredSpeed = 18.0; // tokens/sec
-  var _currentSpeed = 18.0;
-  var _estRemainingSec = 0;
-  var _elapsedSec = 0;
-  var _warmupEstimateSec = 0.8;
-  var _activeInlineStopBtn = null;
-
-  function _formatTimerDuration(totalSeconds) {
-    var s = Math.max(0, Math.floor(totalSeconds));
-    var mins = Math.floor(s / 60);
-    var secs = s % 60;
-    var mStr = mins < 10 ? ('0' + mins) : String(mins);
-    var sStr = secs < 10 ? ('0' + secs) : String(secs);
-    return mStr + ':' + sStr;
-  }
-
-  function _startGenerationTimer(targetTokens) {
-    if (_timerInterval) {
-      clearInterval(_timerInterval);
-      _timerInterval = null;
-    }
-    _genStartTime = performance.now();
-    _firstTokenTime = 0;
-    _tokenCount = 0;
-    _targetTokenEstimate = Math.max(15, targetTokens || 50);
-
-    var baseline = 18.0;
-    try {
-      var stModel = window.SlmService ? window.SlmService.getActiveModel() : '';
-      if (stModel === 'slm-ultra') baseline = 30.0;
-      else if (stModel === 'slm-fast') baseline = 22.0;
-      else if (stModel === 'slm-deep') baseline = 5.0;
-      else if (stModel === 'slm-balanced') baseline = 9.5;
-    } catch (_) {}
-
-    _currentSpeed = _lastMeasuredSpeed > 0 ? (0.6 * _lastMeasuredSpeed + 0.4 * baseline) : baseline;
-    var estTotalSec = _warmupEstimateSec + (_targetTokenEstimate / _currentSpeed);
-    _estRemainingSec = Math.max(1, Math.round(estTotalSec));
-    _elapsedSec = 0;
-
-    var bar = document.getElementById('bai-timer-bar');
-    var elapsedEl = document.getElementById('bai-timer-elapsed-val');
-    var remainEl = document.getElementById('bai-timer-remaining-val');
-    var speedEl = document.getElementById('bai-timer-speed-val');
-    var fillEl = document.getElementById('bai-progress-fill');
-
-    if (bar) bar.style.display = 'flex';
-    if (elapsedEl) elapsedEl.textContent = '00:00';
-    if (remainEl) remainEl.textContent = '~' + _estRemainingSec + 's';
-    if (speedEl) speedEl.textContent = '';
-    if (fillEl) fillEl.style.width = '3%';
-
-    _timerInterval = setInterval(_tickGenerationTimer, 100);
-  }
-
-  function _tickGenerationTimer() {
-    if (!_isGenerating || !_genStartTime) return;
-    var now = performance.now();
-    _elapsedSec = (now - _genStartTime) / 1000;
-
-    var elapsedEl = document.getElementById('bai-timer-elapsed-val');
-    var remainEl = document.getElementById('bai-timer-remaining-val');
-    var speedEl = document.getElementById('bai-timer-speed-val');
-    var fillEl = document.getElementById('bai-progress-fill');
-
-    if (elapsedEl) elapsedEl.textContent = _formatTimerDuration(_elapsedSec);
-
-    var pct = 0;
-    if (_firstTokenTime > 0) {
-      var streamSec = (now - _firstTokenTime) / 1000;
-      if (streamSec > 0.25 && _tokenCount >= 2) {
-        _currentSpeed = _tokenCount / streamSec;
-        if (speedEl) speedEl.textContent = _currentSpeed.toFixed(1) + ' tok/s';
-      }
-      var remainingTokens = Math.max(0, _targetTokenEstimate - _tokenCount);
-      _estRemainingSec = Math.max(0, Math.ceil(remainingTokens / Math.max(1, _currentSpeed)));
-      pct = Math.min(95, Math.max(12, Math.round((_tokenCount / _targetTokenEstimate) * 100)));
-    } else {
-      var warmupDuration = _warmupEstimateSec + (_targetTokenEstimate / _currentSpeed);
-      _estRemainingSec = Math.max(1, Math.ceil(warmupDuration - _elapsedSec));
-      pct = Math.min(20, Math.max(4, Math.round((_elapsedSec / warmupDuration) * 100)));
-    }
-
-    if (remainEl) {
-      remainEl.textContent = _estRemainingSec > 0 ? ('~' + _estRemainingSec + 's') : _t('boardAiAlmostDone', 'almost done…');
-    }
-    if (fillEl) fillEl.style.width = pct + '%';
-
-    if (_activeInlineStopBtn) {
-      _activeInlineStopBtn.textContent = '⏹ ' + _t('boardAiStopBtn', 'Stop') + ' (' + _formatTimerDuration(_elapsedSec) + ')';
-    }
-  }
-
-  function _onTokenProgress(token, partialText, metrics) {
-    if (!_firstTokenTime) _firstTokenTime = performance.now();
-    if (metrics && typeof metrics.tokenCount === 'number') {
-      _tokenCount = metrics.tokenCount;
-    } else {
-      _tokenCount++;
-    }
-    if (metrics && typeof metrics.tokensPerSec === 'number' && metrics.tokensPerSec > 0) {
-      _currentSpeed = metrics.tokensPerSec;
-    }
-  }
-
-  function _stopGenerationTimer(success, finalSummary) {
-    if (_timerInterval) {
-      clearInterval(_timerInterval);
-      _timerInterval = null;
-    }
-    var bar = document.getElementById('bai-timer-bar');
-    var remainEl = document.getElementById('bai-timer-remaining-val');
-    var fillEl = document.getElementById('bai-progress-fill');
-    var speedEl = document.getElementById('bai-timer-speed-val');
-    var statusEl = document.getElementById('bai-status-text');
-
-    if (success) {
-      var totalDurationSec = ((performance.now() - (_genStartTime || performance.now())) / 1000).toFixed(1);
-      if (remainEl) remainEl.textContent = '✓ ' + totalDurationSec + 's';
-      if (fillEl) fillEl.style.width = '100%';
-      if (_firstTokenTime && _tokenCount >= 2) {
-        var streamSec = (performance.now() - _firstTokenTime) / 1000;
-        _lastMeasuredSpeed = _tokenCount / Math.max(0.1, streamSec);
-        if (speedEl) speedEl.textContent = _lastMeasuredSpeed.toFixed(1) + ' tok/s';
-      }
-      if (statusEl) {
-        statusEl.textContent = finalSummary || ('✨ ' + _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', totalDurationSec));
-      }
-      setTimeout(function () {
-        if (!_isGenerating && bar) {
-          bar.style.display = 'none';
-        }
-      }, 3500);
-    } else {
-      if (bar) bar.style.display = 'none';
-    }
-  }
+  var _timerInterval = null;
 
   function _t(key, fallback) {
     if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function') {
@@ -190,17 +47,13 @@
     return (tmp.textContent || tmp.innerText || '').trim();
   }
 
-  function _formatNoteHtml(rawText) {
+  function _formatAnswerHtml(rawText) {
     var escaped = _escapeHtml(String(rawText || '').trim());
-    // Convert **bold** and *italic* into clean HTML tags
     escaped = escaped.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
     escaped = escaped.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s.,;:!?)]|$)/g, '$1<i>$2</i>');
     return escaped.replace(/\r?\n/g, '<br>');
   }
 
-  /**
-   * Dismiss competing board context menus and popups (board-bug-auditor compliance)
-   */
   function _dismissCompetingMenus() {
     if (typeof window.conCtxClose === 'function') window.conCtxClose();
     if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
@@ -211,114 +64,10 @@
     if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
   }
 
-  /**
-   * Detect if a literary/reference text is currently loaded in Text Analysis or Book Search
-   */
-  function _getLoadedReferenceText() {
-    var chunks = [];
-    var sourceLabel = '';
-
-    // 1. Check Text Analysis lines (taGetLines) or textarea (#ta-paste-area)
-    try {
-      var taArea = document.getElementById('ta-paste-area');
-      if (taArea && taArea.value && taArea.value.trim().length > 20) {
-        chunks.push(taArea.value.trim());
-        sourceLabel = _t('boardAiSourceTextAnalysis', 'Text Analysis');
-      } else if (typeof window.taGetLines === 'function') {
-        var lines = window.taGetLines();
-        if (Array.isArray(lines) && lines.length > 0) {
-          var joined = lines.map(function (line) {
-            return Array.isArray(line) ? line.map(function (tok) { return tok && tok.text ? tok.text : ''; }).join(' ') : '';
-          }).filter(Boolean).join('\n');
-          if (joined.trim().length > 20) {
-            chunks.push(joined.trim());
-            sourceLabel = _t('boardAiSourceTextAnalysis', 'Text Analysis');
-          }
-        }
-      }
-    } catch (_) {}
-
-    // 2. Check Book Search text (searchBookText)
-    try {
-      var bookTxt = (typeof window.searchBookText === 'string' && window.searchBookText)
-        ? window.searchBookText
-        : (typeof searchBookText === 'string' ? searchBookText : '');
-      if (bookTxt && bookTxt.trim().length > 20) {
-        chunks.push(bookTxt.trim());
-        var bookNameEl = document.getElementById('search-book-filename');
-        var bookName = bookNameEl ? bookNameEl.textContent.trim() : '';
-        sourceLabel = sourceLabel
-          ? (sourceLabel + ' + ' + (bookName || _t('boardAiSourceBook', 'Loaded Book')))
-          : (bookName || _t('boardAiSourceBook', 'Loaded Book'));
-      }
-    } catch (_) {}
-
-    return {
-      hasText: chunks.length > 0,
-      fullText: chunks.join('\n\n'),
-      sourceLabel: sourceLabel
-    };
-  }
-
-  /**
-   * Extract top relevant excerpts (~600 chars max) from loaded text matching keywords
-   */
-  function _extractRelevantExcerpts(fullText, keywords, maxChars) {
-    maxChars = maxChars || 650;
-    if (!fullText || !fullText.trim()) return '';
-    var paras = fullText
-      .split(/\r?\n\s*\r?\n|\r?\n/)
-      .map(function (p) { return p.trim(); })
-      .filter(function (p) { return p.length > 25; });
-
-    if (paras.length === 0) return fullText.slice(0, maxChars);
-
-    var cleanKeys = (Array.isArray(keywords) ? keywords : [])
-      .map(function (k) { return String(k || '').toLowerCase().trim(); })
-      .filter(function (k) { return k.length >= 3; });
-
-    if (cleanKeys.length === 0) {
-      return paras.slice(0, 3).join('\n...\n').slice(0, maxChars);
-    }
-
-    var scored = paras.map(function (p, idx) {
-      var lower = p.toLowerCase();
-      var score = 0;
-      cleanKeys.forEach(function (kw) {
-        if (lower.includes(kw)) score += 3;
-        kw.split(/\s+/).forEach(function (part) {
-          if (part.length >= 3 && lower.includes(part)) score += 1;
-        });
-      });
-      return { text: p, score: score, idx: idx };
-    });
-
-    scored.sort(function (a, b) {
-      if (b.score !== a.score) return b.score - a.score;
-      return a.idx - b.idx;
-    });
-
-    var picked = [];
-    var total = 0;
-    for (var i = 0; i < scored.length && picked.length < 3; i++) {
-      var snippet = scored[i].text;
-      if (snippet.length > 260) snippet = snippet.slice(0, 257) + '...';
-      if (total + snippet.length > maxChars && picked.length > 0) break;
-      picked.push(snippet);
-      total += snippet.length;
-    }
-
-    return picked.join('\n---\n');
-  }
-
-  /**
-   * Resolve currently selected or targeted nodes & notes on the Constellation board
-   */
   function boardAiResolveSelection(override) {
     var ov = override || _contextOverride || {};
     var allNodes = (typeof window.conGetNodes === 'function' ? window.conGetNodes() : (window.conNodes || [])) || [];
     var allNotes = (typeof window.conGetNotes === 'function' ? window.conGetNotes() : (window.conNotes || [])) || [];
-    var allEdges = (typeof window.conGetEdges === 'function' ? window.conGetEdges() : (window.conEdges || [])) || [];
 
     var selectedNodes = [];
     var selectedNotes = [];
@@ -333,7 +82,6 @@
     }
 
     if (selectedNodes.length === 0 && selectedNotes.length === 0) {
-      // 1. Collect selected nodes from board state
       if (typeof window.conGetSelectedNodes === 'function') {
         selectedNodes = window.conGetSelectedNodes().filter(Boolean);
       } else if (window.conMultiSelected && window.conMultiSelected.size > 0) {
@@ -348,7 +96,6 @@
         }
       }
 
-      // 2. Collect selected notes from board state
       var noteIdSet = new Set();
       if (window.conNoteSelected && window.conNoteSelected.size > 0) {
         window.conNoteSelected.forEach(function (id) { noteIdSet.add(String(id)); });
@@ -359,8 +106,6 @@
       if (window._conNoteCtxData && window._conNoteCtxData.id) {
         noteIdSet.add(String(window._conNoteCtxData.id));
       }
-
-      // Also include notes directly attached to selected nodes via nodeId or edge
       selectedNodes.forEach(function (node) {
         allNotes.forEach(function (nt) {
           if (nt.nodeId && String(nt.nodeId) === String(node.id)) {
@@ -368,21 +113,9 @@
           }
         });
       });
-
       selectedNotes = allNotes.filter(function (nt) { return noteIdSet.has(String(nt.id)); });
     }
 
-    // Collect edges between selected items
-    var itemIds = new Set(
-      selectedNodes.map(function (n) { return String(n.id); })
-        .concat(selectedNotes.map(function (nt) { return String(nt.id); }))
-    );
-
-    var connectedEdges = allEdges.filter(function (e) {
-      return itemIds.has(String(e.a)) && itemIds.has(String(e.b));
-    });
-
-    // Compute anchor coordinates (center of selection or board viewport center)
     var anchorX = typeof ov.boardX === 'number' ? ov.boardX : null;
     var anchorY = typeof ov.boardY === 'number' ? ov.boardY : null;
 
@@ -415,15 +148,11 @@
     return {
       nodes: selectedNodes,
       notes: selectedNotes,
-      edges: connectedEdges,
       anchorX: anchorX,
       anchorY: anchorY
     };
   }
 
-  /**
-   * Build the Compact Light Neobrutalist AI Studio Popover once and reuse it in-place
-   */
   function _ensurePopoverDom() {
     if (_popoverEl && document.body.contains(_popoverEl)) return _popoverEl;
 
@@ -436,6 +165,7 @@
         '  z-index: 10050;',
         '  width: 390px;',
         '  max-width: calc(100vw - 24px);',
+        '  max-height: calc(100vh - 24px);',
         '  background: #f5f5f0;',
         '  border: 2px solid #333333;',
         '  border-radius: 10px;',
@@ -452,7 +182,7 @@
         '  align-items: center;',
         '  justify-content: space-between;',
         '  gap: 8px;',
-        '  padding: 10px 12px;',
+        '  padding: 9px 12px;',
         '  background: #ffffff;',
         '  border-bottom: 2px solid #333333;',
         '}',
@@ -461,8 +191,7 @@
         '  align-items: center;',
         '  gap: 7px;',
         '  font-weight: 800;',
-        '  font-size: 0.92rem;',
-        '  color: #1e1e1e;',
+        '  font-size: 0.9rem;',
         '}',
         '.bai-title-icon {',
         '  width: 24px;',
@@ -499,169 +228,144 @@
         '  border: 1.5px solid #333333;',
         '  border-radius: 6px;',
         '  box-shadow: 1.5px 1.5px 0 #555555;',
+        '  cursor: pointer;',
         '  display: inline-flex;',
         '  align-items: center;',
         '  justify-content: center;',
-        '  cursor: pointer;',
         '}',
-        '.bai-close-btn:hover { background: #f0ede6; }',
+        '.bai-close-btn:hover { background: #f2dede; }',
         '.bai-context-bar {',
-        '  padding: 8px 12px;',
-        '  background: #eaeae4;',
-        '  border-bottom: 1.5px solid #333333;',
-        '  display: flex;',
-        '  flex-direction: column;',
-        '  gap: 6px;',
-        '}',
-        '.bai-context-summary {',
-        '  font-size: 0.75rem;',
-        '  font-weight: 700;',
-        '  color: #333333;',
-        '  display: flex;',
+        '  display: none;',
         '  align-items: center;',
         '  justify-content: space-between;',
         '  gap: 6px;',
+        '  padding: 6px 12px;',
+        '  background: #eaeae4;',
+        '  border-bottom: 1.5px solid #333333;',
+        '  font-size: 0.72rem;',
         '}',
         '.bai-context-pills {',
         '  display: flex;',
         '  flex-wrap: wrap;',
         '  gap: 4px;',
-        '  max-height: 48px;',
-        '  overflow-y: auto;',
+        '  flex: 1;',
+        '  min-width: 0;',
         '}',
         '.bai-ctx-pill {',
-        '  font-size: 0.68rem;',
-        '  font-weight: 700;',
-        '  padding: 2px 7px;',
-        '  border-radius: 4px;',
-        '  border: 1.5px solid #333333;',
-        '  background: #ffffff;',
-        '  max-width: 165px;',
-        '  white-space: nowrap;',
-        '  overflow: hidden;',
-        '  text-overflow: ellipsis;',
-        '}',
-        '.bai-ctx-pill.is-note { background: #fef9c3; }',
-        '.bai-tabs {',
-        '  display: grid;',
-        '  grid-template-columns: 1fr 1fr;',
-        '  background: #eaeae4;',
-        '  border-bottom: 2px solid #333333;',
-        '}',
-        '.bai-tab-btn {',
-        '  padding: 8px 10px;',
-        '  font-family: inherit;',
-        '  font-size: 0.76rem;',
-        '  font-weight: 800;',
-        '  border: none;',
-        '  background: transparent;',
-        '  color: #555555;',
-        '  cursor: pointer;',
         '  display: inline-flex;',
         '  align-items: center;',
-        '  justify-content: center;',
-        '  gap: 5px;',
-        '}',
-        '.bai-tab-btn:first-child { border-right: 1.5px solid #333333; }',
-        '.bai-tab-btn.active {',
+        '  gap: 4px;',
+        '  padding: 2px 7px;',
         '  background: #ffffff;',
-        '  color: #1e1e1e;',
-        '  box-shadow: inset 0 -3px 0 #5b8fcc;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 4px;',
+        '  font-size: 0.7rem;',
+        '  font-weight: 700;',
+        '  max-width: 165px;',
+        '  overflow: hidden;',
+        '  text-overflow: ellipsis;',
+        '  white-space: nowrap;',
         '}',
+        '.bai-ctx-pill.is-note { background: #fef9c3; }',
+        '.bai-ctx-clear {',
+        '  background: #ffffff;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 4px;',
+        '  padding: 2px 6px;',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  cursor: pointer;',
+        '  font-family: inherit;',
+        '}',
+        '.bai-ctx-clear:hover { background: #f2dede; }',
         '.bai-body {',
-        '  padding: 12px;',
+        '  padding: 10px 12px;',
         '  display: flex;',
         '  flex-direction: column;',
-        '  gap: 10px;',
+        '  gap: 8px;',
         '}',
-        '.bai-field-label {',
-        '  font-size: 0.68rem;',
-        '  font-weight: 800;',
-        '  text-transform: uppercase;',
-        '  letter-spacing: 0.04em;',
-        '  color: #555555;',
-        '  margin-bottom: 4px;',
-        '}',
-        '.bai-preset-grid {',
-        '  display: grid;',
-        '  grid-template-columns: 1fr 1fr;',
-        '  gap: 6px;',
-        '}',
-        '.bai-preset-btn {',
-        '  padding: 7px 8px;',
-        '  background: #ffffff;',
-        '  border: 1.5px solid #333333;',
-        '  border-radius: 6px;',
-        '  box-shadow: 2px 2px 0 #555555;',
-        '  font-family: inherit;',
-        '  font-size: 0.73rem;',
-        '  font-weight: 700;',
-        '  color: #1e1e1e;',
-        '  text-align: left;',
-        '  cursor: pointer;',
-        '  transition: transform 0.1s ease;',
-        '}',
-        '.bai-preset-btn:hover { transform: translate(-1px, -1px); }',
-        '.bai-preset-btn.active {',
-        '  background: #e2c96e;',
-        '  border-width: 2px;',
-        '}',
-        '.bai-pill-row {',
+        '.bai-quick-prompts {',
         '  display: flex;',
-        '  gap: 5px;',
         '  flex-wrap: wrap;',
+        '  gap: 5px;',
         '}',
-        '.bai-opt-pill {',
-        '  flex: 1;',
-        '  min-width: 38px;',
-        '  padding: 5px 8px;',
+        '.bai-quick-pill {',
+        '  padding: 3px 8px;',
         '  background: #ffffff;',
         '  border: 1.5px solid #333333;',
-        '  border-radius: 6px;',
+        '  border-radius: 4px;',
         '  box-shadow: 1.5px 1.5px 0 #555555;',
         '  font-family: inherit;',
-        '  font-size: 0.73rem;',
-        '  font-weight: 800;',
+        '  font-size: 0.7rem;',
+        '  font-weight: 700;',
         '  color: #1e1e1e;',
-        '  text-align: center;',
         '  cursor: pointer;',
         '}',
-        '.bai-opt-pill.active {',
-        '  background: #5b8fcc;',
-        '  color: #ffffff;',
+        '.bai-quick-pill:hover { background: #e2c96e; }',
+        '.bai-length-toggle {',
+        '  display: inline-flex;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 5px;',
+        '  overflow: hidden;',
+        '  background: #ffffff;',
         '}',
-        '.bai-opt-pill:disabled {',
-        '  opacity: 0.45;',
-        '  cursor: not-allowed;',
+        '.bai-length-btn {',
+        '  padding: 3px 8px;',
+        '  border: none;',
+        '  background: transparent;',
+        '  font-family: inherit;',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  color: #1e1e1e;',
+        '  cursor: pointer;',
         '}',
-        '.bai-input {',
-        '  width: 100%;',
-        '  box-sizing: border-box;',
-        '  padding: 7px 9px;',
+        '.bai-length-btn + .bai-length-btn { border-left: 1.5px solid #333333; }',
+        '.bai-length-btn.active { background: #6abf8e; }',
+        '.bai-word-limit {',
+        '  display: inline-flex;',
+        '  align-items: center;',
+        '  gap: 4px;',
+        '  padding: 2px 6px;',
         '  background: #ffffff;',
         '  border: 1.5px solid #333333;',
-        '  border-radius: 6px;',
+        '  border-radius: 5px;',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  color: #1e1e1e;',
+        '  user-select: none;',
+        '  cursor: pointer;',
+        '}',
+        '.bai-word-limit input[type="checkbox"] { margin: 0; cursor: pointer; accent-color: #6abf8e; }',
+        '.bai-word-limit-num {',
+        '  width: 42px;',
+        '  padding: 1px 3px;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 4px;',
         '  font-family: inherit;',
-        '  font-size: 0.78rem;',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  text-align: center;',
+        '  background: #f5f5f0;',
         '  color: #1e1e1e;',
         '}',
-        '.bai-input:focus { outline: none; border-color: #5b8fcc; box-shadow: 2px 2px 0 #5b8fcc; }',
-        '.bai-ground-row {',
-        '  display: flex;',
-        '  align-items: center;',
-        '  justify-content: space-between;',
-        '  gap: 8px;',
-        '  padding: 6px 9px;',
+        '.bai-word-limit-num:focus { outline: none; background: #ffffff; border-color: #5b8fcc; }',
+        '.bai-textarea {',
+        '  width: 100%;',
+        '  box-sizing: border-box;',
+        '  padding: 8px 10px;',
         '  background: #ffffff;',
-        '  border: 1.5px solid #333333;',
+        '  border: 2px solid #333333;',
         '  border-radius: 6px;',
-        '  font-size: 0.72rem;',
-        '  font-weight: 700;',
+        '  font-family: inherit;',
+        '  font-size: 0.82rem;',
+        '  line-height: 1.4;',
+        '  color: #1e1e1e;',
+        '  resize: vertical;',
+        '  min-height: 54px;',
+        '  max-height: 130px;',
         '}',
+        '.bai-textarea:focus { outline: none; box-shadow: 2px 2px 0 #5b8fcc; }',
         '.bai-footer {',
-        '  padding: 10px 12px;',
-        '  background: #ffffff;',
-        '  border-top: 2px solid #333333;',
         '  display: flex;',
         '  align-items: center;',
         '  justify-content: space-between;',
@@ -669,104 +373,71 @@
         '}',
         '.bai-status-text {',
         '  font-size: 0.72rem;',
-        '  font-weight: 700;',
+        '  font-weight: 600;',
         '  color: #555555;',
         '  flex: 1;',
-        '  white-space: nowrap;',
+        '  min-width: 0;',
         '  overflow: hidden;',
         '  text-overflow: ellipsis;',
+        '  white-space: nowrap;',
         '}',
         '.bai-btn {',
         '  display: inline-flex;',
         '  align-items: center;',
-        '  justify-content: center;',
         '  gap: 5px;',
-        '  padding: 7px 13px;',
-        '  font-family: inherit;',
-        '  font-size: 0.78rem;',
-        '  font-weight: 800;',
+        '  padding: 6px 12px;',
         '  border: 2px solid #333333;',
         '  border-radius: 6px;',
         '  box-shadow: 2px 2px 0 #555555;',
+        '  font-family: inherit;',
+        '  font-size: 0.76rem;',
+        '  font-weight: 800;',
         '  cursor: pointer;',
         '  background: #ffffff;',
         '  color: #1e1e1e;',
         '}',
+        '.bai-btn:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 #555555; }',
+        '.bai-btn:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 #555555; }',
+        '.bai-btn:disabled { opacity: 0.55; cursor: not-allowed; }',
         '.bai-btn-primary { background: #e2c96e; }',
         '.bai-btn-danger { background: #c96b6b; color: #ffffff; }',
-        '.bai-timer-bar {',
-        '  padding: 7px 12px;',
-        '  background: #ffffff;',
-        '  border-top: 1.5px solid #333333;',
-        '  display: flex;',
+        '.bai-btn-sm { padding: 4px 8px; font-size: 0.7rem; border-width: 1.5px; box-shadow: 1.5px 1.5px 0 #555555; }',
+        '.bai-answer-box {',
+        '  display: none;',
         '  flex-direction: column;',
-        '  gap: 5px;',
+        '  border-top: 2px solid #333333;',
+        '  background: #ffffff;',
         '}',
-        '.bai-timer-info {',
+        '.bai-answer-box.visible { display: flex; }',
+        '.bai-answer-head {',
         '  display: flex;',
         '  align-items: center;',
         '  justify-content: space-between;',
-        '  gap: 8px;',
-        '  font-size: 0.72rem;',
-        '  font-weight: 700;',
-        '  color: #333333;',
-        '}',
-        '.bai-timer-chips {',
-        '  display: inline-flex;',
-        '  align-items: center;',
-        '  gap: 5px;',
-        '}',
-        '.bai-timer-chip {',
-        '  display: inline-flex;',
-        '  align-items: center;',
-        '  gap: 4px;',
-        '  padding: 2px 7px;',
-        '  background: #f5f5f0;',
-        '  border: 1.5px solid #333333;',
-        '  border-radius: 4px;',
-        '  box-shadow: 1px 1px 0 #555555;',
-        '  font-family: "JetBrains Mono", "Courier New", monospace, sans-serif;',
-        '  font-size: 0.70rem;',
-        '  font-weight: 800;',
-        '  color: #1e1e1e;',
-        '}',
-        '.bai-timer-chip.bai-timer-elapsed { background: #ffffff; }',
-        '.bai-timer-chip.bai-timer-remaining { background: #fef9c3; border-color: #333333; }',
-        '.bai-timer-speed {',
-        '  font-size: 0.68rem;',
-        '  font-weight: 700;',
-        '  color: #555555;',
-        '  font-family: "JetBrains Mono", "Courier New", monospace, sans-serif;',
-        '}',
-        '.bai-progress-track {',
-        '  width: 100%;',
-        '  height: 6px;',
+        '  padding: 6px 12px;',
         '  background: #eaeae4;',
-        '  border: 1.5px solid #333333;',
-        '  border-radius: 3px;',
-        '  overflow: hidden;',
-        '}',
-        '.bai-progress-fill {',
-        '  height: 100%;',
-        '  background: #5b8fcc;',
-        '  width: 0%;',
-        '  transition: width 0.15s ease;',
-        '}',
-        '.wn-ai-stop-btn {',
-        '  position: absolute;',
-        '  top: -28px;',
-        '  right: 0;',
-        '  z-index: 30;',
-        '  padding: 3px 9px;',
-        '  background: #c96b6b;',
-        '  color: #ffffff;',
-        '  border: 1.5px solid #333333;',
-        '  border-radius: 4px;',
-        '  box-shadow: 2px 2px 0 #333333;',
-        '  font-family: "Lexend", sans-serif;',
-        '  font-size: 0.68rem;',
+        '  border-bottom: 1.5px solid #333333;',
+        '  font-size: 0.7rem;',
         '  font-weight: 800;',
-        '  cursor: pointer;',
+        '  text-transform: uppercase;',
+        '  letter-spacing: 0.4px;',
+        '}',
+        '.bai-answer-content {',
+        '  padding: 10px 12px;',
+        '  font-size: 0.82rem;',
+        '  line-height: 1.48;',
+        '  color: #1e1e1e;',
+        '  max-height: 220px;',
+        '  overflow-y: auto;',
+        '  word-wrap: break-word;',
+        '}',
+        '.bai-answer-actions {',
+        '  display: flex;',
+        '  align-items: center;',
+        '  justify-content: flex-end;',
+        '  gap: 6px;',
+        '  padding: 7px 12px;',
+        '  background: #f5f5f0;',
+        '  border-top: 1.5px solid #333333;',
         '}'
       ].join('\n');
       document.head.appendChild(style);
@@ -775,12 +446,12 @@
     var pop = document.createElement('div');
     pop.id = 'board-ai-popover';
     pop.setAttribute('role', 'dialog');
-    pop.setAttribute('aria-label', _t('boardAiStudioTitle', 'AI Studio'));
+    pop.setAttribute('aria-label', _t('boardAiAskTitle', 'Ask AI'));
     pop.innerHTML = [
       '<div class="bai-header">',
       '  <div class="bai-title-wrap">',
       '    <span class="bai-title-icon"><img src="../assets/icons/sparkles.svg" alt="" /></span>',
-      '    <span id="bai-header-title">' + _escapeHtml(_t('boardAiStudioTitle', 'AI Studio')) + '</span>',
+      '    <span id="bai-header-title">' + _escapeHtml(_t('boardAiAskTitle', 'Ask AI')) + '</span>',
       '  </div>',
       '  <div style="display:flex;align-items:center;gap:6px;">',
       '    <button type="button" class="bai-model-chip" id="bai-model-chip-btn" title="' + _escapeHtml(_t('slmManageModelsTitle', 'Local AI Language Models')) + '">',
@@ -788,119 +459,68 @@
       '      <span id="bai-model-chip-label">AI Model</span>',
       '    </button>',
       '    <button type="button" class="bai-close-btn" id="bai-close-btn" title="' + _escapeHtml(_t('slmClose', 'Close')) + '">',
-      '      <img src="../assets/icons/close.svg" style="width:12px;height:12px;" alt="×" />',
+      '      <img src="../assets/icons/close.svg" style="width:12px;height:12px;" alt="" />',
       '    </button>',
       '  </div>',
       '</div>',
-      '<div class="bai-context-bar">',
-      '  <div class="bai-context-summary">',
-      '    <span id="bai-context-summary-text"></span>',
-      '  </div>',
+      '<div class="bai-context-bar" id="bai-context-bar">',
       '  <div class="bai-context-pills" id="bai-context-pills"></div>',
-      '  <div id="bai-empty-topic-wrap" style="display:none;">',
-      '    <input type="text" class="bai-input" id="bai-topic-input" placeholder="' + _escapeHtml(_t('boardAiTopicPlaceholder', 'Enter a central topic, theme, or question…')) + '" />',
-      '  </div>',
-      '</div>',
-      '<div class="bai-tabs">',
-      '  <button type="button" class="bai-tab-btn active" id="bai-tab-expand">',
-      '    <img src="../assets/icons/nodes.svg" style="width:13px;height:13px;" alt="" />',
-      '    <span data-i18n="boardAiTabExpand">' + _escapeHtml(_t('boardAiTabExpand', 'Expand Nodes')) + '</span>',
-      '  </button>',
-      '  <button type="button" class="bai-tab-btn" id="bai-tab-write">',
-      '    <img src="../assets/icons/note.svg" style="width:13px;height:13px;" alt="" />',
-      '    <span data-i18n="boardAiTabWrite">' + _escapeHtml(_t('boardAiTabWrite', 'Write & Analyze')) + '</span>',
-      '  </button>',
+      '  <button type="button" class="bai-ctx-clear" id="bai-clear-ctx-btn" title="' + _escapeHtml(_t('boardAiClearContext', 'Clear context')) + '">' + _escapeHtml(_t('boardAiClearBtn', 'Clear')) + '</button>',
       '</div>',
       '<div class="bai-body">',
-      '  <!-- TAB 1: EXPAND NODES -->',
-      '  <div id="bai-pane-expand" style="display:flex;flex-direction:column;gap:9px;">',
-      '    <div>',
-      '      <div class="bai-field-label" data-i18n="boardAiPresetLabel">' + _escapeHtml(_t('boardAiPresetLabel', 'Expansion Mode')) + '</div>',
-      '      <div class="bai-preset-grid" id="bai-expand-presets">',
-      '        <button type="button" class="bai-preset-btn active" data-preset="related">' + _escapeHtml(_t('boardAiPresetRelated', 'Related Concepts')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="lexical">' + _escapeHtml(_t('boardAiPresetLexical', 'Lexical Field & Collocations')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="extract">' + _escapeHtml(_t('boardAiPresetExtract', 'Extract Key Terms')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="bridge">' + _escapeHtml(_t('boardAiPresetBridge', 'Bridge Selected Nodes')) + '</button>',
-      '      </div>',
-      '    </div>',
-      '    <div>',
-      '      <div class="bai-field-label" data-i18n="boardAiNodeCountLabel">' + _escapeHtml(_t('boardAiNodeCountLabel', 'Number of Nodes to Spawn')) + '</div>',
-      '      <div class="bai-pill-row" id="bai-node-count-row">',
-      '        <button type="button" class="bai-opt-pill" data-count="3">3</button>',
-      '        <button type="button" class="bai-opt-pill active" data-count="4">4</button>',
-      '        <button type="button" class="bai-opt-pill" data-count="5">5</button>',
-      '        <button type="button" class="bai-opt-pill" data-count="6">6</button>',
-      '      </div>',
-      '    </div>',
+      '  <div class="bai-quick-prompts" id="bai-quick-prompts">',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="meaning">' + _escapeHtml(_t('boardAiQuickMeaning', 'Meaning')) + '</button>',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="explain">' + _escapeHtml(_t('boardAiQuickExplain', 'Explain')) + '</button>',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="translate">' + _escapeHtml(_t('boardAiQuickTranslate', 'Translate')) + '</button>',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="example">' + _escapeHtml(_t('boardAiQuickExample', 'Example')) + '</button>',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="synonyms">' + _escapeHtml(_t('boardAiQuickSynonyms', 'Synonyms')) + '</button>',
+      '    <button type="button" class="bai-quick-pill" data-prompt-key="antonyms">' + _escapeHtml(_t('boardAiQuickAntonyms', 'Antonyms')) + '</button>',
       '  </div>',
-      '  <!-- TAB 2: WRITE & ANALYZE -->',
-      '  <div id="bai-pane-write" style="display:none;flex-direction:column;gap:9px;">',
-      '    <div>',
-      '      <div class="bai-field-label" data-i18n="boardAiWritePresetLabel">' + _escapeHtml(_t('boardAiWritePresetLabel', 'Generation Task')) + '</div>',
-      '      <div class="bai-preset-grid" id="bai-write-presets">',
-      '        <button type="button" class="bai-preset-btn active" data-preset="sentences">' + _escapeHtml(_t('boardAiPresetSentences', 'Example Sentences')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="paragraph">' + _escapeHtml(_t('boardAiPresetParagraph', 'Cohesive Paragraph')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="gapfill">' + _escapeHtml(_t('boardAiPresetGapFill', 'Gap-Fill Exercise')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="questions">' + _escapeHtml(_t('boardAiPresetQuestions', 'Discussion Questions')) + '</button>',
-      '        <button type="button" class="bai-preset-btn" data-preset="analysis" style="grid-column:1/-1;">' + _escapeHtml(_t('boardAiPresetAnalysis', 'Literary & Textual Analysis')) + '</button>',
+      '  <textarea class="bai-textarea" id="bai-question-input" rows="2" placeholder="' + _escapeHtml(_t('boardAiAskPlaceholder', 'Ask a question…')) + '"></textarea>',
+      '  <div class="bai-footer">',
+      '    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">',
+      '      <div class="bai-length-toggle" id="bai-length-toggle">',
+      '        <button type="button" class="bai-length-btn active" data-length="brief">' + _escapeHtml(_t('boardAiLengthBrief', 'Brief')) + '</button>',
+      '        <button type="button" class="bai-length-btn" data-length="long">' + _escapeHtml(_t('boardAiLengthLong', 'Long')) + '</button>',
       '      </div>',
+      '      <label class="bai-word-limit" title="' + _escapeHtml(_t('boardAiWordLimitTitle', 'Limit answer length in words')) + '">',
+      '        <input type="checkbox" id="bai-word-limit-chk" />',
+      '        <span>' + _escapeHtml(_t('boardAiWordLimitPrefix', 'Max')) + '</span>',
+      '        <input type="number" id="bai-word-limit-num" class="bai-word-limit-num" min="5" max="500" step="5" value="30" />',
+      '        <span>' + _escapeHtml(_t('boardAiWordLimitSuffix', 'words')) + '</span>',
+      '      </label>',
       '    </div>',
-      '    <div>',
-      '      <div class="bai-field-label" data-i18n="boardAiCefrLabel">' + _escapeHtml(_t('boardAiCefrLabel', 'Target Level (CEFR)')) + '</div>',
-      '      <div class="bai-pill-row" id="bai-cefr-row">',
-      '        <button type="button" class="bai-opt-pill" data-level="A1">A1</button>',
-      '        <button type="button" class="bai-opt-pill" data-level="A2">A2</button>',
-      '        <button type="button" class="bai-opt-pill active" data-level="B1">B1</button>',
-      '        <button type="button" class="bai-opt-pill" data-level="B2">B2</button>',
-      '        <button type="button" class="bai-opt-pill" data-level="C1">C1</button>',
-      '      </div>',
+      '    <div class="bai-status-text" id="bai-status-text">' + _escapeHtml(_t('slmStatusReady', 'AI Ready')) + '</div>',
+      '    <div style="display:flex;align-items:center;gap:6px;">',
+      '      <button type="button" class="bai-btn bai-btn-danger" id="bai-stop-btn" style="display:none;">',
+      '        <img src="../assets/icons/stop.svg" style="width:11px;height:11px;" alt="" />',
+      '        <span>' + _escapeHtml(_t('boardAiStopBtn', 'Stop')) + '</span>',
+      '      </button>',
+      '      <button type="button" class="bai-btn bai-btn-primary" id="bai-run-btn">',
+      '        <img src="../assets/icons/sparkles.svg" style="width:13px;height:13px;" alt="" />',
+      '        <span>' + _escapeHtml(_t('boardAiAskBtn', 'Ask')) + '</span>',
+      '      </button>',
       '    </div>',
-      '    <div>',
-      '      <div class="bai-field-label" data-i18n="boardAiOutputTargetLabel">' + _escapeHtml(_t('boardAiOutputTargetLabel', 'Output Destination')) + '</div>',
-      '      <div class="bai-pill-row" id="bai-target-mode-row">',
-      '        <button type="button" class="bai-opt-pill active" data-target="new_note">' + _escapeHtml(_t('boardAiTargetNewNote', 'New Connected Note')) + '</button>',
-      '        <button type="button" class="bai-opt-pill" data-target="append_note" id="bai-target-append-btn">' + _escapeHtml(_t('boardAiTargetAppendNote', 'Append to Note')) + '</button>',
-      '      </div>',
-      '    </div>',
-      '  </div>',
-      '  <!-- SHARED CUSTOM PROMPT & GROUNDING -->',
-      '  <div>',
-      '    <div class="bai-field-label" data-i18n="boardAiCustomPromptLabel">' + _escapeHtml(_t('boardAiCustomPromptLabel', 'Custom Focus / Instruction (Optional)')) + '</div>',
-      '    <input type="text" class="bai-input" id="bai-custom-prompt-input" placeholder="' + _escapeHtml(_t('boardAiCustomPromptPlaceholder', 'e.g. Focus on Gothic imagery, past tense, irony…')) + '" />',
-      '  </div>',
-      '  <label class="bai-ground-row" id="bai-ground-row" style="display:none;cursor:pointer;">',
-      '    <span style="display:inline-flex;align-items:center;gap:6px;">',
-      '      <img src="../assets/icons/book.svg" style="width:13px;height:13px;" alt="" />',
-      '      <span id="bai-ground-label">' + _escapeHtml(_t('boardAiGroundInText', 'Ground in loaded text')) + '</span>',
-      '    </span>',
-      '    <input type="checkbox" id="bai-ground-checkbox" checked />',
-      '  </label>',
-      '</div>',
-      '<div class="bai-timer-bar" id="bai-timer-bar" style="display:none;">',
-      '  <div class="bai-timer-info">',
-      '    <div class="bai-timer-chips">',
-      '      <span class="bai-timer-chip bai-timer-elapsed" title="' + _escapeHtml(_t('boardAiElapsed', 'Elapsed:')) + '">',
-      '        <span class="bai-timer-label">⏱</span>',
-      '        <span id="bai-timer-elapsed-val">00:00</span>',
-      '      </span>',
-      '      <span class="bai-timer-chip bai-timer-remaining" title="' + _escapeHtml(_t('boardAiEstRemaining', 'Est. remaining:')) + '">',
-      '        <span class="bai-timer-label">⏳</span>',
-      '        <span id="bai-timer-remaining-val">~4s</span>',
-      '      </span>',
-      '    </div>',
-      '    <span class="bai-timer-speed" id="bai-timer-speed-val"></span>',
-      '  </div>',
-      '  <div class="bai-progress-track">',
-      '    <div class="bai-progress-fill" id="bai-progress-fill"></div>',
       '  </div>',
       '</div>',
-      '<div class="bai-footer">',
-      '  <div class="bai-status-text" id="bai-status-text">' + _escapeHtml(_t('slmStatusReady', 'AI Ready')) + '</div>',
-      '  <div style="display:flex;align-items:center;gap:6px;">',
-      '    <button type="button" class="bai-btn bai-btn-danger" id="bai-stop-btn" style="display:none;">' + _escapeHtml(_t('boardAiStopBtn', 'Stop')) + '</button>',
-      '    <button type="button" class="bai-btn bai-btn-primary" id="bai-run-btn">',
-      '      <img src="../assets/icons/sparkles.svg" style="width:13px;height:13px;" alt="" />',
-      '      <span id="bai-run-btn-label">' + _escapeHtml(_t('boardAiGenerateBtn', 'Generate')) + '</span>',
+      '<div class="bai-answer-box" id="bai-answer-box">',
+      '  <div class="bai-answer-head">',
+      '    <span>' + _escapeHtml(_t('boardAiAnswerLabel', 'Answer')) + '</span>',
+      '    <span id="bai-answer-time"></span>',
+      '  </div>',
+      '  <div class="bai-answer-content" id="bai-answer-content"></div>',
+      '  <div class="bai-answer-actions" id="bai-answer-actions">',
+      '    <button type="button" class="bai-btn bai-btn-sm" id="bai-continue-btn">',
+      '      <img src="../assets/icons/arrow-right.svg" style="width:11px;height:11px;" alt="" />',
+      '      <span>' + _escapeHtml(_t('boardAiGoOnBtn', 'Go on')) + '</span>',
+      '    </button>',
+      '    <button type="button" class="bai-btn bai-btn-sm" id="bai-copy-btn">',
+      '      <img src="../assets/icons/copy.svg" style="width:11px;height:11px;" alt="" />',
+      '      <span>' + _escapeHtml(_t('boardAiCopyAnswer', 'Copy')) + '</span>',
+      '    </button>',
+      '    <button type="button" class="bai-btn bai-btn-sm bai-btn-primary" id="bai-add-note-btn">',
+      '      <img src="../assets/icons/note.svg" style="width:11px;height:11px;" alt="" />',
+      '      <span>' + _escapeHtml(_t('boardAiAddAsNote', 'Add as Note')) + '</span>',
       '    </button>',
       '  </div>',
       '</div>'
@@ -909,7 +529,6 @@
     document.body.appendChild(pop);
     _popoverEl = pop;
 
-    // Bind interactive events once
     document.getElementById('bai-close-btn').addEventListener('click', function () {
       boardAiClosePopover();
     });
@@ -922,63 +541,99 @@
       }
     });
 
-    document.getElementById('bai-tab-expand').addEventListener('click', function () {
-      _setTab('expand');
-    });
-    document.getElementById('bai-tab-write').addEventListener('click', function () {
-      _setTab('write');
+    document.getElementById('bai-clear-ctx-btn').addEventListener('click', function () {
+      _contextDismissed = true;
+      _renderContextBar();
     });
 
-    document.getElementById('bai-expand-presets').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bai-preset-btn');
-      if (!btn) return;
-      _expandPreset = btn.getAttribute('data-preset') || 'related';
-      _syncFormUi();
+    var QUICK_PROMPTS = {
+      meaning: _t('boardAiQuickMeaningPrompt', 'Give a clear, simple definition of this word:'),
+      explain: _t('boardAiQuickExplainPrompt', 'Explain this concept clearly in simple terms:'),
+      translate: _t('boardAiQuickTranslatePrompt', 'Translate this into French (or English if already French) and note its part of speech:'),
+      example: _t('boardAiQuickExamplePrompt', 'Write 2 short, natural example sentences that each include the target word:'),
+      synonyms: _t('boardAiQuickSynonymsPrompt', 'List 4-5 common synonyms for this word:'),
+      antonyms: _t('boardAiQuickAntonymsPrompt', 'List 4-5 common antonyms for this word:')
+    };
+
+    document.getElementById('bai-quick-prompts').addEventListener('click', function (e) {
+      var btn = e.target.closest('.bai-quick-pill');
+      if (!btn || _isGenerating) return;
+      var key = btn.getAttribute('data-prompt-key');
+      var promptText = QUICK_PROMPTS[key];
+      if (!promptText) return;
+      var qInput = document.getElementById('bai-question-input');
+      var hasCtx = !_contextDismissed && _activeContext && (_activeContext.nodes.length > 0 || _activeContext.notes.length > 0);
+      if (key === 'example' && hasCtx && _activeContext.nodes.length > 0) {
+        var targetWords = _activeContext.nodes.slice(0, 3).map(function (n) {
+          return (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
+        }).filter(Boolean);
+        if (targetWords.length > 0) {
+          var wordList = '"' + targetWords.join('", "') + '"';
+          var tpl = _t('boardAiQuickExampleWithWord', 'Write 2 short, natural example sentences that each contain {word}.');
+          promptText = tpl.replace('{word}', wordList);
+        }
+      }
+      if (qInput) {
+        qInput.value = hasCtx ? promptText : (promptText + ' ');
+        if (hasCtx) {
+          boardAiAskQuestion();
+        } else {
+          qInput.focus();
+          qInput.setSelectionRange(qInput.value.length, qInput.value.length);
+        }
+      }
     });
 
-    document.getElementById('bai-node-count-row').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bai-opt-pill');
-      if (!btn) return;
-      _nodeCount = parseInt(btn.getAttribute('data-count'), 10) || 4;
-      _syncFormUi();
+    document.getElementById('bai-length-toggle').addEventListener('click', function (e) {
+      var btn = e.target.closest('.bai-length-btn');
+      if (!btn || _isGenerating) return;
+      _answerLength = btn.getAttribute('data-length') === 'long' ? 'long' : 'brief';
+      Array.from(document.querySelectorAll('#bai-length-toggle .bai-length-btn')).forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-length') === _answerLength);
+      });
     });
 
-    document.getElementById('bai-write-presets').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bai-preset-btn');
-      if (!btn) return;
-      _writePreset = btn.getAttribute('data-preset') || 'sentences';
-      _syncFormUi();
+    document.getElementById('bai-word-limit-num').addEventListener('input', function () {
+      var chk = document.getElementById('bai-word-limit-chk');
+      if (chk && !chk.checked) chk.checked = true;
     });
 
-    document.getElementById('bai-cefr-row').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bai-opt-pill');
-      if (!btn) return;
-      _cefrLevel = btn.getAttribute('data-level') || 'B1';
-      _syncFormUi();
-    });
-
-    document.getElementById('bai-target-mode-row').addEventListener('click', function (e) {
-      var btn = e.target.closest('.bai-opt-pill');
-      if (!btn || btn.disabled) return;
-      _targetMode = btn.getAttribute('data-target') || 'new_note';
-      _syncFormUi();
-    });
-
-    document.getElementById('bai-ground-checkbox').addEventListener('change', function (e) {
-      _groundInText = !!e.target.checked;
+    document.getElementById('bai-question-input').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        boardAiAskQuestion();
+      }
     });
 
     document.getElementById('bai-stop-btn').addEventListener('click', function () {
       if (window.SlmService) window.SlmService.abort();
-      _stopGenerationTimer(false);
+      _stopTimer();
       _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
     });
 
     document.getElementById('bai-run-btn').addEventListener('click', function () {
-      boardAiRunCurrentAction();
+      boardAiAskQuestion();
     });
 
-    // Outside click & Escape dismissal
+    document.getElementById('bai-continue-btn').addEventListener('click', function () {
+      boardAiContinueAnswer();
+    });
+
+    document.getElementById('bai-copy-btn').addEventListener('click', function () {
+      if (!_lastAnswerText) return;
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        navigator.clipboard.writeText(_lastAnswerText).then(function () {
+          if (typeof window.mdbToast === 'function') {
+            window.mdbToast(_t('boardAiCopied', 'Copied to clipboard'));
+          }
+        }).catch(function () {});
+      }
+    });
+
+    document.getElementById('bai-add-note-btn').addEventListener('click', function () {
+      _addAnswerAsNote();
+    });
+
     document.addEventListener('pointerdown', function (e) {
       if (!_popoverEl || !_popoverEl.classList.contains('visible')) return;
       if (_popoverEl.contains(e.target)) return;
@@ -993,41 +648,41 @@
       if (e.key === 'Escape' && _popoverEl && _popoverEl.classList.contains('visible')) {
         var slmModal = document.getElementById('slm-model-overlay') || document.getElementById('slm-model-modal-backdrop');
         if (slmModal && slmModal.style.display !== 'none') return;
-        boardAiClosePopover();
+        if (!_isGenerating) boardAiClosePopover();
       }
     });
 
     return _popoverEl;
   }
 
-  function _setTab(tab) {
-    _activeTab = tab === 'write' ? 'write' : 'expand';
-    _syncFormUi();
-  }
+  function _renderContextBar() {
+    var bar = document.getElementById('bai-context-bar');
+    var pillsEl = document.getElementById('bai-context-pills');
+    if (!bar || !pillsEl) return;
 
-  function _syncFormUi() {
-    if (!_popoverEl) return;
-    var isExpand = _activeTab === 'expand';
-    document.getElementById('bai-tab-expand').classList.toggle('active', isExpand);
-    document.getElementById('bai-tab-write').classList.toggle('active', !isExpand);
-    document.getElementById('bai-pane-expand').style.display = isExpand ? 'flex' : 'none';
-    document.getElementById('bai-pane-write').style.display = !isExpand ? 'flex' : 'none';
+    if (_contextDismissed || !_activeContext || (_activeContext.nodes.length === 0 && _activeContext.notes.length === 0)) {
+      bar.style.display = 'none';
+      pillsEl.innerHTML = '';
+      return;
+    }
 
-    Array.from(document.querySelectorAll('#bai-expand-presets .bai-preset-btn')).forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-preset') === _expandPreset);
+    var html = [];
+    _activeContext.nodes.slice(0, 6).forEach(function (n) {
+      var w = (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
+      if (w) html.push('<span class="bai-ctx-pill">' + _escapeHtml(w) + '</span>');
     });
-    Array.from(document.querySelectorAll('#bai-node-count-row .bai-opt-pill')).forEach(function (b) {
-      b.classList.toggle('active', parseInt(b.getAttribute('data-count'), 10) === _nodeCount);
+    _activeContext.notes.slice(0, 3).forEach(function (nt) {
+      var txt = (nt.text || _stripHtml(nt.html) || '').trim().replace(/\s+/g, ' ');
+      if (txt.length > 26) txt = txt.slice(0, 24) + '…';
+      html.push('<span class="bai-ctx-pill is-note">' + _escapeHtml(txt || 'Note') + '</span>');
     });
-    Array.from(document.querySelectorAll('#bai-write-presets .bai-preset-btn')).forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-preset') === _writePreset);
-    });
-    Array.from(document.querySelectorAll('#bai-cefr-row .bai-opt-pill')).forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-level') === _cefrLevel);
-    });
-    Array.from(document.querySelectorAll('#bai-target-mode-row .bai-opt-pill')).forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-target') === _targetMode);
-    });
+
+    if (html.length === 0) {
+      bar.style.display = 'none';
+      return;
+    }
+    pillsEl.innerHTML = html.join('');
+    bar.style.display = 'flex';
   }
 
   async function _refreshModelChip() {
@@ -1040,8 +695,18 @@
       var activeSpec = (st.models || []).find(function (m) { return m.id === activeId; });
       if (activeSpec) {
         var isInstalled = Boolean(activeSpec.isInstalled || activeSpec.installed);
-        var shortTier = activeSpec.id === 'slm-ultra' ? '360M Ultra' : (activeSpec.id === 'slm-fast' ? '0.5B Fast' : (activeSpec.id === 'slm-deep' ? '1.8B Deep' : '1.5B Balanced'));
-        chipLabel.textContent = shortTier + (isInstalled ? ' ✓' : ' ⬇');
+        var SHORT_LABELS = {
+          'slm-ultra': 'SmolLM2 360M',
+          'slm-gemma3-270m': 'Gemma3 270M',
+          'slm-fast': 'Qwen2.5 0.5B',
+          'slm-qwen3-0.6b': 'Qwen3 0.6B',
+          'slm-gemma3-1b': 'Gemma3 1B',
+          'slm-balanced': 'Qwen2.5 1.5B',
+          'slm-qwen3-1.7b': 'Qwen3 1.7B',
+          'slm-deep': 'Qwen1.5 1.8B'
+        };
+        var shortTier = SHORT_LABELS[activeSpec.id] || activeSpec.name || activeSpec.id;
+        chipLabel.textContent = shortTier + (isInstalled ? '' : ' (!)');
         if (!_isGenerating && statusEl) {
           statusEl.textContent = isInstalled
             ? _t('slmStatusReady', 'AI Ready')
@@ -1051,68 +716,23 @@
     } catch (_) {}
   }
 
-  function _refreshSelectionSummary() {
-    var sel = boardAiResolveSelection();
-    var summaryEl = document.getElementById('bai-context-summary-text');
-    var pillsEl = document.getElementById('bai-context-pills');
-    var emptyTopicWrap = document.getElementById('bai-empty-topic-wrap');
-    var appendBtn = document.getElementById('bai-target-append-btn');
+  function _startTimer() {
+    _stopTimer();
+    _genStartTime = performance.now();
+    var timeEl = document.getElementById('bai-answer-time');
+    if (timeEl) timeEl.textContent = '0.0s';
+    _timerInterval = setInterval(function () {
+      if (!_isGenerating) return;
+      var elapsed = ((performance.now() - _genStartTime) / 1000).toFixed(1);
+      if (timeEl) timeEl.textContent = elapsed + 's';
+    }, 200);
+  }
 
-    var nCount = sel.nodes.length;
-    var ntCount = sel.notes.length;
-
-    if (appendBtn) {
-      appendBtn.disabled = ntCount === 0;
-      if (ntCount === 0 && _targetMode === 'append_note') {
-        _targetMode = 'new_note';
-      }
+  function _stopTimer() {
+    if (_timerInterval) {
+      clearInterval(_timerInterval);
+      _timerInterval = null;
     }
-
-    if (nCount === 0 && ntCount === 0) {
-      if (summaryEl) summaryEl.textContent = _t('boardAiCtxEmpty', 'No nodes/notes selected — enter a topic below:');
-      if (pillsEl) {
-        pillsEl.innerHTML = '';
-        pillsEl.style.display = 'none';
-      }
-      if (emptyTopicWrap) emptyTopicWrap.style.display = 'block';
-    } else {
-      var parts = [];
-      if (nCount > 0) parts.push(nCount + ' ' + (nCount === 1 ? _t('boardAiNodeSingular', 'node') : _t('boardAiNodePlural', 'nodes')));
-      if (ntCount > 0) parts.push(ntCount + ' ' + (ntCount === 1 ? _t('boardAiNoteSingular', 'note') : _t('boardAiNotePlural', 'notes')));
-      if (summaryEl) summaryEl.textContent = _t('boardAiCtxSelected', 'Selected context:') + ' ' + parts.join(' • ');
-      if (emptyTopicWrap) emptyTopicWrap.style.display = 'none';
-      if (pillsEl) {
-        pillsEl.style.display = 'flex';
-        var html = [];
-        sel.nodes.slice(0, 8).forEach(function (n) {
-          var w = (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
-          if (w) html.push('<span class="bai-ctx-pill">' + _escapeHtml(w) + '</span>');
-        });
-        sel.notes.slice(0, 4).forEach(function (nt) {
-          var txt = (nt.text || _stripHtml(nt.html) || '').trim().replace(/\s+/g, ' ');
-          if (txt.length > 26) txt = txt.slice(0, 24) + '…';
-          html.push('<span class="bai-ctx-pill is-note">📝 ' + _escapeHtml(txt || 'Note') + '</span>');
-        });
-        pillsEl.innerHTML = html.join('');
-      }
-    }
-
-    // Check loaded reference text for Grounding toggle
-    var refText = _getLoadedReferenceText();
-    var groundRow = document.getElementById('bai-ground-row');
-    var groundLabel = document.getElementById('bai-ground-label');
-    if (groundRow) {
-      if (refText.hasText) {
-        groundRow.style.display = 'flex';
-        if (groundLabel) {
-          groundLabel.textContent = _t('boardAiGroundInText', 'Ground in loaded text') + ' (' + refText.sourceLabel + ')';
-        }
-      } else {
-        groundRow.style.display = 'none';
-      }
-    }
-
-    _syncFormUi();
   }
 
   function _setGeneratingState(running, statusMsg) {
@@ -1120,14 +740,28 @@
     var runBtn = document.getElementById('bai-run-btn');
     var stopBtn = document.getElementById('bai-stop-btn');
     var statusEl = document.getElementById('bai-status-text');
+    var actionsEl = document.getElementById('bai-answer-actions');
     if (runBtn) runBtn.disabled = _isGenerating;
     if (stopBtn) stopBtn.style.display = _isGenerating ? 'inline-flex' : 'none';
+    if (actionsEl) actionsEl.style.display = (!_isGenerating && _lastAnswerText) ? 'flex' : 'none';
     if (statusEl && statusMsg) statusEl.textContent = statusMsg;
   }
 
-  /**
-   * Open the AI Studio Popover anchored near a trigger element or screen coordinates
-   */
+  function _clampPopoverToViewport() {
+    if (!_popoverEl || !_popoverEl.classList.contains('visible')) return;
+    var rect = _popoverEl.getBoundingClientRect();
+    var left = parseFloat(_popoverEl.style.left) || rect.left;
+    var top = parseFloat(_popoverEl.style.top) || rect.top;
+    if (left + rect.width > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - rect.width - 12);
+    }
+    if (top + rect.height > window.innerHeight - 12) {
+      top = Math.max(12, window.innerHeight - rect.height - 12);
+    }
+    _popoverEl.style.left = Math.round(Math.max(12, left)) + 'px';
+    _popoverEl.style.top = Math.round(Math.max(12, top)) + 'px';
+  }
+
   function boardAiOpenPopover(options, anchorEl) {
     options = options || {};
     _contextOverride = {
@@ -1137,7 +771,6 @@
       boardY: typeof options.boardY === 'number' ? options.boardY : null
     };
 
-    // Capture current context menu targets before dismissing menus
     if (!_contextOverride.nodeId && typeof window.conGetCtxNodeId === 'function' && window.conGetCtxNodeId()) {
       var multi = window.conGetMultiSelected ? window.conGetMultiSelected() : null;
       if (!multi || multi.size <= 1) {
@@ -1148,7 +781,6 @@
       _contextOverride.noteId = window._wnActiveNote.id;
     }
 
-    // Capture board right-click position if opened from #con-board-ctx-menu
     var boardCtxMenu = document.getElementById('con-board-ctx-menu');
     var fallbackClientX = options.clientX || null;
     var fallbackClientY = options.clientY || null;
@@ -1161,20 +793,13 @@
     _dismissCompetingMenus();
 
     var pop = _ensurePopoverDom();
-    if (options.tab === 'write' || options.tab === 'expand') {
-      _activeTab = options.tab;
-    }
-    if (options.preset) {
-      if (_activeTab === 'expand') _expandPreset = options.preset;
-      else _writePreset = options.preset;
-    }
-
-    _refreshSelectionSummary();
+    _contextDismissed = false;
+    _activeContext = boardAiResolveSelection();
+    _renderContextBar();
     _refreshModelChip();
 
     pop.classList.add('visible');
 
-    // Position popover within viewport bounds
     var targetLeft = 80;
     var targetTop = 90;
     if (anchorEl && typeof anchorEl.getBoundingClientRect === 'function') {
@@ -1186,41 +811,29 @@
     } else if (typeof fallbackClientX === 'number' && typeof fallbackClientY === 'number') {
       targetLeft = fallbackClientX;
       targetTop = fallbackClientY;
-    } else {
-      var sel = boardAiResolveSelection();
-      if (sel.nodes.length > 0 && sel.nodes[0].el) {
-        var nr = sel.nodes[0].el.getBoundingClientRect();
-        targetLeft = nr.right + 12;
-        targetTop = nr.top;
-      } else if (sel.notes.length > 0) {
-        var noteEl = document.querySelector('.con-word-note[data-id="' + sel.notes[0].id + '"]');
-        if (noteEl) {
-          var ntr = noteEl.getBoundingClientRect();
-          targetLeft = ntr.right + 12;
-          targetTop = ntr.top;
-        }
-      } else {
-        targetLeft = Math.round((window.innerWidth - 390) / 2);
-        targetTop = 110;
+    } else if (_activeContext.nodes.length > 0 && _activeContext.nodes[0].el) {
+      var nr = _activeContext.nodes[0].el.getBoundingClientRect();
+      targetLeft = nr.right + 12;
+      targetTop = nr.top;
+    } else if (_activeContext.notes.length > 0) {
+      var noteEl = document.querySelector('.con-word-note[data-id="' + _activeContext.notes[0].id + '"]');
+      if (noteEl) {
+        var ntr = noteEl.getBoundingClientRect();
+        targetLeft = ntr.right + 12;
+        targetTop = ntr.top;
       }
+    } else {
+      targetLeft = Math.round((window.innerWidth - 390) / 2);
+      targetTop = 110;
     }
 
-    var popRect = pop.getBoundingClientRect();
-    var pw = popRect.width || 390;
-    var ph = popRect.height || 380;
-    if (targetLeft + pw > window.innerWidth - 12) {
-      targetLeft = Math.max(12, window.innerWidth - pw - 12);
-    }
-    if (targetTop + ph > window.innerHeight - 12) {
-      targetTop = Math.max(12, window.innerHeight - ph - 12);
-    }
     pop.style.left = Math.round(targetLeft) + 'px';
     pop.style.top = Math.round(targetTop) + 'px';
+    _clampPopoverToViewport();
 
-    var topicInput = document.getElementById('bai-topic-input');
-    var emptyWrap = document.getElementById('bai-empty-topic-wrap');
-    if (emptyWrap && emptyWrap.style.display !== 'none' && topicInput) {
-      setTimeout(function () { topicInput.focus(); }, 30);
+    var qInput = document.getElementById('bai-question-input');
+    if (qInput) {
+      setTimeout(function () { qInput.focus(); }, 30);
     }
   }
 
@@ -1230,94 +843,6 @@
     }
   }
 
-  /**
-   * Build structured context string from selected nodes, notes, edges, and optional grounded text
-   */
-  function _buildPromptContext(sel) {
-    var topicInput = document.getElementById('bai-topic-input');
-    var customInput = document.getElementById('bai-custom-prompt-input');
-    var topicVal = topicInput ? topicInput.value.trim() : '';
-    var customInstruction = customInput ? customInput.value.trim() : '';
-
-    var keywords = [];
-    var nodeDescriptions = [];
-    sel.nodes.slice(0, 6).forEach(function (n) {
-      var w = (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
-      if (!w) return;
-      keywords.push(w);
-      var dbEntry = (typeof window.conFindDbEntry === 'function') ? window.conFindDbEntry(w) : null;
-      var pos = (dbEntry && (dbEntry.partOfSpeech || dbEntry.pos)) || n.aiPos || '';
-      if (Array.isArray(pos)) pos = pos.join('/');
-      var desc = w;
-      if (pos) desc += ' (' + pos + ')';
-      nodeDescriptions.push(desc);
-    });
-
-    var noteTexts = [];
-    sel.notes.slice(0, 3).forEach(function (nt) {
-      var raw = (nt.text || _stripHtml(nt.html) || '').trim();
-      if (!raw) return;
-      noteTexts.push(raw.slice(0, 140));
-      raw.split(/\W+/).forEach(function (tok) {
-        if (tok.length >= 4 && keywords.length < 12) keywords.push(tok);
-      });
-    });
-
-    if (topicVal) keywords.push(topicVal);
-
-    var edgeDescriptions = [];
-    sel.edges.slice(0, 6).forEach(function (e) {
-      var findLabel = function (id) {
-        var nd = sel.nodes.find(function (x) { return String(x.id) === String(id); });
-        if (nd) return (nd.baseWord || '').trim();
-        var nt = sel.notes.find(function (x) { return String(x.id) === String(id); });
-        if (nt) return 'Note[' + String(nt.text || '').slice(0, 20) + ']';
-        return '';
-      };
-      var aLbl = findLabel(e.a);
-      var bLbl = findLabel(e.b);
-      if (aLbl && bLbl) {
-        edgeDescriptions.push(aLbl + (e.label ? ' --[' + e.label + ']--> ' : ' --> ') + bLbl);
-      }
-    });
-
-    var groundedExcerpt = '';
-    var refInfo = _getLoadedReferenceText();
-    if (_groundInText && refInfo.hasText) {
-      groundedExcerpt = _extractRelevantExcerpts(refInfo.fullText, keywords, 260);
-    }
-
-    var lines = [];
-    if (nodeDescriptions.length > 0) {
-      lines.push('Selected Mind Map Nodes:\n- ' + nodeDescriptions.join('\n- '));
-    }
-    if (noteTexts.length > 0) {
-      lines.push('Selected Board Notes:\n' + noteTexts.map(function (t, i) { return '[Note ' + (i + 1) + ']: ' + t; }).join('\n'));
-    }
-    if (edgeDescriptions.length > 0) {
-      lines.push('Connections:\n- ' + edgeDescriptions.join('\n- '));
-    }
-    if (nodeDescriptions.length === 0 && noteTexts.length === 0 && topicVal) {
-      lines.push('Central Topic / Prompt: ' + topicVal);
-    }
-    if (groundedExcerpt) {
-      lines.push('Reference Text Excerpt (' + refInfo.sourceLabel + '):\n"""\n' + groundedExcerpt + '\n"""');
-    }
-    if (customInstruction) {
-      lines.push('Teacher Focus / Instruction: ' + customInstruction);
-    }
-
-    return {
-      hasInput: nodeDescriptions.length > 0 || noteTexts.length > 0 || !!topicVal || !!groundedExcerpt,
-      topicVal: topicVal,
-      customInstruction: customInstruction,
-      contextBlock: lines.join('\n\n')
-    };
-  }
-
-  /**
-   * Ensure active SLM model is downloaded and ready, or prompt 1-click download in Model Manager
-   */
   async function _ensureSlmModelInstalled() {
     if (!window.SlmService) return false;
     var st = await window.SlmService.getStatus();
@@ -1326,7 +851,7 @@
     var isInstalled = Boolean(activeSpec && (activeSpec.isInstalled || activeSpec.installed));
     if (!isInstalled) {
       if (typeof window.mdbToast === 'function') {
-        window.mdbToast('⚠️ ' + _t('slmErrorNotInstalled', 'The selected AI model is not downloaded yet. Please download it in the AI Models Manager.'));
+        window.mdbToast(_t('slmErrorNotInstalled', 'The selected AI model is not downloaded yet. Please download it in the AI Models Manager.'), true);
       }
       if (typeof window.openSlmModelManager === 'function') {
         window.openSlmModelManager({
@@ -1338,71 +863,49 @@
     return true;
   }
 
-  /**
-   * Execute current tab action
-   */
-  async function boardAiRunCurrentAction() {
-    if (_isGenerating) return;
-    if (_activeTab === 'expand') {
-      await boardAiExecuteExpandNodes();
-    } else {
-      await boardAiExecuteGenerateText();
+  function _buildCompactPrompt(question) {
+    var ctxParts = [];
+    if (!_contextDismissed && _activeContext) {
+      var words = _activeContext.nodes.slice(0, 6).map(function (n) {
+        return (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
+      }).filter(Boolean);
+      if (words.length > 0) {
+        ctxParts.push('Words: ' + words.join(', '));
+      }
+      var noteSnippets = _activeContext.notes.slice(0, 2).map(function (nt) {
+        return (nt.text || _stripHtml(nt.html) || '').trim().slice(0, 180);
+      }).filter(Boolean);
+      if (noteSnippets.length > 0) {
+        ctxParts.push('Note: ' + noteSnippets.join(' | '));
+      }
     }
+    if (ctxParts.length === 0) return question;
+    return ctxParts.join('\n') + '\n\nQuestion: ' + question;
   }
 
-  /**
-   * TAB 1 ENGINE: Expand / Spawn Connected Mind Map Nodes
-   */
-  async function boardAiExecuteExpandNodes() {
-    var sel = boardAiResolveSelection();
-    var ctx = _buildPromptContext(sel);
-    if (!ctx.hasInput) {
-      if (typeof window.mdbToast === 'function') {
-        window.mdbToast('⚠️ ' + _t('boardAiNeedSelectionOrTopic', 'Select at least one node/note on the board or enter a topic first.'));
-      }
-      var topicEl = document.getElementById('bai-topic-input');
-      if (topicEl) topicEl.focus();
+  async function boardAiAskQuestion() {
+    if (_isGenerating) return;
+    var qInput = document.getElementById('bai-question-input');
+    var question = qInput ? qInput.value.trim() : '';
+    if (!question) {
+      if (qInput) qInput.focus();
       return;
     }
 
     var ready = await _ensureSlmModelInstalled();
     if (!ready) return;
 
-    var count = Math.max(2, Math.min(8, _nodeCount || 4));
-    var taskDesc = '';
-    if (_expandPreset === 'lexical') {
-      taskDesc = 'Generate exactly ' + count + ' domain-specific terms, active collocations, or topical expressions associated with the context. CRITICAL: Do NOT output direct synonyms; provide rich thematic vocabulary and collocations.';
-    } else if (_expandPreset === 'extract') {
-      taskDesc = 'Extract the ' + count + ' most important distinct thematic concepts, motifs, or core ideas from the provided note/text. Do NOT repeat words already selected or direct synonyms.';
-    } else if (_expandPreset === 'bridge') {
-      taskDesc = 'Generate ' + count + ' distinct bridging concepts, synthesis themes, or connecting ideas that link the selected nodes together.';
-    } else {
-      taskDesc = 'Generate exactly ' + count + ' multidimensional concepts, sub-themes, and contextual associations that branch off the mind map into different angles (e.g. causes, consequences, real-world manifestations, psychological dimensions, or societal impacts). CRITICAL NEGATIVE RULE: NEVER generate direct synonyms, dictionary paraphrases, or alternative words for the selected concept (e.g. if the concept is "Car", do NOT output "Automobile" or "Vehicle"; instead branch into "Traffic", "Fuel Economy", "Assembly Line", or "Carbon Footprint").';
-    }
+    var answerBox = document.getElementById('bai-answer-box');
+    var answerContent = document.getElementById('bai-answer-content');
+    var answerTime = document.getElementById('bai-answer-time');
+    if (answerBox) answerBox.classList.add('visible');
+    if (answerContent) answerContent.textContent = _t('slmStatusGenerating', 'Generating…');
+    if (answerTime) answerTime.textContent = '';
 
-    var systemPrompt = [
-      'You are an expert pedagogical mind-mapping assistant.',
-      'Respond ONLY with a flat JSON array of ' + count + ' objects: [{"word":"...","relation":"..."}].',
-      'CRITICAL NEGATIVE CONSTRAINT: NEVER generate direct synonyms, mere rewordings, or alternative dictionary labels of the input concept.',
-      'Every concept MUST explore a distinct semantic dimension: sub-theme, cause, consequence, real-world application, or thematic contrast.',
-      'Do NOT nest objects or arrays. No prose.'
-    ].join(' ');
-
-    var fewShotUser = 'Topic: Democracy\nTask: Generate 3 distinct related concepts (NO synonyms).\nOutput ONLY the JSON array:';
-    var fewShotAssistant = '[{"word":"Elections","relation":"mechanism"},{"word":"Constitution","relation":"framework"},{"word":"Civil Rights","relation":"protection"}]';
-
-    var userPrompt = ctx.contextBlock + '\n\nTask: ' + taskDesc + '\nOutput ONLY the JSON array of ' + count + ' items:';
-
-    var messages = [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: fewShotUser },
-      { role: 'assistant', content: fewShotAssistant },
-      { role: 'user', content: userPrompt }
-    ];
-
-    var targetTokens = Math.min(110, 11 * count + 16);
-    _startGenerationTimer(targetTokens);
+    _lastAnswerText = '';
+    _startTimer();
     _setGeneratingState(true, _t('slmStatusWarmingUp', 'Warming up AI model…'));
+    _clampPopoverToViewport();
 
     var unsub = window.SlmService.onStatusChange(function (evt) {
       if (!_isGenerating || !evt) return;
@@ -1414,390 +917,207 @@
       }
     });
 
+    var rafPending = false;
+    function flushAnswer() {
+      rafPending = false;
+      if (!answerContent) return;
+      answerContent.innerHTML = _formatAnswerHtml(_lastAnswerText || '…');
+      answerContent.scrollTop = answerContent.scrollHeight;
+    }
+
+    var isLong = _answerLength === 'long';
+    var sysPrompt = isLong
+      ? 'Answer clearly and thoroughly in 3-5 complete sentences.'
+      : 'Be concise. No intro or filler. For definitions or explanations: 1 short, complete sentence. For synonyms, antonyms, or translations: comma-separated words only.';
+    var maxTokens = isLong ? 360 : 120;
+    var wordLimitChk = document.getElementById('bai-word-limit-chk');
+    var wordLimitNum = document.getElementById('bai-word-limit-num');
+    if (wordLimitChk && wordLimitChk.checked && wordLimitNum) {
+      var limitWords = Math.max(5, Math.min(500, parseInt(wordLimitNum.value, 10) || 30));
+      sysPrompt += ' Limit your answer to at most ' + limitWords + ' words.';
+      maxTokens = Math.max(40, Math.ceil(limitWords * 1.8) + 20);
+    }
+    var temp = isLong ? 0.3 : 0.15;
+    var compactPrompt = _buildCompactPrompt(question);
+    _lastSysPrompt = sysPrompt;
+    _lastUserPrompt = compactPrompt;
+
     try {
-      _setGeneratingState(true, _t('slmStatusGenerating', 'Generating…'));
-      var jsonRes = await window.SlmService.generateJson({
-        messages: messages,
-        systemPrompt: systemPrompt,
-        userPrompt: userPrompt,
-        temperature: 0.45,
-        doSample: true,
-        repetitionPenalty: 1.2,
-        stopOnJsonComplete: true,
-        maxNewTokens: Math.min(150, 16 * count + 24),
-        assistantPrefix: '[{"word":"',
+      var res = await window.SlmService.generateText({
+        systemPrompt: sysPrompt,
+        userPrompt: compactPrompt,
+        temperature: temp,
+        maxNewTokens: maxTokens,
         promptDownloadIfMissing: false,
-        onToken: function (delta, partialText, metrics) {
-          _onTokenProgress(delta, partialText, metrics);
+        onToken: function (delta, fullSoFar) {
+          _lastAnswerText = String(fullSoFar || '').trimStart();
+          if (!rafPending) {
+            rafPending = true;
+            requestAnimationFrame(flushAnswer);
+          }
         }
       });
 
-      if (jsonRes && jsonRes.aborted) {
+      if (res && res.aborted) {
         _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
         return;
       }
-      if (jsonRes && jsonRes.ok === false) {
-        throw new Error(jsonRes.error || 'Could not generate nodes.');
+      if (res && !res.ok) {
+        throw new Error(res.error || 'AI generation failed');
       }
 
-      var items = (jsonRes && jsonRes.data !== undefined) ? jsonRes.data : jsonRes;
-      if (!Array.isArray(items) && items && Array.isArray(items.nodes)) {
-        items = items.nodes;
+      if (res && res.text && !_lastAnswerText) {
+        _lastAnswerText = String(res.text || '').trim();
       }
-      if (!Array.isArray(items) && items && Array.isArray(items.items)) {
-        items = items.items;
-      }
-      if (!Array.isArray(items) || items.length === 0) {
-        throw new Error('Could not parse generated nodes.');
-      }
+      flushAnswer();
 
-      var existingWords = new Set(
-        sel.nodes.map(function (n) { return (n.baseWord || '').toLowerCase().trim(); })
-      );
-      if (ctx.topicVal) existingWords.add(ctx.topicVal.toLowerCase().trim());
-
-      // Filter valid items
-      var validItems = items
-        .map(function (it) {
-          if (!it || typeof it !== 'object') return null;
-          var w = String(it.word || it.term || it.label || it.concept || it.substitute || it.name || (Array.isArray(it.words) ? it.words[0] : '') || '').trim();
-          if (!w) return null;
-          if (existingWords.has(w.toLowerCase())) return null;
-          return {
-            word: w.slice(0, 48),
-            relation: String(it.relation || it.link || it.type || 'related').trim().slice(0, 24),
-            pos: String(it.pos || it.partOfSpeech || 'noun').trim().slice(0, 20),
-            def: String(it.def || it.definition || '').trim().slice(0, 180)
-          };
-        })
-        .filter(Boolean)
-        .slice(0, count);
-
-      if (validItems.length === 0) {
-        throw new Error('No valid node labels returned.');
-      }
-
-      // Single undo step before mutating board
-      if (typeof window.conPushUndo === 'function') window.conPushUndo();
-
-      var allNodes = (typeof window.conGetNodes === 'function' ? window.conGetNodes() : (window.conNodes || [])) || [];
-      var anchorIds = [];
-
-      // If user typed a central topic on an empty selection, spawn the central node first!
-      if (sel.nodes.length === 0 && sel.notes.length === 0 && ctx.topicVal) {
-        var centerPos = (typeof window.conFindFreePosition === 'function')
-          ? window.conFindFreePosition(sel.anchorX - 45, sel.anchorY - 18, 100, 36)
-          : { x: sel.anchorX - 45, y: sel.anchorY - 18 };
-        var rootId = window.conAddWordAt(ctx.topicVal, centerPos.x, centerPos.y);
-        if (rootId) anchorIds.push(rootId);
-      } else {
-        sel.nodes.forEach(function (n) { anchorIds.push(n.id); });
-        if (anchorIds.length === 0) {
-          sel.notes.forEach(function (nt) { anchorIds.push(nt.id); });
-        }
-      }
-
-      var radiusX = 210;
-      var radiusY = 155;
-      var spawnedIds = [];
-
-      validItems.forEach(function (item, idx) {
-        var angle = (validItems.length <= 4)
-          ? (-Math.PI / 3 + (idx * (2 * Math.PI / 3) / Math.max(1, validItems.length - 1)))
-          : ((2 * Math.PI * idx) / validItems.length - Math.PI / 2);
-
-        var rawX = Math.round(sel.anchorX + Math.cos(angle) * radiusX - 48);
-        var rawY = Math.round(sel.anchorY + Math.sin(angle) * radiusY - 18);
-        var freePos = (typeof window.conFindFreePosition === 'function')
-          ? window.conFindFreePosition(rawX, rawY, 105, 36)
-          : { x: Math.max(20, rawX), y: Math.max(20, rawY) };
-
-        var newId = window.conAddWordAt(item.word, freePos.x, freePos.y);
-        if (!newId) return;
-        spawnedIds.push(newId);
-
-        var nodeObj = allNodes.find(function (n) { return String(n.id) === String(newId); });
-        if (nodeObj) {
-          // Hybrid DB enrichment: if not in local Wordbank, store AI fallback metadata
-          if (!nodeObj.dbWord && (item.def || item.pos)) {
-            nodeObj.aiDef = item.def || null;
-            nodeObj.aiPos = item.pos || null;
-            if (nodeObj.el) nodeObj.el.classList.add('con-node-matched');
-          }
-          if (item.relation) {
-            nodeObj.relation = item.relation;
-          }
-        }
-
-        // Connect edges
-        if (_expandPreset === 'bridge' && anchorIds.length >= 2) {
-          // Connect bridging node to all selected anchor nodes
-          anchorIds.forEach(function (aId) {
-            var edge = window.conAddEdge(aId, newId, 'forward', '#8b7cc2');
-            if (edge && item.relation) {
-              edge.label = item.relation;
-              edge.labelColor = '#8b7cc2';
-              if (edge.labelEl) edge.labelEl.textContent = edge.label;
-              if (typeof window.conApplyEdgeLabelStyle === 'function') window.conApplyEdgeLabelStyle(edge);
-            }
-          });
-        } else if (anchorIds.length > 0) {
-          var primaryAnchor = anchorIds[idx % anchorIds.length];
-          var edge2 = window.conAddEdge(primaryAnchor, newId, 'forward', '#5b8fcc');
-          if (edge2 && item.relation) {
-            edge2.label = item.relation;
-            edge2.labelColor = '#5b8fcc';
-            if (edge2.labelEl) edge2.labelEl.textContent = edge2.label;
-            if (typeof window.conApplyEdgeLabelStyle === 'function') window.conApplyEdgeLabelStyle(edge2);
-          }
-        }
-      });
-
-      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
-      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-      if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
-        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
-      }
-
-      var successMsg = '✨ ' + _t('boardAiToastNodesAdded', 'Added {count} AI nodes to the board.').replace('{count}', spawnedIds.length);
-      if (typeof window.mdbToast === 'function') {
-        window.mdbToast(successMsg);
-      }
-      _stopGenerationTimer(true, successMsg);
-      _setGeneratingState(false);
-      setTimeout(function () {
-        if (!_isGenerating) boardAiClosePopover();
-      }, 1200);
+      var elapsed = ((performance.now() - _genStartTime) / 1000).toFixed(1);
+      if (answerTime) answerTime.textContent = elapsed + 's';
+      _setGeneratingState(false, _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', elapsed));
+      _clampPopoverToViewport();
     } catch (err) {
-      _stopGenerationTimer(false);
       if (err && err.name === 'AbortError') {
+        flushAnswer();
         _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
-        return;
-      }
-      console.warn('[Board AI] Expand nodes error:', err);
-      _setGeneratingState(false, _t('boardAiErrorGen', 'Generation failed — try again'));
-      if (typeof window.mdbToast === 'function') {
-        window.mdbToast('⚠️ ' + (err && err.message ? err.message : 'AI generation failed'));
+      } else {
+        console.warn('[Board AI] Question error:', err);
+        if (answerContent) {
+          answerContent.textContent = (err && err.message) ? err.message : _t('boardAiErrorGen', 'Generation failed — try again');
+        }
+        _setGeneratingState(false, _t('boardAiErrorGen', 'Generation failed — try again'));
       }
     } finally {
+      _stopTimer();
       if (typeof unsub === 'function') unsub();
     }
   }
 
-  /**
-   * TAB 2 ENGINE: Stream Contextual Sentences & Textual Analysis into a Board Note at 60fps
-   */
-  async function boardAiExecuteGenerateText() {
-    var sel = boardAiResolveSelection();
-    var ctx = _buildPromptContext(sel);
-    if (!ctx.hasInput) {
-      if (typeof window.mdbToast === 'function') {
-        window.mdbToast('⚠️ ' + _t('boardAiNeedSelectionOrTopic', 'Select at least one node/note on the board or enter a topic first.'));
-      }
-      var topicEl = document.getElementById('bai-topic-input');
-      if (topicEl) topicEl.focus();
-      return;
-    }
+  async function boardAiContinueAnswer() {
+    if (_isGenerating || !_lastAnswerText || !window.SlmService) return;
 
-    var ready = await _ensureSlmModelInstalled();
-    if (!ready) return;
+    var answerContent = document.getElementById('bai-answer-content');
+    var answerTime = document.getElementById('bai-answer-time');
+    var baseText = _lastAnswerText;
 
-    var taskInstruction = '';
-    if (_writePreset === 'paragraph') {
-      taskInstruction = 'Write one cohesive, natural paragraph (' + _cefrLevel + ' level) that weaves all the selected words/concepts together in context. Bold the target words using **word**.';
-    } else if (_writePreset === 'gapfill') {
-      taskInstruction = 'Create a classroom gap-fill (cloze) exercise (' + _cefrLevel + ' level) with 4 numbered sentences using [_____] for the target words, followed by an Answer Key at the bottom.';
-    } else if (_writePreset === 'questions') {
-      taskInstruction = 'Write 4 thought-provoking classroom discussion or reading comprehension questions (' + _cefrLevel + ' level) based on the selected concepts/notes.';
-    } else if (_writePreset === 'analysis') {
-      taskInstruction = 'Write a concise literary and textual analysis note (' + _cefrLevel + ' level) examining themes, tone, stylistic devices, and connections across the selected nodes/notes.';
-    } else {
-      taskInstruction = 'Write 3 clear, natural example sentences (' + _cefrLevel + ' level) illustrating the selected vocabulary/concepts in context. Bold the target words using **word**.';
-    }
+    _startTimer();
+    _setGeneratingState(true, _t('slmStatusGenerating', 'Generating…'));
 
-    var systemPrompt = [
-      'You are an expert classroom teacher creating clear, high-quality pedagogical content directly onto a lesson board.',
-      'Write directly without meta-commentary or conversational filler.',
-      'Adapt vocabulary and syntax strictly to CEFR level ' + _cefrLevel + '.'
-    ].join('\n');
-
-    var userPrompt = ctx.contextBlock + '\n\nTask: ' + taskInstruction;
-
-    var targetTokens = 85;
-    var maxTokens = 120;
-    if (_writePreset === 'paragraph') {
-      targetTokens = 120;
-      maxTokens = 155;
-    } else if (_writePreset === 'gapfill') {
-      targetTokens = 140;
-      maxTokens = 175;
-    } else if (_writePreset === 'questions') {
-      targetTokens = 90;
-      maxTokens = 125;
-    } else if (_writePreset === 'analysis') {
-      targetTokens = 135;
-      maxTokens = 175;
-    }
-
-    _startGenerationTimer(targetTokens);
-    _setGeneratingState(true, _t('slmStatusWarmingUp', 'Warming up AI model…'));
-
-    // Single undo step before creating/editing note
-    if (typeof window.conPushUndo === 'function') window.conPushUndo();
-
-    var targetNote = null;
-    var initialPrefixText = '';
-    if (_targetMode === 'append_note' && sel.notes.length > 0) {
-      targetNote = sel.notes[0];
-      var existingRaw = (targetNote.text || _stripHtml(targetNote.html) || '').trim();
-      initialPrefixText = existingRaw ? (existingRaw + '\n\n') : '';
-    } else {
-      var noteX = Math.max(30, sel.anchorX + 110);
-      var noteY = Math.max(30, sel.anchorY - 40);
-      var linkedNodeId = sel.nodes.length === 1 ? sel.nodes[0].id : null;
-      targetNote = window.conAddNoteObject({
-        nodeId: linkedNodeId,
-        text: '✨ Generating…',
-        html: '<i>✨ Generating…</i>',
-        x: noteX,
-        y: noteY,
-        bg: '#fef9c3',
-        color: '#1e1e1e',
-        fontSize: 14,
-        width: 280,
-        height: 110
-      });
-
-      // Connect selected nodes/notes to the new AI note with edges
-      var anchors = sel.nodes.map(function (n) { return n.id; }).concat(sel.notes.map(function (nt) { return nt.id; }));
-      anchors.forEach(function (aId) {
-        if (String(aId) === String(targetNote.id)) return;
-        window.conAddEdge(aId, targetNote.id, 'forward', '#e2c96e');
-      });
-      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
-    }
-
-    var noteEl = document.querySelector('.con-word-note[data-id="' + targetNote.id + '"]');
-    var editorEl = noteEl ? noteEl.querySelector('.wn-note-editor') : null;
-
-    // Attach inline "⏹ Stop AI" button on the note during streaming
-    var inlineStopBtn = null;
-    if (noteEl) {
-      inlineStopBtn = document.createElement('button');
-      inlineStopBtn.type = 'button';
-      inlineStopBtn.className = 'wn-ai-stop-btn';
-      inlineStopBtn.textContent = '⏹ ' + _t('boardAiStopBtn', 'Stop') + ' (00:00)';
-      inlineStopBtn.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        if (window.SlmService) window.SlmService.abort();
-        _stopGenerationTimer(false);
-        _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
-      });
-      noteEl.appendChild(inlineStopBtn);
-      _activeInlineStopBtn = inlineStopBtn;
-    }
-
-    // Keep popover visible so teacher sees real-time elapsed timer, estimated remaining time, and tok/s speed
-
-    // 60fps rAF-throttled in-place DOM & Mirror update (smooth-dom-sync)
-    var latestFullText = initialPrefixText;
     var rafPending = false;
-
-    function flushStreamToNote() {
+    function flushAnswer() {
       rafPending = false;
-      if (!targetNote) return;
-      var formattedHtml = _formatNoteHtml(latestFullText);
-      targetNote.text = latestFullText;
-      targetNote.html = formattedHtml;
-      if (editorEl) {
-        editorEl.innerHTML = formattedHtml;
-        if (typeof window.conNoteAutosize === 'function') {
-          window.conNoteAutosize(editorEl, targetNote);
-        }
-      }
-      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
-      if (typeof window._conMirrorSend === 'function') {
-        window._conMirrorSend({
-          type: 'note-text',
-          id: String(targetNote.id),
-          html: targetNote.html,
-          text: targetNote.text,
-          baseWidth: targetNote.liveBaseWidth || targetNote.width || 280,
-          baseHeight: targetNote.liveBaseHeight || targetNote.height || 110,
-          width: targetNote.width || targetNote.liveBaseWidth || 280,
-          height: targetNote.height || targetNote.liveBaseHeight || 110,
-          manualSize: !!targetNote.manualSize
-        });
-      }
+      if (!answerContent) return;
+      answerContent.innerHTML = _formatAnswerHtml(_lastAnswerText || '…');
+      answerContent.scrollTop = answerContent.scrollHeight;
     }
+
+    function mergeContinuation(prefix, chunk) {
+      var c = String(chunk || '');
+      if (!c) return prefix;
+      var needsSpace = prefix && !/\s$/.test(prefix) && !/^[\s.,!?;:)'"\]]/.test(c);
+      return prefix + (needsSpace ? ' ' : '') + c.replace(/^\s+/, needsSpace ? '' : '');
+    }
+
+    var isLong = _answerLength === 'long';
+    var maxTokens = isLong ? 360 : 120;
+    var temp = isLong ? 0.3 : 0.15;
 
     try {
-      var streamRes = await window.SlmService.generateText({
-        systemPrompt: systemPrompt,
-        userPrompt: userPrompt,
-        temperature: 0.35,
+      var res = await window.SlmService.generateText({
+        messages: [
+          { role: 'system', content: _lastSysPrompt || 'Complete the response concisely without repeating previous text.' },
+          { role: 'user', content: _lastUserPrompt || 'Answer the question.' },
+          { role: 'assistant', content: baseText },
+          { role: 'user', content: 'Go on and complete the incomplete sentence or thought from where you stopped, without repeating what you already wrote.' }
+        ],
+        temperature: temp,
         maxNewTokens: maxTokens,
         promptDownloadIfMissing: false,
-        onToken: function (delta, fullSoFar, metrics) {
-          _onTokenProgress(delta, fullSoFar, metrics);
-          latestFullText = initialPrefixText + String(fullSoFar || '').trimStart();
+        onToken: function (delta, fullSoFar) {
+          _lastAnswerText = mergeContinuation(baseText, String(fullSoFar || '').trimStart());
           if (!rafPending) {
             rafPending = true;
-            requestAnimationFrame(flushStreamToNote);
+            requestAnimationFrame(flushAnswer);
           }
         }
       });
 
-      if (streamRes && !streamRes.ok && !streamRes.aborted) {
-        throw new Error(streamRes.error || 'AI generation failed');
+      if (res && res.aborted) {
+        _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
+        return;
+      }
+      if (res && !res.ok) {
+        throw new Error(res.error || 'AI generation failed');
       }
 
-      if (streamRes && streamRes.text && latestFullText === initialPrefixText) {
-        latestFullText = initialPrefixText + String(streamRes.text || '').trimStart();
+      if (res && res.text && _lastAnswerText === baseText) {
+        _lastAnswerText = mergeContinuation(baseText, String(res.text || '').trim());
       }
-      flushStreamToNote();
-      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-      if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
-        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
-      }
+      flushAnswer();
 
-      var finalDuration = _elapsedSec.toFixed(1);
-      _stopGenerationTimer(true, '✨ ' + _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', finalDuration));
-      _setGeneratingState(false);
-      setTimeout(function () {
-        if (!_isGenerating) boardAiClosePopover();
-      }, 2400);
+      var elapsed = ((performance.now() - _genStartTime) / 1000).toFixed(1);
+      if (answerTime) answerTime.textContent = elapsed + 's';
+      _setGeneratingState(false, _t('boardAiDoneIn', 'Generated in {time}s').replace('{time}', elapsed));
+      _clampPopoverToViewport();
     } catch (err) {
-      _stopGenerationTimer(false);
       if (err && err.name === 'AbortError') {
-        flushStreamToNote();
-        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        flushAnswer();
         _setGeneratingState(false, _t('slmStatusReady', 'AI Ready'));
       } else {
-        console.warn('[Board AI] Stream text error:', err);
+        console.warn('[Board AI] Continue error:', err);
         _setGeneratingState(false, _t('boardAiErrorGen', 'Generation failed — try again'));
-        if (typeof window.mdbToast === 'function') {
-          window.mdbToast('⚠️ ' + (err && err.message ? err.message : 'AI generation failed'));
-        }
       }
     } finally {
-      _activeInlineStopBtn = null;
-      if (inlineStopBtn && inlineStopBtn.parentNode) {
-        inlineStopBtn.parentNode.removeChild(inlineStopBtn);
-      }
-      _setGeneratingState(false);
+      _stopTimer();
     }
+  }
+
+  function _addAnswerAsNote() {
+    if (!_lastAnswerText || typeof window.conAddNoteObject !== 'function') return;
+    if (typeof window.conPushUndo === 'function') window.conPushUndo();
+
+    var ctx = _activeContext || boardAiResolveSelection();
+    var noteX = Math.max(30, (ctx.anchorX || 200) + 90);
+    var noteY = Math.max(30, (ctx.anchorY || 200) - 40);
+    var linkedNodeId = (!_contextDismissed && ctx.nodes.length === 1) ? ctx.nodes[0].id : null;
+
+    var noteObj = window.conAddNoteObject({
+      nodeId: linkedNodeId,
+      text: _lastAnswerText,
+      html: _formatAnswerHtml(_lastAnswerText),
+      x: noteX,
+      y: noteY,
+      bg: '#fef9c3',
+      color: '#1e1e1e',
+      fontSize: 14,
+      width: 280,
+      height: 110
+    });
+
+    if (noteObj && !_contextDismissed) {
+      var anchors = ctx.nodes.map(function (n) { return n.id; }).concat(ctx.notes.map(function (nt) { return nt.id; }));
+      anchors.forEach(function (aId) {
+        if (String(aId) !== String(noteObj.id) && typeof window.conAddEdge === 'function') {
+          window.conAddEdge(aId, noteObj.id, 'forward', '#e2c96e');
+        }
+      });
+      if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+    }
+
+    if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+    if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+      window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+    }
+    boardAiClosePopover();
   }
 
   Board.ai = {
     openPopover: boardAiOpenPopover,
     closePopover: boardAiClosePopover,
     resolveSelection: boardAiResolveSelection,
-    expandNodes: boardAiExecuteExpandNodes,
-    generateText: boardAiExecuteGenerateText
+    askQuestion: boardAiAskQuestion
   };
 
   global.boardAiOpenPopover = boardAiOpenPopover;
   global.boardAiClosePopover = boardAiClosePopover;
-  global.boardAiRunCurrentAction = boardAiRunCurrentAction;
+  global.boardAiRunCurrentAction = boardAiAskQuestion;
 })(typeof window !== 'undefined' ? window : this);

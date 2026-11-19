@@ -15,6 +15,7 @@
   var pendingRequests = {};
   var modelSwitchResolvers = [];
   var statusListeners = [];
+  var modelMetaMap = {};
 
   try {
     var storedModel = localStorage.getItem('cmt-active-slm-model');
@@ -165,6 +166,18 @@
           if (res.userModelsDir) {
             activeModelBasePath = res.userModelsDir;
           }
+          if (Array.isArray(res.models)) {
+            for (var mi = 0; mi < res.models.length; mi++) {
+              var mod = res.models[mi];
+              if (mod && mod.id) {
+                modelMetaMap[mod.id] = {
+                  dtype: mod.dtype || 'q8',
+                  modelFileName: mod.modelFileName || 'model',
+                  useExternalData: Boolean(mod.useExternalData)
+                };
+              }
+            }
+          }
           return res;
         }
       } catch (err) {
@@ -202,7 +215,8 @@
         worker.postMessage({
           type: 'switch-model',
           modelId: modelId,
-          basePath: activeModelBasePath
+          basePath: activeModelBasePath,
+          modelMeta: modelMetaMap[modelId] || null
         });
       });
     }
@@ -348,11 +362,13 @@
           }
         }
 
+        var targetModelId = options.modelId || activeModelId;
         w.postMessage({
           type: 'generate',
           requestId: requestId,
-          modelId: options.modelId || activeModelId,
+          modelId: targetModelId,
           basePath: activeModelBasePath,
+          modelMeta: modelMetaMap[targetModelId] || null,
           messages: options.messages || null,
           systemPrompt: options.systemPrompt || '',
           userPrompt: options.userPrompt || options.prompt || '',

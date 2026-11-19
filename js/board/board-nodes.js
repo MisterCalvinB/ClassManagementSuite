@@ -11341,6 +11341,7 @@
         const mediaRow = document.getElementById('con-ctx-media-row');
         const slowBtn = document.getElementById('con-ctx-slow-btn');
         const boostBtn = document.getElementById('con-ctx-boost-btn');
+        const transcriptBtn = document.getElementById('con-ctx-transcript-btn');
         const extractAudioBtn = document.getElementById('con-ctx-extract-audio-btn');
         if (mediaRow) {
           const soundAtt = node && (node.soundAttachmentId || (conAttachments || []).find(a => a && (a.id === node.soundAttachmentId || (a.kind === 'sounds' && a.name === (node.baseWord || (node.el && node.el.textContent))))));
@@ -11352,6 +11353,7 @@
             mediaRow.style.display = '';
             if (slowBtn) slowBtn.style.display = isSound ? '' : 'none';
             if (boostBtn) boostBtn.style.display = isSound ? '' : 'none';
+            if (transcriptBtn) transcriptBtn.style.display = isSound ? '' : 'none';
             if (extractAudioBtn) extractAudioBtn.style.display = isVideo ? '' : 'none';
           } else {
             mediaRow.style.display = 'none';
@@ -11848,6 +11850,61 @@
           if (foundName) return foundName;
         }
         return null;
+      };
+
+      window.conCtxTranscribeSound = async function () {
+        const node = conNodes.find(n => n.id === conCtxNodeId);
+        const att = conCtxGetActiveNodeMediaAttachment();
+        if (!att) {
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaNoAudio', 'No audio attachment found on this node.') : 'No audio attachment found on this node.', true);
+          return;
+        }
+        if (!window.SpeechTranscriber || typeof window.SpeechTranscriber.transcribeAudio !== 'function') {
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaTranscriptError', 'Transcription unavailable.') : 'Transcription unavailable.', true);
+          return;
+        }
+
+        if (typeof conCloseCtxMenu === 'function') conCloseCtxMenu();
+        if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaTranscribing', 'Transcribing audio...') : 'Transcribing audio...', false);
+
+        try {
+          let source = att.file || att._cachedObjectUrl || null;
+          if (!source && typeof window.conGetAttachmentDataUrlPublic === 'function') {
+            source = await window.conGetAttachmentDataUrlPublic(att);
+          }
+          if (!source) throw new Error('Could not load source audio.');
+
+          const res = await window.SpeechTranscriber.transcribeAudio(source);
+          const transcriptText = (res && res.text ? String(res.text) : '').trim();
+          if (!transcriptText) {
+            if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaTranscriptEmpty', 'No speech detected in audio.') : 'No speech detected in audio.', false);
+            return;
+          }
+
+          if (typeof window.conAddNoteObject === 'function') {
+            if (typeof window.conPushUndo === 'function') window.conPushUndo();
+            const noteX = Math.max(30, ((node && node.x) || 200) + 150);
+            const noteY = Math.max(30, ((node && node.y) || 200) - 20);
+            const noteObj = window.conAddNoteObject({
+              nodeId: node ? node.id : null,
+              text: transcriptText,
+              x: noteX,
+              y: noteY,
+              bg: '#fef9c3',
+              color: '#1e1e1e',
+              fontSize: 14,
+              width: 300,
+              height: 120
+            });
+            if (noteObj && node && String(node.id) !== String(noteObj.id) && typeof window.conAddEdge === 'function') {
+              window.conAddEdge(node.id, noteObj.id, 'forward', '#6abf8e');
+            }
+          }
+          if (typeof mdbToast === 'function') mdbToast(typeof t === 'function' ? t('conMediaTranscriptSuccess', 'Audio transcribed to note.') : 'Audio transcribed to note.', false);
+        } catch (err) {
+          console.error('[Board] Sound transcription error:', err);
+          if (typeof mdbToast === 'function') mdbToast((typeof t === 'function' ? t('conMediaTranscriptError', 'Transcription error: ') : 'Transcription error: ') + (err && err.message ? err.message : ''), true);
+        }
       };
 
       window.conCtxSlowDownSound = async function (speedRatio) {

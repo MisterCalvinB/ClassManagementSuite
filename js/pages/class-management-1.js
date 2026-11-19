@@ -1982,6 +1982,9 @@
                     if (lsPlans) classPlans = JSON.parse(lsPlans) || {};
                 } catch (_) { }
             }
+            if (typeof _applyIntervalSequencesFromConfig === 'function') {
+                _applyIntervalSequencesFromConfig(config?.intervalSequences);
+            }
         }
 
         function getLoadedConfig() {
@@ -2209,7 +2212,10 @@
                 shortcuts: (overrides && overrides.shortcuts !== undefined)
                     ? overrides.shortcuts
                     : (typeof getCmsCustomShortcutsMap === 'function' ? getCmsCustomShortcutsMap() : (loadedConfig.shortcuts || {})),
-                classPlans: _cpSerializablePlans()
+                classPlans: _cpSerializablePlans(),
+                intervalSequences: (typeof _getSerializableIntervalSequences === 'function')
+                    ? _getSerializableIntervalSequences()
+                    : (loadedConfig.intervalSequences || undefined)
             };
 
             // Preserve classGroups/classGroupsMeta and active context in the cache (they live in class-groups.js, not config.js).
@@ -10977,8 +10983,10 @@
             if (timerMode !== 'timer') setTimerMode('timer');
             const ph = document.getElementById('popup-timer-hours');
             const pm = document.getElementById('popup-timer-minutes');
+            const ps = document.getElementById('popup-timer-seconds');
             if (ph) ph.value = 0;
             if (pm) pm.value = m;
+            if (ps) ps.value = 0;
             syncPopupSettingsToOverlay();
             popupStartTimer();
         }
@@ -11375,12 +11383,14 @@
             const overlayActive = document.getElementById('timer-overlay') && document.getElementById('timer-overlay').classList.contains('active');
             const hoursInput = overlayActive ? document.getElementById('overlay-timer-hours') : document.getElementById('popup-timer-hours');
             const minutesInput = overlayActive ? document.getElementById('overlay-timer-minutes') : document.getElementById('popup-timer-minutes');
-            const h = hoursInput ? (parseInt(hoursInput.value) || 0) : 0;
-            const m = minutesInput ? (parseInt(minutesInput.value) || 5) : 5;
+            const secondsInput = overlayActive ? document.getElementById('overlay-timer-seconds') : document.getElementById('popup-timer-seconds');
+            const h = hoursInput ? (parseInt(hoursInput.value, 10) || 0) : 0;
+            const m = minutesInput ? (parseInt(minutesInput.value, 10) || 0) : 5;
+            const s = secondsInput ? Math.max(0, Math.min(59, parseInt(secondsInput.value, 10) || 0)) : 0;
             if (h > 0) {
-                return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00';
+                return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
             }
-            return String(m).padStart(2, '0') + ':00';
+            return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
         }
 
         function detachTimerWindow() {
@@ -11535,28 +11545,36 @@ syncState();
         }
 
         function syncPopupSettingsToOverlay() {
-            const hours = document.getElementById('popup-timer-hours')?.value || 0;
-            const minutes = document.getElementById('popup-timer-minutes')?.value || 5;
+            const hours = document.getElementById('popup-timer-hours')?.value ?? 0;
+            const minutes = document.getElementById('popup-timer-minutes')?.value ?? 5;
+            const seconds = document.getElementById('popup-timer-seconds')?.value ?? 0;
             const beeps = document.getElementById('popup-timer-beeps')?.value || soundSettings?.timerEnd?.iterations || 3;
             if (document.getElementById('overlay-timer-hours')) document.getElementById('overlay-timer-hours').value = hours;
             if (document.getElementById('overlay-timer-minutes')) document.getElementById('overlay-timer-minutes').value = minutes;
+            if (document.getElementById('overlay-timer-seconds')) document.getElementById('overlay-timer-seconds').value = seconds;
             if (document.getElementById('overlay-timer-beeps')) document.getElementById('overlay-timer-beeps').value = beeps;
             if (document.getElementById('mode-overlay-timer-hours')) document.getElementById('mode-overlay-timer-hours').value = hours;
             if (document.getElementById('mode-overlay-timer-minutes')) document.getElementById('mode-overlay-timer-minutes').value = minutes;
+            if (document.getElementById('mode-overlay-timer-seconds')) document.getElementById('mode-overlay-timer-seconds').value = seconds;
             if (document.getElementById('mode-overlay-timer-beeps')) document.getElementById('mode-overlay-timer-beeps').value = beeps;
+            if (document.getElementById('timer-seconds')) document.getElementById('timer-seconds').value = seconds;
             if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
         }
 
         function syncOverlaySettingsToPopup() {
-            const hours = document.getElementById('overlay-timer-hours')?.value || 0;
-            const minutes = document.getElementById('overlay-timer-minutes')?.value || 5;
+            const hours = document.getElementById('overlay-timer-hours')?.value ?? 0;
+            const minutes = document.getElementById('overlay-timer-minutes')?.value ?? 5;
+            const seconds = document.getElementById('overlay-timer-seconds')?.value ?? 0;
             const beeps = document.getElementById('overlay-timer-beeps')?.value || soundSettings?.timerEnd?.iterations || 3;
             if (document.getElementById('popup-timer-hours')) document.getElementById('popup-timer-hours').value = hours;
             if (document.getElementById('popup-timer-minutes')) document.getElementById('popup-timer-minutes').value = minutes;
+            if (document.getElementById('popup-timer-seconds')) document.getElementById('popup-timer-seconds').value = seconds;
             if (document.getElementById('popup-timer-beeps')) document.getElementById('popup-timer-beeps').value = beeps;
             if (document.getElementById('mode-overlay-timer-hours')) document.getElementById('mode-overlay-timer-hours').value = hours;
             if (document.getElementById('mode-overlay-timer-minutes')) document.getElementById('mode-overlay-timer-minutes').value = minutes;
+            if (document.getElementById('mode-overlay-timer-seconds')) document.getElementById('mode-overlay-timer-seconds').value = seconds;
             if (document.getElementById('mode-overlay-timer-beeps')) document.getElementById('mode-overlay-timer-beeps').value = beeps;
+            if (document.getElementById('timer-seconds')) document.getElementById('timer-seconds').value = seconds;
             if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beeps;
             if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
         }
@@ -11565,20 +11583,28 @@ syncState();
             const mh = document.getElementById('mode-overlay-timer-hours');
             if (!mh) return; // nothing to sync
             const mm = document.getElementById('mode-overlay-timer-minutes');
+            const ms = document.getElementById('mode-overlay-timer-seconds');
             const mb = document.getElementById('mode-overlay-timer-beeps');
             const ph = document.getElementById('popup-timer-hours');
             const pm = document.getElementById('popup-timer-minutes');
+            const ps = document.getElementById('popup-timer-seconds');
             const pb = document.getElementById('popup-timer-beeps');
             const oh = document.getElementById('overlay-timer-hours');
             const om = document.getElementById('overlay-timer-minutes');
+            const os = document.getElementById('overlay-timer-seconds');
             const ob = document.getElementById('overlay-timer-beeps');
+            const ts = document.getElementById('timer-seconds');
             const tb = document.getElementById('timer-beeps');
-            const hours = mh.value || 0;
-            const minutes = mm ? (mm.value || 5) : 5;
+            const hours = mh.value ?? 0;
+            const minutes = mm ? (mm.value ?? 5) : 5;
+            const seconds = ms ? (ms.value ?? 0) : 0;
             if (ph) ph.value = hours;
             if (pm) pm.value = minutes;
+            if (ps) ps.value = seconds;
             if (oh) oh.value = hours;
             if (om) om.value = minutes;
+            if (os) os.value = seconds;
+            if (ts) ts.value = seconds;
             if (mb) {
                 const beeps = mb.value || soundSettings?.timerEnd?.iterations || 3;
                 if (pb) pb.value = beeps;
@@ -11587,6 +11613,15 @@ syncState();
                 if (soundSettings?.timerEnd) soundSettings.timerEnd.iterations = parseInt(beeps, 10) || 1;
             }
         }
+
+        (function _bindTimerSecondsSyncListeners() {
+            const pSec = document.getElementById('popup-timer-seconds');
+            if (pSec) pSec.addEventListener('change', syncPopupSettingsToOverlay);
+            const oSec = document.getElementById('overlay-timer-seconds');
+            if (oSec) oSec.addEventListener('change', syncOverlaySettingsToPopup);
+            const mSec = document.getElementById('mode-overlay-timer-seconds');
+            if (mSec) mSec.addEventListener('change', syncModeOverlayToPopup);
+        })();
 
         function toggleOverlayStopwatchMode() {
             setTimerMode(timerMode === 'stopwatch' ? 'timer' : 'stopwatch');
@@ -11611,8 +11646,10 @@ syncState();
             const s = tot % 60;
             const ph = document.getElementById('popup-timer-hours');
             const pm = document.getElementById('popup-timer-minutes');
+            const ps = document.getElementById('popup-timer-seconds');
             if (ph) ph.value = h;
             if (pm) pm.value = m;
+            if (ps) ps.value = s;
             const hiddenSec = document.getElementById('timer-seconds');
             if (hiddenSec) hiddenSec.value = s;
             const totalMs = tot * 1000;
@@ -11659,14 +11696,15 @@ syncState();
         const INTERVAL_PRESETS_KEY = 'cmt-interval-presets';
 
         let intervalSteps = [
-            { label: '', minutes: 5, seconds: 0, beeps: null },
-            { label: '', minutes: 3, seconds: 0, beeps: null }
+            { label: '', minutes: 5, seconds: 0, beeps: null, modeId: '', sound: '' },
+            { label: '', minutes: 3, seconds: 0, beeps: null, modeId: '', sound: '' }
         ];
         let intervalCycles = 1;
         let intervalInfinite = false;
         let intervalPresets = [];
         let intervalSelectedPresetId = '';
         let intervalBuilderInitialized = false;
+        let _intervalSaveConfigTimer = null;
 
         // Active runtime state
         let intervalActiveSteps = [];
@@ -11676,6 +11714,44 @@ syncState();
         function _tInterval(key, fallback) {
             const val = (typeof t === 'function') ? t(key) : '';
             return (val && val !== key) ? val : fallback;
+        }
+
+        function _normalizeIntervalStep(st) {
+            return {
+                label: typeof st?.label === 'string' ? st.label : '',
+                minutes: Math.max(0, Math.min(999, parseInt(st?.minutes, 10) || 0)),
+                seconds: Math.max(0, Math.min(59, parseInt(st?.seconds, 10) || 0)),
+                beeps: (st?.beeps === null || st?.beeps === undefined || st?.beeps === '')
+                    ? null
+                    : Math.max(0, Math.min(20, parseInt(st.beeps, 10) || 0)),
+                modeId: typeof st?.modeId === 'string' ? st.modeId : '',
+                sound: typeof st?.sound === 'string' ? st.sound : ''
+            };
+        }
+
+        function _getDefaultIntervalPresets() {
+            return [
+                {
+                    id: 'preset-work-review',
+                    name: '5m + 3m',
+                    steps: [
+                        { label: 'Work', minutes: 5, seconds: 0, beeps: null, modeId: '', sound: '' },
+                        { label: 'Review', minutes: 3, seconds: 0, beeps: null, modeId: '', sound: '' }
+                    ],
+                    cycles: 1,
+                    infinite: false
+                },
+                {
+                    id: 'preset-stations',
+                    name: 'Stations (5m + 1m x4)',
+                    steps: [
+                        { label: 'Station', minutes: 5, seconds: 0, beeps: null, modeId: '', sound: '' },
+                        { label: 'Switch', minutes: 1, seconds: 0, beeps: 1, modeId: '', sound: '' }
+                    ],
+                    cycles: 4,
+                    infinite: false
+                }
+            ];
         }
 
         function _formatStepDuration(totalSec) {
@@ -11691,12 +11767,7 @@ syncState();
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     if (Array.isArray(parsed.steps) && parsed.steps.length > 0) {
-                        intervalSteps = parsed.steps.map(st => ({
-                            label: typeof st.label === 'string' ? st.label : '',
-                            minutes: Math.max(0, parseInt(st.minutes, 10) || 0),
-                            seconds: Math.max(0, Math.min(59, parseInt(st.seconds, 10) || 0)),
-                            beeps: (st.beeps === null || st.beeps === undefined || st.beeps === '') ? null : Math.max(0, Math.min(20, parseInt(st.beeps, 10) || 0))
-                        }));
+                        intervalSteps = parsed.steps.map(_normalizeIntervalStep);
                     }
                     if (parsed.cycles) intervalCycles = Math.max(1, Math.min(99, parseInt(parsed.cycles, 10) || 1));
                     intervalInfinite = !!parsed.infinite;
@@ -11708,36 +11779,108 @@ syncState();
                 const rawPresets = localStorage.getItem(INTERVAL_PRESETS_KEY);
                 if (rawPresets) {
                     const parsedPresets = JSON.parse(rawPresets);
-                    if (Array.isArray(parsedPresets)) intervalPresets = parsedPresets;
+                    if (Array.isArray(parsedPresets)) {
+                        intervalPresets = parsedPresets.map(p => ({
+                            id: String(p?.id || ('preset-' + Date.now())),
+                            name: String(p?.name || 'Preset'),
+                            steps: Array.isArray(p?.steps) ? p.steps.map(_normalizeIntervalStep) : [],
+                            cycles: Math.max(1, Math.min(99, parseInt(p?.cycles, 10) || 1)),
+                            infinite: !!p?.infinite
+                        }));
+                    }
                 } else {
-                    intervalPresets = [
-                        {
-                            id: 'preset-work-review',
-                            name: '5m + 3m',
-                            steps: [
-                                { label: 'Work', minutes: 5, seconds: 0, beeps: null },
-                                { label: 'Review', minutes: 3, seconds: 0, beeps: null }
-                            ],
-                            cycles: 1,
-                            infinite: false
-                        },
-                        {
-                            id: 'preset-stations',
-                            name: 'Stations (5m + 1m x4)',
-                            steps: [
-                                { label: 'Station', minutes: 5, seconds: 0, beeps: null },
-                                { label: 'Switch', minutes: 1, seconds: 0, beeps: 1 }
-                            ],
-                            cycles: 4,
-                            infinite: false
-                        }
-                    ];
+                    intervalPresets = _getDefaultIntervalPresets();
                     localStorage.setItem(INTERVAL_PRESETS_KEY, JSON.stringify(intervalPresets));
                 }
             } catch (_) { }
         }
 
-        function _saveIntervalStateToStorage() {
+        function _getSerializableIntervalSequences() {
+            if (!intervalBuilderInitialized) {
+                _loadIntervalStateFromStorage();
+                intervalBuilderInitialized = true;
+            }
+            return {
+                current: {
+                    steps: (intervalSteps || []).map(_normalizeIntervalStep),
+                    cycles: Math.max(1, Math.min(99, parseInt(intervalCycles, 10) || 1)),
+                    infinite: !!intervalInfinite,
+                    presetId: typeof intervalSelectedPresetId === 'string' ? intervalSelectedPresetId : ''
+                },
+                presets: (intervalPresets || []).map(p => ({
+                    id: String(p?.id || ''),
+                    name: String(p?.name || ''),
+                    steps: Array.isArray(p?.steps) ? p.steps.map(_normalizeIntervalStep) : [],
+                    cycles: Math.max(1, Math.min(99, parseInt(p?.cycles, 10) || 1)),
+                    infinite: !!p?.infinite
+                }))
+            };
+        }
+
+        function _applyIntervalSequencesFromConfig(seqConfig) {
+            if (PRESENTATION_MODE) return;
+            if (!seqConfig || typeof seqConfig !== 'object') {
+                if (!intervalBuilderInitialized) {
+                    _loadIntervalStateFromStorage();
+                    intervalBuilderInitialized = true;
+                }
+                return;
+            }
+            if (Array.isArray(seqConfig.presets)) {
+                intervalPresets = seqConfig.presets.map(p => ({
+                    id: String(p?.id || ('preset-' + Date.now())),
+                    name: String(p?.name || 'Preset'),
+                    steps: Array.isArray(p?.steps) ? p.steps.map(_normalizeIntervalStep) : [],
+                    cycles: Math.max(1, Math.min(99, parseInt(p?.cycles, 10) || 1)),
+                    infinite: !!p?.infinite
+                }));
+                try {
+                    localStorage.setItem(INTERVAL_PRESETS_KEY, JSON.stringify(intervalPresets));
+                } catch (_) { }
+            }
+            if (seqConfig.current && typeof seqConfig.current === 'object') {
+                if (Array.isArray(seqConfig.current.steps) && seqConfig.current.steps.length > 0) {
+                    intervalSteps = seqConfig.current.steps.map(_normalizeIntervalStep);
+                }
+                if (seqConfig.current.cycles) {
+                    intervalCycles = Math.max(1, Math.min(99, parseInt(seqConfig.current.cycles, 10) || 1));
+                }
+                intervalInfinite = !!seqConfig.current.infinite;
+                intervalSelectedPresetId = typeof seqConfig.current.presetId === 'string' ? seqConfig.current.presetId : '';
+                try {
+                    localStorage.setItem(INTERVAL_CURRENT_KEY, JSON.stringify({
+                        steps: intervalSteps,
+                        cycles: intervalCycles,
+                        infinite: intervalInfinite,
+                        presetId: intervalSelectedPresetId
+                    }));
+                } catch (_) { }
+            }
+            intervalBuilderInitialized = true;
+            if (document.getElementById('interval-inputs-section')?.style.display !== 'none') {
+                initIntervalBuilder();
+            }
+        }
+
+        function _persistIntervalSequencesToConfig(immediate = false) {
+            if (PRESENTATION_MODE) return;
+            if (!(window.Desktop && typeof Desktop.isElectron === 'function' && Desktop.isElectron())) return;
+            if (typeof persistSettingsToUserFile !== 'function') return;
+            if (_intervalSaveConfigTimer) {
+                clearTimeout(_intervalSaveConfigTimer);
+                _intervalSaveConfigTimer = null;
+            }
+            if (immediate) {
+                persistSettingsToUserFile().catch(err => console.warn('persistSettingsToUserFile (interval) failed:', err));
+                return;
+            }
+            _intervalSaveConfigTimer = setTimeout(() => {
+                _intervalSaveConfigTimer = null;
+                persistSettingsToUserFile().catch(err => console.warn('persistSettingsToUserFile (interval) failed:', err));
+            }, 700);
+        }
+
+        function _saveIntervalStateToStorage(immediateConfigSave = false) {
             if (PRESENTATION_MODE) return;
             try {
                 localStorage.setItem(INTERVAL_CURRENT_KEY, JSON.stringify({
@@ -11747,6 +11890,7 @@ syncState();
                     presetId: intervalSelectedPresetId
                 }));
             } catch (_) { }
+            _persistIntervalSequencesToConfig(immediateConfigSave);
         }
 
         function _saveIntervalPresetsToStorage() {
@@ -11754,6 +11898,7 @@ syncState();
             try {
                 localStorage.setItem(INTERVAL_PRESETS_KEY, JSON.stringify(intervalPresets));
             } catch (_) { }
+            _persistIntervalSequencesToConfig(true);
         }
 
         function initIntervalBuilder() {
@@ -11797,17 +11942,12 @@ syncState();
             const delBtn = document.getElementById('interval-preset-delete-btn');
             if (delBtn) delBtn.style.display = intervalSelectedPresetId ? 'inline-flex' : 'none';
             if (!presetId) {
-                _saveIntervalStateToStorage();
+                _saveIntervalStateToStorage(true);
                 return;
             }
             const preset = intervalPresets.find(p => p.id === presetId);
             if (!preset) return;
-            intervalSteps = (preset.steps || []).map(st => ({
-                label: st.label || '',
-                minutes: Math.max(0, parseInt(st.minutes, 10) || 0),
-                seconds: Math.max(0, Math.min(59, parseInt(st.seconds, 10) || 0)),
-                beeps: (st.beeps === null || st.beeps === undefined || st.beeps === '') ? null : Math.max(0, Math.min(20, parseInt(st.beeps, 10) || 0))
-            }));
+            intervalSteps = (preset.steps || []).map(_normalizeIntervalStep);
             intervalCycles = Math.max(1, parseInt(preset.cycles, 10) || 1);
             intervalInfinite = !!preset.infinite;
             const cycInput = document.getElementById('interval-cycles-input');
@@ -11819,7 +11959,7 @@ syncState();
             if (infBtn) infBtn.classList.toggle('active', intervalInfinite);
             renderIntervalStepsList();
             updateIntervalSummary();
-            _saveIntervalStateToStorage();
+            _saveIntervalStateToStorage(true);
         }
 
         async function saveIntervalPreset() {
@@ -11866,25 +12006,92 @@ syncState();
             if (typeof showToast === 'function') showToast(_tInterval('interval_preset_deleted', 'Preset deleted'));
         }
 
+        function _getIntervalSoundOptionGroups() {
+            const defaultOpt = {
+                value: '',
+                label: _tInterval('interval_step_sound_default', 'Default sound')
+            };
+            const groups = [
+                {
+                    label: _tInterval('interval_sound_group_builtin', 'Built-in'),
+                    items: [
+                        { value: 'preset:beep', label: _tInterval('interval_step_sound_beep', 'Classic Beeps') },
+                        { value: 'preset:gavel', label: _tInterval('interval_step_sound_gavel', 'Gavel') },
+                        { value: 'preset:chime', label: _tInterval('interval_step_sound_chime', 'Chime') },
+                        { value: 'preset:bell', label: _tInterval('interval_step_sound_bell', 'Bell') }
+                    ]
+                }
+            ];
+
+            if (Array.isArray(availableSoundFiles) && availableSoundFiles.length > 0) {
+                const rootFiles = [];
+                const folderGroups = new Map();
+
+                availableSoundFiles.forEach(file => {
+                    const rel = String(file || '').replace(/^sounds\//i, '');
+                    if (!rel) return;
+                    const slashIdx = rel.lastIndexOf('/');
+                    if (slashIdx === -1) {
+                        const cleanName = rel.replace(/\.[^.]+$/, '');
+                        if (cleanName) rootFiles.push({ value: 'file:' + file, label: cleanName });
+                    } else {
+                        const folder = rel.slice(0, slashIdx);
+                        const fileName = rel.slice(slashIdx + 1);
+                        const cleanName = fileName.replace(/\.[^.]+$/, '');
+                        if (cleanName) {
+                            if (!folderGroups.has(folder)) folderGroups.set(folder, []);
+                            folderGroups.get(folder).push({ value: 'file:' + file, label: cleanName });
+                        }
+                    }
+                });
+
+                if (rootFiles.length > 0) {
+                    rootFiles.sort((a, b) => a.label.localeCompare(b.label));
+                    groups.push({
+                        label: _tInterval('interval_sound_group_root', 'General / Root'),
+                        items: rootFiles
+                    });
+                }
+
+                const sortedFolders = Array.from(folderGroups.keys()).sort((a, b) => a.localeCompare(b));
+                sortedFolders.forEach(folder => {
+                    const items = folderGroups.get(folder).sort((a, b) => a.label.localeCompare(b.label));
+                    groups.push({
+                        label: folder,
+                        items
+                    });
+                });
+            }
+            return { defaultOpt, groups };
+        }
+
         function renderIntervalStepsList() {
             const listEl = document.getElementById('interval-steps-list');
             if (!listEl) return;
             listEl.innerHTML = '';
             const labelPh = _tInterval('interval_step_label_placeholder', 'Step label (optional)');
             const beepsTitle = _tInterval('interval_step_beeps_title', 'Beeps for this step (blank = default, 0 = silent)');
+            const modeNoneLabel = _tInterval('interval_step_mode_none', 'No mode');
+            const modeTitle = _tInterval('interval_step_mode_title', 'Working mode for this phase');
+            const soundTitle = _tInterval('interval_step_sound_title', 'Timer end sound for this phase');
             const upTitle = _tInterval('interval_move_up_title', 'Move up');
             const downTitle = _tInterval('interval_move_down_title', 'Move down');
             const rmTitle = _tInterval('interval_remove_step_title', 'Remove step');
             const isRunning = timerMode === 'interval' && (timerInterval || timerPaused);
+            const soundData = _getIntervalSoundOptionGroups();
+            const modesList = Array.isArray(classModes) ? classModes : [];
 
             intervalSteps.forEach((step, idx) => {
                 const row = document.createElement('div');
                 row.className = 'interval-step-row' + (isRunning && idx === intervalCurrentStepIdx ? ' active-step' : '');
 
+                const mainLine = document.createElement('div');
+                mainLine.className = 'interval-step-main';
+
                 const numBadge = document.createElement('span');
                 numBadge.className = 'interval-step-num';
                 numBadge.textContent = String(idx + 1);
-                row.appendChild(numBadge);
+                mainLine.appendChild(numBadge);
 
                 const labelInput = document.createElement('input');
                 labelInput.type = 'text';
@@ -11892,7 +12099,7 @@ syncState();
                 labelInput.placeholder = labelPh;
                 labelInput.value = step.label || '';
                 labelInput.oninput = () => updateIntervalStepField(idx, 'label', labelInput.value);
-                row.appendChild(labelInput);
+                mainLine.appendChild(labelInput);
 
                 const timeWrap = document.createElement('div');
                 timeWrap.className = 'interval-step-time-wrap';
@@ -11926,30 +12133,7 @@ syncState();
                 sSep.className = 'timer-popup-sep';
                 sSep.textContent = 's';
                 timeWrap.appendChild(sSep);
-                row.appendChild(timeWrap);
-
-                const beepsWrap = document.createElement('div');
-                beepsWrap.className = 'interval-step-beeps-wrap';
-                beepsWrap.title = beepsTitle;
-                const bellImg = document.createElement('img');
-                bellImg.src = '../assets/icons/bell.svg';
-                bellImg.className = 'btn-icon';
-                bellImg.alt = '';
-                bellImg.style.width = '11px';
-                bellImg.style.height = '11px';
-                bellImg.style.margin = '0';
-                beepsWrap.appendChild(bellImg);
-
-                const beepsInput = document.createElement('input');
-                beepsInput.type = 'number';
-                beepsInput.className = 'interval-step-beeps-input';
-                beepsInput.min = '0';
-                beepsInput.max = '20';
-                beepsInput.placeholder = '-';
-                beepsInput.value = (step.beeps === null || step.beeps === undefined) ? '' : String(step.beeps);
-                beepsInput.onchange = () => updateIntervalStepField(idx, 'beeps', beepsInput.value);
-                beepsWrap.appendChild(beepsInput);
-                row.appendChild(beepsWrap);
+                mainLine.appendChild(timeWrap);
 
                 const actions = document.createElement('div');
                 actions.className = 'interval-step-actions';
@@ -11981,18 +12165,123 @@ syncState();
                 rmBtn.onclick = () => removeIntervalStep(idx);
                 actions.appendChild(rmBtn);
 
-                row.appendChild(actions);
+                mainLine.appendChild(actions);
+                row.appendChild(mainLine);
+
+                const extrasLine = document.createElement('div');
+                extrasLine.className = 'interval-step-extras';
+
+                const modeWrap = document.createElement('div');
+                modeWrap.className = 'interval-step-field-wrap';
+                modeWrap.title = modeTitle;
+                const modeImg = document.createElement('img');
+                modeImg.src = '../assets/icons/theater.svg';
+                modeImg.className = 'btn-icon interval-step-field-icon';
+                modeImg.alt = '';
+                modeWrap.appendChild(modeImg);
+
+                const modeSelect = document.createElement('select');
+                modeSelect.className = 'interval-step-select';
+                modeSelect.setAttribute('aria-label', modeTitle);
+                const noneOpt = document.createElement('option');
+                noneOpt.value = '';
+                noneOpt.textContent = modeNoneLabel;
+                modeSelect.appendChild(noneOpt);
+                let hasModeMatch = !step.modeId;
+                modesList.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.name || (m.text && m.text.title) || m.id;
+                    if (step.modeId === m.id) hasModeMatch = true;
+                    modeSelect.appendChild(opt);
+                });
+                if (!hasModeMatch && step.modeId) {
+                    const fallbackOpt = document.createElement('option');
+                    fallbackOpt.value = step.modeId;
+                    fallbackOpt.textContent = step.modeId;
+                    modeSelect.appendChild(fallbackOpt);
+                }
+                modeSelect.value = step.modeId || '';
+                modeSelect.onchange = () => updateIntervalStepField(idx, 'modeId', modeSelect.value);
+                modeWrap.appendChild(modeSelect);
+                extrasLine.appendChild(modeWrap);
+
+                const soundWrap = document.createElement('div');
+                soundWrap.className = 'interval-step-field-wrap';
+                soundWrap.title = soundTitle;
+                const soundImg = document.createElement('img');
+                soundImg.src = '../assets/icons/music.svg';
+                soundImg.className = 'btn-icon interval-step-field-icon';
+                soundImg.alt = '';
+                soundWrap.appendChild(soundImg);
+
+                const soundSelect = document.createElement('select');
+                soundSelect.className = 'interval-step-select';
+                soundSelect.setAttribute('aria-label', soundTitle);
+                const defSoundOpt = document.createElement('option');
+                defSoundOpt.value = soundData.defaultOpt.value;
+                defSoundOpt.textContent = soundData.defaultOpt.label;
+                soundSelect.appendChild(defSoundOpt);
+
+                let hasSoundMatch = !step.sound;
+                soundData.groups.forEach(grp => {
+                    const optGroup = document.createElement('optgroup');
+                    optGroup.label = grp.label;
+                    grp.items.forEach(so => {
+                        const opt = document.createElement('option');
+                        opt.value = so.value;
+                        opt.textContent = so.label;
+                        if (step.sound === so.value) hasSoundMatch = true;
+                        optGroup.appendChild(opt);
+                    });
+                    soundSelect.appendChild(optGroup);
+                });
+                if (!hasSoundMatch && step.sound) {
+                    const fallbackSoundOpt = document.createElement('option');
+                    fallbackSoundOpt.value = step.sound;
+                    fallbackSoundOpt.textContent = step.sound.replace(/^(preset:|file:)/, '');
+                    soundSelect.appendChild(fallbackSoundOpt);
+                }
+                soundSelect.value = step.sound || '';
+                soundSelect.onchange = () => updateIntervalStepField(idx, 'sound', soundSelect.value);
+                soundWrap.appendChild(soundSelect);
+                extrasLine.appendChild(soundWrap);
+
+                const beepsWrap = document.createElement('div');
+                beepsWrap.className = 'interval-step-beeps-wrap';
+                beepsWrap.title = beepsTitle;
+                const bellImg = document.createElement('img');
+                bellImg.src = '../assets/icons/bell.svg';
+                bellImg.className = 'btn-icon';
+                bellImg.alt = '';
+                bellImg.style.width = '11px';
+                bellImg.style.height = '11px';
+                bellImg.style.margin = '0';
+                beepsWrap.appendChild(bellImg);
+
+                const beepsInput = document.createElement('input');
+                beepsInput.type = 'number';
+                beepsInput.className = 'interval-step-beeps-input';
+                beepsInput.min = '0';
+                beepsInput.max = '20';
+                beepsInput.placeholder = '-';
+                beepsInput.value = (step.beeps === null || step.beeps === undefined) ? '' : String(step.beeps);
+                beepsInput.onchange = () => updateIntervalStepField(idx, 'beeps', beepsInput.value);
+                beepsWrap.appendChild(beepsInput);
+                extrasLine.appendChild(beepsWrap);
+
+                row.appendChild(extrasLine);
                 listEl.appendChild(row);
             });
         }
 
         function addIntervalStep() {
-            intervalSteps.push({ label: '', minutes: 3, seconds: 0, beeps: null });
+            intervalSteps.push({ label: '', minutes: 3, seconds: 0, beeps: null, modeId: '', sound: '' });
             intervalSelectedPresetId = '';
             renderIntervalPresetSelect();
             renderIntervalStepsList();
             updateIntervalSummary();
-            _saveIntervalStateToStorage();
+            _saveIntervalStateToStorage(true);
         }
 
         function removeIntervalStep(idx) {
@@ -12002,7 +12291,7 @@ syncState();
             renderIntervalPresetSelect();
             renderIntervalStepsList();
             updateIntervalSummary();
-            _saveIntervalStateToStorage();
+            _saveIntervalStateToStorage(true);
         }
 
         function moveIntervalStep(idx, dir) {
@@ -12014,7 +12303,7 @@ syncState();
             intervalSelectedPresetId = '';
             renderIntervalPresetSelect();
             renderIntervalStepsList();
-            _saveIntervalStateToStorage();
+            _saveIntervalStateToStorage(true);
         }
 
         function updateIntervalStepField(idx, field, value) {
@@ -12029,6 +12318,10 @@ syncState();
             } else if (field === 'beeps') {
                 const trimmed = String(value ?? '').trim();
                 step.beeps = trimmed === '' ? null : Math.max(0, Math.min(20, parseInt(trimmed, 10) || 0));
+            } else if (field === 'modeId') {
+                step.modeId = String(value || '');
+            } else if (field === 'sound') {
+                step.sound = String(value || '');
             }
             intervalSelectedPresetId = '';
             const delBtn = document.getElementById('interval-preset-delete-btn');
@@ -12036,7 +12329,7 @@ syncState();
             const sel = document.getElementById('interval-preset-select');
             if (sel) sel.value = '';
             updateIntervalSummary();
-            _saveIntervalStateToStorage();
+            _saveIntervalStateToStorage(field === 'modeId' || field === 'sound');
         }
 
         function toggleIntervalInfinite() {
@@ -12154,6 +12447,14 @@ syncState();
             if (document.getElementById('interval-inputs-section')?.style.display !== 'none') {
                 renderIntervalStepsList();
             }
+            if (!PRESENTATION_MODE && step.modeId && typeof activateMode === 'function') {
+                const matchedMode = (Array.isArray(classModes) ? classModes : []).find(
+                    m => m.id === step.modeId || (m.name && m.name.toLowerCase() === step.modeId.toLowerCase())
+                );
+                if (matchedMode) {
+                    activateMode(matchedMode.id);
+                }
+            }
             updateTimerDisplay();
         }
 
@@ -12163,7 +12464,9 @@ syncState();
                 .map(st => ({
                     label: (st.label || '').trim(),
                     durationSec: Math.max(0, (parseInt(st.minutes, 10) || 0) * 60 + (parseInt(st.seconds, 10) || 0)),
-                    beeps: st.beeps
+                    beeps: st.beeps,
+                    modeId: typeof st.modeId === 'string' ? st.modeId : '',
+                    sound: typeof st.sound === 'string' ? st.sound : ''
                 }))
                 .filter(st => st.durationSec > 0);
             if (!valid.length) {
@@ -12227,24 +12530,28 @@ syncState();
             const modeOverlayEl = document.getElementById('mode-animation-overlay');
             const modeActive = modeOverlayEl && modeOverlayEl.classList && modeOverlayEl.classList.contains('active');
 
-            let hoursInput, minutesInput, beepsInput;
+            let hoursInput, minutesInput, secondsInput, beepsInput;
             if (modeActive && document.getElementById('mode-overlay-timer-hours')) {
                 hoursInput = document.getElementById('mode-overlay-timer-hours');
                 minutesInput = document.getElementById('mode-overlay-timer-minutes');
+                secondsInput = document.getElementById('mode-overlay-timer-seconds');
                 beepsInput = document.getElementById('mode-overlay-timer-beeps');
             } else if (overlayActive && document.getElementById('overlay-timer-hours')) {
                 hoursInput = document.getElementById('overlay-timer-hours');
                 minutesInput = document.getElementById('overlay-timer-minutes');
+                secondsInput = document.getElementById('overlay-timer-seconds');
                 beepsInput = document.getElementById('overlay-timer-beeps');
             } else {
                 hoursInput = document.getElementById('popup-timer-hours');
                 minutesInput = document.getElementById('popup-timer-minutes');
+                secondsInput = document.getElementById('popup-timer-seconds');
                 beepsInput = document.getElementById('popup-timer-beeps');
             }
 
             const hours = parseInt(hoursInput ? hoursInput.value : 0, 10) || 0;
             const minutes = parseInt(minutesInput ? minutesInput.value : 0, 10) || 0;
-            const totalMs = (hours * 3600 + minutes * 60) * 1000;
+            const seconds = Math.max(0, Math.min(59, parseInt(secondsInput ? secondsInput.value : 0, 10) || 0));
+            const totalMs = (hours * 3600 + minutes * 60 + seconds) * 1000;
 
             if (totalMs <= 0) { showToast('Please set a valid time'); return; }
 
@@ -12252,7 +12559,7 @@ syncState();
 
             // Sync legacy hidden inputs for fullscreen overlay
             if (document.getElementById('timer-minutes')) document.getElementById('timer-minutes').value = hours * 60 + minutes;
-            if (document.getElementById('timer-seconds')) document.getElementById('timer-seconds').value = 0;
+            if (document.getElementById('timer-seconds')) document.getElementById('timer-seconds').value = seconds;
             if (document.getElementById('timer-beeps')) document.getElementById('timer-beeps').value = beepsVal;
             if (document.getElementById('timer-freq')) document.getElementById('timer-freq').value = 1000;
             if (soundSettings && soundSettings.timerEnd) {
@@ -12300,7 +12607,7 @@ syncState();
             if (moa) moa.style.display = '';
             const mos = document.getElementById('mode-overlay-sub30s-btn');
             if (mos) mos.style.display = '';
-            logHistory('timer-start', 'Timer', `Started countdown (${hours > 0 ? hours + 'h ' : ''}${minutes}m)`, { durationSec: Math.round(totalMs / 1000), timerMode: 'timer' });
+            logHistory('timer-start', 'Timer', `Started countdown (${hours > 0 ? hours + 'h ' : ''}${minutes}m${seconds > 0 ? ' ' + seconds + 's' : ''})`, { durationSec: Math.round(totalMs / 1000), timerMode: 'timer' });
             if (!PRESENTATION_MODE) _broadcastTimerTick();
         }
 
@@ -12310,11 +12617,14 @@ syncState();
             const totalMs = sec * 1000;
             const hours = Math.floor(sec / 3600);
             const minutes = Math.floor((sec % 3600) / 60);
+            const remSeconds = sec % 60;
 
             const hInput = document.getElementById('popup-timer-hours');
             const mInput = document.getElementById('popup-timer-minutes');
+            const sInput = document.getElementById('popup-timer-seconds');
             if (hInput) hInput.value = hours;
-            if (mInput) mInput.value = minutes + ((sec % 60) > 0 ? 1 : 0);
+            if (mInput) mInput.value = minutes;
+            if (sInput) sInput.value = remSeconds;
             syncPopupSettingsToOverlay();
 
             if (timerInterval) clearInterval(timerInterval);
@@ -12718,6 +13028,26 @@ syncState();
             return playConfiguredSound('timerEnd', { repeatCount: count, spacingMs: frequency });
         }
 
+        function _playIntervalStepSound(step, count, spacingMs) {
+            const soundSpec = (step && typeof step.sound === 'string') ? step.sound.trim() : '';
+            if (!soundSpec) {
+                return playBeeps(count, spacingMs);
+            }
+            interruptAmbientNoiseForAlarm();
+            const cfg = soundSettings?.timerEnd || DEFAULT_SOUND_SETTINGS.timerEnd;
+            const volumeScale = Math.min(1, Math.max(0, (typeof cfg.volume === 'number' ? cfg.volume : 100) / 100));
+            if (soundSpec.startsWith('preset:')) {
+                const preset = soundSpec.slice(7);
+                _soundVolumeScale = volumeScale;
+                return playBuiltinSound('timerEnd', preset, { repeatCount: count, spacingMs });
+            }
+            if (soundSpec.startsWith('file:')) {
+                const filePath = soundSpec.slice(5);
+                return playSoundFileClip(filePath, count, spacingMs, volumeScale);
+            }
+            return playBeeps(count, spacingMs);
+        }
+
         function updateTimerDisplay() {
             if (!timerEndTime) return;
 
@@ -12735,7 +13065,7 @@ syncState();
                     const stepBeeps = (finishedStep && finishedStep.beeps !== null && finishedStep.beeps !== undefined)
                         ? finishedStep.beeps
                         : defaultBeeps;
-                    if (stepBeeps > 0) playBeeps(stepBeeps, freq);
+                    if (stepBeeps > 0) _playIntervalStepSound(finishedStep, stepBeeps, freq);
 
                     const nextIdx = intervalCurrentStepIdx + 1;
                     if (nextIdx < intervalActiveSteps.length) {
@@ -12785,6 +13115,9 @@ syncState();
                 clearInterval(timerInterval);
                 timerInterval = null;
                 timerEndTime = null;
+                if (!PRESENTATION_MODE && activeWorkingModeId && typeof closeMode === 'function') {
+                    closeMode();
+                }
                 updateOverlayTransportControls();
                 logHistory('timer-end', 'Timer', 'Countdown timer completed', { durationSec: Math.round(timerTotalMs / 1000) });
 
@@ -14004,6 +14337,9 @@ syncState();
                     const title = `${name} (${kbd})`;
                     return `<button class="timer-overlay-mode-btn" onclick="activateMode('${mode.id}')" title="${title}"><img src="${svgSrc}" class="btn-icon" alt="" /><span>${kbd}</span></button>`;
                 }).join('');
+            }
+            if (typeof intervalBuilderInitialized !== 'undefined' && intervalBuilderInitialized && document.getElementById('interval-inputs-section')?.style.display !== 'none' && typeof renderIntervalStepsList === 'function') {
+                renderIntervalStepsList();
             }
         }
 
