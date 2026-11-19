@@ -4742,7 +4742,11 @@
         if (bar && bar.style.display === 'none') {
           bar.style.display = '';
           const tb = btn.closest('.mdb-dup-group').querySelector(btnClass);
-          if (tb) { tb.style.background = '#111'; tb.style.color = '#fff'; }
+          if (tb) {
+            tb.style.background = '#111';
+            tb.style.color = '#fff';
+            tb.querySelectorAll('img').forEach(img => { img.style.filter = 'brightness(0) invert(1)'; });
+          }
         }
       });
       if (keepBtns[keepIdx]) mdbKeepThisEntry(keepBtns[keepIdx], group, keepIdx, themeBar, posBar);

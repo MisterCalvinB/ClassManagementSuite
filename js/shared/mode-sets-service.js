@@ -22,7 +22,7 @@
       shortcutKey: '1',
       title: 'Quiet Work',
       subtitle: '',
-      textColor: '#ffffff',
+      textColor: '#222222',
       textSize: 'large',
       pictureType: 'emoji',
       pictureSrc: '🤫',
@@ -32,7 +32,7 @@
       soundFile: '',
       soundVol: 20,
       soundChime: false,
-      text: { title: 'Quiet Work', subtitle: '', size: 'large', color: '#ffffff' },
+      text: { title: 'Quiet Work', subtitle: '', size: 'large', color: '#222222' },
       picture: { type: 'emoji', src: '🤫', animation: 'shush', fit: 'fit' },
       sound: { type: 'none', file: '', volume: 20, chime: false },
       isBuiltIn: true
@@ -44,7 +44,7 @@
       shortcutKey: '2',
       title: 'Conversation',
       subtitle: '',
-      textColor: '#ffffff',
+      textColor: '#222222',
       textSize: 'large',
       pictureType: 'speech_bubbles',
       pictureSrc: '',
@@ -54,7 +54,7 @@
       soundFile: '',
       soundVol: 20,
       soundChime: false,
-      text: { title: 'Conversation', subtitle: '', size: 'large', color: '#ffffff' },
+      text: { title: 'Conversation', subtitle: '', size: 'large', color: '#222222' },
       picture: { type: 'speech_bubbles', src: '', animation: 'bubbles', fit: 'fit' },
       sound: { type: 'none', file: '', volume: 20, chime: false },
       isBuiltIn: true
@@ -66,7 +66,7 @@
       shortcutKey: '3',
       title: 'Group Work',
       subtitle: 'Work together with your team',
-      textColor: '#ffffff',
+      textColor: '#222222',
       textSize: 'large',
       pictureType: 'group_icons',
       pictureSrc: '',
@@ -76,7 +76,7 @@
       soundFile: '',
       soundVol: 20,
       soundChime: false,
-      text: { title: 'Group Work', subtitle: 'Work together with your team', size: 'large', color: '#ffffff' },
+      text: { title: 'Group Work', subtitle: 'Work together with your team', size: 'large', color: '#222222' },
       picture: { type: 'group_icons', src: '', animation: 'bounce', fit: 'fit' },
       sound: { type: 'none', file: '', volume: 20, chime: false },
       isBuiltIn: true
@@ -95,7 +95,7 @@
     var textObj = (raw.text && typeof raw.text === 'object') ? raw.text : {};
     var title = String(raw.title != null ? raw.title : (textObj.title != null ? textObj.title : name)).trim();
     var subtitle = String(raw.subtitle != null ? raw.subtitle : (textObj.subtitle != null ? textObj.subtitle : '')).trim();
-    var textColor = String(raw.textColor || textObj.color || '#ffffff').trim();
+    var textColor = String(raw.textColor || textObj.color || '#222222').trim();
     var textSize = String(raw.textSize || textObj.size || 'large').trim().toLowerCase();
     if (['normal', 'large', 'xlarge'].indexOf(textSize) === -1) textSize = 'large';
 
@@ -107,7 +107,12 @@
 
     var pictureSrc = String(raw.pictureSrc != null ? raw.pictureSrc : (picObj.src != null ? picObj.src : icon)).trim();
     var pictureAnim = String(raw.pictureAnim || picObj.animation || 'none').trim().toLowerCase();
-    var validAnims = ['none', 'pulse', 'bounce', 'rotate', 'shush', 'bubbles'];
+    var validAnims = [
+      'none', 'pulse', 'float', 'bounce', 'rotate', 'shush', 'bubbles',
+      'gradient-shift', 'shimmer-dots', 'aurora-waves', 'floating-shapes',
+      'breathing-halo', 'ripple-rings', 'starfield-twinkle', 'lava-blobs',
+      'confetti-drift', 'horizon-glow'
+    ];
     if (validAnims.indexOf(pictureAnim) === -1) pictureAnim = 'none';
 
     var pictureFit = String(raw.pictureFit || picObj.fit || 'fit').trim().toLowerCase();

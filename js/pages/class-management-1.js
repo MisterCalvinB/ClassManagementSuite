@@ -14173,7 +14173,7 @@ syncState();
                 name: 'Quiet',
                 icon: '🤫',
                 shortcutKey: '1',
-                text: { title: 'Quiet Work', subtitle: '', size: 'large', color: '#ffffff' },
+                text: { title: 'Quiet Work', subtitle: '', size: 'large', color: '#222222' },
                 picture: { type: 'emoji', src: '🤫', animation: 'shush' },
                 sound: { type: 'none', volume: 20, chime: false },
                 isBuiltIn: true
@@ -14183,7 +14183,7 @@ syncState();
                 name: 'Talk',
                 icon: '💬',
                 shortcutKey: '2',
-                text: { title: 'Conversation', subtitle: '', size: 'large', color: '#ffffff' },
+                text: { title: 'Conversation', subtitle: '', size: 'large', color: '#222222' },
                 picture: { type: 'speech_bubbles', src: '', animation: 'bubbles' },
                 sound: { type: 'none', volume: 20, chime: false },
                 isBuiltIn: true
@@ -14193,7 +14193,7 @@ syncState();
                 name: 'Group',
                 icon: '👥',
                 shortcutKey: '3',
-                text: { title: 'Group Work', subtitle: 'Work together with your team', size: 'large', color: '#ffffff' },
+                text: { title: 'Group Work', subtitle: 'Work together with your team', size: 'large', color: '#222222' },
                 picture: { type: 'group_icons', src: '', animation: 'bounce' },
                 sound: { type: 'none', volume: 20, chime: false },
                 isBuiltIn: true
@@ -14653,7 +14653,7 @@ syncState();
 
             document.getElementById('mode-edit-text-title').value = mode.text?.title || mode.name || '';
             document.getElementById('mode-edit-text-subtitle').value = mode.text?.subtitle || '';
-            document.getElementById('mode-edit-text-color').value = mode.text?.color || '#ffffff';
+            document.getElementById('mode-edit-text-color').value = resolveModeTextColor(mode.text?.color, mode.picture?.animation);
             document.getElementById('mode-edit-text-size').value = mode.text?.size || 'large';
 
             const picType = mode.picture?.type || 'emoji';
@@ -15155,6 +15155,7 @@ syncState();
                     const content = document.getElementById('mode-animation-content');
                     if (content) {
                         clearModeAnimationTimers();
+                        applyModeOverlayAnimation(overlay, mode);
                         if (mode.id === 'quiet' && mode.picture?.type === 'emoji' && mode.picture?.animation === 'shush') {
                             content.innerHTML = buildQuietMode(mode);
                             spawnShushParticles();
@@ -15277,6 +15278,144 @@ syncState();
             }
         }
 
+        const DARK_BG_MODE_ANIMS = new Set(['aurora-waves', 'starfield-twinkle']);
+        const BG_MODE_ANIMS = new Set([
+            'gradient-shift', 'shimmer-dots', 'aurora-waves', 'floating-shapes',
+            'breathing-halo', 'ripple-rings', 'starfield-twinkle', 'lava-blobs',
+            'confetti-drift', 'horizon-glow'
+        ]);
+
+        function resolveModeTextColor(rawColor, animId) {
+            const c = String(rawColor || '').trim().toLowerCase();
+            const isDarkBg = DARK_BG_MODE_ANIMS.has(String(animId || '').trim().toLowerCase());
+            if (isDarkBg) {
+                if (!c || c === '#222222' || c === '#222' || c === '#111111' || c === '#111' || c === '#000000' || c === '#000') {
+                    return '#f8fafc';
+                }
+                return rawColor;
+            }
+            if (!c || c === '#ffffff' || c === '#fff') {
+                return '#222222';
+            }
+            return rawColor;
+        }
+
+        function clearModeOverlayAnimation(overlay) {
+            if (!overlay) return;
+            const existingBg = overlay.querySelector('#mode-animation-bg');
+            if (existingBg) existingBg.remove();
+            overlay.classList.remove('mode-dark-bg');
+            Array.from(overlay.classList).forEach(cls => {
+                if (cls.startsWith('bg-anim-')) overlay.classList.remove(cls);
+            });
+        }
+
+        function applyModeOverlayAnimation(overlay, mode) {
+            if (!overlay) return;
+            clearModeOverlayAnimation(overlay);
+            const anim = String(mode?.picture?.animation || 'none').trim().toLowerCase();
+            if (!BG_MODE_ANIMS.has(anim)) return;
+
+            overlay.classList.add('bg-anim-' + anim);
+            if (DARK_BG_MODE_ANIMS.has(anim)) {
+                overlay.classList.add('mode-dark-bg');
+            }
+
+            const bg = document.createElement('div');
+            bg.id = 'mode-animation-bg';
+            bg.className = 'mode-animation-bg mode-bg-' + anim;
+            bg.setAttribute('aria-hidden', 'true');
+
+            const palette = ['#e2c96e', '#6abf8e', '#5b8fcc', '#8b7cc2', '#d97fa8', '#4aabac'];
+
+            if (anim === 'shimmer-dots') {
+                const count = 28;
+                for (let i = 0; i < count; i++) {
+                    const dot = document.createElement('span');
+                    dot.className = 'mode-bg-dot';
+                    const size = 6 + ((i * 7) % 14);
+                    dot.style.width = size + 'px';
+                    dot.style.height = size + 'px';
+                    dot.style.left = ((i * 37 + 11) % 94 + 3) + '%';
+                    dot.style.top = ((i * 53 + 7) % 90 + 5) + '%';
+                    dot.style.background = palette[i % palette.length];
+                    dot.style.animationDuration = (3.2 + (i % 5) * 0.7) + 's';
+                    dot.style.animationDelay = ((i % 7) * -0.6) + 's';
+                    bg.appendChild(dot);
+                }
+            } else if (anim === 'aurora-waves') {
+                for (let i = 0; i < 3; i++) {
+                    const band = document.createElement('div');
+                    band.className = 'mode-aurora-band mode-aurora-band-' + (i + 1);
+                    bg.appendChild(band);
+                }
+            } else if (anim === 'floating-shapes') {
+                const shapeTypes = ['circle', 'square', 'diamond'];
+                for (let i = 0; i < 16; i++) {
+                    const shape = document.createElement('span');
+                    const sType = shapeTypes[i % shapeTypes.length];
+                    shape.className = 'mode-bg-shape mode-bg-shape-' + sType;
+                    const size = 18 + ((i * 11) % 28);
+                    shape.style.width = size + 'px';
+                    shape.style.height = size + 'px';
+                    shape.style.left = ((i * 29 + 5) % 92 + 4) + '%';
+                    shape.style.borderColor = palette[i % palette.length];
+                    shape.style.animationDuration = (11 + (i % 6) * 2.5) + 's';
+                    shape.style.animationDelay = ((i % 8) * -2.1) + 's';
+                    bg.appendChild(shape);
+                }
+            } else if (anim === 'breathing-halo') {
+                for (let i = 0; i < 3; i++) {
+                    const ring = document.createElement('div');
+                    ring.className = 'mode-halo-ring mode-halo-ring-' + (i + 1);
+                    bg.appendChild(ring);
+                }
+            } else if (anim === 'ripple-rings') {
+                for (let i = 0; i < 4; i++) {
+                    const ring = document.createElement('div');
+                    ring.className = 'mode-ripple-ring';
+                    ring.style.animationDelay = (i * -1.6) + 's';
+                    bg.appendChild(ring);
+                }
+            } else if (anim === 'starfield-twinkle') {
+                for (let i = 0; i < 40; i++) {
+                    const star = document.createElement('span');
+                    star.className = 'mode-bg-star';
+                    const size = 2 + (i % 4);
+                    star.style.width = size + 'px';
+                    star.style.height = size + 'px';
+                    star.style.left = ((i * 41 + 9) % 96 + 2) + '%';
+                    star.style.top = ((i * 61 + 13) % 92 + 4) + '%';
+                    star.style.animationDuration = (2.4 + (i % 6) * 0.65) + 's';
+                    star.style.animationDelay = ((i % 9) * -0.5) + 's';
+                    bg.appendChild(star);
+                }
+            } else if (anim === 'lava-blobs') {
+                for (let i = 0; i < 5; i++) {
+                    const blob = document.createElement('div');
+                    blob.className = 'mode-lava-blob mode-lava-blob-' + (i + 1);
+                    blob.style.background = palette[i % palette.length];
+                    bg.appendChild(blob);
+                }
+            } else if (anim === 'confetti-drift') {
+                for (let i = 0; i < 24; i++) {
+                    const piece = document.createElement('span');
+                    piece.className = 'mode-confetti-piece';
+                    piece.style.left = ((i * 31 + 4) % 95 + 2) + '%';
+                    piece.style.background = palette[i % palette.length];
+                    piece.style.animationDuration = (7 + (i % 5) * 1.6) + 's';
+                    piece.style.animationDelay = ((i % 7) * -1.3) + 's';
+                    bg.appendChild(piece);
+                }
+            } else if (anim === 'horizon-glow') {
+                const sun = document.createElement('div');
+                sun.className = 'mode-horizon-sun';
+                bg.appendChild(sun);
+            }
+
+            overlay.insertBefore(bg, overlay.firstChild);
+        }
+
         function activateMode(modeId) {
             closeModePicker();
             clearModeAnimationTimers();
@@ -15296,6 +15435,7 @@ syncState();
             const mode = classModes.find(m => m.id === modeId || m.name.toLowerCase() === modeId.toLowerCase());
 
             if (mode) {
+                applyModeOverlayAnimation(overlay, mode);
                 // Built-in presets custom handlers vs generic builder
                 if (mode.id === 'quiet' && mode.picture?.type === 'emoji' && mode.picture?.animation === 'shush') {
                     content.innerHTML = buildQuietMode(mode);
@@ -15320,6 +15460,7 @@ syncState();
                     }
                 }
             } else {
+                clearModeOverlayAnimation(overlay);
                 content.innerHTML = buildQuietMode();
                 if (!PRESENTATION_MODE) stopWhiteNoise();
             }
@@ -15359,6 +15500,7 @@ syncState();
             if (!overlay || !overlay.classList.contains('active')) return;
 
             clearModeAnimationTimers();
+            clearModeOverlayAnimation(overlay);
             isModeMinimised = true;
             overlay.classList.remove('active');
 
@@ -15384,6 +15526,7 @@ syncState();
                 }
                 const currentMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === activeWorkingModeId.toLowerCase());
                 if (currentMode) {
+                    applyModeOverlayAnimation(overlay, currentMode);
                     if (currentMode.id === 'quiet' || currentMode.picture?.animation === 'shush') spawnShushParticles();
                     if (currentMode.id === 'conversation' || currentMode.picture?.animation === 'bubbles') animateSpeechBubbles();
                 }
@@ -15433,9 +15576,10 @@ syncState();
         function buildCustomModeHTML(mode) {
             const title = mode.text?.title || mode.name || '';
             const subtitle = mode.text?.subtitle || '';
-            const color = mode.text?.color || '#ffffff';
+            const animId = mode.picture?.animation || 'none';
+            const color = resolveModeTextColor(mode.text?.color, animId);
             const sizeClass = mode.text?.size === 'xlarge' ? 'size-xl' : (mode.text?.size === 'medium' ? 'size-m' : 'size-l');
-            const animClass = mode.picture?.animation ? 'anim-' + mode.picture.animation : '';
+            const animClass = (animId && !BG_MODE_ANIMS.has(animId) && animId !== 'none') ? 'anim-' + animId : '';
 
             let picHtml = '';
             if (mode.picture?.type === 'custom_file' || mode.picture?.type === 'custom_url') {
@@ -15484,7 +15628,9 @@ syncState();
             _activeNoiseFile = null;
             const pill = document.getElementById('mode-minimized-pill');
             if (pill) pill.style.display = 'none';
-            document.getElementById('mode-animation-overlay').classList.remove('active');
+            const overlayEl = document.getElementById('mode-animation-overlay');
+            clearModeOverlayAnimation(overlayEl);
+            if (overlayEl) overlayEl.classList.remove('active');
             document.getElementById('mode-animation-content').innerHTML = '';
             if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
@@ -15545,7 +15691,7 @@ syncState();
         function buildQuietMode(mode) {
             const title = mode?.text?.title || mode?.name || 'Quiet Work';
             const subtitle = mode?.text?.subtitle || '';
-            const color = mode?.text?.color || '#ffffff';
+            const color = resolveModeTextColor(mode?.text?.color, mode?.picture?.animation);
             const sizeClass = mode?.text?.size === 'xlarge' ? 'size-xl' : (mode?.text?.size === 'medium' ? 'size-m' : 'size-l');
             return `
         <div class="shush-particles" id="shush-particles"></div>

@@ -7,6 +7,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Manage Database</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/neo-ui.css">
+  <link rel="stylesheet" href="../css/menus.css">
   <script src="../modules/xlsx.min.js"></script>
   <script src="../modules/marked/marked.umd.js"></script>
   <script src="../electron-bridge.js"></script>
@@ -2208,7 +2210,12 @@
         addStr('textColor');
         addStr('pictureType', { useSelect: true, uniqueVals: ['emoji', 'speech_bubbles', 'group_icons', 'custom_url', 'custom_file'] });
         addStr('pictureSrc');
-        addStr('pictureAnim', { useSelect: true, uniqueVals: ['none', 'pulse', 'bounce', 'rotate', 'shush', 'bubbles'] });
+        addStr('pictureAnim', { useSelect: true, uniqueVals: [
+          'none', 'pulse', 'float', 'bounce', 'rotate', 'shush', 'bubbles',
+          'gradient-shift', 'shimmer-dots', 'aurora-waves', 'floating-shapes',
+          'breathing-halo', 'ripple-rings', 'starfield-twinkle', 'lava-blobs',
+          'confetti-drift', 'horizon-glow'
+        ] });
         addStr('pictureFit', { useSelect: true, uniqueVals: ['fit', 'cover', 'contain'] });
         addStr('soundType', { useSelect: true, uniqueVals: ['none', 'white', 'pink', 'brown', 'file', 'whitenoise', 'binaural', 'custom_audio'] });
         addStr('soundFile');
@@ -4402,11 +4409,22 @@
         const curAnim = String(val || 'none').toLowerCase();
         const animOpts = [
           { val: 'none', lbl: 'None' },
-          { val: 'pulse', lbl: 'Pulse' },
+          { val: 'pulse', lbl: 'Pulse / Glow' },
+          { val: 'float', lbl: 'Float / Drift' },
           { val: 'bounce', lbl: 'Bounce' },
-          { val: 'rotate', lbl: 'Rotate' },
+          { val: 'rotate', lbl: 'Rotate / Spin' },
           { val: 'shush', lbl: 'Shush Particles' },
-          { val: 'bubbles', lbl: 'Speech Bubbles' }
+          { val: 'bubbles', lbl: 'Speech Bubbles' },
+          { val: 'gradient-shift', lbl: 'Slow Gradient Shift' },
+          { val: 'shimmer-dots', lbl: 'Shimmering Dots' },
+          { val: 'aurora-waves', lbl: 'Aurora Waves (Dark)' },
+          { val: 'floating-shapes', lbl: 'Floating Geometric Shapes' },
+          { val: 'breathing-halo', lbl: 'Breathing Halo' },
+          { val: 'ripple-rings', lbl: 'Water Ripples' },
+          { val: 'starfield-twinkle', lbl: 'Starfield Twinkle (Dark)' },
+          { val: 'lava-blobs', lbl: 'Soft Lava Blobs' },
+          { val: 'confetti-drift', lbl: 'Gentle Confetti Drift' },
+          { val: 'horizon-glow', lbl: 'Warm Horizon Glow' }
         ];
         input = `<select id="${id}">${animOpts.map(o => `<option value="${o.val}"${curAnim === o.val ? ' selected' : ''}>${esc(o.lbl)}</option>`).join('')}</select>`;
       } else if (S.typeKey === 'modebanks' && field.key === 'pictureFit') {

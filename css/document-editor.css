@@ -1611,7 +1611,13 @@ html.de-pres-mode body>*:not(#de-pres-view) {
 }
 
 .file-row-dir .file-row-name::before {
-  content: '📁 ';
+  content: '';
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 5px;
+  vertical-align: -2px;
+  background: url('../assets/icons/folder.svg') no-repeat center / contain;
 }
 
 .modal-box-history {
@@ -1736,10 +1742,11 @@ html.de-pres-mode body>*:not(#de-pres-view) {
 }
 
 .pl-orient-btn.active {
-  border-color: #000;
-  background: #000;
-  color: #fff;
+  border-color: var(--neo-border-color, #333333);
+  background: var(--neo-yellow, #e2c96e);
+  color: #111111;
 }
+.pl-orient-btn.active img.btn-icon { filter: none; }
 
 .pl-orient-btn:not(.active):hover {
   border-color: #666;
@@ -3015,7 +3022,7 @@ html.de-pres-mode body>*:not(#de-pres-view) {
 }
 
 .cmt-page-break::after {
-  content: '✂ Page Break';
+  content: 'Page Break';
   display: inline-block;
   position: relative;
   top: -10px;
@@ -3676,4 +3683,17 @@ body:not(.de-doc-html) #script-editor-wrapper {
   height: 18px;
   background: #d0d7de;
   margin: 0 2px;
+}
+
+/* ── Phase 1: Icon contrast on dark base / active / hover buttons ── */
+.modal-btn img.btn-icon,
+.file-row-btn img.btn-icon,
+.stg-btn img.btn-icon,
+.modal-close-btn:hover img.btn-icon,
+.modal-toolbar-btn:hover img.btn-icon,
+.pl-orient-btn.active img.btn-icon,
+.stg-add-btn:hover img.btn-icon,
+.de-view-btn:hover:not(:disabled) img.btn-icon,
+#btn-script-insert:hover img.btn-icon {
+  filter: brightness(0) invert(1);
 }

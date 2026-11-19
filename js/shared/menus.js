@@ -6,29 +6,30 @@
   if (window._cmtMenus) return;
   window._cmtMenus = true;
 
-  // ── Injected CSS ───────────────────────────────────────────────────────────
+  // ── Injected CSS (fallback when css/menus.css is not linked) ─────────────────
+  if (!document.querySelector('link[href*="menus.css"]')) {
   var style = document.createElement('style');
   style.textContent = [
     /* selection-disable */
     '#app-nav,#app-nav .nav-brand,#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn,.hm-wrap,.hm-menu,.hm-item,.hm-lang-row,.hm-lang-btn{user-select:none;-webkit-user-select:none}',
     /* nav buttons */
-    '#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{background:#111;color:#fff;border:1px solid #555;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:background 0.12s ease,border-color 0.12s ease;line-height:1.2;box-sizing:border-box}',
-    '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#222;border-color:#888;color:#fff}',
+    '#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{background:var(--neo-dark,#222222);color:#fff;border:2px solid #555555;padding:5px 12px;border-radius:var(--neo-radius-md,6px);cursor:pointer;font-family:inherit;font-size:0.85rem;font-weight:700;display:inline-flex;align-items:center;gap:6px;transition:background-color 0.12s ease,border-color 0.12s ease,transform 0.12s ease;line-height:1.2;box-sizing:border-box}',
+    '#app-nav button:hover,#app-nav .tut-trigger-btn:hover,.tut-trigger-btn:hover,.hm-btn:hover{background:#333333;border-color:#888888;color:#fff}',
     /* icon filters for dark buttons in nav */
     '#app-nav button img.btn-icon,#app-nav button .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon{filter:brightness(0) invert(1) !important}',
-    '#app-nav button img.btn-icon,#app-nav button .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon{width:12px;height:12px;max-width:12px;max-height:12px;display:inline-block;vertical-align:middle;object-fit:contain;flex-shrink:0}',
+    '#app-nav button img.btn-icon,#app-nav button .btn-icon,.hm-btn img.btn-icon,.hm-btn .btn-icon,.tut-trigger-btn img.btn-icon,.tut-trigger-btn .btn-icon{width:14px;height:14px;max-width:14px;max-height:14px;display:inline-block;vertical-align:middle;object-fit:contain;flex-shrink:0}',
     '#app-nav .dropdown-item:hover img.btn-icon,#app-nav .dropdown-item:hover .btn-icon,#app-nav .menu-item:hover img.btn-icon,#app-nav .menu-item:hover .btn-icon{filter:brightness(0) invert(1)}',
     /* hamburger wrapper */
     '.hm-wrap{position:relative;margin-left:auto;display:inline-flex;align-items:center;gap:8px}',
     /* dropdown panel — grid layout with responsive bounds */
-    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1a1a1a;border:2px solid #3a3a3a;border-radius:10px;z-index:9999;padding:10px;box-shadow:0 8px 32px rgba(0,0,0,.6);width:280px;max-width:calc(100vw - 16px);max-height:calc(100vh - 56px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}',
+    '.hm-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);background:#1e1e1e;border:2px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-lg,10px);z-index:9999;padding:10px;box-shadow:var(--neo-shadow-lg,4px 4px 0 #555555);width:280px;max-width:calc(100vw - 16px);max-height:calc(100vh - 56px);overflow-y:auto;overscroll-behavior:contain;box-sizing:border-box}',
     '.hm-wrap.open .hm-menu{display:block}',
     /* grid container inside the panel */
     '.hm-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}',
     /* individual tile */
-    '.hm-item,.hm-grid .hm-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:8px 4px 6px;color:#bbb;text-decoration:none;font-size:.62rem;font-weight:700;text-align:center;line-height:1.2;background:none;border:1.5px solid transparent;border-radius:7px;cursor:pointer;font-family:inherit;width:auto;box-sizing:border-box;transition:background 0.12s ease,border-color 0.12s ease,color 0.12s ease;word-break:break-word;hyphens:auto}',
+    '.hm-item,.hm-grid .hm-item{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:5px;padding:8px 4px 6px;color:#bbb;text-decoration:none;font-size:.62rem;font-weight:700;text-align:center;line-height:1.2;background:none;border:1.5px solid transparent;border-radius:var(--neo-radius-md,6px);cursor:pointer;font-family:inherit;width:auto;box-sizing:border-box;transition:background-color 0.12s ease,border-color 0.12s ease,color 0.12s ease;word-break:break-word;hyphens:auto}',
     '.hm-item:hover,.hm-grid .hm-item:hover{background:#2a2a2a;border-color:#555;color:#fff}',
-    '.hm-item.nav-active,.hm-grid .hm-item.nav-active{background:#252525;border-color:#666;color:#fff}',
+    '.hm-item.nav-active,.hm-grid .hm-item.nav-active{background:#2f2f2f;border-color:var(--neo-yellow,#e2c96e);color:#fff}',
     /* icon inside tile */
     '.hm-icon-img,.hm-grid .hm-icon-img{width:22px;height:22px;flex-shrink:0;vertical-align:middle;margin-right:0;filter:invert(1) brightness(10) grayscale(1)!important;opacity:.75;transition:opacity 0.12s ease}',
     '.hm-item:hover .hm-icon-img,.hm-item.nav-active .hm-icon-img,.hm-grid .hm-item:hover .hm-icon-img,.hm-grid .hm-item.nav-active .hm-icon-img{opacity:1}',
@@ -36,14 +37,15 @@
     '.hm-sep{border:none;border-top:1px solid #2e2e2e;margin:6px 0;grid-column:1/-1}',
     /* lang row */
     '.hm-lang-row{display:flex;gap:4px;padding:4px 0 0;grid-column:1/-1}',
-    '.hm-lang-btn{flex:1;background:none;border:1px solid #3a3a3a;color:#888;padding:4px 2px;border-radius:4px;cursor:pointer;font-size:.72rem;font-weight:700;transition:border-color .12s,background .12s,color .12s;min-width:0}',
+    '.hm-lang-btn{flex:1;background:none;border:1px solid #3a3a3a;color:#888;padding:4px 2px;border-radius:var(--neo-radius-sm,4px);cursor:pointer;font-size:.72rem;font-weight:700;transition:border-color .12s,background-color .12s,color .12s;min-width:0}',
     '.hm-lang-btn:hover{border-color:#888;color:#ddd}',
-    '.hm-lang-btn.active{background:#333;color:#fff;border-color:#777}',
+    '.hm-lang-btn.active{background:var(--neo-yellow,#e2c96e);color:#111111;border-color:var(--neo-yellow,#e2c96e)}',
     /* responsive narrow window styling for hamburger & navbars across all tools */
     '@media(max-width:600px){#app-nav{padding:4px 8px !important;gap:6px !important;min-height:38px !important;flex-wrap:nowrap !important;box-sizing:border-box !important}#app-nav .nav-brand{font-size:.8rem !important;max-width:140px !important;overflow:hidden !important;text-overflow:ellipsis !important;white-space:nowrap !important;min-width:0 !important;flex-shrink:1 !important}#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{padding:4px 7px !important;font-size:.76rem !important;height:28px !important;min-width:28px !important}.hm-wrap{gap:4px !important;flex-shrink:0 !important}.hm-menu{position:fixed !important;top:44px !important;left:8px !important;right:8px !important;width:auto !important;max-width:none !important;max-height:calc(100vh - 54px) !important;box-shadow:0 8px 32px rgba(0,0,0,.75) !important;border-radius:10px !important;z-index:100000 !important}}',
     '@media(max-width:360px){#app-nav .nav-brand{max-width:85px !important;font-size:.72rem !important}#app-nav button,#app-nav .tut-trigger-btn,.tut-trigger-btn,.hm-btn{padding:3px 5px !important;font-size:.72rem !important;min-width:25px !important;height:26px !important}.hm-grid{grid-template-columns:repeat(3,1fr) !important;gap:3px !important}.hm-item{padding:5px 2px 3px !important;font-size:.58rem !important;gap:3px !important}.hm-icon-img{width:18px !important;height:18px !important}}'
   ].join('');
   document.head.appendChild(style);
+  }
 
   // ── App list ───────────────────────────────────────────────────────────────
   // null entries become <hr> separators.
