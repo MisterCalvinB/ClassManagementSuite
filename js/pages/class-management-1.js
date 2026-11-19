@@ -1063,7 +1063,7 @@
             const maxLeft = Math.max(pad, window.innerWidth - rect.width - pad);
             const maxTop = Math.max(pad, window.innerHeight - rect.height - pad);
             const newLeft = Math.min(maxLeft, Math.max(pad, rect.left));
-            const newTop = Math.min(maxTop, Math.max(pad, newTop));
+            const newTop = Math.min(maxTop, Math.max(pad, rect.top));
             dock.style.left = newLeft + 'px';
             dock.style.top = newTop + 'px';
             dock.style.right = 'auto';
@@ -1205,9 +1205,9 @@
             const modeOverlayEl = document.getElementById('mode-animation-overlay');
             const modeOverlayActive = !!(modeOverlayEl && modeOverlayEl.classList.contains('active') && !overlayControlsActive);
             const anyOverlayControlsActive = overlayControlsActive || modeOverlayActive;
-            const effectiveCollapsed = anyOverlayControlsActive ? false : _unifiedDockCollapsed;
+            const effectiveCollapsed = _unifiedDockCollapsed;
 
-            dock.classList.toggle('overlay-active', anyOverlayControlsActive);
+            dock.classList.toggle('overlay-active', anyOverlayControlsActive && !effectiveCollapsed);
             dock.classList.toggle('theater-mode', timerOverlayActive && timerOverlayEl.classList.contains('theater-mode'));
             if (!anyOverlayControlsActive && !_unifiedDockPos) {
                 dock.style.transform = '';
@@ -10917,7 +10917,35 @@
             } else {
                 if (typeof closeClassSelectionPopup === 'function') closeClassSelectionPopup();
                 if (typeof closeRosterSettingsPopup === 'function') closeRosterSettingsPopup(true);
-                popup.classList.add('open');
+                const dockBtn = document.getElementById('ucm-dock-expand-btn');
+                const openedFromDock = !!(event && event.target && dockBtn && (event.target === dockBtn || dockBtn.contains(event.target)));
+                const overlayActive = !!(document.getElementById('mode-animation-overlay')?.classList.contains('active') || document.getElementById('timer-overlay')?.classList.contains('active'));
+                if (openedFromDock || overlayActive) {
+                    popup.classList.add('dock-anchored');
+                    popup.classList.add('open');
+                    const dock = document.getElementById('cms-unified-dock');
+                    if (dock && isWidgetVisible(dock)) {
+                        const dockRect = dock.getBoundingClientRect();
+                        const popRect = popup.getBoundingClientRect();
+                        const pad = 8;
+                        const preferredBottom = Math.max(pad, window.innerHeight - dockRect.top + 8);
+                        const clampedLeft = Math.min(
+                            Math.max(pad, window.innerWidth - popRect.width - pad),
+                            Math.max(pad, dockRect.right - popRect.width)
+                        );
+                        popup.style.left = clampedLeft + 'px';
+                        popup.style.right = 'auto';
+                        popup.style.bottom = preferredBottom + 'px';
+                        popup.style.top = 'auto';
+                    }
+                } else {
+                    popup.classList.remove('dock-anchored');
+                    popup.style.left = '';
+                    popup.style.right = '';
+                    popup.style.bottom = '';
+                    popup.style.top = '';
+                    popup.classList.add('open');
+                }
                 if (btn) btn.classList.add('active');
                 // Sync stop btn visibility
                 const running = timerInterval || stopwatchInterval || timerPaused;
@@ -10937,7 +10965,13 @@
         function closeTimerPopup() {
             const popup = document.getElementById('timer-popup');
             const btn = document.getElementById('timer-open-btn');
-            if (popup) popup.classList.remove('open');
+            if (popup) {
+                popup.classList.remove('open', 'dock-anchored');
+                popup.style.left = '';
+                popup.style.right = '';
+                popup.style.bottom = '';
+                popup.style.top = '';
+            }
             if (btn) btn.classList.remove('active');
         }
 
