@@ -703,6 +703,7 @@
           'slm-gemma3-1b': 'Gemma3 1B',
           'slm-balanced': 'Qwen2.5 1.5B',
           'slm-qwen3-1.7b': 'Qwen3 1.7B',
+          'slm-smollm2-1.7b': 'SmolLM2 1.7B',
           'slm-deep': 'Qwen1.5 1.8B'
         };
         var shortTier = SHORT_LABELS[activeSpec.id] || activeSpec.name || activeSpec.id;

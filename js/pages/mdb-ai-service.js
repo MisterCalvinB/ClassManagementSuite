@@ -625,13 +625,24 @@
     'value', 'traduction', 'item1', 'item2', 'first', 'second', '/.../', '...', 'n/a', 'na',
     'none', 'unknown', 'tbd', 'example', 'clear definition.', 'an example sentence.',
     'a brief pedagogical definition.', 'she used the term in a clear sentence.',
-    '/ˈsæm.pəl/', 'ˈsæm.pəl'
+    '/ˈsæm.pəl/', 'ˈsæm.pəl',
+    'natural french translation', 'natural german translation', 'natural italian translation',
+    'standard ipa phonetic transcription', 'concise 1-sentence pedagogical definition',
+    'natural illustrative sentence'
   ]);
 
   function _isPlaceholderEcho(val) {
     if (val === undefined || val === null) return true;
     var s = String(val).trim().toLowerCase();
-    return !s || PLACEHOLDER_ECHOES.has(s) || /^<[^>]+>$/.test(s);
+    var unslashed = s.replace(/^\/+|\/+$/g, '').trim();
+    return !s
+      || !unslashed
+      || PLACEHOLDER_ECHOES.has(s)
+      || PLACEHOLDER_ECHOES.has(unslashed)
+      || unslashed === 'ipa'
+      || /^<[^>]+>$/.test(s)
+      || /^natural\s+(?:french|german|italian)\s+translation\b/.test(s)
+      || /^standard\s+ipa\b/.test(s);
   }
 
   function _parseBooleanField(val) {
@@ -705,7 +716,7 @@
     });
 
     var fieldInstructions = [];
-    var exampleObj = {};
+    var keySpecs = [];
 
     requestedFieldKeys.forEach(function (key) {
       var fieldDef = schema.find(function (f) { return f && f.key === key; }) || { key: key, type: 'string' };
@@ -716,54 +727,54 @@
       }
 
       if (key === 'level' || key === 'cefr') {
-        fieldInstructions.push('"' + key + '": CEFR level (one of A1, A2, B1, B2, C1, C2)');
-        exampleObj[key] = '<A1|A2|B1|B2|C1|C2>';
+        fieldInstructions.push('"' + key + '": Give the CEFR level (A1, A2, B1, B2, C1, or C2)' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        keySpecs.push('"' + key + '" (A1|A2|B1|B2|C1|C2)');
       } else if (key === 'partOfSpeech' || key === 'pos') {
-        fieldInstructions.push('"' + key + '": lowercase part of speech (noun, verb, adjective, adverb, preposition, conjunction, phrase)');
-        exampleObj[key] = '<part_of_speech>';
+        fieldInstructions.push('"' + key + '": Give the lowercase part of speech (noun, verb, adjective, adverb, preposition, conjunction, or phrase)' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        keySpecs.push('"' + key + '" (string)');
       } else if (key === 'ipa') {
-        fieldInstructions.push('"' + key + '": standard IPA phonetic transcription' + (primaryVal ? (' of "' + primaryVal + '"') : '') + ' enclosed in slashes /.../');
-        exampleObj[key] = '<IPA>';
+        fieldInstructions.push('"' + key + '": Transcribe ' + (primaryVal ? ('"' + primaryVal + '"') : 'the term') + ' into standard IPA enclosed in slashes');
+        keySpecs.push('"' + key + '" (string)');
       } else if (key === 'french' || key === 'german' || key === 'italian') {
-        fieldInstructions.push('"' + key + '": natural ' + key + ' translation' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
-        exampleObj[key] = '<' + key + '_translation>';
+        var langTitle = key.charAt(0).toUpperCase() + key.slice(1);
+        fieldInstructions.push('"' + key + '": Translate ' + (primaryVal ? ('"' + primaryVal + '"') : 'the term') + ' into ' + langTitle);
+        keySpecs.push('"' + key + '" (string)');
       } else if (key === 'definition') {
-        fieldInstructions.push('"' + key + '": concise 1-sentence pedagogical definition' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
-        exampleObj[key] = fieldDef.type === 'array' ? ['<definition>'] : '<definition>';
+        fieldInstructions.push('"' + key + '": Write a concise 1-sentence pedagogical definition' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        keySpecs.push('"' + key + '" (' + (typeDesc === 'array' ? 'array of strings' : 'string') + ')');
       } else if (key === 'exampleSentence') {
-        fieldInstructions.push('"' + key + '": natural illustrative sentence using "' + (primaryVal || 'the term') + '" in context');
-        exampleObj[key] = fieldDef.type === 'array' ? ['<example_sentence>'] : '<example_sentence>';
+        fieldInstructions.push('"' + key + '": Write one natural illustrative sentence using "' + (primaryVal || 'the term') + '"');
+        keySpecs.push('"' + key + '" (' + (typeDesc === 'array' ? 'array of strings' : 'string') + ')');
       } else if (typeDesc === 'array') {
-        fieldInstructions.push('"' + key + '": JSON array of strings' + extra);
-        exampleObj[key] = ['<item>'];
+        fieldInstructions.push('"' + key + '": List of strings' + extra);
+        keySpecs.push('"' + key + '" (array of strings)');
       } else if (typeDesc === 'boolean') {
-        fieldInstructions.push('"' + key + '": boolean (true/false)');
-        exampleObj[key] = true;
+        fieldInstructions.push('"' + key + '": true or false');
+        keySpecs.push('"' + key + '" (boolean)');
       } else if (typeDesc === 'number') {
-        fieldInstructions.push('"' + key + '": number');
-        exampleObj[key] = 1;
+        fieldInstructions.push('"' + key + '": numeric value');
+        keySpecs.push('"' + key + '" (number)');
       } else if (typeDesc === 'object') {
         fieldInstructions.push('"' + key + '": JSON object' + extra);
-        exampleObj[key] = {};
+        keySpecs.push('"' + key + '" (object)');
       } else {
-        fieldInstructions.push('"' + key + '": string' + extra);
-        exampleObj[key] = '<value>';
+        fieldInstructions.push('"' + key + '": Provide value for ' + key + extra);
+        keySpecs.push('"' + key + '" (string)');
       }
     });
 
     var systemPrompt = [
       'You are an expert curriculum and language education AI assistant autofilling educational database records.',
-      'Respond ONLY with a valid JSON object containing the requested target fields with real, accurate values for the Primary Item.',
-      'Replace every <...> placeholder with actual generated content. Do not include markdown prose, conversational preamble, or explanations.',
-      'Expected JSON schema:',
-      JSON.stringify(exampleObj, null, 2)
+      'Respond ONLY with a single valid JSON object containing these exact keys: ' + keySpecs.join(', ') + '.',
+      'Every value must be real, accurate content for the Primary Item. Do NOT copy instructions, field descriptions, or placeholders.',
+      'Do not include markdown prose, code fences, or explanations.'
     ].join('\n');
 
     var userPrompt = [
       'Database Type: ' + typeKey,
       'Primary Item: ' + primaryVal,
       filledEntries.length > 0 ? ('Known Record Data:\n- ' + filledEntries.join('\n- ')) : '',
-      'Target Fields to Generate (Output ONLY a JSON object with these keys):\n- ' + fieldInstructions.join('\n- '),
+      'Tasks:\n- ' + fieldInstructions.join('\n- '),
       '\nReturn ONLY the JSON object:'
     ].filter(Boolean).join('\n\n');
 
@@ -771,6 +782,112 @@
       systemPrompt: systemPrompt,
       userPrompt: userPrompt
     };
+  }
+
+  function _buildSingleFieldPlainPrompt(rec, typeKey, fieldKey, fieldDef) {
+    var primaryKey = mdbGetPrimaryFieldKey(typeKey);
+    var primaryVal = rec[primaryKey] || rec.word || rec.title || rec.english || rec.name || rec.sentence || rec.quote || rec.rule || rec.question || rec.code || rec.label || '';
+    var itemLabel = primaryVal ? ('"' + primaryVal + '"') : 'the item';
+
+    var filledEntries = [];
+    Object.keys(rec || {}).forEach(function (k) {
+      if (k.startsWith('_') || k === fieldKey) return;
+      var v = rec[k];
+      if (v === undefined || v === null || v === '') return;
+      if (Array.isArray(v) && v.length === 0) return;
+      filledEntries.push(k + ': ' + (typeof v === 'object' ? JSON.stringify(v) : String(v)));
+    });
+    var contextBlock = filledEntries.length > 0 ? ('Context:\n' + filledEntries.join('\n') + '\n\n') : '';
+
+    var systemPrompt = 'You are a concise educational linguistics assistant. Reply with ONLY the requested value on a single line. Do not include quotes, JSON, labels, or explanations.';
+    var userPrompt = '';
+    var assistantPrefix = '';
+
+    if (fieldKey === 'ipa') {
+      systemPrompt = 'You are a precise linguistics assistant. Output ONLY the standard English IPA phonetic transcription between slashes, nothing else.';
+      userPrompt = contextBlock + 'Give the standard English IPA phonetic transcription of ' + itemLabel + '.';
+      assistantPrefix = '/';
+    } else if (fieldKey === 'french' || fieldKey === 'german' || fieldKey === 'italian') {
+      var langTitle = fieldKey.charAt(0).toUpperCase() + fieldKey.slice(1);
+      systemPrompt = 'You are a precise bilingual dictionary assistant. Reply with ONLY the ' + langTitle + ' translation, nothing else.';
+      userPrompt = contextBlock + 'Translate ' + itemLabel + ' into ' + langTitle + '.';
+    } else if (fieldKey === 'definition') {
+      userPrompt = contextBlock + 'Write a concise 1-sentence pedagogical definition of ' + itemLabel + '.';
+    } else if (fieldKey === 'exampleSentence') {
+      userPrompt = contextBlock + 'Write one natural illustrative sentence using ' + itemLabel + '.';
+    } else if (fieldKey === 'level' || fieldKey === 'cefr') {
+      systemPrompt = 'Reply with ONLY one CEFR level code: A1, A2, B1, B2, C1, or C2.';
+      userPrompt = contextBlock + 'What is the CEFR level of ' + itemLabel + '?';
+    } else if (fieldKey === 'partOfSpeech' || fieldKey === 'pos') {
+      systemPrompt = 'Reply with ONLY one lowercase part of speech: noun, verb, adjective, adverb, preposition, conjunction, or phrase.';
+      userPrompt = contextBlock + 'What is the part of speech of ' + itemLabel + '?';
+    } else {
+      var extra = (fieldDef && Array.isArray(fieldDef.uniqueVals) && fieldDef.uniqueVals.length > 0)
+        ? (' (Allowed choices: ' + fieldDef.uniqueVals.slice(0, 8).join(', ') + ')')
+        : '';
+      userPrompt = contextBlock + 'Provide the "' + fieldKey + '" for ' + itemLabel + extra + '.';
+    }
+
+    return {
+      systemPrompt: systemPrompt,
+      userPrompt: userPrompt,
+      assistantPrefix: assistantPrefix
+    };
+  }
+
+  function _cleanPlainFieldOutput(rawText, fieldKey) {
+    if (!rawText) return '';
+    var escapedKey = fieldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var labelOnlyRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|level|cefr|part\\s*of\\s*speech)\\s*:?$', 'i');
+    var labelPrefixRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|level|cefr|part\\s*of\\s*speech)\\s*:\\s*', 'i');
+
+    var lines = String(rawText).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) {
+      return l && !labelOnlyRe.test(l);
+    });
+    var val = lines[0] || '';
+    val = val.replace(labelPrefixRe, '');
+    val = val.replace(/^["'`]+|["'`]+$/g, '').trim();
+    if (fieldKey === 'ipa' && val) {
+      var ipaMatch = val.match(/\/([^\/\r\n]+)\//);
+      if (ipaMatch && ipaMatch[1]) {
+        val = '/' + ipaMatch[1].trim() + '/';
+      } else {
+        var innerIpa = val.replace(/^\[|\]$/g, '').replace(/^\/+|\/+$/g, '').trim();
+        val = innerIpa ? ('/' + innerIpa + '/') : '';
+      }
+    }
+    return val;
+  }
+
+  function _recoverRecordFieldsFromRaw(rawText, requestedFieldKeys) {
+    if (!rawText || typeof rawText !== 'string') return null;
+    // Fix unquoted IPA slashes like "ipa": /.../ -> "ipa": "/.../"
+    var fixed = rawText.replace(/:\s*(\/[^\/\r\n]+\/)(\s*[,}\r\n])/g, ': "$1"$2');
+    var firstBrace = fixed.indexOf('{');
+    var lastBrace = fixed.lastIndexOf('}');
+    if (firstBrace !== -1) {
+      var slice = lastBrace > firstBrace ? fixed.slice(firstBrace, lastBrace + 1) : (fixed.slice(firstBrace) + '}');
+      slice = slice.replace(/,\s*}/g, '}');
+      try {
+        var parsed = JSON.parse(slice);
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+    }
+
+    var recovered = {};
+    var foundAny = false;
+    requestedFieldKeys.forEach(function (k) {
+      var ek = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      var m = fixed.match(new RegExp('["\']?' + ek + '["\']?\\s*:\\s*(?:"([^"\\r\\n]+)"|\'([^\'\\r\\n]+)\'|([^,}\\r\\n]+))', 'i'));
+      if (m) {
+        var candidate = (m[1] || m[2] || m[3] || '').trim();
+        if (candidate) {
+          recovered[k] = candidate;
+          foundAny = true;
+        }
+      }
+    });
+    return foundAny ? recovered : null;
   }
 
   /**
@@ -781,6 +898,48 @@
       throw new Error('AI Service is unavailable.');
     }
     options = options || {};
+    schema = schema || [];
+
+    // Single-field scalar fast path: avoids JSON-formatting failures and prompt echoes on small SLMs
+    if (requestedFieldKeys && requestedFieldKeys.length === 1 && typeof window.SlmService.generateText === 'function') {
+      var singleKey = requestedFieldKeys[0];
+      var singleDef = schema.find(function (f) { return f && f.key === singleKey; }) || { key: singleKey, type: 'string' };
+      if (singleDef.type !== 'array' && singleDef.type !== 'object') {
+        var plainPrompt = _buildSingleFieldPlainPrompt(rec, typeKey, singleKey, singleDef);
+        var plainRes = await window.SlmService.generateText({
+          systemPrompt: plainPrompt.systemPrompt,
+          userPrompt: plainPrompt.userPrompt,
+          assistantPrefix: plainPrompt.assistantPrefix || '',
+          temperature: 0.2,
+          doSample: false,
+          maxNewTokens: options.maxNewTokens || 96,
+          stopOnJsonComplete: false,
+          signal: options.signal || null,
+          promptDownloadIfMissing: options.promptDownloadIfMissing !== false
+        });
+        if (plainRes && plainRes.aborted) {
+          return { ok: false, aborted: true };
+        }
+        if (plainRes && plainRes.ok) {
+          var cleanedPlain = _cleanPlainFieldOutput(plainRes.text, singleKey);
+          var coercedPlain = _coerceFieldValue(cleanedPlain, singleKey, singleDef);
+          var outData = {};
+          if (coercedPlain !== undefined) {
+            outData[singleKey] = coercedPlain;
+          }
+          return {
+            ok: true,
+            data: outData,
+            rawText: plainRes.text
+          };
+        }
+        return {
+          ok: false,
+          aborted: false,
+          error: (plainRes && plainRes.error) || 'Could not generate AI response'
+        };
+      }
+    }
 
     var promptData = mdbBuildPrompt(rec, typeKey, requestedFieldKeys, schema);
     var scaledTokens = Math.min(1024, Math.max(128, (requestedFieldKeys ? requestedFieldKeys.length : 1) * 72));
@@ -799,7 +958,12 @@
     if (res && res.aborted) {
       return { ok: false, aborted: true };
     }
-    if (!res || !res.ok || !res.data) {
+
+    var data = (res && res.ok && res.data) ? res.data : null;
+    if (!data && res && res.rawText) {
+      data = _recoverRecordFieldsFromRaw(res.rawText, requestedFieldKeys);
+    }
+    if (!data) {
       return {
         ok: false,
         aborted: false,
@@ -807,7 +971,6 @@
       };
     }
 
-    var data = res.data;
     if (Array.isArray(data)) {
       data = data[0] || {};
     }
@@ -815,7 +978,7 @@
     var cleanedResult = {};
     requestedFieldKeys.forEach(function (k) {
       if (data[k] !== undefined && data[k] !== null && data[k] !== '') {
-        var fieldDef = (schema || []).find(function (f) { return f && f.key === k; });
+        var fieldDef = schema.find(function (f) { return f && f.key === k; });
         var coerced = _coerceFieldValue(data[k], k, fieldDef);
         if (coerced !== undefined) {
           cleanedResult[k] = coerced;

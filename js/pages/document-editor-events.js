@@ -230,6 +230,57 @@
       var handler = function (event) { deConfirmClassLink() };
       el.addEventListener('click', handler);
     })();
+    (function () {
+      var el = document.getElementById('btn-de-ai-studio');
+      if (!el) return;
+      el.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      el.addEventListener('click', function () {
+        if (typeof window.deAiOpenPopover === 'function') window.deAiOpenPopover();
+      });
+    })();
+    (function () {
+      var el = document.getElementById('tb-ai-studio');
+      if (!el) return;
+      el.addEventListener('mousedown', function (e) { e.preventDefault(); });
+      el.addEventListener('click', function () {
+        if (typeof window.deAiOpenPopover === 'function') window.deAiOpenPopover({}, el);
+      });
+    })();
+    (function () {
+      var el = document.getElementById('btn-de-dict-pill-ai');
+      if (!el) return;
+      var pendingSel = null;
+      el.addEventListener('pointerdown', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var sel = window.getSelection ? window.getSelection() : null;
+        var txt = sel ? String(sel.toString() || '').trim() : '';
+        var rect = null;
+        if (sel && sel.rangeCount > 0) {
+          try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (_) {}
+        }
+        pendingSel = txt ? { text: txt, source: 'preview', anchorRect: rect } : null;
+      });
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var ctx = pendingSel;
+        pendingSel = null;
+        if (!ctx) {
+          var sel = window.getSelection ? window.getSelection() : null;
+          var txt = sel ? String(sel.toString() || '').trim() : '';
+          var rect = null;
+          if (sel && sel.rangeCount > 0) {
+            try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (_) {}
+          }
+          ctx = { text: txt, source: 'preview', anchorRect: rect };
+        }
+        var pill = document.getElementById('de-dict-selection-pill');
+        if (pill) pill.style.display = 'none';
+        if (typeof window.deAiOpenPopover === 'function') {
+          window.deAiOpenPopover(ctx, el);
+        }
+      });
+    })();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindEvents);

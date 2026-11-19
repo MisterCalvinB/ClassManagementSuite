@@ -64,7 +64,8 @@
   function _resolveModelSpecOptions(modelId, modelMeta) {
     var meta = modelMeta || {};
     var isGemma3 = String(modelId || '').indexOf('slm-gemma3') === 0;
-    var dtype = meta.dtype || (isGemma3 ? 'q4' : 'q8');
+    var isQ4 = isGemma3 || modelId === 'slm-smollm2-1.7b';
+    var dtype = meta.dtype || (isQ4 ? 'q4' : 'q8');
     var modelFileName = meta.modelFileName || (modelId === 'slm-deep' ? 'decoder_model_merged' : 'model');
     var useExternalData = meta.useExternalData !== undefined ? Boolean(meta.useExternalData) : isGemma3;
     return {

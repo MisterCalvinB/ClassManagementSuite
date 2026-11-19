@@ -267,6 +267,7 @@
         <button class="nav-pop-item" id="btn-de-file-gen-handout" data-deev-7="1"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deGenHandoutFromLesson">Generate Student Handout…</span></button>
         <button class="nav-pop-item" id="btn-de-file-attach-ref" data-deev-8="1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAttachReferenceFile">Attach Reference PDF / File…</span></button>
         <button class="nav-pop-item" id="btn-de-lookup-dict" data-deev-9="1"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deLookupInDict">Look up in Quick Dictionary</span> <span class="nav-pop-hint">Ctrl+⇧D</span></button>
+        <button class="nav-pop-item" id="btn-de-ai-studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAiStudioMenu">AI Studio…</span> <span class="nav-pop-hint">Ctrl+⇧A</span></button>
         
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-mp-connect"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deMpConnect">Connect Class Roster…</span></button>
@@ -480,6 +481,8 @@
     <button class="tb-btn" id="tb-insert-pagebreak" data-i18n-help="deFormatPageBreak" data-hover-help="Page Break">✂ Page Break</button>
     <div class="tb-sep"></div>
     <button class="tb-btn" id="tb-insert-field" data-i18n-help="deFormatMergeField" data-hover-help="Insert Student Field"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> Field ▾</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="tb-ai-studio" data-i18n-help="deAiToolbarBtnTitle" data-hover-help="Open AI Studio (Ctrl+Shift+A)"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="boardAiStudioTitle">AI Studio</span></button>
   </div>
 
   <!-- ── Main split ────────────────────────────────────────── -->
@@ -647,6 +650,10 @@
         <button type="button" class="de-dict-pill-btn" id="btn-de-dict-pill-lookup">
           <img src="../assets/icons/dictionary.svg" alt="">
           <span data-i18n="dictLookupWord">Look up in Dictionary</span>
+        </button>
+        <button type="button" class="de-dict-pill-btn" id="btn-de-dict-pill-ai">
+          <img src="../assets/icons/sparkles.svg" alt="">
+          <span data-i18n="deAiPillBtn">AI Studio</span>
         </button>
       </div>
     </div>
@@ -1144,6 +1151,9 @@
   <script src="../js/shared/links-service.js"></script>
   <script src="../js/shared/tag-link-modal.js"></script>
   <script src="../js/shared/universal-importer.js"></script>
+  <script src="../js/shared/slm-service.js"></script>
+  <script src="../js/shared/slm-model-modal.js"></script>
+  <script src="../js/pages/document-editor-ai.js"></script>
   <script>
     'use strict';
 
@@ -1966,6 +1976,107 @@
       mdEditor.executeEdits('user-insert', [{ range: sel, text, forceMoveMarkers: true }]);
       mdEditor.focus();
     }
+
+    window.deAiEditorBridge = {
+      getSelectionContext: function () {
+        const winSel = window.getSelection ? window.getSelection() : null;
+        const winText = winSel ? String(winSel.toString() || '').trim() : '';
+        const monacoFocused = Boolean(mdEditor && typeof mdEditor.hasTextFocus === 'function' && mdEditor.hasTextFocus());
+
+        if (monacoFocused && currentViewMode !== 'wysiwyg') {
+          const sel = mdEditor.getSelection();
+          if (sel && !sel.isEmpty()) {
+            const txt = mdEditor.getModel().getValueInRange(sel).trim();
+            if (txt) {
+              return { text: txt, source: 'monaco', monacoRange: sel, wysiwygRange: null, anchorRect: null };
+            }
+          }
+        }
+
+        if (winText && winSel.rangeCount > 0) {
+          const pc = document.getElementById('preview-content');
+          const range = winSel.getRangeAt(0);
+          let rect = null;
+          try {
+            const r = range.getBoundingClientRect();
+            if (r && (r.width > 0 || r.height > 0)) rect = r;
+          } catch (_) {}
+          if (currentViewMode === 'wysiwyg' && currentDocType === 'html' && pc && pc.contains(winSel.anchorNode)) {
+            return {
+              text: winText,
+              source: 'wysiwyg',
+              monacoRange: null,
+              wysiwygRange: range.cloneRange(),
+              anchorRect: rect
+            };
+          }
+          return {
+            text: winText,
+            source: 'preview',
+            monacoRange: null,
+            wysiwygRange: null,
+            anchorRect: rect
+          };
+        }
+
+        if (mdEditor && currentViewMode !== 'wysiwyg') {
+          const sel = mdEditor.getSelection();
+          if (sel && !sel.isEmpty()) {
+            const txt = mdEditor.getModel().getValueInRange(sel).trim();
+            if (txt) {
+              return { text: txt, source: 'monaco', monacoRange: sel, wysiwygRange: null, anchorRect: null };
+            }
+          }
+        }
+
+        return { text: '', source: 'none', monacoRange: null, wysiwygRange: null, anchorRect: null };
+      },
+      insertAnswer: function (text, html) {
+        if (currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+          const pc = document.getElementById('preview-content');
+          if (pc) {
+            pc.focus();
+            try {
+              document.execCommand('insertHTML', false, html || text);
+            } catch (_) {
+              pc.appendChild(document.createTextNode(text));
+            }
+            if (typeof deSyncWysiwygToEditor === 'function') deSyncWysiwygToEditor();
+            return true;
+          }
+        }
+        if (mdEditor) {
+          insertTextAtCursor(text);
+          return true;
+        }
+        return false;
+      },
+      replaceSelection: function (text, html, captured) {
+        if (captured && captured.source === 'wysiwyg' && captured.wysiwygRange && currentViewMode === 'wysiwyg' && currentDocType === 'html') {
+          const pc = document.getElementById('preview-content');
+          const winSel = window.getSelection ? window.getSelection() : null;
+          if (pc && winSel) {
+            pc.focus();
+            winSel.removeAllRanges();
+            winSel.addRange(captured.wysiwygRange);
+            try {
+              document.execCommand('insertHTML', false, html || text);
+            } catch (_) {
+              captured.wysiwygRange.deleteContents();
+              captured.wysiwygRange.insertNode(document.createTextNode(text));
+            }
+            if (typeof deSyncWysiwygToEditor === 'function') deSyncWysiwygToEditor();
+            return true;
+          }
+        }
+        if (captured && captured.source === 'monaco' && captured.monacoRange && mdEditor) {
+          mdEditor.executeEdits('de-ai-replace', [{ range: captured.monacoRange, text: text, forceMoveMarkers: true }]);
+          mdEditor.focus();
+          return true;
+        }
+        return this.insertAnswer(text, html);
+      }
+    };
 
     window.deOpenUniversalImportModal = function () {
       if (typeof UniversalImporter === 'undefined') {
@@ -12862,9 +12973,14 @@
 
       // Global keyboard shortcuts
       document.addEventListener('keydown', function (e) {
+        const key = String(e.key || '').toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'a') {
+          e.preventDefault();
+          if (typeof window.deAiOpenPopover === 'function') window.deAiOpenPopover();
+          return;
+        }
         // Avoid running the same command twice when Monaco already handles it.
         if (mdEditor && typeof mdEditor.hasTextFocus === 'function' && mdEditor.hasTextFocus()) return;
-        const key = String(e.key || '').toLowerCase();
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 'l') { e.preventDefault(); openSyntaxHelpModal(); return; }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && key === 's') { e.preventDefault(); saveAll(); return; }
         if ((e.ctrlKey || e.metaKey) && key === 's') { e.preventDefault(); saveDoc(); }

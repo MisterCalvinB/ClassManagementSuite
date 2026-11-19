@@ -1298,6 +1298,24 @@ const SLM_MODEL_SPECS = {
     modelFileName: 'model',
     descriptionKey: 'slmQwen317bDesc'
   },
+  'slm-smollm2-1.7b': {
+    id: 'slm-smollm2-1.7b',
+    name: 'SmolLM2 — 1.7B Instruct (Quality)',
+    tier: 'deep',
+    isBundled: false,
+    speedRating: '2/3',
+    relativeSpeed: '~2.1×',
+    ramEstimate: '~1.7 GB',
+    diskSize: '~1.31 GB',
+    sizeBytes: 1411969607,
+    downloadSizeBytes: 1411969607,
+    huggingFaceRepo: 'HuggingFaceTB/SmolLM2-1.7B-Instruct',
+    onnxRemoteFile: 'onnx/model_q4.onnx',
+    onnxLocalFile: 'onnx/model_q4.onnx',
+    dtype: 'q4',
+    modelFileName: 'model',
+    descriptionKey: 'slmSmolLm217bDesc'
+  },
   'slm-deep': {
     id: 'slm-deep',
     name: 'Qwen 1.8B Deep Instruct (Quality)',
