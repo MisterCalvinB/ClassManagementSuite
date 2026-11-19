@@ -15251,12 +15251,10 @@ syncState();
             const _pill = document.getElementById('mode-minimized-pill');
             if (_pill) _pill.style.display = 'none';
 
-            // Close fullscreen timer overlay so the mode overlay is visible on top
-            isTimerFullscreenActive = false;
-            isTimerFullscreenMinimised = false;
-            const _tPill = document.getElementById('timer-minimized-pill');
-            if (_tPill) _tPill.style.display = 'none';
-            document.getElementById('timer-overlay').classList.remove('active');
+            // Close fullscreen timer overlay (main + presentation) when a mode is activated
+            if (isTimerFullscreenActive || document.getElementById('timer-overlay')?.classList.contains('active')) {
+                closeTimerFullscreen();
+            }
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
             const overlay = document.getElementById('mode-animation-overlay');
             const content = document.getElementById('mode-animation-content');
