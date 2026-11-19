@@ -974,6 +974,15 @@
     return getDesktopApi().closeWindow();
   }
 
+  async function consumeCloseIntent() {
+    if (!isElectron()) return null;
+    const api = getDesktopApi();
+    if (api && typeof api.consumeCloseIntent === 'function') {
+      return api.consumeCloseIntent();
+    }
+    return null;
+  }
+
   async function openTool(pageFile, opts) {
     let cleanPage = pageFile || '';
     const queryParams = {};
@@ -1374,6 +1383,7 @@
     setDisplayCaptureTarget,
     goToLauncher,
     closeWindow,
+    consumeCloseIntent,
     isElectron,
     isTimerWindowOpen,
     isToolOpen,

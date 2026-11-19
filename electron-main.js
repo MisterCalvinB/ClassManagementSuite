@@ -1226,6 +1226,12 @@ function setupWindowZoomShortcuts(win) {
 
 app.on('browser-window-created', (event, win) => {
   setupWindowZoomShortcuts(win);
+  if (win && !win._closeIntentTracked) {
+    win._closeIntentTracked = true;
+    win.on('close', () => {
+      win._lastCloseAttemptAt = Date.now();
+    });
+  }
 });
 
 function setupWindowExternalLinkHandling(win) {
@@ -3188,6 +3194,14 @@ ipcMain.handle('app:close-window', async (event) => {
     senderWin.close();
   }
   return { ok: true };
+});
+
+ipcMain.handle('app:consume-close-intent', async (event) => {
+  const senderWin = BrowserWindow.fromWebContents(event.sender);
+  if (!senderWin || senderWin.isDestroyed()) return false;
+  const ts = senderWin._lastCloseAttemptAt || 0;
+  senderWin._lastCloseAttemptAt = 0;
+  return ts > 0 && (Date.now() - ts) < 5000;
 });
 
 ipcMain.handle('app:open-tool', async (event, request = {}) => {

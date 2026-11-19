@@ -5639,27 +5639,55 @@
     }
 
     let _boardCloseGuardInitialized = false;
+    let _conLastReloadShortcutAt = 0;
     function initBoardCloseUnsavedGuard() {
       if (_boardCloseGuardInitialized) return;
       if (new URLSearchParams(location.search).get('mirror') === '1' || window._isPageWindow || new URLSearchParams(location.search).get('pageWindow') === '1') return;
       _boardCloseGuardInitialized = true;
 
+      window.addEventListener('keydown', function (ev) {
+        if (ev.key === 'F5' || ((ev.ctrlKey || ev.metaKey) && String(ev.key || '').toLowerCase() === 'r')) {
+          _conLastReloadShortcutAt = Date.now();
+        }
+      }, true);
+
       window.addEventListener('beforeunload', function (e) {
         const isDirty = (typeof window._boardIsDirty !== 'undefined' ? window._boardIsDirty : _boardIsDirty);
         if (!isDirty || _conIsClosing) return;
 
-        // Prevent immediate close to display autosave confirmation prompt
+        // Prevent immediate close/reload to display autosave confirmation prompt
         e.preventDefault();
         e.returnValue = false;
 
         if (_conClosePromptActive) return;
         _conClosePromptActive = true;
 
+        const reloadShortcutRecent = (Date.now() - _conLastReloadShortcutAt) < 2000;
+        _conLastReloadShortcutAt = 0;
+
         (async function () {
           try {
+            let isClosingWindow = true;
+            if (window.Desktop && typeof Desktop.consumeCloseIntent === 'function') {
+              const intent = await Desktop.consumeCloseIntent();
+              if (intent !== null && intent !== undefined) {
+                isClosingWindow = !!intent;
+              } else if (reloadShortcutRecent) {
+                isClosingWindow = false;
+              }
+            } else if (window.electronApi && typeof window.electronApi.consumeCloseIntent === 'function') {
+              isClosingWindow = !!(await window.electronApi.consumeCloseIntent());
+            } else if (reloadShortcutRecent) {
+              isClosingWindow = false;
+            }
+
             const title = (typeof t === 'function' ? t('conAutosaveCloseTitle') : '') || 'Unsaved Changes';
-            const msg = (typeof t === 'function' ? t('conAutosaveOnClosePrompt') : '') || 'The board has unsaved changes. Would you like to save before closing?';
-            const yesText = (typeof t === 'function' ? (t('conCloseSaveBtn') || t('btnYes')) : '') || ' Save & Close';
+            const msg = isClosingWindow
+              ? ((typeof t === 'function' ? t('conAutosaveOnClosePrompt') : '') || 'The board has unsaved changes. Would you like to save before closing?')
+              : ((typeof t === 'function' ? t('conAutosaveOnReloadPrompt') : '') || 'The board has unsaved changes. Would you like to save before reloading?');
+            const yesText = isClosingWindow
+              ? ((typeof t === 'function' ? (t('conCloseSaveBtn') || t('btnYes')) : '') || ' Save & Close')
+              : ((typeof t === 'function' ? (t('conReloadSaveBtn') || t('btnYes')) : '') || ' Save & Reload');
             const noText = (typeof t === 'function' ? (t('conCloseDiscardBtn') || t('btnNo')) : '') || ' Discard';
             const cancelText = (typeof t === 'function' ? t('btnCancel') : '') || 'Cancel';
             const countdownMsg = (typeof t === 'function' ? t('conAutosaveCountdown') : '') || 'Saving automatically in {seconds}s...';
@@ -5679,7 +5707,7 @@
             }
 
             if (choice === 'cancel') {
-              // User cancelled close; keep window open and keep dirty state intact
+              // User cancelled close/reload; keep window open and keep dirty state intact
               _conClosePromptActive = false;
               return;
             }
@@ -5688,11 +5716,13 @@
               await conPerformAutosaveOnClose();
             }
 
-            // User chose Save (true) or Discard (false): proceed with closing
+            // User chose Save (true) or Discard (false): proceed with closing or reloading
             boardSetDirty(false);
             _conIsClosing = true;
             _conClosePromptActive = false;
-            if (window.Desktop && typeof Desktop.closeWindow === 'function') {
+            if (!isClosingWindow) {
+              window.location.reload();
+            } else if (window.Desktop && typeof Desktop.closeWindow === 'function') {
               Desktop.closeWindow();
             } else if (window.electronApi && typeof window.electronApi.closeWindow === 'function') {
               window.electronApi.closeWindow();
@@ -5700,7 +5730,7 @@
               window.close();
             }
           } catch (err) {
-            console.warn('Error during close confirmation / autosave:', err);
+            console.warn('Error during close/reload confirmation / autosave:', err);
             _conClosePromptActive = false;
           }
         })();

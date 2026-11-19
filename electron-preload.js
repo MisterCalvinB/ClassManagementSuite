@@ -284,6 +284,9 @@ const exposedApi = {
   closeWindow() {
     return invoke('app:close-window');
   },
+  consumeCloseIntent() {
+    return invoke('app:consume-close-intent');
+  },
   loadPage(request) {
     return invoke('app:load-page', request);
   },
