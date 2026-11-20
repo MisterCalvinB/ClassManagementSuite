@@ -304,13 +304,13 @@ test('Data integrity: Planner <-> Grade Sheet test slot synchronization round-tr
     return ctx.window.GRADE_TEST_DATA || ctx.window.GRADE_CLASS || null;
   };
 
-  // Extract syncTestToGradeSheet and removeTestFromGradeSheet from pages/planner.html
-  const plannerHtml = fs.readFileSync(path.join(ROOT, 'pages', 'planner.html'), 'utf8');
-  const syncStart = plannerHtml.indexOf('async function syncTestToGradeSheet(');
-  const removeEnd = plannerHtml.indexOf('    async function validateGradeSheetLinks(');
-  assert.ok(syncStart > 0 && removeEnd > syncStart, 'Must locate syncTestToGradeSheet/removeTestFromGradeSheet in planner.html');
+  // Extract syncTestToGradeSheet and removeTestFromGradeSheet from js/pages/planner.js
+  const plannerJs = fs.readFileSync(path.join(ROOT, 'js', 'pages', 'planner.js'), 'utf8');
+  const syncStart = plannerJs.indexOf('async function syncTestToGradeSheet(');
+  const removeEnd = plannerJs.indexOf('    async function validateGradeSheetLinks(');
+  assert.ok(syncStart > 0 && removeEnd > syncStart, 'Must locate syncTestToGradeSheet/removeTestFromGradeSheet in js/pages/planner.js');
 
-  const fnSlice = plannerHtml.slice(syncStart, removeEnd);
+  const fnSlice = plannerJs.slice(syncStart, removeEnd);
   const entries = [
     { id: 'pl-1', classId: 'ge-11111111', date: '2026-10-15', topic: 'Unit 2 Quiz', objective: 'Past tense', type: 'test' }
   ];

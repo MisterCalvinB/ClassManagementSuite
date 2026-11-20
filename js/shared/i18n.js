@@ -54,8 +54,46 @@
     } catch (e) { return 'fr'; }
   };
 
+  var ALL_NAMESPACES = [
+    'core', 'tutorials', 'board', 'class-plan', 'document-editor', 'file-manager',
+    'general-config', 'grade-sheet', 'group-editor', 'how-to', 'lesson-creator',
+    'manage-database', 'oral-marking', 'participation-tracker', 'planner',
+    'schedule-maker', 'test-creator'
+  ];
+
+  var PAGE_NAMESPACES = {
+    'board': ['board'],
+    'class-plan': ['class-plan'],
+    'document-editor': ['document-editor'],
+    'file-manager': ['file-manager'],
+    'general-config': ['general-config'],
+    'grade-sheet': ['grade-sheet'],
+    'group-editor': ['group-editor'],
+    'how-to': ['how-to'],
+    'lesson-creator': ['lesson-creator'],
+    'manage-database': ['manage-database'],
+    'oral-marking': ['oral-marking'],
+    'participation-tracker': ['participation-tracker'],
+    'planner': ['planner', 'grade-sheet'],
+    'schedule-maker': ['schedule-maker'],
+    'test-creator': ['test-creator']
+  };
+
+  function _getNamespacesForPage() {
+    var pk = _pageKey();
+    var extra = PAGE_NAMESPACES[pk] || [];
+    var list = ['core', 'tutorials'];
+    for (var i = 0; i < extra.length; i++) {
+      if (list.indexOf(extra[i]) === -1) list.push(extra[i]);
+    }
+    return list;
+  }
+
+  var _loadedNs = {};
+  var _allNsRequested = {};
+
   // Load dictionaries synchronously in Node, or via synchronous document.write during initial HTML parse.
-  // In browser mode, only load the active language synchronously (avoid parsing ~600 KB en.js twice when lang !== 'en').
+  // In browser mode, only load the active language's core + page-specific namespaces synchronously.
   var _enFallbackRequested = false;
   if (typeof require === 'function' && typeof module === 'object' && module.exports) {
     SUPPORTED_LANGS.forEach(function (l) {
@@ -63,26 +101,54 @@
     });
   } else if (typeof document !== 'undefined' && document.readyState === 'loading') {
     var _initialLang = _getLang();
-    if (_initialLang && SUPPORTED_LANGS.indexOf(_initialLang) !== -1) {
-      if (!STRINGS[_initialLang]) {
-        document.write('<script src="' + _baseJsDir + 'i18n/' + _initialLang + '.js"><\/script>');
+    var _targetLang = (_initialLang && SUPPORTED_LANGS.indexOf(_initialLang) !== -1) ? _initialLang : 'en';
+    var _nsList = _getNamespacesForPage();
+    _loadedNs[_targetLang] = _loadedNs[_targetLang] || {};
+    for (var _ni = 0; _ni < _nsList.length; _ni++) {
+      var _ns = _nsList[_ni];
+      _loadedNs[_targetLang][_ns] = true;
+      document.write('<script src="' + _baseJsDir + 'i18n/' + _targetLang + '/' + _ns + '.js"><\/script>');
+    }
+  }
+
+  function _loadNamespaceScripts(lang, nsList, cb) {
+    if (!lang || SUPPORTED_LANGS.indexOf(lang) === -1 || typeof document === 'undefined') {
+      if (cb) cb();
+      return;
+    }
+    _loadedNs[lang] = _loadedNs[lang] || {};
+    var pending = [];
+    for (var i = 0; i < nsList.length; i++) {
+      if (!_loadedNs[lang][nsList[i]]) {
+        _loadedNs[lang][nsList[i]] = true;
+        pending.push(nsList[i]);
       }
-    } else if (!STRINGS.en) {
-      document.write('<script src="' + _baseJsDir + 'i18n/en.js"><\/script>');
+    }
+    if (!pending.length) {
+      if (cb) cb();
+      return;
+    }
+    var remaining = pending.length;
+    function done() {
+      remaining--;
+      if (remaining <= 0 && cb) cb();
+    }
+    for (var j = 0; j < pending.length; j++) {
+      var s = document.createElement('script');
+      s.src = _baseJsDir + 'i18n/' + lang + '/' + pending[j] + '.js';
+      s.onload = done;
+      s.onerror = done;
+      document.head.appendChild(s);
     }
   }
 
   function _ensureLangLoaded(lang, cb) {
-    if (!lang || SUPPORTED_LANGS.indexOf(lang) === -1 || STRINGS[lang]) {
+    if (!lang || SUPPORTED_LANGS.indexOf(lang) === -1) {
       if (cb) cb();
       return;
     }
-    if (typeof document === 'undefined') return;
-    var s = document.createElement('script');
-    s.src = _baseJsDir + 'i18n/' + lang + '.js';
-    s.onload = function () { if (cb) cb(); };
-    s.onerror = function () { if (cb) cb(); };
-    document.head.appendChild(s);
+    var nsList = _allNsRequested[lang] ? ALL_NAMESPACES : _getNamespacesForPage();
+    _loadNamespaceScripts(lang, nsList, cb);
   }
 
   var _getLocale = function () {
@@ -107,6 +173,10 @@
       : _getLang();
     var map = STRINGS[lang] || STRINGS.en;
     if (map && map[key] !== undefined) return map[key];
+    if (typeof document !== 'undefined' && SUPPORTED_LANGS.indexOf(lang) !== -1 && !_allNsRequested[lang]) {
+      _allNsRequested[lang] = true;
+      _loadNamespaceScripts(lang, ALL_NAMESPACES, _applyTranslations);
+    }
     if (STRINGS.en && STRINGS.en[key] !== undefined) return STRINGS.en[key];
     if (!STRINGS.en && !_enFallbackRequested && typeof document !== 'undefined') {
       _enFallbackRequested = true;

@@ -337,6 +337,7 @@ function registerFileOpsIpc(ctx) {
     const gradesDir = targets.grades;
 
     // 1. Read class-groups.js
+    if (!userDir) return { ok: true, migrated: false, reason: 'no-user-dir' };
     const cgPath = path.join(userDir, 'class-groups.js');
     if (!fsSync.existsSync(cgPath)) return { ok: true, migrated: false, reason: 'no-file' };
 
@@ -437,7 +438,7 @@ function registerFileOpsIpc(ctx) {
     }
 
     // 7. Migrate class-plan data (classPlans/plans.js group keys)
-    if (fsSync.existsSync(classPlansDir)) {
+    if (classPlansDir && fsSync.existsSync(classPlansDir)) {
       const classPlansFile = path.join(classPlansDir, 'plans.js');
       if (fsSync.existsSync(classPlansFile)) {
         try {
@@ -461,7 +462,7 @@ function registerFileOpsIpc(ctx) {
     }
 
     // 8. Migrate participation session files (update groups keys + rename folders)
-    if (fsSync.existsSync(gpDir)) {
+    if (gpDir && fsSync.existsSync(gpDir)) {
       const safeToUuid = {};
       for (const [name, uuid] of Object.entries(nameToUuid))
         safeToUuid[sanitizeGroupName(name)] = uuid;
@@ -524,7 +525,7 @@ function registerFileOpsIpc(ctx) {
     }
 
     // 9. Add groupId to grade _class.js files
-    if (fsSync.existsSync(gradesDir)) {
+    if (gradesDir && fsSync.existsSync(gradesDir)) {
       async function migrateGradeDir(dir) {
         let entries = [];
         try { entries = await fs.readdir(dir, { withFileTypes: true }); } catch { return; }
