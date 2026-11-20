@@ -457,7 +457,7 @@
                     triggerStudentPickBlink(data.studentId);
                     return;
                 }
-                if (data.kind === 'mode-activate') { activateMode(data.mode); return; }
+                if (data.kind === 'mode-activate') { activateMode(data.mode, data.modeData || null); return; }
                 if (data.kind === 'mode-close') { closeMode(); return; }
                 if (data.kind === 'datetime-open') { openTimerFullscreen('clock'); return; }
                 if (data.kind === 'datetime-close') { closeTimerFullscreen(); return; }

@@ -91,22 +91,22 @@
     var icon = String(raw.icon || raw.emoji || '🎭').trim();
     var shortcutKey = String(raw.shortcutKey || (index != null && index < 9 ? String(index + 1) : '')).trim();
 
-    // Nested or flat text
+    // Nested or flat text (prefer nested object when present so stale flat fields cannot overwrite it)
     var textObj = (raw.text && typeof raw.text === 'object') ? raw.text : {};
-    var title = String(raw.title != null ? raw.title : (textObj.title != null ? textObj.title : name)).trim();
-    var subtitle = String(raw.subtitle != null ? raw.subtitle : (textObj.subtitle != null ? textObj.subtitle : '')).trim();
-    var textColor = String(raw.textColor || textObj.color || '#222222').trim();
-    var textSize = String(raw.textSize || textObj.size || 'large').trim().toLowerCase();
-    if (['normal', 'large', 'xlarge'].indexOf(textSize) === -1) textSize = 'large';
+    var title = String(textObj.title != null ? textObj.title : (raw.title != null ? raw.title : name)).trim();
+    var subtitle = String(textObj.subtitle != null ? textObj.subtitle : (raw.subtitle != null ? raw.subtitle : '')).trim();
+    var textColor = String(textObj.color || raw.textColor || '#222222').trim();
+    var textSize = String(textObj.size || raw.textSize || 'large').trim().toLowerCase();
+    if (['normal', 'medium', 'large', 'xlarge'].indexOf(textSize) === -1) textSize = 'large';
 
-    // Nested or flat picture
+    // Nested or flat picture (prefer nested object when present)
     var picObj = (raw.picture && typeof raw.picture === 'object') ? raw.picture : {};
-    var pictureType = String(raw.pictureType || picObj.type || 'emoji').trim().toLowerCase();
+    var pictureType = String(picObj.type || raw.pictureType || 'emoji').trim().toLowerCase();
     var validPicTypes = ['emoji', 'speech_bubbles', 'group_icons', 'custom_url', 'custom_file'];
     if (validPicTypes.indexOf(pictureType) === -1) pictureType = 'emoji';
 
-    var pictureSrc = String(raw.pictureSrc != null ? raw.pictureSrc : (picObj.src != null ? picObj.src : icon)).trim();
-    var pictureAnim = String(raw.pictureAnim || picObj.animation || 'none').trim().toLowerCase();
+    var pictureSrc = String(picObj.src != null ? picObj.src : (raw.pictureSrc != null ? raw.pictureSrc : icon)).trim();
+    var pictureAnim = String(picObj.animation || raw.pictureAnim || 'none').trim().toLowerCase();
     var validAnims = [
       'none', 'pulse', 'float', 'bounce', 'rotate', 'shush', 'bubbles',
       'gradient-shift', 'shimmer-dots', 'aurora-waves', 'floating-shapes',
@@ -115,19 +115,19 @@
     ];
     if (validAnims.indexOf(pictureAnim) === -1) pictureAnim = 'none';
 
-    var pictureFit = String(raw.pictureFit || picObj.fit || 'fit').trim().toLowerCase();
-    if (['fit', 'cover', 'contain'].indexOf(pictureFit) === -1) pictureFit = 'fit';
+    var pictureFit = String(picObj.fit || raw.pictureFit || 'fit').trim().toLowerCase();
+    if (['fit', 'stretch', 'clip', 'cover', 'contain'].indexOf(pictureFit) === -1) pictureFit = 'fit';
 
-    // Nested or flat sound
+    // Nested or flat sound (prefer nested object when present)
     var soundObj = (raw.sound && typeof raw.sound === 'object') ? raw.sound : {};
-    var soundType = String(raw.soundType || soundObj.type || 'none').trim().toLowerCase();
+    var soundType = String(soundObj.type || raw.soundType || 'none').trim().toLowerCase();
     var validSoundTypes = ['none', 'white', 'pink', 'brown', 'file', 'whitenoise', 'binaural', 'custom_audio'];
     if (validSoundTypes.indexOf(soundType) === -1) soundType = 'none';
 
-    var soundFile = String(raw.soundFile != null ? raw.soundFile : (soundObj.file != null ? soundObj.file : '')).trim();
-    var rawVol = raw.soundVol != null ? raw.soundVol : soundObj.volume;
+    var soundFile = String(soundObj.file != null ? soundObj.file : (raw.soundFile != null ? raw.soundFile : '')).trim();
+    var rawVol = soundObj.volume != null ? soundObj.volume : raw.soundVol;
     var soundVol = Number.isFinite(Number(rawVol)) ? Math.max(0, Math.min(100, Math.round(Number(rawVol)))) : 20;
-    var soundChime = !!(raw.soundChime != null ? raw.soundChime : soundObj.chime);
+    var soundChime = !!(soundObj.chime != null ? soundObj.chime : raw.soundChime);
 
     var isBuiltIn = !!(raw.isBuiltIn === true);
 

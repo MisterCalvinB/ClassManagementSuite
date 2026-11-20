@@ -1655,7 +1655,7 @@
                 }
 
                 if (!PRESENTATION_MODE && presSettings.modes) {
-                    _broadcastAnimation('mode-activate', { mode: mode.id });
+                    _broadcastAnimation('mode-activate', { mode: mode.id, modeData: mode });
                 }
             }
         }
@@ -1896,7 +1896,7 @@
             overlay.insertBefore(bg, overlay.firstChild);
         }
 
-        function activateMode(modeId) {
+        function activateMode(modeId, modeOverride = null) {
             closeModePicker();
             clearModeAnimationTimers();
             activeWorkingModeId = modeId;
@@ -1912,7 +1912,9 @@
             const overlay = document.getElementById('mode-animation-overlay');
             const content = document.getElementById('mode-animation-content');
 
-            const mode = classModes.find(m => m.id === modeId || m.name.toLowerCase() === modeId.toLowerCase());
+            const mode = (modeOverride && typeof modeOverride === 'object')
+                ? modeOverride
+                : classModes.find(m => m.id === modeId || m.name.toLowerCase() === modeId.toLowerCase());
 
             if (mode) {
                 applyModeOverlayAnimation(overlay, mode);
@@ -1971,7 +1973,7 @@
             if (typeof renderTimerModeShortcuts === 'function') renderTimerModeShortcuts();
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();
 
-            if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode: modeId });
+            if (!PRESENTATION_MODE && presSettings.modes) _broadcastAnimation('mode-activate', { mode: modeId, modeData: mode || null });
         }
 
         function minimizeMode() {
@@ -2007,8 +2009,8 @@
                 const currentMode = classModes.find(m => m.id === activeWorkingModeId || m.name.toLowerCase() === activeWorkingModeId.toLowerCase());
                 if (currentMode) {
                     applyModeOverlayAnimation(overlay, currentMode);
-                    if (currentMode.id === 'quiet' || currentMode.picture?.animation === 'shush') spawnShushParticles();
-                    if (currentMode.id === 'conversation' || currentMode.picture?.animation === 'bubbles') animateSpeechBubbles();
+                    if (currentMode.picture?.animation === 'shush') spawnShushParticles();
+                    if (currentMode.picture?.animation === 'bubbles' || (currentMode.id === 'conversation' && currentMode.picture?.type === 'speech_bubbles')) animateSpeechBubbles();
                 }
             }
             if (typeof updateUnifiedControlDock === 'function') updateUnifiedControlDock();

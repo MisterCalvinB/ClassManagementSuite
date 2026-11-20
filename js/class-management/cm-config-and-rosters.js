@@ -594,6 +594,18 @@
                         copy.pictureSrc = copy.picture.src;
                     }
                     // Heal legacy/out-of-sync entries where saveModeFromEditor updated nested sound/text/picture without flat fields
+                    if (copy.text && typeof copy.text === 'object') {
+                        if (copy.text.title !== undefined) copy.title = copy.text.title;
+                        if (copy.text.subtitle !== undefined) copy.subtitle = copy.text.subtitle;
+                        if (copy.text.color !== undefined) copy.textColor = copy.text.color;
+                        if (copy.text.size !== undefined) copy.textSize = copy.text.size;
+                    }
+                    if (copy.picture && typeof copy.picture === 'object') {
+                        if (copy.picture.type !== undefined) copy.pictureType = copy.picture.type;
+                        if (copy.picture.src !== undefined) copy.pictureSrc = copy.picture.src;
+                        if (copy.picture.animation !== undefined) copy.pictureAnim = copy.picture.animation;
+                        if (copy.picture.fit !== undefined) copy.pictureFit = copy.picture.fit;
+                    }
                     if (copy.sound && typeof copy.sound === 'object') {
                         if (copy.sound.type && copy.sound.type !== 'none' && (!copy.soundType || copy.soundType === 'none')) {
                             copy.soundType = copy.sound.type;

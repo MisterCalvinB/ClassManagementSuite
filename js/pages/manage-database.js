@@ -1427,7 +1427,7 @@
         addStr('shortcutKey');
         addStr('title');
         addStr('subtitle');
-        addStr('textSize', { useSelect: true, uniqueVals: ['normal', 'large', 'xlarge'] });
+        addStr('textSize', { useSelect: true, uniqueVals: ['normal', 'medium', 'large', 'xlarge'] });
         addStr('textColor');
         addStr('pictureType', { useSelect: true, uniqueVals: ['emoji', 'speech_bubbles', 'group_icons', 'custom_url', 'custom_file'] });
         addStr('pictureSrc');
@@ -1437,7 +1437,7 @@
           'breathing-halo', 'ripple-rings', 'starfield-twinkle', 'lava-blobs',
           'confetti-drift', 'horizon-glow'
         ] });
-        addStr('pictureFit', { useSelect: true, uniqueVals: ['fit', 'cover', 'contain'] });
+        addStr('pictureFit', { useSelect: true, uniqueVals: ['fit', 'stretch', 'clip', 'cover', 'contain'] });
         addStr('soundType', { useSelect: true, uniqueVals: ['none', 'white', 'pink', 'brown', 'file', 'whitenoise', 'binaural', 'custom_audio'] });
         addStr('soundFile');
         addNum('soundVol');
@@ -3652,6 +3652,8 @@
         const curFit = String(val || 'fit').toLowerCase();
         const fitOpts = [
           { val: 'fit', lbl: 'Fit' },
+          { val: 'stretch', lbl: 'Stretch' },
+          { val: 'clip', lbl: 'Clip / Cover' },
           { val: 'cover', lbl: 'Cover' },
           { val: 'contain', lbl: 'Contain' }
         ];
@@ -3671,6 +3673,7 @@
         const curSize = String(val || 'large').toLowerCase();
         const sizeOpts = [
           { val: 'normal', lbl: 'Normal' },
+          { val: 'medium', lbl: 'Medium' },
           { val: 'large', lbl: 'Large' },
           { val: 'xlarge', lbl: 'Extra Large' }
         ];
