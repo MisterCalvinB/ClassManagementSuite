@@ -2547,9 +2547,9 @@
                 if (res && res.ok) {
                   const savedName = res.name || defaultFilename;
                   if (typeof showToast === 'function') {
-                    showToast(i18n.t('conExportWebpSaved', { name: savedName }));
+                    showToast(i18n.tFmt('conExportWebpSaved', { name: savedName }));
                   } else {
-                    mdbToast(' ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                    mdbToast(' ' + i18n.tFmt('conExportWebpSaved', { name: savedName }));
                   }
                   if (window.showExportSuccessPopup && res.path) {
                     showExportSuccessPopup(res.path, savedName);
@@ -2650,9 +2650,9 @@
               if (res && res.ok) {
                 const savedName = res.name || single.name;
                 if (typeof showToast === 'function') {
-                  showToast(i18n.t('conExportWebpSaved', { name: savedName }));
+                  showToast(i18n.tFmt('conExportWebpSaved', { name: savedName }));
                 } else {
-                  mdbToast(' ' + i18n.t('conExportWebpSaved', { name: savedName }));
+                  mdbToast(' ' + i18n.tFmt('conExportWebpSaved', { name: savedName }));
                 }
                 if (window.showExportSuccessPopup && res.path) {
                   showExportSuccessPopup(res.path, savedName);

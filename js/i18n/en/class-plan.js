@@ -134,5 +134,8 @@
   "cpDetailsCount": "{n} details",
   "cpColDetailedDescription": "Detailed Description",
   "cpClassStats": "Class Overview",
-  "cpStudentsCount": "students"
+  "cpStudentsCount": "students",
+  "cpNoClassOption": "— No class assigned (Browse all) —",
+  "cpNoClassLabel": "No Class",
+  "cpNoClassHistoryMsg": "No class assigned. Select a class above to view recorded touchpoints and assessments."
 });

@@ -569,6 +569,9 @@ async function updateDeDocLinksBadge() {
       if (typeof mpInit === 'function' && !mpState.loaded) {
         await mpInit();
       }
+      if (window.mpState && !mpState.connectedClassId && typeof mpConnectClass === 'function') {
+        mpConnectClass(_deLinkedClassId);
+      }
       let cName = deResolveClassName(_deLinkedClassId, classLink.meta && classLink.meta.className);
       _deLinkedClassName = cName;
       if (classBtn) {

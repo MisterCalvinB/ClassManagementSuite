@@ -444,12 +444,15 @@
       const select = document.getElementById('cp-class-select');
       select.innerHTML = '';
 
+      const noClassOpt = document.createElement('option');
+      noClassOpt.value = '';
+      noClassOpt.textContent = typeof t === 'function' ? t('cpNoClassOption', '— No class assigned (Browse all) —') : '— No class assigned (Browse all) —';
+      select.appendChild(noClassOpt);
+
       const allKeys = Object.keys(_allGroups).filter(k => k !== '_meta' && !k.startsWith('_'));
       if (!allKeys.length) {
-        const opt = document.createElement('option');
-        opt.value = '';
-        opt.textContent = 'No classes found in class-groups.js';
-        select.appendChild(opt);
+        _activeClassId = '';
+        select.value = '';
         return;
       }
 
@@ -470,7 +473,7 @@
       });
 
       // Match preferredClassId by key or by display name
-      let selectedId = null;
+      let selectedId = '';
       if (preferredClassId) {
         if (classIds.includes(preferredClassId)) {
           selectedId = preferredClassId;
@@ -483,7 +486,7 @@
         }
       }
 
-      _activeClassId = selectedId || classIds[0];
+      _activeClassId = selectedId;
       select.value = _activeClassId;
     }
 
@@ -666,21 +669,32 @@
         const matchYFn = CompetenceAggregatorService.matchYearLevel || ((a, b) => String(a).toLowerCase() === String(b).toLowerCase());
         const matchYear = _availableYears.find(y => matchYFn(meta.level, y));
         if (matchYear) { cpClearMultiSelect('cp-filter-year'); cpSetMultiSelectValue('cp-filter-year', matchYear); }
+        const tLvl = String(meta.level).toLowerCase().trim();
+        const matchLevel = _availableLevels.find(l => {
+          const lv = String(l).toLowerCase().trim();
+          return lv === tLvl || (tLvl.length >= 2 && (lv.includes(tLvl) || tLvl.includes(lv)));
+        });
+        if (matchLevel) { cpClearMultiSelect('cp-filter-level'); cpSetMultiSelectValue('cp-filter-level', matchLevel); }
       }
     }
 
     // ── On Class Change ────────────────────────────────────────────────
     async function cpOnClassChange(newClassId) {
-      if (!newClassId) return;
-      _activeClassId = newClassId;
+      _activeClassId = newClassId || '';
 
       // Update URL without reload
       const newUrl = new URL(window.location);
-      newUrl.searchParams.set('classId', _activeClassId);
-      window.history.replaceState({}, '', newUrl);
-
-      // Auto-prefilter subject and year based on class metadata
-      await cpApplyClassPrefilters(_activeClassId);
+      if (_activeClassId) {
+        newUrl.searchParams.set('classId', _activeClassId);
+        window.history.replaceState({}, '', newUrl);
+        // Auto-prefilter subject and year based on class metadata
+        await cpApplyClassPrefilters(_activeClassId);
+      } else {
+        newUrl.searchParams.delete('classId');
+        window.history.replaceState({}, '', newUrl);
+        cpClearMultiSelect('cp-filter-subject');
+        cpClearMultiSelect('cp-filter-year');
+      }
 
       await cpRefreshPortfolio();
     }
@@ -763,9 +777,7 @@
 
     // ── Refresh & Re-aggregate ─────────────────────────────────────────
     async function cpRefreshPortfolio() {
-      if (!_activeClassId) return;
-
-      const meta = await CompetenceAggregatorService.getGroupMetadata(_activeClassId);
+      const meta = _activeClassId ? await CompetenceAggregatorService.getGroupMetadata(_activeClassId) : null;
       cpRenderClassBadge(meta);
 
       const subjVals   = cpGetMultiFilterValues('cp-filter-subject');
@@ -775,7 +787,7 @@
 
       // Pass first value (or 'all') to aggregator service for top-level prefilter
       // Full multi-filter is applied client-side in cpApplyFilters()
-      _activePortfolio = await CompetenceAggregatorService.compileGroupCompetencePortfolio(_activeClassId, {
+      _activePortfolio = await CompetenceAggregatorService.compileGroupCompetencePortfolio(_activeClassId || '', {
         subject:   subjVals.length   === 1 ? subjVals[0]   : (subjVals.length   > 1 ? 'all' : 'all'),
         yearLevel: yearVals.length   === 1 ? yearVals[0]   : (yearVals.length   > 1 ? 'all' : 'all'),
         level:     levelVals.length  === 1 ? levelVals[0]  : (levelVals.length  > 1 ? 'all' : 'all'),
@@ -1309,7 +1321,10 @@
       histList.innerHTML = '';
 
       if (!item.history || !item.history.length) {
-        histList.innerHTML = '<div style="color:#888;font-size:0.85rem;padding:12px 0;">No recorded touchpoints for this competence yet in this class.</div>';
+        const emptyHistMsg = !_activeClassId
+          ? (typeof t === 'function' ? t('cpNoClassHistoryMsg', 'No class assigned. Select a class above to view recorded touchpoints and assessments.') : 'No class assigned. Select a class above to view recorded touchpoints and assessments.')
+          : 'No recorded touchpoints for this competence yet in this class.';
+        histList.innerHTML = `<div style="color:#888;font-size:0.85rem;padding:12px 0;">${cpEscapeHtml(emptyHistMsg)}</div>`;
       } else {
         item.history.forEach(h => {
           const row = document.createElement('div');
@@ -1433,6 +1448,7 @@
         ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description', 'Detailed Description']
       ];
 
+      const classLabel = _activePortfolio.className || (typeof t === 'function' ? t('cpNoClassLabel', 'No Class') : 'No Class');
       Object.keys(_activePortfolio.categories).forEach(cat => {
         _activePortfolio.categories[cat].forEach(item => {
           const c = item.competence;
@@ -1440,7 +1456,7 @@
             ? CompetenceAggregatorService.getDetailedLines(c)
             : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
           rows.push([
-            _activePortfolio.className,
+            classLabel,
             c.code,
             c.title,
             c.category || '',
@@ -1464,7 +1480,8 @@
 
       const csvContent = rows.map(r => r.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const filename = `Competence_Portfolio_${_activePortfolio.className.replace(/[^a-zA-Z0-9_-]/g, '_')}.csv`;
+      const fileSlug = (_activePortfolio.className || 'All_Competences').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `Competence_Portfolio_${fileSlug}.csv`;
 
       if (window.Desktop && typeof Desktop.saveFile === 'function') {
         Desktop.saveFile('toPrint', filename, csvContent).then((saveRes) => {

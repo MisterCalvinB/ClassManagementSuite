@@ -1264,7 +1264,7 @@
         if (conPageSnapshots && conPageSnapshots.length > 1) {
           const pBadge = document.createElement('span');
           pBadge.className = 'con-search-page-badge';
-          pBadge.textContent = (typeof t === 'function' ? t('conSearchItemPage', { page: item.pageNum }) : `Page ${item.pageNum}`);
+          pBadge.textContent = (typeof tFmt === 'function' ? tFmt('conSearchItemPage', { page: item.pageNum }) : `Page ${item.pageNum}`);
           badges.appendChild(pBadge);
         }
 

@@ -24,7 +24,8 @@
       _allLessonCompetences.forEach(c => {
         if (c.subjectId) subjects.add(c.subjectId);
         else if (c.subject) subjects.add(c.subject);
-        if (c.year && c.year !== 'all') years.add(c.year);
+        const cy = c.yearLevel || c.year;
+        if (cy && cy !== 'all') years.add(cy);
         if (c.category && c.category !== 'all') categories.add(c.category);
         if (c.level && c.level !== 'all') levels.add(c.level);
       });
@@ -97,15 +98,15 @@
                 break;
               }
             }
-            // Pass 2: Token match
+            // Pass 2: Token match (handles "4", "4e", "4ème", "4th", "Grade 4")
             if (!matchedYear) {
-              const numMatch = targetLvl.match(/\b([1-6])\b/);
+              const numMatch = targetLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
               const targetNum = numMatch ? numMatch[1] : null;
               for (let i = 0; i < yrSel.options.length; i++) {
                 const val = (yrSel.options[i].value || '').toLowerCase().trim();
                 const txt = (yrSel.options[i].textContent || '').toLowerCase().trim();
                 if (val !== 'all' && val !== '') {
-                  if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(val) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(txt))) {
+                  if (targetNum && (new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(val) || new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(txt))) {
                     yrSel.selectedIndex = i;
                     _compPickerFilters.year = yrSel.value;
                     matchedYear = true;
@@ -181,7 +182,7 @@
           const cSubj = (c.subjectId || c.subject || '').toLowerCase();
           if (!cSubj.includes(fs.toLowerCase())) return false;
         }
-        if (fy !== 'all' && c.year !== fy) return false;
+        if (fy !== 'all' && (c.yearLevel || c.year) !== fy) return false;
         if (fc !== 'all' && c.category !== fc) return false;
         if (fl !== 'all' && c.level !== fl) return false;
         if (!q) return true;
@@ -189,7 +190,7 @@
                (c.title && c.title.toLowerCase().includes(q)) ||
                (c.description && c.description.toLowerCase().includes(q)) ||
                (c.level && c.level.toLowerCase().includes(q)) ||
-               (c.year && c.year.toLowerCase().includes(q)) ||
+               ((c.yearLevel || c.year) && String(c.yearLevel || c.year).toLowerCase().includes(q)) ||
                (c.category && c.category.toLowerCase().includes(q));
       });
     }

@@ -1089,6 +1089,58 @@
     } catch (_) {}
   }
 
+  function lcMatchSelectOptionByLevel(selEl, rawLvl) {
+    if (!selEl || !rawLvl) return false;
+    var tLvl = String(rawLvl).toLowerCase().trim();
+    if (!tLvl || tLvl === 'all') return false;
+    for (var k = 0; k < selEl.options.length; k++) {
+      var yv = (selEl.options[k].value || '').toLowerCase().trim();
+      var yt = (selEl.options[k].textContent || '').toLowerCase().trim();
+      if (yv !== 'all' && yv !== '' && (yv === tLvl || yt === tLvl)) {
+        selEl.selectedIndex = k;
+        return true;
+      }
+    }
+    var numMatch = tLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
+    var targetNum = numMatch ? numMatch[1] : null;
+    if (targetNum) {
+      var re = new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i');
+      for (var m = 0; m < selEl.options.length; m++) {
+        var mv = (selEl.options[m].value || '').toLowerCase().trim();
+        var mt = (selEl.options[m].textContent || '').toLowerCase().trim();
+        if (mv !== 'all' && mv !== '' && (re.test(mv) || re.test(mt))) {
+          selEl.selectedIndex = m;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function lcSyncDrawerFiltersFromPlan() {
+    var dSub = document.getElementById('drawerFilterSubject');
+    var dYr = document.getElementById('drawerFilterYear');
+    if (dSub && currentPlan && currentPlan.subjectId) {
+      var targetSub = String(currentPlan.subjectId).toLowerCase().trim();
+      var matchedSub = false;
+      for (var i = 0; i < dSub.options.length; i++) {
+        var dv = (dSub.options[i].value || '').toLowerCase().trim();
+        if (dv !== 'all' && dv !== '' && (dv === targetSub || targetSub.includes(dv) || dv.includes(targetSub))) {
+          dSub.selectedIndex = i;
+          matchedSub = true;
+          break;
+        }
+      }
+      if (!matchedSub) dSub.value = 'all';
+    }
+    if (dYr && currentPlan && currentPlan.yearLevel && currentPlan.yearLevel !== 'all') {
+      if (!lcMatchSelectOptionByLevel(dYr, currentPlan.yearLevel)) {
+        dYr.value = 'all';
+      }
+    }
+    if (typeof renderDrawer === 'function') renderDrawer();
+  }
+
   // ── Main Render Routines ──────────────────────────────────────────────
   function renderPlan() {
     document.getElementById('planTitle').value = currentPlan.title || '';
@@ -1145,6 +1197,50 @@
     renderTeamBadge();
     renderPhaseCards();
     updateDurationMeter();
+    lcSyncDrawerFiltersFromPlan();
+    if (!currentPlan.classId && currentPlan.id && typeof LinksService !== 'undefined' && typeof LinksService.getLinksFor === 'function') {
+      var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+      LinksService.getLinksFor(planUrn).then(function (links) {
+        var clsLink = (links || []).find(function (l) {
+          var p = LinksService.parseUrn(l.otherUrn);
+          return p && (p.type === 'class' || p.type === 'classes') && p.id;
+        });
+        if (clsLink && !currentPlan.classId) {
+          var p = LinksService.parseUrn(clsLink.otherUrn);
+          if (p && p.id) {
+            currentPlan.classId = p.id;
+            var clsSel = document.getElementById('planClass');
+            if (clsSel) {
+              if (!Array.from(clsSel.options).some(function (o) { return o.value === p.id; })) {
+                var optC2 = document.createElement('option');
+                optC2.value = p.id;
+                optC2.textContent = getClassLabel(p.id);
+                clsSel.appendChild(optC2);
+              }
+              clsSel.value = p.id;
+            }
+            if (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getGroupMetadata === 'function') {
+              CompetenceAggregatorService.getGroupMetadata(p.id).then(function (meta) {
+                if (!meta) return;
+                if (meta.subject && !currentPlan.subjectId) {
+                  lcAddSubjectOption(meta.subject.trim(), true);
+                  currentPlan.subjectId = meta.subject.trim();
+                  var sEl = document.getElementById('planSubject');
+                  if (sEl) sEl.value = currentPlan.subjectId;
+                }
+                if (meta.level && (!currentPlan.yearLevel || currentPlan.yearLevel === 'all')) {
+                  var yEl = document.getElementById('planYearLevel');
+                  if (yEl && lcMatchSelectOptionByLevel(yEl, meta.level)) {
+                    currentPlan.yearLevel = yEl.value;
+                  }
+                }
+                lcSyncDrawerFiltersFromPlan();
+              }).catch(function () {});
+            }
+          }
+        }
+      }).catch(function () {});
+    }
     if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
     if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
   }
@@ -2468,25 +2564,11 @@
       if (meta.level) {
         var yrEl = document.getElementById('planYearLevel');
         var dYrEl = document.getElementById('drawerFilterYear');
-        var tLvl = String(meta.level).toLowerCase();
-        if (yrEl) {
-          for (var k = 0; k < yrEl.options.length; k++) {
-            var yv = yrEl.options[k].value.toLowerCase();
-            if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
-              yrEl.selectedIndex = k;
-              currentPlan.yearLevel = yrEl.value;
-              break;
-            }
-          }
+        if (yrEl && lcMatchSelectOptionByLevel(yrEl, meta.level)) {
+          currentPlan.yearLevel = yrEl.value;
         }
         if (dYrEl) {
-          for (var m = 0; m < dYrEl.options.length; m++) {
-            var dyv = dYrEl.options[m].value.toLowerCase();
-            if (dyv === tLvl || dyv.includes(tLvl) || tLvl.includes(dyv)) {
-              dYrEl.selectedIndex = m;
-              break;
-            }
-          }
+          lcMatchSelectOptionByLevel(dYrEl, meta.level);
         }
       }
       if (meta.periodDuration || meta.duration) {

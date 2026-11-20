@@ -1477,8 +1477,8 @@
 
       var name = info.name || (info.file && info.file.name) || 'Audio';
       if (msgEl) {
-        var fmt = (window.i18n && typeof i18n.t === 'function')
-          ? i18n.t('conAudioImportedTranscribePrompt', { name: name })
+        var fmt = (window.i18n && typeof i18n.tFmt === 'function')
+          ? i18n.tFmt('conAudioImportedTranscribePrompt', { name: name })
           : ('Audio imported: ' + name);
         msgEl.textContent = fmt;
       }

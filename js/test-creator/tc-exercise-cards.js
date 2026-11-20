@@ -221,7 +221,17 @@ window.tcOnClassChange = async function () {
       var subSel = document.getElementById('testSubject');
       if (subSel) subSel.value = gSub;
       var dSub = document.getElementById('drawerCompFilterSubject');
-      if (dSub) dSub.value = gSub;
+      if (dSub) {
+        var tSub = gSub.toLowerCase();
+        for (var j = 0; j < dSub.options.length; j++) {
+          var dv = (dSub.options[j].value || '').toLowerCase().trim();
+          if (dv !== 'all' && dv !== '' && (dv === tSub || tSub.includes(dv) || dv.includes(tSub))) {
+            dSub.selectedIndex = j;
+            break;
+          }
+        }
+      }
+      if (typeof tcPopulateCompCategoryDropdown === 'function') tcPopulateCompCategoryDropdown(gSub);
       if (window.showToast && typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function') {
         showToast(i18n.tFmt('tcSubjectSyncedFromClass', { subject: gSub }));
       }
@@ -230,11 +240,28 @@ window.tcOnClassChange = async function () {
       var dYr = document.getElementById('drawerCompFilterYear');
       if (dYr) {
         var tLvl = String(group.level).trim().toLowerCase();
+        var matchedYr = false;
         for (var k = 0; k < dYr.options.length; k++) {
-          var yv = dYr.options[k].value.toLowerCase();
-          if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
+          var yv = (dYr.options[k].value || '').toLowerCase().trim();
+          if (yv !== 'all' && yv !== '' && yv === tLvl) {
             dYr.selectedIndex = k;
+            matchedYr = true;
             break;
+          }
+        }
+        if (!matchedYr) {
+          var numMatch = tLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
+          var targetNum = numMatch ? numMatch[1] : null;
+          if (targetNum) {
+            var re = new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i');
+            for (var m = 0; m < dYr.options.length; m++) {
+              var mv = (dYr.options[m].value || '').toLowerCase().trim();
+              if (mv !== 'all' && mv !== '' && re.test(mv)) {
+                dYr.selectedIndex = m;
+                matchedYr = true;
+                break;
+              }
+            }
           }
         }
       }

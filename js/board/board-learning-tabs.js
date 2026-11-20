@@ -2837,6 +2837,54 @@
       }
     };
 
+    function _conPrefillLearningLevelSelect(levelSelect) {
+      if (!levelSelect || levelSelect.value) return;
+      const boardKey = (typeof _conCurrentFileName !== 'undefined' && _conCurrentFileName) ? _conCurrentFileName : 'default';
+      if (levelSelect.dataset.autoPrefilledBoard === boardKey) return;
+
+      let cid = (typeof activeClassGroup === 'string' && activeClassGroup.trim()) ? activeClassGroup.trim() : '';
+      if (!cid && typeof LinksService !== 'undefined' && typeof boardGetActiveSessionUrn === 'function') {
+        const sLinks = LinksService.getLinksForSync ? (LinksService.getLinksForSync(boardGetActiveSessionUrn()) || []) : [];
+        const clsLink = sLinks.find(l => {
+          const p = LinksService.parseUrn(l.otherUrn);
+          return p && (p.type === 'class' || p.type === 'classes') && p.id;
+        });
+        if (clsLink) cid = LinksService.parseUrn(clsLink.otherUrn).id;
+      }
+      if (!cid) return;
+
+      let rawLvl = '';
+      if (typeof LinksService !== 'undefined' && typeof LinksService.resolveClassLevel === 'function') {
+        rawLvl = LinksService.resolveClassLevel(cid) || '';
+      }
+      if (!rawLvl && window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroupsMeta && window.CLASS_GROUPS_DATA.classGroupsMeta[cid]) {
+        rawLvl = window.CLASS_GROUPS_DATA.classGroupsMeta[cid].level || '';
+      }
+      if (!rawLvl) return;
+
+      const tLvl = String(rawLvl).trim().toUpperCase();
+      for (let i = 0; i < levelSelect.options.length; i++) {
+        const ov = (levelSelect.options[i].value || '').trim().toUpperCase();
+        if (ov && (ov === tLvl || (tLvl.length >= 2 && (ov.includes(tLvl) || tLvl.includes(ov))))) {
+          levelSelect.selectedIndex = i;
+          levelSelect.dataset.autoPrefilledBoard = boardKey;
+          return;
+        }
+      }
+      const nm = tLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
+      if (nm) {
+        const re = new RegExp('(?:^|\\D)' + nm[1] + '(?:[EÈ]ME?|E|TH)?(?:\\D|$)', 'i');
+        for (let i = 0; i < levelSelect.options.length; i++) {
+          const ov = (levelSelect.options[i].value || '').trim();
+          if (ov && re.test(ov)) {
+            levelSelect.selectedIndex = i;
+            levelSelect.dataset.autoPrefilledBoard = boardKey;
+            return;
+          }
+        }
+      }
+    }
+
     // =========================================================================
     // PART 3: QUIZZES TAB CONTROLLER & DYNAMIC FILTERS
     // =========================================================================
@@ -2878,6 +2926,7 @@
         levelSelect.appendChild(opt);
       });
       levelSelect.value = curLevel;
+      if (!curLevel) _conPrefillLearningLevelSelect(levelSelect);
 
       const curTheme = themeSelect.value || '';
       const allThmLabel = (window.i18n ? i18n.t('boardFilterAllThemes') : null) || 'All Themes';
@@ -3134,6 +3183,7 @@
         levelSelect.appendChild(opt);
       });
       levelSelect.value = curLvl;
+      if (!curLvl) _conPrefillLearningLevelSelect(levelSelect);
 
       const curThm = themeSelect.value || '';
       const allThmLabelVocab = (window.i18n ? i18n.t('boardFilterAllThemes') : null) || 'All Themes';
@@ -3398,6 +3448,7 @@
         levelSelect.appendChild(opt);
       });
       levelSelect.value = curLvl;
+      if (!curLvl) _conPrefillLearningLevelSelect(levelSelect);
 
       const curThm = themeSelect.value || '';
       const allThmLabelGrammar = (window.i18n ? i18n.t('boardFilterAllThemes') : null) || 'All Themes';

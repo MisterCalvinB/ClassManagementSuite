@@ -966,6 +966,48 @@ function renderTestMeta() {
   if (currentTest.classId && typeof tcResolveClassInheritedContext === 'function') {
     tcResolveClassInheritedContext(currentTest.classId);
   }
+  // Sync competence drawer filters from test subject and linked class level
+  var dSubSync = document.getElementById('drawerCompFilterSubject');
+  var dYrSync = document.getElementById('drawerCompFilterYear');
+  var syncSubj = currentTest.subject || (matching && matching.subject) || '';
+  if (dSubSync && syncSubj) {
+    var tSubSync = String(syncSubj).trim().toLowerCase();
+    for (var si = 0; si < dSubSync.options.length; si++) {
+      var sv = (dSubSync.options[si].value || '').toLowerCase().trim();
+      if (sv !== 'all' && sv !== '' && (sv === tSubSync || tSubSync.includes(sv) || sv.includes(tSubSync))) {
+        dSubSync.selectedIndex = si;
+        break;
+      }
+    }
+    if (typeof tcPopulateCompCategoryDropdown === 'function') tcPopulateCompCategoryDropdown(dSubSync.value);
+  }
+  var syncLvl = (matching && (matching.level || matching.yearLevel || matching.year)) || '';
+  if (dYrSync && syncLvl) {
+    var tLvlSync = String(syncLvl).trim().toLowerCase();
+    var matchedSyncYr = false;
+    for (var yi = 0; yi < dYrSync.options.length; yi++) {
+      var yv = (dYrSync.options[yi].value || '').toLowerCase().trim();
+      if (yv !== 'all' && yv !== '' && yv === tLvlSync) {
+        dYrSync.selectedIndex = yi;
+        matchedSyncYr = true;
+        break;
+      }
+    }
+    if (!matchedSyncYr) {
+      var numM = tLvlSync.match(/(?:^|\D)([1-6])(?:\D|$)/);
+      if (numM) {
+        var yrRe = new RegExp('(?:^|\\D)' + numM[1] + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i');
+        for (var ym = 0; ym < dYrSync.options.length; ym++) {
+          var ymv = (dYrSync.options[ym].value || '').toLowerCase().trim();
+          if (ymv !== 'all' && ymv !== '' && yrRe.test(ymv)) {
+            dYrSync.selectedIndex = ym;
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (typeof tcFilterCompetences === 'function') tcFilterCompetences();
   if (typeof tcSyncHeaderBlockFromState === 'function') {
     tcSyncHeaderBlockFromState();
   }

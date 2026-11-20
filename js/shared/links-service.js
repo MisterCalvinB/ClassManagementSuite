@@ -21,6 +21,7 @@
   var SYNC_CHANNEL = 'cmt-links-sync';
 
   var _registryCache = null;
+  var _edgeIndexCache = null;
   var _loadPromise = null;
   var _channel = null;
 
@@ -32,6 +33,7 @@
         if (ev && ev.data) {
           // Invalidate cache and reload silently
           _registryCache = null;
+          _edgeIndexCache = null;
           _invalidateDossierScanCaches();
           if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
             window.dispatchEvent(new CustomEvent('cmt-links-changed', { detail: ev.data }));
@@ -281,11 +283,40 @@
       }
 
       _registryCache = reg;
+      _edgeIndexCache = null;
       _loadPromise = null;
       return _registryCache;
     })();
 
     return _loadPromise;
+  }
+
+  /**
+   * Builds and caches a Map from canonical URN to incident registry edges for O(1) lookups.
+   */
+  function _getEdgeIndex(reg) {
+    if (!reg || !Array.isArray(reg.edges)) return new Map();
+    if (_edgeIndexCache && _edgeIndexCache.regRef === reg && _edgeIndexCache.len === reg.edges.length) {
+      return _edgeIndexCache.map;
+    }
+    var map = new Map();
+    for (var i = 0; i < reg.edges.length; i++) {
+      var e = reg.edges[i];
+      if (!e) continue;
+      var sCan = canonicalizeUrn(e.source);
+      var tCan = canonicalizeUrn(e.target);
+      var entry = { edge: e, sCan: sCan, tCan: tCan };
+      var sList = map.get(sCan);
+      if (!sList) { sList = []; map.set(sCan, sList); }
+      sList.push(entry);
+      if (tCan !== sCan) {
+        var tList = map.get(tCan);
+        if (!tList) { tList = []; map.set(tCan, tList); }
+        tList.push(entry);
+      }
+    }
+    _edgeIndexCache = { regRef: reg, len: reg.edges.length, map: map };
+    return map;
   }
 
   var _diskSavePromise = null;
@@ -324,6 +355,7 @@
     if (!reg || typeof reg !== 'object') return false;
     reg.updatedAt = Date.now();
     _registryCache = reg;
+    _edgeIndexCache = null;
 
     // 1. Save to localStorage
     if (typeof localStorage !== 'undefined') {
@@ -659,11 +691,17 @@
   }
 
   async function _ensureRosterLoaded(forceReload) {
-    if (_rosterNameCache && !forceReload && Object.keys(_rosterNameCache.students).length > 0) {
-      var hasRealNames = Object.values(_rosterNameCache.students).some(function(st) {
-        return st && st.name && !isUuid(st.name);
-      });
-      if (hasRealNames) return _rosterNameCache;
+    if (_rosterNameCache && !forceReload) {
+      if (_rosterNameCache._hasRealNames) return _rosterNameCache;
+      if (Object.keys(_rosterNameCache.students).length > 0) {
+        var hasRealNames = Object.values(_rosterNameCache.students).some(function(st) {
+          return st && st.name && !isUuid(st.name);
+        });
+        if (hasRealNames) {
+          _rosterNameCache._hasRealNames = true;
+          return _rosterNameCache;
+        }
+      }
     }
     if (_rosterDiskLoadPromise && !forceReload) return _rosterDiskLoadPromise;
 
@@ -2719,11 +2757,14 @@
     if (!urn) return [];
     var cUrn = canonicalizeUrn(urn);
     var reg = await loadRegistry();
+    var edgeList = _getEdgeIndex(reg).get(cUrn) || [];
     var results = [];
 
-    reg.edges.forEach(function(e) {
-      var s = canonicalizeUrn(e.source);
-      var t = canonicalizeUrn(e.target);
+    for (var i = 0; i < edgeList.length; i++) {
+      var item = edgeList[i];
+      var e = item.edge;
+      var s = item.sCan;
+      var t = item.tCan;
       if (s === cUrn) {
         results.push({
           edgeId: e.id,
@@ -2749,7 +2790,7 @@
           direction: 'inbound'
         });
       }
-    });
+    }
 
     return results;
   }
@@ -2758,10 +2799,13 @@
     if (!urn || !_registryCache) return [];
     var cUrn = canonicalizeUrn(urn);
     var reg = _registryCache;
+    var edgeList = _getEdgeIndex(reg).get(cUrn) || [];
     var results = [];
-    reg.edges.forEach(function(e) {
-      var s = canonicalizeUrn(e.source);
-      var t = canonicalizeUrn(e.target);
+    for (var i = 0; i < edgeList.length; i++) {
+      var item = edgeList[i];
+      var e = item.edge;
+      var s = item.sCan;
+      var t = item.tCan;
       if (s === cUrn) {
         results.push({
           edgeId: e.id,
@@ -2787,7 +2831,7 @@
           direction: 'inbound'
         });
       }
-    });
+    }
     return results;
   }
 
@@ -3023,6 +3067,16 @@
         if (resolvedC) {
           classId = resolvedC;
           if (!classIds.includes(classId)) classIds.push(classId);
+        }
+      }
+    }
+    if (!classId && Array.isArray(directLinks) && directLinks.length > 0) {
+      for (var dli = 0; dli < directLinks.length; dli++) {
+        var dlParsed = parseUrn(directLinks[dli].otherUrn);
+        if (dlParsed && dlParsed.type === 'class' && dlParsed.id) {
+          classId = dlParsed.id;
+          if (!classIds.includes(classId)) classIds.push(classId);
+          break;
         }
       }
     }
@@ -4133,61 +4187,65 @@
         registerRawBoard(rel, metaCache[rel], 'cache', 'mindmaps');
       });
 
-      // 2. Process items from board-sessions-backup.json
-      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.readJson === 'function') {
-        try {
-          var backupRes = await window.Desktop.readJson('user', 'board-sessions-backup.json');
-          var store = (backupRes && backupRes.ok && backupRes.data) ? backupRes.data : null;
-          if (store) {
-            ['constellation', 'textanalysis', 'notes'].forEach(function(section) {
-              var list = Array.isArray(store[section]) ? store[section] : [];
-              list.forEach(function(e) {
-                if (!e) return;
-                var fn = e.relativePath || e.filename || (e.id ? (e.id + '.json') : '');
-                var eSlots = Array.isArray(e.plannerEntryIds) ? e.plannerEntryIds : (e.data && Array.isArray(e.data._plannerEntryIds) ? e.data._plannerEntryIds : []);
-                var eMeta = {
-                  classGroup: e.classGroup || (e.data && (e.data._classGroup || e.data.classGroup)) || '',
-                  plannerEntryId: e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || eSlots[0] || '',
-                  plannerEntryIds: eSlots,
-                  title: e.name || e.title || '',
-                  competences: e.competences || (e.data && e.data.competences) || []
-                };
-                registerRawBoard(fn, eMeta, 'backup', 'user');
-              });
-            });
-          }
-        } catch (_) {}
+      // 2 & 3. Read backup JSON and scan mindmaps + user subfolders in parallel
+      var desktop = (typeof window !== 'undefined' && window.Desktop) ? window.Desktop : null;
+      var backupPromise = (desktop && typeof desktop.readJson === 'function')
+        ? desktop.readJson('user', 'board-sessions-backup.json').catch(function() { return null; })
+        : Promise.resolve(null);
+
+      var userMindmapDirs = ['constellations', 'mindmaps', 'board'];
+      var hasListByPath = (desktop && typeof desktop.listByPath === 'function');
+      var mindmapsListPromise = hasListByPath
+        ? desktop.listByPath('mindmaps', '', { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] }).catch(function() { return null; })
+        : Promise.resolve(null);
+      var userDirPromises = hasListByPath
+        ? userMindmapDirs.map(function(dir) {
+            return desktop.listByPath('user', dir, { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] }).catch(function() { return null; });
+          })
+        : [];
+
+      var scanResults = await Promise.all([backupPromise, mindmapsListPromise].concat(userDirPromises));
+      var backupRes = scanResults[0];
+      var store = (backupRes && backupRes.ok && backupRes.data) ? backupRes.data : null;
+      if (store) {
+        ['constellation', 'textanalysis', 'notes'].forEach(function(section) {
+          var list = Array.isArray(store[section]) ? store[section] : [];
+          list.forEach(function(e) {
+            if (!e) return;
+            var fn = e.relativePath || e.filename || (e.id ? (e.id + '.json') : '');
+            var eSlots = Array.isArray(e.plannerEntryIds) ? e.plannerEntryIds : (e.data && Array.isArray(e.data._plannerEntryIds) ? e.data._plannerEntryIds : []);
+            var eMeta = {
+              classGroup: e.classGroup || (e.data && (e.data._classGroup || e.data.classGroup)) || '',
+              plannerEntryId: e.plannerEntryId || (e.data && (e.data._plannerEntryId || e.data.plannerEntryId)) || eSlots[0] || '',
+              plannerEntryIds: eSlots,
+              title: e.name || e.title || '',
+              competences: e.competences || (e.data && e.data.competences) || []
+            };
+            registerRawBoard(fn, eMeta, 'backup', 'user');
+          });
+        });
       }
 
-      // 3. Process items from mindmaps filesystem
-      if (typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.listByPath === 'function') {
-        try {
-          var listRes = await window.Desktop.listByPath('mindmaps', '', { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
-          var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
-          for (var i = 0; i < files.length; i++) {
-            var f = files[i];
-            var relP = (f.relativePath || f.filename || '').replace(/\\/g, '/');
-            if (!relP) continue;
-            var cachedMeta = metaCache[relP] || metaCache[relP.split('/').pop()] || null;
-            registerRawBoard(relP, cachedMeta, 'disk', 'mindmaps');
-          }
-        } catch (_) {}
+      var listRes = scanResults[1];
+      var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+      for (var i = 0; i < files.length; i++) {
+        var f = files[i];
+        var relP = (f.relativePath || f.filename || '').replace(/\\/g, '/');
+        if (!relP) continue;
+        var cachedMeta = metaCache[relP] || metaCache[relP.split('/').pop()] || null;
+        registerRawBoard(relP, cachedMeta, 'disk', 'mindmaps');
+      }
 
-        // Also scan user subfolders for constellations & mindmaps
-        var userMindmapDirs = ['constellations', 'mindmaps', 'board'];
-        for (var dIdx = 0; dIdx < userMindmapDirs.length; dIdx++) {
-          try {
-            var uListRes = await window.Desktop.listByPath('user', userMindmapDirs[dIdx], { recursive: true, extensions: ['.js', '.json', '.cstz', '.zip'] });
-            if (uListRes && uListRes.ok && Array.isArray(uListRes.files)) {
-              for (var uIdx = 0; uIdx < uListRes.files.length; uIdx++) {
-                var uf = uListRes.files[uIdx];
-                var uRel = (uf.relativePath || uf.filename || '').replace(/\\/g, '/');
-                if (!uRel) continue;
-                var uCached = metaCache[uRel] || metaCache[uRel.split('/').pop()] || null;
-                registerRawBoard(uRel, uCached, 'disk', 'user');
-              }
-            }
-          } catch (_) {}
+      for (var dIdx = 0; dIdx < userDirPromises.length; dIdx++) {
+        var uListRes = scanResults[2 + dIdx];
+        if (uListRes && uListRes.ok && Array.isArray(uListRes.files)) {
+          for (var uIdx = 0; uIdx < uListRes.files.length; uIdx++) {
+            var uf = uListRes.files[uIdx];
+            var uRel = (uf.relativePath || uf.filename || '').replace(/\\/g, '/');
+            if (!uRel) continue;
+            var uCached = metaCache[uRel] || metaCache[uRel.split('/').pop()] || null;
+            registerRawBoard(uRel, uCached, 'disk', 'user');
+          }
         }
       }
 
@@ -4236,28 +4294,28 @@
 
       var isElectron = typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.listByPath === 'function';
       if (isElectron) {
-        // 1. Scan docEditorDocs target
-        try {
-          var listDocs = await window.Desktop.listByPath('docEditorDocs', '', { recursive: true, extensions: ['.md', '.html', '.typ', '.txt', '.pdf', '.docx'] });
-          if (listDocs && Array.isArray(listDocs.files)) {
-            listDocs.files.forEach(function(f) {
-              registerDoc('docEditorDocs', f.relativePath || f.filename, f);
+        var userSubdirs = ['doceditor', 'document-editor/docs', 'files', 'attachments', 'lessons', 'tests'];
+        var docListPromises = [
+          window.Desktop.listByPath('docEditorDocs', '', { recursive: true, extensions: ['.md', '.html', '.typ', '.txt', '.pdf', '.docx'] }).catch(function() { return null; })
+        ].concat(userSubdirs.map(function(sub) {
+          return window.Desktop.listByPath('user', sub, { recursive: true, extensions: ['.md', '.html', '.typ', '.pdf', '.docx', '.txt', '.json'] }).catch(function() { return null; });
+        }));
+
+        var docScanResults = await Promise.all(docListPromises);
+        var listDocs = docScanResults[0];
+        if (listDocs && Array.isArray(listDocs.files)) {
+          listDocs.files.forEach(function(f) {
+            registerDoc('docEditorDocs', f.relativePath || f.filename, f);
+          });
+        }
+        for (var i = 0; i < userSubdirs.length; i++) {
+          var uList = docScanResults[1 + i];
+          if (uList && Array.isArray(uList.files)) {
+            uList.files.forEach(function(f) {
+              var p = userSubdirs[i] + '/' + (f.relativePath || f.filename).replace(/\\/g, '/');
+              registerDoc('user', p, f);
             });
           }
-        } catch (_) {}
-
-        // 2. Scan user target in document-editor / doceditor / files / attachments / tests / lessons
-        var userSubdirs = ['doceditor', 'document-editor/docs', 'files', 'attachments', 'lessons', 'tests'];
-        for (var i = 0; i < userSubdirs.length; i++) {
-          try {
-            var uList = await window.Desktop.listByPath('user', userSubdirs[i], { recursive: true, extensions: ['.md', '.html', '.typ', '.pdf', '.docx', '.txt', '.json'] });
-            if (uList && Array.isArray(uList.files)) {
-              uList.files.forEach(function(f) {
-                var p = userSubdirs[i] + '/' + (f.relativePath || f.filename).replace(/\\/g, '/');
-                registerDoc('user', p, f);
-              });
-            }
-          } catch (_) {}
         }
       }
 
@@ -4679,19 +4737,19 @@
       relevantUrns.add(canonicalizeUrn(makeUrn('lesson', sid)));
     });
 
-    // 3. Traverse registry edges for connected board mindmaps
-    if (reg && Array.isArray(reg.edges)) {
-      for (var rIdx = 0; rIdx < reg.edges.length; rIdx++) {
-        var e = reg.edges[rIdx];
-        var sCan = canonicalizeUrn(e.source);
-        var tCan = canonicalizeUrn(e.target);
-        var matchedOther = null;
-
-        if (relevantUrns.has(sCan)) {
-          matchedOther = tCan;
-        } else if (relevantUrns.has(tCan)) {
-          matchedOther = sCan;
-        }
+    // 3. Traverse indexed registry edges for connected board mindmaps
+    var edgeIdx = _getEdgeIndex(reg);
+    var seenEdgeIds = new Set();
+    for (var uIter = relevantUrns.values(), uNext = uIter.next(); !uNext.done; uNext = uIter.next()) {
+      var uCan = uNext.value;
+      var incident = edgeIdx.get(uCan);
+      if (!incident) continue;
+      for (var rIdx = 0; rIdx < incident.length; rIdx++) {
+        var entry = incident[rIdx];
+        var e = entry.edge;
+        if (e.id && seenEdgeIds.has(e.id)) continue;
+        if (e.id) seenEdgeIds.add(e.id);
+        var matchedOther = entry.sCan === uCan ? entry.tCan : entry.sCan;
 
         if (matchedOther) {
           var pOther = parseUrn(matchedOther);
@@ -4984,19 +5042,19 @@
       }
     });
 
-    // 2. Traverse registry edges for connected documents/files/handouts
-    if (reg && Array.isArray(reg.edges)) {
-      for (var i = 0; i < reg.edges.length; i++) {
-        var e = reg.edges[i];
-        var sCan = canonicalizeUrn(e.source);
-        var tCan = canonicalizeUrn(e.target);
-        var matchedOther = null;
-
-        if (relevantUrns.has(sCan)) {
-          matchedOther = tCan;
-        } else if (relevantUrns.has(tCan)) {
-          matchedOther = sCan;
-        }
+    // 2. Traverse indexed registry edges for connected documents/files/handouts
+    var docEdgeIdx = _getEdgeIndex(reg);
+    var seenDocEdgeIds = new Set();
+    for (var duIter = relevantUrns.values(), duNext = duIter.next(); !duNext.done; duNext = duIter.next()) {
+      var duCan = duNext.value;
+      var dIncident = docEdgeIdx.get(duCan);
+      if (!dIncident) continue;
+      for (var i = 0; i < dIncident.length; i++) {
+        var dEntry = dIncident[i];
+        var e = dEntry.edge;
+        if (e.id && seenDocEdgeIds.has(e.id)) continue;
+        if (e.id) seenDocEdgeIds.add(e.id);
+        var matchedOther = dEntry.sCan === duCan ? dEntry.tCan : dEntry.sCan;
 
         if (matchedOther) {
           var pOther = parseUrn(matchedOther);
@@ -5255,19 +5313,14 @@
       var sessionEntries = [];
       var sessionNets = [];
 
-      // Sort sessions chronologically
-      var sortedSessions = allSessions.slice().sort(function(a, b) {
-        var tA = Date.parse(String(a.id || a.date || '')) || 0;
-        var tB = Date.parse(String(b.id || b.date || '')) || 0;
-        return tA - tB;
-      });
+      // Sessions are already pre-sorted and pre-indexed by _getOrScanParticipationFiles()
+      for (var sessIdx = 0; sessIdx < allSessions.length; sessIdx++) {
+        var session = allSessions[sessIdx];
+        if (!session || !session.groups) continue;
+        if (session.id && deletedIds.has(String(session.id))) continue;
 
-      sortedSessions.forEach(function(session) {
-        if (!session || !session.groups) return;
-        if (session.id && deletedIds.has(String(session.id))) return;
-
-        var sessGroup = String(session.activeGroup || '').trim();
-        var sessGroupNorm = sessGroup.replace(/[-_ ]/g, '').toLowerCase();
+        var sessGroup = session._groupTrim !== undefined ? session._groupTrim : String(session.activeGroup || '').trim();
+        var sessGroupNorm = session._groupNorm !== undefined ? session._groupNorm : sessGroup.replace(/[-_ ]/g, '').toLowerCase();
 
         // If a specific class filter was explicitly passed and session group is known, check match
         if (classId && sessGroup && cleanCidNormalized &&
@@ -5275,41 +5328,60 @@
             _stripZeroPaddingClassToken(sessGroup) !== _stripZeroPaddingClassToken(cleanCid)) {
           // If class doesn't match, still allow if studentId is an exact UUID
           if (!normStudentId.startsWith('st-') && normStudentId.length < 20) {
-            return;
+            continue;
           }
         }
 
-        // Search for student across all tables/groups in session
+        // O(1) lookup via pre-indexed session student maps when available
         var matchedSt = null;
-        var groupKeys = Object.keys(session.groups);
-        for (var gi = 0; gi < groupKeys.length; gi++) {
-          var stArr = session.groups[groupKeys[gi]];
-          if (!Array.isArray(stArr)) continue;
-          for (var si = 0; si < stArr.length; si++) {
-            var st = stArr[si];
-            if (!st) continue;
-            var stId = String(st.id || st.uuid || '').trim().toLowerCase();
-            var stName = String(st.name || '').trim().toUpperCase();
-            var stSimple = simplifyStr(stName);
-
-            var isMatch = false;
-            if (normStudentId && stId && (stId === normStudentId || stId === normStudentId.replace(/^st-/, ''))) {
-              isMatch = true;
-            } else if (stName && candidateNames.has(stName)) {
-              isMatch = true;
-            } else if (stSimple && simplifiedCandidates.has(stSimple)) {
-              isMatch = true;
-            }
-
-            if (isMatch) {
-              matchedSt = st;
-              break;
+        if (session._studentById) {
+          if (normStudentId) {
+            matchedSt = session._studentById.get(normStudentId) || session._studentById.get(normStudentId.replace(/^st-/, '')) || null;
+          }
+          if (!matchedSt && session._studentByName) {
+            for (var cnIter = candidateNames.values(), cnNext = cnIter.next(); !cnNext.done; cnNext = cnIter.next()) {
+              matchedSt = session._studentByName.get(cnNext.value);
+              if (matchedSt) break;
             }
           }
-          if (matchedSt) break;
+          if (!matchedSt && session._studentBySimple) {
+            for (var scIter = simplifiedCandidates.values(), scNext = scIter.next(); !scNext.done; scNext = scIter.next()) {
+              matchedSt = session._studentBySimple.get(scNext.value);
+              if (matchedSt) break;
+            }
+          }
+        } else {
+          // Fallback linear scan if session wasn't pre-indexed
+          var groupKeys = Object.keys(session.groups);
+          for (var gi = 0; gi < groupKeys.length; gi++) {
+            var stArr = session.groups[groupKeys[gi]];
+            if (!Array.isArray(stArr)) continue;
+            for (var si = 0; si < stArr.length; si++) {
+              var st = stArr[si];
+              if (!st) continue;
+              var stId = String(st.id || st.uuid || '').trim().toLowerCase();
+              var stName = String(st.name || '').trim().toUpperCase();
+              var stSimple = simplifyStr(stName);
+
+              var isMatch = false;
+              if (normStudentId && stId && (stId === normStudentId || stId === normStudentId.replace(/^st-/, ''))) {
+                isMatch = true;
+              } else if (stName && candidateNames.has(stName)) {
+                isMatch = true;
+              } else if (stSimple && simplifiedCandidates.has(stSimple)) {
+                isMatch = true;
+              }
+
+              if (isMatch) {
+                matchedSt = st;
+                break;
+              }
+            }
+            if (matchedSt) break;
+          }
         }
 
-        if (!matchedSt) return;
+        if (!matchedSt) continue;
 
         totalSessions++;
         var isAbsent = !!matchedSt.isAbsent;
@@ -5372,7 +5444,7 @@
           badges: badges,
           notes: stNote ? String(stNote).trim() : ''
         });
-      });
+      }
 
       var attendanceRate = totalSessions > 0 ? parseFloat(((attendedSessions / totalSessions) * 100).toFixed(1)) : 100;
       var totalGood = totalPluses + totalTeamPluses + totalBadgePos;
@@ -5489,9 +5561,14 @@
       var isElectron = (desktop && typeof desktop.isElectron === 'function') ? desktop.isElectron() : !!(typeof window !== 'undefined' && window.electronApi && window.electronApi.isElectron);
 
       if (isElectron && desktop && typeof desktop.listByPath === 'function') {
-        // 1. Read deleted tombstones
+        // 1-3. Read tombstones, notes patch, and rules in parallel
+        var metaReads = await Promise.all([
+          desktop.readText('groupParticipation', 'pt-deleted.js').catch(function() { return null; }),
+          desktop.readText('groupParticipation', 'pt-notes.js').catch(function() { return null; }),
+          desktop.readText('groupParticipation', 'pt-rules.js').catch(function() { return null; })
+        ]);
         try {
-          var tombRes = await desktop.readText('groupParticipation', 'pt-deleted.js');
+          var tombRes = metaReads[0];
           if (tombRes && tombRes.ok && tombRes.content) {
             var tm = tombRes.content.match(/window\.CMS_DELETED_SESSIONS\s*=\s*(\[[\s\S]*?\]);?/);
             if (tm) {
@@ -5500,19 +5577,15 @@
             }
           }
         } catch (_) {}
-
-        // 2. Read notes patch
         try {
-          var npRes = await desktop.readText('groupParticipation', 'pt-notes.js');
+          var npRes = metaReads[1];
           if (npRes && npRes.ok && npRes.content) {
             var npm = npRes.content.match(/window\.CMS_NOTES_PATCH\s*=\s*(\{[\s\S]*\});?\s*$/);
             if (npm) result.notesPatch = JSON.parse(npm[1]) || {};
           }
         } catch (_) {}
-
-        // 3. Read rules
         try {
-          var rpRes = await desktop.readText('groupParticipation', 'pt-rules.js');
+          var rpRes = metaReads[2];
           if (rpRes && rpRes.ok && rpRes.content) {
             var rpm = rpRes.content.match(/window\.CMS_PARTICIPATION_RULES\s*=\s*(\{[\s\S]*\});?\s*$/);
             if (rpm) result.rules = JSON.parse(rpm[1]) || {};
@@ -5587,6 +5660,48 @@
           }
         }
       }
+
+      // Pre-sort sessions chronologically once and pre-index students per session for O(1) lookups
+      function _simplifyScanStr(str) {
+        if (!str) return '';
+        try {
+          return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        } catch (_) {
+          return String(str).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+        }
+      }
+      result.allSessions.forEach(function(sess) {
+        if (!sess) return;
+        sess._ts = Date.parse(String(sess.id || sess.date || '')) || 0;
+        sess._groupTrim = String(sess.activeGroup || '').trim();
+        sess._groupNorm = sess._groupTrim.replace(/[-_ ]/g, '').toLowerCase();
+        if (sess.groups && !sess._studentById) {
+          var byId = new Map();
+          var byName = new Map();
+          var bySimple = new Map();
+          var gKeys = Object.keys(sess.groups);
+          for (var gi = 0; gi < gKeys.length; gi++) {
+            var stArr = sess.groups[gKeys[gi]];
+            if (!Array.isArray(stArr)) continue;
+            for (var si = 0; si < stArr.length; si++) {
+              var st = stArr[si];
+              if (!st) continue;
+              var stId = String(st.id || st.uuid || '').trim().toLowerCase();
+              var stName = String(st.name || '').trim().toUpperCase();
+              var stSimple = _simplifyScanStr(stName);
+              if (stId && !byId.has(stId)) byId.set(stId, st);
+              if (stName && !byName.has(stName)) byName.set(stName, st);
+              if (stSimple && !bySimple.has(stSimple)) bySimple.set(stSimple, st);
+            }
+          }
+          sess._studentById = byId;
+          sess._studentByName = byName;
+          sess._studentBySimple = bySimple;
+        }
+      });
+      result.allSessions.sort(function(a, b) {
+        return (a ? a._ts : 0) - (b ? b._ts : 0);
+      });
 
       _participationScanCache = { ts: Date.now(), data: result };
       _participationScanPromise = null;
@@ -5943,6 +6058,16 @@
     promoteInferredLink: promoteInferredLink,
     getStudentAcademicDossier: getStudentAcademicDossier,
     getStudentDossier: getStudentAcademicDossier,
+    prewarmDossierCaches: function() {
+      return Promise.all([
+        _ensureRosterLoaded(),
+        loadRegistry(),
+        _getOrScanGradeFiles(),
+        _getOrScanBoardFiles(),
+        _getOrScanDocEditorFiles(),
+        _getOrScanParticipationFiles()
+      ]);
+    },
     ensureRosterLoaded: _ensureRosterLoaded,
     getItemsForTag: getItemsForTag,
     getTagSummary: getTagSummary,

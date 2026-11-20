@@ -656,6 +656,12 @@
       render();
 
       var params = new URLSearchParams(window.location.search);
+      var qClassId = params.get('classId');
+      if (qClassId && cfg && cfg.classes && cfg.classes[qClassId]) {
+        filterClasses.add(qClassId);
+        rebuildFilterChips(getPlannerClassIds());
+        render();
+      }
       var qTodo = params.get('openTodo');
       if (qTodo) {
         localStorage.setItem('cmt-planner-todo', qTodo);

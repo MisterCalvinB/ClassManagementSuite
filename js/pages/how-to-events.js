@@ -1568,6 +1568,18 @@
       var handler = function (event) { closeSearchModal() };
       el.addEventListener('click', handler);
     })();
+    (function () {
+      var el = document.querySelector('[data-htev-262]');
+      if (!el) return;
+      var handler = function (event) { toggleAccordion('acc-db-11') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-htev-263]');
+      if (!el) return;
+      var handler = function (event) { toggleAccordion('acc-fm-7') };
+      el.addEventListener('click', handler);
+    })();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindEvents);

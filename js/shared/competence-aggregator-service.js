@@ -1015,13 +1015,13 @@
 
         // Pass 2: Normalized digit/token match (e.g. "4" matching "4ème", "4e", "Grade 4")
         if (!matched) {
-          const numMatch = targetLvl.match(/\b([1-6])\b/);
+          const numMatch = targetLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
           const targetNum = numMatch ? numMatch[1] : null;
           for (let i = 0; i < yearEl.options.length; i++) {
             const optVal = (yearEl.options[i].value || '').toLowerCase().trim();
             const optTxt = (yearEl.options[i].textContent || '').toLowerCase().trim();
             if (optVal !== 'all' && optVal !== '') {
-              if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(optVal) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(optTxt))) {
+              if (targetNum && (new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(optVal) || new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(optTxt))) {
                 yearEl.selectedIndex = i;
                 matched = true;
                 break;
@@ -1119,9 +1119,10 @@
    */
   async function compileGroupCompetencePortfolio(classId, filterOptions = {}) {
     filterOptions = filterOptions || {};
+    const hasClass = Boolean(classId && String(classId).trim());
     const [allComps, groupMeta] = await Promise.all([
       loadAllCompetences(),
-      getGroupMetadata(classId)
+      hasClass ? getGroupMetadata(classId) : Promise.resolve(null)
     ]);
 
     const activeSubject = filterOptions.subject !== undefined
@@ -1290,6 +1291,7 @@
 
     const plannerEntriesMap = new Map();
 
+    if (hasClass) {
     // 2. Query Source A: Planner Entries
     await (async function scanPlanner() {
       const entries = [];
@@ -1721,6 +1723,7 @@
         }
       } catch (_) {}
     })();
+    }
 
     // 6. Compute Final Statistics & Domain Categories
     const categories = {};
@@ -1778,8 +1781,8 @@
     const percentage = total > 0 ? Math.round((covered / total) * 100) : 0;
 
     return {
-      classId,
-      className: (groupMeta && groupMeta.name) || classId,
+      classId: classId || '',
+      className: (groupMeta && groupMeta.name) || classId || '',
       groupLevel: activeYearLevel,
       groupSubject: activeSubject,
       groupMeta,

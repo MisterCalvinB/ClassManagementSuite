@@ -1145,7 +1145,7 @@
           nodeObj.el.appendChild(badge);
         }
         const codes = compList.map(c => c.code || c.title || c.id).filter(Boolean);
-        badge.title = (typeof t === 'function' ? t('compNodeBadgeTitle', { codes: codes.join(', ') }) : ('Competences: ' + codes.join(', ')));
+        badge.title = (typeof tFmt === 'function' ? tFmt('compNodeBadgeTitle', { codes: codes.join(', ') }) : ('Competences: ' + codes.join(', ')));
         badge.innerHTML = `<img src="../assets/icons/award.svg" alt="" /> ${compList.length === 1 ? (boardEscapeHtml(codes[0]) || '1') : compList.length}`;
       } else if (badge) {
         badge.remove();
@@ -1186,6 +1186,7 @@
         if (!id) return;
         const code = String(item.code || '').trim();
         const title = String(item.title || item.name || '').trim();
+        const subjectId = String(item.subjectId || item.subject || '').trim();
         const category = String(item.category || item.domain || item.competence || item.subject || item.strand || '').trim();
         const level = String(item.level || '').trim();
         const yearLevel = String(item.yearLevel || item.year || item.grade || '').trim();
@@ -1202,6 +1203,7 @@
             id,
             code: code || id,
             title: title || code || id,
+            subjectId,
             category,
             level,
             yearLevel,
@@ -1214,6 +1216,7 @@
           const existing = compMap.get(id);
           if (!existing.code && code) existing.code = code;
           if (!existing.title && title) existing.title = title;
+          if (!existing.subjectId && subjectId) existing.subjectId = subjectId;
           if (!existing.category && category) existing.category = category;
           if (!existing.level && level) existing.level = level;
           if (!existing.yearLevel && yearLevel) existing.yearLevel = yearLevel;
@@ -1395,19 +1398,17 @@
       });
 
       if (subjectSelect) {
-        const prev = subjectSelect.value || 'all';
-        subjectSelect.innerHTML = `<option value="all">All Subjects</option>`;
+        subjectSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('lcAllSubjects') : 'All Subjects'}</option>`;
         Array.from(subjects).sort().forEach(s => {
           const opt = document.createElement('option');
           opt.value = s;
           opt.textContent = s;
           subjectSelect.appendChild(opt);
         });
-        subjectSelect.value = subjects.has(prev) ? prev : 'all';
+        subjectSelect.value = 'all';
       }
 
       if (domainSelect) {
-        const prev = domainSelect.value || 'all';
         domainSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllDomains') : 'All Domains'}</option>`;
         Array.from(domains).sort().forEach(d => {
           const opt = document.createElement('option');
@@ -1415,11 +1416,10 @@
           opt.textContent = d;
           domainSelect.appendChild(opt);
         });
-        domainSelect.value = domains.has(prev) ? prev : 'all';
+        domainSelect.value = 'all';
       }
 
       if (levelSelect) {
-        const prev = levelSelect.value || 'all';
         levelSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllLevels') : 'All Levels'}</option>`;
         Array.from(levels).sort().forEach(l => {
           const opt = document.createElement('option');
@@ -1427,27 +1427,74 @@
           opt.textContent = l;
           levelSelect.appendChild(opt);
         });
-        levelSelect.value = levels.has(prev) ? prev : 'all';
+        levelSelect.value = 'all';
       }
 
       if (yearSelect) {
-        const prev = yearSelect.value || 'all';
         yearSelect.innerHTML = `<option value="all">${typeof t === 'function' ? t('compAllYears') : 'All Years'}</option>`;
-        Array.from(years).sort().forEach(y => {
+        Array.from(years).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).forEach(y => {
           const opt = document.createElement('option');
           opt.value = y;
           opt.textContent = y;
           yearSelect.appendChild(opt);
         });
-        yearSelect.value = years.has(prev) ? prev : 'all';
+        yearSelect.value = 'all';
       }
 
-      // Auto-prefilter by active board class if defined
-      const boardClassId = (typeof _conGetActiveClassId === 'function' ? _conGetActiveClassId() : null) || (window._conCurrentBoard && (window._conCurrentBoard.activeClassId || window._conCurrentBoard.classId)) || null;
-      if (boardClassId && typeof CompetenceAggregatorService !== 'undefined') {
-        CompetenceAggregatorService.getGroupMetadata(boardClassId).then(meta => {
-          if (!meta) return;
-          if (meta.subject && subjectSelect) {
+      // Auto-prefilter by active board class or linked class/lesson/planner in LinksService
+      let boardClassId = (typeof activeClassGroup === 'string' && activeClassGroup.trim())
+        ? activeClassGroup.trim()
+        : ((typeof _conGetActiveClassId === 'function' ? _conGetActiveClassId() : null) || (window._conCurrentBoard && (window._conCurrentBoard.activeClassId || window._conCurrentBoard.classId)) || null);
+      let resolvedCtxLevel = '';
+
+      if (!boardClassId && typeof activePlannerEntryId === 'string' && activePlannerEntryId.trim() && window.PLANNER_ENTRIES_BY_CLASS) {
+        const pid = activePlannerEntryId.trim();
+        for (const cid of Object.keys(window.PLANNER_ENTRIES_BY_CLASS)) {
+          const arr = window.PLANNER_ENTRIES_BY_CLASS[cid];
+          if (Array.isArray(arr) && arr.some(e => e && e.id === pid)) {
+            boardClassId = cid;
+            break;
+          }
+        }
+      }
+
+      if (typeof LinksService !== 'undefined' && typeof boardGetActiveSessionUrn === 'function') {
+        try {
+          const sessionUrn = boardGetActiveSessionUrn();
+          if (!boardClassId && typeof LinksService.getLinksFor === 'function') {
+            const sLinks = await LinksService.getLinksFor(sessionUrn);
+            const clsLink = (sLinks || []).find(l => {
+              const p = LinksService.parseUrn(l.otherUrn);
+              return p && (p.type === 'class' || p.type === 'classes');
+            });
+            if (clsLink) {
+              const p = LinksService.parseUrn(clsLink.otherUrn);
+              if (p && p.id) boardClassId = p.id;
+            }
+            if (!boardClassId) {
+              for (const l of (sLinks || [])) {
+                const p = LinksService.parseUrn(l.otherUrn);
+                if (p && (p.type === 'lesson' || p.type === 'planner' || p.type === 'slot')) {
+                  const tm = l.targetMeta || l.meta || {};
+                  if (tm.classId || tm.classGroup) {
+                    boardClassId = tm.classId || tm.classGroup;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          if (typeof LinksService.resolveContext === 'function') {
+            const ctx = await LinksService.resolveContext({ urn: sessionUrn, classId: boardClassId || undefined });
+            if (ctx && ctx.level) resolvedCtxLevel = String(ctx.level).trim();
+          }
+        } catch (_) {}
+      }
+
+      if ((boardClassId || resolvedCtxLevel) && typeof CompetenceAggregatorService !== 'undefined') {
+        try {
+          const meta = boardClassId ? await CompetenceAggregatorService.getGroupMetadata(boardClassId) : null;
+          if (meta && meta.subject && subjectSelect) {
             const targetSubj = String(meta.subject).toLowerCase().trim();
             for (let i = 0; i < subjectSelect.options.length; i++) {
               const v = subjectSelect.options[i].value.toLowerCase().trim();
@@ -1458,7 +1505,7 @@
               }
             }
           }
-          const rawLvl = meta.level || meta.yearLevel || meta.year || '';
+          const rawLvl = (meta && (meta.level || meta.yearLevel || meta.year)) || resolvedCtxLevel || '';
           if (rawLvl) {
             const targetLvl = String(rawLvl).toLowerCase().trim();
             let matchedYear = false;
@@ -1473,15 +1520,15 @@
                   break;
                 }
               }
-              // Normalized token match (e.g. "4" matching "4ème", "4e", "Grade 4")
+              // Normalized token match (e.g. "4", "4e", "4ème", "Grade 4")
               if (!matchedYear) {
-                const numMatch = targetLvl.match(/\b([1-6])\b/);
+                const numMatch = targetLvl.match(/(?:^|\D)([1-6])(?:\D|$)/);
                 const targetNum = numMatch ? numMatch[1] : null;
                 for (let i = 0; i < yearSelect.options.length; i++) {
                   const v = yearSelect.options[i].value.toLowerCase().trim();
                   const txt = yearSelect.options[i].textContent.toLowerCase().trim();
                   if (v !== 'all' && v !== '') {
-                    if (targetNum && (new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(v) || new RegExp('\\b' + targetNum + '([eè]me?|e|th)?\\b', 'i').test(txt))) {
+                    if (targetNum && (new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(v) || new RegExp('(?:^|\\D)' + targetNum + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i').test(txt))) {
                       yearSelect.selectedIndex = i;
                       matchedYear = true;
                       break;
@@ -1502,8 +1549,7 @@
               }
             }
           }
-          conFilterCompetencePicker();
-        }).catch(() => {});
+        } catch (_) {}
       }
 
       conFilterCompetencePicker();
@@ -1661,7 +1707,7 @@
 
       if (countEl) {
         const count = _conCompSelectedIds.size;
-        countEl.textContent = typeof t === 'function' ? t('compCountSelected', { count }) : `${count} selected`;
+        countEl.textContent = typeof tFmt === 'function' ? tFmt('compCountSelected', { count }) : `${count} selected`;
       }
     }
 
@@ -1699,7 +1745,7 @@
       const countEl = document.getElementById('con-comp-picker-count');
       if (countEl) {
         const count = _conCompSelectedIds.size;
-        countEl.textContent = typeof t === 'function' ? t('compCountSelected', { count }) : `${count} selected`;
+        countEl.textContent = typeof tFmt === 'function' ? tFmt('compCountSelected', { count }) : `${count} selected`;
       }
     }
 
@@ -1747,14 +1793,14 @@
           conUpdateNodeCompetenceBadge(node);
           if (typeof window.boardSetDirty === 'function') boardSetDirty(true);
           else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-          mdbToast(typeof t === 'function' ? t('compNodeBadgeTitle', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags applied to node.');
+          mdbToast(typeof tFmt === 'function' ? tFmt('compNodeBadgeTitle', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags applied to node.');
         }
       } else {
         global._conCurrentCompetences = selectedList;
         conRenderHeaderCompetenceBar();
         if (typeof window.boardSetDirty === 'function') boardSetDirty(true);
         else if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-        mdbToast(typeof t === 'function' ? t('compAttachedToBoard', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags attached to board file.');
+        mdbToast(typeof tFmt === 'function' ? tFmt('compAttachedToBoard', { codes: selectedList.map(c => c.code || c.title).join(', ') }) : 'Competence tags attached to board file.');
       }
 
       conCloseCompetenceModal();

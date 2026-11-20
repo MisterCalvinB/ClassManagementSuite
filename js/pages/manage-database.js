@@ -4867,11 +4867,71 @@
 
       if (yrSel) {
         const yrs = new Set();
-        _allAvailableCompetences.forEach(c => { if (c.year) yrs.add(c.year); });
+        _allAvailableCompetences.forEach(c => {
+          const y = c.yearLevel || c.year;
+          if (y && y !== 'all') yrs.add(y);
+        });
         yrSel.innerHTML = `<option value="all" data-i18n="gsCompFilterAllYears">${t('gsCompFilterAllYears')}</option>` +
-          Array.from(yrs).sort().map(y => `<option value="${esc(y)}">${esc(y)}</option>`).join('');
+          Array.from(yrs).sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true })).map(y => `<option value="${esc(y)}">${esc(y)}</option>`).join('');
         yrSel.value = 'all';
       }
+
+      // Pre-populate year/level filters if active DB file is linked to a class or level
+      try {
+        const fileUrn = typeof getActiveFileUrn === 'function' ? getActiveFileUrn() : '';
+        if (fileUrn && typeof LinksService !== 'undefined') {
+          const links = LinksService.getLinksForSync ? LinksService.getLinksForSync(fileUrn) : await LinksService.getLinksFor(fileUrn);
+          const clsLink = (links || []).find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
+          const lvlLink = (links || []).find(l => l.otherUrn && l.otherUrn.startsWith('cmt:level:'));
+          let targetLvl = lvlLink ? lvlLink.otherUrn.slice('cmt:level:'.length) : '';
+          if (clsLink && typeof CompetenceAggregatorService !== 'undefined') {
+            const cid = clsLink.otherUrn.slice('cmt:class:'.length);
+            const meta = await CompetenceAggregatorService.getGroupMetadata(cid);
+            if (meta && (meta.level || meta.yearLevel || meta.year)) {
+              targetLvl = meta.level || meta.yearLevel || meta.year;
+            }
+          }
+          if (targetLvl) {
+            const tLow = String(targetLvl).toLowerCase().trim();
+            if (yrSel) {
+              let matchedY = false;
+              for (let i = 0; i < yrSel.options.length; i++) {
+                const v = (yrSel.options[i].value || '').toLowerCase().trim();
+                if (v !== 'all' && v !== '' && v === tLow) {
+                  yrSel.selectedIndex = i;
+                  _compPickerFilters.year = yrSel.value;
+                  matchedY = true;
+                  break;
+                }
+              }
+              if (!matchedY) {
+                const nm = tLow.match(/(?:^|\D)([1-6])(?:\D|$)/);
+                if (nm) {
+                  const re = new RegExp('(?:^|\\D)' + nm[1] + '(?:[eè]me?|e|th)?(?:\\D|$)', 'i');
+                  for (let i = 0; i < yrSel.options.length; i++) {
+                    const v = (yrSel.options[i].value || '').toLowerCase().trim();
+                    if (v !== 'all' && v !== '' && re.test(v)) {
+                      yrSel.selectedIndex = i;
+                      _compPickerFilters.year = yrSel.value;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            if (lvlSel) {
+              for (let i = 0; i < lvlSel.options.length; i++) {
+                const v = (lvlSel.options[i].value || '').toLowerCase().trim();
+                if (v !== 'all' && v !== '' && (v === tLow || (tLow.length >= 2 && (v.includes(tLow) || tLow.includes(v))))) {
+                  lvlSel.selectedIndex = i;
+                  _compPickerFilters.level = lvlSel.value;
+                  break;
+                }
+              }
+            }
+          }
+        }
+      } catch (_) {}
 
       const showSelBtn = $('mdb-comp-filter-show-selected');
       if (showSelBtn) {
@@ -4898,7 +4958,7 @@
         if (fSelected && !_compPickerDraftSelected.has(c.id)) return false;
         if (fc !== 'all' && c.category !== fc) return false;
         if (fl !== 'all' && c.level !== fl) return false;
-        if (fy !== 'all' && c.year !== fy) return false;
+        if (fy !== 'all' && (c.yearLevel || c.year) !== fy) return false;
         if (!q) return true;
         return (c.code && c.code.toLowerCase().includes(q)) ||
                (c.title && c.title.toLowerCase().includes(q)) ||

@@ -470,7 +470,7 @@ function switchFmTab(tab) {
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'tab-' + tab); });
   if (tab === 'browse' && !browseFirstLoad) { browseFirstLoad = true; loadBrowse(); }
   if (tab === 'tags') { loadTagsTab(); }
-  if (tab === 'dossiers') { if (typeof window.loadDossiersTab === 'function') window.loadDossiersTab(); }
+  if (tab === 'dossiers') { if (typeof window.loadDossiersTab === 'function') window.loadDossiersTab(false); }
   if (tab === 'archive') { loadArchivesTab(); }
   if (tab === 'health' && !window._fmHealthInitialized) {
     window._fmHealthInitialized = true;
@@ -4019,11 +4019,13 @@ function openFmShortcuts() {
      ════════════════════════════════════════════ */
 
   var _fmDossiersCached = [];
+  var _fmDossiersLoaded = false;
   var _fmDosSearchQuery = '';
   var _fmDosSelectedClass = 'all';
   var _fmDosSortOrder = 'name-asc';
   var _fmDosDebounce = null;
   var _fmDosInitialized = false;
+  var _fmDosChunkRaf = null;
 
   function getInitials(name) {
     if (!name) return 'ST';
@@ -4147,25 +4149,44 @@ function openFmShortcuts() {
     var refreshBtn = document.getElementById('fmDosRefresh');
     if (refreshBtn) {
       refreshBtn.addEventListener('click', function() {
-        loadDossiersTab();
+        loadDossiersTab(true);
+      });
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('cmt-links-changed', function() {
+        _fmDossiersLoaded = false;
       });
     }
   };
 
-  window.loadDossiersTab = async function() {
+  window.loadDossiersTab = async function(forceReload) {
     window.initDossiersTabControls();
     var container = document.getElementById('fmDossiersList');
     if (!container) return;
+
+    if (!forceReload && _fmDossiersLoaded && _fmDossiersCached.length > 0 && !window._fmPendingDossierTarget) {
+      if (!container.querySelector('.fm-dos-card')) {
+        renderDossiersList();
+      }
+      return;
+    }
+
+    if (_fmDosChunkRaf) {
+      cancelAnimationFrame(_fmDosChunkRaf);
+      _fmDosChunkRaf = null;
+    }
     container.innerHTML = '<div class="state-msg"><span>' + escHtml(tt('rfLoading', 'Loading student dossiers…')) + '</span></div>';
 
     var classFilterSelect = document.getElementById('fmDosClassFilter');
 
-    // 1. Ensure master roster is loaded from disk
-    if (window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function') {
-      try {
-        await window.LinksService.ensureRosterLoaded();
-      } catch (_) {}
-    }
+    // 1. Pre-warm all dossier caches (roster, registry, grades, boards, docs, participation) in parallel
+    var prewarmPromise = (window.LinksService && typeof window.LinksService.prewarmDossierCaches === 'function')
+      ? window.LinksService.prewarmDossierCaches().catch(function() {})
+      : ((window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function')
+          ? window.LinksService.ensureRosterLoaded().catch(function() {})
+          : Promise.resolve());
+    await prewarmPromise;
 
     // Direct disk fallback if window.CLASS_GROUPS is still missing
     if (typeof window.CLASS_GROUPS === 'undefined' && window.Desktop && typeof Desktop.readText === 'function') {
@@ -4269,30 +4290,39 @@ function openFmShortcuts() {
       return;
     }
 
-    // 4. Load full academic dossiers for all students asynchronously
-    var loadedDossiers = await Promise.all(studentsList.map(async function(st) {
-      var dossier = null;
-      if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
-        try {
-          dossier = await window.LinksService.getStudentAcademicDossier(st.id, {
-            classId: st.classId,
-            className: st.className,
-            studentName: st.name,
-            level: st.level
-          });
-        } catch (_) {}
+    // 4. Load full academic dossiers in bounded batches so the UI stays responsive
+    var loadedDossiers = [];
+    var batchSize = 25;
+    for (var bStart = 0; bStart < studentsList.length; bStart += batchSize) {
+      var batch = studentsList.slice(bStart, bStart + batchSize);
+      var batchResults = await Promise.all(batch.map(async function(st) {
+        var dossier = null;
+        if (window.LinksService && typeof window.LinksService.getStudentAcademicDossier === 'function') {
+          try {
+            dossier = await window.LinksService.getStudentAcademicDossier(st.id, {
+              classId: st.classId,
+              className: st.className,
+              studentName: st.name,
+              level: st.level
+            });
+          } catch (_) {}
+        }
+        return {
+          id: st.id,
+          name: st.name,
+          classId: st.classId,
+          className: st.className,
+          level: st.level,
+          dossier: dossier
+        };
+      }));
+      for (var br = 0; br < batchResults.length; br++) {
+        loadedDossiers.push(batchResults[br]);
       }
-      return {
-        id: st.id,
-        name: st.name,
-        classId: st.classId,
-        className: st.className,
-        level: st.level,
-        dossier: dossier
-      };
-    }));
+    }
 
     _fmDossiersCached = loadedDossiers;
+    _fmDossiersLoaded = true;
     if (window._fmPendingDossierTarget) {
       var pending = window._fmPendingDossierTarget;
       window._fmPendingDossierTarget = null;
@@ -4505,13 +4535,46 @@ function openFmShortcuts() {
             title: item.name,
             subtitle: 'Student • ' + item.className,
             onUpdate: function() {
-              loadDossiersTab();
+              loadDossiersTab(true);
             }
           });
         }
       });
 
       return card;
+    }
+
+    if (_fmDosChunkRaf) {
+      cancelAnimationFrame(_fmDosChunkRaf);
+      _fmDosChunkRaf = null;
+    }
+
+    var isInitialEmptyRender = !container.querySelector('.fm-dos-card');
+    if (isInitialEmptyRender && filtered.length > 50) {
+      var firstBatchCount = 40;
+      var firstFrag = document.createDocumentFragment();
+      for (var fi = 0; fi < firstBatchCount; fi++) {
+        firstFrag.appendChild(buildDossierCard(filtered[fi]));
+      }
+      container.replaceChildren(firstFrag);
+
+      var nextIdx = firstBatchCount;
+      var appendNextChunk = function() {
+        _fmDosChunkRaf = null;
+        if (nextIdx >= filtered.length) return;
+        var chunkEnd = Math.min(nextIdx + 30, filtered.length);
+        var chunkFrag = document.createDocumentFragment();
+        for (var ci = nextIdx; ci < chunkEnd; ci++) {
+          chunkFrag.appendChild(buildDossierCard(filtered[ci]));
+        }
+        container.appendChild(chunkFrag);
+        nextIdx = chunkEnd;
+        if (nextIdx < filtered.length) {
+          _fmDosChunkRaf = requestAnimationFrame(appendNextChunk);
+        }
+      };
+      _fmDosChunkRaf = requestAnimationFrame(appendNextChunk);
+      return;
     }
 
     if (window.DomSync && typeof window.DomSync.patchListByKey === 'function') {

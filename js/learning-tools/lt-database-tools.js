@@ -1246,7 +1246,11 @@
         if (targetSec && document.getElementById(targetSec)) {
           navTo(targetSec);
           const pTheme = urlParams.get('theme') || urlParams.get('quizTheme');
-          const pLevel = urlParams.get('level') || urlParams.get('quizLevel');
+          let pLevel = urlParams.get('level') || urlParams.get('quizLevel');
+          const pClassId = urlParams.get('classId');
+          if (!pLevel && pClassId && typeof LinksService !== 'undefined' && typeof LinksService.resolveClassLevel === 'function') {
+            pLevel = LinksService.resolveClassLevel(pClassId) || '';
+          }
           const pWords = urlParams.get('words');
           const secEl = document.getElementById(targetSec);
           if (secEl) {

@@ -134,5 +134,8 @@
   "cpDetailsCount": "{n} détails",
   "cpColDetailedDescription": "Description détaillée",
   "cpClassStats": "Aperçu de la classe",
-  "cpStudentsCount": "élèves"
+  "cpStudentsCount": "élèves",
+  "cpNoClassOption": "— Aucune classe assignée (Tout parcourir) —",
+  "cpNoClassLabel": "Aucune classe",
+  "cpNoClassHistoryMsg": "Aucune classe assignée. Sélectionnez une classe ci-dessus pour voir les activités et évaluations enregistrées."
 });
