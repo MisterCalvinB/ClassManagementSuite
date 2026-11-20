@@ -36,6 +36,16 @@
   <link rel="stylesheet" href="../css/import-tool.css">
 </head>
 <body data-neo-hover-all="1">
+  <script>
+    if (window.location.search.indexOf('embedded=1') !== -1) {
+      document.documentElement.classList.add('is-embedded');
+    }
+  </script>
+  <style>
+    html.is-embedded #app-nav { display: none !important; }
+    html.is-embedded body { background: transparent !important; }
+    html.is-embedded .wizard-wrap { padding: 4px 0 24px !important; margin: 0 auto !important; }
+  </style>
   <nav id="app-nav">
     <span class="nav-brand"></span>
     <div id="app-hamburger" class="hm-wrap">
@@ -273,13 +283,15 @@
         <div class="done-actions">
           <button class="btn btn-primary" id="btn-done-action" style="display:none;" data-ev-16="1">Open</button>
           <button class="btn btn-secondary" data-ev-17="1" data-i18n="importBtnImportAnother">Import another file</button>
+          <button class="btn btn-secondary" data-ev-22="1" data-i18n="importBackToDataStudio">Back to Data Studio</button>
           <button class="btn btn-secondary" data-ev-18="1" data-i18n="importBtnClose">Close</button>
         </div>
       </div>
 
       <!-- ── Footer ── -->
       <div class="wizard-footer" id="wizard-footer">
-        <div class="left">
+        <div class="left" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn btn-secondary" id="btn-back-datastudio" data-ev-21="1" data-i18n="importBackToDataStudio">Back to Data Studio</button>
           <button class="btn btn-secondary" id="btn-back" data-ev-19="1" style="display:none;" data-i18n="importBtnBack">← Back</button>
         </div>
         <div class="right" style="display:flex; align-items:center; gap:10px;">
@@ -1796,6 +1808,23 @@
       if (!el) return;
       var handler = function (event) { goNext() };
       el.addEventListener('click', handler);
+    })();
+    function backToDataStudio() {
+      if (window.parent && window.parent !== window && typeof window.parent.resetToTaskChooser === 'function') {
+        window.parent.resetToTaskChooser();
+      } else {
+        window.location.href = 'database-converter.html';
+      }
+    }
+    (function () {
+      var el = document.querySelector('[data-ev-21]');
+      if (!el) return;
+      el.addEventListener('click', backToDataStudio);
+    })();
+    (function () {
+      var el = document.querySelector('[data-ev-22]');
+      if (!el) return;
+      el.addEventListener('click', backToDataStudio);
     })();
   });
 </script>

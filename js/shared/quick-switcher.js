@@ -90,6 +90,7 @@
       '.cmt-qs-badge.cat-student{background:#5b8fcc;color:#ffffff}',
       '.cmt-qs-badge.cat-doc{background:#d4895a;color:#ffffff}',
       '.cmt-qs-badge.cat-board{background:#8b7cc2;color:#ffffff}',
+      '.cmt-qs-badge.cat-word{background:#5a9a9e;color:#ffffff}',
       '.cmt-qs-empty{padding:24px 12px;text-align:center;color:#555555;font-size:0.86rem;font-weight:600}',
       '.cmt-qs-actions{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}',
       '.cmt-qs-act-btn{font-family:inherit;font-size:0.68rem;font-weight:800;padding:2px 7px;border:1.5px solid #333333;border-radius:4px;background:#fafaf7;color:#222222;cursor:pointer;white-space:nowrap}',
@@ -109,6 +110,126 @@
   var _loadedDynamic = false;
   var _actionTarget = null;
   var _savedQuery = '';
+  var _dictItems = [];
+  var _dictQuery = '';
+  var _dictTimer = null;
+  var _dictSeq = 0;
+  var _dictInitPromise = null;
+
+  function _openDictionaryWord(word) {
+    var q = typeof word === 'string' ? word.trim() : '';
+    if (window.electronBridge && typeof window.electronBridge.openDictionary === 'function') {
+      window.electronBridge.openDictionary(q);
+      return;
+    }
+    if (window.Desktop && typeof window.Desktop.openDictionary === 'function') {
+      window.Desktop.openDictionary(q);
+      return;
+    }
+    try {
+      var bc = new BroadcastChannel('cmt-dictionary');
+      bc.postMessage({ type: 'search', q: q });
+      bc.close();
+    } catch (_) {}
+    if (window.electronApi && typeof window.electronApi.openHtml === 'function') {
+      window.electronApi.openHtml({
+        file: 'dictionary.html',
+        query: q ? { q: q } : undefined,
+        width: 880,
+        height: 680,
+        reuseId: 'dictionary'
+      });
+    } else {
+      window.open(_pageHref('dictionary.html') + (q ? '?q=' + encodeURIComponent(q) : ''), 'cmt_quick_dictionary');
+    }
+  }
+
+  function _ensureDictBanksReady() {
+    var api = window.electronApi;
+    if (!api || !api.isElectron || typeof api.dictionarySearch !== 'function') {
+      return Promise.resolve(false);
+    }
+    if (_dictInitPromise) return _dictInitPromise;
+    _dictInitPromise = (async function () {
+      try {
+        if (typeof api.dictionaryListBanks !== 'function' || typeof api.dictionarySetBanks !== 'function') {
+          return true;
+        }
+        var res = await api.dictionaryListBanks();
+        if (!res || !res.ok || !Array.isArray(res.banks) || res.banks.length === 0) {
+          return false;
+        }
+        var st = res.status || {};
+        if (st.state === 'ready' && Array.isArray(st.selected) && st.selected.length > 0) {
+          return true;
+        }
+        var offSet = new Set();
+        try {
+          var rawOff = JSON.parse(localStorage.getItem('cmt-dict-banks-off') || '[]');
+          if (Array.isArray(rawOff)) rawOff.forEach(function (n) { offSet.add(n); });
+        } catch (_) {}
+        var enabled = res.banks.map(function (b) { return b.name; }).filter(function (n) { return !offSet.has(n); });
+        if (enabled.length === 0) return false;
+        await api.dictionarySetBanks({ banks: enabled });
+        return true;
+      } catch (_) {
+        return false;
+      }
+    })();
+    return _dictInitPromise;
+  }
+
+  function _scheduleDictSearch(rawQuery) {
+    clearTimeout(_dictTimer);
+    var q = String(rawQuery || '').trim();
+    if (_actionTarget || q.length < 2) {
+      _dictSeq++;
+      _dictItems = [];
+      _dictQuery = '';
+      return;
+    }
+    var api = window.electronApi;
+    if (!api || !api.isElectron || typeof api.dictionarySearch !== 'function') return;
+    var seq = ++_dictSeq;
+    _dictTimer = setTimeout(async function () {
+      var ready = await _ensureDictBanksReady();
+      if (!ready || seq !== _dictSeq) return;
+      try {
+        var payload = await api.dictionarySearch({ q: q, scope: 'word', limit: 25 });
+        if (seq !== _dictSeq) return;
+        var results = (payload && payload.ok && Array.isArray(payload.results)) ? payload.results : [];
+        var seen = Object.create(null);
+        var mapped = [];
+        results.forEach(function (entry) {
+          if (!entry || !entry.word) return;
+          var key = entry.word.toLowerCase() + '::' + (entry.pos || '');
+          if (seen[key]) return;
+          seen[key] = true;
+          var subParts = [];
+          if (entry.pos) subParts.push('[' + entry.pos + ']');
+          if (entry.definition) subParts.push(entry.definition);
+          else if (entry.bank) subParts.push(entry.bank);
+          mapped.push({
+            id: 'word:' + key,
+            cat: 'word',
+            catLabel: _t('qsCatWord', 'Word'),
+            title: entry.word,
+            sub: subParts.join(' '),
+            icon: 'dictionary.svg',
+            word: entry.word,
+            onSelect: function () {
+              _openDictionaryWord(entry.word);
+            }
+          });
+        });
+        _dictItems = mapped;
+        _dictQuery = q.toLowerCase();
+        if (_backdrop && _backdrop.classList.contains('open') && !_actionTarget) {
+          _renderList(_input ? _input.value : '');
+        }
+      } catch (_) {}
+    }, 120);
+  }
 
   function _getTargetActions(target) {
     var isStudent = target.cat === 'student';
@@ -505,9 +626,11 @@
       var files = _items.filter(function (it) { return it.cat === 'doc' || it.cat === 'board'; }).slice(0, 10);
       _filtered = tools.concat(classes, students, files);
     } else {
-      _filtered = _items.filter(function (it) {
+      var localMatches = _items.filter(function (it) {
         return (it.title + ' ' + it.sub + ' ' + it.catLabel).toLowerCase().indexOf(q) !== -1;
       }).slice(0, 50);
+      var dictMatches = (q.length >= 2 && _dictQuery === q) ? _dictItems : [];
+      _filtered = localMatches.concat(dictMatches);
     }
 
     if (_activeIdx >= _filtered.length) _activeIdx = 0;
@@ -516,7 +639,7 @@
     if (_filtered.length === 0) {
       var empty = document.createElement('div');
       empty.className = 'cmt-qs-empty';
-      empty.textContent = _t('qsEmpty', 'No matching tools, classes, students, or files.');
+      empty.textContent = _t('qsEmpty', 'No matching tools, classes, students, files, or words.');
       _listEl.appendChild(empty);
       return;
     }
@@ -621,7 +744,7 @@
     _input = document.createElement('input');
     _input.type = 'text';
     _input.className = 'cmt-qs-input';
-    _input.placeholder = _t('qsPlaceholder', 'Jump to a tool, class, student, or file...');
+    _input.placeholder = _t('qsPlaceholder', 'Jump to a tool, class, student, file, or word...');
     _input.setAttribute('aria-label', _t('qsTitle', 'Quick Switcher'));
     var kbd = document.createElement('span');
     kbd.className = 'cmt-qs-kbd';
@@ -653,6 +776,7 @@
     _input.addEventListener('input', function () {
       _activeIdx = 0;
       _renderList(_input.value);
+      _scheduleDictSearch(_input.value);
     });
 
     _input.addEventListener('keydown', function (e) {
@@ -680,6 +804,9 @@
             _activeIdx = 0;
             if (_input) _input.value = '';
             _renderList('');
+          } else if (typeof chosen.onSelect === 'function') {
+            _close();
+            chosen.onSelect();
           } else {
             _close();
             _openTarget(chosen.url);
@@ -691,6 +818,7 @@
         _activeIdx = 0;
         _input.value = _savedQuery;
         _renderList(_savedQuery);
+        _scheduleDictSearch(_savedQuery);
       } else if (e.key === 'Escape') {
         e.preventDefault();
         if (_actionTarget) {
@@ -698,6 +826,7 @@
           _activeIdx = 0;
           _input.value = _savedQuery;
           _renderList(_savedQuery);
+          _scheduleDictSearch(_savedQuery);
         } else {
           _close();
         }
@@ -711,6 +840,9 @@
     _actionTarget = null;
     _savedQuery = '';
     _activeIdx = 0;
+    _dictInitPromise = null;
+    _dictItems = [];
+    _dictQuery = '';
     _input.value = '';
     _backdrop.classList.add('open');
     _renderList('');
@@ -719,6 +851,8 @@
   }
 
   function _close() {
+    clearTimeout(_dictTimer);
+    _dictSeq++;
     if (_backdrop) _backdrop.classList.remove('open');
   }
 

@@ -173,5 +173,6 @@
   "gePlannerHolLabel": "Nome della vacanza",
   "gePlannerHolDateEnd": "Fine (facoltativo)",
   "gePlannerHolSingular": "vacanza",
-  "gePlannerHolPlural": "vacanze"
+  "gePlannerHolPlural": "vacanze",
+  "geStudentsLabel": "Studenti"
 });

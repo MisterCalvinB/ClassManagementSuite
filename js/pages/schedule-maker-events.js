@@ -21,6 +21,31 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var map = {
+        '[data-smev-nav-new]': function () { newSchedule(); },
+        '[data-smev-nav-1]': function () { openLoadModal(); },
+        '[data-smev-nav-2]': function () { saveSchedule(); },
+        '[data-smev-nav-saveas]': function () { saveScheduleAs(); },
+        '[data-smev-nav-dup]': function () { duplicateSchedule(); },
+        '[data-smev-nav-3]': function () { smTogglePin(); },
+        '[data-smev-nav-4]': function () { goBack(); },
+        '[data-smev-nav-5]': function () { applyConfig(); },
+        '[data-smev-nav-6]': function () { addBreak(); },
+        '[data-smev-nav-7]': function () { openGroupModal('manual'); },
+        '[data-smev-nav-8]': function () { openGroupModal('auto'); },
+        '[data-smev-nav-9]': function () { handleExportClick('pdf'); },
+        '[data-smev-nav-10]': function () { handleExportClick('csv'); },
+        '[data-smev-nav-11]': function () { handleExportClick('xlsx'); },
+        '[data-smev-nav-12]': function () { handleExportClick('ods'); },
+        '[data-smev-nav-13]': function () { handleExportClick('docx'); },
+        '[data-smev-nav-14]': function () { handleExportClick('html'); }
+      };
+      Object.keys(map).forEach(function (sel) {
+        var el = document.querySelector(sel);
+        if (el) el.addEventListener('click', map[sel]);
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-smev-4]');
       if (!el) return;
       var handler = function (event) { smOnGroupChange(this.value) };

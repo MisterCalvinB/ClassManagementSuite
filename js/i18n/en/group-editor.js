@@ -173,5 +173,6 @@
   "geAllStudentsBtnDelete": "Delete",
   "geSubject": "Subject",
   "geSubjectPlaceholder": "Subject (e.g. English, Science, French…)",
-  "geBtnCompetencePortfolio": "Competence Portfolio"
+  "geBtnCompetencePortfolio": "Competence Portfolio",
+  "geStudentsLabel": "Students"
 });

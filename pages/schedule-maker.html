@@ -22,9 +22,10 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #fff;
-      color: #000;
+      font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+      background-color: var(--neo-bg, #f5f5f0);
+      color: var(--neo-dark, #222222);
+      padding: 14px;
       min-height: 100vh;
     }
 
@@ -44,9 +45,7 @@
     .sm-title .btn-icon,
     .sm-section-title .btn-icon,
     .sm-back-btn .btn-icon,
-    .sm-export-btn .btn-icon,
     .sm-btn-auto-group .btn-icon,
-    .sm-action-btn .btn-icon,
     .sm-del-btn .btn-icon,
     .tut-trigger-btn .btn-icon,
     .hm-btn .btn-icon,
@@ -59,49 +58,51 @@
     }
 
     .sm-page {
-      max-width: 960px;
+      max-width: 1120px;
       margin: 0 auto;
-      padding: 32px 24px 100px;
+      padding: 0 0 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
     /* ── Header ────────────────────────────────────────── */
     .sm-header {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 28px;
+      gap: 12px;
       flex-wrap: wrap;
       user-select: none;
       -webkit-user-select: none;
     }
     .sm-back-btn {
-      background: #fff;
-      border: 2px solid #000;
-      border-radius: 7px;
-      padding: 7px 14px;
+      background: var(--neo-card-bg, #fff);
+      border: 2px solid var(--neo-border-color, #333);
+      border-radius: var(--neo-radius-md, 6px);
+      padding: 6px 12px;
       font-family: inherit;
-      font-size: 0.85rem;
+      font-size: 0.84rem;
       font-weight: 700;
-      color: #000;
+      color: var(--neo-dark, #222);
       cursor: pointer;
+      box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888);
       transition: background 0.1s, color 0.1s;
       white-space: nowrap;
       user-select: none;
       -webkit-user-select: none;
     }
-    .sm-back-btn:hover { background: #000; color: #fff; }
+    .sm-back-btn:hover { background: var(--neo-dark, #222); color: #fff; }
     .sm-title {
-      font-size: 1.6rem;
+      font-size: 1.3rem;
       font-weight: 800;
       letter-spacing: -0.3px;
       flex: 1;
     }
     .sm-subtitle {
-      font-size: 0.83rem;
+      font-size: 0.84rem;
       font-weight: 600;
-      color: #555;
+      color: var(--neo-gray-dark, #475569);
       width: 100%;
-      margin-top: -8px;
     }
 
     /* ── Section title ─────────────────────────────────── */
@@ -116,10 +117,12 @@
 
     /* ── Config panel ──────────────────────────────────── */
     .sm-config {
-      border: 2px solid #000;
-      border-radius: 8px;
+      background: var(--neo-card-bg, #ffffff);
+      border: 2px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
       padding: 16px 18px 18px;
-      margin-bottom: 24px;
+      margin-bottom: 0;
     }
     .sm-config-grid {
       display: grid;
@@ -364,35 +367,6 @@
       padding: 24px;
       font-size: 0.88rem;
     }
-
-    /* ── Sticky action bar ────────────────────────────── */
-    .sm-action-bar {
-      position: sticky;
-      bottom: 0;
-      background: #fff;
-      border-top: 2px solid #000;
-      padding: 12px 0 8px;
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-    }
-    .sm-action-btn {
-      flex: 1;
-      padding: 10px;
-      border: 2px solid #000;
-      border-radius: 6px;
-      font-family: inherit;
-      font-weight: 700;
-      font-size: 0.85rem;
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-      background: #fff;
-      color: #000;
-    }
-    .sm-action-btn:hover { background: #000; color: #fff; }
-    .sm-action-btn.primary { background: #000; color: #fff; }
-    .sm-action-btn.primary:hover { background: #fff; color: #000; }
-    .sm-action-btn:disabled { opacity: 0.4; cursor: default; }
 
     /* ── Notice ──────────────────────────────────────── */
     .sm-notice {
@@ -756,16 +730,129 @@
     .sm-print-meta span { display: flex; gap: 5px; }
     .sm-print-meta strong { font-weight: 700; }
 
-    /* ── Nav ── */
+    /* ── Nav (matches Lesson Creator) ── */
     #app-nav {
-      background: #111; color: #fff; padding: 0 16px;
-      display: flex; align-items: center; gap: 20px; height: 44px;
-      border-radius: 0; margin-bottom: 0; flex-wrap: nowrap; flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--neo-dark, #222222);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: var(--neo-radius-md, 6px);
+      border: 2px solid var(--neo-dark, #222222);
+      box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+      flex-wrap: wrap;
+      margin-bottom: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .nav-brand {
+      font-weight: 900;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-right: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .nav-brand img {
+      width: 20px;
+      height: 20px;
+      filter: brightness(0) invert(1);
+    }
+    .nav-group {
+      position: relative;
+      display: inline-block;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-nav .nav-btn {
+      background: #222222;
+      color: #ffffff;
+      border: 1px solid #555555;
+      padding: 5px 11px;
+      border-radius: var(--neo-radius-sm, 4px);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.12s, border-color 0.12s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-nav .nav-btn:hover {
+      background: #333333;
+      border-color: #888888;
+    }
+    .nav-group-popup {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #1e1e1e;
+      border: 2px solid var(--neo-dark, #222222);
+      border-radius: var(--neo-radius-sm, 4px);
+      min-width: 210px;
+      z-index: 1000;
+      padding: 5px 0;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .nav-group-popup::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: transparent;
+    }
+    .nav-group:hover .nav-group-popup,
+    .nav-group:focus-within .nav-group-popup {
+      display: block;
+    }
+    #app-nav .nav-pop-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 7px 14px;
+      color: #dddddd;
+      background: none;
+      border: none;
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    #app-nav .nav-pop-item:hover {
+      background: #2d2d2d;
+      color: #ffffff;
+    }
+    .nav-pop-hint {
+      font-size: 0.72rem;
+      color: #888888;
+      font-weight: 500;
+      margin-left: 14px;
+    }
+    .nav-pop-sep {
+      border: none;
+      border-top: 1px solid #333333;
+      margin: 4px 0;
     }
 
     /* ── Print ───────────────────────────────────────── */
     @media print {
-      #app-nav, .sm-header, .sm-config, .sm-order-panel, .sm-action-bar, .sm-notice,
+      #app-nav, .sm-header, .sm-config, .sm-order-panel, .sm-notice,
       .sm-modal-overlay { display: none !important; }
       .sm-page { padding: 0; max-width: 100%; }
       .sm-table th { color: #000; }
@@ -949,20 +1036,63 @@
   </style>
 </head>
 <body data-neo-hover-all="1">
-<nav id="app-nav">
-  <span class="nav-brand"></span>
-  <div id="app-hamburger" class="hm-wrap">
-    <button id="skm-trigger" class="tut-trigger-btn" data-smev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button id="tut-trigger" class="tut-trigger-btn" data-smev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-    <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
-    <div class="hm-menu"></div>
-  </div>
-</nav>
 <div class="sm-page">
+  <nav id="app-nav">
+    <span class="nav-brand">
+      <img src="../assets/icons/schedule-maker.svg" alt="" />
+      <span data-i18n="smTitle">Schedule Maker</span>
+    </span>
+
+    <!-- File menu -->
+    <div class="nav-group">
+      <button class="nav-btn" data-i18n="menuFile">File</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" data-smev-nav-new="1"><span data-i18n="btnNew">New</span></button>
+        <button class="nav-pop-item" data-smev-nav-1="1"><span data-i18n="btnOpen">Open</span></button>
+        <button class="nav-pop-item" data-smev-nav-2="1"><span data-i18n="btnSave">Save</span></button>
+        <button class="nav-pop-item" data-smev-nav-saveas="1"><span data-i18n="btnSaveAs">Save As…</span></button>
+        <button class="nav-pop-item" data-smev-nav-dup="1"><span data-i18n="btnDuplicate">Duplicate</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" id="sm-nav-pin-btn" data-smev-nav-3="1" style="display:none;"><span class="pin-btn-text" data-i18n="smPinSchedule">Pin Schedule</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" data-smev-nav-4="1"><span data-i18n="smBack">← Launcher</span></button>
+      </div>
+    </div>
+
+    <!-- Edit menu -->
+    <div class="nav-group">
+      <button class="nav-btn" data-i18n="menuEdit">Edit</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" data-smev-nav-5="1"><span data-i18n="smApplyBtn">Apply</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" data-smev-nav-6="1"><span data-i18n="smAddBreak">+ Add Break</span></button>
+        <button class="nav-pop-item" data-smev-nav-7="1"><span data-i18n="smAddGroup">+ Add Group</span></button>
+        <button class="nav-pop-item" data-smev-nav-8="1"><span data-i18n="smAutoGroup">Auto-Group</span></button>
+      </div>
+    </div>
+
+    <!-- Export menu -->
+    <div class="nav-group">
+      <button class="nav-btn" data-i18n="menuExport">Export</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" data-smev-nav-9="1"><span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
+        <button class="nav-pop-item" data-smev-nav-10="1"><span data-i18n="mdbBtnExportCsv">CSV</span></button>
+        <button class="nav-pop-item" data-smev-nav-11="1"><span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+        <button class="nav-pop-item" data-smev-nav-12="1"><span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
+        <button class="nav-pop-item" data-smev-nav-13="1"><span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
+        <button class="nav-pop-item" data-smev-nav-14="1"><span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
+      </div>
+    </div>
+
+    <div id="app-hamburger" class="hm-wrap">
+      <button id="skm-trigger" class="tut-trigger-btn" data-smev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" data-smev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel">Tour</button>
+      <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu">Menu</button>
+      <div class="hm-menu"></div>
+    </div>
+  </nav>
 
   <header class="sm-header">
-    <button class="sm-back-btn" data-smev-3="1" data-i18n="smBack">← Launcher</button>
-    <h1 class="sm-title" data-i18n="smTitle">Schedule Maker</h1>
     <p class="sm-subtitle" data-i18n="smSubtitle">Create and print oral exam schedules with concurrent preparation and examination timing.</p>
   </header>
 
@@ -1104,26 +1234,6 @@
         </tbody>
       </table>
     </div>
-  </div>
-
-  <!-- ── Action bar ── -->
-  <div class="sm-action-bar">
-    <div class="dropdown" id="sm-export-dropdown" style="flex: 1;">
-      <button class="sm-action-btn primary" id="sm-export-btn" data-smev-9="1" style="width: 100%;">
-        <span data-i18n="mdbBtnExport">Export</span> <span class="neo-caret" aria-hidden="true"></span>
-      </button>
-      <div class="dropdown-menu hidden" id="sm-export-menu">
-        <button class="dropdown-item" data-smev-10="1"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
-        <button class="dropdown-item" data-smev-11="1"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
-        <button class="dropdown-item" data-smev-12="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
-        <button class="dropdown-item" data-smev-13="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
-        <button class="dropdown-item" data-smev-14="1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
-        <button class="dropdown-item" data-smev-15="1"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
-      </div>
-    </div>
-    <button id="sm-save-btn" class="sm-action-btn" data-smev-16="1" data-i18n="smBtnSave">Save</button>
-    <button id="sm-load-btn" class="sm-action-btn" data-smev-17="1" data-i18n="smBtnSavedSchedules">Saved Schedules</button>
-    <button id="sm-pin-btn" class="sm-action-btn" data-smev-18="1" style="display:none" data-i18n-help="hhSmPin" data-hover-help="Pin this schedule to the Launcher quick-access bar."><img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text" data-i18n="smPinSchedule">Pin Schedule</span></button>
   </div>
 </div>
 
@@ -3383,8 +3493,45 @@
     renderScheduleTable();
   }
 
-  // ── Save ─────────────────────────────────────────────────
+  // ── New / Save / Save As / Duplicate ─────────────────────
+  function newSchedule() {
+    smCurrentFilename = null;
+    orderItems = [];
+    document.getElementById('sm-exam-title').value = '';
+    const list = document.getElementById('sm-order-list');
+    if (list) list.innerHTML = '<div class="sm-order-empty">' + (typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply to generate the schedule.') + '</div>';
+    renderScheduleTable();
+    if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
+  }
+
   async function saveSchedule() {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Save requires the Electron app.', true);
+      return;
+    }
+    if (orderItems.length === 0) {
+      showNotice(typeof t === 'function' ? t('smNothingToSave') : 'Nothing to save.', true);
+      return;
+    }
+    if (!smCurrentFilename) {
+      return saveScheduleAs();
+    }
+    const obj = buildScheduleObject();
+    const content = '/* Schedule Maker – Class Management Tools */\nvar SCHEDULE_DATA = ' + JSON.stringify(obj, null, 2) + ';\n';
+    try {
+      const res = await Desktop.saveText(SCHEDULE_TARGET, smCurrentFilename, content, 'schedules');
+      if (res && res.ok) {
+        showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
+        if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
+      } else {
+        showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + (res && res.error || '?'), true);
+      }
+    } catch (e) {
+      showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + e.message, true);
+    }
+  }
+
+  async function saveScheduleAs() {
     if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
       showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Save requires the Electron app.', true);
       return;
@@ -3427,6 +3574,20 @@
     } catch (e) {
       showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + e.message, true);
     }
+  }
+
+  function duplicateSchedule() {
+    if (orderItems.length === 0) {
+      showNotice(typeof t === 'function' ? t('smNothingToSave') : 'Nothing to save.', true);
+      return;
+    }
+    smCurrentFilename = null;
+    const titleEl = document.getElementById('sm-exam-title');
+    if (titleEl && titleEl.value.trim()) {
+      titleEl.value = titleEl.value.trim() + ' (Copy)';
+    }
+    if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
+    saveScheduleAs();
   }
 
   // ── Load modal ───────────────────────────────────────────
@@ -3597,13 +3758,13 @@
       { selector: '.sm-apply-btn',     title: t('tutSm2Title'), text: t('tutSm2Text') },
       { selector: '.sm-order-panel',   title: t('tutSm3Title'), text: t('tutSm3Text') },
       { selector: '.sm-schedule-panel',title: t('tutSm4Title'), text: t('tutSm4Text') },
-      { selector: '.sm-action-bar',    title: t('tutSm5Title'), text: t('tutSm5Text') }
+      { selector: '#app-nav',          title: t('tutSm5Title'), text: t('tutSm5Text') }
     ], { next: t('tutNext'), prev: t('tutPrev'), skip: t('tutSkip'), done: t('tutDone') });
   }
 
   // ── Pin / Unpin ──────────────────────────────────────────
   async function smUpdatePinButtonState() {
-    const pinBtn = document.getElementById('sm-pin-btn');
+    const pinBtn = document.getElementById('sm-nav-pin-btn');
     if (!pinBtn) return;
     if (smCurrentFilename) {
       pinBtn.style.display = '';
@@ -3617,7 +3778,6 @@
         : (typeof t === 'function' ? t('smPinSchedule') : 'Pin Schedule');
       const textEl = pinBtn.querySelector('.pin-btn-text');
       if (textEl) textEl.textContent = label;
-      else pinBtn.innerHTML = '<img src="../assets/icons/pin.svg" class="btn-icon" alt="" /> <span class="pin-btn-text">' + label + '</span>';
     } else {
       pinBtn.style.display = 'none';
     }
@@ -3647,7 +3807,6 @@
   document.addEventListener('DOMContentLoaded', async function () {
     initHamburger();
     if (typeof applyTranslations === 'function') applyTranslations();
-    window._cmtApplyNavBrand();
 
     // Default date to today
     const today = new Date();

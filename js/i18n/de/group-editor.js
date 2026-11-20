@@ -173,5 +173,6 @@
   "geMatchModalDesc": "Einige importierte Schüler stimmen mit bestehenden Einträgen in der Schülerliste überein. Wählen Sie, ob ihre UUID wiederverwendet werden soll (um den Verlauf über Gruppen hinweg zu behalten), ob ein neuer Schüler angelegt oder ob die Angaben aktualisiert werden sollen.",
   "geMatchColIncoming": "Importierter Schüler",
   "geMatchColExisting": "Bestehender Eintrag & Verlauf",
-  "geMatchColAction": "Aktion"
+  "geMatchColAction": "Aktion",
+  "geStudentsLabel": "Schüler"
 });

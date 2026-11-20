@@ -173,5 +173,6 @@
   "geAllStudentsBtnDelete": "Supprimer",
   "geSubject": "Matière",
   "geSubjectPlaceholder": "Matière (ex. Anglais, SVT, Français…)",
-  "geBtnCompetencePortfolio": "Portefeuille de Compétences"
+  "geBtnCompetencePortfolio": "Portefeuille de Compétences",
+  "geStudentsLabel": "Élèves"
 });

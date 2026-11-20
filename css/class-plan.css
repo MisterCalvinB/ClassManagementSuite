@@ -5,8 +5,9 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Lexend', system-ui, -apple-system, sans-serif;
-      background: #ffffff; color: #111;
+      background-color: var(--neo-bg, #f5f5f0); color: var(--neo-dark, #222222);
       height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+      padding: 14px; gap: 14px;
     }
 
     /* ── Common Icon Sizing (12x12px for titles and buttons) ── */
@@ -41,46 +42,165 @@
       max-height: 12px;
     }
 
-    /* ── Nav ── */
+    /* ── Nav (matches Lesson Creator) ── */
     #app-nav {
-      background: #111; color: #fff; padding: 0 16px;
-      display: flex; align-items: center; gap: 20px; height: 44px; flex-shrink: 0;
-      font-size: .82rem; font-weight: 600; letter-spacing: .3px;
-      user-select: none; -webkit-user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--neo-dark, #222222);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: var(--neo-radius-md, 6px);
+      border: 2px solid var(--neo-dark, #222222);
+      box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+      flex-wrap: wrap;
+      flex-shrink: 0;
+      margin-bottom: 0;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    .nav-brand { font-weight: 900; font-size: .95rem; letter-spacing: 1px; text-transform: uppercase; user-select: none; -webkit-user-select: none; }
+    .nav-brand {
+      font-weight: 900;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-right: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .nav-brand img {
+      width: 20px;
+      height: 20px;
+      filter: brightness(0) invert(1);
+    }
+    .nav-group {
+      position: relative;
+      display: inline-block;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-nav .nav-btn {
+      background: #222222;
+      color: #ffffff;
+      border: 1px solid #555555;
+      padding: 5px 11px;
+      border-radius: var(--neo-radius-sm, 4px);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.12s, border-color 0.12s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-nav .nav-btn:hover {
+      background: #333333;
+      border-color: #888888;
+    }
+    .nav-group-popup {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #1e1e1e;
+      border: 2px solid var(--neo-dark, #222222);
+      border-radius: var(--neo-radius-sm, 4px);
+      min-width: 210px;
+      z-index: 1000;
+      padding: 5px 0;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .nav-group-popup::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: transparent;
+    }
+    .nav-group:hover .nav-group-popup,
+    .nav-group:focus-within .nav-group-popup {
+      display: block;
+    }
+    #app-nav .nav-pop-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 7px 14px;
+      color: #dddddd;
+      background: none;
+      border: none;
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    #app-nav .nav-pop-item:hover {
+      background: #2d2d2d;
+      color: #ffffff;
+    }
+    .nav-pop-hint {
+      font-size: 0.72rem;
+      color: #888888;
+      font-weight: 500;
+      margin-left: 14px;
+    }
+    .nav-pop-sep {
+      border: none;
+      border-top: 1px solid #333333;
+      margin: 4px 0;
+    }
     /* ── Root layout ── */
-    #app-root { display: flex; flex: 1; overflow: hidden; }
+    #app-root {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      background: var(--neo-card-bg, #ffffff);
+      border: var(--neo-border-width, 2px) solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+    }
 
     /* ── Plans sidebar ── */
     #plans-sidebar {
-      width: 272px; flex-shrink: 0; background: #fff;
-      border-right: 2px solid #111;
+      width: 272px; flex-shrink: 0; background: var(--neo-card-bg, #ffffff);
+      border-right: 2px solid var(--neo-border-color, #333333);
       display: flex; flex-direction: column; overflow: hidden;
       user-select: none; -webkit-user-select: none;
     }
-    #sidebar-header { padding: 12px; border-bottom: 2px solid #111; display: flex; flex-direction: column; gap: 8px; }
+    #sidebar-header { padding: 12px; border-bottom: 2px solid var(--neo-border-color, #333333); display: flex; flex-direction: column; gap: 8px; }
     #group-sel {
-      width: 100%; padding: 7px 10px; border: 2px solid #111; border-radius: 5px;
-      font-size: .85rem; font-weight: 600; background: #fff; cursor: pointer;
+      width: 100%; padding: 7px 10px; border: 2px solid var(--neo-border-color, #333333); border-radius: var(--neo-radius-md, 6px);
+      font-size: .85rem; font-weight: 600; background: #fff; cursor: pointer; font-family: inherit;
     }
-    #group-sel:focus { outline: none; box-shadow: 2px 2px 0 #111; }
+    #group-sel:focus { outline: none; box-shadow: 0 0 0 2px var(--neo-yellow, #e2c96e); }
     #new-plan-btn {
-      width: 100%; padding: 9px; background: #111; color: #fff;
-      border: 2px solid #111; border-radius: 5px; font-weight: 700; font-size: .82rem;
-      text-transform: uppercase; letter-spacing: .5px; cursor: pointer;
-      box-shadow: 2px 2px 0 #111;
-      transition: all 0.1s;
+      width: 100%; padding: 9px; background: var(--neo-yellow, #e2c96e); color: #111111;
+      border: 2px solid var(--neo-border-color, #333333); border-radius: var(--neo-radius-md, 6px); font-weight: 800; font-size: .82rem;
+      text-transform: uppercase; letter-spacing: .5px; cursor: pointer; font-family: inherit;
+      box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
       user-select: none; -webkit-user-select: none;
     }
     #new-plan-btn:hover {
-      background: #333;
       transform: translate(-1px, -1px);
-      box-shadow: 3px 3px 0 #111;
+      box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
     }
     #new-plan-btn:active {
       transform: translate(1px, 1px);
-      box-shadow: 1px 1px 0 #111;
+      box-shadow: var(--neo-shadow-active, 1px 1px 0 #888888);
     }
     #sidebar-body { flex: 1; overflow-y: auto; padding: 8px; }
 

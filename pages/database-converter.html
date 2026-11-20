@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' file: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Database & Table Converter</title>
+  <title>Data Studio: Import & Transform</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
@@ -23,14 +23,17 @@
     <div class="nav-brand">
       <img src="../assets/icons/table.svg" alt="" class="nav-brand-img">
       <span data-i18n="dbConvTitle">Database & Table Converter</span>
-      <span class="nav-brand-badge">PRO</span>
     </div>
     <div class="nav-actions">
-      <a href="../launcher.html" class="btn-nav-back" data-i18n="btnBack">← Back</a>
-      <button class="tut-trigger-btn" id="skmBtn" data-dcev-1="1" data-hover-help="Keyboard Shortcuts" data-i18n-help="skmTitle">⌨ ?</button>
-      <button class="tut-trigger-btn" id="tourBtn" data-dcev-2="1" data-hover-help="Tour" data-i18n-help="tourBtnLabel"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+      <button type="button" class="tut-trigger-btn" id="skmBtn" data-dcev-1="1" data-hover-help="Keyboard Shortcuts" data-i18n-help="skmTitle">
+        <img src="../assets/icons/keyboard.svg" alt="">
+      </button>
+      <button type="button" class="tut-trigger-btn" id="tourBtn" data-dcev-2="1" data-hover-help="Tour" data-i18n-help="tourBtnLabel">
+        <img src="../assets/icons/play.svg" alt="">
+        <span>Tour</span>
+      </button>
       <div id="app-hamburger" class="hm-wrap">
-        <button class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
+        <button type="button" class="hm-btn" aria-label="Open menu" data-i18n-aria="navOpenMenu"><img src="../assets/icons/menu.svg" alt="" /></button>
         <div class="hm-menu"></div>
       </div>
     </div>
@@ -41,287 +44,247 @@
     <header class="conv-header">
       <div>
         <h1 class="conv-title">
-          <span class="conv-title-icon"><img src="../assets/icons/table.svg" alt="" style="width: 24px; height: 24px;"></span>
+          <span class="conv-title-icon"><img src="../assets/icons/table.svg" alt="" style="width: 22px; height: 22px;"></span>
           <span data-i18n="dbConvTitle">Database & Table Converter</span>
         </h1>
         <p class="conv-subtitle" data-i18n="dbConvSubtitle">Convert between spreadsheets, database tables, JSON, SQL, and CMT application formats with live preview and schema editing.</p>
       </div>
-      <div style="display: flex; gap: 8px;">
-        <button type="button" class="nb-btn nb-btn-sm" id="btnToggleLayout" data-dcev-3="1" data-hover-help="Switch between split screen and full-width stacked view">
-          <span id="layoutIcon"><img src="../assets/icons/fullscreen.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></span> <span id="layoutText">Full Width View</span>
+      <div id="headerTaskActions" style="display: none;">
+        <button type="button" class="nb-btn nb-btn-sm" id="btnChangeTask" data-dcev-3="1">
+          <img src="../assets/icons/swap.svg" class="btn-icon" alt="">
+          <span data-i18n="dbConvChangeTask">Change Task</span>
         </button>
       </div>
     </header>
 
-    <!-- ── Two-Column Studio Grid ── -->
-    <div class="conv-grid">
-
-      <!-- ══ LEFT COLUMN: SOURCE & DATA STUDIO ══════════════════════ -->
-      <div class="conv-col-left">
-
-        <!-- Card: Input File / Raw Text -->
-        <section class="nb-card" id="stepInput">
-          <div class="nb-card-hd">
-            <h2 class="nb-card-title">
-              <img src="../assets/icons/upload.svg" class="btn-icon" alt="">
-              <span data-i18n="dbConvTabFile">Source Data</span>
-            </h2>
-            <div style="display: flex; gap: 8px;">
-              <button type="button" class="nb-btn nb-btn-sm" id="btnLoadSample" data-dcev-4="1" data-i18n="dbConvSampleBtn">Load Sample Table</button>
-              <button type="button" class="nb-btn nb-btn-sm nb-btn-danger" id="btnClearData" data-dcev-5="1" data-i18n="dbConvClearBtn">Clear</button>
-            </div>
-          </div>
-
-          <!-- Input Mode Tabs -->
-          <div class="nb-tabs">
-            <button type="button" class="nb-tab-btn active" id="tabBtnFile" data-dcev-6="1" data-i18n="dbConvTabFile">File Upload</button>
-            <button type="button" class="nb-tab-btn" id="tabBtnPaste" data-dcev-7="1" data-i18n="dbConvTabPaste">Paste Raw Text</button>
-          </div>
-
-          <!-- File Upload Dropzone -->
-          <div id="inputPaneFile">
-            <div class="nb-dropzone" id="dropzone">
-              <img src="../assets/icons/upload.svg" alt="" class="nb-dropzone-icon">
-              <h3 class="nb-dropzone-title" data-i18n="dbConvDropTitle">Drag & drop your file here</h3>
-              <p class="nb-dropzone-sub" data-i18n="dbConvDropSubtitle">Supports .xlsx, .xls, .ods, .csv, .tsv, .json, .jsonl, .sql, .xml, .html, .md</p>
-              <button type="button" class="nb-btn nb-btn-primary" data-i18n="dbConvBrowseBtn">Browse File</button>
-              <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.ods,.json,.jsonl,.ndjson,.sql,.xml,.html,.htm,.md,.markdown,.txt" data-dcev-8="1">
-            </div>
-          </div>
-
-          <!-- Raw Paste Textarea -->
-          <div id="inputPanePaste" style="display: none;">
-            <textarea class="nb-textarea" id="pasteInput" placeholder="Paste CSV, TSV, JSON, SQL INSERT, XML, or Markdown table content here..." data-i18n-placeholder="dbConvPastePlaceholder"></textarea>
-            <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-              <button type="button" class="nb-btn nb-btn-primary" data-dcev-9="1" data-i18n="dbConvDetectBtn">Parse Content</button>
-            </div>
-          </div>
-
-          <!-- Workbook Options Bar (Sheet / Header Selection) -->
-          <div class="conv-meta-bar" id="metaBar" style="display: none;">
-            <!-- Sheet selector for Excel/ODS -->
-            <div class="conv-meta-item" id="sheetSelectWrap" style="display: none;">
-              <label for="sheetSelect" data-i18n="dbConvSheetLabel">Workbook Sheet:</label>
-              <select id="sheetSelect" class="nb-select" data-dcev-10="1"></select>
-            </div>
-
-            <!-- Header Row Selector -->
-            <div class="conv-meta-item">
-              <label for="headerRowSelect" data-i18n="dbConvHeaderRowLabel">Header Row:</label>
-              <select id="headerRowSelect" class="nb-select" data-dcev-11="1">
-                <option value="auto" data-i18n="dbConvAutoDetect">Auto-detect</option>
-                <option value="0">Row 1</option>
-                <option value="1">Row 2</option>
-                <option value="2">Row 3</option>
-                <option value="-1" data-i18n="dbConvNoHeader">No Header (Generate col1, col2...)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Summary Badges -->
-          <div class="conv-stats-pills" id="statsBar" style="display: none;">
-            <span class="nb-badge nb-badge-yellow" id="badgeRows">0 Rows</span>
-            <span class="nb-badge nb-badge-blue" id="badgeCols">0 Columns</span>
-            <span class="nb-badge nb-badge-green" id="badgeFormat">CSV</span>
-            <span class="nb-badge nb-badge-purple" id="badgeSize">0 KB</span>
-          </div>
-        </section>
-
-        <!-- Card: Column Schema & Transformation Panel -->
-        <section class="nb-card" id="stepSchema" style="display: none;">
-          <div class="nb-card-hd">
-            <h2 class="nb-card-title">
-              <img src="../assets/icons/gear.svg" class="btn-icon" alt="">
-              <span data-i18n="dbConvSchemaTitle">Column Mapping & Transformations</span>
-            </h2>
-            <button type="button" class="nb-btn nb-btn-sm" data-dcev-12="1" id="btnToggleSchema" data-i18n="dbConvToggleSchema">Toggle Schema</button>
-          </div>
-
-          <div class="schema-panel-body" id="schemaBody">
-            <!-- Premade Model Preset Toolbar -->
-            <div class="schema-preset-bar">
-              <div class="schema-preset-controls">
-                <span class="schema-preset-label" data-i18n="dbConvModelPreset">Model Preset:</span>
-                <select id="schemaModelPresetSelect" class="nb-select" data-dcev-13="1">
-                  <option value="none" data-i18n="dbConvModelNone">None / Custom Generic Schema</option>
-                  <optgroup label="Class Management Suite Models">
-                    <option value="app-grade-criteria" data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</option>
-                    <option value="app-competences" data-i18n="dbConvAppCompetences">Competence Bank</option>
-                    <option value="app-class-groups" data-i18n="dbConvAppClassGroups">Class Roster</option>
-                    <option value="app-wordbank" data-i18n="dbConvAppWordbank">Vocabulary Bank</option>
-                    <option value="app-quiz" data-i18n="dbConvAppQuiz">Quiz Questions</option>
-                    <option value="app-admin-groups" data-i18n="dbConvAppAdminGroups">Admin Groups</option>
-                  </optgroup>
-                </select>
-                <button type="button" class="nb-btn nb-btn-sm" data-dcev-14="1" data-hover-help="Automatically match output headers to model fields" data-i18n="dbConvAutoMatch">
-                  <img src="../assets/icons/check.svg" class="btn-icon" alt="">
-                  <span>Auto-Match</span>
-                </button>
-                <button type="button" class="nb-btn nb-btn-sm" data-dcev-15="1" data-hover-help="Reset all output headers to original source headers" data-i18n="dbConvResetHeaders">
-                  <img src="../assets/icons/undo.svg" class="btn-icon" alt="">
-                  <span>Reset Headers</span>
-                </button>
-              </div>
-              <div id="modelStatusPill" class="nb-badge nb-badge-green" style="display: none;">
-                Model Active
-              </div>
-            </div>
-
-            <div class="schema-table-wrap">
-              <table class="schema-table" id="schemaTable">
-                <thead>
-                  <tr>
-                    <th style="width: 40px;" data-i18n="dbConvColInclude">Inc.</th>
-                    <th data-i18n="dbConvColOriginal">Source Header</th>
-                    <th data-i18n="dbConvColOutputName">Output Header</th>
-                    <th data-i18n="dbConvColType">Type</th>
-                    <th data-i18n="dbConvColTransform">Transform</th>
-                    <th style="width: 70px;" data-i18n="dbConvColMove">Order</th>
-                  </tr>
-                </thead>
-                <tbody id="schemaTbody"></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Card: Interactive Paginated Preview Table -->
-        <section class="nb-card" id="stepPreview" style="display: none;">
-          <div class="nb-card-hd">
-            <h2 class="nb-card-title">
-              <img src="../assets/icons/eye.svg" class="btn-icon" alt="">
-              <span>Data Preview</span>
-            </h2>
-            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-              <!-- Zero Horizontal Scroll Density Modes -->
-              <div class="density-toggle-group" data-hover-help="Table Width & Text Wrapping Mode">
-                <button type="button" class="density-btn active" data-density="fit" data-dcev-16="1" data-hover-help="Wrap text so all columns fit within container with NO horizontal scrolling">Fit (No Scroll)</button>
-                <button type="button" class="density-btn" data-density="truncate" data-dcev-17="1" data-hover-help="Compact single-line with ellipsis (hover to view full text)">Truncate</button>
-                <button type="button" class="density-btn" data-density="scroll" data-dcev-18="1" data-hover-help="Scrollable mode with full natural column widths">Scrollable</button>
-              </div>
-              <input type="search" class="nb-input" id="tableFilterInput" placeholder="Filter rows..." data-i18n-placeholder="dbConvSearchPlaceholder" data-dcev-19="1">
-            </div>
-          </div>
-
-          <div class="preview-table-wrap">
-            <div class="preview-table-scroll">
-              <table class="data-table" id="dataTable">
-                <thead id="dataThead"></thead>
-                <tbody id="dataTbody"></tbody>
-              </table>
-            </div>
-
-            <!-- Pagination Bar -->
-            <div class="table-pagination">
-              <div>
-                <label for="rowsPerPageSelect" data-i18n="dbConvRowsPerPage">Rows per page:</label>
-                <select id="rowsPerPageSelect" class="nb-select" data-dcev-20="1">
-                  <option value="15">15</option>
-                  <option value="25" selected>25</option>
-                  <option value="50">50</option>
-                  <option value="100">100</option>
-                </select>
-              </div>
-              <div id="paginationLabel">Page 1 of 1</div>
-              <div style="display: flex; gap: 4px;">
-                <button type="button" class="nb-btn nb-btn-sm" id="btnPrevPage" data-dcev-21="1">◀ Prev</button>
-                <button type="button" class="nb-btn nb-btn-sm" id="btnNextPage" data-dcev-22="1">Next ▶</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
+    <!-- ══ CHOICE SCREEN: WHAT DO YOU WANT TO DO? ═════════════════════════ -->
+    <section id="taskChooser" class="task-chooser-wrap">
+      <div class="task-chooser-intro">
+        <h2 data-i18n="dbConvChooseTitle">What would you like to do?</h2>
+        <p data-i18n="dbConvChooseSubtitle">Pick a workflow to get started with a clean, focused workspace.</p>
       </div>
+      <div class="task-chooser-grid">
+        <button type="button" class="task-card" data-workflow="convert" data-dcev-52="1">
+          <span class="task-card-icon is-yellow"><img src="../assets/icons/refresh.svg" alt=""></span>
+          <h3 class="task-card-title" data-i18n="dbConvModeConvertTitle">Convert File or Table Format</h3>
+          <p class="task-card-desc" data-i18n="dbConvModeConvertDesc">Convert spreadsheets, CSV, JSON, SQL, XML, HTML, or Markdown into another universal format.</p>
+          <span class="task-card-cta">
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" alt="">
+          </span>
+        </button>
 
-      <!-- ══ RIGHT COLUMN: TARGET FORMAT & LIVE OUTPUT ══════════════ -->
-      <div class="conv-col-right">
+        <button type="button" class="task-card" data-workflow="cmt" data-dcev-53="1">
+          <span class="task-card-icon is-green"><img src="../assets/icons/manage-database.svg" alt=""></span>
+          <h3 class="task-card-title" data-i18n="dbConvModeCmtTitle">Prepare for Class Management Tools</h3>
+          <p class="task-card-desc" data-i18n="dbConvModeCmtDesc">Map your columns to Grade Criteria, Competence Bank, Class Roster, Vocabulary Bank, Quiz, or Admin Groups.</p>
+          <span class="task-card-cta">
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" alt="">
+          </span>
+        </button>
 
-        <!-- Card: Format Selection & Customization -->
-        <section class="nb-card" id="stepTarget">
-          <div class="nb-card-hd">
-            <h2 class="nb-card-title">
-              <img src="../assets/icons/refresh.svg" class="btn-icon" alt="">
-              <span data-i18n="dbConvTargetFormat">Target Format</span>
-            </h2>
+        <button type="button" class="task-card" data-workflow="clean" data-dcev-54="1">
+          <span class="task-card-icon is-blue"><img src="../assets/icons/eye.svg" alt=""></span>
+          <h3 class="task-card-title" data-i18n="dbConvModeCleanTitle">Inspect, Filter & Clean Table</h3>
+          <p class="task-card-desc" data-i18n="dbConvModeCleanDesc">Preview large tables, rename or reorder columns, cast types, and clean text formatting.</p>
+          <span class="task-card-cta">
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" alt="">
+          </span>
+        </button>
+
+        <button type="button" class="task-card" data-workflow="import" data-dcev-65="1">
+          <span class="task-card-icon is-purple"><img src="../assets/icons/import-tool.svg" alt=""></span>
+          <h3 class="task-card-title" data-i18n="dbConvModeImportTitle">Import Directly into App</h3>
+          <p class="task-card-desc" data-i18n="dbConvModeImportDesc">Step-by-step wizard to import students, groups, wordbanks, quizzes, criteria, and competences directly into your CMT database.</p>
+          <span class="task-card-cta">
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" alt="">
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ══ EMBEDDED DIRECT IMPORT WIZARD ═════════════════════════════════ -->
+    <section id="importWizardPane" class="import-iframe-wrap" style="display: none;">
+      <iframe id="importWizardFrame" class="import-iframe" title="Import Wizard"></iframe>
+    </section>
+
+    <!-- ══ STREAMLINED 3-STEP WORKSPACE ══════════════════════════════════ -->
+    <div id="workspaceView" style="display: none;">
+
+      <!-- 3-Step Navigation Bar -->
+      <nav class="stepper-bar" aria-label="Workflow steps">
+        <button type="button" class="step-pill active" id="stepBtn1" data-step="1" data-dcev-55="1" data-i18n="dbConvStep1">1. Source Data</button>
+        <button type="button" class="step-pill" id="stepBtn2" data-step="2" data-dcev-56="1" data-i18n="dbConvStep2Convert">2. Target Format</button>
+        <button type="button" class="step-pill" id="stepBtn3" data-step="3" data-dcev-57="1" data-i18n="dbConvStep3">3. Preview & Export</button>
+      </nav>
+
+      <!-- ── STEP 1: SOURCE DATA ───────────────────────────────────────── -->
+      <section class="nb-card" id="stepPane1">
+        <div class="nb-card-hd">
+          <h2 class="nb-card-title">
+            <img src="../assets/icons/upload.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvStep1">1. Source Data</span>
+          </h2>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="nb-btn nb-btn-sm" id="btnLoadSample" data-dcev-4="1" data-i18n="dbConvSampleBtn">Load Sample Table</button>
+            <button type="button" class="nb-btn nb-btn-sm nb-btn-danger" id="btnClearData" data-dcev-5="1" data-i18n="dbConvClearBtn">Clear</button>
+          </div>
+        </div>
+
+        <!-- Input Mode Tabs -->
+        <div class="nb-tabs">
+          <button type="button" class="nb-tab-btn active" id="tabBtnFile" data-dcev-6="1" data-i18n="dbConvTabFile">File Upload</button>
+          <button type="button" class="nb-tab-btn" id="tabBtnPaste" data-dcev-7="1" data-i18n="dbConvTabPaste">Paste Raw Text</button>
+        </div>
+
+        <!-- File Upload Dropzone -->
+        <div id="inputPaneFile">
+          <div class="nb-dropzone" id="dropzone">
+            <img src="../assets/icons/upload.svg" alt="" class="nb-dropzone-icon">
+            <h3 class="nb-dropzone-title" data-i18n="dbConvDropTitle">Drag & drop your file here</h3>
+            <p class="nb-dropzone-sub" data-i18n="dbConvDropSubtitle">Supports .xlsx, .xls, .ods, .csv, .tsv, .json, .jsonl, .sql, .xml, .html, .md</p>
+            <button type="button" class="nb-btn nb-btn-primary" data-i18n="dbConvBrowseBtn">Browse File</button>
+            <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.ods,.json,.jsonl,.ndjson,.sql,.xml,.html,.htm,.md,.markdown,.txt" data-dcev-8="1">
+          </div>
+        </div>
+
+        <!-- Raw Paste Textarea -->
+        <div id="inputPanePaste" style="display: none;">
+          <textarea class="nb-textarea" id="pasteInput" placeholder="Paste CSV, TSV, JSON, SQL INSERT, XML, or Markdown table content here..." data-i18n-placeholder="dbConvPastePlaceholder"></textarea>
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button type="button" class="nb-btn nb-btn-primary" data-dcev-9="1" data-i18n="dbConvDetectBtn">Parse Content</button>
+          </div>
+        </div>
+
+        <!-- Workbook Options Bar (Sheet / Header Selection) -->
+        <div class="conv-meta-bar" id="metaBar" style="display: none;">
+          <div class="conv-meta-item" id="sheetSelectWrap" style="display: none;">
+            <label for="sheetSelect" data-i18n="dbConvSheetLabel">Workbook Sheet:</label>
+            <select id="sheetSelect" class="nb-select" data-dcev-10="1"></select>
+          </div>
+          <div class="conv-meta-item">
+            <label for="headerRowSelect" data-i18n="dbConvHeaderRowLabel">Header Row:</label>
+            <select id="headerRowSelect" class="nb-select" data-dcev-11="1">
+              <option value="auto" data-i18n="dbConvAutoDetect">Auto-detect</option>
+              <option value="0">Row 1</option>
+              <option value="1">Row 2</option>
+              <option value="2">Row 3</option>
+              <option value="-1" data-i18n="dbConvNoHeader">No Header (Generate col1, col2...)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Summary Badges -->
+        <div class="conv-stats-pills" id="statsBar" style="display: none;">
+          <span class="nb-badge nb-badge-yellow" id="badgeRows">0 Rows</span>
+          <span class="nb-badge nb-badge-blue" id="badgeCols">0 Columns</span>
+          <span class="nb-badge nb-badge-green" id="badgeFormat">CSV</span>
+          <span class="nb-badge nb-badge-purple" id="badgeSize">0 KB</span>
+        </div>
+
+        <div class="step-nav-footer">
+          <div></div>
+          <button type="button" class="nb-btn nb-btn-primary" id="btnStep1Next" data-dcev-58="1" disabled>
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="">
+          </button>
+        </div>
+      </section>
+
+      <!-- ── STEP 2: CONFIGURE / MAP / CLEAN ───────────────────────────── -->
+      <section class="nb-card" id="stepPane2" style="display: none;">
+        <div class="nb-card-hd">
+          <h2 class="nb-card-title">
+            <img src="../assets/icons/gear.svg" class="btn-icon" alt="">
+            <span id="step2Title" data-i18n="dbConvStep2Convert">2. Target Format</span>
+          </h2>
+        </div>
+
+        <!-- Target Format Picker (shown in Convert & CMT modes) -->
+        <div id="stepTarget">
+          <!-- Category 1: Universal Formats (shown in Convert mode) -->
+          <div id="universalFormatsGroup">
+            <div class="format-category-title" data-i18n="dbConvTargetCategoryGeneric">Universal Table & Database Formats</div>
+            <div class="format-grid">
+              <button type="button" class="format-btn active" data-fmt="csv" data-dcev-23="1">
+                <img src="../assets/icons/table.svg" alt="" class="format-icon">
+                <span>CSV</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="xlsx" data-dcev-24="1">
+                <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+                <span>Excel (.xlsx)</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="json" data-dcev-25="1">
+                <img src="../assets/icons/text.svg" alt="" class="format-icon">
+                <span>JSON</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="tsv" data-dcev-26="1">
+                <img src="../assets/icons/table.svg" alt="" class="format-icon">
+                <span>TSV</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="ods" data-dcev-27="1">
+                <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+                <span>ODS</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="jsonl" data-dcev-28="1">
+                <img src="../assets/icons/text.svg" alt="" class="format-icon">
+                <span>JSONL</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="sql" data-dcev-29="1">
+                <img src="../assets/icons/manage-database.svg" alt="" class="format-icon">
+                <span>SQL Dump</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="xml" data-dcev-30="1">
+                <img src="../assets/icons/text.svg" alt="" class="format-icon">
+                <span>XML</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="html" data-dcev-31="1">
+                <img src="../assets/icons/layout.svg" alt="" class="format-icon">
+                <span>HTML Table</span>
+              </button>
+              <button type="button" class="format-btn" data-fmt="markdown" data-dcev-32="1">
+                <img src="../assets/icons/document-editor.svg" alt="" class="format-icon">
+                <span>Markdown</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Category 1: Universal Formats -->
-          <div class="format-category-title" data-i18n="dbConvTargetCategoryGeneric">Universal Table & Database Formats</div>
-          <div class="format-grid">
-            <button type="button" class="format-btn active" data-fmt="csv" data-dcev-23="1">
-              <img src="../assets/icons/table.svg" alt="" class="format-icon">
-              <span>CSV</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="xlsx" data-dcev-24="1">
-              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
-              <span>Excel (.xlsx)</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="json" data-dcev-25="1">
-              <img src="../assets/icons/text.svg" alt="" class="format-icon">
-              <span>JSON</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="tsv" data-dcev-26="1">
-              <img src="../assets/icons/table.svg" alt="" class="format-icon">
-              <span>TSV</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="ods" data-dcev-27="1">
-              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
-              <span>ODS</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="jsonl" data-dcev-28="1">
-              <img src="../assets/icons/text.svg" alt="" class="format-icon">
-              <span>JSONL</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="sql" data-dcev-29="1">
-              <img src="../assets/icons/manage-database.svg" alt="" class="format-icon">
-              <span>SQL Dump</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="xml" data-dcev-30="1">
-              <img src="../assets/icons/text.svg" alt="" class="format-icon">
-              <span>XML</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="html" data-dcev-31="1">
-              <img src="../assets/icons/layout.svg" alt="" class="format-icon">
-              <span>HTML Table</span>
-            </button>
-            <button type="button" class="format-btn" data-fmt="markdown" data-dcev-32="1">
-              <img src="../assets/icons/document-editor.svg" alt="" class="format-icon">
-              <span>Markdown</span>
-            </button>
+          <!-- Category 2: Class Management Suite Formats (shown in CMT mode) -->
+          <div id="cmtFormatsGroup">
+            <div class="format-category-title" data-i18n="dbConvTargetCategoryApp">Class Management Suite Formats</div>
+            <div class="format-grid">
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-grade-criteria" data-dcev-33="1">
+                <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</span>
+              </button>
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-competences" data-dcev-34="1">
+                <img src="../assets/icons/award.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppCompetences">Competence Bank</span>
+              </button>
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-class-groups" data-dcev-35="1">
+                <img src="../assets/icons/group-editor.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppClassGroups">Class Roster</span>
+              </button>
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-wordbank" data-dcev-36="1">
+                <img src="../assets/icons/book.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppWordbank">Vocabulary Bank</span>
+              </button>
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-quiz" data-dcev-37="1">
+                <img src="../assets/icons/quiz.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppQuiz">Quiz Questions</span>
+              </button>
+              <button type="button" class="format-btn format-btn-app" data-fmt="app-admin-groups" data-dcev-38="1">
+                <img src="../assets/icons/admin-groups.svg" alt="" class="format-icon">
+                <span data-i18n="dbConvAppAdminGroups">Admin Groups</span>
+              </button>
+            </div>
           </div>
 
-          <!-- Category 2: Class Management Suite Formats -->
-          <div class="format-category-title" data-i18n="dbConvTargetCategoryApp">Class Management Suite Formats</div>
-          <div class="format-grid">
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-grade-criteria" data-dcev-33="1">
-              <img src="../assets/icons/grade-sheet.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</span>
-            </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-competences" data-dcev-34="1">
-              <img src="../assets/icons/award.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppCompetences">Competence Bank</span>
-            </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-class-groups" data-dcev-35="1">
-              <img src="../assets/icons/group-editor.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppClassGroups">Class Roster</span>
-            </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-wordbank" data-dcev-36="1">
-              <img src="../assets/icons/book.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppWordbank">Vocabulary Bank</span>
-            </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-quiz" data-dcev-37="1">
-              <img src="../assets/icons/quiz.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppQuiz">Quiz Questions</span>
-            </button>
-            <button type="button" class="format-btn format-btn-app" data-fmt="app-admin-groups" data-dcev-38="1">
-              <img src="../assets/icons/admin-groups.svg" alt="" class="format-icon">
-              <span data-i18n="dbConvAppAdminGroups">Admin Groups</span>
-            </button>
-          </div>
-
-          <!-- Format Specific Options Accordion -->
+          <!-- Format Specific Options -->
           <div class="format-options-card" id="formatOptionsCard">
-
             <!-- CSV / TSV Options -->
             <div id="optsCsv" class="format-options-block">
               <div class="format-options-row">
@@ -399,7 +362,7 @@
 
             <!-- CMT App Options & Field Mapping Matrix -->
             <div id="optsApp" class="format-options-block" style="display: none;">
-              <div style="font-size: 0.85rem; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px;">
+              <div style="font-size: 0.85rem; font-weight: 700; color: #166534; display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;">
                 <div style="display: flex; align-items: center; gap: 6px;">
                   <img src="../assets/icons/check.svg" alt="" style="width: 16px; height: 16px;">
                   <span id="appMappingNotice" data-i18n="dbConvAppAutoMappedNotice">Intelligent auto-mapping applied for target fields.</span>
@@ -407,16 +370,15 @@
                 <button type="button" class="nb-btn nb-btn-sm" data-dcev-49="1" data-i18n="dbConvAutoMatch">Auto-Match</button>
               </div>
 
-              <!-- Interactive Field Mapping Matrix Card -->
               <div class="model-matrix-card" id="modelMatrixCard">
                 <div class="model-matrix-hd">
                   <span data-i18n="dbConvFieldMapping">Model Field Mapping Matrix</span>
                   <span id="matrixMatchCount" class="nb-badge nb-badge-yellow">0 / 0 Mapped</span>
                 </div>
-                <div style="padding: 6px 12px; font-size: 0.8rem; color: #475569; background: #f8fafc; border-bottom: 1px solid #e2e8f0;" data-i18n="dbConvFieldMappingSubtitle">
+                <div style="padding: 6px 12px; font-size: 0.8rem; color: #475569; background: #fafaf7; border-bottom: 1px solid #e2e8f0;" data-i18n="dbConvFieldMappingSubtitle">
                   Map each required and optional field to a source column from your data.
                 </div>
-                <div style="max-height: 240px; overflow-y: auto;">
+                <div style="max-height: 260px; overflow-y: auto;">
                   <table class="model-matrix-table">
                     <thead>
                       <tr>
@@ -431,35 +393,184 @@
                 </div>
               </div>
             </div>
-
           </div>
+        </div>
 
-          <!-- Live Output Preview Box -->
-          <div class="output-box-wrap" id="outputWrap">
-            <div class="output-box-hd">
-              <span data-i18n="dbConvOutputPreview">Live Output Preview</span>
-              <div class="output-box-stats">
-                <span id="outputLinesBadge">0 Lines</span>
-                <span id="outputCharsBadge">0 Characters</span>
+        <!-- Optional Collapsible Column Customization / Schema Editor -->
+        <div class="schema-collapsible-bar">
+          <button type="button" class="nb-btn nb-btn-sm" data-dcev-12="1" id="btnToggleSchema">
+            <img src="../assets/icons/edit.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvCustomizeColumns">Customize Columns (Rename, Filter, Cast)</span>
+          </button>
+        </div>
+
+        <div id="stepSchema">
+          <div class="schema-panel-body" id="schemaBody" style="display: none;">
+            <div class="schema-preset-bar">
+              <div class="schema-preset-controls">
+                <span class="schema-preset-label" data-i18n="dbConvModelPreset">Model Preset:</span>
+                <select id="schemaModelPresetSelect" class="nb-select" data-dcev-13="1">
+                  <option value="none" data-i18n="dbConvModelNone">None / Custom Generic Schema</option>
+                  <optgroup label="Class Management Suite Models">
+                    <option value="app-grade-criteria" data-i18n="dbConvAppGradeCriteria">Grade Sheet Criteria</option>
+                    <option value="app-competences" data-i18n="dbConvAppCompetences">Competence Bank</option>
+                    <option value="app-class-groups" data-i18n="dbConvAppClassGroups">Class Roster</option>
+                    <option value="app-wordbank" data-i18n="dbConvAppWordbank">Vocabulary Bank</option>
+                    <option value="app-quiz" data-i18n="dbConvAppQuiz">Quiz Questions</option>
+                    <option value="app-admin-groups" data-i18n="dbConvAppAdminGroups">Admin Groups</option>
+                  </optgroup>
+                </select>
+                <button type="button" class="nb-btn nb-btn-sm" data-dcev-14="1" data-hover-help="Automatically match output headers to model fields">
+                  <img src="../assets/icons/check.svg" class="btn-icon" alt="">
+                  <span data-i18n="dbConvAutoMatch">Auto-Match</span>
+                </button>
+                <button type="button" class="nb-btn nb-btn-sm" data-dcev-15="1" data-hover-help="Reset all output headers to original source headers">
+                  <img src="../assets/icons/undo.svg" class="btn-icon" alt="">
+                  <span data-i18n="dbConvResetHeaders">Reset Headers</span>
+                </button>
+              </div>
+              <div id="modelStatusPill" class="nb-badge nb-badge-green" style="display: none;">
+                Model Active
               </div>
             </div>
-            <textarea class="output-code" id="outputCode" readonly spellcheck="false" placeholder="Output preview will appear here..."></textarea>
+
+            <div class="schema-table-wrap">
+              <table class="schema-table" id="schemaTable">
+                <thead>
+                  <tr>
+                    <th style="width: 44px;" data-i18n="dbConvColInclude">Inc.</th>
+                    <th data-i18n="dbConvColOriginal">Source Header</th>
+                    <th data-i18n="dbConvColOutputName">Output Header</th>
+                    <th data-i18n="dbConvColType">Type</th>
+                    <th data-i18n="dbConvColTransform">Transform</th>
+                    <th style="width: 74px;" data-i18n="dbConvColMove">Order</th>
+                  </tr>
+                </thead>
+                <tbody id="schemaTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-nav-footer">
+          <button type="button" class="nb-btn" id="btnStep2Back" data-dcev-59="1">
+            <img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvBtnBackStep">Back</span>
+          </button>
+          <button type="button" class="nb-btn nb-btn-primary" id="btnStep2Next" data-dcev-60="1">
+            <span data-i18n="dbConvBtnNext">Continue</span>
+            <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="">
+          </button>
+        </div>
+      </section>
+
+      <!-- ── STEP 3: PREVIEW & EXPORT ──────────────────────────────────── -->
+      <section class="nb-card" id="stepPane3" style="display: none;">
+        <div class="nb-card-hd">
+          <h2 class="nb-card-title">
+            <img src="../assets/icons/eye.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvStep3">3. Preview & Export</span>
+          </h2>
+          <div id="cleanExportFmtWrap" style="display: none; align-items: center; gap: 8px;">
+            <label for="quickExportFormatSelect" style="font-size: 0.84rem; font-weight: 700;" data-i18n="dbConvTargetFormat">Target Format:</label>
+            <select id="quickExportFormatSelect" class="nb-select" data-dcev-64="1">
+              <option value="csv">CSV</option>
+              <option value="xlsx">Excel (.xlsx)</option>
+              <option value="json">JSON</option>
+              <option value="tsv">TSV</option>
+              <option value="ods">ODS</option>
+              <option value="sql">SQL</option>
+              <option value="html">HTML</option>
+              <option value="markdown">Markdown</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- View Switcher Tabs: Table vs Output Code -->
+        <div class="nb-tabs">
+          <button type="button" class="nb-tab-btn active" id="tabBtnPreviewTable" data-dcev-61="1">
+            <img src="../assets/icons/table.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvTabTablePreview">Table Preview</span>
+          </button>
+          <button type="button" class="nb-tab-btn" id="tabBtnPreviewCode" data-dcev-62="1">
+            <img src="../assets/icons/text.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvTabCodePreview">Output Code</span>
+          </button>
+        </div>
+
+        <!-- Tab A: Interactive Paginated Preview Table -->
+        <div id="stepPreview">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px;">
+            <div class="density-toggle-group" data-hover-help="Table Width & Text Wrapping Mode">
+              <button type="button" class="density-btn active" data-density="fit" data-dcev-16="1" data-hover-help="Wrap text so all columns fit within container with NO horizontal scrolling">Fit (No Scroll)</button>
+              <button type="button" class="density-btn" data-density="truncate" data-dcev-17="1" data-hover-help="Compact single-line with ellipsis (hover to view full text)">Truncate</button>
+              <button type="button" class="density-btn" data-density="scroll" data-dcev-18="1" data-hover-help="Scrollable mode with full natural column widths">Scrollable</button>
+            </div>
+            <input type="search" class="nb-input" id="tableFilterInput" placeholder="Filter rows..." data-i18n-placeholder="dbConvSearchPlaceholder" data-dcev-19="1">
           </div>
 
-          <!-- Action Buttons Bar -->
+          <div class="preview-table-wrap">
+            <div class="preview-table-scroll">
+              <table class="data-table" id="dataTable">
+                <thead id="dataThead"></thead>
+                <tbody id="dataTbody"></tbody>
+              </table>
+            </div>
+
+            <div class="table-pagination">
+              <div>
+                <label for="rowsPerPageSelect" data-i18n="dbConvRowsPerPage">Rows per page:</label>
+                <select id="rowsPerPageSelect" class="nb-select" data-dcev-20="1">
+                  <option value="15">15</option>
+                  <option value="25" selected>25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </div>
+              <div id="paginationLabel">Page 1 of 1</div>
+              <div style="display: flex; gap: 6px;">
+                <button type="button" class="nb-btn nb-btn-sm" id="btnPrevPage" data-dcev-21="1">
+                  <img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="">
+                  <span>Prev</span>
+                </button>
+                <button type="button" class="nb-btn nb-btn-sm" id="btnNextPage" data-dcev-22="1">
+                  <span>Next</span>
+                  <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="">
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab B: Live Output Preview Box -->
+        <div class="output-box-wrap" id="outputWrap" style="display: none;">
+          <div class="output-box-hd">
+            <span data-i18n="dbConvOutputPreview">Live Output Preview</span>
+            <div class="output-box-stats">
+              <span id="outputLinesBadge">0 Lines</span>
+              <span id="outputCharsBadge">0 Characters</span>
+            </div>
+          </div>
+          <textarea class="output-code" id="outputCode" readonly spellcheck="false" placeholder="Output preview will appear here..."></textarea>
+        </div>
+
+        <div class="step-nav-footer">
+          <button type="button" class="nb-btn" id="btnStep3Back" data-dcev-63="1">
+            <img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="">
+            <span data-i18n="dbConvBtnBackStep">Back</span>
+          </button>
           <div class="conv-actions-bar">
-            <button type="button" class="nb-btn" id="btnCopyOutput" data-dcev-50="1" data-i18n="dbConvBtnCopy">
+            <button type="button" class="nb-btn" id="btnCopyOutput" data-dcev-50="1">
               <img src="../assets/icons/copy.svg" class="btn-icon" alt="">
-              <span>Copy Converted Output</span>
+              <span data-i18n="dbConvBtnCopy">Copy Converted Output</span>
             </button>
-            <button type="button" class="nb-btn nb-btn-success" id="btnExportFile" data-dcev-51="1" data-i18n="dbConvBtnExport">
+            <button type="button" class="nb-btn nb-btn-success" id="btnExportFile" data-dcev-51="1">
               <img src="../assets/icons/download.svg" class="btn-icon" alt="">
-              <span>Convert & Export File</span>
+              <span data-i18n="dbConvBtnExport">Convert & Export File</span>
             </button>
           </div>
-        </section>
-
-      </div>
+        </div>
+      </section>
 
     </div>
   </main>
@@ -490,7 +601,10 @@
       detectedFormat: 'CSV',
       layoutMode: 'split',     // 'split' or 'stacked'
       tableDensity: 'fit',     // 'fit' (default: no scroll), 'truncate', 'scroll'
-      activeModel: 'none'      // 'none' or app format key like 'app-grade-criteria'
+      activeModel: 'none',     // 'none' or app format key like 'app-grade-criteria'
+      workflowMode: null,      // 'convert' | 'cmt' | 'clean'
+      currentStep: 1,          // 1 | 2 | 3
+      previewTab: 'table'      // 'table' | 'code'
     };
 
     // ── Pre-configured Field Schemas for CMT App Formats ───────────────────
@@ -583,8 +697,117 @@
         window.applyTranslations();
       }
       setupDragDrop();
-      loadSampleData(); // Load initial sample so the app is instantly rich & ready!
     });
+
+    // ── Choice-First Workflow & 3-Step Navigation ──────────────────────────
+    function selectWorkflowMode(mode) {
+      state.workflowMode = mode;
+      document.getElementById('taskChooser').style.display = 'none';
+      document.getElementById('headerTaskActions').style.display = 'flex';
+
+      if (mode === 'import') {
+        document.getElementById('workspaceView').style.display = 'none';
+        var importPane = document.getElementById('importWizardPane');
+        var importFrame = document.getElementById('importWizardFrame');
+        if (importPane) importPane.style.display = 'block';
+        if (importFrame && !importFrame.getAttribute('src')) {
+          importFrame.setAttribute('src', 'import-tool.html?embedded=1');
+        }
+        return;
+      }
+
+      var importPaneEl = document.getElementById('importWizardPane');
+      if (importPaneEl) importPaneEl.style.display = 'none';
+      document.getElementById('workspaceView').style.display = 'block';
+
+      var step2Pill = document.getElementById('stepBtn2');
+      var step2Title = document.getElementById('step2Title');
+      var stepTarget = document.getElementById('stepTarget');
+      var univGroup = document.getElementById('universalFormatsGroup');
+      var cmtGroup = document.getElementById('cmtFormatsGroup');
+      var schemaToggleWrap = document.querySelector('.schema-collapsible-bar');
+      var schemaBody = document.getElementById('schemaBody');
+      var cleanFmtWrap = document.getElementById('cleanExportFmtWrap');
+
+      if (mode === 'convert') {
+        if (step2Pill) step2Pill.setAttribute('data-i18n', 'dbConvStep2Convert');
+        if (step2Title) step2Title.setAttribute('data-i18n', 'dbConvStep2Convert');
+        if (stepTarget) stepTarget.style.display = 'block';
+        if (univGroup) univGroup.style.display = 'block';
+        if (cmtGroup) cmtGroup.style.display = 'none';
+        if (schemaToggleWrap) schemaToggleWrap.style.display = 'block';
+        if (schemaBody) schemaBody.style.display = 'none';
+        if (cleanFmtWrap) cleanFmtWrap.style.display = 'none';
+        if (state.targetFormat.startsWith('app-')) selectTargetFormat('csv');
+      } else if (mode === 'cmt') {
+        if (step2Pill) step2Pill.setAttribute('data-i18n', 'dbConvStep2Cmt');
+        if (step2Title) step2Title.setAttribute('data-i18n', 'dbConvStep2Cmt');
+        if (stepTarget) stepTarget.style.display = 'block';
+        if (univGroup) univGroup.style.display = 'none';
+        if (cmtGroup) cmtGroup.style.display = 'block';
+        if (schemaToggleWrap) schemaToggleWrap.style.display = 'block';
+        if (schemaBody) schemaBody.style.display = 'none';
+        if (cleanFmtWrap) cleanFmtWrap.style.display = 'none';
+        if (!state.targetFormat.startsWith('app-')) selectTargetFormat('app-grade-criteria');
+      } else {
+        if (step2Pill) step2Pill.setAttribute('data-i18n', 'dbConvStep2Clean');
+        if (step2Title) step2Title.setAttribute('data-i18n', 'dbConvStep2Clean');
+        if (stepTarget) stepTarget.style.display = 'none';
+        if (schemaToggleWrap) schemaToggleWrap.style.display = 'none';
+        if (schemaBody) schemaBody.style.display = 'block';
+        if (cleanFmtWrap) cleanFmtWrap.style.display = 'flex';
+        if (state.targetFormat.startsWith('app-')) selectTargetFormat('csv');
+      }
+
+      if (typeof window.applyTranslations === 'function') {
+        window.applyTranslations();
+      }
+      goToStep(1);
+    }
+
+    function resetToTaskChooser() {
+      state.workflowMode = null;
+      document.getElementById('workspaceView').style.display = 'none';
+      var importPaneEl = document.getElementById('importWizardPane');
+      if (importPaneEl) importPaneEl.style.display = 'none';
+      document.getElementById('headerTaskActions').style.display = 'none';
+      document.getElementById('taskChooser').style.display = 'block';
+    }
+
+    function goToStep(stepNum) {
+      if (stepNum > 1 && (!state.dataRows || !state.dataRows.length)) {
+        if (typeof showToast === 'function') {
+          showToast(typeof t === 'function' ? t('dbConvNoData', 'Please load a file, paste text, or load the sample table first.') : 'Please load data first.', true);
+        }
+        return;
+      }
+      state.currentStep = stepNum;
+      [1, 2, 3].forEach(function (n) {
+        var pane = document.getElementById('stepPane' + n);
+        var btn = document.getElementById('stepBtn' + n);
+        if (pane) pane.style.display = (n === stepNum) ? 'block' : 'none';
+        if (btn) {
+          btn.classList.toggle('active', n === stepNum);
+          btn.classList.toggle('is-done', n < stepNum && state.dataRows.length > 0);
+        }
+      });
+      if (stepNum === 3) {
+        switchPreviewTab(state.previewTab || 'table');
+        updateOutput();
+      }
+    }
+
+    function switchPreviewTab(tab) {
+      state.previewTab = tab;
+      var tblBtn = document.getElementById('tabBtnPreviewTable');
+      var codeBtn = document.getElementById('tabBtnPreviewCode');
+      var tblPane = document.getElementById('stepPreview');
+      var codePane = document.getElementById('outputWrap');
+      if (tblBtn) tblBtn.classList.toggle('active', tab === 'table');
+      if (codeBtn) codeBtn.classList.toggle('active', tab === 'code');
+      if (tblPane) tblPane.style.display = (tab === 'table') ? 'block' : 'none';
+      if (codePane) codePane.style.display = (tab === 'code') ? 'block' : 'none';
+    }
 
     // ── Input Tab Switching ──────────────────────────────────────────────────
     function switchInputTab(tab) {
@@ -966,16 +1189,11 @@
       document.getElementById('headerRowSelect').value = String(hIdx);
       applyHeaderRow(hIdx, maxCols);
 
-      // Show UI cards
+      // Show UI controls in Step 1 & enable Continue
       document.getElementById('metaBar').style.display = 'flex';
       document.getElementById('statsBar').style.display = 'flex';
-      document.getElementById('stepSchema').style.display = 'block';
-      document.getElementById('stepPreview').style.display = 'block';
-
-      // Auto-switch to stacked full-width view if table has more than 6 columns
-      if (state.columns.length > 6 && state.layoutMode === 'split') {
-        toggleStudioLayout();
-      }
+      var btnNext1 = document.getElementById('btnStep1Next');
+      if (btnNext1) btnNext1.disabled = false;
 
       updateStatsBadges();
       renderSchemaEditor();
@@ -1096,7 +1314,7 @@
             });
             var tag = isCurrent ? ' (Selected)' : (isMappedElsewhere ? ' (Used)' : '');
             var reqStar = f.required ? ' *' : '';
-            optionsHtml += `<option value="${escapeHtml(f.key)}" ${isCurrent ? 'selected' : ''}>⭐ ${escapeHtml(f.key)} — ${escapeHtml(f.label)}${reqStar}${tag}</option>`;
+            optionsHtml += `<option value="${escapeHtml(f.key)}" ${isCurrent ? 'selected' : ''}>${escapeHtml(f.key)} - ${escapeHtml(f.label)}${reqStar}${tag}</option>`;
           });
           optionsHtml += `</optgroup>`;
 
@@ -1142,8 +1360,8 @@
           </td>
           <td>
             <div style="display: flex; gap: 2px;">
-              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="-1" data-dc-idx="${idx}" ${idx === 0 ? 'disabled' : ''}>▲</button>
-              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="1" data-dc-idx="${idx}" ${idx === state.columns.length - 1 ? 'disabled' : ''}>▼</button>
+              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="-1" data-dc-idx="${idx}" ${idx === 0 ? 'disabled' : ''}><img src="../assets/icons/arrow-up.svg" class="btn-icon" alt="Up"></button>
+              <button type="button" class="nb-btn nb-btn-sm" data-dc-move="1" data-dc-idx="${idx}" ${idx === state.columns.length - 1 ? 'disabled' : ''}><img src="../assets/icons/arrow-down.svg" class="btn-icon" alt="Down"></button>
             </div>
           </td>
         `;
@@ -1313,7 +1531,7 @@
         var colOptionsHtml = `<option value="__none__">-- ${isMapped ? 'Unmap Field' : 'Not Mapped'} --</option>`;
         state.columns.forEach(function (col, cIdx) {
           var isSelected = cIdx === mappedColIdx;
-          colOptionsHtml += `<option value="${cIdx}" ${isSelected ? 'selected' : ''}>Col ${cIdx + 1}: ${escapeHtml(col.original)} ${col.name !== col.original ? '→ ' + escapeHtml(col.name) : ''}</option>`;
+          colOptionsHtml += `<option value="${cIdx}" ${isSelected ? 'selected' : ''}>Col ${cIdx + 1}: ${escapeHtml(col.original)} ${col.name !== col.original ? '-> ' + escapeHtml(col.name) : ''}</option>`;
         });
 
         var statusHtml = '';
@@ -2119,8 +2337,8 @@
       document.getElementById('fileInput').value = '';
       document.getElementById('metaBar').style.display = 'none';
       document.getElementById('statsBar').style.display = 'none';
-      document.getElementById('stepSchema').style.display = 'none';
-      document.getElementById('stepPreview').style.display = 'none';
+      var btnNext1 = document.getElementById('btnStep1Next');
+      if (btnNext1) btnNext1.disabled = true;
       setOutputText('', 'converted.txt', 0, 0);
     }
 
@@ -2141,12 +2359,17 @@
 
     function startConverterTour() {
       if (typeof Tutorial !== 'undefined' && Tutorial.start) {
-        Tutorial.start([
-          { element: '#stepInput', title: '1. Source Data', content: 'Drop any Excel, CSV, JSON, SQL, or Markdown file here, or paste raw content.' },
-          { element: '#stepSchema', title: '2. Schema & Transforms', content: 'Rename columns, cast types (Number, Date, Boolean), and apply casing transformations in-place.' },
-          { element: '#stepPreview', title: '3. Data Preview', content: 'Inspect your paginated table with real-time searching and filtering.' },
-          { element: '#stepTarget', title: '4. Format & Export', content: 'Choose from 10 universal database formats or CMT application formats, preview live, and export with 1-click.' }
-        ]);
+        var steps = document.getElementById('taskChooser').style.display !== 'none'
+          ? [
+              { element: '#taskChooser', title: 'Choose Your Task', content: 'Pick whether you want to convert file formats, prepare data for Class Management Tools, or inspect and clean a table.' }
+            ]
+          : [
+              { element: '.stepper-bar', title: '3-Step Workflow', content: 'Move cleanly through Source Data, Configuration, and Preview & Export without clutter.' },
+              { element: '#stepPane1', title: '1. Source Data', content: 'Drop any Excel, CSV, JSON, SQL, or Markdown file here, paste raw content, or load the sample table.' },
+              { element: '#stepPane2', title: '2. Configure & Map', content: 'Choose your target format or map columns to Class Management Tools fields.' },
+              { element: '#stepPane3', title: '3. Preview & Export', content: 'Inspect the paginated table or generated code, then copy or export with one click.' }
+            ];
+        Tutorial.start(steps);
       }
     }
 

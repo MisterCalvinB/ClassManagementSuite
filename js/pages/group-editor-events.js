@@ -65,6 +65,33 @@
       el.addEventListener('change', handler);
     })();
     (function () {
+      var map = {
+        '[data-geev-modal-1]': function (e) { closeGeEditModal(e); },
+        '[data-geev-modal-3]': function () { closeGeEditModal(); },
+        '[data-geev-modal-4]': function () { closeGeEditModal(); },
+        '[data-geev-modal-5]': function () { applyGeEditModal(); },
+        '[data-geev-modal-6]': function (e) { closeGeStudentsModal(e); },
+        '[data-geev-modal-8]': function () { closeGeStudentsModal(); },
+        '[data-geev-modal-9]': function () { closeGeStudentsModal(); },
+        '[data-geev-modal-10]': function () { openAddGroupModal(); },
+        '[data-geev-modal-11]': function (e) { closeAddGroupModal(e); },
+        '[data-geev-modal-13]': function () { closeAddGroupModal(); },
+        '[data-geev-modal-14]': function () { closeAddGroupModal(); },
+        '[data-geev-modal-15]': function () { openActiveContextModal(); },
+        '[data-geev-modal-16]': function (e) { closeActiveContextModal(e); },
+        '[data-geev-modal-18]': function () { closeActiveContextModal(); },
+        '[data-geev-modal-19]': function () { closeActiveContextModal(); }
+      };
+      Object.keys(map).forEach(function (sel) {
+        var el = document.querySelector(sel);
+        if (el) el.addEventListener('click', map[sel]);
+      });
+      ['[data-geev-modal-2]', '[data-geev-modal-7]', '[data-geev-modal-12]', '[data-geev-modal-17]'].forEach(function (sel) {
+        var el = document.querySelector(sel);
+        if (el) el.addEventListener('click', function (e) { e.stopPropagation(); });
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-geev-11]');
       if (!el) return;
       var handler = function (event) { onTermsPerYearChange(this.value) };

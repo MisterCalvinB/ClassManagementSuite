@@ -177,11 +177,10 @@ const PAGE_LABELS = {
   [PAGE_FILES.pdfViewer]: 'PDF Viewer',
   [PAGE_FILES.planner]: 'Planner',
   [PAGE_FILES.lessonCreator]: 'Lesson Creator',
-  [PAGE_FILES.importTool]: 'Import Tool',
   [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
   [PAGE_FILES.oralMarking]: 'Oral Marking',
   [PAGE_FILES.competencePortfolio]: 'Competence Portfolio',
-  [PAGE_FILES.databaseConverter]: 'Database Converter',
+  [PAGE_FILES.databaseConverter]: 'Data Studio',
   [PAGE_FILES.testCreator]: 'Test Creator',
   [PAGE_FILES.mediaConverter]: 'Video & Sound Converter',
   [PAGE_FILES.dictionary]: 'Quick Dictionary',
@@ -1361,7 +1360,7 @@ function buildMenu() {
     { label: 'Classroom', keys: ['launcher', 'classManagement', 'board', 'learningTools', 'oralMarking', 'classPlan'] },
     { label: 'Planning & Content', keys: ['planner', 'lessonCreator', 'testCreator', 'documentEditor', 'pdfViewer', 'dictionary'] },
     { label: 'Students & Grades', keys: ['groupEditor', 'administrativeGroups', 'gradeSheet', 'participationTracker', 'competencePortfolio', 'scheduleMaker'] },
-    { label: 'Data & Utilities', keys: ['learningDb', 'databaseConverter', 'importTool', 'fileManager', 'mediaConverter'] },
+    { label: 'Data & Utilities', keys: ['learningDb', 'databaseConverter', 'fileManager', 'mediaConverter'] },
     { label: 'App', keys: ['generalConfig', 'setupWizard', 'howTo', 'about'] }
   ];
   const makeItem = (pageFile) => ({

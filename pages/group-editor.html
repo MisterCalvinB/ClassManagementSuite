@@ -25,56 +25,147 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #fff;
-      color: #000;
+      font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+      background-color: var(--neo-bg, #f5f5f0);
+      color: var(--neo-dark, #222222);
+      padding: 14px;
       min-height: 100vh;
     }
 
     .ge-page {
-      max-width: 1100px;
+      max-width: 1220px;
       margin: 0 auto;
-      padding: 36px 24px 80px;
+      padding: 0 0 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
     }
 
-    .ge-header {
+    /* ── Nav (matches Lesson Creator) ──────────────────────── */
+    #app-nav {
       display: flex;
       align-items: center;
-      gap: 16px;
-      margin-bottom: 32px;
+      gap: 8px;
+      background: var(--neo-dark, #222222);
+      color: #ffffff;
+      padding: 6px 14px;
+      border-radius: var(--neo-radius-md, 6px);
+      border: 2px solid var(--neo-dark, #222222);
+      box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
       flex-wrap: wrap;
+      margin-bottom: 0;
       user-select: none;
       -webkit-user-select: none;
     }
-    .ge-back-btn {
-      background: #fff;
-      border: 2px solid #000;
-      border-radius: 7px;
-      padding: 7px 14px;
+    .nav-brand {
+      font-weight: 900;
+      font-size: 1.05rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-right: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .nav-brand img {
+      width: 20px;
+      height: 20px;
+      filter: brightness(0) invert(1);
+    }
+    .nav-group {
+      position: relative;
+      display: inline-block;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #app-nav .nav-btn {
+      background: #222222;
+      color: #ffffff;
+      border: 1px solid #555555;
+      padding: 5px 11px;
+      border-radius: var(--neo-radius-sm, 4px);
+      cursor: pointer;
       font-family: inherit;
       font-size: 0.85rem;
       font-weight: 700;
-      color: #000;
-      cursor: pointer;
-      transition: background 0.1s, color 0.1s;
-      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.12s, border-color 0.12s;
       user-select: none;
       -webkit-user-select: none;
     }
-    .ge-back-btn:hover { background: #000; color: #fff; }
-
-    .ge-title {
-      font-size: 1.6rem;
-      font-weight: 800;
-      letter-spacing: -0.3px;
-      flex: 1;
+    #app-nav .nav-btn:hover {
+      background: #333333;
+      border-color: #888888;
     }
-    .ge-subtitle {
-      font-size: 0.83rem;
-      font-weight: 600;
-      color: #000;
+    .nav-group-popup {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #1e1e1e;
+      border: 2px solid var(--neo-dark, #222222);
+      border-radius: var(--neo-radius-sm, 4px);
+      min-width: 210px;
+      z-index: 1000;
+      padding: 5px 0;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .nav-group-popup::before {
+      content: '';
+      position: absolute;
+      top: -8px;
+      left: 0;
+      right: 0;
+      height: 8px;
+      background: transparent;
+    }
+    .nav-group:hover .nav-group-popup,
+    .nav-group:focus-within .nav-group-popup {
+      display: block;
+    }
+    #app-nav .nav-pop-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       width: 100%;
-      margin-top: -8px;
+      padding: 7px 14px;
+      color: #dddddd;
+      background: none;
+      border: none;
+      border-radius: 0;
+      font-family: inherit;
+      font-size: 0.84rem;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+    }
+    #app-nav .nav-pop-item:hover {
+      background: #2d2d2d;
+      color: #ffffff;
+    }
+    .nav-pop-hint {
+      font-size: 0.72rem;
+      color: #888888;
+      font-weight: 500;
+      margin-left: 14px;
+    }
+    .nav-pop-sep {
+      border: none;
+      border-top: 1px solid #333333;
+      margin: 4px 0;
+    }
+
+    .ge-subtitle {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--neo-gray-dark, #475569);
+      width: 100%;
     }
 
     /* ── CSV buttons ─────────────────────────────────────── */
@@ -146,33 +237,13 @@
     .eg-students-toggle.active { border-color: #0891b2; background: #0891b2; color: #fff; }
     .eg-students-toggle:disabled { opacity: 0.5; cursor: default; }
 
-    /* ── Class UUID badge ───────────────────────────────── */
-    .eg-group-uuid {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-family: monospace;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: #475569;
-      background: #f1f5f9;
-      border: 1.5px solid #cbd5e1;
-      border-radius: 4px;
-      padding: 3px 7px;
-      cursor: pointer;
-      user-select: all;
-      letter-spacing: 0.2px;
-      flex-shrink: 0;
-      transition: background 0.12s, border-color 0.12s, color 0.12s;
-      height: 31px;
-    }
-    .eg-group-uuid:hover {
-      background: #e2e8f0;
-      border-color: #94a3b8;
-      color: #0f172a;
-    }
-    .eg-group-uuid:active {
-      transform: scale(0.96);
+    /* ── Groups list ─────────────────────────────────────── */
+    .ge-groups-card {
+      background: var(--neo-card-bg, #ffffff);
+      border: 2px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+      padding: 16px 18px;
     }
 
     /* ── Administrative Group toggle button ───────────────── */
@@ -439,69 +510,80 @@
     }
     .eg-s-add:hover { border-color: #111; color: #111; }
 
+    /* ── Top Units Grid (Active Context, Planner Terms, Add Group) ── */
+    .ge-top-units {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
     /* ── Add new group ──────────────────────────────────── */
     .ge-add-section {
-      border-top: 2px solid #000;
-      padding-top: 18px;
-      margin-top: 24px;
+      background: var(--neo-card-bg, #ffffff);
+      border: 2px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+      padding: 12px 14px;
+      margin-top: 0;
     }
     .ge-add-row {
       display: flex;
-      gap: 8px;
-      align-items: flex-start;
+      gap: 6px;
+      align-items: center;
       flex-wrap: wrap;
     }
     .ge-add-name {
       flex: 1;
-      min-width: 140px;
-      padding: 7px 10px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      min-width: 120px;
+      padding: 5px 8px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
     .ge-add-students {
-      flex: 3;
-      min-width: 220px;
-      padding: 7px 10px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      width: 100%;
+      padding: 5px 8px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.85rem;
+      font-size: 0.78rem;
       resize: vertical;
-      min-height: 36px;
+      min-height: 30px;
     }
     .ge-add-year {
-      width: 96px;
-      padding: 7px 8px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      width: 86px;
+      padding: 5px 6px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
     .ge-add-select {
-      padding: 7px 4px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      padding: 5px 4px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
     .ge-add-btn {
-      padding: 7px 16px;
-      background: #000;
-      color: #fff;
-      border: 2px solid #000;
-      border-radius: 4px;
+      padding: 5px 14px;
+      background: var(--neo-yellow, #e2c96e);
+      color: #111111;
+      border: 2px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-md, 6px);
+      box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
       font-family: inherit;
-      font-weight: 700;
-      font-size: 0.82rem;
+      font-weight: 800;
+      font-size: 0.78rem;
       cursor: pointer;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       white-space: nowrap;
-      transition: background 0.1s, color 0.1s;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
     }
-    .ge-add-btn:hover { background: #fff; color: #000; }
+    .ge-add-btn:hover { transform: translate(-1px, -1px); box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555); }
 
     /* ── Planner term pills ──────────────────────────────── */
     .ge-term-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -574,50 +656,51 @@
 
     /* ── Active context banner ───────────────────────── */
     .ge-active-banner {
-      background: #f8f8f8;
-      border: 1.5px solid #000;
-      border-radius: 7px;
-      padding: 12px 16px 10px;
-      margin-bottom: 20px;
+      background: var(--neo-card-bg, #ffffff);
+      border: 2px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+      padding: 12px 14px;
+      margin-bottom: 0;
     }
     .ge-active-banner-label {
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #000;
-      margin-bottom: 8px;
+      letter-spacing: 0.8px;
+      color: var(--neo-dark, #222222);
+      margin-bottom: 6px;
     }
     .ge-active-banner-fields {
       display: flex;
-      gap: 10px;
+      gap: 6px 8px;
       align-items: center;
       flex-wrap: wrap;
     }
     .ge-active-label {
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 700;
-      color: #555;
+      color: var(--neo-gray-dark, #475569);
       white-space: nowrap;
     }
     .ge-active-input {
-      width: 100px;
-      padding: 5px 8px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      width: 90px;
+      padding: 4px 7px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
     .ge-active-select {
-      padding: 5px 6px;
-      border: 2px solid #000;
-      border-radius: 4px;
+      padding: 4px 5px;
+      border: 1.5px solid var(--neo-border-color, #333333);
+      border-radius: var(--neo-radius-sm, 4px);
       font-family: inherit;
-      font-size: 0.82rem;
+      font-size: 0.78rem;
     }
     .ge-active-date {
-      width: 130px;
-      padding: 5px 8px;
+      width: 122px;
+      padding: 4px 6px;
       border: 2px solid #ccc;
       border-radius: 4px;
       font-family: inherit;
@@ -722,11 +805,12 @@
 
     /* ── Planner Terms section ──────────────────────────────── */
     .ge-pt-section {
-      background: #f8fbff;
-      border: 1.5px solid #b3d4f5;
-      border-radius: 7px;
-      padding: 12px 16px 14px;
-      margin-bottom: 20px;
+      background: var(--neo-card-bg-subtle, #fafaf7);
+      border: 2px solid var(--neo-blue, #5b8fcc);
+      border-radius: var(--neo-radius-lg, 10px);
+      box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+      padding: 12px 14px;
+      margin-bottom: 0;
     }
     .ge-pt-row {
       display: flex;
@@ -886,9 +970,159 @@
 /* ---- EDIT GROUPS MODAL ---- */
 .eg-row {
   display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: 2px 2px 0 #d1d5db;
+  flex-wrap: wrap;
+}
+.eg-hidden-fields {
+  display: none !important;
+}
+.eg-row-info {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  align-items: flex-start;
-  margin-bottom: 10px;
+  flex: 1;
+  min-width: 180px;
+  flex-wrap: wrap;
+}
+.eg-row-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+.eg-row-meta {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+.eg-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.eg-action-btn {
+  padding: 4px 10px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  background: #ffffff;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.12s, transform 0.12s;
+}
+.eg-action-btn:hover:not(:disabled) {
+  background: var(--neo-yellow, #e2c96e);
+  transform: translate(-1px, -1px);
+}
+.eg-action-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ── Tidy Group Edit & Students Modals ─────────────────── */
+.ge-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 9500;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.ge-modal-overlay.open {
+  display: flex;
+}
+.ge-modal-card {
+  background: var(--neo-card-bg, #ffffff);
+  border: 2.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-lg, 10px);
+  box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+  padding: 20px 22px;
+  max-width: 760px;
+  width: 100%;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ge-modal-card.compact {
+  max-width: 480px;
+}
+.ge-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--neo-border-color, #333333);
+  padding-bottom: 10px;
+}
+.ge-modal-title {
+  font-size: 1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--neo-dark, #222222);
+}
+.ge-modal-body {
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ge-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+}
+.ge-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ge-edit-field.full {
+  grid-column: 1 / -1;
+}
+.ge-edit-field label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--neo-gray-dark, #475569);
+}
+.ge-edit-field input,
+.ge-edit-field select {
+  padding: 6px 9px;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  font-family: inherit;
+  font-size: 0.84rem;
+  background: #ffffff;
+}
+.ge-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1.5px solid #e2e8f0;
+  padding-top: 12px;
 }
 
 .eg-row-name {
@@ -1152,53 +1386,58 @@
 </style>
 </head>
 <body data-neo-hover-all="1">
-<nav id="app-nav">
-  <span class="nav-brand"></span>
-  <div id="app-hamburger" class="hm-wrap">
-    <button id="skm-trigger" class="tut-trigger-btn" data-geev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
-    <button id="tut-trigger" class="tut-trigger-btn" data-geev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
-    <button class="hm-btn" aria-label="Open menu"><img src="../assets/icons/menu.svg" class="btn-icon" alt="" /></button>
-    <div class="hm-menu"></div>
-  </div>
-</nav>
 <div class="ge-page">
-  <header class="ge-header">
-    <button class="ge-back-btn" data-geev-3="1" data-i18n="geBack">← Launcher</button>
-    <h1 class="ge-title" data-i18n="geTitle">Group Editor</h1>
-    <div class="ge-csv-bar">
-      <button class="ge-csv-btn" data-geev-4="1" data-hover-help="View and manage all students in the roster, highlight unassigned students, archive or delete them" data-i18n="geAllStudentsBtn"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" data-geev-5="1" /> All Students</button>
-      <button class="ge-csv-btn" data-geev-6="1" data-hover-help="Check for students sharing the same name across different UUIDs and merge them" data-i18n="geMergeCheckBtn"><img src="../assets/icons/swap.svg" class="btn-icon" alt="" data-geev-7="1" /> Merge Duplicates</button>
-      <button class="ge-csv-btn" data-geev-8="1" data-hover-help="Import students and class groups from CSV, XLSX or JSON" data-i18n="importShortcutBtn"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
-      <button class="ge-csv-btn" data-geev-9="1" data-hover-help="Export all groups and students to a CSV file"><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> Export CSV</button>
+  <nav id="app-nav">
+    <span class="nav-brand">
+      <img src="../assets/icons/group-editor.svg" alt="" />
+      <span data-i18n="geTitle">Group Editor</span>
+    </span>
+
+    <!-- File menu -->
+    <div class="nav-group">
+      <button class="nav-btn" data-i18n="menuFile">File</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" id="ge-save-btn" data-geev-27="1"><span data-i18n="btnSave">Save</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" data-geev-8="1"><span data-i18n="importShortcutBtn">Import</span></button>
+        <button class="nav-pop-item" data-geev-9="1"><span data-i18n="btn_export_csv">Export CSV</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" data-geev-3="1"><span data-i18n="geBack">← Launcher</span></button>
+      </div>
     </div>
-    <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
-  </header>
+
+    <!-- Tools menu -->
+    <div class="nav-group">
+      <button class="nav-btn" data-i18n="menuTools">Tools</button>
+      <div class="nav-group-popup">
+        <button class="nav-pop-item" data-geev-4="1"><span data-i18n="geAllStudentsBtn">All Students</span></button>
+        <button class="nav-pop-item" data-geev-6="1"><span data-i18n="geMergeCheckBtn">Merge Duplicates</span></button>
+        <hr class="nav-pop-sep">
+        <button class="nav-pop-item" data-geev-12="1"><span data-i18n="gePlannerSyncBtn">Planner</span></button>
+      </div>
+    </div>
+
+    <div id="app-hamburger" class="hm-wrap">
+      <button id="skm-trigger" class="tut-trigger-btn" data-geev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
+      <button id="tut-trigger" class="tut-trigger-btn" data-geev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel">Tour</button>
+      <button class="hm-btn" data-i18n-aria="navOpenMenu" aria-label="Open menu">Menu</button>
+      <div class="hm-menu"></div>
+    </div>
+  </nav>
+
+  <p class="ge-subtitle" data-i18n="geSubtitle">Create, edit, archive, and delete class groups. Changes are saved directly to user/class-groups.js.</p>
 
   <input type="file" id="csv-import-input" accept=".csv,text/csv" style="display:none" data-geev-10="1">
 
   <div id="ge-notice" style="display:none;" class="ge-notice"></div>
 
+  <div class="ge-top-units">
   <div class="ge-active-banner">
-    <div class="ge-active-banner-label" data-i18n="geActiveContextTitle">Active Context</div>
-    <div class="ge-active-banner-fields">
-      <span class="ge-active-label" data-i18n="geActiveYear">Year</span>
-      <input id="ge-active-year" class="ge-active-input" type="text" placeholder="2025-2026">
-      <span class="ge-active-label" data-i18n="geActiveSem">Term</span>
-      <select id="ge-active-semester" class="ge-active-select">
-        <option value="">—</option>
-      </select>
-      <span class="ge-active-label" data-i18n="geActiveSemStart">Start date</span>
-      <input id="ge-active-sem-start" class="ge-active-date" type="date">
-      <span class="ge-active-label" data-i18n="geActiveSemEnd">End date</span>
-      <input id="ge-active-sem-end" class="ge-active-date" type="date">
-      <span class="ge-active-label" data-i18n="geTermsPerYear">Terms / yr</span>
-      <select id="ge-terms-per-year" class="ge-active-select" data-geev-11="1" style="width:52px;">
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
-      <button class="ge-csv-btn" data-geev-12="1" style="font-size:0.73rem;padding:5px 10px;" data-i18n="gePlannerSyncBtn" data-hover-help="Fill dates from Planner terms"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> Planner</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+      <div class="ge-active-banner-label" style="margin-bottom:0;" data-i18n="geActiveContextTitle">Active Context</div>
+      <button type="button" class="eg-action-btn" data-geev-modal-15="1" data-i18n="btnEdit">Edit</button>
     </div>
+    <div id="ge-active-context-summary" style="font-size:0.86rem;font-weight:700;color:var(--neo-dark,#222);">—</div>
     <div id="ge-planner-hint" style="display:none;margin:6px 0 0;padding:7px 10px;background:#f0f7ff;border:1.5px solid #b3d4f5;border-radius:5px;font-size:0.78rem;align-items:center;gap:8px;">
       <span id="ge-planner-hint-text" style="flex:1;color:#2563a8;"></span>
       <button data-geev-13="1" data-i18n="gePlannerSyncBtn" data-i18n-help="hhGeSyncPlanner" data-hover-help="Pull active term dates directly from Planner configuration." style="padding:3px 10px;font-size:0.75rem;font-weight:700;border:1.5px solid #2563a8;border-radius:4px;background:#fff;color:#2563a8;cursor:pointer;font-family:inherit;white-space:nowrap;">↕ Planner</button>
@@ -1208,43 +1447,45 @@
 
   <!-- Planner Terms section -->
   <div id="ge-planner-terms-section" style="display:none;" class="ge-pt-section">
-    <div class="ge-active-banner-label" style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+    <div class="ge-active-banner-label" style="margin-bottom:6px;display:flex;align-items:center;gap:8px;">
       <span data-i18n="gePlannerTermsTitle">Planner Terms</span>
       <span id="ge-pt-count" style="font-size:0.9em;font-weight:500;color:#7aace8;"></span>
     </div>
     <div id="ge-pt-list"></div>
     <button class="ge-pt-add-btn" data-geev-14="1" data-i18n="geAddPlannerTerm" data-i18n-help="hhGeAddTerm" data-hover-help="Create a new academic term and holidays for Planner.">+ New Term</button>
-    <div id="ge-pt-form" style="display:none;margin-top:12px;padding:12px 14px;background:#fff;border:1.5px solid #b3d4f5;border-radius:6px;">
-      <div class="ge-active-banner-label" id="ge-pt-form-title" style="margin-bottom:10px;" data-i18n="gePlannerTermCreateTitle">New Planner Term</div>
-      <div class="ge-active-banner-fields" style="align-items:flex-start;gap:12px;flex-wrap:wrap;">
+    <div id="ge-pt-form" style="display:none;margin-top:10px;padding:10px 12px;background:#fff;border:1.5px solid #b3d4f5;border-radius:6px;">
+      <div class="ge-active-banner-label" id="ge-pt-form-title" style="margin-bottom:8px;" data-i18n="gePlannerTermCreateTitle">New Planner Term</div>
+      <div class="ge-active-banner-fields" style="align-items:flex-start;gap:8px;flex-wrap:wrap;">
         <div>
-          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermLabel">Label</div>
-          <input id="ge-pt-label" class="ge-active-date" type="text" style="width:140px;" data-i18n-placeholder="gePlannerTermLabelPlaceholder">
+          <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermLabel">Label</div>
+          <input id="ge-pt-label" class="ge-active-date" type="text" style="width:120px;" data-i18n-placeholder="gePlannerTermLabelPlaceholder">
         </div>
         <div>
-          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermYear">Year</div>
-          <input id="ge-pt-year" class="ge-active-date" type="text" style="width:110px;font-family:monospace;" maxlength="9" data-i18n-placeholder="pl_classYearPlaceholder">
+          <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#555;margin-bottom:3px;" data-i18n="gePlannerTermYear">Year</div>
+          <input id="ge-pt-year" class="ge-active-date" type="text" style="width:95px;font-family:monospace;" maxlength="9" data-i18n-placeholder="pl_classYearPlaceholder">
         </div>
         <div>
-          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemStart">Start date</div>
+          <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemStart">Start date</div>
           <input id="ge-pt-start" class="ge-active-date" type="date">
         </div>
         <div>
-          <div style="font-size:0.7rem;font-weight:800;text-transform:uppercase;letter-spacing:0.7px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemEnd">End date</div>
+          <div style="font-size:0.68rem;font-weight:800;text-transform:uppercase;letter-spacing:0.6px;color:#555;margin-bottom:3px;" data-i18n="geActiveSemEnd">End date</div>
           <input id="ge-pt-end" class="ge-active-date" type="date">
         </div>
       </div>
-      <div style="margin-top:10px;">
-        <div class="ge-section-title" style="margin-bottom:6px;" data-i18n="gePlannerTermHolidays">Holidays</div>
+      <div style="margin-top:8px;">
+        <div class="ge-section-title" style="margin-bottom:5px;" data-i18n="gePlannerTermHolidays">Holidays</div>
         <div id="ge-pt-hol-list"></div>
-        <button class="eg-s-add" style="margin-top:5px;" data-geev-15="1" data-i18n="geAddHoliday">+ Holiday</button>
+        <button class="eg-s-add" style="margin-top:4px;" data-geev-15="1" data-i18n="geAddHoliday">+ Holiday</button>
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center;">
-        <button data-geev-16="1" data-i18n-help="hhGeSavePlanner" data-hover-help="Save this term and its holidays directly to planner-config.js." style="padding:6px 14px;background:#2563a8;color:#fff;border:none;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;transition:background 0.1s;" data-geev-17="1" data-geev-18="1" data-i18n="gePlannerTermSave">Save to Planner</button>
-        <button data-geev-19="1" style="padding:6px 14px;background:#fff;color:#555;border:1.5px solid #bbb;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;" data-i18n="btnCancel">Cancel</button>
-        <button id="ge-pt-delete-btn" data-i18n-help="hhGeDeleteTerm" data-hover-help="Delete this term from Planner configuration." style="display:none;padding:6px 14px;background:#fff;color:#c33;border:1.5px solid #c33;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.82rem;cursor:pointer;margin-left:auto;" data-geev-20="1" data-geev-21="1" data-geev-22="1" data-i18n="gePlannerTermDelete">Delete Term</button>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+        <button data-geev-16="1" data-i18n-help="hhGeSavePlanner" data-hover-help="Save this term and its holidays directly to planner-config.js." style="padding:5px 12px;background:#2563a8;color:#fff;border:none;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;transition:background 0.1s;" data-geev-17="1" data-geev-18="1" data-i18n="gePlannerTermSave">Save to Planner</button>
+        <button data-geev-19="1" style="padding:5px 12px;background:#fff;color:#555;border:1.5px solid #bbb;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;" data-i18n="btnCancel">Cancel</button>
+        <button id="ge-pt-delete-btn" data-i18n-help="hhGeDeleteTerm" data-hover-help="Delete this term from Planner configuration." style="display:none;padding:5px 12px;background:#fff;color:#c33;border:1.5px solid #c33;border-radius:4px;font-family:inherit;font-weight:700;font-size:0.78rem;cursor:pointer;margin-left:auto;" data-geev-20="1" data-geev-21="1" data-geev-22="1" data-i18n="gePlannerTermDelete">Delete Term</button>
       </div>
     </div>
+  </div>
+
   </div>
 
   <!-- End-of-semester archive offer -->
@@ -1254,40 +1495,177 @@
     <button class="ge-eos-dismiss" data-geev-24="1" id="ge-eos-dismiss-btn"></button>
   </div>
 
-  <div class="ge-section-title" data-i18n="geActiveGroups">Active Groups</div>
-  <div id="ge-groups-body"></div>
+  <div class="ge-groups-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+      <div class="ge-section-title" style="margin-bottom:0;" data-i18n="geActiveGroups">Active Groups</div>
+      <button type="button" id="ge-open-add-modal-btn" class="ge-add-btn" data-geev-modal-10="1" data-i18n="geAddNewGroup">+ Add New Group</button>
+    </div>
+    <div id="ge-groups-body"></div>
+  </div>
+</div>
 
-  <div class="ge-add-section">
-    <div class="ge-section-title" data-i18n="geAddNewGroup">Add New Group</div>
-    <div id="ge-term-pills" class="ge-term-pills" style="display:none"></div>
-    <div class="ge-add-row">
-      <input id="new-group-name" class="ge-add-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
-      <textarea id="new-group-students" class="ge-add-students" rows="1"
-        placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" data-geev-25="1"></textarea>
-      <input id="new-group-year" class="ge-add-year" type="text" placeholder="2025-2026">
-      <select id="new-group-semester" class="ge-add-select">
-        <option value="">—</option>
-      </select>
-      <select id="new-group-level" class="ge-add-select">
-        <option value="">Lvl</option>
-        <option value="1">1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-      </select>
-      <input id="new-group-subject" class="ge-add-subject" list="ge-subject-datalist" placeholder="Subject" data-i18n-placeholder="geSubject" style="width:105px;padding:6px 8px;border:1px solid #ccc;border-radius:6px;font-size:0.85rem;">
-      <datalist id="ge-subject-datalist"></datalist>
-      <label class="ge-admin-toggle-label" data-hover-help="Administrative Group (Syncs students to Administrative Groups)">
-        <input type="checkbox" id="new-group-is-admin">
-        <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
-        <span data-i18n="geAdminGroup">Admin</span>
-      </label>
-      <button class="ge-add-btn" data-geev-26="1" data-i18n="geAddBtn">Add</button>
+<!-- Active Context Edit Modal -->
+<div id="ge-active-context-modal" class="ge-modal-overlay" data-geev-modal-16="1">
+  <div class="ge-modal-card compact" style="max-width:480px;" data-geev-modal-17="1">
+    <div class="ge-modal-head">
+      <div class="ge-modal-title" data-i18n="geActiveContextTitle">Active Context</div>
+      <button type="button" class="eg-action-btn" data-geev-modal-18="1">✕</button>
+    </div>
+    <div class="ge-modal-body">
+      <div class="ge-edit-grid">
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveYear">Year</label>
+          <input id="ge-active-year" type="text" placeholder="2025-2026">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveSem">Term</label>
+          <select id="ge-active-semester">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveSemStart">Start date</label>
+          <input id="ge-active-sem-start" type="date">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveSemEnd">End date</label>
+          <input id="ge-active-sem-end" type="date">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geTermsPerYear">Terms / yr</label>
+          <select id="ge-terms-per-year" data-geev-11="1">
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="ge-edit-field" style="justify-content:flex-end;">
+          <button type="button" class="eg-action-btn" data-geev-12="1" data-i18n="gePlannerSyncBtn" data-hover-help="Fill dates from Planner terms"><img src="../assets/icons/planner.svg" class="btn-icon" alt="" /> Planner</button>
+        </div>
+      </div>
+    </div>
+    <div class="ge-modal-foot">
+      <button type="button" class="ge-add-btn" data-geev-modal-19="1" data-i18n="btnOk">OK</button>
     </div>
   </div>
+</div>
 
-  <div class="ge-save-bar">
-    <button id="ge-save-btn" class="ge-save-btn" data-geev-27="1" data-i18n="geSaveBtn" data-i18n-help="hhGeSaveGroups" data-hover-help="Write all roster and class changes to user/class-groups.js."><img src="../assets/icons/save.svg" class="btn-icon" alt="" /> Save to class-groups.js</button>
+<!-- Add New Group Modal -->
+<div id="ge-add-group-modal" class="ge-modal-overlay" data-geev-modal-11="1">
+  <div class="ge-modal-card compact" style="max-width:560px;" data-geev-modal-12="1">
+    <div class="ge-modal-head">
+      <div class="ge-modal-title" data-i18n="geAddNewGroup">Add New Group</div>
+      <button type="button" class="eg-action-btn" data-geev-modal-13="1">✕</button>
+    </div>
+    <div class="ge-modal-body">
+      <div id="ge-term-pills" class="ge-term-pills" style="display:none"></div>
+      <div class="ge-edit-grid">
+        <div class="ge-edit-field full">
+          <label data-i18n="geGroupNamePlaceholder">Group name (e.g. 5ANdf-01)</label>
+          <input id="new-group-name" type="text" placeholder="Group name (e.g. 5ANdf-01)" data-i18n-placeholder="geGroupNamePlaceholder">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveYear">Year</label>
+          <input id="new-group-year" type="text" placeholder="2025-2026">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveSem">Term</label>
+          <select id="new-group-semester">
+            <option value="">—</option>
+          </select>
+        </div>
+        <div class="ge-edit-field">
+          <label>Level</label>
+          <select id="new-group-level">
+            <option value="">Lvl</option>
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geSubject">Subject</label>
+          <input id="new-group-subject" list="ge-subject-datalist" placeholder="Subject" data-i18n-placeholder="geSubject">
+          <datalist id="ge-subject-datalist"></datalist>
+        </div>
+        <div class="ge-edit-field full">
+          <label class="ge-admin-toggle-label" style="width:fit-content;" data-hover-help="Administrative Group (Syncs students to Administrative Groups)">
+            <input type="checkbox" id="new-group-is-admin">
+            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:12px;height:12px;" />
+            <span data-i18n="geAdminGroup">Admin</span>
+          </label>
+        </div>
+        <div class="ge-edit-field full">
+          <label data-i18n="geStudentsLabel">Students</label>
+          <textarea id="new-group-students" class="ge-add-students" rows="3"
+            placeholder="Alice Smith, Bob Jones, … (First Last, one per line or comma-separated)" data-geev-25="1"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="ge-modal-foot">
+      <button type="button" class="eg-action-btn" data-geev-modal-14="1" data-i18n="btnCancel">Cancel</button>
+      <button type="button" class="ge-add-btn" data-geev-26="1" data-i18n="geAddBtn">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Details Edit Modal -->
+<div id="ge-group-edit-modal" class="ge-modal-overlay" data-geev-modal-1="1">
+  <div class="ge-modal-card compact" data-geev-modal-2="1">
+    <div class="ge-modal-head">
+      <div class="ge-modal-title" data-i18n="btnEdit">Edit</div>
+      <button type="button" class="eg-action-btn" data-geev-modal-3="1">✕</button>
+    </div>
+    <div class="ge-modal-body">
+      <div class="ge-edit-grid">
+        <div class="ge-edit-field full">
+          <label data-i18n="geGroupNamePlaceholder">Group name</label>
+          <input id="ge-edit-name" type="text">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveYear">Year</label>
+          <input id="ge-edit-year" type="text" placeholder="2025-2026">
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geActiveSem">Term</label>
+          <select id="ge-edit-semester"></select>
+        </div>
+        <div class="ge-edit-field">
+          <label>Level</label>
+          <select id="ge-edit-level"></select>
+        </div>
+        <div class="ge-edit-field">
+          <label data-i18n="geSubject">Subject</label>
+          <input id="ge-edit-subject" type="text" list="ge-subject-datalist">
+        </div>
+        <div class="ge-edit-field full">
+          <label class="ge-admin-toggle-label" style="width:fit-content;">
+            <input id="ge-edit-admin" type="checkbox">
+            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />
+            <span data-i18n="geAdminGroup">Admin</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="ge-modal-foot">
+      <button type="button" class="eg-action-btn" data-geev-modal-4="1" data-i18n="btnCancel">Cancel</button>
+      <button type="button" class="ge-add-btn" data-geev-modal-5="1" data-i18n="btnOk">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Students & Half-Groups Modal -->
+<div id="ge-students-modal" class="ge-modal-overlay" data-geev-modal-6="1">
+  <div class="ge-modal-card" data-geev-modal-7="1">
+    <div class="ge-modal-head">
+      <div class="ge-modal-title" id="ge-students-modal-title">Students</div>
+      <button type="button" class="eg-action-btn" data-geev-modal-8="1">✕</button>
+    </div>
+    <div class="ge-modal-body" id="ge-students-modal-body"></div>
+    <div class="ge-modal-foot">
+      <button type="button" class="ge-add-btn" data-geev-modal-9="1" data-i18n="btnClose">Close</button>
+    </div>
   </div>
 </div>
 
@@ -1924,6 +2302,31 @@
       }
     }
     _buildTermSelectOptions(ngSem, ngSem && ngSem.value ? ngSem.value : _activeSemester);
+    _refreshActiveContextSummary();
+  }
+
+  function _refreshActiveContextSummary() {
+    const sumEl = document.getElementById('ge-active-context-summary');
+    if (!sumEl) return;
+    const ac = _readActiveBanner();
+    const semEl = document.getElementById('ge-active-semester');
+    const semText = (semEl && semEl.value && semEl.selectedIndex >= 0) ? semEl.options[semEl.selectedIndex].text : (ac.activeSemester ? 'S' + ac.activeSemester : '');
+    const dates = [ac.activeSemesterStart, ac.activeSemesterEnd].filter(Boolean).join(' → ');
+    const parts = [];
+    if (ac.activeYear) parts.push(ac.activeYear);
+    if (semText) parts.push(semText);
+    if (dates) parts.push('(' + dates + ')');
+    sumEl.textContent = parts.length ? parts.join(' · ') : '—';
+  }
+
+  function openActiveContextModal() {
+    document.getElementById('ge-active-context-modal').classList.add('open');
+  }
+
+  function closeActiveContextModal(e) {
+    if (e && e.target !== document.getElementById('ge-active-context-modal')) return;
+    document.getElementById('ge-active-context-modal').classList.remove('open');
+    _refreshActiveContextSummary();
   }
 
   function _readActiveBanner() {
@@ -2315,6 +2718,7 @@
     if (ngYear && year) ngYear.value = year;
     if (ngSem) ngSem.value = String(semNum);
     _activeYear = year || _activeYear;
+    _refreshActiveContextSummary();
     _activeSemester = semNum;
     _activeSemStart = sem.semesterStart || '';
     _activeSemEnd = sem.semesterEnd || '';
@@ -3112,20 +3516,6 @@
     nameInput.title = 'Group name';
     if (isArchived) { nameInput.disabled = true; nameInput.style.opacity = '0.6'; }
 
-    const uuidBadge = document.createElement('span');
-    uuidBadge.className = 'eg-group-uuid';
-    uuidBadge.textContent = groupId;
-    uuidBadge.title = typeof t === 'function' ? t('geClassUuidTitle') : 'Class UUID (Click to copy)';
-    uuidBadge.onclick = () => {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(groupId);
-        if (typeof showToast === 'function') {
-          const msg = typeof tFmt === 'function' ? tFmt('geToastUuidCopied', { id: groupId }) : `Class UUID copied: ${groupId}`;
-          showToast(msg);
-        }
-      }
-    };
-
     const students = getStudentsForGroup(groupId);
 
     const studentsToggle = document.createElement('button');
@@ -3207,8 +3597,10 @@
     archiveBtn.title = isArchived
       ? (typeof t === 'function' ? t('geUnarchiveTitle') : 'Unarchive this group')
       : (typeof t === 'function' ? t('geArchiveTitle') : 'Archive this group');
-    archiveBtn.textContent = isArchived ? '↩' : '';
-    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s;';
+    archiveBtn.innerHTML = isArchived
+      ? '<img src="../assets/icons/unarchive.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />'
+      : '<img src="../assets/icons/archive.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />';
+    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; transition:all 0.12s; display:inline-flex; align-items:center; justify-content:center;';
     archiveBtn.onmouseover = () => { archiveBtn.style.background = isArchived ? '#e6f4ea' : '#fff3e0'; };
     archiveBtn.onmouseout = () => { archiveBtn.style.background = '#fff'; };
     archiveBtn.onclick = () => {
@@ -3253,20 +3645,200 @@
     compBtn.onclick = () => openGroupCompetencePortfolio(groupId);
 
     row.appendChild(nameInput);
-    row.appendChild(uuidBadge);
-    row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
     if (subjectInput) row.appendChild(subjectInput);
-    row.appendChild(compBtn);
     row.appendChild(adminToggle);
-    row.appendChild(halfToggle);
-    row.appendChild(archiveBtn);
-    row.appendChild(delBtn);
+    enhanceTidyGroupRow(row, groupId, studentSection, halfSection, isArchived, {
+      studentsToggle,
+      compBtn,
+      halfToggle,
+      archiveBtn,
+      delBtn
+    });
     body.appendChild(row);
     body.appendChild(studentSection);
     body.appendChild(halfSection);
+  }
+
+  // ── Tidy Group Row & Modals ──────────────────────────────────
+  function _formatGroupRowMeta(row) {
+    const year = row.querySelector('.eg-row-year')?.value.trim() || '';
+    const semEl = row.querySelector('.eg-row-semester');
+    const semText = semEl && semEl.value ? (semEl.options[semEl.selectedIndex]?.text || semEl.value) : '';
+    const lvl = row.querySelector('.eg-row-level')?.value || '';
+    const subj = row.querySelector('.eg-row-subject')?.value.trim() || '';
+    const isAdmin = row.querySelector('.eg-admin-toggle')?.classList.contains('active');
+    const parts = [];
+    if (year) parts.push(year);
+    if (semText) parts.push(semText);
+    if (lvl) parts.push('Lvl ' + lvl);
+    if (subj) parts.push(subj);
+    if (isAdmin) parts.push(typeof t === 'function' ? t('geAdminGroup') : 'Admin');
+    return parts.join(' · ');
+  }
+
+  function _refreshTidyGroupRow(row) {
+    const titleEl = row.querySelector('.eg-row-title');
+    const metaEl = row.querySelector('.eg-row-meta');
+    const nameInput = row.querySelector('.eg-row-name');
+    if (titleEl && nameInput) titleEl.textContent = nameInput.value.trim() || '—';
+    if (metaEl) {
+      const txt = _formatGroupRowMeta(row);
+      metaEl.textContent = txt;
+      metaEl.style.display = txt ? '' : 'none';
+    }
+  }
+
+  function enhanceTidyGroupRow(row, groupId, studentSection, halfSection, isArchived, btns) {
+    // Keep raw form controls hidden in DOM so collectGroupEdits() reads them seamlessly
+    [
+      row.querySelector('.eg-row-name'),
+      row.querySelector('.eg-row-year'),
+      row.querySelector('.eg-row-semester'),
+      row.querySelector('.eg-row-level'),
+      row.querySelector('.eg-row-subject'),
+      row.querySelector('.eg-admin-toggle')
+    ].forEach(el => { if (el) el.classList.add('eg-hidden-fields'); });
+
+    studentSection.style.display = 'none';
+    halfSection.style.display = 'none';
+
+    const infoWrap = document.createElement('div');
+    infoWrap.className = 'eg-row-info';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'eg-row-title';
+    const metaEl = document.createElement('span');
+    metaEl.className = 'eg-row-meta';
+    infoWrap.append(titleEl, metaEl);
+
+    const actionsWrap = document.createElement('div');
+    actionsWrap.className = 'eg-row-actions';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'eg-action-btn';
+    editBtn.textContent = typeof t === 'function' ? t('btnEdit') : 'Edit';
+    editBtn.disabled = !!isArchived;
+    editBtn.onclick = () => openGeEditModal(row);
+
+    btns.studentsToggle.onclick = () => openGeStudentsModal(row, studentSection, halfSection, false);
+    btns.halfToggle.onclick = () => openGeStudentsModal(row, studentSection, halfSection, true);
+
+    actionsWrap.append(
+      editBtn,
+      btns.studentsToggle,
+      btns.halfToggle,
+      btns.compBtn,
+      btns.archiveBtn,
+      btns.delBtn
+    );
+
+    row.append(infoWrap, actionsWrap);
+    _refreshTidyGroupRow(row);
+  }
+
+  let _activeEditRow = null;
+  function openGeEditModal(row) {
+    _activeEditRow = row;
+    const nameInput = row.querySelector('.eg-row-name');
+    const yearInput = row.querySelector('.eg-row-year');
+    const semSelect = row.querySelector('.eg-row-semester');
+    const lvlSelect = row.querySelector('.eg-row-level');
+    const subjInput = row.querySelector('.eg-row-subject');
+    const adminToggle = row.querySelector('.eg-admin-toggle');
+
+    document.getElementById('ge-edit-name').value = nameInput ? nameInput.value : '';
+    document.getElementById('ge-edit-year').value = yearInput ? yearInput.value : '';
+
+    const modalSem = document.getElementById('ge-edit-semester');
+    modalSem.innerHTML = semSelect ? semSelect.innerHTML : '<option value="">—</option>';
+    modalSem.value = semSelect ? semSelect.value : '';
+
+    const modalLvl = document.getElementById('ge-edit-level');
+    modalLvl.innerHTML = lvlSelect ? lvlSelect.innerHTML : '<option value="">Lvl</option>';
+    modalLvl.value = lvlSelect ? lvlSelect.value : '';
+
+    document.getElementById('ge-edit-subject').value = subjInput ? subjInput.value : '';
+    document.getElementById('ge-edit-admin').checked = !!(adminToggle && adminToggle.classList.contains('active'));
+
+    document.getElementById('ge-group-edit-modal').classList.add('open');
+  }
+
+  function closeGeEditModal(e) {
+    if (e && e.target !== document.getElementById('ge-group-edit-modal')) return;
+    document.getElementById('ge-group-edit-modal').classList.remove('open');
+    _activeEditRow = null;
+  }
+
+  async function applyGeEditModal() {
+    if (!_activeEditRow) return;
+    const row = _activeEditRow;
+    const groupId = row.dataset.group;
+    const nameInput = row.querySelector('.eg-row-name');
+    const yearInput = row.querySelector('.eg-row-year');
+    const semSelect = row.querySelector('.eg-row-semester');
+    const lvlSelect = row.querySelector('.eg-row-level');
+    const subjInput = row.querySelector('.eg-row-subject');
+    const adminToggle = row.querySelector('.eg-admin-toggle');
+
+    const newName = document.getElementById('ge-edit-name').value.trim();
+    if (!newName) {
+      if (typeof showToast === 'function') showToast(typeof t === 'function' ? t('geEnterGroupName') : 'Please enter a group name.');
+      return;
+    }
+    if (nameInput) nameInput.value = newName;
+    if (yearInput) yearInput.value = document.getElementById('ge-edit-year').value.trim();
+    if (semSelect) semSelect.value = document.getElementById('ge-edit-semester').value;
+    if (lvlSelect) lvlSelect.value = document.getElementById('ge-edit-level').value;
+    if (subjInput) subjInput.value = document.getElementById('ge-edit-subject').value.trim();
+
+    const isNowAdmin = document.getElementById('ge-edit-admin').checked;
+    if (adminToggle) adminToggle.classList.toggle('active', isNowAdmin);
+    if (groupId) {
+      if (!rawMeta[groupId]) rawMeta[groupId] = {};
+      rawMeta[groupId].isAdminGroup = isNowAdmin;
+      if (isNowAdmin) await syncGroupToAdministrativeGroups(groupId);
+    }
+
+    _refreshTidyGroupRow(row);
+    closeGeEditModal();
+  }
+
+  let _activeStudentsCtx = null;
+  function openGeStudentsModal(row, studentSection, halfSection, focusHalf) {
+    if (_activeStudentsCtx) closeGeStudentsModal();
+    _activeStudentsCtx = { row, studentSection, halfSection };
+    const titleEl = document.getElementById('ge-students-modal-title');
+    const bodyEl = document.getElementById('ge-students-modal-body');
+    const groupName = row.querySelector('.eg-row-name')?.value.trim() || 'Students';
+    titleEl.textContent = groupName;
+
+    studentSection.style.display = '';
+    halfSection.style.display = '';
+    const studentObjs = getStudentsFromSection(studentSection);
+    buildHalfGroupChips(halfSection, studentObjs, collectHalfGroupsFromSection(halfSection));
+
+    bodyEl.innerHTML = '';
+    bodyEl.append(studentSection, halfSection);
+    document.getElementById('ge-students-modal').classList.add('open');
+    if (focusHalf) halfSection.scrollIntoView({ block: 'nearest' });
+  }
+
+  function closeGeStudentsModal(e) {
+    if (e && e.target !== document.getElementById('ge-students-modal')) return;
+    document.getElementById('ge-students-modal').classList.remove('open');
+    if (_activeStudentsCtx) {
+      const { row, studentSection, halfSection } = _activeStudentsCtx;
+      studentSection.style.display = 'none';
+      halfSection.style.display = 'none';
+      // Restore exact DOM order: .eg-row -> .eg-student-section -> .eg-half-section
+      row.after(studentSection, halfSection);
+      const toggleBtn = row.querySelector('.eg-students-toggle');
+      if (toggleBtn) updateStudentCountBtn(toggleBtn, getStudentsFromSection(studentSection).length);
+      _activeStudentsCtx = null;
+    }
   }
 
   // ── Build a semester section element ─────────────────────────
@@ -3554,20 +4126,6 @@
     nameInput.value = nameVal;
     nameInput.title = 'Group name';
 
-    const uuidBadge = document.createElement('span');
-    uuidBadge.className = 'eg-group-uuid';
-    uuidBadge.textContent = newUuid;
-    uuidBadge.title = typeof t === 'function' ? t('geClassUuidTitle') : 'Class UUID (Click to copy)';
-    uuidBadge.onclick = () => {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(newUuid);
-        if (typeof showToast === 'function') {
-          const msg = typeof tFmt === 'function' ? tFmt('geToastUuidCopied', { id: newUuid }) : `Class UUID copied: ${newUuid}`;
-          showToast(msg);
-        }
-      }
-    };
-
     const studentsToggle = document.createElement('button');
     studentsToggle.type = 'button';
     studentsToggle.className = 'eg-students-toggle active';
@@ -3632,9 +4190,9 @@
 
     const archiveBtn = document.createElement('button');
     archiveBtn.type = 'button';
-    archiveBtn.textContent = '';
+    archiveBtn.innerHTML = '<img src="../assets/icons/archive.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />';
     archiveBtn.title = typeof t === 'function' ? t('geSaveFirstTitle') : 'Save first to enable archiving';
-    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4;';
+    archiveBtn.style.cssText = 'padding:5px 8px; font-size:0.78rem; background:#fff; border:1px solid #bbb; border-radius:4px; cursor:pointer; flex-shrink:0; opacity:0.4; display:inline-flex; align-items:center; justify-content:center;';
     archiveBtn.disabled = true;
 
     const delBtn = document.createElement('button');
@@ -3644,8 +4202,6 @@
     delBtn.onclick = () => { row.remove(); studentSection.remove(); if (halfSection.parentNode) halfSection.remove(); };
 
     row.appendChild(nameInput);
-    row.appendChild(uuidBadge);
-    row.appendChild(studentsToggle);
     row.appendChild(yearInput);
     row.appendChild(semSelect);
     row.appendChild(lvlSelect);
@@ -3656,11 +4212,14 @@
     compBtn.title = typeof t === 'function' ? t('geBtnCompetencePortfolio') : 'Competence Portfolio';
     compBtn.innerHTML = '<img src="../assets/icons/competence-portfolio.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /> ' + (typeof t === 'function' ? t('btnCompetenceTags') : 'Competences');
     compBtn.onclick = () => openGroupCompetencePortfolio(newUuid);
-    row.appendChild(compBtn);
     row.appendChild(adminToggle);
-    row.appendChild(halfToggle);
-    row.appendChild(archiveBtn);
-    row.appendChild(delBtn);
+    enhanceTidyGroupRow(row, newUuid, studentSection, halfSection, false, {
+      studentsToggle,
+      compBtn,
+      halfToggle,
+      archiveBtn,
+      delBtn
+    });
 
     // Insert into the matching semester+year section, creating it if needed
     let semContent = body.querySelector(`.ge-sem-group[data-semester="${semVal}"][data-year="${newGroupYear}"] .ge-sem-content`);
@@ -3698,6 +4257,23 @@
     document.getElementById('new-group-year').value = _ac.activeYear;
     document.getElementById('new-group-semester').value = _ac.activeSemester ? String(_ac.activeSemester) : '';
     document.getElementById('new-group-level').value = '';
+    closeAddGroupModal();
+  }
+
+  function openAddGroupModal() {
+    const _ac = _readActiveBanner();
+    const yEl = document.getElementById('new-group-year');
+    const sEl = document.getElementById('new-group-semester');
+    if (yEl && !yEl.value.trim()) yEl.value = _ac.activeYear || '';
+    if (sEl && !sEl.value && _ac.activeSemester) sEl.value = String(_ac.activeSemester);
+    document.getElementById('ge-add-group-modal').classList.add('open');
+    const nEl = document.getElementById('new-group-name');
+    if (nEl) nEl.focus();
+  }
+
+  function closeAddGroupModal(e) {
+    if (e && e.target !== document.getElementById('ge-add-group-modal')) return;
+    document.getElementById('ge-add-group-modal').classList.remove('open');
   }
 
   // ── Archive / unarchive ──────────────────────────────────────
@@ -3947,14 +4523,19 @@
     }
 
     const saveBtn = document.getElementById('ge-save-btn');
-    const orig = saveBtn.textContent;
-    saveBtn.textContent = typeof t === 'function' ? t('geSaved') : ' Saved!';
-    saveBtn.disabled = true;
-    setTimeout(() => {
-      saveBtn.textContent = orig;
-      saveBtn.disabled = false;
+    if (saveBtn) {
+      const orig = saveBtn.textContent;
+      saveBtn.textContent = typeof t === 'function' ? t('geSaved') : ' Saved!';
+      saveBtn.disabled = true;
+      setTimeout(() => {
+        saveBtn.textContent = orig;
+        saveBtn.disabled = false;
+        renderGroupsList();
+      }, 1200);
+    } else {
       renderGroupsList();
-    }, 1200);
+    }
+    if (typeof showToast === 'function') showToast(typeof t === 'function' ? t('geSaved') : 'Saved!');
   }
 
   // ── CSV Export ───────────────────────────────────────────────
@@ -4981,9 +5562,9 @@
       { selector: '#app-hamburger', title: t('tutGe1Title'), text: t('tutGe1Text') },
       { selector: '.ge-active-banner', title: t('tutGe2Title'), text: t('tutGe2Text') },
       { selector: '#ge-groups-body', title: t('tutGe3Title'), text: t('tutGe3Text') },
-      { selector: '.ge-csv-bar', title: t('tutGe4Title'), text: t('tutGe4Text') },
-      { selector: '.ge-add-section', title: t('tutGe5Title'), text: t('tutGe5Text') },
-      { selector: '.ge-save-bar', title: t('tutGe6Title'), text: t('tutGe6Text') }
+      { selector: '#app-nav', title: t('tutGe4Title'), text: t('tutGe4Text') },
+      { selector: '#ge-open-add-modal-btn', title: t('tutGe5Title'), text: t('tutGe5Text') },
+      { selector: '#app-nav', title: t('tutGe6Title'), text: t('tutGe6Text') }
     ], {
       next: t('tutNext'),
       prev: t('tutPrev'),
@@ -4996,7 +5577,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     initHamburger();
     if (typeof applyTranslations === 'function') applyTranslations();
-    window._cmtApplyNavBrand();
     loadGroups();
     _initCompetenceOptionsForGroupEditor();
     if (window.Desktop && typeof Desktop.onDataChanged === 'function') {

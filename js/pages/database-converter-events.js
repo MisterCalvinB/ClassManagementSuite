@@ -17,7 +17,7 @@
     (function () {
       var el = document.querySelector('[data-dcev-3]');
       if (!el) return;
-      var handler = function (event) { toggleStudioLayout() };
+      var handler = function (event) { resetToTaskChooser() };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -307,6 +307,76 @@
       if (!el) return;
       var handler = function (event) { exportConvertedFile() };
       el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-52]');
+      if (!el) return;
+      el.addEventListener('click', function () { selectWorkflowMode('convert'); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-53]');
+      if (!el) return;
+      el.addEventListener('click', function () { selectWorkflowMode('cmt'); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-54]');
+      if (!el) return;
+      el.addEventListener('click', function () { selectWorkflowMode('clean'); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-55]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(1); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-56]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(2); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-57]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(3); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-58]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(2); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-59]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(1); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-60]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(3); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-61]');
+      if (!el) return;
+      el.addEventListener('click', function () { switchPreviewTab('table'); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-62]');
+      if (!el) return;
+      el.addEventListener('click', function () { switchPreviewTab('code'); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-63]');
+      if (!el) return;
+      el.addEventListener('click', function () { goToStep(2); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-64]');
+      if (!el) return;
+      el.addEventListener('change', function () { selectTargetFormat(this.value); });
+    })();
+    (function () {
+      var el = document.querySelector('[data-dcev-65]');
+      if (!el) return;
+      el.addEventListener('click', function () { selectWorkflowMode('import'); });
     })();
   }
   if (document.readyState === 'loading') {
