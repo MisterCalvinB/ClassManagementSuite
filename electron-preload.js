@@ -89,6 +89,9 @@ const exposedApi = {
   listByPath(request) {
     return invoke('app:list-by-path', request);
   },
+  quickSwitcherIndex() {
+    return invoke('app:quick-switcher-index');
+  },
   createDirectoryByPath(request) {
     return invoke('app:create-directory-by-path', request);
   },

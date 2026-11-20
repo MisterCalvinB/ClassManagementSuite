@@ -28,6 +28,127 @@ function registerFileOpsIpc(ctx) {
     resolveAllowedTargetPath
   } = ctx;
 
+  ipcMain.handle('app:quick-switcher-index', async () => {
+    const vm = require('vm');
+    const targets = getSaveTargets();
+
+    function _evalScript(code) {
+      if (!code || typeof code !== 'string') return {};
+      const sandbox = { window: {}, globalThis: {} };
+      try {
+        const normalized = code.replace(/^\s*(const|let)\s+/gm, 'var ');
+        vm.runInNewContext(normalized, sandbox, { timeout: 250 });
+      } catch (_) {}
+      return Object.assign({}, sandbox.window, sandbox);
+    }
+
+    let rosterText = '';
+    try {
+      rosterText = await fs.readFile(path.join(targets.user, 'class-groups.js'), 'utf8');
+    } catch (_) {}
+
+    let studentsText = '';
+    try {
+      studentsText = await fs.readFile(path.join(targets.user, 'students.js'), 'utf8');
+    } catch (_) {}
+
+    const studentByUuid = Object.create(null);
+    let sArr = [];
+    if (studentsText) {
+      const sEnv = _evalScript(studentsText);
+      sArr = Array.isArray(sEnv.STUDENTS_ROSTER) ? sEnv.STUDENTS_ROSTER : [];
+      sArr.forEach((s) => {
+        if (s && s.uuid) {
+          studentByUuid[String(s.uuid)] = ([s.firstName, s.lastName].filter(Boolean).join(' ') || s.customName || s.name || '').trim();
+        }
+      });
+    }
+
+    const classes = [];
+    const seenStudentKeys = new Set();
+    if (rosterText) {
+      const rEnv = _evalScript(rosterText);
+      const dataObj = rEnv.CLASS_GROUPS_DATA || null;
+      const cg = (dataObj && dataObj.classGroups) || rEnv.CLASS_GROUPS || null;
+      const metaMap = (dataObj && dataObj.classGroupsMeta) || rEnv.CLASS_GROUPS_META || {};
+
+      if (Array.isArray(cg)) {
+        cg.forEach((cls) => {
+          if (cls && cls.name) classes.push(cls);
+        });
+      } else if (cg && typeof cg === 'object') {
+        Object.keys(cg).forEach((groupName) => {
+          if (groupName === '_meta' || groupName.startsWith('_')) return;
+          const meta = (metaMap && metaMap[groupName]) || {};
+          const rawStudents = Array.isArray(cg[groupName]) ? cg[groupName]
+            : (Array.isArray(meta.students) ? meta.students : []);
+          const resolvedStudents = rawStudents.map((st) => {
+            if (typeof st === 'string') {
+              const nm = studentByUuid[st] || st;
+              seenStudentKeys.add(String(st));
+              seenStudentKeys.add(String(nm).toLowerCase());
+              return { id: st, name: nm };
+            }
+            if (st && typeof st === 'object') {
+              const uuid = st.uuid || st.id;
+              const nm = ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || (uuid && studentByUuid[uuid]) || '').trim();
+              if (uuid) seenStudentKeys.add(String(uuid));
+              if (nm) seenStudentKeys.add(nm.toLowerCase());
+              return nm ? { id: uuid || nm, name: nm } : null;
+            }
+            return null;
+          }).filter(Boolean);
+          classes.push({
+            id: meta.id || groupName,
+            name: (meta && meta.name) || groupName,
+            students: resolvedStudents
+          });
+        });
+      }
+    }
+
+    // Also include all students from STUDENTS_ROSTER (migrated rosters store students in students.js)
+    if (sArr.length > 0) {
+      const classByName = new Map();
+      classes.forEach((c) => {
+        if (c && c.name) classByName.set(String(c.name), c);
+      });
+      sArr.forEach((st) => {
+        if (!st || (!st.uuid && !st.id)) return;
+        const sId = String(st.uuid || st.id);
+        const sName = ([st.firstName, st.lastName].filter(Boolean).join(' ') || st.customName || st.name || sId).trim();
+        if (!sName || seenStudentKeys.has(sId) || seenStudentKeys.has(sName.toLowerCase())) return;
+        seenStudentKeys.add(sId);
+        seenStudentKeys.add(sName.toLowerCase());
+        const primaryGroup = (st.enrollments && st.enrollments[0] && st.enrollments[0].groupName) || st.adminClass || 'Students';
+        let targetCls = classByName.get(primaryGroup);
+        if (!targetCls) {
+          targetCls = { id: primaryGroup, name: primaryGroup, students: [] };
+          classByName.set(primaryGroup, targetCls);
+          classes.push(targetCls);
+        }
+        targetCls.students.push({ id: sId, name: sName });
+      });
+    }
+
+    async function _listDirNames(dirPath, limit) {
+      if (!dirPath) return [];
+      try {
+        const entries = await fs.readdir(dirPath, { withFileTypes: true });
+        return entries
+          .filter((e) => e && e.isFile() && !e.name.startsWith('.'))
+          .map((e) => e.name)
+          .slice(0, limit);
+      } catch (_) {
+        return [];
+      }
+    }
+
+    const documents = await _listDirNames(targets.docEditorDocs, 30);
+    const constellations = await _listDirNames(targets.constellations || targets.mindmaps, 30);
+    return { ok: true, classes, rosterText, documents, constellations };
+  });
+
   ipcMain.handle('app:list-by-path', async (event, request = {}) => {
     const pageFile = getRequestingPage(event);
     const files = await listAllowedPathFiles(

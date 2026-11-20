@@ -772,6 +772,79 @@
     };
   }
 
+  function getTeacherPresets() {
+    return [
+      {
+        id: 'rubric',
+        label: _t('slmPresetRubric', 'Grading Rubric'),
+        prompt: 'Create a 4-level analytic grading rubric (Emerging, Developing, Proficient, Exemplary) with clear criteria for: '
+      },
+      {
+        id: 'differentiation',
+        label: _t('slmPresetDiff', 'Differentiated Reading'),
+        prompt: 'Adapt the following topic into three scaffolded reading levels (Support, Core, Extension) with key vocabulary: '
+      },
+      {
+        id: 'oral',
+        label: _t('slmPresetOral', 'Oral Exam Prompts'),
+        prompt: 'Generate 5 progressive oral exam questions (warm-up, comprehension, analysis, real-world transfer) for: '
+      },
+      {
+        id: 'quiz',
+        label: _t('slmPresetQuiz', 'Quick Formative Quiz'),
+        prompt: 'Write 6 formative check-for-understanding questions with answer key and common misconceptions for: '
+      },
+      {
+        id: 'feedback',
+        label: _t('slmPresetFeedback', 'Constructive Feedback'),
+        prompt: 'Draft concise, actionable student feedback (strengths, next step, encouragement) for: '
+      }
+    ];
+  }
+
+  function mountStatusBanner(containerEl) {
+    if (!containerEl) return function () {};
+    containerEl.style.display = 'flex';
+    containerEl.style.alignItems = 'center';
+    containerEl.style.gap = '8px';
+    containerEl.style.padding = '7px 10px';
+    containerEl.style.marginBottom = '8px';
+    containerEl.style.border = '2px solid #333333';
+    containerEl.style.borderRadius = '6px';
+    containerEl.style.background = '#fafaf7';
+    containerEl.style.fontSize = '0.78rem';
+    containerEl.style.fontWeight = '700';
+
+    var dot = document.createElement('span');
+    dot.style.cssText = 'width:10px;height:10px;border-radius:50%;border:1.5px solid #333333;flex-shrink:0;';
+    var txt = document.createElement('span');
+    txt.style.flex = '1';
+    containerEl.innerHTML = '';
+    containerEl.appendChild(dot);
+    containerEl.appendChild(txt);
+
+    function paint(st) {
+      var state = (st && st.state) || (isModelReady ? 'ready' : 'idle');
+      if (state === 'ready') {
+        dot.style.background = '#6abf8e';
+        txt.textContent = _t('slmStatusReady', 'Local AI ready') + (activeModelId ? ' (' + activeModelId + ')' : '');
+      } else if (state === 'loading') {
+        dot.style.background = '#e2c96e';
+        var pct = (st && typeof st.progress === 'number') ? ' ' + Math.round(st.progress) + '%' : '';
+        txt.textContent = _t('slmStatusLoading', 'Loading local AI model...') + pct;
+      } else if (state === 'error') {
+        dot.style.background = '#c96b6b';
+        txt.textContent = _t('slmStatusError', 'Local AI unavailable or out of memory. Try switching to Fast (0.5B) in General Config.');
+      } else {
+        dot.style.background = '#94a3b8';
+        txt.textContent = _t('slmStatusIdle', 'Local AI model not loaded yet (loads automatically on first generation).');
+      }
+    }
+
+    paint({ state: isModelReady ? 'ready' : 'idle' });
+    return onStatusChange(paint);
+  }
+
   global.SlmService = {
     listAvailableModels: listAvailableModels,
     getStatus: getStatus,
@@ -788,7 +861,9 @@
     abort: abort,
     dispose: dispose,
     onStatusChange: onStatusChange,
-    onProgress: onStatusChange
+    onProgress: onStatusChange,
+    getTeacherPresets: getTeacherPresets,
+    mountStatusBanner: mountStatusBanner
   };
 
 })(typeof window !== 'undefined' ? window : this);

@@ -343,4 +343,15 @@ test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve D
   assert.equal(DomSync.setAttr(nodeA, 'data-test', '1'), false);
   DomSync.setClass(nodeA, 'active', true);
   assert.equal(nodeA.classList.contains('active'), true);
+
+  // Windowing math checks
+  const emptyWin = DomSync.computeWindowRange(0, 0, 500, 40, 5);
+  assert.deepEqual(emptyWin, { start: 0, end: 0, topHeight: 0, bottomHeight: 0 });
+
+  const midWin = DomSync.computeWindowRange(200, 2000, 400, 40, 5);
+  // firstVisible = 50, visibleCount = 10 -> start = 45, end = 65
+  assert.equal(midWin.start, 45);
+  assert.equal(midWin.end, 65);
+  assert.equal(midWin.topHeight, 45 * 40);
+  assert.equal(midWin.bottomHeight, (200 - 65) * 40);
 });

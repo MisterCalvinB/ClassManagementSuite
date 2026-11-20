@@ -14443,13 +14443,20 @@ syncState();
             const overlayContainer = document.getElementById('mode-overlay-shortcuts');
             if (overlayContainer) {
                 const noisePanel = document.getElementById('mode-overlay-noise-panel');
-                const noiseHtml = noisePanel ? noisePanel.outerHTML : '';
                 let btnsHtml = classModes.map(mode => {
                     const svgSrc = getModeSvgIcon(mode);
                     const kbd = mode.shortcutKey ? `<kbd>${mode.shortcutKey}</kbd>` : '';
                     return `<button class="mode-overlay-shortcut-btn" onclick="activateMode('${mode.id}')"><img src="${svgSrc}" class="btn-icon" alt="" />${kbd}</button>`;
                 }).join('');
-                overlayContainer.innerHTML = btnsHtml + noiseHtml;
+                if (noisePanel && noisePanel.parentNode === overlayContainer) {
+                    // Preserve #mode-overlay-noise-panel DOM node so its delegated/bound event listeners remain attached
+                    overlayContainer.querySelectorAll('.mode-overlay-shortcut-btn').forEach(btn => btn.remove());
+                    if (btnsHtml) {
+                        noisePanel.insertAdjacentHTML('beforebegin', btnsHtml);
+                    }
+                } else {
+                    overlayContainer.innerHTML = btnsHtml;
+                }
             }
 
             // Render 4: Fullscreen Timer overlay mode buttons (#timer-overlay-mode-btns)

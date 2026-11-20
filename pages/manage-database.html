@@ -348,6 +348,7 @@
       </div>
 
       <div class="modal-bd" style="padding:16px 20px;">
+        <div id="ai-studio-worker-status" style="display:none;"></div>
         <!-- Type-Specific Tailored Guide Banner -->
         <div id="ai-studio-guide-banner" class="ai-type-guide-banner" style="display:none;"></div>
 
@@ -12195,7 +12196,35 @@ Rules:
         closeAllMdbDropdowns();
       }
     });
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', function () {
+      init();
+      if (window.SlmService) {
+        var wsEl = document.getElementById('ai-studio-worker-status');
+        if (wsEl && typeof SlmService.mountStatusBanner === 'function') {
+          SlmService.mountStatusBanner(wsEl);
+        }
+        var presetsEl = document.getElementById('ai-studio-presets');
+        var promptEl = document.getElementById('ai-studio-prompt-input');
+        if (presetsEl && promptEl && typeof SlmService.getTeacherPresets === 'function') {
+          presetsEl.style.display = 'flex';
+          presetsEl.style.flexWrap = 'wrap';
+          presetsEl.style.gap = '6px';
+          presetsEl.style.marginTop = '8px';
+          SlmService.getTeacherPresets().forEach(function (preset) {
+            var chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'btn btn-secondary btn-sm';
+            chip.textContent = preset.label;
+            chip.addEventListener('click', function () {
+              var cur = (promptEl.value || '').trim();
+              promptEl.value = cur ? (preset.prompt + cur) : preset.prompt;
+              promptEl.focus();
+            });
+            presetsEl.appendChild(chip);
+          });
+        }
+      }
+    });
   </script>
   <script src="../js/pages/manage-database-events.js"></script>
 </body>

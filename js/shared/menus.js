@@ -235,4 +235,34 @@
       });
     }
   };
+
+  window.CMT_APPS = _APPS;
+  if (typeof document !== 'undefined') {
+    if (!window.QuickSwitcher) {
+      var qsPrefix = (typeof location !== 'undefined' && /\/pages\//.test(location.pathname)) ? '../js/shared/' : 'js/shared/';
+      var qsScript = document.createElement('script');
+      qsScript.src = qsPrefix + 'quick-switcher.js';
+      qsScript.defer = true;
+      (document.head || document.documentElement).appendChild(qsScript);
+    }
+    var _applyA11yDefaults = function () {
+      try {
+        document.querySelectorAll('button').forEach(function (btn) {
+          if (!btn.hasAttribute('aria-label') && !(btn.textContent || '').trim()) {
+            var lbl = btn.getAttribute('title') || btn.getAttribute('data-hover-help');
+            if (lbl) btn.setAttribute('aria-label', lbl);
+          }
+        });
+        document.querySelectorAll('.modal-bg, .modal-overlay').forEach(function (m) {
+          if (!m.hasAttribute('role')) m.setAttribute('role', 'dialog');
+          if (!m.hasAttribute('aria-modal')) m.setAttribute('aria-modal', 'true');
+        });
+      } catch (_) {}
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', _applyA11yDefaults);
+    } else {
+      _applyA11yDefaults();
+    }
+  }
 })();

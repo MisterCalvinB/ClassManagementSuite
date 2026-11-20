@@ -14,6 +14,7 @@
   <script src="js/shared/scoring-motivators.js"></script>
   <script src="js/shared/tutorial.js"></script>
   <script src="js/shared/pins.js"></script>
+  <script src="js/shared/quick-switcher.js"></script>
   <script>
     // Startup: open configured apps in the background after the launcher renders.
     // Runs once per window session — navigating back to the launcher skips this.
@@ -190,6 +191,7 @@
       </button>
     </div>
   </div>
+  <div id="launcherQuickResults" class="l-quick-results" hidden style="display:none;flex-wrap:wrap;gap:8px;margin:0 0 14px 0;"></div>
   <div id="launcherSearchEmpty" class="l-search-empty" hidden>
     <div class="l-empty-icon"><img src="assets/icons/search.svg" class="l-empty-icon-img" alt="" /></div>
     <div class="l-empty-msg" data-i18n="launcherSearchNoResults">No tools match your search.</div>
@@ -2597,9 +2599,84 @@
       }
     });
 
+    var quickEl = document.getElementById('launcherQuickResults');
+    var quickMatches = 0;
+    if (quickEl && window.QuickSwitcher) {
+      if (!q) {
+        quickEl.hidden = true;
+        quickEl.style.display = 'none';
+        quickEl.innerHTML = '';
+      } else {
+        var matches = window.QuickSwitcher.search(q, 16);
+        quickMatches = matches.length;
+        if (matches.length === 0) {
+          quickEl.hidden = true;
+          quickEl.style.display = 'none';
+          quickEl.innerHTML = '';
+        } else {
+          quickEl.hidden = false;
+          quickEl.style.display = 'flex';
+          quickEl.innerHTML = '';
+          matches.forEach(function(item) {
+            var card = document.createElement('div');
+            card.style.cssText = 'display:inline-flex;align-items:center;gap:8px;padding:7px 10px;background:#ffffff;border:2px solid #333333;border-radius:8px;box-shadow:3px 3px 0 #555555;cursor:pointer;font-size:0.84rem;font-weight:700;';
+
+            var img = document.createElement('img');
+            img.src = 'assets/icons/' + item.icon;
+            img.alt = '';
+            img.style.cssText = 'width:16px;height:16px;flex-shrink:0;';
+
+            var info = document.createElement('div');
+            info.style.cssText = 'display:flex;flex-direction:column;line-height:1.2;';
+            var ttl = document.createElement('span');
+            ttl.textContent = item.title;
+            var sub = document.createElement('span');
+            sub.style.cssText = 'font-size:0.72rem;color:#555555;font-weight:600;';
+            sub.textContent = item.catLabel + (item.sub ? ' · ' + item.sub : '');
+            info.appendChild(ttl);
+            info.appendChild(sub);
+
+            card.appendChild(img);
+            card.appendChild(info);
+
+            if (item.cat === 'student' || item.cat === 'class') {
+              var acts = document.createElement('span');
+              acts.style.cssText = 'display:inline-flex;gap:4px;margin-left:4px;';
+              [
+                { short: 'Grades', href: 'pages/grade-sheet.html', mode: 'grades' },
+                { short: 'Tracker', href: 'pages/participation-tracker.html', mode: 'tracker' },
+                { short: '360°', href: 'pages/file-manager.html', mode: 'dossier' }
+              ].forEach(function(qd) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = qd.short;
+                b.style.cssText = 'font-family:inherit;font-size:0.68rem;font-weight:800;padding:2px 6px;border:1.5px solid #333333;border-radius:4px;background:#e2c96e;color:#222222;cursor:pointer;';
+                b.addEventListener('click', function(ev) {
+                  ev.stopPropagation();
+                  window.QuickSwitcher.launchAction({
+                    url: qd.href,
+                    mode: qd.mode,
+                    studentName: item.cat === 'student' ? item.title : '',
+                    className: item.cat === 'student' ? item.sub : item.title
+                  });
+                });
+                acts.appendChild(b);
+              });
+              card.appendChild(acts);
+            }
+
+            card.addEventListener('click', function() {
+              window.QuickSwitcher.openForTarget(item);
+            });
+            quickEl.appendChild(card);
+          });
+        }
+      }
+    }
+
     var emptyEl = document.getElementById('launcherSearchEmpty');
     if (emptyEl) {
-      emptyEl.hidden = !(q && totalVisible === 0);
+      emptyEl.hidden = !(q && totalVisible === 0 && quickMatches === 0);
     }
   }
 
@@ -2608,7 +2685,19 @@
     var clearBtn = document.getElementById('launcherSearchClearBtn');
 
     if (searchInput) {
+      searchInput.addEventListener('focus', function() {
+        if (window.QuickSwitcher && typeof window.QuickSwitcher.ensureLoaded === 'function') {
+          window.QuickSwitcher.ensureLoaded().then(function() {
+            if (searchInput.value) filterLauncherApps(searchInput.value);
+          });
+        }
+      });
       searchInput.addEventListener('input', function() {
+        if (window.QuickSwitcher && typeof window.QuickSwitcher.ensureLoaded === 'function') {
+          window.QuickSwitcher.ensureLoaded().then(function() {
+            filterLauncherApps(searchInput.value);
+          });
+        }
         filterLauncherApps(this.value);
       });
 

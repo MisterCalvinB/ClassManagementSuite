@@ -55,17 +55,20 @@
   };
 
   // Load dictionaries synchronously in Node, or via synchronous document.write during initial HTML parse.
+  // In browser mode, only load the active language synchronously (avoid parsing ~600 KB en.js twice when lang !== 'en').
+  var _enFallbackRequested = false;
   if (typeof require === 'function' && typeof module === 'object' && module.exports) {
     SUPPORTED_LANGS.forEach(function (l) {
       try { STRINGS[l] = require('../i18n/' + l + '.js'); } catch (e) {}
     });
   } else if (typeof document !== 'undefined' && document.readyState === 'loading') {
     var _initialLang = _getLang();
-    if (!STRINGS.en) {
+    if (_initialLang && SUPPORTED_LANGS.indexOf(_initialLang) !== -1) {
+      if (!STRINGS[_initialLang]) {
+        document.write('<script src="' + _baseJsDir + 'i18n/' + _initialLang + '.js"><\/script>');
+      }
+    } else if (!STRINGS.en) {
       document.write('<script src="' + _baseJsDir + 'i18n/en.js"><\/script>');
-    }
-    if (_initialLang && _initialLang !== 'en' && SUPPORTED_LANGS.indexOf(_initialLang) !== -1 && !STRINGS[_initialLang]) {
-      document.write('<script src="' + _baseJsDir + 'i18n/' + _initialLang + '.js"><\/script>');
     }
   }
 
@@ -105,6 +108,10 @@
     var map = STRINGS[lang] || STRINGS.en;
     if (map && map[key] !== undefined) return map[key];
     if (STRINGS.en && STRINGS.en[key] !== undefined) return STRINGS.en[key];
+    if (!STRINGS.en && !_enFallbackRequested && typeof document !== 'undefined') {
+      _enFallbackRequested = true;
+      _ensureLangLoaded('en', _applyTranslations);
+    }
     return fallback !== undefined ? fallback : key;
   };
 

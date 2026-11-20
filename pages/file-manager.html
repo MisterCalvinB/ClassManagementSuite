@@ -46,6 +46,7 @@
     <button class="tab-btn" data-tab="tags" id="fmTabTagsBtn" data-i18n="fmTabTags" data-i18n-help="hhFmTags" data-hover-help="Browse and filter all app files by curriculum tags and units."><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Tags &amp; Units</button>
     <button class="tab-btn" data-tab="dossiers" id="fmTabDossiersBtn" data-i18n="fmTabDossiers" data-i18n-help="hhFmDossiers" data-hover-help="View 360° academic dossiers aggregating data across all tools."><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Student Dossiers</button>
     <button class="tab-btn" data-tab="archive" id="fmTabArchiveBtn" data-i18n="fmTabArchive" data-i18n-help="hhFmArchive" data-hover-help="Archive completed year data or roll over classes to a new school year."><img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" />Archive &amp; Rollover</button>
+    <button class="tab-btn" data-tab="health" id="fmTabHealthBtn"><img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-1px;margin-right:4px;" /><span data-i18n="fmTabHealth">Data Health</span></button>
   </div>
 
   <!-- ══ RECENT TAB ══════════════════════════════════════════════ -->
@@ -168,6 +169,27 @@
     <div class="file-list fm-dossiers-list" id="fmDossiersList">
       <div class="state-msg"><span data-i18n="rfLoading">Loading student dossiers…</span></div>
     </div>
+  </div>
+
+  <!-- ══ DATA HEALTH TAB ═════════════════════════════════════════ -->
+  <div id="tab-health" class="tab-panel">
+    <div class="fm-archive-hero">
+      <div class="fm-archive-hero-title">
+        <img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:20px;height:20px;" />
+        <span data-i18n="fmHealthTitle">Cross-Tool Data Health Check</span>
+      </div>
+      <div class="fm-archive-hero-desc" data-i18n="fmHealthDesc">
+        Scan grade sheets, planner entries, and constellations for orphaned class or student UUIDs against Group Editor.
+      </div>
+      <div class="fm-archive-hero-actions">
+        <button type="button" class="fm-archive-start-btn" id="fmRunHealthCheckBtn">
+          <img src="../assets/icons/search.svg" class="btn-icon" alt="" style="width:14px;height:14px;" />
+          <span data-i18n="fmHealthRun">Run Health Check</span>
+        </button>
+      </div>
+    </div>
+    <div id="fmHealthSummary" class="state-msg" style="display:none;margin-top:12px;"></div>
+    <div id="fmHealthResults" class="file-list" style="margin-top:12px;"></div>
   </div>
 
   <!-- ══ ARCHIVE & ROLLOVER TAB ═══════════════════════════════════ -->
@@ -450,6 +472,10 @@ function switchFmTab(tab) {
   if (tab === 'tags') { loadTagsTab(); }
   if (tab === 'dossiers') { if (typeof window.loadDossiersTab === 'function') window.loadDossiersTab(); }
   if (tab === 'archive') { loadArchivesTab(); }
+  if (tab === 'health' && !window._fmHealthInitialized) {
+    window._fmHealthInitialized = true;
+    if (typeof window.runFmDataHealthCheck === 'function') window.runFmDataHealthCheck();
+  }
 }
 
 document.querySelectorAll('.tab-btn').forEach(function(btn) {
@@ -4487,6 +4513,7 @@ function openFmShortcuts() {
     on('fmShortcutsBtn', function () { if (typeof openFmShortcuts === 'function') openFmShortcuts(); });
     on('fmTourBtn', startFmTutorial);
     on('fmStartArchiveWizardBtn', function () { if (typeof openArchivingWizard === 'function') openArchivingWizard(); });
+    on('fmRunHealthCheckBtn', function () { if (typeof window.runFmDataHealthCheck === 'function') window.runFmDataHealthCheck(); });
     on('fmArchiveRefreshBtn', function () { if (typeof loadArchivesTab === 'function') loadArchivesTab(); });
     on('fmWizardCancelBtn', function () { if (typeof closeArchivingWizard === 'function') closeArchivingWizard(); });
     on('fmWizardExecuteBtn', function () { if (typeof executeArchivingWizard === 'function') executeArchivingWizard(); });
@@ -4499,12 +4526,235 @@ function openFmShortcuts() {
       });
     });
     try {
+      var qsDossier = localStorage.getItem('cmt-qs-target-dossier');
+      if (qsDossier !== null) {
+        localStorage.removeItem('cmt-qs-target-dossier');
+        switchFmTab('dossiers');
+        setTimeout(function () {
+          var searchEl = document.getElementById('fmDossiersSearch');
+          if (searchEl && qsDossier) {
+            searchEl.value = qsDossier;
+            searchEl.dispatchEvent(new Event('input'));
+          }
+        }, 350);
+      }
+    } catch (e) {}
+    try {
       if (!localStorage.getItem('cmt-tour-seen-file-manager')) {
         localStorage.setItem('cmt-tour-seen-file-manager', '1');
         setTimeout(startFmTutorial, 600);
       }
     } catch (e) {}
   });
+
+  window.runFmDataHealthCheck = async function () {
+    var summaryEl = document.getElementById('fmHealthSummary');
+    var resultsEl = document.getElementById('fmHealthResults');
+    if (!summaryEl || !resultsEl) return;
+
+    function _tr(key, fallback) {
+      return (window.i18n && typeof window.i18n.t === 'function') ? window.i18n.t(key) : fallback;
+    }
+
+    summaryEl.style.display = 'block';
+    summaryEl.textContent = _tr('fmHealthRunning', 'Scanning data files...');
+    resultsEl.innerHTML = '';
+
+    var issues = [];
+    var stats = { classes: 0, students: 0, gradeFiles: 0, plannerEntries: 0, constellations: 0 };
+
+    function _parseJsOrJson(txt, varNames) {
+      if (!txt || typeof txt !== 'string') return null;
+      var trimmed = txt.trim();
+      if (!trimmed) return null;
+      if (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[') {
+        try { return JSON.parse(trimmed); } catch (_) {}
+      }
+      try {
+        var sandbox = {};
+        var expr = varNames.map(function (v) {
+          return '(window.' + v + ' !== undefined ? window.' + v + ' : (typeof ' + v + ' !== "undefined" ? ' + v + ' : undefined))';
+        }).join(' || ');
+        var fn = new Function('window', txt + '; return (' + expr + ');');
+        return fn(sandbox);
+      } catch (_) {
+        return null;
+      }
+    }
+
+    async function _readUserFile(rel) {
+      try {
+        if (window.Desktop && typeof window.Desktop.readText === 'function') {
+          var r = await window.Desktop.readText('user', rel);
+          if (r && r.ok && typeof r.content === 'string') return r.content;
+        }
+        if (window.electronApi && typeof window.electronApi.readFile === 'function') {
+          var r2 = await window.electronApi.readFile({ target: 'user', filename: rel, encoding: 'utf8' });
+          if (r2 && r2.ok && typeof r2.content === 'string') return r2.content;
+        }
+      } catch (_) {}
+      return '';
+    }
+
+    async function _listUserDir(dir) {
+      try {
+        var r = null;
+        if (window.Desktop && typeof window.Desktop.listByPath === 'function') {
+          r = await window.Desktop.listByPath('user', dir, { recursive: false });
+        } else if (window.electronApi && typeof window.electronApi.listByPath === 'function') {
+          r = await window.electronApi.listByPath({ target: 'user', relativePath: dir, recursive: false });
+        }
+        if (Array.isArray(r)) return r;
+        if (r && Array.isArray(r.files)) return r.files;
+        if (r && Array.isArray(r.entries)) return r.entries;
+      } catch (_) {}
+      return [];
+    }
+
+    // 1. Load master roster (supports both array and CLASS_GROUPS_DATA / CLASS_GROUPS object map)
+    var rosterRaw = await _readUserFile('class-groups.js');
+    var rosterParsed = _parseJsOrJson(rosterRaw, ['CLASS_GROUPS_DATA', 'CLASS_GROUPS', 'classGroups']);
+    var classes = [];
+    if (Array.isArray(rosterParsed)) {
+      classes = rosterParsed;
+    } else if (rosterParsed && typeof rosterParsed === 'object') {
+      var cgObj = rosterParsed.classGroups || rosterParsed.groups || rosterParsed;
+      var cgMeta = rosterParsed.classGroupsMeta || {};
+      if (Array.isArray(cgObj)) {
+        classes = cgObj;
+      } else if (cgObj && typeof cgObj === 'object') {
+        Object.keys(cgObj).forEach(function (gName) {
+          var meta = cgMeta[gName] || {};
+          classes.push({
+            id: meta.id || gName,
+            name: gName,
+            students: Array.isArray(cgObj[gName]) ? cgObj[gName] : []
+          });
+        });
+      }
+    }
+
+    var validClassIds = new Set();
+    var validStudentIds = new Set();
+    var classByName = new Map();
+    classes.forEach(function (c) {
+      if (!c) return;
+      stats.classes++;
+      if (c.id) validClassIds.add(String(c.id));
+      if (c.name) classByName.set(String(c.name).trim().toLowerCase(), c);
+      if (Array.isArray(c.students)) {
+        c.students.forEach(function (s) {
+          stats.students++;
+          if (s && s.id) validStudentIds.add(String(s.id));
+        });
+      }
+    });
+
+    // 2. Scan user/grades/
+    var gradeFiles = await _listUserDir('grades');
+    for (var g = 0; g < gradeFiles.length; g++) {
+      var gName = typeof gradeFiles[g] === 'string' ? gradeFiles[g] : (gradeFiles[g] && gradeFiles[g].name);
+      if (!gName || (!gName.endsWith('.json') && !gName.endsWith('.js'))) continue;
+      stats.gradeFiles++;
+      var gRaw = await _readUserFile('grades/' + gName);
+      var gData = _parseJsOrJson(gRaw, ['GRADE_DATA', 'gradeData']);
+      if (!gData || typeof gData !== 'object') continue;
+      var cid = gData.classId || gData.groupId || '';
+      if (cid && validClassIds.size > 0 && !validClassIds.has(String(cid))) {
+        var matchCls = gData.className ? classByName.get(String(gData.className).trim().toLowerCase()) : null;
+        issues.push({
+          source: 'grades/' + gName,
+          kind: 'Orphaned Class UUID',
+          detail: 'References missing class ID "' + cid + '"' + (gData.className ? ' (' + gData.className + ')' : ''),
+          canRelink: !!(matchCls && gName.endsWith('.json')),
+          relinkTarget: matchCls,
+          fileRel: 'grades/' + gName,
+          fileData: gData
+        });
+      }
+    }
+
+    // 3. Scan planner-config.js
+    var plannerRaw = await _readUserFile('planner-config.js');
+    var plannerData = _parseJsOrJson(plannerRaw, ['PLANNER_CONFIG', 'plannerConfig']);
+    if (plannerData && typeof plannerData === 'object') {
+      var entries = Array.isArray(plannerData.entries) ? plannerData.entries : (Array.isArray(plannerData.schedule) ? plannerData.schedule : []);
+      entries.forEach(function (entry, idx) {
+        stats.plannerEntries++;
+        if (entry && entry.classId && validClassIds.size > 0 && !validClassIds.has(String(entry.classId))) {
+          issues.push({
+            source: 'planner-config.js',
+            kind: 'Orphaned Planner Class UUID',
+            detail: 'Entry #' + (idx + 1) + ' references missing class ID "' + entry.classId + '"',
+            canRelink: false
+          });
+        }
+      });
+    }
+
+    // 4. Scan constellations/
+    var conFiles = await _listUserDir('constellations');
+    for (var cIdx = 0; cIdx < conFiles.length; cIdx++) {
+      var cName = typeof conFiles[cIdx] === 'string' ? conFiles[cIdx] : (conFiles[cIdx] && conFiles[cIdx].name);
+      if (!cName || !cName.endsWith('.json')) continue;
+      stats.constellations++;
+      var cRaw = await _readUserFile('constellations/' + cName);
+      var cData = _parseJsOrJson(cRaw, []);
+      if (cData && cData.classId && validClassIds.size > 0 && !validClassIds.has(String(cData.classId))) {
+        issues.push({
+          source: 'constellations/' + cName,
+          kind: 'Orphaned Constellation Class UUID',
+          detail: 'References missing class ID "' + cData.classId + '"',
+          canRelink: false
+        });
+      }
+    }
+
+    var countMsg = issues.length === 0
+      ? _tr('fmHealthAllGood', 'All checked references match the master roster.')
+      : (window.i18n && typeof window.i18n.tFmt === 'function'
+          ? window.i18n.tFmt('fmHealthIssuesFound', { count: issues.length })
+          : issues.length + ' issue(s) found');
+
+    summaryEl.textContent = countMsg + ' — Checked ' + stats.classes + ' classes, ' + stats.students + ' students, ' + stats.gradeFiles + ' grade files, ' + stats.plannerEntries + ' planner entries, ' + stats.constellations + ' constellations.';
+
+    issues.forEach(function (iss) {
+      var card = document.createElement('div');
+      card.className = 'file-row';
+      card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;border:2px solid #333333;border-radius:8px;box-shadow:3px 3px 0 #555555;margin-bottom:8px;';
+
+      var left = document.createElement('div');
+      var title = document.createElement('div');
+      title.style.cssText = 'font-weight:800;font-size:0.9rem;color:#222222;';
+      title.textContent = iss.kind + ' — ' + iss.source;
+      var desc = document.createElement('div');
+      desc.style.cssText = 'font-size:0.8rem;color:#555555;margin-top:2px;';
+      desc.textContent = iss.detail;
+      left.appendChild(title);
+      left.appendChild(desc);
+      card.appendChild(left);
+
+      if (iss.canRelink && iss.relinkTarget && window.electronApi && typeof window.electronApi.saveJson === 'function') {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fm-archive-start-btn';
+        btn.textContent = _tr('fmHealthRelink', 'Relink') + ' -> ' + iss.relinkTarget.name;
+        btn.addEventListener('click', async function () {
+          try {
+            iss.fileData.classId = iss.relinkTarget.id;
+            await window.electronApi.saveJson('user', iss.fileRel, iss.fileData);
+            if (typeof showToast === 'function') showToast(_tr('fmHealthRelinked', 'Relinked successfully.'));
+            window.runFmDataHealthCheck();
+          } catch (err) {
+            if (typeof showToast === 'function') showToast('Relink failed: ' + (err && err.message || err), true);
+          }
+        });
+        card.appendChild(btn);
+      }
+
+      resultsEl.appendChild(card);
+    });
+  };
 </script>
 </body>
 </html>

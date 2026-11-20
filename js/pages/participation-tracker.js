@@ -3001,7 +3001,7 @@
 
         function renderClassOverviewRows() {
             const tbody = document.getElementById('classOverviewTableBody');
-            tbody.innerHTML = '';
+            if (!tbody) return;
 
             const colOrder = getColOrder('classOverviewTable');
             const hidden = getHiddenColsSet('classOverviewTable');
@@ -3032,7 +3032,34 @@
                 return (av - bv) * classOverviewSortDir;
             });
 
-            sorted.forEach(data => {
+            const hiddenKey = Array.from(hidden).sort().join(',');
+            const orderKey = colOrder.join(',');
+
+            const createOverviewRow = () => {
+                const row = document.createElement('tr');
+                row.className = 'expandable-row';
+                row.addEventListener('click', () => {
+                    const name = row.dataset.studentName;
+                    if (!name) return;
+                    currentStudentName = name;
+                    document.querySelectorAll('#classOverviewTableBody tr').forEach(r => r.classList.remove('selected-student'));
+                    row.classList.add('selected-student');
+                    document.getElementById('studentDetailTitle').classList.remove('hidden');
+                    updateStudentDetails();
+                    document.getElementById('studentDetailsArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                });
+                row.oncontextmenu = function(e) {
+                    if (e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                    if (row.dataset.studentName) openStudentEditModal(row.dataset.studentName);
+                    return false;
+                };
+                return row;
+            };
+
+            const updateOverviewRow = (row, data) => {
                 const net = getClassOverviewNet(data);
                 const posRatio = data.attendedSessions ? parseFloat(((data.pluses + data.teamPluses + data.badgePositive) / data.attendedSessions).toFixed(2)) : 0;
                 const negRatio = data.attendedSessions ? parseFloat(((data.minuses + data.teamMinuses + data.badgeNegative) / data.attendedSessions).toFixed(2)) : 0;
@@ -3041,7 +3068,7 @@
                 const teamRolePreview = teamRoleText.length > 80 ? `${teamRoleText.substring(0, 80)}...` : teamRoleText;
                 const notesText = data.notes || '(none)';
                 const notesPreview = notesText.length > 80 ? `${notesText.substring(0, 80)}...` : notesText;
-                
+
                 const pGrade = calculateStudentProvisionalGrade(data);
                 const displayGrade = pGrade !== null ? formatSummaryNumber(pGrade) : '—';
                 const isSingleSession = !!selectedHistorySessionId;
@@ -3071,6 +3098,18 @@
                 const trendColor = trendVal === 'up' ? '#2ca02c' : trendVal === 'down' ? '#d62728' : '#888';
                 const trendTitle = trendVal === 'up' ? t('ptTrendImproving') : trendVal === 'down' ? t('ptTrendDeclining') : t('ptTrendStable');
 
+                row.dataset.studentName = data.name;
+                row.title = sObj?.customName ? `${data.name} (Custom: ${sObj.customName}) — ${t('ptRightClickHint')}` : t('ptRightClickHint');
+                if (window.DomSync) {
+                    DomSync.setClass(row, 'selected-student', data.name === currentStudentName);
+                } else {
+                    row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
+                }
+
+                const sig = `${orderKey}|${hiddenKey}|${displayName}|${sObj?.customName || ''}|${data.sessions}|${data.picks}|${data.absent}|${data.pluses}|${data.minuses}|${data.teamPluses}|${data.teamMinuses}|${data.badgePositive}|${data.badgeNegative}|${data.badges.length}|${data.teamRoleEvents}|${notesPreview}|${displayGrade}|${net}|${trendVal}`;
+                if (row.dataset.syncSig === sig) return;
+                row.dataset.syncSig = sig;
+
                 const cells = {
                     name: `<td><strong>${escapeHtml(displayName)}</strong>${customBadge}</td>`,
                     sessions: `<td>${data.sessions}</td>`,
@@ -3094,34 +3133,28 @@
                     trend: `<td style="font-size: 1.2em; font-weight: 700; text-align: center; color: ${trendColor};" title="${trendTitle}">${trendSymbol}</td>`
                 };
 
-                const row = document.createElement('tr');
-                row.className = 'expandable-row' + (data.name === currentStudentName ? ' selected-student' : '');
                 row.innerHTML = colOrder.map(colId => {
                     const rawCell = cells[colId] || `<td></td>`;
                     const isHidden = hidden.has(colId);
                     return rawCell.replace('<td', `<td data-col="${colId}" class="${isHidden ? 'col-hidden' : ''}"${isHidden ? ' style="display:none;"' : ''}`);
                 }).join('');
+            };
 
-                row.dataset.studentName = data.name;
-                row.title = sObj?.customName ? `${data.name} (Custom: ${sObj.customName}) — ${t('ptRightClickHint')}` : t('ptRightClickHint');
-                row.addEventListener('click', () => {
-                    currentStudentName = data.name;
-                    document.querySelectorAll('#classOverviewTableBody tr').forEach(r => r.classList.remove('selected-student'));
-                    row.classList.add('selected-student');
-                    document.getElementById('studentDetailTitle').classList.remove('hidden');
-                    updateStudentDetails();
-                    document.getElementById('studentDetailsArea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (window.DomSync && typeof DomSync.renderWindowedRows === 'function') {
+                DomSync.renderWindowedRows(tbody, sorted, d => d.name, createOverviewRow, updateOverviewRow, {
+                    threshold: 60,
+                    rowHeight: 44,
+                    overscan: 12,
+                    colSpan: colOrder.length
                 });
-                row.oncontextmenu = function(e) {
-                    if (e) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                    }
-                    openStudentEditModal(data.name);
-                    return false;
-                };
-                tbody.appendChild(row);
-            });
+            } else {
+                tbody.innerHTML = '';
+                sorted.forEach(d => {
+                    const r = createOverviewRow();
+                    updateOverviewRow(r, d);
+                    tbody.appendChild(r);
+                });
+            }
             buildClassOverviewSummaryRows();
             applyHiddenCols('classOverviewTable');
         }
@@ -5996,7 +6029,7 @@
 
         function updateHistoryTable(sessions) {
             const tbody = document.getElementById('historyTableBody');
-            tbody.innerHTML = '';
+            if (!tbody) return;
 
             const metrics = aggregateMetrics(sessions);
 
@@ -6031,23 +6064,64 @@
                 if (c === historySortCol) th.classList.add(historySortDir === 1 ? 'sort-asc' : 'sort-desc');
             });
 
-            metrics.forEach((metric, index) => {
+            const colOrder = getColOrder('historyTable');
+            const hidden = getHiddenColsSet('historyTable');
+            const orderKey = colOrder.join(',');
+            const hiddenKey = Array.from(hidden).sort().join(',');
+
+            const createHistoryRow = () => {
                 const row = document.createElement('tr');
-                row.className = `expandable-row${metric.date === selectedHistorySessionId ? ' selected-session-row' : ''}`;
+                row.className = 'expandable-row';
+                row.addEventListener('click', () => {
+                    const metricDate = row.dataset.metricDate;
+                    if (!metricDate) return;
+                    const session = sessions.find(s => s.id === metricDate);
+                    if (!session) return;
+
+                    selectedHistorySessionId = selectedHistorySessionId === metricDate ? null : metricDate;
+                    currentStudentName = null;
+                    document.getElementById('studentDetailsArea').classList.add('hidden');
+                    document.getElementById('studentDetailTitle').classList.add('hidden');
+
+                    const selectedOnlySession = selectedHistorySessionId ? [session] : sessions;
+                    updateClassOverviewTable(selectedOnlySession);
+                    setClassOverviewTitle(selectedHistorySessionId ? session : null);
+                    updateHistoryTable(sessions);
+
+                    if (selectedHistorySessionId) {
+                        renderSessionTimeline(session, { openModal: false });
+                    } else {
+                        closeSessionTimelinePanel();
+                    }
+                });
+                return row;
+            };
+
+            const updateHistoryRow = (row, metric) => {
+                row.dataset.metricDate = metric.date;
+                if (window.DomSync) {
+                    DomSync.setClass(row, 'selected-session-row', metric.date === selectedHistorySessionId);
+                } else {
+                    row.className = `expandable-row${metric.date === selectedHistorySessionId ? ' selected-session-row' : ''}`;
+                }
+
+                const session = sessions.find(s => s.id === metric.date);
+                const isExam = isExamSession(session, currentGroupId);
+                const notes = getGroupSessionNotes(session);
+                const objectives = getSessionObjectives(session);
+                const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
+                const slot = resolveSessionPlannerSlot(session, currentGroupId);
+
+                const sig = `${orderKey}|${hiddenKey}|${metric.time || ''}|${metric.picks}|${metric.pluses}|${metric.minuses}|${metric.teamPluses || 0}|${metric.teamMinuses || 0}|${metric.badgePositive || 0}|${metric.badgeNegative || 0}|${sessionEvents.length}|${metric.students}|${metric.badges || ''}|${isExam ? 1 : 0}|${notes || ''}|${objectives || ''}|${slot ? slot.time + '-' + slot.timeEnd : ''}`;
+                if (row.dataset.syncSig === sig) return;
+                row.dataset.syncSig = sig;
 
                 const date = new Date(metric.date);
                 const dateStr = date.toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-
-                // Find the session for notes
-                const session = sessions.find(s => s.id === metric.date);
-                const isExam = isExamSession(session, currentGroupId);
                 const examBadge = isExam ? ` <span class="pt-exam-pill" title="${t('ptActionExitExamTitle') || t('ptBadgeExam')}" onclick="event.stopPropagation(); toggleSessionExam('${session ? session.id : metric.date}')">${t('ptBadgeExam')}</span>` : '';
-                const notes = getGroupSessionNotes(session);
                 const notesPreview = notes ? notes.substring(0, 50) : '';
-                const objectives = getSessionObjectives(session);
                 const objectivesPreview = objectives ? objectives.replace(/\s+/g, ' ').substring(0, 60) : '';
-                const sessionEvents = getSessionTeamRoleEvents(session, currentGroupId);
-                const slot = resolveSessionPlannerSlot(session, currentGroupId);
+
                 let timeCellContent = escapeHtml(metric.time || '-');
                 if (slot && slot.time) {
                     const isExplicit = !!(session && (session.plannerSlot || session.plannerEntryId));
@@ -6083,9 +6157,6 @@
                     notes: `<td><span class="notes-preview ${notes ? '' : 'empty'}">${notes ? escapeHtml(notesPreview) + (notesPreview.length < notes.length ? '...' : '') : '(no notes)'}</span></td>`,
                     actions: `<td></td>`
                 };
-
-                const colOrder = getColOrder('historyTable');
-                const hidden = getHiddenColsSet('historyTable');
 
                 row.innerHTML = colOrder.map(colId => {
                     const cell = cells[colId] || `<td></td>`;
@@ -6135,29 +6206,23 @@
 
                     actionsCell.appendChild(actionsWrap);
                 }
+            };
 
-                row.addEventListener('click', () => {
-                    if (!session) return;
-
-                    selectedHistorySessionId = selectedHistorySessionId === metric.date ? null : metric.date;
-                    currentStudentName = null;
-                    document.getElementById('studentDetailsArea').classList.add('hidden');
-                    document.getElementById('studentDetailTitle').classList.add('hidden');
-
-                    const selectedOnlySession = selectedHistorySessionId ? [session] : sessions;
-                    updateClassOverviewTable(selectedOnlySession);
-                    setClassOverviewTitle(selectedHistorySessionId ? session : null);
-                    updateHistoryTable(sessions);
-
-                    if (selectedHistorySessionId) {
-                        renderSessionTimeline(session, { openModal: false });
-                    } else {
-                        closeSessionTimelinePanel();
-                    }
+            if (window.DomSync && typeof DomSync.renderWindowedRows === 'function') {
+                DomSync.renderWindowedRows(tbody, metrics, m => m.date, createHistoryRow, updateHistoryRow, {
+                    threshold: 60,
+                    rowHeight: 46,
+                    overscan: 12,
+                    colSpan: colOrder.length
                 });
-
-                tbody.appendChild(row);
-            });
+            } else {
+                tbody.innerHTML = '';
+                metrics.forEach(m => {
+                    const r = createHistoryRow();
+                    updateHistoryRow(r, m);
+                    tbody.appendChild(r);
+                });
+            }
             applyHiddenCols('historyTable');
         }
 
