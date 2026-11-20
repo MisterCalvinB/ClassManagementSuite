@@ -355,3 +355,6 @@ test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve D
   assert.equal(midWin.topHeight, 45 * 40);
   assert.equal(midWin.bottomHeight, (200 - 65) * 40);
 });
+
+require('./test-data-integrity.js');
+require('./test-ipc-server.js');

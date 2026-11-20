@@ -4128,6 +4128,15 @@ function applyPresentationDefaultBounds(targetWindow, sourceWindow, toolId, over
   return false;
 }
 
+const { registerWindowsIpc } = require('./js/main/ipc-windows');
+const { notifyWindowsChanged } = registerWindowsIpc({
+  BrowserWindow, ipcMain, screen, fs, path, getWritableRootDir, PAGE_FILES, PAGE_LABELS,
+  getLoadedPageFile, isPresentationWindow,
+  getAssociatedPresenterWindow, getAssociatedSourceWindow,
+  mapWindowBoundsToDisplay, _applySafeBounds, _teardownLinkedResize,
+  createToolWindow
+});
+
 const { registerPresentationIpc } = require('./js/main/ipc-presentation');
 registerPresentationIpc({
   BrowserWindow, ipcMain, screen, path, ROOT_DIR, PAGE_FILES,
@@ -4147,7 +4156,8 @@ registerPresentationIpc({
   },
   getToolPath, getExtendedDisplayForBounds, readUserLauncherCardConfig,
   getPresentationDefaultBounds, mapWindowBoundsToDisplay, setupWindowExternalLinkHandling,
-  syncTargetWindowToSource, applyPresentationDefaultBounds, dockTargetWindow, maximizePresenterWindow
+  syncTargetWindowToSource, applyPresentationDefaultBounds, dockTargetWindow, maximizePresenterWindow,
+  notifyWindowsChanged
 });
 ipcMain.handle('app:adjust-zoom', (event, delta) => {
   const senderWin = BrowserWindow.fromWebContents(event.sender);

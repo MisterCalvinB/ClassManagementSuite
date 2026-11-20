@@ -4293,6 +4293,58 @@ function openFmShortcuts() {
     }));
 
     _fmDossiersCached = loadedDossiers;
+    if (window._fmPendingDossierTarget) {
+      var pending = window._fmPendingDossierTarget;
+      window._fmPendingDossierTarget = null;
+
+      if (pending.classId || pending.className) {
+        var matchedClassItem = _fmDossiersCached.find(function (it) {
+          return (pending.classId && it.classId === pending.classId) ||
+            (pending.className && it.className && it.className.trim().toLowerCase() === pending.className.trim().toLowerCase());
+        });
+        if (matchedClassItem && matchedClassItem.classId) {
+          _fmDosSelectedClass = matchedClassItem.classId;
+          if (classFilterSelect) classFilterSelect.value = matchedClassItem.classId;
+        }
+      }
+
+      var studentQuery = pending.studentName || pending.fallbackQuery || '';
+      var normStu = studentQuery.trim().toLowerCase();
+      var revStu = studentQuery.trim().split(/\s+/).reverse().join(' ').toLowerCase();
+      var matchedStudent = null;
+      if (pending.studentId || normStu) {
+        var pool = (_fmDosSelectedClass && _fmDosSelectedClass !== 'all')
+          ? _fmDossiersCached.filter(function (it) { return it.classId === _fmDosSelectedClass; })
+          : _fmDossiersCached;
+        if (!pool.length) pool = _fmDossiersCached;
+        matchedStudent = pool.find(function (it) {
+          return (pending.studentId && String(it.id) === String(pending.studentId)) ||
+            (normStu && it.name && it.name.trim().toLowerCase() === normStu) ||
+            (revStu && it.name && it.name.trim().toLowerCase() === revStu);
+        }) || null;
+        if (!matchedStudent && normStu) {
+          matchedStudent = pool.find(function (it) {
+            return it.name && (it.name.toLowerCase().includes(normStu) || it.name.toLowerCase().includes(revStu));
+          }) || null;
+        }
+      }
+
+      var searchEl = document.getElementById('fmDossiersSearch');
+      if (matchedStudent) {
+        _fmDosSearchQuery = matchedStudent.name;
+        if (searchEl) searchEl.value = matchedStudent.name;
+        renderDossiersList();
+        if (window.TagLinkModal && typeof window.TagLinkModal.openStudentDossier === 'function') {
+          window.TagLinkModal.openStudentDossier(matchedStudent.id, { title: matchedStudent.name });
+        }
+        return;
+      }
+
+      if (pending.fallbackQuery && (!pending.className || pending.fallbackQuery !== pending.className)) {
+        _fmDosSearchQuery = pending.fallbackQuery;
+        if (searchEl) searchEl.value = pending.fallbackQuery;
+      }
+    }
     renderDossiersList();
   };
 
@@ -4526,17 +4578,24 @@ function openFmShortcuts() {
       });
     });
     try {
+      var dosParams = new URLSearchParams(window.location.search);
+      var qsStudentId = dosParams.get('studentId') || dosParams.get('student') || '';
+      var qsStudentName = dosParams.get('studentName') || '';
+      var qsClassId = dosParams.get('classId') || dosParams.get('class') || '';
+      var qsClassName = dosParams.get('className') || '';
       var qsDossier = localStorage.getItem('cmt-qs-target-dossier');
       if (qsDossier !== null) {
         localStorage.removeItem('cmt-qs-target-dossier');
+      }
+      if (qsStudentId || qsStudentName || qsClassId || qsClassName || qsDossier !== null) {
+        window._fmPendingDossierTarget = {
+          studentId: qsStudentId,
+          studentName: qsStudentName,
+          classId: qsClassId,
+          className: qsClassName,
+          fallbackQuery: qsDossier || ''
+        };
         switchFmTab('dossiers');
-        setTimeout(function () {
-          var searchEl = document.getElementById('fmDossiersSearch');
-          if (searchEl && qsDossier) {
-            searchEl.value = qsDossier;
-            searchEl.dispatchEvent(new Event('input'));
-          }
-        }, 350);
       }
     } catch (e) {}
     try {

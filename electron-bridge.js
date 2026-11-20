@@ -1044,6 +1044,52 @@
     return getDesktopApi().arrangeSideBySide(opts || {});
   }
 
+  async function getWindowsState() {
+    if (!isElectron()) return { ok: false, fallback: true, displays: [], windows: [] };
+    const api = getDesktopApi();
+    return typeof api.getWindowsState === 'function'
+      ? api.getWindowsState()
+      : { ok: false, displays: [], windows: [] };
+  }
+
+  async function reorderWindows(opts) {
+    if (!isElectron()) return { ok: false, fallback: true };
+    const api = getDesktopApi();
+    return typeof api.reorderWindows === 'function' ? api.reorderWindows(opts || {}) : { ok: false };
+  }
+
+  async function applyWindowPreset(opts) {
+    if (!isElectron()) return { ok: false, fallback: true };
+    const api = getDesktopApi();
+    return typeof api.applyWindowPreset === 'function' ? api.applyWindowPreset(opts || {}) : { ok: false };
+  }
+
+  async function windowAction(opts) {
+    if (!isElectron()) return { ok: false, fallback: true };
+    const api = getDesktopApi();
+    return typeof api.windowAction === 'function' ? api.windowAction(opts || {}) : { ok: false };
+  }
+
+  async function getWindowPresets() {
+    if (!isElectron()) return { ok: false, fallback: true, presets: [] };
+    const api = getDesktopApi();
+    return typeof api.getWindowPresets === 'function' ? api.getWindowPresets() : { ok: false, presets: [] };
+  }
+
+  async function saveWindowPresets(presets) {
+    if (!isElectron()) return { ok: false, fallback: true };
+    const api = getDesktopApi();
+    return typeof api.saveWindowPresets === 'function'
+      ? api.saveWindowPresets({ presets: Array.isArray(presets) ? presets : [] })
+      : { ok: false };
+  }
+
+  function onWindowsChanged(callback) {
+    if (!isElectron() || typeof callback !== 'function') return function () {};
+    const api = getDesktopApi();
+    return typeof api.onWindowsChanged === 'function' ? api.onWindowsChanged(callback) : function () {};
+  }
+
   async function timerCommand(request) {
     if (!isElectron()) return null;
     return getDesktopApi().timerCommand(request);
@@ -1372,6 +1418,13 @@
     sendToDocumentEditor,
     applyRestoreChoices,
     arrangeSideBySide,
+    getWindowsState,
+    reorderWindows,
+    applyWindowPreset,
+    windowAction,
+    getWindowPresets,
+    saveWindowPresets,
+    onWindowsChanged,
     backupZip,
     clipboardReadText,
     clipboardReadHtml,

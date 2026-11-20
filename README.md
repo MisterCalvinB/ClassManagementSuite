@@ -293,9 +293,11 @@ Creating an entry of type **Test** in [Planner](#plannerhtml) automatically veri
 
 ---
 
-### Class Management ↔ Lesson Creator: Automatic Lesson Runner HUD
+### Class Management ↔ Lesson Creator: Automatic Lesson Runner HUD & Sequence Timer Link
 
 When loading a class group in [Class Management](#class-managementhtml) on a date with a scheduled lesson plan, the system detects it automatically. If a single plan exists, it offers to start the **Lesson Runner HUD**, bringing timed activity phases, dynamic timers, and curriculum descriptors into the live session. If multiple plans exist, a clean dialog prompts the teacher to choose.
+
+- **One-Click Sequence Timer Sync**: Click **Sequence** in the Lesson Runner HUD (or **Import Lesson Plan** inside the Sequence Timer builder) to load every lesson phase directly into the multi-step Sequence Timer with its title, duration, and mapped work mode (`Solo` → `Quiet`, `Pairs` → `Talk`, `Small Groups` → `Group`). As each sequence step starts or is skipped—or when you click a phase in the Lesson Runner—both the Lesson Runner HUD and the Presentation window stay synchronized in real time.
 
 ---
 
@@ -480,6 +482,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
 - **Collapsible Tool Sections & Disk Sync**: Organize apps into custom or default categories (*Classroom*, *Students*, *Content*, *System*). Collapse secondary sections into compact bars with tool count pills to keep primary tools front and center. Toggling or reordering sections automatically persists to `user/launcher-config.js` and synchronizes across teacher workstations. Typing in the search bar (`/`) temporarily expands matching collapsed sections.
 - **Automatic Post-Sync Live Updates**: Performing a sync (via the header **Sync** button, General Config, remote cloud sync, or background auto-sync) immediately and seamlessly refreshes the Launcher in real-time. Synced configurations (`config.js`), card settings/notes (`launcher-config.js`), recent documents and mindmaps, pending to-dos (`todos.js`), upcoming schedule events and tests, tags, and class rosters are reloaded and rendered in place without requiring a window reload.
 - **Instant Tool Search (`/` or `Ctrl+K`)**: Live filter input that instantly searches across tool titles, descriptions, custom names, and personal notes across all sections. Pressing `Enter` launches the top matching tool immediately; `Escape` clears the search.
+- **Window Reorder Helper (`Ctrl+Shift+W`)**: Global Light Neobrutalist modal (`js/shared/window-helper.js`, also accessible from the hamburger menu, Quick Switcher, and Board / Class Management presentation bars) to drag-to-reorder, focus, pin, maximize, move across displays, or tile (**50/50**, **20/80**, **80/20**, **Grid**, **Stack**) open **Main View** and **Mirrored / Presentation View** windows, swap Main and Mirror displays in one click, and save/apply persisted custom app+geometry presets (`user/window-presets.json`).
 - **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
 - **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙), tool documentation (**?**), and reordering handles (⠿).
 - **Instant Tool Documentation (? Button)**: Hovering over any app card in either Compact or Detailed view reveals a tactile **?** button. Clicking it immediately launches the built-in [How To](#how-tohtml) manual scrolled and highlighted directly to that tool's documentation section.

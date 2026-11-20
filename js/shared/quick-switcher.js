@@ -23,16 +23,46 @@
     return isInPages ? href : 'pages/' + href;
   }
 
-  function _openTarget(url) {
-    var pageFile = String(url || '').split('/').pop().split('?')[0];
+  function _openTarget(url, query) {
+    var rawUrl = String(url || '');
+    var qIdx = rawUrl.indexOf('?');
+    var pageFile = (qIdx !== -1 ? rawUrl.slice(0, qIdx) : rawUrl).split('/').pop();
+    var mergedQuery = {};
+    if (qIdx !== -1) {
+      try {
+        var inlineParams = new URLSearchParams(rawUrl.slice(qIdx + 1));
+        inlineParams.forEach(function (v, k) {
+          mergedQuery[k] = v;
+        });
+      } catch (_) {}
+    }
+    if (query && typeof query === 'object') {
+      Object.keys(query).forEach(function (k) {
+        if (query[k] !== undefined && query[k] !== null && query[k] !== '') {
+          mergedQuery[k] = query[k];
+        }
+      });
+    }
+    var hasQuery = Object.keys(mergedQuery).length > 0;
     if (window.Desktop && typeof window.Desktop.openTool === 'function') {
-      window.Desktop.openTool(pageFile);
+      window.Desktop.openTool(pageFile, hasQuery ? { query: mergedQuery } : undefined);
     } else if (window.electronBridge && typeof window.electronBridge.openTool === 'function') {
-      window.electronBridge.openTool(pageFile);
+      window.electronBridge.openTool(pageFile, hasQuery ? { query: mergedQuery } : undefined);
     } else if (window.electronApi && typeof window.electronApi.openTool === 'function') {
-      window.electronApi.openTool(pageFile);
+      var req = { pageFile: pageFile };
+      if (hasQuery) req.query = mergedQuery;
+      window.electronApi.openTool(req);
     } else {
-      window.location.href = url;
+      var targetUrl = qIdx !== -1 ? rawUrl.slice(0, qIdx) : rawUrl;
+      if (hasQuery) {
+        var sp = new URLSearchParams();
+        Object.keys(mergedQuery).forEach(function (k) {
+          sp.set(k, String(mergedQuery[k]));
+        });
+        var qs = sp.toString();
+        if (qs) targetUrl += '?' + qs;
+      }
+      window.location.href = targetUrl;
     }
   }
 
@@ -83,7 +113,9 @@
   function _getTargetActions(target) {
     var isStudent = target.cat === 'student';
     var studentName = isStudent ? target.title : '';
+    var studentId = isStudent ? (target.studentId || '') : '';
     var className = isStudent ? target.sub : target.title;
+    var classId = target.classId || '';
     var list = [
       { label: 'Participation Tracker', icon: 'participation-tracker.svg', href: 'participation-tracker.html', mode: 'tracker' },
       { label: 'Grade Sheet', icon: 'grade-sheet.svg', href: 'grade-sheet.html', mode: 'grades' },
@@ -103,7 +135,9 @@
         url: _pageHref(a.href),
         mode: a.mode,
         studentName: studentName,
-        className: className
+        studentId: studentId,
+        className: className,
+        classId: classId
       };
     });
   }
@@ -112,7 +146,9 @@
     try {
       localStorage.setItem('cmt-qs-context', JSON.stringify({
         student: act.studentName || '',
+        studentId: act.studentId || '',
         className: act.className || '',
+        classId: act.classId || '',
         mode: act.mode || '',
         ts: Date.now()
       }));
@@ -120,8 +156,13 @@
         localStorage.setItem('cmt-qs-target-dossier', act.studentName || act.className || '');
       }
     } catch (_) {}
+    var query = {};
+    if (act.classId) query.classId = act.classId;
+    if (act.className) query.className = act.className;
+    if (act.studentId) query.studentId = act.studentId;
+    if (act.studentName) query.studentName = act.studentName;
     _close();
-    _openTarget(act.url);
+    _openTarget(act.url, Object.keys(query).length > 0 ? query : null);
   }
 
   function _normalizeRoster(rawData, rawMeta) {
@@ -294,7 +335,9 @@
         title: cls.name,
         sub: (Array.isArray(cls.students) ? cls.students.length : 0) + ' students',
         icon: 'group-editor.svg',
-        url: _pageHref('grade-sheet.html')
+        url: _pageHref('grade-sheet.html'),
+        classId: cls.id || cls.name,
+        className: cls.name
       });
       if (Array.isArray(cls.students)) {
         cls.students.forEach(function (stu) {
@@ -312,7 +355,11 @@
             title: sName,
             sub: cls.name,
             icon: 'participation-tracker.svg',
-            url: _pageHref('participation-tracker.html')
+            url: _pageHref('participation-tracker.html'),
+            classId: cls.id || cls.name,
+            className: cls.name,
+            studentId: (stu && (stu.id || stu.uuid)) || '',
+            studentName: sName
           });
         });
       }
@@ -355,6 +402,19 @@
 
   function _seedTools() {
     _items = [];
+    _items.push({
+      id: 'action:window-helper',
+      cat: 'tool',
+      catLabel: _t('qsCatTool', 'Tool'),
+      title: _t('wh_title', 'Window Reorder Helper'),
+      sub: 'Ctrl+Shift+W',
+      icon: 'layout.svg',
+      onSelect: function () {
+        if (window.WindowHelper && typeof window.WindowHelper.open === 'function') {
+          window.WindowHelper.open();
+        }
+      }
+    });
     var apps = Array.isArray(window.CMT_APPS) ? window.CMT_APPS : [];
     apps.forEach(function (app) {
       if (!app || !app.href) return;
@@ -504,7 +564,9 @@
               url: _pageHref(qd.href),
               mode: qd.mode,
               studentName: item.cat === 'student' ? item.title : '',
-              className: item.cat === 'student' ? item.sub : item.title
+              studentId: item.cat === 'student' ? (item.studentId || '') : '',
+              className: item.cat === 'student' ? item.sub : item.title,
+              classId: item.classId || ''
             });
           });
           actsWrap.appendChild(qBtn);
@@ -528,7 +590,11 @@
           return;
         }
         _close();
-        _openTarget(item.url);
+        if (typeof item.onSelect === 'function') {
+          item.onSelect();
+        } else {
+          _openTarget(item.url);
+        }
       });
       _listEl.appendChild(btn);
     });

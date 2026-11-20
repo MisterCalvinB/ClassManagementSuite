@@ -160,15 +160,50 @@
         '  <button class="hm-lang-btn" data-lang="fr"   onclick="window._cmtMenuLang(\'fr\')">FR</button>',
         '  <button class="hm-lang-btn" data-lang="de"   onclick="window._cmtMenuLang(\'de\')">DE</button>',
         '  <button class="hm-lang-btn" data-lang="it"   onclick="window._cmtMenuLang(\'it\')">IT</button>',
+        '</div>',
+        '<hr class="hm-sep">',
+        '<div class="hm-lang-row">',
+        '  <button type="button" class="hm-lang-btn" data-hm-action="window-helper" style="width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;"><img src="' + baseDir + 'assets/icons/layout.svg" alt="" style="width:14px;height:14px;"><span>' + (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('wh_open_helper') !== 'wh_open_helper' ? window.i18n.t('wh_open_helper') : 'Reorder Windows (Ctrl+Shift+W)') + '</span></button>',
         '</div>'
       );
       menu.innerHTML = parts.join('');
+      var whBtn = menu.querySelector('[data-hm-action="window-helper"]');
+      if (whBtn) {
+        whBtn.addEventListener('click', function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          wrap.classList.remove('open');
+          if (window.WindowHelper && typeof window.WindowHelper.open === 'function') {
+            window.WindowHelper.open();
+          }
+        });
+      }
       // Highlight the active lang button if i18n.js is loaded.
       if (typeof window.updateLangButtons === 'function') window.updateLangButtons();
     }
 
     // Wire button toggle (idempotent: prevent duplicate click listeners if initHamburger is called multiple times)
-    var btn = wrap.querySelector('.hm-btn');
+    var btn = wrap.querySelector('.hm-btn:not(.hm-wh-trigger)');
+    var isPresUrl = /[?&](mirror|presentation|ltPresentation|wwPresentation|oralPresenter)=1/i.test(location.search);
+    if (btn && !isPresUrl && !wrap.querySelector('.hm-wh-trigger')) {
+      var whLabel = (window.i18n && typeof window.i18n.t === 'function' && window.i18n.t('wh_open_helper') !== 'wh_open_helper')
+        ? window.i18n.t('wh_open_helper')
+        : 'Reorder Windows (Ctrl+Shift+W)';
+      var whTrig = document.createElement('button');
+      whTrig.type = 'button';
+      whTrig.className = 'hm-btn hm-wh-trigger';
+      whTrig.title = whLabel;
+      whTrig.setAttribute('aria-label', whLabel);
+      whTrig.innerHTML = '<img src="' + baseDir + 'assets/icons/layout.svg" class="btn-icon" alt="" />';
+      whTrig.addEventListener('click', function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (window.WindowHelper && typeof window.WindowHelper.open === 'function') {
+          window.WindowHelper.open();
+        }
+      });
+      wrap.insertBefore(whTrig, btn);
+    }
     if (btn && !btn._hmBound) {
       btn._hmBound = true;
       btn.removeAttribute('onclick');
@@ -244,6 +279,13 @@
       qsScript.src = qsPrefix + 'quick-switcher.js';
       qsScript.defer = true;
       (document.head || document.documentElement).appendChild(qsScript);
+    }
+    if (!window.WindowHelper) {
+      var whPrefix = (typeof location !== 'undefined' && /\/pages\//.test(location.pathname)) ? '../js/shared/' : 'js/shared/';
+      var whScript = document.createElement('script');
+      whScript.src = whPrefix + 'window-helper.js';
+      whScript.defer = true;
+      (document.head || document.documentElement).appendChild(whScript);
     }
     var _applyA11yDefaults = function () {
       try {

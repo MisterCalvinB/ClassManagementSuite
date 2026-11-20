@@ -975,6 +975,44 @@
             }
         }
 
+        if (!PRESENTATION_MODE) {
+            document.addEventListener('click', function (ev) {
+                const btn = ev.target && ev.target.closest ? ev.target.closest('#cms-pres-popup [data-pres-action="reorder-windows"]') : null;
+                if (!btn) return;
+                ev.preventDefault();
+                ev.stopPropagation();
+                if (window.WindowHelper && typeof window.WindowHelper.open === 'function') {
+                    window.WindowHelper.open();
+                }
+            });
+            if (window.Desktop && typeof window.Desktop.onWindowsChanged === 'function') {
+                const _unsubCmsWin = window.Desktop.onWindowsChanged(function (snapshot) {
+                    if (!snapshot || !Array.isArray(snapshot.windows)) return;
+                    const presWin = snapshot.windows.find(function (w) {
+                        return w && w.role === 'mirror' && w.pageFile === 'class-management.html';
+                    });
+                    if (presWin) {
+                        if (!_presWindowOpen) {
+                            _presWindowOpen = true;
+                            if (typeof _updatePresWindowControls === 'function') _updatePresWindowControls();
+                        }
+                        if (_presAlwaysOnTop !== !!presWin.isAlwaysOnTop) {
+                            _presAlwaysOnTop = !!presWin.isAlwaysOnTop;
+                            syncPresentationPinButtons();
+                        }
+                    } else if (_presWindowOpen) {
+                        _presWindowOpen = false;
+                        _presAlwaysOnTop = false;
+                        syncPresentationPinButtons();
+                        if (typeof _updatePresWindowControls === 'function') _updatePresWindowControls();
+                    }
+                });
+                window.addEventListener('beforeunload', function () {
+                    try { _unsubCmsWin(); } catch (_) {}
+                });
+            }
+        }
+
         let _unifiedDockPos = null;
         let _unifiedDockCollapsed = false;
 
@@ -11850,7 +11888,9 @@ syncState();
                     ? null
                     : Math.max(0, Math.min(20, parseInt(st.beeps, 10) || 0)),
                 modeId: typeof st?.modeId === 'string' ? st.modeId : '',
-                sound: typeof st?.sound === 'string' ? st.sound : ''
+                sound: typeof st?.sound === 'string' ? st.sound : '',
+                lessonPlanId: typeof st?.lessonPlanId === 'string' ? st.lessonPlanId : '',
+                lessonPhaseIndex: Number.isInteger(st?.lessonPhaseIndex) ? st.lessonPhaseIndex : null
             };
         }
 
@@ -12026,6 +12066,117 @@ syncState();
             _persistIntervalSequencesToConfig(true);
         }
 
+        function refreshIntervalPlanImportBtn() {
+            const btn = document.getElementById('interval-import-plan-btn');
+            if (!btn) return;
+            const hasPlan = !!(window.CmsLessonRunner && window.CmsLessonRunner.activePlan && Array.isArray(window.CmsLessonRunner.activePlan.sections) && window.CmsLessonRunner.activePlan.sections.length > 0);
+            btn.style.display = hasPlan ? 'inline-flex' : 'none';
+        }
+        window.refreshIntervalPlanImportBtn = refreshIntervalPlanImportBtn;
+
+        function _mapInteractionTypeToModeId(interactionTypeId) {
+            if (!interactionTypeId) return '';
+            const modes = Array.isArray(classModes) ? classModes : [];
+            const findMode = (candidates) => {
+                for (const c of candidates) {
+                    const hit = modes.find(m => m.id === c || (m.name && m.name.toLowerCase() === c));
+                    if (hit) return hit.id;
+                }
+                return '';
+            };
+            if (interactionTypeId === 'individual') return findMode(['quiet']);
+            if (interactionTypeId === 'pairs') return findMode(['conversation', 'talk']);
+            if (interactionTypeId === 'small_groups') return findMode(['group']);
+            return '';
+        }
+
+        function importLessonPlanToSequence(plan, autoStart = false) {
+            const targetPlan = plan || (window.CmsLessonRunner && window.CmsLessonRunner.activePlan);
+            if (!targetPlan || !Array.isArray(targetPlan.sections) || !targetPlan.sections.length) {
+                if (typeof showToast === 'function') {
+                    showToast(_tInterval('interval_import_plan_empty', 'No active lesson plan phases to import'), true);
+                }
+                return false;
+            }
+            const planId = String(targetPlan.id || '');
+            const actTypes = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES))
+                ? LessonCreatorService.DEFAULT_ACTIVITY_TYPES
+                : [];
+            const imported = targetPlan.sections.map((sec, idx) => {
+                const durMinFloat = Math.max(0, Number(sec.duration) || 0);
+                const wholeMin = Math.floor(durMinFloat);
+                const remSec = Math.round((durMinFloat - wholeMin) * 60);
+                const actDef = sec.activityTypeId ? actTypes.find(a => a.id === sec.activityTypeId) : null;
+                const fallbackLabel = (actDef && (actDef.shortName || actDef.name)) || `Phase ${idx + 1}`;
+                const label = (sec.title && String(sec.title).trim()) ? String(sec.title).trim() : fallbackLabel;
+                return _normalizeIntervalStep({
+                    label,
+                    minutes: wholeMin + (remSec >= 60 ? 1 : 0),
+                    seconds: remSec >= 60 ? 0 : remSec,
+                    beeps: null,
+                    modeId: _mapInteractionTypeToModeId(sec.interactionTypeId),
+                    sound: '',
+                    lessonPlanId: planId,
+                    lessonPhaseIndex: idx
+                });
+            });
+
+            intervalSteps = imported;
+            intervalCycles = 1;
+            intervalInfinite = false;
+            intervalSelectedPresetId = '';
+            intervalBuilderInitialized = true;
+
+            setTimerMode('interval');
+            const cycInput = document.getElementById('interval-cycles-input');
+            if (cycInput) {
+                cycInput.value = 1;
+                cycInput.disabled = false;
+            }
+            const infBtn = document.getElementById('interval-infinite-btn');
+            if (infBtn) infBtn.classList.remove('active');
+            renderIntervalPresetSelect();
+            renderIntervalStepsList();
+            updateIntervalSummary();
+            _saveIntervalStateToStorage(true);
+
+            // Open the timer popup in control menu if not already visible
+            const popup = document.getElementById('timer-popup');
+            if (popup && !popup.classList.contains('active') && typeof toggleTimerPopup === 'function') {
+                toggleTimerPopup(true);
+            }
+
+            if (typeof showToast === 'function') {
+                const msg = _tInterval('clr_sequence_loaded', 'Loaded {count} lesson phases into Sequence Timer')
+                    .replace('{count}', String(imported.length));
+                showToast(msg);
+            }
+            if (autoStart) {
+                startIntervalSequence();
+            }
+            return true;
+        }
+        window.importLessonPlanToSequence = importLessonPlanToSequence;
+
+        function jumpIntervalToLessonPhase(phaseIdx) {
+            if (PRESENTATION_MODE) return false;
+            if ((!timerInterval && !timerPaused) || !intervalActiveSteps.length) return false;
+            const activePlanId = (window.CmsLessonRunner && window.CmsLessonRunner.activePlan)
+                ? String(window.CmsLessonRunner.activePlan.id || '')
+                : '';
+            const matchIdx = intervalActiveSteps.findIndex(st =>
+                st.lessonPhaseIndex === phaseIdx && (!st.lessonPlanId || !activePlanId || st.lessonPlanId === activePlanId)
+            );
+            if (matchIdx === -1) return false;
+            if (matchIdx !== intervalCurrentStepIdx) {
+                _startIntervalStep(matchIdx, intervalCurrentCycle);
+                updateOverlayTransportControls();
+                _broadcastTimerTick();
+            }
+            return true;
+        }
+        window.jumpIntervalToLessonPhase = jumpIntervalToLessonPhase;
+
         function initIntervalBuilder() {
             if (!intervalBuilderInitialized) {
                 _loadIntervalStateFromStorage();
@@ -12041,6 +12192,7 @@ syncState();
             renderIntervalPresetSelect();
             renderIntervalStepsList();
             updateIntervalSummary();
+            refreshIntervalPlanImportBtn();
         }
 
         function renderIntervalPresetSelect() {
@@ -12580,6 +12732,17 @@ syncState();
                     activateMode(matchedMode.id);
                 }
             }
+            if (!PRESENTATION_MODE && step.lessonPhaseIndex !== null && Number.isInteger(step.lessonPhaseIndex)
+                && window.CmsLessonRunner && window.CmsLessonRunner.activePlan
+                && (!step.lessonPlanId || String(window.CmsLessonRunner.activePlan.id || '') === String(step.lessonPlanId))) {
+                const phases = window.CmsLessonRunner.activePlan.sections || [];
+                if (step.lessonPhaseIndex >= 0 && step.lessonPhaseIndex < phases.length && window.CmsLessonRunner.activePhaseIndex !== step.lessonPhaseIndex) {
+                    window.CmsLessonRunner.activePhaseIndex = step.lessonPhaseIndex;
+                    if (typeof window.CmsLessonRunner.renderCurrentPhase === 'function') {
+                        window.CmsLessonRunner.renderCurrentPhase({ skipTimerPreset: true });
+                    }
+                }
+            }
             updateTimerDisplay();
         }
 
@@ -12591,7 +12754,9 @@ syncState();
                     durationSec: Math.max(0, (parseInt(st.minutes, 10) || 0) * 60 + (parseInt(st.seconds, 10) || 0)),
                     beeps: st.beeps,
                     modeId: typeof st.modeId === 'string' ? st.modeId : '',
-                    sound: typeof st.sound === 'string' ? st.sound : ''
+                    sound: typeof st.sound === 'string' ? st.sound : '',
+                    lessonPlanId: typeof st.lessonPlanId === 'string' ? st.lessonPlanId : '',
+                    lessonPhaseIndex: Number.isInteger(st.lessonPhaseIndex) ? st.lessonPhaseIndex : null
                 }))
                 .filter(st => st.durationSec > 0);
             if (!valid.length) {

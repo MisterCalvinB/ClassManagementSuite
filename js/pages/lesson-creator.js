@@ -1,0 +1,9599 @@
+(function () {
+  'use strict';
+
+  var currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+  var currentSequence = null;
+  var allCompetences = [];
+  var allDescriptors = allCompetences;
+  var allPhases = [];
+  var currentDrawerTab = 'competences';
+  var exportingPhaseIndex = -1;
+  var allSavedPlans = [];
+  var allSavedTests = [];
+  var _seqPickerFilterType = 'all';
+  var userCustomTemplates = [];
+  var allClassGroups = {};
+  var isDirty = false;
+  var activeDraggingIndex = -1;
+
+  function lcOpenModal(modalId) {
+    var m = document.getElementById(modalId);
+    if (m) m.style.display = 'flex';
+  }
+  function lcCloseModal(modalId) {
+    var m = document.getElementById(modalId);
+    if (m) m.style.display = 'none';
+  }
+  window.lcOpenModal = lcOpenModal;
+  window.lcCloseModal = lcCloseModal;
+
+  async function loadCustomTemplates() {
+    userCustomTemplates = [];
+    try {
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'custom-lesson-templates.json');
+        if (res && res.ok && res.content) {
+          var parsed = JSON.parse(res.content);
+          if (Array.isArray(parsed)) userCustomTemplates = parsed;
+        }
+      }
+    } catch (_) {}
+
+    if (!userCustomTemplates.length) {
+      try {
+        var local = localStorage.getItem('cmt-custom-lesson-templates');
+        if (local) {
+          var parsedLocal = JSON.parse(local);
+          if (Array.isArray(parsedLocal)) userCustomTemplates = parsedLocal;
+        }
+      } catch (_) {}
+    }
+  }
+
+  async function saveCustomTemplatesToDisk() {
+    try {
+      localStorage.setItem('cmt-custom-lesson-templates', JSON.stringify(userCustomTemplates));
+    } catch (_) {}
+
+    try {
+      if (window.Desktop && typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'custom-lesson-templates.json', userCustomTemplates);
+      } else if (window.Desktop && typeof Desktop.readText === 'function' && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('user', 'custom-lesson-templates.json', JSON.stringify(userCustomTemplates, null, 2));
+      }
+    } catch (_) {}
+  }
+
+  var DEFAULT_COMPETENCE_CONFIG = {
+    preset: 'detailed',
+    showCode: true,
+    showTitle: true,
+    showDescription: true,
+    showLevel: true,
+    showCategory: true,
+    showTags: true,
+    showComments: true,
+    showDetailedDescription: true,
+    hiddenDetailLines: {},
+    showActions: true,
+    drawerWidth: 400
+  };
+
+  var competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+
+  function applyDrawerWidth() {
+    var workspace = document.getElementById('mainWorkspace');
+    if (workspace && competenceDisplayConfig && competenceDisplayConfig.drawerWidth) {
+      workspace.style.setProperty('--drawer-width', competenceDisplayConfig.drawerWidth + 'px');
+    }
+  }
+
+  async function loadCompetenceDisplayConfig() {
+    try {
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'competence-display-config.json');
+        if (res && res.ok && res.content) {
+          var parsed = JSON.parse(res.content);
+          if (parsed && typeof parsed === 'object') {
+            competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsed);
+            applyDrawerWidth();
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
+    try {
+      var local = localStorage.getItem('cmt-competence-display-config');
+      if (local) {
+        var parsedLocal = JSON.parse(local);
+        if (parsedLocal && typeof parsedLocal === 'object') {
+          competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG, parsedLocal);
+          applyDrawerWidth();
+        }
+      }
+    } catch (_) {}
+  }
+
+  async function saveCompetenceDisplayConfigToDisk() {
+    try {
+      localStorage.setItem('cmt-competence-display-config', JSON.stringify(competenceDisplayConfig));
+    } catch (_) {}
+
+    try {
+      if (window.Desktop && typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'competence-display-config.json', competenceDisplayConfig);
+      } else if (window.Desktop && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('user', 'competence-display-config.json', JSON.stringify(competenceDisplayConfig, null, 2));
+      }
+    } catch (_) {}
+  }
+
+  var DEFAULT_ACTIVITY_CONFIG = {
+    preset: 'detailed',
+    showTitle: true,
+    showDuration: true,
+    showType: true,
+    showMode: true,
+    showCategory: true,
+    showDescription: true,
+    showTags: true,
+    showActions: true
+  };
+
+  var activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG);
+
+  async function loadActivityDisplayConfig() {
+    try {
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'activity-display-config.json');
+        if (res && res.ok && res.content) {
+          var parsed = JSON.parse(res.content);
+          if (parsed && typeof parsed === 'object') {
+            activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG, parsed);
+            return;
+          }
+        }
+      }
+    } catch (_) {}
+
+    try {
+      var local = localStorage.getItem('cmt-activity-display-config');
+      if (local) {
+        var parsedLocal = JSON.parse(local);
+        if (parsedLocal && typeof parsedLocal === 'object') {
+          activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG, parsedLocal);
+        }
+      }
+    } catch (_) {}
+  }
+
+  async function saveActivityDisplayConfigToDisk() {
+    try {
+      localStorage.setItem('cmt-activity-display-config', JSON.stringify(activityDisplayConfig));
+    } catch (_) {}
+
+    try {
+      if (window.Desktop && typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'activity-display-config.json', activityDisplayConfig);
+      } else if (window.Desktop && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('user', 'activity-display-config.json', JSON.stringify(activityDisplayConfig, null, 2));
+      }
+    } catch (_) {}
+  }
+
+  function initDrawerResizer() {
+    var resizer = document.getElementById('drawerResizer');
+    var workspace = document.getElementById('mainWorkspace');
+    var drawer = document.getElementById('descriptorDrawer');
+    if (!resizer || !workspace || !drawer) return;
+
+    applyDrawerWidth();
+
+    var startX = 0;
+    var startWidth = 0;
+    var isResizing = false;
+
+    function onMouseDown(e) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = drawer.offsetWidth;
+      workspace.classList.add('resizing');
+      resizer.classList.add('resizing');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    }
+
+    function onMouseMove(e) {
+      if (!isResizing) return;
+      var deltaX = startX - e.clientX;
+      var newWidth = Math.max(260, Math.min(850, startWidth + deltaX));
+      workspace.style.setProperty('--drawer-width', newWidth + 'px');
+    }
+
+    function onMouseUp() {
+      if (!isResizing) return;
+      isResizing = false;
+      workspace.classList.remove('resizing');
+      resizer.classList.remove('resizing');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+
+      var computedWidth = drawer.offsetWidth;
+      if (computedWidth && computedWidth > 100) {
+        competenceDisplayConfig.drawerWidth = computedWidth;
+        saveCompetenceDisplayConfigToDisk();
+      }
+    }
+
+    function onTouchStart(e) {
+      if (!e.touches || !e.touches[0]) return;
+      isResizing = true;
+      startX = e.touches[0].clientX;
+      startWidth = drawer.offsetWidth;
+      workspace.classList.add('resizing');
+      resizer.classList.add('resizing');
+
+      window.addEventListener('touchmove', onTouchMove, { passive: false });
+      window.addEventListener('touchend', onTouchEnd);
+    }
+
+    function onTouchMove(e) {
+      if (!isResizing || !e.touches || !e.touches[0]) return;
+      e.preventDefault();
+      var deltaX = startX - e.touches[0].clientX;
+      var newWidth = Math.max(260, Math.min(850, startWidth + deltaX));
+      workspace.style.setProperty('--drawer-width', newWidth + 'px');
+    }
+
+    function onTouchEnd() {
+      if (!isResizing) return;
+      isResizing = false;
+      workspace.classList.remove('resizing');
+      resizer.classList.remove('resizing');
+
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+
+      var computedWidth = drawer.offsetWidth;
+      if (computedWidth && computedWidth > 100) {
+        competenceDisplayConfig.drawerWidth = computedWidth;
+        saveCompetenceDisplayConfigToDisk();
+      }
+    }
+
+    resizer.addEventListener('mousedown', onMouseDown);
+    resizer.addEventListener('touchstart', onTouchStart, { passive: true });
+  }
+
+  var _drawerRafPending = false;
+  function updateDrawerHeight() {
+    var drawer = document.getElementById('descriptorDrawer');
+    if (!drawer) return;
+    var rect = drawer.getBoundingClientRect();
+    var topGap = Math.max(14, rect.top);
+    var availableH = window.innerHeight - topGap - 14;
+    drawer.style.height = Math.max(320, Math.floor(availableH)) + 'px';
+  }
+
+  function scheduleDrawerHeightUpdate() {
+    if (_drawerRafPending) return;
+    _drawerRafPending = true;
+    requestAnimationFrame(function () {
+      _drawerRafPending = false;
+      updateDrawerHeight();
+    });
+  }
+
+  function initFixedDrawer() {
+    var ws = document.getElementById('mainWorkspace');
+    if (ws && !ws.classList.contains('drawer-open')) {
+      ws.classList.add('drawer-open');
+    }
+    window.addEventListener('scroll', scheduleDrawerHeightUpdate, { passive: true });
+    window.addEventListener('resize', scheduleDrawerHeightUpdate, { passive: true });
+    scheduleDrawerHeightUpdate();
+  }
+
+  // ── Initialization ───────────────────────────────────────────────────
+  window.addEventListener('DOMContentLoaded', async function () {
+    if (typeof _cmtApplyNavBrand === 'function') _cmtApplyNavBrand();
+    if (typeof initHamburger === 'function') initHamburger();
+
+    initDropdowns();
+    await loadCompetenceDisplayConfig();
+    await loadActivityDisplayConfig();
+    initDrawerResizer();
+    initFixedDrawer();
+    await loadClassRosters();
+    await loadSavedDescriptors();
+    await loadSavedPhases();
+    await loadSavedPlansIndex();
+    await loadCustomTemplates();
+
+    // Check URL parameters for linked planner slot or plan ID
+    var params = new URLSearchParams(window.location.search);
+    var planId = params.get('planId') || params.get('id') || params.get('file');
+    var plannerEntryIdParam = params.get('plannerEntryId');
+    var classIdParam = params.get('classId');
+    var dateParam = params.get('date');
+    var topicParam = params.get('topic') || params.get('title');
+
+    if (planId) {
+      await loadPlanById(planId);
+    } else if (plannerEntryIdParam) {
+      var matchPe = allSavedPlans.find(function (p) {
+        return p.plannerEntryId === plannerEntryIdParam || p.id === plannerEntryIdParam;
+      });
+      if (matchPe) {
+        currentPlan = matchPe;
+      } else {
+        // Also check if a plan for (classId, date) exists before creating a blank one
+        var matchSlot = (classIdParam && dateParam) ? allSavedPlans.find(function (p) {
+          return p.classId === classIdParam && p.date === dateParam;
+        }) : null;
+        if (matchSlot) {
+          currentPlan = matchSlot;
+          currentPlan.plannerEntryId = plannerEntryIdParam;
+        } else {
+          currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
+          currentPlan.plannerEntryId = plannerEntryIdParam;
+          if (classIdParam) currentPlan.classId = classIdParam;
+          if (dateParam) currentPlan.date = dateParam;
+          if (topicParam) currentPlan.title = topicParam;
+        }
+      }
+    } else if (classIdParam || dateParam) {
+      var matchSlot = allSavedPlans.find(function (p) {
+        return classIdParam && dateParam && p.classId === classIdParam && p.date === dateParam;
+      });
+      if (matchSlot) {
+        currentPlan = matchSlot;
+      } else {
+        currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: false });
+        if (classIdParam) currentPlan.classId = classIdParam;
+        if (dateParam) currentPlan.date = dateParam;
+        if (topicParam) currentPlan.title = topicParam;
+      }
+    }
+
+    renderPlan();
+    renderDrawer();
+    setupShortcuts();
+  });
+
+  function getSubjectLabel(sId) {
+    if (!sId) return '';
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_SUBJECTS)) {
+      var found = LessonCreatorService.DEFAULT_SUBJECTS.find(function (s) {
+        return (s.id && s.id.toLowerCase() === sId.toLowerCase()) ||
+               (s.name && s.name.toLowerCase() === sId.toLowerCase());
+      });
+      if (found && found.name) return found.name;
+    }
+    return sId.charAt(0).toUpperCase() + sId.slice(1).replace(/_/g, ' ');
+  }
+
+  function isSubjectMatch(sub1, sub2) {
+    if (!sub1 || !sub2) return true;
+    var s1 = String(sub1).trim().toLowerCase();
+    var s2 = String(sub2).trim().toLowerCase();
+    if (s1 === 'all' || s2 === 'all') return true;
+    if (s1 === s2) return true;
+
+    var lbl1 = getSubjectLabel(s1).toLowerCase();
+    var lbl2 = getSubjectLabel(s2).toLowerCase();
+    if (lbl1 === lbl2 || s1 === lbl2 || s2 === lbl1) return true;
+
+    var aliases = [
+      ['english', 'anglais', 'engl', 'angl'],
+      ['french', 'français', 'francais'],
+      ['german', 'allemand', 'deutsch'],
+      ['spanish', 'espagnol', 'español'],
+      ['italian', 'italien', 'italiano'],
+      ['science', 'sciences', 'stem'],
+      ['math', 'mathematics', 'maths', 'mathématiques', 'mathematiques'],
+      ['history', 'histoire'],
+      ['geography', 'géographie', 'geographie']
+    ];
+
+    for (var i = 0; i < aliases.length; i++) {
+      var grp = aliases[i];
+      var m1 = grp.some(function (a) { return s1 === a || s1.indexOf(a) !== -1 || lbl1.indexOf(a) !== -1; });
+      var m2 = grp.some(function (a) { return s2 === a || s2.indexOf(a) !== -1 || lbl2.indexOf(a) !== -1; });
+      if (m1 && m2) return true;
+    }
+
+    return false;
+  }
+
+  function lcAddSubjectOption(name, selectIt) {
+    var sel = document.getElementById('planSubject');
+    if (!sel || !name) return;
+    var norm = String(name).trim();
+    if (!norm) return;
+    for (var i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value.toLowerCase() === norm.toLowerCase()) {
+        if (selectIt) sel.selectedIndex = i;
+        return;
+      }
+    }
+    var opt = document.createElement('option');
+    opt.value = norm;
+    opt.textContent = getSubjectLabel(norm);
+    var customOpt = sel.querySelector('option[value="__custom__"]');
+    if (customOpt) {
+      sel.insertBefore(opt, customOpt);
+    } else {
+      sel.appendChild(opt);
+    }
+    if (selectIt) sel.value = norm;
+  }
+
+  function getYearLevelLabel(yId) {
+    if (!yId) return '';
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_YEAR_LEVELS)) {
+      var found = LessonCreatorService.DEFAULT_YEAR_LEVELS.find(function (y) { return y.id === yId; });
+      if (found && found.name) return found.name;
+    }
+    return yId;
+  }
+
+  var allClassGroupsMeta = {};
+  var allPlannerClasses = {};
+
+  function getClassLabel(cId) {
+    if (!cId) return '';
+    if (allClassGroupsMeta && allClassGroupsMeta[cId] && allClassGroupsMeta[cId].name) {
+      return allClassGroupsMeta[cId].name;
+    }
+    if (allPlannerClasses && allPlannerClasses[cId] && allPlannerClasses[cId].name) {
+      return allPlannerClasses[cId].name;
+    }
+    if (allClassGroups && allClassGroups[cId] && typeof allClassGroups[cId] === 'object' && allClassGroups[cId].name) {
+      return allClassGroups[cId].name;
+    }
+    for (var k in allClassGroupsMeta) {
+      if (k === cId && allClassGroupsMeta[k].name) return allClassGroupsMeta[k].name;
+    }
+    return cId;
+  }
+
+  function initDropdowns() {
+    var semSelect = document.getElementById('planSemester');
+    semSelect.innerHTML = '';
+    LessonCreatorService.DEFAULT_SEMESTERS.forEach(function (sm) {
+      var opt = document.createElement('option');
+      opt.value = sm.id;
+      opt.textContent = sm.name;
+      semSelect.appendChild(opt);
+    });
+  }
+
+  async function loadClassRosters() {
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'class-groups.js');
+        if (res && res.ok && res.content) {
+          var s = document.createElement('script');
+          s.text = res.content;
+          document.head.appendChild(s);
+          if (s.parentNode) s.parentNode.removeChild(s);
+        }
+        var pRes = await Desktop.readText('user', 'planner-config.js');
+        if (pRes && pRes.ok && pRes.content) {
+          var s2 = document.createElement('script');
+          s2.text = pRes.content;
+          document.head.appendChild(s2);
+          if (s2.parentNode) s2.parentNode.removeChild(s2);
+        }
+      }
+    } catch (_) {}
+
+    var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || {});
+    allClassGroups = cgd.classGroups || (typeof CLASS_GROUPS !== 'undefined' ? CLASS_GROUPS : (window.CLASS_GROUPS || {}));
+    allClassGroupsMeta = cgd.classGroupsMeta || (typeof CLASS_GROUPS_META !== 'undefined' ? CLASS_GROUPS_META : (window.CLASS_GROUPS_META || {}));
+    if (window.PLANNER_CONFIG && window.PLANNER_CONFIG.classes) {
+      allPlannerClasses = window.PLANNER_CONFIG.classes;
+    }
+    updateFilterDropdownOptions();
+  }
+
+  function parseDescriptorContent(content) {
+    if (!content || typeof content !== 'string') return null;
+    var trimmed = content.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        var parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (_) {}
+    }
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+      try {
+        var obj = JSON.parse(trimmed);
+        if (Array.isArray(obj.competences)) return obj.competences;
+        if (Array.isArray(obj.descriptors)) return obj.descriptors;
+        if (Array.isArray(obj.records)) return obj.records;
+        if (Array.isArray(obj.phases)) return obj.phases;
+        if (Array.isArray(obj.activities)) return obj.activities;
+        if (Array.isArray(obj.customCompetenceBank)) return obj.customCompetenceBank;
+        if (Array.isArray(obj.customDescriptorBank)) return obj.customDescriptorBank;
+        if (Array.isArray(obj.customPhaseBank)) return obj.customPhaseBank;
+      } catch (_) {}
+    }
+    var varMatch = content.match(/(?:(?:const|let|var)\s+(\w+)\s*=|window\.([A-Za-z0-9_$]+)\s*=)\s*\[/);
+    if (varMatch) {
+      var varName = varMatch[1] || varMatch[2];
+      try {
+        var fn = new Function(content + '\n;try{return ' + varName + ';}catch(e){return [];}');
+        var res2 = fn();
+        if (Array.isArray(res2)) return res2;
+      } catch (_) {}
+    }
+    try {
+      var firstBracket = trimmed.indexOf('[');
+      var lastBracket = trimmed.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        var slice = trimmed.slice(firstBracket, lastBracket + 1);
+        var fn2 = new Function('return ' + slice + ';');
+        var res2 = fn2();
+        if (Array.isArray(res2)) return res2;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function updateFilterDropdownOptions() {
+    var subSelect = document.getElementById('drawerFilterSubject');
+    var yrSelect = document.getElementById('drawerFilterYear');
+    var catSelect = document.getElementById('drawerFilterCategory');
+    var subCatSelect = document.getElementById('drawerFilterSubCategory');
+    var planSubSelect = document.getElementById('planSubject');
+    var planYrSelect = document.getElementById('planYearLevel');
+    var planClassSelect = document.getElementById('planClass');
+    var covYrSelect = document.getElementById('covFilterYear');
+
+    var currentDrawerSub = subSelect ? subSelect.value : 'all';
+    var currentDrawerYr = yrSelect ? yrSelect.value : 'all';
+    var currentCat = catSelect ? catSelect.value : 'all';
+    var currentSubCat = subCatSelect ? subCatSelect.value : 'all';
+    var currentPlanSub = planSubSelect ? planSubSelect.value : (currentPlan ? currentPlan.subjectId : '');
+    var currentPlanYr = planYrSelect ? planYrSelect.value : (currentPlan ? currentPlan.yearLevel : '');
+    var currentPlanClass = planClassSelect ? planClassSelect.value : (currentPlan ? currentPlan.classId : '');
+
+    var subjects = new Set();
+    var yearLevels = new Set();
+    var categories = new Set();
+    var subCategories = new Set();
+    var classes = new Set();
+
+    // 1. Group Editor default subjects:
+    var defSubjects = ['English', 'French', 'Science', 'Mathematics', 'History', 'Geography', 'Art', 'Music', 'Physical Education', 'Spanish', 'German'];
+    defSubjects.forEach(function (s) { if (s) subjects.add(s.trim()); });
+
+    // 2. Group Editor class-groups.js subjects (allClassGroupsMeta & allPlannerClasses):
+    Object.keys(allClassGroupsMeta || {}).forEach(function (k) {
+      var m = allClassGroupsMeta[k];
+      if (m && m.subject && typeof m.subject === 'string' && m.subject.trim()) {
+        subjects.add(m.subject.trim());
+      }
+    });
+    Object.keys(allPlannerClasses || {}).forEach(function (k) {
+      var pc = allPlannerClasses[k];
+      if (pc && pc.subject && typeof pc.subject === 'string' && pc.subject.trim()) {
+        subjects.add(pc.subject.trim());
+      }
+    });
+
+    // 3. Competences Database subjects:
+    allCompetences.forEach(function (d) {
+      if (d) {
+        var s = d.subjectId || d.subject;
+        if (s && s !== 'all') subjects.add(s);
+
+        var y = d.yearLevel || d.year;
+        if (y && y !== 'all') yearLevels.add(y);
+
+        var c = d.classId || d.class || d.classGroup;
+        if (c && c !== 'all') classes.add(c);
+
+        if (d.category) categories.add(d.category);
+        if (d.subCategory) subCategories.add(d.subCategory);
+      }
+    });
+
+    // 4. Correction Criteria Database subjects:
+    if (typeof window !== 'undefined' && Array.isArray(window.XLSM_CRITERIA)) {
+      window.XLSM_CRITERIA.forEach(function (cr) {
+        if (cr.subjectId) subjects.add(cr.subjectId.trim());
+        if (cr.subject) subjects.add(cr.subject.trim());
+      });
+    }
+
+    // 5. Current Plan Subject:
+    if (currentPlan && currentPlan.subjectId && currentPlan.subjectId.trim()) {
+      subjects.add(currentPlan.subjectId.trim());
+    }
+
+    // 1. drawerFilterSubject (drawn from all available subjects)
+    if (subSelect) {
+      subSelect.innerHTML = '<option value="all" data-i18n="lcAllSubjects">All Subjects</option>';
+      var sortedDrawerSubs = Array.from(subjects).filter(Boolean).sort(function (a, b) {
+        return getSubjectLabel(a).localeCompare(getSubjectLabel(b), undefined, { sensitivity: 'base' });
+      });
+      sortedDrawerSubs.forEach(function (sId) {
+        var opt = document.createElement('option');
+        opt.value = sId;
+        opt.textContent = getSubjectLabel(sId);
+        subSelect.appendChild(opt);
+      });
+      if (subjects.has(currentDrawerSub)) subSelect.value = currentDrawerSub;
+    }
+
+    // 2. planSubject (drawn from all available subjects + custom option)
+    if (planSubSelect) {
+      planSubSelect.innerHTML = '';
+      var sortedSubs = Array.from(subjects).filter(Boolean).sort(function (a, b) {
+        return getSubjectLabel(a).localeCompare(getSubjectLabel(b), undefined, { sensitivity: 'base' });
+      });
+      sortedSubs.forEach(function (sId) {
+        var opt = document.createElement('option');
+        opt.value = sId;
+        opt.textContent = getSubjectLabel(sId);
+        planSubSelect.appendChild(opt);
+      });
+      var addCustomLabel = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+        ? i18n.t('lcAddCustomSubject')
+        : '＋ Add Custom Subject…';
+      var customOpt = document.createElement('option');
+      customOpt.value = '__custom__';
+      customOpt.textContent = addCustomLabel;
+      planSubSelect.appendChild(customOpt);
+
+      if (currentPlanSub && sortedSubs.some(function (s) { return s.toLowerCase() === currentPlanSub.toLowerCase(); })) {
+        for (var i = 0; i < planSubSelect.options.length; i++) {
+          if (planSubSelect.options[i].value.toLowerCase() === currentPlanSub.toLowerCase()) {
+            planSubSelect.selectedIndex = i;
+            break;
+          }
+        }
+      } else if (currentPlanSub && currentPlanSub !== '__custom__') {
+        lcAddSubjectOption(currentPlanSub, true);
+      } else if (planSubSelect.options.length > 1) {
+        planSubSelect.selectedIndex = 0;
+      }
+      if (currentPlan) currentPlan.subjectId = planSubSelect.value;
+    }
+
+    // 3. drawerFilterYear & covFilterYear & planYearLevel (drawn ONLY from competence list in user)
+    if (yrSelect) {
+      yrSelect.innerHTML = '<option value="all" data-i18n="lcAllYears">All Year Levels</option>';
+      yearLevels.forEach(function (yId) {
+        var opt = document.createElement('option');
+        opt.value = yId;
+        opt.textContent = getYearLevelLabel(yId);
+        yrSelect.appendChild(opt);
+      });
+      if (yearLevels.has(currentDrawerYr)) yrSelect.value = currentDrawerYr;
+    }
+
+    if (covYrSelect) {
+      var curCovYr = covYrSelect.value || 'all';
+      covYrSelect.innerHTML = '<option value="all" data-i18n="lcAllYears">All Year Levels</option>';
+      yearLevels.forEach(function (yId) {
+        var opt = document.createElement('option');
+        opt.value = yId;
+        opt.textContent = getYearLevelLabel(yId);
+        covYrSelect.appendChild(opt);
+      });
+      if (yearLevels.has(curCovYr)) covYrSelect.value = curCovYr;
+    }
+
+    if (planYrSelect) {
+      planYrSelect.innerHTML = '';
+      if (yearLevels.size === 0) {
+        var optEmptyYr = document.createElement('option');
+        optEmptyYr.value = 'all';
+        optEmptyYr.textContent = 'All Years / Levels';
+        planYrSelect.appendChild(optEmptyYr);
+      } else {
+        yearLevels.forEach(function (yId) {
+          var opt = document.createElement('option');
+          opt.value = yId;
+          opt.textContent = getYearLevelLabel(yId);
+          planYrSelect.appendChild(opt);
+        });
+        if (yearLevels.has(currentPlanYr)) {
+          planYrSelect.value = currentPlanYr;
+        } else if (planYrSelect.options.length > 0) {
+          planYrSelect.value = planYrSelect.options[0].value;
+        }
+      }
+      if (currentPlan) currentPlan.yearLevel = planYrSelect.value;
+    }
+
+    // 4. planClass (drawn from student rosters in CLASS_GROUPS and competence list)
+    if (planClassSelect) {
+      planClassSelect.innerHTML = '<option value="" data-i18n="lcSelectClass">Select Class…</option>';
+      var availableClasses = new Set();
+
+      // Always add teacher's class rosters first
+      if (allClassGroupsMeta && typeof allClassGroupsMeta === 'object') {
+        Object.keys(allClassGroupsMeta).forEach(function (cId) {
+          if (cId && !(allClassGroupsMeta[cId] && allClassGroupsMeta[cId].archived)) availableClasses.add(cId);
+        });
+      }
+      if (allPlannerClasses && typeof allPlannerClasses === 'object') {
+        Object.keys(allPlannerClasses).forEach(function (cId) {
+          if (cId) availableClasses.add(cId);
+        });
+      }
+      if (allClassGroups && typeof allClassGroups === 'object') {
+        Object.keys(allClassGroups).forEach(function (cId) {
+          if (cId) availableClasses.add(cId);
+        });
+      }
+
+      // Also include any specific classes tagged in competences
+      classes.forEach(function (cId) {
+        if (cId && cId !== 'all') availableClasses.add(cId);
+      });
+
+      // Ensure current plan's classId is included if set
+      if (currentPlanClass) availableClasses.add(currentPlanClass);
+
+      var sortedClasses = Array.from(availableClasses).sort(function (a, b) {
+        return getClassLabel(a).localeCompare(getClassLabel(b));
+      });
+
+      sortedClasses.forEach(function (cId) {
+        var opt = document.createElement('option');
+        opt.value = cId;
+        opt.textContent = getClassLabel(cId);
+        planClassSelect.appendChild(opt);
+      });
+
+      if (currentPlanClass && availableClasses.has(currentPlanClass)) {
+        planClassSelect.value = currentPlanClass;
+      } else {
+        planClassSelect.value = '';
+      }
+    }
+
+    // 5. Categories & Subcategories
+    if (catSelect) {
+      catSelect.innerHTML = '<option value="all">All Categories</option>';
+      categories.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        catSelect.appendChild(opt);
+      });
+      if (categories.has(currentCat)) catSelect.value = currentCat;
+    }
+
+    if (subCatSelect) {
+      subCatSelect.innerHTML = '<option value="all">All Subcategories</option>';
+      subCategories.forEach(function (sc) {
+        var opt = document.createElement('option');
+        opt.value = sc;
+        opt.textContent = sc;
+        subCatSelect.appendChild(opt);
+      });
+      if (subCategories.has(currentSubCat)) subCatSelect.value = currentSubCat;
+    }
+  }
+
+  async function loadSavedDescriptors() {
+    var map = new Map();
+
+    function addOrUpdateItem(d, srcFile) {
+      if (!d || typeof d !== 'object') return;
+      var baseId = d.id || (d.code ? ('desc_' + String(d.code).toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9)));
+      var id = baseId;
+      // If collision between two different items, qualify with source file
+      if (map.has(id)) {
+        var existing = map.get(id);
+        if (existing !== d && (existing.title !== d.title || existing.description !== d.description)) {
+          if (srcFile) {
+            id = srcFile.replace(/\.(js|json)$/i, '') + '::' + baseId;
+          } else {
+            id = baseId + '_' + Math.random().toString(36).substr(2, 5);
+          }
+        }
+      }
+      d.id = id;
+      if (srcFile && !d._sourceDb) d._sourceDb = srcFile;
+      map.set(id, d);
+    }
+
+    // 1. Unified load via CompetenceAggregatorService if available
+    if (typeof window !== 'undefined' && window.CompetenceAggregatorService && typeof window.CompetenceAggregatorService.loadAllCompetences === 'function') {
+      try {
+        var aggList = await window.CompetenceAggregatorService.loadAllCompetences(true);
+        if (Array.isArray(aggList) && aggList.length > 0) {
+          aggList.forEach(function (c) { addOrUpdateItem(c, c._sourceDb); });
+        }
+      } catch (err) {
+        console.warn('CompetenceAggregatorService load in Lesson Creator error:', err);
+      }
+    }
+
+    // 2. Base default list fallback
+    var baseList = (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS))
+      ? (LessonCreatorService.DEFAULT_COMPETENCES || LessonCreatorService.DEFAULT_DESCRIPTORS).slice()
+      : [];
+    baseList.forEach(function (b) { addOrUpdateItem(b); });
+
+    // 3. User root file: lesson-competences.json / lesson-descriptors.json
+    try {
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'lesson-competences.json');
+        if (!res || !res.ok) res = await Desktop.readText('user', 'lesson-descriptors.json');
+        if (res && res.ok && res.content) {
+          try {
+            var parsed = JSON.parse(res.content);
+            var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.competences || parsed.descriptors) ? (parsed.competences || parsed.descriptors) : []);
+            list2.forEach(function (it) { addOrUpdateItem(it, 'lesson-competences.json'); });
+          } catch (_) {}
+        }
+      }
+    } catch (e) {}
+
+    // 4. Custom competence files in user/custom-data/competences/
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+        var filesResult = await Desktop.listFiles('customCompetences', { extensions: ['.js', '.json'] });
+        var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
+        if (!list.length) {
+          var legacyResult = await Desktop.listFiles('customDescriptors', { extensions: ['.js', '.json'] });
+          list = Array.isArray(legacyResult) ? legacyResult : (legacyResult && Array.isArray(legacyResult.files) ? legacyResult.files : []);
+        }
+        for (var i = 0; i < list.length; i++) {
+          var f = list[i];
+          var filename = typeof f === 'string' ? f : (f && f.filename);
+          if (!filename || filename === 'competence-links.json') continue;
+          var rawRes = await Desktop.readText('customCompetences', filename);
+          if (!rawRes || !rawRes.ok) rawRes = await Desktop.readText('customDescriptors', filename);
+          if (rawRes && rawRes.ok && rawRes.content) {
+            var arr = parseDescriptorContent(rawRes.content);
+            if (Array.isArray(arr)) {
+              arr.forEach(function (it) { addOrUpdateItem(it, filename); });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('loadSavedDescriptors customCompetences error:', e);
+    }
+
+    allCompetences = Array.from(map.values());
+    allDescriptors = allCompetences;
+    updateFilterDropdownOptions();
+  }
+
+  async function loadSavedPhases() {
+    var map = new Map();
+    function addOrUpdatePhase(item) {
+      if (!item || typeof item !== 'object') return;
+      var id = String(item.id || item.title || '').trim();
+      if (!id) return;
+      item.id = id;
+      map.set(id, Object.assign({}, item));
+    }
+
+    // 1. LocalStorage fallback
+    try {
+      var localStored = localStorage.getItem('cmt-lesson-phases');
+      if (localStored) {
+        var parsedLocal = JSON.parse(localStored);
+        if (Array.isArray(parsedLocal)) parsedLocal.forEach(addOrUpdatePhase);
+      }
+    } catch (_) {}
+
+    // 2. User root file: lesson-phases.json
+    try {
+      if (window.Desktop && typeof Desktop.readText === 'function') {
+        var res = await Desktop.readText('user', 'lesson-phases.json');
+        if (res && res.ok && res.content) {
+          try {
+            var parsed = JSON.parse(res.content);
+            var list2 = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.phases) ? parsed.phases : []);
+            list2.forEach(addOrUpdatePhase);
+          } catch (_) {}
+        }
+      }
+    } catch (e) {}
+
+    // 3. Custom phase files in customPhases (user/custom-data/phases/)
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+        var filesResult = await Desktop.listFiles('customPhases', { extensions: ['.js', '.json'] });
+        var list = Array.isArray(filesResult) ? filesResult : (filesResult && Array.isArray(filesResult.files) ? filesResult.files : []);
+        for (var i = 0; i < list.length; i++) {
+          var f = list[i];
+          var filename = typeof f === 'string' ? f : (f && f.filename);
+          if (!filename) continue;
+          var rawRes = await Desktop.readText('customPhases', filename);
+          if (rawRes && rawRes.ok && rawRes.content) {
+            var arr = parseDescriptorContent(rawRes.content);
+            if (Array.isArray(arr)) arr.forEach(addOrUpdatePhase);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('loadSavedPhases customPhases error:', e);
+    }
+
+    allPhases = Array.from(map.values());
+    updateActivityFilterOptions();
+  }
+
+  window.addEventListener('focus', async function () {
+    await loadSavedDescriptors();
+    renderDrawer();
+    await loadSavedPhases();
+    renderActivityDrawer();
+  });
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      var _compCh = new BroadcastChannel('cmt-competences');
+      _compCh.onmessage = async function () {
+        await loadSavedDescriptors();
+        renderDrawer();
+      };
+    } catch (_) {}
+    try {
+      var _phaseCh = new BroadcastChannel('cmt-phases');
+      _phaseCh.onmessage = async function () {
+        await loadSavedPhases();
+        renderActivityDrawer();
+      };
+    } catch (_) {}
+  }
+
+  if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+    Desktop.onDataChanged(async function () {
+      await loadSavedDescriptors();
+      renderDrawer();
+      await loadSavedPhases();
+      renderActivityDrawer();
+    });
+  }
+
+  window.addEventListener('storage', async function (e) {
+    if (e.key === 'cmt-lesson-competences' || e.key === 'cmt-lesson-descriptors') {
+      await loadSavedDescriptors();
+      renderDrawer();
+    } else if (e.key === 'cmt-lesson-phases') {
+      await loadSavedPhases();
+      renderActivityDrawer();
+    }
+  });
+
+  async function loadSavedPlansIndex() {
+    allSavedPlans = [];
+    allSavedTests = [];
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+        var itemsToScan = [];
+        var testsToScan = [];
+
+        // 1. Scan user/lessons/
+        var listRes = await Desktop.listByPath('user', 'lessons', { extensions: ['.json'] });
+        var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+        files.forEach(function (f) {
+          if (f && f.filename) {
+            itemsToScan.push({ target: 'user', relPath: f.relativePath || ('lessons/' + f.filename), filename: f.filename });
+          }
+        });
+
+        // 2. Scan user/ root for legacy/flat lp_ files
+        if (typeof Desktop.listFiles === 'function') {
+          var rootRes = await Desktop.listFiles('user', { extensions: ['.json'] });
+          var rootFiles = (rootRes && rootRes.ok && Array.isArray(rootRes.files)) ? rootRes.files : [];
+          rootFiles.forEach(function (rf) {
+            if (rf && rf.filename && rf.filename.startsWith('lp_')) {
+              itemsToScan.push({ target: 'user', relPath: rf.filename, filename: rf.filename });
+            } else if (rf && rf.filename && rf.filename.startsWith('test_')) {
+              testsToScan.push({ target: 'user', relPath: rf.filename, filename: rf.filename });
+            }
+          });
+        }
+
+        // 3. Scan user/tests/
+        var testListRes = await Desktop.listByPath('user', 'tests', { extensions: ['.json'] });
+        var testFiles = (testListRes && testListRes.ok && Array.isArray(testListRes.files)) ? testListRes.files : [];
+        testFiles.forEach(function (tf) {
+          if (tf && tf.filename) {
+            testsToScan.push({ target: 'user', relPath: tf.relativePath || ('tests/' + tf.filename), filename: tf.filename });
+          }
+        });
+
+        // Load lessons
+        for (var i = 0; i < itemsToScan.length; i++) {
+          var item = itemsToScan[i];
+          var contentRes = await Desktop.readByPath(item.target, item.relPath);
+          if (contentRes && contentRes.ok && contentRes.content) {
+            try {
+              var p = JSON.parse(contentRes.content);
+              if (p && p.id && !allSavedPlans.some(function (x) { return x.id === p.id; })) {
+                p._filename = item.filename || item.relPath.split('/').pop();
+                p._relPath = item.relPath;
+                p._target = item.target;
+                p._itemType = 'lesson';
+                allSavedPlans.push(p);
+              }
+            } catch (_) {}
+          }
+        }
+
+        // Load tests
+        for (var j = 0; j < testsToScan.length; j++) {
+          var tItem = testsToScan[j];
+          var tContentRes = await Desktop.readByPath(tItem.target, tItem.relPath);
+          if (tContentRes && tContentRes.ok && tContentRes.content) {
+            try {
+              var tData = JSON.parse(tContentRes.content);
+              if (tData && tData.id && !allSavedTests.some(function (x) { return x.id === tData.id; })) {
+                tData._filename = tItem.filename || tItem.relPath.split('/').pop();
+                tData._relPath = tItem.relPath;
+                tData._target = tItem.target;
+                tData._itemType = 'test';
+                allSavedTests.push(tData);
+              }
+            } catch (_) {}
+          }
+        }
+      } else {
+        // LocalStorage fallback for lessons
+        for (var k in localStorage) {
+          if (k && k.indexOf('cmt-lesson-') === 0) {
+            try {
+              var p2 = JSON.parse(localStorage.getItem(k));
+              if (p2 && p2.id && !allSavedPlans.some(function (x) { return x.id === p2.id; })) {
+                p2._filename = 'lp_' + p2.id + '.json';
+                p2._relPath = 'lessons/' + p2._filename;
+                p2._target = 'lessons';
+                p2._itemType = 'lesson';
+                allSavedPlans.push(p2);
+              }
+            } catch (_) {}
+          } else if (k && k === 'cmt_tests') {
+            try {
+              var rawTests = JSON.parse(localStorage.getItem(k));
+              if (Array.isArray(rawTests)) {
+                rawTests.forEach(function (rt) {
+                  if (rt && rt.id && !allSavedTests.some(function (x) { return x.id === rt.id; })) {
+                    rt._filename = 'test_' + rt.id + '.json';
+                    rt._relPath = 'tests/' + rt._filename;
+                    rt._target = 'tests';
+                    rt._itemType = 'test';
+                    allSavedTests.push(rt);
+                  }
+                });
+              }
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  // ── Main Render Routines ──────────────────────────────────────────────
+  function renderPlan() {
+    document.getElementById('planTitle').value = currentPlan.title || '';
+    
+    var subEl = document.getElementById('planSubject');
+    if (currentPlan.subjectId) {
+      if (!Array.from(subEl.options).some(function (o) { return o.value === currentPlan.subjectId; })) {
+        var optS = document.createElement('option');
+        optS.value = currentPlan.subjectId;
+        optS.textContent = getSubjectLabel(currentPlan.subjectId);
+        subEl.appendChild(optS);
+      }
+      subEl.value = currentPlan.subjectId;
+    } else if (subEl.options.length > 0) {
+      subEl.value = subEl.options[0].value;
+    }
+
+    var clsEl = document.getElementById('planClass');
+    if (currentPlan.classId) {
+      if (!Array.from(clsEl.options).some(function (o) { return o.value === currentPlan.classId; })) {
+        var optC = document.createElement('option');
+        optC.value = currentPlan.classId;
+        optC.textContent = getClassLabel(currentPlan.classId);
+        clsEl.appendChild(optC);
+      }
+      clsEl.value = currentPlan.classId;
+    } else {
+      clsEl.value = '';
+    }
+
+    var yrEl = document.getElementById('planYearLevel');
+    if (currentPlan.yearLevel) {
+      if (!Array.from(yrEl.options).some(function (o) { return o.value === currentPlan.yearLevel; })) {
+        var optY = document.createElement('option');
+        optY.value = currentPlan.yearLevel;
+        optY.textContent = getYearLevelLabel(currentPlan.yearLevel);
+        yrEl.appendChild(optY);
+      }
+      yrEl.value = currentPlan.yearLevel;
+    } else if (yrEl.options.length > 0) {
+      yrEl.value = yrEl.options[0].value;
+    }
+
+    document.getElementById('planSemester').value = currentPlan.semester || 'all';
+    document.getElementById('planDate').value = currentPlan.date || '';
+    document.getElementById('planTargetDuration').value = currentPlan.targetDuration || 60;
+
+    var tagInput = document.getElementById('newTagInput');
+    if (tagInput) tagInput.value = '';
+
+    updateSequenceBar();
+
+    renderTags();
+    renderTeamBadge();
+    renderPhaseCards();
+    updateDurationMeter();
+    if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+    if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
+  }
+
+  function renderTags() {
+    var container = document.getElementById('planTagsContainer');
+    container.innerHTML = '';
+    (currentPlan.tags || []).forEach(function (tag, i) {
+      var pill = document.createElement('span');
+      pill.className = 'tag-pill';
+      pill.innerHTML = '<span>' + escapeHtml(tag) + '</span><span class="tag-pill-remove" data-lc-action="remove-tag" data-lc-idx="' + i + '">&times;</span>';
+      container.appendChild(pill);
+    });
+  }
+
+  function renderTeamBadge() {
+    var badge = document.getElementById('teamBadgeText');
+    if (currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+      badge.textContent = 'Teams: ' + currentPlan.teamConfig.teamSize + ' students (' + (currentPlan.teamConfig.roles || []).length + ' roles)';
+    } else {
+      badge.textContent = 'Teams: Off';
+    }
+  }
+
+  function lcAutoResizeField(el) {
+    if (!el) return;
+    if (window.CSS && CSS.supports && CSS.supports('field-sizing', 'content')) {
+      return;
+    }
+    el.style.height = 'auto';
+    if (el.scrollHeight > 0) {
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }
+  window.lcAutoResizeField = lcAutoResizeField;
+
+  window.lcTimelineViewMode = 'detailed';
+  window.lcExpandedPhaseIndices = new Set();
+
+  function formatPacingClock(mins) {
+    mins = parseInt(mins, 10) || 0;
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    if (h > 0) {
+      return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    }
+    return '00:' + String(m).padStart(2, '0');
+  }
+  window.formatPacingClock = formatPacingClock;
+
+  function lcSetTimelineViewMode(mode) {
+    window.lcTimelineViewMode = (mode === 'compact') ? 'compact' : 'detailed';
+    var btnDetailed = document.getElementById('btnViewDetailed');
+    var btnCompact = document.getElementById('btnViewCompact');
+    if (btnDetailed) btnDetailed.classList.toggle('active', window.lcTimelineViewMode === 'detailed');
+    if (btnCompact) btnCompact.classList.toggle('active', window.lcTimelineViewMode === 'compact');
+    renderPhaseCards();
+  }
+  window.lcSetTimelineViewMode = lcSetTimelineViewMode;
+
+  function lcToggleTimelineViewMode() {
+    lcSetTimelineViewMode(window.lcTimelineViewMode === 'compact' ? 'detailed' : 'compact');
+  }
+  window.lcToggleTimelineViewMode = lcToggleTimelineViewMode;
+
+  function lcTogglePhaseExpand(idx) {
+    if (!window.lcExpandedPhaseIndices) window.lcExpandedPhaseIndices = new Set();
+    if (window.lcExpandedPhaseIndices.has(idx)) {
+      window.lcExpandedPhaseIndices.delete(idx);
+    } else {
+      window.lcExpandedPhaseIndices.add(idx);
+    }
+    renderPhaseCards();
+  }
+  window.lcTogglePhaseExpand = lcTogglePhaseExpand;
+
+  function lcMovePhase(fromIdx, toIdx) {
+    if (!currentPlan.sections || fromIdx < 0 || fromIdx >= currentPlan.sections.length || toIdx < 0 || toIdx >= currentPlan.sections.length || fromIdx === toIdx) {
+      return;
+    }
+    var moved = currentPlan.sections.splice(fromIdx, 1)[0];
+    currentPlan.sections.splice(toIdx, 0, moved);
+
+    // Remap expanded indices if any
+    if (window.lcExpandedPhaseIndices && window.lcExpandedPhaseIndices.size > 0) {
+      var newExpanded = new Set();
+      window.lcExpandedPhaseIndices.forEach(function (i) {
+        if (i === fromIdx) {
+          newExpanded.add(toIdx);
+        } else if (fromIdx < toIdx && i > fromIdx && i <= toIdx) {
+          newExpanded.add(i - 1);
+        } else if (fromIdx > toIdx && i >= toIdx && i < fromIdx) {
+          newExpanded.add(i + 1);
+        } else {
+          newExpanded.add(i);
+        }
+      });
+      window.lcExpandedPhaseIndices = newExpanded;
+    }
+
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+
+    var outlineM = document.getElementById('outlineModal');
+    if (outlineM && outlineM.style.display === 'flex') {
+      renderOutlineModalList();
+    }
+  }
+  window.lcMovePhase = lcMovePhase;
+
+  function lcMovePhaseRelative(idx, delta) {
+    var target = idx + delta;
+    if (target >= 0 && target < (currentPlan.sections || []).length) {
+      lcMovePhase(idx, target);
+    }
+  }
+  window.lcMovePhaseRelative = lcMovePhaseRelative;
+
+  function lcMovePhaseToTop(idx) {
+    if (idx > 0) {
+      lcMovePhase(idx, 0);
+    }
+  }
+  window.lcMovePhaseToTop = lcMovePhaseToTop;
+
+  function lcMovePhaseToBottom(idx) {
+    var last = (currentPlan.sections || []).length - 1;
+    if (idx < last) {
+      lcMovePhase(idx, last);
+    }
+  }
+  window.lcMovePhaseToBottom = lcMovePhaseToBottom;
+
+  function lcAutoBalanceDurations() {
+    var phases = currentPlan.sections || [];
+    if (phases.length === 0) return;
+    var target = parseInt(document.getElementById('planTargetDuration').value, 10) || 60;
+    var currentTotal = phases.reduce(function (sum, p) { return sum + (parseInt(p.duration, 10) || 0); }, 0);
+    if (currentTotal <= 0) {
+      var equalShare = Math.max(1, Math.floor(target / phases.length));
+      phases.forEach(function (p) { p.duration = equalShare; });
+    } else {
+      var allocated = 0;
+      phases.forEach(function (p, i) {
+        if (i === phases.length - 1) {
+          p.duration = Math.max(1, target - allocated);
+        } else {
+          var ratio = (parseInt(p.duration, 10) || 0) / currentTotal;
+          var newDur = Math.max(1, Math.round(ratio * target));
+          p.duration = newDur;
+          allocated += newDur;
+        }
+      });
+    }
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+    var outlineM = document.getElementById('outlineModal');
+    if (outlineM && outlineM.style.display === 'flex') {
+      renderOutlineModalList();
+    }
+    if (typeof showToast === 'function') {
+      showToast(typeof i18n !== "undefined" && i18n.tFmt ? i18n.tFmt("lcAutoBalanceToast", { duration: target }) : ("Auto-balanced phase durations to target (" + target + "m)"));
+    }
+  }
+  window.lcAutoBalanceDurations = lcAutoBalanceDurations;
+
+  function lcReversePhases() {
+    if (!currentPlan.sections || currentPlan.sections.length <= 1) return;
+    currentPlan.sections.reverse();
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+    var outlineM = document.getElementById('outlineModal');
+    if (outlineM && outlineM.style.display === 'flex') {
+      renderOutlineModalList();
+    }
+    if (typeof showToast === 'function') {
+      showToast(i18n.t("lcReversedPhasesToast"));
+    }
+  }
+  window.lcReversePhases = lcReversePhases;
+
+  function lcOpenOutlineModal() {
+    renderOutlineModalList();
+    var m = document.getElementById('outlineModal');
+    if (m) m.style.display = 'flex';
+  }
+  window.lcOpenOutlineModal = lcOpenOutlineModal;
+
+  function renderOutlineModalList() {
+    var list = document.getElementById('outlinePhasesList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    var phases = currentPlan.sections || [];
+    var target = parseInt(document.getElementById('planTargetDuration').value, 10) || 60;
+    var totalMins = 0;
+    phases.forEach(function (p) { totalMins += (parseInt(p.duration, 10) || 0); });
+
+    var countBadge = document.getElementById('outlinePhasesCountBadge');
+    if (countBadge) countBadge.textContent = phases.length + ' ' + (phases.length === 1 ? 'Phase' : 'Phases');
+
+    var durSummary = document.getElementById('outlineDurationSummary');
+    if (durSummary) {
+      durSummary.textContent = 'Total: ' + totalMins + ' / ' + target + 'm' + (totalMins === target ? ' (Balanced)' : (totalMins > target ? ' (+' + (totalMins - target) + 'm Over)' : ' (' + (target - totalMins) + 'm Under)'));
+      durSummary.style.color = (totalMins === target) ? 'var(--neo-green)' : (totalMins > target ? 'var(--neo-orange)' : 'var(--neo-dark)');
+    }
+
+    var pacingBar = document.getElementById('outlinePacingBar');
+    if (pacingBar) {
+      pacingBar.innerHTML = '';
+      if (totalMins > 0) {
+        phases.forEach(function (p, idx) {
+          var seg = document.createElement('div');
+          seg.className = 'outline-pacing-segment';
+          var pct = ((parseInt(p.duration, 10) || 0) / Math.max(totalMins, target)) * 100;
+          seg.style.width = pct + '%';
+          var actType = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === p.activityTypeId; });
+          seg.style.background = actType ? (actType.bg || '#e2c96e') : '#e2c96e';
+          seg.title = '#' + (idx + 1) + ' ' + (p.title || 'Phase') + ' (' + (p.duration || 0) + 'm)';
+          pacingBar.appendChild(seg);
+        });
+      }
+    }
+
+    if (phases.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:var(--neo-gray-dark);font-size:0.88rem;">' +
+        'No phases in this lesson plan yet. Click "<strong>+ Add Phase</strong>" below to start.</div>';
+      return;
+    }
+
+    var cumMinutes = 0;
+    phases.forEach(function (sec, idx) {
+      var cumStart = cumMinutes;
+      var dur = parseInt(sec.duration, 10) || 0;
+      var cumEnd = cumStart + dur;
+      cumMinutes = cumEnd;
+
+      var row = document.createElement('div');
+      row.className = 'outline-row';
+      row.dataset.index = idx;
+      row.draggable = true;
+
+      row.addEventListener('dragstart', function (e) {
+        e.dataTransfer.setData('text/plain', String(idx));
+        e.dataTransfer.effectAllowed = 'move';
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', function () {
+        row.classList.remove('dragging');
+      });
+      row.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        row.classList.add('drag-over');
+      });
+      row.addEventListener('dragleave', function (e) {
+        if (!row.contains(e.relatedTarget)) {
+          row.classList.remove('drag-over');
+        }
+      });
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        var fromIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if (!isNaN(fromIdx) && fromIdx !== idx && fromIdx >= 0 && fromIdx < phases.length) {
+          lcMovePhase(fromIdx, idx);
+        }
+      });
+
+      var isFirst = (idx === 0);
+      var isLast = (idx === phases.length - 1);
+
+      var actType = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === sec.activityTypeId; });
+      var actLabel = actType ? getActivityLabel(actType.id, true) : 'Activity';
+      var actBg = actType ? (actType.bg || '#fef3c7') : '#f3f4f6';
+
+      row.innerHTML = [
+        '<span class="phase-handle" title="Drag to reorder" style="font-size:0.95rem;">:::</span>',
+        '<span class="phase-number-badge" style="font-size:0.75rem;padding:2px 6px;">' + (idx + 1) + '</span>',
+        '<span class="phase-time-badge" style="font-size:0.72rem;">' + formatPacingClock(cumStart) + '–' + formatPacingClock(cumEnd) + '</span>',
+        '<input type="text" class="outline-row-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="' + escapeHtml(i18n.t('lcPhaseTitlePlaceholder')) + '" data-lc-input="outline-title" data-lc-idx="' + idx + '">',
+        '<span style="background:' + actBg + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.72rem;font-weight:800;white-space:nowrap;">' + escapeHtml(actLabel) + '</span>',
+        '<div style="display:flex;align-items:center;gap:3px;">',
+        '  <input type="number" class="outline-row-duration-input" value="' + dur + '" min="1" max="240" data-lc-input="outline-duration" data-lc-idx="' + idx + '">',
+        '  <span style="font-size:0.75rem;font-weight:800;">m</span>',
+        '</div>',
+        '<div style="display:inline-flex;align-items:center;gap:3px;margin-left:auto;">',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-top" data-lc-idx="' + idx + '" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseTop') || 'Move to Top') + '">⤒</button>',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-rel" data-lc-idx="' + idx + '" data-lc-delta="-1" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseUp') || 'Move Up') + '">▲</button>',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-rel" data-lc-idx="' + idx + '" data-lc-delta="1" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseDown') || 'Move Down') + '">▼</button>',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-bottom" data-lc-idx="' + idx + '" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseBottom') || 'Move to Bottom') + '">⤓</button>',
+        '  <button type="button" class="icon-btn" data-lc-action="outline-dup" data-lc-idx="' + idx + '" title="Duplicate Phase" style="padding:3px 6px;font-size:0.74rem;"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>',
+        '  <button type="button" class="icon-btn danger" data-lc-action="outline-del" data-lc-idx="' + idx + '" title="Delete Phase" style="padding:3px 6px;font-size:0.74rem;"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>',
+        '</div>'
+      ].join('');
+
+      list.appendChild(row);
+    });
+  }
+  window.renderOutlineModalList = renderOutlineModalList;
+
+  function lcAddPhaseFromOutline() {
+    lcAddPhase();
+    renderOutlineModalList();
+  }
+  window.lcAddPhaseFromOutline = lcAddPhaseFromOutline;
+
+  function buildCompactActivityBadge(actId) {
+    var a = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (item) { return item.id === actId; });
+    if (!a) return '<span style="font-size:0.72rem;color:var(--neo-gray-dark);font-weight:700;">(No activity)</span>';
+    var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
+    var bg = a.bg || '#fef3c7';
+    var col = a.color || '#111';
+    var actName = getActivityLabel(a.id, false);
+    var actExp = getActivityExplanation(a.id);
+    var fullTip = actName + (actExp ? ('\n\n' + actExp) : '');
+    return '<span style="background:' + bg + ';color:' + col + ';border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;" title="' + escapeHtml(fullTip) + '">' +
+      iconHtml + '<span>' + escapeHtml(getActivityLabel(a.id, true)) + '</span></span>';
+  }
+
+  function buildCompactModeBadge(modeId) {
+    var m = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (item) { return item.id === modeId; });
+    if (!m) return '';
+    var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="" style="width:12px;height:12px;margin-right:4px;">' : '';
+    var modeName = getInteractionLabel(m.id, false);
+    var modeExp = getInteractionExplanation(m.id);
+    var fullTip = modeName + (modeExp ? ('\n\n' + modeExp) : '');
+    return '<span style="background:var(--neo-gray-light);border:1px solid var(--neo-dark);border-radius:12px;padding:2px 8px;font-size:0.74rem;font-weight:800;display:inline-flex;align-items:center;white-space:nowrap;" title="' + escapeHtml(fullTip) + '">' +
+      iconHtml + '<span>' + escapeHtml(getInteractionLabel(m.id, true)) + '</span></span>';
+  }
+
+  function renderMarkdownOrHtml(content, format) {
+    if (!content) return '';
+    var raw = String(content);
+    if (format === 'html') {
+      return raw.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+    }
+    if (format === 'markdown' || !format) {
+      if (window.marked && typeof marked.parse === 'function') {
+        try {
+          var parsed = marked.parse(raw, { breaks: true, gfm: true });
+          return String(parsed).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                               .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '');
+        } catch (e) {
+          console.warn('Error parsing markdown:', e);
+        }
+      }
+    }
+    return escapeHtml(raw).replace(/\n/g, '<br>');
+  }
+
+  function buildPhaseCustomFields(customFields, phaseIndex) {
+    if (!Array.isArray(customFields) || customFields.length === 0) {
+      return '<div class="phase-custom-fields-list" id="phaseCustomFieldsList_' + phaseIndex + '"></div>';
+    }
+
+    var html = '<div class="phase-custom-fields-list" id="phaseCustomFieldsList_' + phaseIndex + '">';
+    customFields.forEach(function (cf) {
+      var cfId = cf.id || ('cf_' + Math.random().toString(36).slice(2, 7));
+      cf.id = cfId;
+      var fmt = cf.format || 'markdown';
+      var isPreview = (cf._viewMode === 'preview');
+      var rendered = renderMarkdownOrHtml(cf.content || '', fmt);
+      var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+
+      html += '<div class="phase-custom-field-card" id="cfCard_' + phaseIndex + '_' + escapeHtml(cfId) + '">';
+      // Header
+      html += '  <div class="phase-custom-field-header">';
+      html += '    <div class="phase-custom-field-title-wrap">';
+      html += '      <span class="phase-custom-field-badge">CUSTOM</span>';
+      html += '      <input type="text" class="phase-custom-title-input" value="' + escapeHtml(cf.title || '') + '" placeholder="' + escapeHtml(i18n.t('lcCustomFieldTitlePlaceholder') || 'Field Title (e.g. Vocabulary, Notes)') + '" data-lc-input="cf-title" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" title="' + escapeHtml(i18n.t('lcCustomFieldTitlePlaceholder') || 'Custom Field Title') + '">';
+      html += '    </div>';
+
+      // Actions
+      html += '    <div class="phase-custom-field-actions">';
+      // Format switch
+      html += '      <div class="phase-custom-format-group" title="' + escapeHtml(i18n.t('lcCustomFieldFormat') || 'Format') + '">';
+      html += '        <button type="button" class="phase-format-btn' + (fmt === 'markdown' ? ' active' : '') + '" data-lc-action="cf-fmt" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" data-lc-val="markdown">MD</button>';
+      html += '        <button type="button" class="phase-format-btn' + (fmt === 'html' ? ' active' : '') + '" data-lc-action="cf-fmt" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" data-lc-val="html">HTML</button>';
+      html += '        <button type="button" class="phase-format-btn' + (fmt === 'text' ? ' active' : '') + '" data-lc-action="cf-fmt" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" data-lc-val="text">TXT</button>';
+      html += '      </div>';
+
+      // Edit vs Preview
+      html += '      <div class="phase-custom-view-group">';
+      html += '        <button type="button" class="phase-view-btn' + (!isPreview ? ' active' : '') + '" id="cfEditBtn_' + phaseIndex + '_' + escapeHtml(cfId) + '" data-lc-action="cf-view" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" data-lc-val="edit" title="' + escapeHtml(i18n.t('lcCustomFieldEdit') || 'Edit') + '">' + escapeHtml(i18n.t('lcCustomFieldEdit') || 'Edit') + '</button>';
+      html += '        <button type="button" class="phase-view-btn' + (isPreview ? ' active' : '') + '" id="cfPrevBtn_' + phaseIndex + '_' + escapeHtml(cfId) + '" data-lc-action="cf-view" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" data-lc-val="preview" title="' + escapeHtml(i18n.t('lcCustomFieldPreview') || 'Preview') + '">' + escapeHtml(i18n.t('lcCustomFieldPreview') || 'Preview') + '</button>';
+      html += '      </div>';
+
+      // Duplicate to all phases
+      html += '      <button type="button" class="icon-btn" data-lc-action="cf-dup-all" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" title="' + escapeHtml(i18n.t('lcDuplicateToAllPhases') || 'Add this field to all phases') + '"><img src="../assets/icons/copy.svg" class="btn-icon btn-icon-xs" alt=""></button>';
+
+      // Remove
+      html += '      <button type="button" class="icon-btn danger" data-lc-action="cf-remove" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '" title="' + escapeHtml(i18n.t('lcRemoveCustomField') || 'Remove Field') + '">&times;</button>';
+      html += '    </div>';
+      html += '  </div>';
+
+      // Body
+      html += '  <div class="phase-custom-field-body">';
+      html += '    <textarea class="phase-textarea phase-custom-textarea" id="cfTextarea_' + phaseIndex + '_' + escapeHtml(cfId) + '" rows="2" placeholder="' + escapeHtml(i18n.t('lcCustomFieldContentPlaceholder') || 'Enter content (Markdown or HTML supported)…') + '" style="' + (isPreview ? 'display:none;' : '') + '" data-lc-input="cf-content" data-lc-idx="' + phaseIndex + '" data-lc-cf="' + escapeHtml(cfId) + '">' + escapeHtml(cf.content || '') + '</textarea>';
+      html += '    <div class="phase-custom-preview" id="cfPreview_' + phaseIndex + '_' + escapeHtml(cfId) + '" style="' + (!isPreview ? 'display:none;' : '') + '">' + (rendered || emptyHint) + '</div>';
+      html += '  </div>';
+
+      html += '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  function renderPhaseCards() {
+    var list = document.getElementById('phaseCardsList');
+    list.innerHTML = '';
+
+    if (!currentPlan.sections || currentPlan.sections.length === 0) {
+      list.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--neo-gray-dark);font-size:0.9rem;">' +
+        '<strong>Timeline is empty</strong><br><span style="font-size:0.8rem;opacity:0.8;margin-top:6px;display:block;">Click "<strong>+ Add Phase</strong>" or load a "<strong>Template</strong>" to start building your lesson plan.</span></div>';
+      return;
+    }
+
+    var isCompact = (window.lcTimelineViewMode === 'compact');
+    var cumulativeMinutes = 0;
+
+    (currentPlan.sections || []).forEach(function (sec, idx) {
+      var cumStart = cumulativeMinutes;
+      var dur = parseInt(sec.duration, 10) || 0;
+      var cumEnd = cumStart + dur;
+      cumulativeMinutes = cumEnd;
+      var timeBadgeText = formatPacingClock(cumStart) + '–' + formatPacingClock(cumEnd);
+      var isExpanded = (window.lcExpandedPhaseIndices && window.lcExpandedPhaseIndices.has(idx));
+
+      var card = document.createElement('div');
+      card.className = 'phase-card' + (isCompact ? ' compact-mode' : '') + (isExpanded ? ' is-expanded' : '');
+      card.dataset.index = idx;
+
+      // Drag and drop listeners for accepting drawer items (descriptors, phase templates, wordbank items)
+      card.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        var types = Array.from(e.dataTransfer.types || []);
+        if (types.includes('application/json')) {
+          e.dataTransfer.dropEffect = 'copy';
+        } else {
+          e.dataTransfer.dropEffect = 'move';
+        }
+        card.classList.add('drag-over');
+      });
+      card.addEventListener('dragleave', function (e) {
+        if (!card.contains(e.relatedTarget)) {
+          card.classList.remove('drag-over');
+        }
+      });
+      card.addEventListener('drop', function (e) {
+        e.preventDefault();
+        card.classList.remove('drag-over');
+
+        // 1. Check application/json payload for descriptor or phase template or wordbank item
+        var jsonStr = e.dataTransfer.getData('application/json');
+        if (jsonStr) {
+          try {
+            var payload = JSON.parse(jsonStr);
+            if (payload && payload.type === 'descriptor' && payload.descriptorId) {
+              lcTagDescriptorToActivePhase(payload.descriptorId, idx);
+              return;
+            }
+            if (payload && payload.type === 'phase-template' && payload.phase) {
+              lcInsertPhaseFromBank(payload.phase, idx);
+              return;
+            }
+            if (payload && payload.type === 'wordbank-item' && typeof payload.itemIdx === 'number') {
+              lcInsertWordBankItemToPhase(payload.itemIdx, idx);
+              return;
+            }
+          } catch (_) {}
+        }
+
+        // 2. Check text/plain for phase template vs descriptor ID string vs wordbank item
+        var plainText = (e.dataTransfer.getData('text/plain') || '').trim();
+        if (plainText && plainText.startsWith('phase:')) {
+          var pId = plainText.slice(6);
+          lcInsertPhaseFromBank(pId, idx);
+          return;
+        }
+        if (plainText && plainText.startsWith('wordbank:')) {
+          var wbIdx = parseInt(plainText.slice(9), 10);
+          if (!isNaN(wbIdx)) {
+            lcInsertWordBankItemToPhase(wbIdx, idx);
+            return;
+          }
+        }
+        if (plainText && !/^\d+$/.test(plainText)) {
+          lcTagDescriptorToActivePhase(plainText, idx);
+          return;
+        }
+      });
+
+      // Container drop listener for appending phases from drawer
+      var phaseCardsContainer = document.getElementById('phaseCardsList');
+      if (phaseCardsContainer && !phaseCardsContainer._dropConfigured) {
+        phaseCardsContainer._dropConfigured = true;
+        phaseCardsContainer.addEventListener('dragover', function (e) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        });
+        phaseCardsContainer.addEventListener('drop', function (e) {
+          if (e.target === phaseCardsContainer || phaseCardsContainer.children.length === 0) {
+            e.preventDefault();
+            var jsonStr2 = e.dataTransfer.getData('application/json');
+            if (jsonStr2) {
+              try {
+                var payload2 = JSON.parse(jsonStr2);
+                if (payload2 && payload2.type === 'phase-template' && payload2.phase) {
+                  lcInsertPhaseFromBank(payload2.phase);
+                  return;
+                }
+                if (payload2 && payload2.type === 'wordbank-item' && typeof payload2.itemIdx === 'number') {
+                  lcInsertWordBankItemToPhase(payload2.itemIdx);
+                  return;
+                }
+              } catch (_) {}
+            }
+            var plainText2 = (e.dataTransfer.getData('text/plain') || '').trim();
+            if (plainText2 && plainText2.startsWith('phase:')) {
+              lcInsertPhaseFromBank(plainText2.slice(6));
+              return;
+            }
+            if (plainText2 && plainText2.startsWith('wordbank:')) {
+              var wbIdx2 = parseInt(plainText2.slice(9), 10);
+              if (!isNaN(wbIdx2)) {
+                lcInsertWordBankItemToPhase(wbIdx2);
+                return;
+              }
+            }
+          }
+        });
+      }
+
+      var isFirst = (idx === 0);
+      var isLast = (idx === (currentPlan.sections || []).length - 1);
+      var reorderBtnsHtml = [
+        '<div style="display:inline-flex;align-items:center;gap:2px;">',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-rel-stop" data-lc-idx="' + idx + '" data-lc-delta="-1" ' + (isFirst ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseUp') || 'Move Up') + '">▲</button>',
+        '  <button type="button" class="reorder-btn" data-lc-action="move-rel-stop" data-lc-idx="' + idx + '" data-lc-delta="1" ' + (isLast ? 'disabled' : '') + ' title="' + (i18n.t('lcMovePhaseDown') || 'Move Down') + '">▼</button>',
+        '</div>'
+      ].join('');
+
+      // Header Row
+      var header = document.createElement('div');
+      header.className = 'phase-card-header';
+      header.innerHTML = [
+        '<span class="phase-number-badge">' + (idx + 1) + '</span>',
+        '<span class="phase-time-badge" title="Pacing schedule">' + timeBadgeText + '</span>',
+        reorderBtnsHtml,
+        '<input type="text" class="phase-title-input" value="' + escapeHtml(sec.title || '') + '" placeholder="Phase Title" data-lc-input="phase-title" data-lc-idx="' + idx + '">',
+        (isCompact ? ('<div style="display:inline-flex;align-items:center;gap:4px;">' + buildCompactActivityBadge(sec.activityTypeId) + buildCompactModeBadge(sec.interactionTypeId) + '</div>') : ''),
+        '<div class="phase-duration-wrap"><input type="number" class="phase-duration-input" value="' + dur + '" min="1" max="240" data-lc-input="phase-duration" data-lc-idx="' + idx + '"> <span>m</span></div>',
+        '<div class="phase-actions-group">',
+        (isCompact ? ('  <button type="button" class="icon-btn" data-lc-action="toggle-expand" data-lc-idx="' + idx + '" title="' + (isExpanded ? (i18n.t('lcCollapseDetails') || 'Collapse Details') : (i18n.t('lcExpandDetails') || 'Expand Details')) + '" style="font-weight:800;display:inline-flex;align-items:center;gap:3px;background:' + (isExpanded ? 'var(--neo-yellow)' : '#fff') + ';"><span>' + (isExpanded ? ('▲ ' + i18n.t('lcLessBtn')) : ('▼ ' + i18n.t('lcMoreBtn'))) + '</span></button>') : ''),
+        (sec.boardFile ? ('  <button type="button" class="icon-btn" data-lc-action="open-mindmap" data-lc-idx="' + idx + '" style="display:inline-flex;align-items:center;gap:3px;background:#fef08a;border:1.5px solid #000;font-weight:800;" title="' + escapeHtml(sec.boardFile + (sec.boardNodeId ? (' (' + sec.boardNodeId + ')') : '')) + '"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>[BOARD: ' + escapeHtml(sec.boardFile.replace(/\.(js|json)$/i, '')) + ']</span></button>') : ('  <button type="button" class="icon-btn" data-lc-action="open-mindmap" data-lc-idx="' + idx + '" title="' + (i18n.t('lcLinkBoardTitle') || 'Link to Board mindmap') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/links.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcLinkBoardBtn') || 'Mindmap') + '</span></button>')),
+        '  <button type="button" class="icon-btn" data-lc-action="open-export-phase" data-lc-idx="' + idx + '" title="' + (i18n.t('lcExportPhaseBtnTitle') || 'Add phase to database') + '" style="display:inline-flex;align-items:center;gap:3px;"><img src="../assets/icons/save.svg" class="btn-icon btn-icon-xs" alt=""><span>' + (i18n.t('lcExportPhaseBtn') || 'Add to DB') + '</span></button>',
+        '  <button class="icon-btn" data-lc-action="open-split" data-lc-idx="' + idx + '" title="Split Phase">Split</button>',
+        '  <button class="icon-btn" data-lc-action="dup-phase" data-lc-idx="' + idx + '" title="Duplicate Phase">Duplicate</button>',
+        '  <button class="icon-btn danger" data-lc-action="del-phase" data-lc-idx="' + idx + '" title="Delete Phase">Delete</button>',
+        '</div>'
+      ].join('');
+      card.appendChild(header);
+
+      // Pills Row: Activity & Mode Chips
+      var pillsRow = document.createElement('div');
+      pillsRow.className = 'phase-pills-row';
+      var actLabelText = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsActivityLabel') || 'Activity:') : 'Activity:';
+      var modeLabelText = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsModeLabel') || 'Mode:') : 'Mode:';
+      var helpBtnTitle = (typeof i18n !== 'undefined' && i18n.t) ? (i18n.t('lcPillsHelpBtnTitle') || 'Explain activities and interaction modes') : 'Explain activities and interaction modes';
+      pillsRow.innerHTML = [
+        '<div class="phase-pills-group">',
+        '  <div class="phase-pills-header">',
+        '    <span class="phase-pills-label">' + escapeHtml(actLabelText) + '</span>',
+        '    <button type="button" class="phase-pills-help-btn" data-lc-action="pills-guide" data-lc-val="activities" title="' + escapeHtml(helpBtnTitle) + '">?</button>',
+        '  </div>',
+        '  <div class="phase-pills-list">' + buildActivityPills(sec.activityTypeId, idx) + '</div>',
+        '</div>',
+        '<div class="phase-pills-group">',
+        '  <div class="phase-pills-header">',
+        '    <span class="phase-pills-label">' + escapeHtml(modeLabelText) + '</span>',
+        '    <button type="button" class="phase-pills-help-btn" data-lc-action="pills-guide" data-lc-val="modes" title="' + escapeHtml(helpBtnTitle) + '">?</button>',
+        '  </div>',
+        '  <div class="phase-pills-list">' + buildModePills(sec.interactionTypeId, idx) + '</div>',
+        '</div>'
+      ].join('');
+      card.appendChild(pillsRow);
+
+      // Body Row
+      var body = document.createElement('div');
+      body.className = 'phase-card-body';
+      body.innerHTML = [
+        '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcLearningObjectiveLbl')) + '</label><textarea class="phase-input" rows="1" placeholder="' + escapeHtml(i18n.t('lcLearningObjectivePlaceholder')) + '" data-lc-input="phase-field" data-lc-idx="' + idx + '" data-lc-field="objective">' + escapeHtml(sec.objective || '') + '</textarea></div>',
+        '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcResourcesMaterialsLbl')) + '</label><textarea class="phase-input" rows="1" placeholder="' + escapeHtml(i18n.t('lcResourcesMaterialsPlaceholder')) + '" data-lc-input="phase-field" data-lc-idx="' + idx + '" data-lc-field="resources">' + escapeHtml(sec.resources || '') + '</textarea></div>',
+        '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcTeacherActionLbl')) + '</label><textarea class="phase-textarea" rows="2" placeholder="' + escapeHtml(i18n.t('lcTeacherActionPlaceholder')) + '" data-lc-input="phase-field" data-lc-idx="' + idx + '" data-lc-field="teacherAction">' + escapeHtml(sec.teacherAction || '') + '</textarea></div>',
+        '<div class="phase-field"><label class="phase-label">' + escapeHtml(i18n.t('lcStudentActionLbl')) + '</label><textarea class="phase-textarea" rows="2" placeholder="' + escapeHtml(i18n.t('lcStudentActionPlaceholder')) + '" data-lc-input="phase-field" data-lc-idx="' + idx + '" data-lc-field="studentAction">' + escapeHtml(sec.studentAction || '') + '</textarea></div>',
+        '<div class="phase-field full-width"><label class="phase-label">' + escapeHtml(i18n.t('lcTaggedStandardsLbl')) + '</label><div class="phase-descriptors-wrap" id="phaseDescWrap_' + idx + '">' + buildPhaseDescriptorChips(sec.descriptorIds, idx) + '</div></div>',
+        '<div class="phase-field full-width">' +
+          buildPhaseCustomFields(sec.customFields, idx) +
+          '<div style="display:flex;align-items:center;gap:6px;margin-top:4px;">' +
+            '<button type="button" class="neo-btn" style="padding:4px 10px;font-size:0.75rem;background:#f0fdf4;border-color:#16a34a;color:#15803d;font-weight:800;display:inline-flex;align-items:center;gap:4px;" data-lc-action="add-cf" data-lc-idx="' + idx + '" title="' + escapeHtml(i18n.t('lcAddCustomFieldTooltip') || 'Add custom phase field with customizable title and Markdown or HTML support') + '">' +
+              '<img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="">' +
+              '<span>+ ' + escapeHtml(i18n.t('lcAddCustomField') || 'Add Custom Field') + '</span>' +
+            '</button>' +
+          '</div>' +
+        '</div>'
+      ].join('');
+      card.appendChild(body);
+
+      list.appendChild(card);
+    });
+
+    list.querySelectorAll('.phase-input, .phase-textarea').forEach(function (el) {
+      lcAutoResizeField(el);
+    });
+  }
+
+  function buildActivityPills(selectedId, phaseIndex) {
+    return (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).map(function (a) {
+      var isSelected = (a.id === selectedId);
+      var selectedClass = isSelected ? ' active' : '';
+      var inlineStyle = isSelected
+        ? ('background:' + (a.bg || '#fef3c7') + ';color:' + (a.color || '#111') + ';border-color:var(--neo-dark);font-weight:800;')
+        : '';
+      var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="">' : '';
+      var displayName = getActivityLabel(a.id, true);
+      var fullTitle = getActivityLabel(a.id, false);
+      var exp = getActivityExplanation(a.id);
+      var combinedTooltip = fullTitle + (exp ? ('\n\n' + exp) : '');
+      return '<button type="button" class="phase-pill activity-pill' + selectedClass + '" ' +
+        'style="' + inlineStyle + '" ' +
+        'title="' + escapeHtml(combinedTooltip) + '" ' +
+        'data-lc-action="toggle-act" data-lc-idx="' + phaseIndex + '" data-lc-val="' + escapeHtml(a.id) + '">' +
+        iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function buildModePills(selectedId, phaseIndex) {
+    return (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).map(function (m) {
+      var isSelected = (m.id === selectedId);
+      var selectedClass = isSelected ? ' active' : '';
+      var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="">' : '';
+      var displayName = getInteractionLabel(m.id, true);
+      var fullTitle = getInteractionLabel(m.id, false);
+      var exp = getInteractionExplanation(m.id);
+      var combinedTooltip = fullTitle + (exp ? ('\n\n' + exp) : '');
+      return '<button type="button" class="phase-pill mode-pill' + selectedClass + '" ' +
+        'title="' + escapeHtml(combinedTooltip) + '" ' +
+        'data-lc-action="toggle-mode" data-lc-idx="' + phaseIndex + '" data-lc-val="' + escapeHtml(m.id) + '">' +
+        iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+        '</button>';
+    }).join('');
+  }
+
+  function buildPhaseDescriptorChips(descIds, phaseIndex) {
+    descIds = Array.isArray(descIds) ? descIds : [];
+    if (descIds.length === 0) {
+      return '<span style="font-size:0.75rem;color:#888;">' + escapeHtml(i18n.t('lcDragStandardsHint')) + '</span>';
+    }
+    return descIds.map(function (id) {
+      var targetIdStr = String(id || '').toLowerCase().trim();
+      var desc = allDescriptors.find(function (d) {
+        if (!d) return false;
+        return String(d.id || '').toLowerCase().trim() === targetIdStr || String(d.code || '').toLowerCase().trim() === targetIdStr;
+      });
+      var codeStr = desc ? (desc.code || desc.title || desc.id) : id;
+      var titleStr = desc ? desc.title : '';
+      var fullTooltip = desc ? ((desc.code ? (desc.code + ': ') : '') + (desc.title || '') + (desc.description ? ('\n' + desc.description) : '')) : id;
+      var subCls = desc ? String(desc.subjectId || '').toLowerCase() : '';
+
+      var displayText = escapeHtml(codeStr || id || 'Standard');
+      var titleSnippet = (titleStr && titleStr !== codeStr) ? ' <span style="font-weight:500;color:#555;font-size:0.72rem;">(' + escapeHtml(titleStr.length > 32 ? titleStr.slice(0, 30) + '…' : titleStr) + ')</span>' : '';
+
+      var hasDetail = !!(desc && window.CompetenceAggregatorService && window.CompetenceAggregatorService.getDetailedLines(desc).length);
+      var detailAttr = hasDetail ? (' data-lc-action="open-detail" data-lc-idx="' + phaseIndex + '" data-lc-val="' + escapeHtml(String(id)) + '"') : '';
+      return '<span class="desc-chip ' + escapeHtml(subCls) + (hasDetail ? ' has-detail' : '') + '" title="' + escapeHtml(fullTooltip) + '"' + detailAttr + '>' +
+        '<strong>' + displayText + '</strong>' + titleSnippet +
+        ' <span class="desc-chip-remove" data-lc-action="remove-desc" data-lc-idx="' + phaseIndex + '" data-lc-val="' + escapeHtml(String(id)) + '" title="' + escapeHtml(i18n.t('lcRemoveDescriptorTooltip')) + '">&times;</span>' +
+        '</span>';
+    }).join('');
+  }
+
+  function updateDurationMeter() {
+    var total = LessonCreatorService.recalculateDuration(currentPlan);
+    var target = Number(currentPlan.targetDuration) || 60;
+    var badge = document.getElementById('durationBadge');
+    badge.textContent = 'Total: ' + total + ' / ' + target + 'm';
+    badge.className = 'duration-badge';
+    if (total === target) {
+      badge.classList.add('balanced');
+    } else if (total > target) {
+      badge.classList.add('over');
+    } else {
+      badge.classList.add('under');
+    }
+  }
+
+  // ── Drawer & Descriptor Bank Rendering ───────────────────────────────
+  function highlightMatchText(text, rawQuery) {
+    if (!text) return '';
+    var str = String(text);
+    if (!rawQuery) return escapeHtml(str);
+    var q = rawQuery.trim();
+    if (!q) return escapeHtml(str);
+    var escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var regex = new RegExp('(' + escapedQuery + ')', 'gi');
+    var parts = str.split(regex);
+    return parts.map(function (part) {
+      if (part.toLowerCase() === q.toLowerCase()) {
+        return '<mark class="search-highlight">' + escapeHtml(part) + '</mark>';
+      }
+      return escapeHtml(part);
+    }).join('');
+  }
+
+  function updateDrawerInfoBars(filteredCount, totalCount, rawQuery, subId, yrId, catId, subCatId) {
+    var countEl = document.getElementById('drawerMatchCount');
+    if (countEl) {
+      countEl.textContent = 'Showing ' + filteredCount + ' of ' + totalCount + ' competences';
+    }
+
+    var filterBar = document.getElementById('drawerActiveFilters');
+    if (!filterBar) return;
+    filterBar.innerHTML = '';
+
+    var activePills = [];
+    if (rawQuery) {
+      activePills.push('<span class="drawer-filter-pill">Search: "' + escapeHtml(rawQuery) + '" <span class="drawer-filter-pill-remove" data-lc-action="clear-filter" data-lc-val="search">&times;</span></span>');
+    }
+    if (subId !== 'all') {
+      activePills.push('<span class="drawer-filter-pill">Subject: ' + escapeHtml(getSubjectLabel(subId)) + ' <span class="drawer-filter-pill-remove" data-lc-action="clear-filter" data-lc-val="subject">&times;</span></span>');
+    }
+    if (yrId !== 'all') {
+      activePills.push('<span class="drawer-filter-pill">Year: ' + escapeHtml(getYearLevelLabel(yrId)) + ' <span class="drawer-filter-pill-remove" data-lc-action="clear-filter" data-lc-val="year">&times;</span></span>');
+    }
+    if (catId !== 'all') {
+      activePills.push('<span class="drawer-filter-pill">Cat: ' + escapeHtml(catId) + ' <span class="drawer-filter-pill-remove" data-lc-action="clear-filter" data-lc-val="category">&times;</span></span>');
+    }
+    if (subCatId !== 'all') {
+      activePills.push('<span class="drawer-filter-pill">Subcat: ' + escapeHtml(subCatId) + ' <span class="drawer-filter-pill-remove" data-lc-action="clear-filter" data-lc-val="subcategory">&times;</span></span>');
+    }
+
+    if (activePills.length > 0) {
+      activePills.push('<button class="neo-btn danger" style="padding:1px 6px;font-size:0.7rem;" data-lc-action="reset-drawer-filters">Clear All</button>');
+    }
+
+    filterBar.innerHTML = activePills.join('');
+  }
+
+  function renderDrawer() {
+    var list = document.getElementById('drawerDescriptorsList');
+    var rawQuery = (document.getElementById('drawerSearch').value || '').trim();
+    var query = rawQuery.toLowerCase();
+    var subId = (document.getElementById('drawerFilterSubject').value || 'all').toLowerCase();
+    var yrId = (document.getElementById('drawerFilterYear').value || 'all').toLowerCase();
+    var catId = (document.getElementById('drawerFilterCategory').value || 'all').toLowerCase();
+    var subCatId = (document.getElementById('drawerFilterSubCategory').value || 'all').toLowerCase();
+    var sortMode = document.getElementById('drawerSort').value;
+
+    // Populate Category dropdown dynamically
+    populateCategoryDropdown(subId);
+
+    var filtered = allDescriptors.filter(function (d) {
+      var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+      var dYr = String(d.yearLevel || d.year || '').toLowerCase();
+      var dCat = String(d.category || '').toLowerCase();
+      var dSubCat = String(d.subCategory || '').toLowerCase();
+
+      if (subId !== 'all' && !isSubjectMatch(dSub, subId)) return false;
+      if (yrId !== 'all' && dYr && dYr !== 'all' && dYr !== yrId) return false;
+      if (catId !== 'all' && dCat && dCat !== 'all' && dCat !== catId) return false;
+      if (subCatId !== 'all' && dSubCat && dSubCat !== 'all' && dSubCat !== subCatId) return false;
+
+      if (query) {
+        var tagsStr = Array.isArray(d.tags) ? d.tags.join(' ') : String(d.tags || '');
+        var fullText = [
+          d.code || '',
+          d.title || '',
+          d.description || '',
+          d.category || '',
+          d.subCategory || '',
+          d.subjectId || '',
+          d.yearLevel || '',
+          d.level || '',
+          tagsStr,
+          d.comments || '',
+          d.sampleTasks || ''
+        ].join(' ').toLowerCase();
+
+        if (fullText.indexOf(query) === -1) return false;
+      }
+      return true;
+    });
+
+    // Sort
+    filtered.sort(function (a, b) {
+      if (sortMode === 'title') return String(a.title || '').localeCompare(String(b.title || ''));
+      if (sortMode === 'level') return String(a.level || '').localeCompare(String(b.level || ''));
+      return String(a.code || '').localeCompare(String(b.code || ''));
+    });
+
+    updateDrawerInfoBars(filtered.length, allDescriptors.length, rawQuery, subId, yrId, catId, subCatId);
+
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:0.85rem;">No competences matching filters</div>';
+      return;
+    }
+
+    var cfg = competenceDisplayConfig;
+
+    var fragment = document.createDocumentFragment();
+    filtered.forEach(function (d) {
+      var card = document.createElement('div');
+      
+      var rawSub = String(d.subjectId || d.subject || 'general').toLowerCase();
+      var subClass = 'subject-' + rawSub.replace(/[^a-z0-9_]/g, '_');
+      
+      card.className = 'drawer-desc-card ' + subClass;
+      if (cfg.preset === 'compact') {
+        card.classList.add('compact-mode');
+      }
+      card.draggable = true;
+      card.dataset.id = d.id;
+
+      card.addEventListener('dragstart', function (e) {
+        card.classList.add('dragging');
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'descriptor',
+          descriptorId: d.id,
+          code: d.code || d.id,
+          title: d.title || ''
+        }));
+        e.dataTransfer.setData('text/plain', d.id);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+
+      card.addEventListener('dragend', function () {
+        card.classList.remove('dragging');
+      });
+
+      var htmlParts = [];
+
+      // Header: Code & Level
+      var codeHtml = cfg.showCode ? ('<span class="drawer-desc-code">' + highlightMatchText(d.code || d.id || '', rawQuery) + '</span>') : '';
+      var levelHtml = (cfg.showLevel && d.level) ? ('<span class="drawer-desc-level">' + highlightMatchText(d.level, rawQuery) + '</span>') : '';
+      
+      if (codeHtml || levelHtml) {
+        htmlParts.push('<div class="drawer-desc-header">' + codeHtml + levelHtml + '</div>');
+      }
+
+      // Title
+      if (cfg.showTitle) {
+        htmlParts.push('<div class="drawer-desc-title">' + highlightMatchText(d.title || 'Untitled Descriptor', rawQuery) + '</div>');
+      }
+
+      // Description
+      if (cfg.showDescription && d.description && cfg.preset !== 'minimal') {
+        htmlParts.push('<div class="drawer-desc-text">' + highlightMatchText(d.description, rawQuery) + '</div>');
+      }
+
+      // Tags
+      // Detailed description: one toggle per line
+      if (cfg.showDetailedDescription !== false && cfg.preset !== 'minimal' && window.CompetenceAggregatorService) {
+        var dLines = window.CompetenceAggregatorService.getDetailedLines(d);
+        if (dLines.length) {
+          var hiddenLines = (cfg.hiddenDetailLines && cfg.hiddenDetailLines[d.id]) || [];
+          htmlParts.push('<div class="drawer-detail-list">' + dLines.map(function (line) {
+            var on = hiddenLines.indexOf(line) === -1;
+            return '<label class="drawer-detail-row' + (on ? '' : ' is-off') + '"><span class="neo-switch"><input type="checkbox" ' + (on ? 'checked ' : '') + 'data-comp-id="' + escapeHtml(String(d.id)) + '" data-line="' + escapeHtml(line) + '" data-lc-change="detail-line"><span class="neo-switch-slider"></span></span><span class="drawer-detail-text">' + highlightMatchText(line, rawQuery) + '</span></label>';
+          }).join('') + '</div>');
+        }
+      }
+      if (cfg.showTags && cfg.preset !== 'minimal') {
+        var tagsArr = Array.isArray(d.tags) ? d.tags : (d.tags ? [d.tags] : []);
+        if (tagsArr.length > 0) {
+          htmlParts.push('<div class="drawer-tag-container" style="font-size:0.7rem;color:#2563eb;margin-top:2px;">' + highlightMatchText(tagsArr.join(', '), rawQuery) + '</div>');
+        }
+      }
+
+      // Comments / Notes
+      if (cfg.showComments && (d.comments || d.sampleTasks) && cfg.preset !== 'minimal') {
+        var cText = d.comments || d.sampleTasks;
+        htmlParts.push('<div class="drawer-desc-comment">' + highlightMatchText(cText, rawQuery) + '</div>');
+      }
+
+      // Footer: Category & Actions
+      var catLabel = cfg.showCategory ? (d.subCategory || d.category || getSubjectLabel(d.subjectId || d.subject) || '') : '';
+      var catHtml = catLabel ? ('<span style="font-size:0.72rem;font-weight:800;color:#666;">' + highlightMatchText(catLabel, rawQuery) + '</span>') : '<span></span>';
+      var btnHtml = cfg.showActions ? ('<button class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" data-lc-action="tag-desc" data-lc-val="' + escapeHtml(d.id) + '">+ Tag</button>') : '';
+
+      if (cfg.showCategory || cfg.showActions) {
+        htmlParts.push('<div class="drawer-desc-actions">' + catHtml + btnHtml + '</div>');
+      }
+
+      // Compact Expand Toggle
+      if (cfg.preset === 'compact') {
+        htmlParts.push('<button class="card-expand-toggle" data-lc-action="expand-desc-card">Details ▾</button>');
+      }
+
+      card.innerHTML = htmlParts.join('');
+      fragment.appendChild(card);
+    });
+    list.appendChild(fragment);
+  }
+
+  window.lcToggleDetailLine = function (inp) {
+    var id = inp.getAttribute('data-comp-id');
+    var line = inp.getAttribute('data-line');
+    var map = Object.assign({}, competenceDisplayConfig.hiddenDetailLines || {});
+    var arr = (map[id] || []).slice();
+    var i = arr.indexOf(line);
+    if (inp.checked) { if (i > -1) arr.splice(i, 1); }
+    else if (i === -1) arr.push(line);
+    if (arr.length) map[id] = arr; else delete map[id];
+    competenceDisplayConfig.hiddenDetailLines = map;
+    var row = inp.closest('.drawer-detail-row');
+    if (row) row.classList.toggle('is-off', !inp.checked);
+    saveCompetenceDisplayConfigToDisk();
+  };
+
+  window.lcDescText = function (d, sec) {
+    if (!d) return '';
+    var base = d.description || d.statement || '';
+    if (!window.CompetenceAggregatorService || !window.CompetenceAggregatorService.composeDescription) return base;
+    var hiddenMap = competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines;
+    if (sec && sec.detailHiddenLines && sec.detailHiddenLines[d.id]) {
+      hiddenMap = {};
+      hiddenMap[d.id] = sec.detailHiddenLines[d.id];
+    }
+    return window.CompetenceAggregatorService.composeDescription(d, base, hiddenMap);
+  };
+  window.lcOpenCompetenceCustomizeModal = function () {
+    var cfg = competenceDisplayConfig;
+
+    var radios = document.getElementsByName('compPresetMode');
+    radios.forEach(function (r) {
+      r.checked = (r.value === (cfg.preset || 'detailed'));
+    });
+
+    document.getElementById('cfgShowCode').checked = !!cfg.showCode;
+    document.getElementById('cfgShowTitle').checked = !!cfg.showTitle;
+    document.getElementById('cfgShowDescription').checked = !!cfg.showDescription;
+    document.getElementById('cfgShowLevel').checked = !!cfg.showLevel;
+    document.getElementById('cfgShowCategory').checked = !!cfg.showCategory;
+    document.getElementById('cfgShowTags').checked = !!cfg.showTags;
+    document.getElementById('cfgShowComments').checked = !!cfg.showComments;
+    document.getElementById('cfgShowDetailed').checked = cfg.showDetailedDescription !== false;
+    document.getElementById('cfgShowActions').checked = !!cfg.showActions;
+
+    var m = document.getElementById('competenceCustomizeModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcOnPresetChange = function (presetMode) {
+    if (presetMode === 'detailed' || presetMode === 'compact') {
+      document.getElementById('cfgShowCode').checked = true;
+      document.getElementById('cfgShowTitle').checked = true;
+      document.getElementById('cfgShowDescription').checked = true;
+      document.getElementById('cfgShowLevel').checked = true;
+      document.getElementById('cfgShowCategory').checked = true;
+      document.getElementById('cfgShowTags').checked = true;
+      document.getElementById('cfgShowComments').checked = true;
+      document.getElementById('cfgShowDetailed').checked = true;
+      document.getElementById('cfgShowActions').checked = true;
+    } else if (presetMode === 'minimal') {
+      document.getElementById('cfgShowCode').checked = true;
+      document.getElementById('cfgShowTitle').checked = true;
+      document.getElementById('cfgShowDescription').checked = false;
+      document.getElementById('cfgShowLevel').checked = true;
+      document.getElementById('cfgShowCategory').checked = true;
+      document.getElementById('cfgShowTags').checked = false;
+      document.getElementById('cfgShowComments').checked = false;
+      document.getElementById('cfgShowDetailed').checked = false;
+      document.getElementById('cfgShowActions').checked = true;
+    }
+  };
+
+  window.lcSaveCompetenceConfig = async function () {
+    var selectedPreset = 'detailed';
+    var radios = document.getElementsByName('compPresetMode');
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        selectedPreset = radios[i].value;
+        break;
+      }
+    }
+
+    competenceDisplayConfig = {
+      preset: selectedPreset,
+      showCode: document.getElementById('cfgShowCode').checked,
+      showTitle: document.getElementById('cfgShowTitle').checked,
+      showDescription: document.getElementById('cfgShowDescription').checked,
+      showLevel: document.getElementById('cfgShowLevel').checked,
+      showCategory: document.getElementById('cfgShowCategory').checked,
+      showTags: document.getElementById('cfgShowTags').checked,
+      showComments: document.getElementById('cfgShowComments').checked,
+      showDetailedDescription: document.getElementById('cfgShowDetailed').checked,
+      hiddenDetailLines: (competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines) || {},
+      showActions: document.getElementById('cfgShowActions').checked
+    };
+
+    await saveCompetenceDisplayConfigToDisk();
+    lcCloseModal('competenceCustomizeModal');
+    renderDrawer();
+    if (typeof showToast === 'function') showToast(i18n.t("tcCompetenceCustomSaved"));
+  };
+
+  window.lcResetCompetenceConfig = async function () {
+    competenceDisplayConfig = Object.assign({}, DEFAULT_COMPETENCE_CONFIG);
+    await saveCompetenceDisplayConfigToDisk();
+    lcOpenCompetenceCustomizeModal();
+    renderDrawer();
+    if (typeof showToast === 'function') showToast(i18n.t("tcCompetenceCustomReset"));
+  };
+
+  // ── Activity Customization & View Toggles ─────────────────────────────
+  window.lcOpenActivityCustomizeModal = function () {
+    var cfg = activityDisplayConfig;
+    var radios = document.getElementsByName('actPresetMode');
+    radios.forEach(function (r) {
+      r.checked = (r.value === (cfg.preset || 'detailed'));
+    });
+
+    document.getElementById('cfgActShowTitle').checked = !!cfg.showTitle;
+    document.getElementById('cfgActShowDuration').checked = !!cfg.showDuration;
+    document.getElementById('cfgActShowType').checked = !!cfg.showType;
+    document.getElementById('cfgActShowMode').checked = !!cfg.showMode;
+    document.getElementById('cfgActShowCategory').checked = !!cfg.showCategory;
+    document.getElementById('cfgActShowDescription').checked = !!cfg.showDescription;
+    document.getElementById('cfgActShowTags').checked = !!cfg.showTags;
+    document.getElementById('cfgActShowActions').checked = !!cfg.showActions;
+
+    var m = document.getElementById('activityCustomizeModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcOnActivityPresetChange = function (presetMode) {
+    if (presetMode === 'detailed' || presetMode === 'compact') {
+      document.getElementById('cfgActShowTitle').checked = true;
+      document.getElementById('cfgActShowDuration').checked = true;
+      document.getElementById('cfgActShowType').checked = true;
+      document.getElementById('cfgActShowMode').checked = true;
+      document.getElementById('cfgActShowCategory').checked = true;
+      document.getElementById('cfgActShowDescription').checked = true;
+      document.getElementById('cfgActShowTags').checked = true;
+      document.getElementById('cfgActShowActions').checked = true;
+    } else if (presetMode === 'minimal') {
+      document.getElementById('cfgActShowTitle').checked = true;
+      document.getElementById('cfgActShowDuration').checked = true;
+      document.getElementById('cfgActShowType').checked = true;
+      document.getElementById('cfgActShowMode').checked = true;
+      document.getElementById('cfgActShowCategory').checked = true;
+      document.getElementById('cfgActShowDescription').checked = false;
+      document.getElementById('cfgActShowTags').checked = false;
+      document.getElementById('cfgActShowActions').checked = true;
+    }
+  };
+
+  window.lcSaveActivityConfig = async function () {
+    var selectedPreset = 'detailed';
+    var radios = document.getElementsByName('actPresetMode');
+    for (var i = 0; i < radios.length; i++) {
+      if (radios[i].checked) {
+        selectedPreset = radios[i].value;
+        break;
+      }
+    }
+
+    activityDisplayConfig = {
+      preset: selectedPreset,
+      showTitle: document.getElementById('cfgActShowTitle').checked,
+      showDuration: document.getElementById('cfgActShowDuration').checked,
+      showType: document.getElementById('cfgActShowType').checked,
+      showMode: document.getElementById('cfgActShowMode').checked,
+      showCategory: document.getElementById('cfgActShowCategory').checked,
+      showDescription: document.getElementById('cfgActShowDescription').checked,
+      showTags: document.getElementById('cfgActShowTags').checked,
+      showActions: document.getElementById('cfgActShowActions').checked
+    };
+
+    await saveActivityDisplayConfigToDisk();
+    lcCloseModal('activityCustomizeModal');
+    renderActivityDrawer();
+    if (typeof showToast === 'function') showToast(i18n.t("lcActivityCustomSaved"));
+  };
+
+  window.lcResetActivityConfig = async function () {
+    activityDisplayConfig = Object.assign({}, DEFAULT_ACTIVITY_CONFIG);
+    await saveActivityDisplayConfigToDisk();
+    lcOpenActivityCustomizeModal();
+    renderActivityDrawer();
+    if (typeof showToast === 'function') showToast(i18n.t("lcActivityCustomReset"));
+  };
+
+  window.lcSetActivityPreset = async function (preset) {
+    if (!preset) return;
+    activityDisplayConfig.preset = preset;
+    if (preset === 'detailed' || preset === 'compact') {
+      activityDisplayConfig.showTitle = true;
+      activityDisplayConfig.showDuration = true;
+      activityDisplayConfig.showType = true;
+      activityDisplayConfig.showMode = true;
+      activityDisplayConfig.showCategory = true;
+      activityDisplayConfig.showDescription = true;
+      activityDisplayConfig.showTags = true;
+      activityDisplayConfig.showActions = true;
+    } else if (preset === 'minimal') {
+      activityDisplayConfig.showTitle = true;
+      activityDisplayConfig.showDuration = true;
+      activityDisplayConfig.showType = true;
+      activityDisplayConfig.showMode = true;
+      activityDisplayConfig.showCategory = true;
+      activityDisplayConfig.showDescription = false;
+      activityDisplayConfig.showTags = false;
+      activityDisplayConfig.showActions = true;
+    }
+    await saveActivityDisplayConfigToDisk();
+    renderActivityDrawer();
+  };
+
+  window.lcToggleSingleActivityCard = function (btn) {
+    var card = btn.closest('.drawer-activity-card');
+    if (!card) return;
+    card.classList.toggle('expanded');
+    var isExp = card.classList.contains('expanded');
+    btn.textContent = isExp ? (i18n.t('lcDetailsCollapse') || 'Details ▲') : (i18n.t('lcDetailsExpand') || 'Details ▾');
+  };
+
+  window.lcToggleAllActivitiesExpanded = function () {
+    var list = document.getElementById('drawerActivitiesList');
+    if (!list) return;
+    var cards = list.querySelectorAll('.drawer-activity-card');
+    if (cards.length === 0) return;
+
+    var someCollapsed = Array.prototype.some.call(cards, function (c) {
+      return !c.classList.contains('expanded');
+    });
+
+    cards.forEach(function (c) {
+      if (someCollapsed) {
+        c.classList.add('expanded');
+      } else {
+        c.classList.remove('expanded');
+      }
+      var toggleBtn = c.querySelector('.card-expand-toggle');
+      if (toggleBtn) {
+        toggleBtn.textContent = someCollapsed ? (i18n.t('lcDetailsCollapse') || 'Details ▲') : (i18n.t('lcDetailsExpand') || 'Details ▾');
+      }
+    });
+
+    var btnText = document.getElementById('txtToggleExpandActivities');
+    if (btnText) {
+      btnText.textContent = someCollapsed ? (i18n.t('lcCollapseAll') || 'Collapse All') : (i18n.t('lcExpandAll') || 'Expand All');
+    }
+  };
+
+  // ── Floating Companion & Live Sync ────────────────────────────────────
+  var _liveBroadcastTimer = null;
+  function broadcastLivePlan() {
+    if (_liveBroadcastTimer) clearTimeout(_liveBroadcastTimer);
+    _liveBroadcastTimer = setTimeout(function () {
+      try {
+        localStorage.setItem('cmt-active-lesson-plan', JSON.stringify(currentPlan));
+        if (typeof BroadcastChannel !== 'undefined') {
+          var ch = new BroadcastChannel('cmt-lesson-plan-live');
+          ch.postMessage({ type: 'plan-updated', plan: currentPlan });
+          ch.close();
+        }
+      } catch (_) {}
+    }, 150);
+  }
+
+  window.lcOpenFloatingCompanion = async function () {
+    try {
+      localStorage.setItem('cmt-active-lesson-plan', JSON.stringify(currentPlan));
+    } catch (_) {}
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var ch = new BroadcastChannel('cmt-lesson-plan-live');
+        ch.postMessage({ type: 'plan-sync', plan: currentPlan });
+        ch.close();
+      }
+    } catch (_) {}
+
+    if (window.Desktop && typeof Desktop.openHtml === 'function') {
+      await Desktop.openHtml({
+        pageFile: 'lesson-companion.html',
+        width: 350,
+        height: 580,
+        minWidth: 280,
+        minHeight: 400,
+        title: 'Lesson Companion — ' + (currentPlan.title || 'Plan'),
+        alwaysOnTop: true,
+        autoHideMenuBar: true
+      });
+    } else {
+      window.open('lesson-companion.html', 'cmtLessonCompanion', 'width=350,height=580,top=100,left=100,resizable=yes');
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(i18n.t('lcFloatingCompanion') + ' opened!');
+    }
+  };
+
+  window.lcResetAllDrawerFilters = function () {
+    document.getElementById('drawerSearch').value = '';
+    document.getElementById('drawerFilterSubject').value = 'all';
+    document.getElementById('drawerFilterYear').value = 'all';
+    document.getElementById('drawerFilterCategory').value = 'all';
+    document.getElementById('drawerFilterSubCategory').value = 'all';
+    renderDrawer();
+  };
+
+  window.lcClearActiveFilter = function (filterKey) {
+    if (filterKey === 'search') document.getElementById('drawerSearch').value = '';
+    if (filterKey === 'subject') document.getElementById('drawerFilterSubject').value = 'all';
+    if (filterKey === 'year') document.getElementById('drawerFilterYear').value = 'all';
+    if (filterKey === 'category') document.getElementById('drawerFilterCategory').value = 'all';
+    if (filterKey === 'subcategory') document.getElementById('drawerFilterSubCategory').value = 'all';
+    renderDrawer();
+  };
+
+
+  function populateCategoryDropdown(subId) {
+    var catSelect = document.getElementById('drawerFilterCategory');
+    if (!catSelect) return;
+    var currentVal = catSelect.value;
+    var subIdLower = String(subId || 'all').toLowerCase();
+    var categories = new Set();
+    allDescriptors.forEach(function (d) {
+      var dSub = String(d.subjectId || d.subject || '').toLowerCase();
+      if (subIdLower === 'all' || isSubjectMatch(dSub, subIdLower)) {
+        if (d.category) categories.add(d.category);
+      }
+    });
+
+    catSelect.innerHTML = '<option value="all">All Categories</option>';
+    Array.from(categories).sort().forEach(function (cat) {
+      var opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      catSelect.appendChild(opt);
+    });
+    if (categories.has(currentVal)) catSelect.value = currentVal;
+  }
+
+  // ── Actions & Event Handlers ─────────────────────────────────────────
+  window.lcOnPlanDirty = function () {
+    isDirty = true;
+    currentPlan.title = document.getElementById('planTitle').value;
+    currentPlan.date = document.getElementById('planDate').value;
+    currentPlan.targetDuration = Number(document.getElementById('planTargetDuration').value) || 60;
+    updateDurationMeter();
+    broadcastLivePlan();
+  };
+
+  window.lcOnSubjectChange = async function () {
+    var sel = document.getElementById('planSubject');
+    if (!sel) return;
+    if (sel.value === '__custom__') {
+      var promptMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+        ? i18n.t('lcEnterCustomSubject')
+        : 'Enter custom subject name:';
+      var res = (typeof showPrompt === 'function')
+        ? await showPrompt(promptMsg, '')
+        : prompt(promptMsg, '');
+      if (res && res.trim()) {
+        var newSub = res.trim();
+        lcAddSubjectOption(newSub, true);
+        currentPlan.subjectId = newSub;
+        var dSub = document.getElementById('drawerFilterSubject');
+        if (dSub) dSub.value = newSub;
+        renderDrawer();
+        lcOnPlanDirty();
+      } else {
+        sel.value = currentPlan.subjectId || (sel.options[0] ? sel.options[0].value : 'English');
+      }
+    } else {
+      currentPlan.subjectId = sel.value;
+      var dSubEl = document.getElementById('drawerFilterSubject');
+      if (dSubEl) dSubEl.value = currentPlan.subjectId;
+      renderDrawer();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnClassChange = function () {
+    currentPlan.classId = document.getElementById('planClass').value;
+    var classId = currentPlan.classId;
+    var groupMeta = (allClassGroupsMeta && allClassGroupsMeta[classId]) || (allPlannerClasses && allPlannerClasses[classId]) || null;
+
+    function applyMeta(meta) {
+      if (!meta) return;
+      if (meta.subject && meta.subject.trim()) {
+        var gSub = meta.subject.trim();
+        lcAddSubjectOption(gSub, true);
+        currentPlan.subjectId = gSub;
+        var subEl = document.getElementById('planSubject');
+        var dSubEl = document.getElementById('drawerFilterSubject');
+        if (subEl) subEl.value = gSub;
+        if (dSubEl) {
+          for (var j = 0; j < dSubEl.options.length; j++) {
+            var dv = dSubEl.options[j].value.toLowerCase();
+            if (dv === gSub.toLowerCase() || gSub.toLowerCase().includes(dv) || dv.includes(gSub.toLowerCase())) {
+              dSubEl.selectedIndex = j;
+              break;
+            }
+          }
+        }
+        if (window.showToast && typeof i18n !== 'undefined' && typeof i18n.tFmt === 'function') {
+          showToast(i18n.tFmt('lcSubjectSyncedFromClass', { subject: gSub }));
+        }
+      }
+      if (meta.level) {
+        var yrEl = document.getElementById('planYearLevel');
+        var dYrEl = document.getElementById('drawerFilterYear');
+        var tLvl = String(meta.level).toLowerCase();
+        if (yrEl) {
+          for (var k = 0; k < yrEl.options.length; k++) {
+            var yv = yrEl.options[k].value.toLowerCase();
+            if (yv === tLvl || yv.includes(tLvl) || tLvl.includes(yv)) {
+              yrEl.selectedIndex = k;
+              currentPlan.yearLevel = yrEl.value;
+              break;
+            }
+          }
+        }
+        if (dYrEl) {
+          for (var m = 0; m < dYrEl.options.length; m++) {
+            var dyv = dYrEl.options[m].value.toLowerCase();
+            if (dyv === tLvl || dyv.includes(tLvl) || tLvl.includes(dyv)) {
+              dYrEl.selectedIndex = m;
+              break;
+            }
+          }
+        }
+      }
+      if (meta.periodDuration || meta.duration) {
+        var periodDur = Number(meta.periodDuration || meta.duration || 0);
+        if (periodDur > 0) {
+          currentPlan.targetDuration = periodDur;
+          var durEl = document.getElementById('planTargetDuration');
+          if (durEl) durEl.value = periodDur;
+          if (typeof updateDurationMeter === 'function') updateDurationMeter();
+        }
+      }
+      if (typeof renderDrawer === 'function') renderDrawer();
+      lcOnPlanDirty();
+    }
+
+    if (groupMeta) {
+      applyMeta(groupMeta);
+    } else if (classId && typeof CompetenceAggregatorService !== 'undefined') {
+      CompetenceAggregatorService.getGroupMetadata(classId).then(function (meta) {
+        if (meta) applyMeta(meta);
+      });
+    }
+    if (typeof LinksService !== 'undefined' && currentPlan && currentPlan.id) {
+      if (classId && typeof LinksService.addLink === 'function') {
+        var srcUrn = (typeof lcGetActivePlanUrn === 'function' ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id));
+        LinksService.addLink(srcUrn, 'cmt:class:' + classId, {
+          relation: 'assigned-to',
+          meta: { label: 'Class ' + (getClassLabel(classId) || classId) }
+        });
+      }
+      if (classId && typeof LinksService.resolveContext === 'function') {
+        LinksService.resolveContext({ type: 'lesson', id: currentPlan.id, classId: classId }).then(function (ctx) {
+          if (!ctx) return;
+          if (ctx.level && !currentPlan.yearLevel) {
+            var yrEl2 = document.getElementById('planYearLevel');
+            var dYrEl2 = document.getElementById('drawerFilterYear');
+            var tLvl2 = String(ctx.level).toLowerCase();
+            if (yrEl2) {
+              for (var k2 = 0; k2 < yrEl2.options.length; k2++) {
+                var yv2 = yrEl2.options[k2].value.toLowerCase();
+                if (yv2 === tLvl2 || yv2.includes(tLvl2) || tLvl2.includes(yv2)) {
+                  yrEl2.selectedIndex = k2;
+                  currentPlan.yearLevel = yrEl2.value;
+                  break;
+                }
+              }
+            }
+            if (dYrEl2) {
+              for (var m2 = 0; m2 < dYrEl2.options.length; m2++) {
+                var dyv2 = dYrEl2.options[m2].value.toLowerCase();
+                if (dyv2 === tLvl2 || dyv2.includes(tLvl2) || tLvl2.includes(dyv2)) {
+                  dYrEl2.selectedIndex = m2;
+                  break;
+                }
+              }
+            }
+            if (typeof renderDrawer === 'function') renderDrawer();
+          }
+        }).catch(function () {});
+      }
+      if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+    }
+    lcOnPlanDirty();
+  };
+
+  window.lcOpenCompetencePortfolio = function () {
+    var classId = (currentPlan && currentPlan.classId) || (document.getElementById('planClass') ? document.getElementById('planClass').value : '');
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('competence-portfolio.html', { query: { classId: classId } });
+    } else {
+      window.open('competence-portfolio.html?classId=' + encodeURIComponent(classId), '_blank');
+    }
+  };
+
+  window.lcOnYearLevelChange = function () {
+    currentPlan.yearLevel = document.getElementById('planYearLevel').value;
+    document.getElementById('drawerFilterYear').value = currentPlan.yearLevel;
+    renderDrawer();
+    lcOnPlanDirty();
+  };
+
+  window.lcOnDurationChange = function () {
+    currentPlan.targetDuration = Number(document.getElementById('planTargetDuration').value) || 60;
+    updateDurationMeter();
+    lcOnPlanDirty();
+  };
+
+  window.lcOnTagKeyDown = function (e) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      var input = document.getElementById('newTagInput');
+      var val = input.value.trim();
+      if (val) {
+        if (!val.startsWith('#')) val = '#' + val;
+        currentPlan.tags = currentPlan.tags || [];
+        if (currentPlan.tags.indexOf(val) === -1) {
+          currentPlan.tags.push(val);
+          renderTags();
+          lcOnPlanDirty();
+        }
+        input.value = '';
+      }
+    }
+  };
+
+  window.lcRemoveTag = function (idx) {
+    if (currentPlan.tags && currentPlan.tags[idx]) {
+      currentPlan.tags.splice(idx, 1);
+      renderTags();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcSwitchDrawerTab = function (tab) {
+    currentDrawerTab = tab;
+    var compTabBtn = document.getElementById('tabCompetenceBank');
+    var actTabBtn = document.getElementById('tabActivityBank');
+    var wbTabBtn = document.getElementById('tabWordBank');
+    var compToggleBtn = document.getElementById('drawerToggleBtn');
+    var actToggleBtn = document.getElementById('drawerActivitiesToggleBtn');
+    var compPanel = document.getElementById('panelCompetences');
+    var actPanel = document.getElementById('panelActivities');
+    var wbPanel = document.getElementById('panelWordBank');
+
+    if (compTabBtn) compTabBtn.classList.toggle('active', tab === 'competences');
+    if (actTabBtn) actTabBtn.classList.toggle('active', tab === 'activities');
+    if (wbTabBtn) wbTabBtn.classList.toggle('active', tab === 'wordbank');
+    if (compToggleBtn) compToggleBtn.classList.toggle('active', tab === 'competences');
+    if (actToggleBtn) actToggleBtn.classList.toggle('active', tab === 'activities');
+
+    if (compPanel) compPanel.style.display = (tab === 'competences') ? 'flex' : 'none';
+    if (actPanel) actPanel.style.display = (tab === 'activities') ? 'flex' : 'none';
+    if (wbPanel) wbPanel.style.display = (tab === 'wordbank') ? 'flex' : 'none';
+
+    if (tab === 'activities') {
+      renderActivityDrawer();
+    } else if (tab === 'wordbank') {
+      lcLoadWordBankItems();
+    } else {
+      renderDrawer();
+    }
+    scheduleDrawerHeightUpdate();
+  };
+
+  window.lcToggleDrawer = function (requestedTab) {
+    var ws = document.getElementById('mainWorkspace');
+    if (ws && !ws.classList.contains('drawer-open')) {
+      ws.classList.add('drawer-open');
+    }
+    if (requestedTab) {
+      lcSwitchDrawerTab(requestedTab);
+    } else {
+      var isCompetences = (currentDrawerTab === 'competences');
+      lcSwitchDrawerTab(isCompetences ? 'activities' : 'competences');
+    }
+    scheduleDrawerHeightUpdate();
+  };
+
+  window.lcOpenPhaseDb = function () {
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('manage-database.html?type=phases');
+    } else {
+      window.open('manage-database.html?type=phases', '_blank');
+    }
+  };
+
+  window.lcInsertPhaseFromBank = function (phaseOrId, atIndex) {
+    var template = null;
+    if (typeof phaseOrId === 'object' && phaseOrId !== null) {
+      template = phaseOrId;
+    } else {
+      template = allPhases.find(function (p) {
+        return String(p.id) === String(phaseOrId);
+      });
+    }
+    if (!template) return;
+
+    var newSec = {
+      id: LessonCreatorService.generateId('sec'),
+      title: template.title || 'New Phase',
+      duration: Number(template.duration) || 10,
+      activityTypeId: template.activityTypeId || '',
+      interactionTypeId: template.interactionTypeId || '',
+      objective: template.objective || '',
+      teacherAction: template.teacherAction || '',
+      studentAction: template.studentAction || '',
+      descriptorIds: Array.isArray(template.descriptorIds) ? template.descriptorIds.slice() : [],
+      resources: template.resources || '',
+      customFields: Array.isArray(template.customFields) ? JSON.parse(JSON.stringify(template.customFields)) : []
+    };
+
+    currentPlan.sections = currentPlan.sections || [];
+    if (typeof atIndex === 'number' && atIndex >= 0 && atIndex <= currentPlan.sections.length) {
+      currentPlan.sections.splice(atIndex, 0, newSec);
+    } else {
+      currentPlan.sections.push(newSec);
+    }
+
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+
+    // Automatically establish links in LinksService
+    if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+      var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+      var actId = template.id || template.title || 'activity';
+      var actUrn = 'cmt:activity:' + actId;
+      if (typeof LinksService.registerEntity === 'function') {
+        LinksService.registerEntity(actUrn, {
+          title: template.title || 'Activity Phase',
+          type: 'activity',
+          activityTypeId: template.activityTypeId || '',
+          interactionTypeId: template.interactionTypeId || '',
+          duration: template.duration || 10
+        });
+      }
+      LinksService.addLink(planUrn, actUrn, {
+        relation: 'uses-activity',
+        meta: { label: template.title || actId, title: template.title || 'Activity Phase' }
+      });
+      if (newSec.id) {
+        LinksService.addLink(planUrn + '#' + newSec.id, actUrn, {
+          relation: 'uses-activity',
+          meta: { label: template.title || actId, phaseTitle: newSec.title || '' }
+        });
+      }
+      if (Array.isArray(newSec.descriptorIds)) {
+        newSec.descriptorIds.forEach(function (dId) {
+          var compUrn = 'cmt:competence:' + dId;
+          LinksService.addLink(planUrn, compUrn, {
+            relation: 'targets-competence',
+            meta: { label: dId }
+          });
+          if (newSec.id) {
+            LinksService.addLink(planUrn + '#' + newSec.id, compUrn, {
+              relation: 'targets-competence',
+              meta: { label: dId, phaseTitle: newSec.title || '' }
+            });
+          }
+        });
+      }
+      if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(i18n.t('lcPhaseAddedToast') || 'Phase added to lesson timeline!');
+    }
+  };
+
+  // ── Export Phase to Database Modal Logic ──────────────────────────────
+  window.lcOpenExportPhaseModal = async function (idx) {
+    if (!currentPlan.sections || !currentPlan.sections[idx]) return;
+    exportingPhaseIndex = idx;
+    var sec = currentPlan.sections[idx];
+
+    // 1. Render Preview
+    var previewEl = document.getElementById('exportPhasePreview');
+    if (previewEl) {
+      var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === sec.activityTypeId; });
+      var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === sec.interactionTypeId; });
+      var actLabel = getActivityLabel(sec.activityTypeId, true);
+      var modeLabel = getInteractionLabel(sec.interactionTypeId, true);
+      var actPill = actDef
+        ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';">' + escapeHtml(actLabel || actDef.shortName || actDef.name) + '</span>')
+        : (sec.activityTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(actLabel || sec.activityTypeId) + '</span>') : '');
+      var modePill = modeDef
+        ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;">' + escapeHtml(modeLabel || modeDef.shortName || modeDef.name) + '</span>')
+        : (sec.interactionTypeId ? ('<span class="drawer-act-pill">' + escapeHtml(modeLabel || sec.interactionTypeId) + '</span>') : '');
+
+      previewEl.innerHTML = [
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">',
+        '  <strong style="font-size:0.95rem;color:var(--neo-dark);">' + escapeHtml(sec.title || 'Untitled Phase') + '</strong>',
+        '  <span class="drawer-act-duration">' + (Number(sec.duration) || 10) + 'm</span>',
+        '</div>',
+        '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;">' + actPill + modePill + '</div>',
+        sec.objective ? ('<div style="font-size:0.78rem;color:#475569;margin-bottom:4px;white-space:pre-wrap;"><strong>Target:</strong> ' + escapeHtml(sec.objective) + '</div>') : '',
+        sec.teacherAction ? ('<div style="font-size:0.75rem;color:#64748b;white-space:pre-wrap;"><strong>Teacher:</strong> ' + escapeHtml(sec.teacherAction) + '</div>') : ''
+      ].join('');
+    }
+
+    // 2. Pre-fill Category & Tags
+    var catInput = document.getElementById('exportPhaseCategory');
+    if (catInput) catInput.value = sec.category || '';
+
+    var tagsInput = document.getElementById('exportPhaseTags');
+    if (tagsInput) {
+      var tArr = Array.isArray(sec.tags) ? sec.tags : (sec.tags ? [sec.tags] : []);
+      tagsInput.value = tArr.join(', ');
+    }
+
+    var statusEl = document.getElementById('exportPhaseStatus');
+    if (statusEl) statusEl.textContent = '';
+
+    // 3. Load available files in customPhases
+    var listContainer = document.getElementById('exportPhaseFileList');
+    if (listContainer) {
+      listContainer.innerHTML = '<span style="font-size:0.8rem;color:#666;">Loading available database files…</span>';
+      var phaseFiles = [];
+      try {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+          var filesRes = await Desktop.listFiles('customPhases', { extensions: ['.js', '.json'] });
+          phaseFiles = Array.isArray(filesRes) ? filesRes : (filesRes && Array.isArray(filesRes.files) ? filesRes.files : []);
+        }
+      } catch (e) {
+        console.warn('Could not list customPhases files:', e);
+      }
+
+      var validNames = phaseFiles.map(function (f) {
+        return typeof f === 'string' ? f : (f && f.filename);
+      }).filter(Boolean);
+
+      if (validNames.length === 0) {
+        listContainer.innerHTML = '<span style="font-size:0.8rem;color:#64748b;">No database files found in custom-data/phases yet.</span>';
+        var newRadio = document.getElementById('exportChoiceNew');
+        if (newRadio) newRadio.checked = true;
+        var newNameInput = document.getElementById('exportNewFileName');
+        if (newNameInput && !newNameInput.value.trim()) newNameInput.value = 'phases.js';
+      } else {
+        listContainer.innerHTML = validNames.map(function (fname, i) {
+          return [
+            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 8px;border-radius:4px;background:#f8fafc;border:1px solid #e2e8f0;">',
+            '  <input type="radio" name="exportPhaseFileChoice" value="' + escapeHtml(fname) + '" ' + (i === 0 ? 'checked' : '') + ' data-lc-change="export-file-choice">',
+            '  <img src="../assets/icons/file-text.svg" class="btn-icon btn-icon-xs" alt="">',
+            '  <span style="font-weight:700;font-size:0.84rem;color:#1e293b;flex:1;">' + escapeHtml(fname) + '</span>',
+            '</label>'
+          ].join('');
+        }).join('');
+      }
+    }
+
+    lcOpenModal('exportPhaseModal');
+  };
+
+  window.lcOnExportFileChoiceChange = function () {
+    var statusEl = document.getElementById('exportPhaseStatus');
+    if (statusEl) statusEl.textContent = '';
+  };
+
+  window.lcConfirmExportPhase = async function () {
+    if (!currentPlan.sections || !currentPlan.sections[exportingPhaseIndex]) {
+      lcCloseModal('exportPhaseModal');
+      return;
+    }
+
+    var sec = currentPlan.sections[exportingPhaseIndex];
+    var statusEl = document.getElementById('exportPhaseStatus');
+
+    var choiceRadio = document.querySelector('input[name="exportPhaseFileChoice"]:checked');
+    if (!choiceRadio) {
+      if (statusEl) statusEl.textContent = i18n.t('lcExportNoFileSelected') || 'Please select or specify a valid file name.';
+      return;
+    }
+
+    var targetFileName = '';
+    if (choiceRadio.value === '__new__') {
+      targetFileName = (document.getElementById('exportNewFileName').value || '').trim();
+      if (!targetFileName) {
+        if (statusEl) statusEl.textContent = i18n.t('lcExportNoFileSelected') || 'Please enter a valid file name.';
+        return;
+      }
+      if (!targetFileName.endsWith('.js') && !targetFileName.endsWith('.json')) {
+        targetFileName += '.js';
+      }
+    } else {
+      targetFileName = choiceRadio.value;
+    }
+
+    var catVal = (document.getElementById('exportPhaseCategory').value || '').trim();
+    var tagsVal = (document.getElementById('exportPhaseTags').value || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+
+    var phaseRecord = {
+      id: sec.id || ('phase-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6)),
+      title: sec.title || 'New Phase',
+      duration: Number(sec.duration) || 10,
+      activityTypeId: sec.activityTypeId || '',
+      interactionTypeId: sec.interactionTypeId || '',
+      category: catVal,
+      objective: sec.objective || '',
+      teacherAction: sec.teacherAction || '',
+      studentAction: sec.studentAction || '',
+      resources: sec.resources || '',
+      descriptorIds: Array.isArray(sec.descriptorIds) ? sec.descriptorIds.slice() : [],
+      tags: tagsVal,
+      customFields: Array.isArray(sec.customFields) ? JSON.parse(JSON.stringify(sec.customFields)) : []
+    };
+
+    // Also update the section in the current plan with the assigned category/tags
+    sec.category = catVal;
+    sec.tags = tagsVal;
+    lcOnPlanDirty();
+
+    var existingRecords = [];
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+        var readRes = await Desktop.readText('customPhases', targetFileName);
+        if (readRes && readRes.ok && readRes.content) {
+          var parsed = parseDescriptorContent(readRes.content);
+          if (Array.isArray(parsed)) existingRecords = parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Reading existing file error:', e);
+    }
+
+    // Check if phase already exists (by ID or Title)
+    var matchIdx = existingRecords.findIndex(function (r) {
+      return (r && r.id && r.id === phaseRecord.id) ||
+             (r && r.title && r.title.toLowerCase().trim() === phaseRecord.title.toLowerCase().trim());
+    });
+
+    if (matchIdx !== -1) {
+      existingRecords[matchIdx] = Object.assign({}, existingRecords[matchIdx], phaseRecord);
+    } else {
+      existingRecords.push(phaseRecord);
+    }
+
+    // Serialize file content
+    var fileContent = '';
+    if (targetFileName.endsWith('.json')) {
+      fileContent = JSON.stringify(existingRecords, null, 2);
+    } else {
+      fileContent = '// customPhaseBank\nconst customPhaseBank = ' + JSON.stringify(existingRecords, null, 2) + ';\n';
+    }
+
+    // Save to customPhases
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+        var saveRes = await Desktop.saveText('customPhases', targetFileName, fileContent);
+        if (!saveRes || !saveRes.ok) {
+          if (statusEl) statusEl.textContent = 'Save failed: ' + ((saveRes && saveRes.error) || 'Unknown error');
+          return;
+        }
+      }
+
+      // Also sync to localStorage and user/lesson-phases.json
+      localStorage.setItem('cmt-lesson-phases', JSON.stringify(existingRecords));
+      if (window.Desktop && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('user', 'lesson-phases.json', JSON.stringify(existingRecords, null, 2));
+      }
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'Save failed: ' + err.message;
+      return;
+    }
+
+    // Broadcast update across windows
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var ch = new BroadcastChannel('cmt-phases');
+        ch.postMessage({ type: 'phases-updated', timestamp: Date.now() });
+        ch.close();
+      }
+    } catch (_) {}
+
+    // Reload local phase cache and render
+    await loadSavedPhases();
+    renderActivityDrawer();
+
+    lcCloseModal('exportPhaseModal');
+    if (typeof showToast === 'function') {
+      showToast((i18n.t('lcPhaseExportedToast') || 'Phase saved to database!') + ' (' + targetFileName + ')');
+    }
+  };
+
+  function updateActivityFilterOptions() {
+    var actTypeSelect = document.getElementById('drawerFilterActType');
+    var actModeSelect = document.getElementById('drawerFilterActMode');
+    var actCatSelect = document.getElementById('drawerFilterActCat');
+
+    if (actTypeSelect) {
+      var curActVal = actTypeSelect.value || 'all';
+      actTypeSelect.innerHTML = '<option value="all">' + (i18n.t('lcFilterActivityType') || 'All Activity Types') + '</option>';
+      (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).forEach(function (a) {
+        var opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = getActivityLabel(a.id, false);
+        actTypeSelect.appendChild(opt);
+      });
+      if (curActVal) actTypeSelect.value = curActVal;
+    }
+
+    if (actModeSelect) {
+      var curModeVal = actModeSelect.value || 'all';
+      actModeSelect.innerHTML = '<option value="all">' + (i18n.t('lcFilterMode') || 'All Modes') + '</option>';
+      (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).forEach(function (m) {
+        var opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = getInteractionLabel(m.id, false);
+        actModeSelect.appendChild(opt);
+      });
+      if (curModeVal) actModeSelect.value = curModeVal;
+    }
+
+    if (actCatSelect) {
+      var curCatVal = actCatSelect.value || 'all';
+      var cats = new Set();
+      allPhases.forEach(function (p) {
+        if (p.category && String(p.category).trim()) cats.add(String(p.category).trim());
+      });
+      actCatSelect.innerHTML = '<option value="all">All Categories</option>';
+      cats.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        actCatSelect.appendChild(opt);
+      });
+      if (cats.has(curCatVal)) actCatSelect.value = curCatVal;
+    }
+  }
+
+  window.lcFilterActivityDrawer = function () {
+    renderActivityDrawer();
+  };
+
+  function renderActivityDrawer() {
+    var list = document.getElementById('drawerActivitiesList');
+    if (!list) return;
+
+    // Update preset buttons active state
+    var pDetailed = document.getElementById('btnActPresetDetailed');
+    var pCompact = document.getElementById('btnActPresetCompact');
+    var pMinimal = document.getElementById('btnActPresetMinimal');
+    var curPreset = (activityDisplayConfig && activityDisplayConfig.preset) || 'detailed';
+    if (pDetailed) pDetailed.classList.toggle('active', curPreset === 'detailed');
+    if (pCompact) pCompact.classList.toggle('active', curPreset === 'compact');
+    if (pMinimal) pMinimal.classList.toggle('active', curPreset === 'minimal');
+
+    var searchInput = document.getElementById('drawerActivitySearch');
+    var rawQuery = searchInput ? (searchInput.value || '').toLowerCase().trim() : '';
+
+    var actTypeSelect = document.getElementById('drawerFilterActType');
+    var selActType = actTypeSelect ? actTypeSelect.value : 'all';
+
+    var actModeSelect = document.getElementById('drawerFilterActMode');
+    var selActMode = actModeSelect ? actModeSelect.value : 'all';
+
+    var actCatSelect = document.getElementById('drawerFilterActCat');
+    var selActCat = actCatSelect ? actCatSelect.value : 'all';
+
+    var sortSelect = document.getElementById('drawerActivitySort');
+    var selSort = sortSelect ? sortSelect.value : 'title';
+
+    var filtered = allPhases.filter(function (p) {
+      if (!p) return false;
+      if (selActType !== 'all' && p.activityTypeId !== selActType) return false;
+      if (selActMode !== 'all' && p.interactionTypeId !== selActMode) return false;
+      if (selActCat !== 'all' && String(p.category || '').trim() !== selActCat) return false;
+
+      if (rawQuery) {
+        var title = String(p.title || '').toLowerCase();
+        var obj = String(p.objective || '').toLowerCase();
+        var tAct = String(p.teacherAction || '').toLowerCase();
+        var sAct = String(p.studentAction || '').toLowerCase();
+        var res = String(p.resources || '').toLowerCase();
+        var cat = String(p.category || '').toLowerCase();
+        var tags = Array.isArray(p.tags) ? p.tags.join(' ').toLowerCase() : String(p.tags || '').toLowerCase();
+        if (title.indexOf(rawQuery) === -1 && obj.indexOf(rawQuery) === -1 &&
+            tAct.indexOf(rawQuery) === -1 && sAct.indexOf(rawQuery) === -1 &&
+            res.indexOf(rawQuery) === -1 && cat.indexOf(rawQuery) === -1 &&
+            tags.indexOf(rawQuery) === -1) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Sorting
+    filtered.sort(function (a, b) {
+      if (selSort === 'durationAsc') {
+        return (Number(a.duration) || 0) - (Number(b.duration) || 0);
+      }
+      if (selSort === 'durationDesc') {
+        return (Number(b.duration) || 0) - (Number(a.duration) || 0);
+      }
+      if (selSort === 'activity') {
+        return String(a.activityTypeId || '').localeCompare(String(b.activityTypeId || ''));
+      }
+      return String(a.title || '').localeCompare(String(b.title || ''));
+    });
+
+    // Match count and active filters
+    var countBadge = document.getElementById('drawerActivityMatchCount');
+    if (countBadge) {
+      countBadge.textContent = filtered.length + ' / ' + allPhases.length + ' activities';
+    }
+
+    var activeFiltersBar = document.getElementById('drawerActivityActiveFilters');
+    if (activeFiltersBar) {
+      activeFiltersBar.innerHTML = '';
+      if (rawQuery) {
+        activeFiltersBar.appendChild(createFilterTag('Query: ' + rawQuery, function () {
+          if (searchInput) searchInput.value = '';
+          renderActivityDrawer();
+        }));
+      }
+      if (selActType !== 'all') {
+        activeFiltersBar.appendChild(createFilterTag('Type: ' + selActType, function () {
+          if (actTypeSelect) actTypeSelect.value = 'all';
+          renderActivityDrawer();
+        }));
+      }
+      if (selActMode !== 'all') {
+        activeFiltersBar.appendChild(createFilterTag('Mode: ' + selActMode, function () {
+          if (actModeSelect) actModeSelect.value = 'all';
+          renderActivityDrawer();
+        }));
+      }
+      if (selActCat !== 'all') {
+        activeFiltersBar.appendChild(createFilterTag('Cat: ' + selActCat, function () {
+          if (actCatSelect) actCatSelect.value = 'all';
+          renderActivityDrawer();
+        }));
+      }
+    }
+
+    list.innerHTML = '';
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:#888;padding:30px 10px;font-size:0.85rem;" data-i18n="lcNoActivitiesFound">' +
+        (allPhases.length === 0
+          ? 'Activity Bank is empty.<br><button type="button" class="neo-btn primary" style="margin-top:10px;font-size:0.75rem;" data-lc-action="open-phase-db">+ Add Phases in Database</button>'
+          : (i18n.t('lcNoActivitiesFound') || 'No activities matching filters')) +
+        '</div>';
+      return;
+    }
+
+    var cfg = activityDisplayConfig || DEFAULT_ACTIVITY_CONFIG;
+
+    filtered.forEach(function (p) {
+      var card = document.createElement('div');
+      card.className = 'drawer-activity-card';
+      if (cfg.preset === 'compact') {
+        card.classList.add('compact-mode');
+      } else if (cfg.preset === 'minimal') {
+        card.classList.add('minimal-mode');
+      }
+      card.draggable = true;
+      card.dataset.id = p.id;
+
+      card.addEventListener('dragstart', function (e) {
+        card.classList.add('dragging');
+        e.dataTransfer.setData('application/json', JSON.stringify({
+          type: 'phase-template',
+          phase: p
+        }));
+        e.dataTransfer.setData('text/plain', 'phase:' + p.id);
+        e.dataTransfer.effectAllowed = 'copy';
+      });
+
+      card.addEventListener('dragend', function () {
+        card.classList.remove('dragging');
+      });
+
+      // Activity Type meta
+      var actDef = (LessonCreatorService.DEFAULT_ACTIVITY_TYPES || []).find(function (a) { return a.id === p.activityTypeId; });
+      var modeDef = (LessonCreatorService.DEFAULT_INTERACTION_TYPES || []).find(function (m) { return m.id === p.interactionTypeId; });
+
+      var actLabel = getActivityLabel(p.activityTypeId, true);
+      var modeLabel = getInteractionLabel(p.interactionTypeId, true);
+      var actExp = getActivityExplanation(p.activityTypeId);
+      var actFullTip = getActivityLabel(p.activityTypeId, false) + (actExp ? ('\n\n' + actExp) : '');
+      var modeExp = getInteractionExplanation(p.interactionTypeId);
+      var modeFullTip = getInteractionLabel(p.interactionTypeId, false) + (modeExp ? ('\n\n' + modeExp) : '');
+
+      var actPillHtml = actDef
+        ? ('<span class="drawer-act-pill" style="background:' + (actDef.bg || '#fef3c7') + ';color:' + (actDef.color || '#111') + ';" title="' + escapeHtml(actFullTip) + '">' +
+           (actDef.icon ? ('<img src="../assets/icons/' + escapeHtml(actDef.icon) + '" alt="">') : '') +
+           '<span>' + escapeHtml(actLabel || actDef.shortName || actDef.name) + '</span></span>')
+        : (p.activityTypeId ? ('<span class="drawer-act-pill" title="' + escapeHtml(actFullTip) + '">' + escapeHtml(actLabel || p.activityTypeId) + '</span>') : '');
+
+      var modePillHtml = modeDef
+        ? ('<span class="drawer-act-pill" style="background:#f1f5f9;color:#334155;" title="' + escapeHtml(modeFullTip) + '">' +
+           (modeDef.icon ? ('<img src="../assets/icons/' + escapeHtml(modeDef.icon) + '" alt="">') : '') +
+           '<span>' + escapeHtml(modeLabel || modeDef.shortName || modeDef.name) + '</span></span>')
+        : (p.interactionTypeId ? ('<span class="drawer-act-pill" title="' + escapeHtml(modeFullTip) + '">' + escapeHtml(modeLabel || p.interactionTypeId) + '</span>') : '');
+
+      var catPillHtml = p.category
+        ? ('<span class="drawer-act-pill" style="background:#f3e8ff;color:#6b21a8;border-color:#d8b4fe;">' + escapeHtml(p.category) + '</span>')
+        : '';
+
+      var tagsArr = Array.isArray(p.tags) ? p.tags : (p.tags ? [p.tags] : []);
+      var tagsHtml = tagsArr.length > 0 ? ('<span class="drawer-act-tags" title="' + escapeHtml(tagsArr.join(', ')) + '">' + highlightMatchText(escapeHtml(tagsArr.join(', ')), rawQuery) + '</span>') : '<span></span>';
+
+      var descSnippet = p.objective || p.teacherAction || p.studentAction || p.resources || '';
+
+      // Header
+      var titleHtml = cfg.showTitle ? ('<span class="drawer-act-title">' + highlightMatchText(escapeHtml(p.title || 'Untitled Phase'), rawQuery) + '</span>') : '';
+      var durHtml = cfg.showDuration ? ('<span class="drawer-act-duration">' + (Number(p.duration) || 10) + 'm</span>') : '';
+      var headerHtml = (titleHtml || durHtml) ? ('<div class="drawer-act-header">' + titleHtml + durHtml + '</div>') : '';
+
+      // Badges
+      var badgesList = [];
+      if (cfg.showType && actPillHtml) badgesList.push(actPillHtml);
+      if (cfg.showMode && modePillHtml) badgesList.push(modePillHtml);
+      if (cfg.showCategory && catPillHtml) badgesList.push(catPillHtml);
+      var badgesHtml = badgesList.length > 0 ? ('<div class="drawer-act-badges">' + badgesList.join('') + '</div>') : '';
+
+      // Description
+      var descHtml = '';
+      if (cfg.showDescription && descSnippet && cfg.preset !== 'minimal') {
+        descHtml = '<div class="drawer-act-desc">' + highlightMatchText(escapeHtml(descSnippet), rawQuery) + '</div>';
+      }
+
+      // Expand toggle
+      var expandToggleHtml = '';
+      if (cfg.preset === 'compact' || (cfg.preset === 'detailed' && descSnippet && descSnippet.length > 80)) {
+        expandToggleHtml = '<button type="button" class="card-expand-toggle" data-lc-action="toggle-act-card">' + (i18n.t('lcDetailsExpand') || 'Details ▾') + '</button>';
+      }
+
+      // Footer
+      var tagsRendered = (cfg.showTags && cfg.preset !== 'minimal') ? tagsHtml : '<span></span>';
+      var btnAddHtml = cfg.showActions
+        ? ('<button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" data-lc-action="insert-bank-phase" data-lc-val="' + escapeHtml(p.id) + '">+ ' + (i18n.t('lcAddPhaseToLesson') || 'Add to Lesson') + '</button>')
+        : '';
+      var footerHtml = (tagsRendered || btnAddHtml) ? ('<div class="drawer-act-footer">' + tagsRendered + btnAddHtml + '</div>') : '';
+
+      card.innerHTML = [
+        headerHtml,
+        badgesHtml,
+        descHtml,
+        expandToggleHtml,
+        footerHtml
+      ].join('');
+
+      list.appendChild(card);
+    });
+  }
+
+  window.lcFilterDrawer = function () {
+    renderDrawer();
+  };
+
+  window.lcOnDrawerCategoryChange = function () {
+    var cat = document.getElementById('drawerFilterCategory').value;
+    var subCatSelect = document.getElementById('drawerFilterSubCategory');
+    var subCats = new Set();
+    allDescriptors.forEach(function (d) {
+      if (cat === 'all' || d.category === cat) {
+        if (d.subCategory) subCats.add(d.subCategory);
+      }
+    });
+    subCatSelect.innerHTML = '<option value="all">All Subcategories</option>';
+    subCats.forEach(function (sub) {
+      var opt = document.createElement('option');
+      opt.value = sub;
+      opt.textContent = sub;
+      subCatSelect.appendChild(opt);
+    });
+    renderDrawer();
+  };
+
+  // ── Phase Operations ─────────────────────────────────────────────────
+  window.lcAddPhase = function () {
+    var newSec = {
+      id: LessonCreatorService.generateId('sec'),
+      title: 'New Phase',
+      duration: 10,
+      activityTypeId: '',
+      interactionTypeId: '',
+      objective: '',
+      teacherAction: '',
+      studentAction: '',
+      descriptorIds: [],
+      resources: '',
+      customFields: []
+    };
+    currentPlan.sections = currentPlan.sections || [];
+    currentPlan.sections.push(newSec);
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+  };
+
+  window.lcOnPhaseTitleChange = function (idx, val) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections[idx].title = val;
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnPhaseDurationChange = function (idx, val) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections[idx].duration = Number(val) || 0;
+      updateDurationMeter();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcTogglePhaseActivity = function (idx, activityId) {
+    if (currentPlan.sections && currentPlan.sections[idx]) {
+      var current = currentPlan.sections[idx].activityTypeId;
+      currentPlan.sections[idx].activityTypeId = (current === activityId) ? '' : activityId;
+      renderPhaseCards();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcTogglePhaseMode = function (idx, modeId) {
+    if (currentPlan.sections && currentPlan.sections[idx]) {
+      var current = currentPlan.sections[idx].interactionTypeId;
+      currentPlan.sections[idx].interactionTypeId = (current === modeId) ? '' : modeId;
+      renderPhaseCards();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnPhaseActivityChange = function (idx, val) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections[idx].activityTypeId = val || '';
+      renderPhaseCards();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnPhaseModeChange = function (idx, val) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections[idx].interactionTypeId = val || '';
+      renderPhaseCards();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnPhaseFieldChange = function (idx, field, val) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections[idx][field] = val;
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcDuplicatePhase = function (idx) {
+    if (currentPlan.sections[idx]) {
+      var cloned = JSON.parse(JSON.stringify(currentPlan.sections[idx]));
+      cloned.id = LessonCreatorService.generateId('sec');
+      cloned.title = cloned.title + ' (Copy)';
+      if (Array.isArray(cloned.customFields)) {
+        cloned.customFields = cloned.customFields.map(function (cf) {
+          return Object.assign({}, cf, {
+            id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)
+          });
+        });
+      }
+      currentPlan.sections.splice(idx + 1, 0, cloned);
+      renderPhaseCards();
+      updateDurationMeter();
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcDeletePhase = function (idx) {
+    if (currentPlan.sections[idx]) {
+      currentPlan.sections.splice(idx, 1);
+      renderPhaseCards();
+      updateDurationMeter();
+      lcOnPlanDirty();
+    }
+  };
+
+  // ── Custom Phase Fields Operations ──────────────────────────────────
+  window.lcAddCustomField = function (phaseIdx, initialData) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+    var newCf = {
+      id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+      title: (initialData && initialData.title) || '',
+      content: (initialData && initialData.content) || '',
+      format: (initialData && initialData.format) || 'markdown',
+      _viewMode: 'edit'
+    };
+    sec.customFields.push(newCf);
+    renderPhaseCards();
+    lcOnPlanDirty();
+    setTimeout(function () {
+      var cardEl = document.getElementById('cfCard_' + phaseIdx + '_' + newCf.id);
+      if (cardEl) {
+        var inp = cardEl.querySelector('.phase-custom-title-input');
+        if (inp) inp.focus();
+      }
+    }, 50);
+  };
+
+  window.lcOnCustomFieldTitleChange = function (phaseIdx, cfId, newTitle) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    if (!Array.isArray(sec.customFields)) return;
+    var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+    if (cf) {
+      cf.title = newTitle;
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcOnCustomFieldContentChange = function (phaseIdx, cfId, newContent) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    if (!Array.isArray(sec.customFields)) return;
+    var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+    if (cf) {
+      cf.content = newContent;
+      var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+      if (prevEl) {
+        var rendered = renderMarkdownOrHtml(newContent, cf.format);
+        var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+        prevEl.innerHTML = rendered || emptyHint;
+      }
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcSetCustomFieldFormat = function (phaseIdx, cfId, newFormat) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    if (!Array.isArray(sec.customFields)) return;
+    var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+    if (cf) {
+      cf.format = newFormat;
+      var cardEl = document.getElementById('cfCard_' + phaseIdx + '_' + cfId);
+      if (cardEl) {
+        var btns = cardEl.querySelectorAll('.phase-format-btn');
+        btns.forEach(function (btn) {
+          var txt = btn.textContent.trim().toUpperCase();
+          var match = (newFormat === 'markdown' && txt === 'MD') ||
+                      (newFormat === 'html' && txt === 'HTML') ||
+                      (newFormat === 'text' && txt === 'TXT');
+          btn.classList.toggle('active', match);
+        });
+        var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+        if (prevEl) {
+          var rendered = renderMarkdownOrHtml(cf.content || '', newFormat);
+          var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+          prevEl.innerHTML = rendered || emptyHint;
+        }
+      }
+      lcOnPlanDirty();
+    }
+  };
+
+  window.lcToggleCustomFieldView = function (phaseIdx, cfId, mode) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    if (!Array.isArray(sec.customFields)) return;
+    var cf = sec.customFields.find(function (f) { return f.id === cfId; });
+    if (cf) {
+      cf._viewMode = mode;
+      var editBtn = document.getElementById('cfEditBtn_' + phaseIdx + '_' + cfId);
+      var prevBtn = document.getElementById('cfPrevBtn_' + phaseIdx + '_' + cfId);
+      var ta = document.getElementById('cfTextarea_' + phaseIdx + '_' + cfId);
+      var prevEl = document.getElementById('cfPreview_' + phaseIdx + '_' + cfId);
+      var isPreview = (mode === 'preview');
+
+      if (editBtn) editBtn.classList.toggle('active', !isPreview);
+      if (prevBtn) prevBtn.classList.toggle('active', isPreview);
+
+      if (isPreview) {
+        if (ta) ta.style.display = 'none';
+        if (prevEl) {
+          var rendered = renderMarkdownOrHtml(cf.content || '', cf.format);
+          var emptyHint = '<div class="phase-custom-preview-empty">' + escapeHtml(i18n.t('lcCustomFieldPreviewEmpty') || 'Empty content — click Edit to add text') + '</div>';
+          prevEl.innerHTML = rendered || emptyHint;
+          prevEl.style.display = 'block';
+        }
+      } else {
+        if (prevEl) prevEl.style.display = 'none';
+        if (ta) {
+          ta.style.display = 'block';
+          lcAutoResizeField(ta);
+          ta.focus();
+        }
+      }
+    }
+  };
+
+  window.lcRemoveCustomField = function (phaseIdx, cfId) {
+    if (!currentPlan.sections || !currentPlan.sections[phaseIdx]) return;
+    var sec = currentPlan.sections[phaseIdx];
+    if (!Array.isArray(sec.customFields)) return;
+    var idx = sec.customFields.findIndex(function (f) { return f.id === cfId; });
+    if (idx !== -1) {
+      sec.customFields.splice(idx, 1);
+      renderPhaseCards();
+      lcOnPlanDirty();
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcToastCustomFieldRemoved') || 'Custom field removed');
+      }
+    }
+  };
+
+  window.lcDuplicateCustomFieldToAll = function (sourcePhaseIdx, cfId) {
+    if (!currentPlan.sections || !currentPlan.sections[sourcePhaseIdx]) return;
+    var sourceSec = currentPlan.sections[sourcePhaseIdx];
+    if (!Array.isArray(sourceSec.customFields)) return;
+    var srcCf = sourceSec.customFields.find(function (f) { return f.id === cfId; });
+    if (!srcCf) return;
+
+    var addedCount = 0;
+    (currentPlan.sections || []).forEach(function (sec, pIdx) {
+      if (pIdx === sourcePhaseIdx) return;
+      sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+      var exists = sec.customFields.some(function (f) {
+        return (f.title || '').trim().toLowerCase() === (srcCf.title || '').trim().toLowerCase();
+      });
+      if (!exists) {
+        sec.customFields.push({
+          id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+          title: srcCf.title || '',
+          content: '',
+          format: srcCf.format || 'markdown',
+          _viewMode: 'edit'
+        });
+        addedCount++;
+      }
+    });
+
+    renderPhaseCards();
+    lcOnPlanDirty();
+    if (typeof showToast === 'function') {
+      showToast(i18n.t('lcToastCustomFieldAddedAll') || 'Custom field added to all phases');
+    }
+  };
+
+  window.lcPromptAddCustomFieldToAll = function () {
+    var promptMsg = i18n.t('lcPromptCustomFieldTitle') || 'Enter title for the custom phase field (e.g. Key Vocabulary, Homework):';
+    if (typeof showPrompt === 'function') {
+      showPrompt(promptMsg, '').then(function (title) {
+        if (!title || !title.trim()) return;
+        var cleanTitle = title.trim();
+        (currentPlan.sections || []).forEach(function (sec) {
+          sec.customFields = Array.isArray(sec.customFields) ? sec.customFields : [];
+          var exists = sec.customFields.some(function (f) {
+            return (f.title || '').trim().toLowerCase() === cleanTitle.toLowerCase();
+          });
+          if (!exists) {
+            sec.customFields.push({
+              id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+              title: cleanTitle,
+              content: '',
+              format: 'markdown',
+              _viewMode: 'edit'
+            });
+          }
+        });
+        renderPhaseCards();
+        lcOnPlanDirty();
+        if (typeof showToast === 'function') {
+          showToast(i18n.t('lcToastCustomFieldAddedAll') || 'Custom field added to all phases');
+        }
+      });
+    }
+  };
+
+  window.lcTagDescriptorToActivePhase = function (descId, targetPhaseIdx, skipPrompt = false) {
+    var phases = currentPlan.sections || [];
+    if (phases.length === 0) {
+      lcAddPhase();
+      phases = currentPlan.sections || [];
+    }
+    var pIdx = (typeof targetPhaseIdx === 'number' && targetPhaseIdx >= 0 && targetPhaseIdx < phases.length)
+      ? targetPhaseIdx
+      : phases.length - 1;
+    var targetPhase = phases[pIdx];
+    if (!targetPhase) return;
+    targetPhase.descriptorIds = targetPhase.descriptorIds || [];
+    if (targetPhase.descriptorIds.indexOf(descId) === -1) {
+      targetPhase.descriptorIds.push(descId);
+      renderPhaseCards();
+      if (typeof showToast === 'function') showToast('Tagged standard to Phase ' + (pIdx + 1));
+      lcOnPlanDirty();
+
+      // Automatically establish link in LinksService
+      if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+        var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+        var descObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId || (d.qualifiedId && d.qualifiedId === descId); }) : null) || { id: descId, code: descId };
+        var compCode = descObj.code || descObj.id || descId;
+        var compUrn = 'cmt:competence:' + compCode;
+        if (typeof LinksService.registerEntity === 'function') {
+          LinksService.registerEntity(compUrn, {
+            title: descObj.title || descObj.text || compCode,
+            code: compCode,
+            type: 'competence'
+          });
+        }
+        LinksService.addLink(planUrn, compUrn, {
+          relation: 'targets-competence',
+          meta: { label: compCode, title: descObj.title || descObj.text || compCode }
+        });
+        if (targetPhase && targetPhase.id) {
+          LinksService.addLink(planUrn + '#' + targetPhase.id, compUrn, {
+            relation: 'targets-competence',
+            meta: { label: compCode, phaseTitle: targetPhase.title || ('Phase ' + (pIdx + 1)) }
+          });
+        }
+        if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+      }
+
+      if (!skipPrompt && typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.promptAddLinkedCompetences === 'function') {
+        var compObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId || (d.qualifiedId && d.qualifiedId === descId); }) : null) || { id: descId, code: descId };
+        CompetenceAggregatorService.promptAddLinkedCompetences(compObj, targetPhase.descriptorIds, {
+          onAdd: function (linkedToAdd) {
+            linkedToAdd.forEach(function (lc) {
+              lcTagDescriptorToActivePhase(lc.id, pIdx, true);
+            });
+          }
+        });
+      }
+    }
+  };
+
+  window.lcOpenDetailPopover = function (ev, phaseIdx, descId) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var sec = currentPlan && currentPlan.sections && currentPlan.sections[phaseIdx];
+    if (!sec || !window.CompetenceAggregatorService) return;
+    var t = String(descId || '').toLowerCase().trim();
+    var d = allDescriptors.find(function (x) {
+      return x && (String(x.id || '').toLowerCase().trim() === t || String(x.code || '').toLowerCase().trim() === t);
+    });
+    if (!d) return;
+    var lines = window.CompetenceAggregatorService.getDetailedLines(d);
+    if (!lines.length) return;
+    var base = (sec.detailHiddenLines && sec.detailHiddenLines[d.id])
+      || ((competenceDisplayConfig.hiddenDetailLines || {})[d.id])
+      || [];
+    var hidden = base.slice();
+    window.CompetenceAggregatorService.openDetailPopover(
+      ev.currentTarget,
+      (d.code || d.id) + ' - ' + i18n.t('lcDetailPopoverTitle'),
+      lines,
+      hidden,
+      function (line, on) {
+        var i = hidden.indexOf(line);
+        if (on) { if (i > -1) hidden.splice(i, 1); }
+        else if (i === -1) hidden.push(line);
+        sec.detailHiddenLines = sec.detailHiddenLines || {};
+        sec.detailHiddenLines[d.id] = hidden.slice();
+        lcOnPlanDirty();
+      }
+    );
+  };
+  window.lcRemoveDescriptorFromPhase = function (phaseIdx, descId) {
+    if (currentPlan.sections[phaseIdx] && currentPlan.sections[phaseIdx].descriptorIds) {
+      var sec = currentPlan.sections[phaseIdx];
+      var arr = sec.descriptorIds;
+      var i = arr.indexOf(descId);
+      if (i !== -1) {
+        arr.splice(i, 1);
+        renderPhaseCards();
+        lcOnPlanDirty();
+
+        if (typeof LinksService !== 'undefined' && typeof LinksService.removeLink === 'function') {
+          var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+          var descObj = (Array.isArray(allDescriptors) ? allDescriptors.find(function (d) { return d.id === descId || d.code === descId; }) : null) || { id: descId };
+          var compCode = descObj.code || descObj.id || descId;
+          var compUrn = 'cmt:competence:' + compCode;
+          if (sec.id) {
+            LinksService.removeLink(planUrn + '#' + sec.id, compUrn).catch(function () {});
+          }
+          var stillUsed = (currentPlan.sections || []).some(function (s) {
+            return s.descriptorIds && s.descriptorIds.indexOf(descId) !== -1;
+          });
+          if (!stillUsed) {
+            LinksService.removeLink(planUrn, compUrn).catch(function () {});
+          }
+          if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+        }
+      }
+    }
+  };
+
+  // ── Split Modal Operations ───────────────────────────────────────────
+  window.lcOpenSplitModal = function (idx) {
+    var sec = currentPlan.sections[idx];
+    if (!sec) return;
+    document.getElementById('splitPhaseId').value = idx;
+    var dur = Number(sec.duration) || 10;
+    var half = Math.floor(dur / 2);
+    document.getElementById('splitDurationA').value = half;
+    document.getElementById('splitDurationB').value = dur - half;
+    document.getElementById('splitTitleA').value = sec.title + ' — Part 1';
+    document.getElementById('splitTitleB').value = sec.title + ' — Part 2';
+    document.getElementById('splitModal').style.display = 'flex';
+  };
+
+  window.lcApplySplitPhase = function () {
+    var idx = parseInt(document.getElementById('splitPhaseId').value, 10);
+    var sec = currentPlan.sections[idx];
+    if (!sec) return;
+
+    var durA = Number(document.getElementById('splitDurationA').value) || 5;
+    var durB = Number(document.getElementById('splitDurationB').value) || 5;
+    var titA = document.getElementById('splitTitleA').value || 'Part 1';
+    var titB = document.getElementById('splitTitleB').value || 'Part 2';
+
+    var partA = JSON.parse(JSON.stringify(sec));
+    partA.title = titA;
+    partA.duration = durA;
+
+    var partB = JSON.parse(JSON.stringify(sec));
+    partB.id = LessonCreatorService.generateId('sec');
+    partB.title = titB;
+    partB.duration = durB;
+    if (Array.isArray(partB.customFields)) {
+      partB.customFields = partB.customFields.map(function (cf) {
+        return Object.assign({}, cf, {
+          id: 'cf_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)
+        });
+      });
+    }
+
+    currentPlan.sections.splice(idx, 1, partA, partB);
+    lcCloseModal('splitModal');
+    renderPhaseCards();
+    updateDurationMeter();
+    lcOnPlanDirty();
+  };
+
+  // ── Save & Open Plan Routines ────────────────────────────────────────
+  window.lcSavePlan = async function () {
+    currentPlan.title = document.getElementById('planTitle').value || 'Untitled Lesson Plan';
+    var classSel = document.getElementById('planClass');
+    if (classSel) currentPlan.classId = classSel.value || '';
+    var dateInp = document.getElementById('planDate');
+    if (dateInp) currentPlan.date = dateInp.value || '';
+    var subSel = document.getElementById('planSubject');
+    if (subSel) currentPlan.subjectId = subSel.value || 'science';
+    var yrSel = document.getElementById('planYearLevel');
+    if (yrSel) currentPlan.yearLevel = yrSel.value || 'all';
+    var semSel = document.getElementById('planSemester');
+    if (semSel) currentPlan.semester = semSel.value || 'all';
+    var durInp = document.getElementById('planTargetDuration');
+    if (durInp) currentPlan.targetDuration = Number(durInp.value) || 60;
+
+    var slug = currentPlan.title.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 30);
+    var filename = 'lp_' + (currentPlan.classId || 'general') + '_' + (currentPlan.date || 'date') + '_' + slug + '_' + currentPlan.id + '.json';
+
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+        if (currentPlan._filename && currentPlan._filename !== filename) {
+          try {
+            if (typeof Desktop.deleteFile === 'function') {
+              await Desktop.deleteFile('lessons', currentPlan._filename);
+            }
+            if (typeof Desktop.deleteByPath === 'function') {
+              await Desktop.deleteByPath('lessons', currentPlan._filename);
+              await Desktop.deleteByPath('user', 'lessons/' + currentPlan._filename);
+            }
+          } catch (_) {}
+        }
+        await Desktop.saveJson('lessons', filename, currentPlan);
+      } else {
+        localStorage.setItem('cmt-lesson-' + currentPlan.id, JSON.stringify(currentPlan));
+      }
+      currentPlan._filename = filename;
+      currentPlan._relPath = 'lessons/' + filename;
+      currentPlan._target = 'lessons';
+
+      if (typeof LinksService !== 'undefined') {
+        var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+        var regFn = LinksService.registerEntity || LinksService.registerItem;
+        if (typeof regFn === 'function') {
+          regFn.call(LinksService, planUrn, {
+            title: currentPlan.title || 'Untitled Lesson Plan',
+            type: 'lesson',
+            id: currentPlan.id,
+            classId: currentPlan.classId || '',
+            date: currentPlan.date || '',
+            tags: currentPlan.tags || []
+          });
+        }
+        if (currentPlan.classId && typeof LinksService.addLink === 'function') {
+          LinksService.addLink(planUrn, 'cmt:class:' + currentPlan.classId, {
+            relation: 'assigned-to',
+            meta: { label: 'Class ' + (getClassLabel(currentPlan.classId) || currentPlan.classId) }
+          });
+        }
+        if (currentPlan.plannerEntryId && typeof LinksService.addLink === 'function') {
+          LinksService.addLink(planUrn, 'cmt:planner:' + currentPlan.plannerEntryId, {
+            relation: 'scheduled-slot',
+            meta: { label: 'Planner Slot ' + (currentPlan.date || '') }
+          });
+        }
+      }
+      if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+      if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+        Desktop.notifyDataChanged({ target: 'lessons', filename: filename });
+      }
+      isDirty = false;
+      await loadSavedPlansIndex();
+      if (typeof showToast === 'function') showToast('Lesson Plan Saved: ' + currentPlan.title);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Save failed: ' + e.message, true);
+    }
+  };
+
+  window.lcNewPlan = async function () {
+    if (isDirty) {
+      var confirmed = (typeof showConfirm === 'function') ? await showConfirm(i18n.t("lcUnsavedChangesNewPrompt")) : confirm('You have unsaved changes. Create a new blank plan?');
+      if (!confirmed) return;
+    }
+    currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+    isDirty = false;
+    renderPlan();
+  };
+
+  window.lcResetPlan = async function () {
+    var confirmed = false;
+    if (typeof showConfirm === 'function') {
+      confirmed = await showConfirm(i18n.t("lcResetConfirmPrompt"));
+    } else {
+      confirmed = confirm(i18n.t('lcResetConfirmPrompt'));
+    }
+    if (!confirmed) return;
+    currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+    isDirty = false;
+    renderPlan();
+    if (typeof showToast === 'function') showToast(i18n.t("lcPlanResetToast"));
+  };
+
+  window.lcDuplicatePlan = function () {
+    var cloned = JSON.parse(JSON.stringify(currentPlan));
+    cloned.id = LessonCreatorService.generateId('lp');
+    cloned.title = cloned.title + ' (Copy)';
+    delete cloned._filename;
+    delete cloned._relPath;
+    currentPlan = cloned;
+    renderPlan();
+    if (typeof showToast === 'function') showToast(i18n.t("lcPlanDuplicatedToast"));
+  };
+
+  window.lcUnlinkPlan = async function () {
+    if (!currentPlan) return;
+    var hadPlannerLink = !!currentPlan.plannerEntryId;
+    var oldSlotId = currentPlan.plannerEntryId;
+    currentPlan.plannerEntryId = '';
+    if (typeof LinksService !== 'undefined' && oldSlotId) {
+      var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+      LinksService.removeLink(planUrn, 'cmt:planner:' + oldSlotId);
+    }
+    isDirty = true;
+    if (typeof updatePlannerSlotBadge === 'function') updatePlannerSlotBadge();
+    if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+    await lcSavePlan();
+    if (hadPlannerLink && window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+      Desktop.notifyDataChanged({ target: 'lessons' });
+      Desktop.notifyDataChanged({ target: 'planner' });
+    }
+    lcCloseModal('plannerLinkModal');
+    var msg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcPlanUnlinked') : '') || 'Lesson plan unlinked from planner slot';
+    if (typeof showToast === 'function') showToast(msg);
+  };
+
+  window.lcDeletePlan = async function (planId, filename, planTitle) {
+    var targetId = planId || (currentPlan ? currentPlan.id : '');
+    if (!targetId) return;
+
+    var foundPlan = allSavedPlans.find(function (p) { return p.id === targetId; });
+    var title = planTitle || (foundPlan ? foundPlan.title : '') || (currentPlan && targetId === currentPlan.id ? currentPlan.title : '') || 'Untitled';
+    var confirmMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcConfirmDeletePlan') : '') || 'Are you sure you want to permanently delete this lesson plan?';
+    confirmMsg += '\n\n"' + title + '"';
+
+    var confirmed = false;
+    if (typeof showConfirm === 'function') {
+      confirmed = await showConfirm(confirmMsg);
+    } else {
+      confirmed = confirm(confirmMsg);
+    }
+    if (!confirmed) return;
+
+    var fnToDelete = filename || (foundPlan ? foundPlan._filename : '') || (foundPlan && foundPlan._relPath ? foundPlan._relPath.split('/').pop() : '');
+    var relPath = (foundPlan && foundPlan._relPath) ? foundPlan._relPath : (fnToDelete ? ('lessons/' + fnToDelete) : '');
+
+    try {
+      if (window.Desktop && Desktop.isElectron()) {
+        if (relPath && typeof Desktop.deleteByPath === 'function') {
+          await Desktop.deleteByPath('user', relPath).catch(function () {});
+        }
+        if (fnToDelete) {
+          if (typeof Desktop.deleteFile === 'function') {
+            await Desktop.deleteFile('lessons', fnToDelete).catch(function () {});
+          }
+          if (typeof Desktop.deleteByPath === 'function') {
+            await Desktop.deleteByPath('lessons', fnToDelete).catch(function () {});
+            await Desktop.deleteByPath('user', 'lessons/' + fnToDelete).catch(function () {});
+          }
+        }
+        if (typeof Desktop.deleteFile === 'function') {
+          await Desktop.deleteFile('lessons', 'lp_' + targetId + '.json').catch(function () {});
+        }
+        if (typeof Desktop.deleteByPath === 'function') {
+          await Desktop.deleteByPath('lessons', 'lp_' + targetId + '.json').catch(function () {});
+          await Desktop.deleteByPath('user', 'lessons/lp_' + targetId + '.json').catch(function () {});
+          await Desktop.deleteByPath('user', 'lp_' + targetId + '.json').catch(function () {});
+        }
+        if (typeof Desktop.notifyDataChanged === 'function') {
+          Desktop.notifyDataChanged({ target: 'lessons', filename: fnToDelete || ('lp_' + targetId + '.json') });
+        }
+      }
+
+      localStorage.removeItem('cmt-lesson-' + targetId);
+
+      allSavedPlans = allSavedPlans.filter(function (p) { return p.id !== targetId; });
+
+      await loadSavedPlansIndex();
+
+      if (currentPlan && currentPlan.id === targetId) {
+        currentPlan = LessonCreatorService.createBlankLessonPlan({ blank: true });
+        isDirty = false;
+        renderPlan();
+      }
+
+      renderSavedPlansList();
+      var delMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcPlanDeleted') : '') || 'Lesson plan deleted';
+      if (typeof showToast === 'function') showToast(delMsg);
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Failed to delete lesson plan: ' + e.message, true);
+    }
+  };
+
+  window.lcOpenPlanPicker = async function () {
+    await loadSavedPlansIndex();
+    renderSavedPlansList();
+    document.getElementById('openPlanModal').style.display = 'flex';
+  };
+
+  window.lcFilterSavedPlans = function () {
+    renderSavedPlansList();
+  };
+
+  function renderSavedPlansList() {
+    var list = document.getElementById('savedPlansList');
+    var query = (document.getElementById('openPlanSearch').value || '').toLowerCase();
+    list.innerHTML = '';
+
+    var filtered = allSavedPlans.filter(function (p) {
+      if (!query) return true;
+      return (p.title + ' ' + p.classId + ' ' + (p.tags || []).join(' ')).toLowerCase().indexOf(query) !== -1;
+    });
+
+    if (filtered.length === 0) {
+      list.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">No saved lesson plans found</div>';
+      return;
+    }
+
+    filtered.forEach(function (p) {
+      var item = document.createElement('div');
+      item.className = 'phase-card';
+      item.style.cursor = 'pointer';
+      item.innerHTML = [
+        '<div style="display:flex;justify-content:space-between;align-items:center;">',
+        '  <strong>' + escapeHtml(p.title || 'Untitled') + '</strong>',
+        '  <span style="font-size:0.78rem;background:#111;color:#fff;padding:2px 6px;border-radius:4px;">' + escapeHtml(getClassLabel(p.classId) || 'All') + ' | ' + (p.date || '') + '</span>',
+        '</div>',
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">',
+        '  <div style="font-size:0.8rem;color:#666;">' + (p.sections || []).length + ' phases | ' + (p.totalDuration || 0) + ' min</div>',
+        '  <button type="button" class="neo-btn danger sm" style="padding:2px 8px;font-size:0.75rem;" title="Delete this plan">Delete</button>',
+        '</div>'
+      ].join('');
+
+      var delBtn = item.querySelector('.neo-btn.danger');
+      if (delBtn) {
+        delBtn.onclick = function (e) {
+          e.stopPropagation();
+          var fn = p._filename || (p._relPath ? p._relPath.split('/').pop() : '');
+          lcDeletePlan(p.id, fn, p.title);
+        };
+      }
+
+      item.onclick = function () {
+        currentPlan = p;
+        renderPlan();
+        lcCloseModal('openPlanModal');
+      };
+      list.appendChild(item);
+    });
+  }
+
+  async function loadPlanById(planId) {
+    if (!planId) return;
+    var cleanId = String(planId).trim();
+    var cleanWithoutExt = cleanId.replace(/\.json$/i, '');
+    var match = allSavedPlans.find(function (p) {
+      if (!p) return false;
+      if (p.id === cleanId || p.id === cleanWithoutExt) return true;
+      if (p._filename === cleanId || p._filename === cleanWithoutExt + '.json') return true;
+      if (p._relPath && (p._relPath === cleanId || p._relPath === 'lessons/' + cleanId || p._relPath === 'lessons/' + cleanWithoutExt + '.json')) return true;
+      if (p.id && (cleanId.indexOf(p.id) !== -1 || p.id.indexOf(cleanWithoutExt) !== -1)) return true;
+      return false;
+    });
+    if (match) {
+      currentPlan = match;
+      return;
+    }
+
+    // Direct fallback to disk in Electron
+    if (window.Desktop && Desktop.isElectron()) {
+      try {
+        var fnToRead = cleanId.endsWith('.json') ? cleanId : (cleanId + '.json');
+        var res = null;
+        if (typeof Desktop.readJson === 'function') {
+          res = await Desktop.readJson('lessons', fnToRead);
+        }
+        if (!res || !res.ok || !res.data) {
+          if (typeof Desktop.readByPath === 'function') {
+            var rawRes = await Desktop.readByPath('user', 'lessons/' + fnToRead);
+            if (rawRes && rawRes.ok && rawRes.content) {
+              try { res = { ok: true, data: JSON.parse(rawRes.content) }; } catch (_) {}
+            }
+            if (!res || !res.ok) {
+              var rawRes2 = await Desktop.readByPath('user', fnToRead);
+              if (rawRes2 && rawRes2.ok && rawRes2.content) {
+                try { res = { ok: true, data: JSON.parse(rawRes2.content) }; } catch (_) {}
+              }
+            }
+          }
+        }
+        if (res && res.ok && res.data) {
+          var loadedPlan = (res.data.data && res.data.ok) ? res.data.data : res.data;
+          if (loadedPlan && typeof loadedPlan === 'object') {
+            loadedPlan._filename = fnToRead;
+            loadedPlan._relPath = 'lessons/' + fnToRead;
+            loadedPlan._target = 'lessons';
+            currentPlan = loadedPlan;
+            var existingIdx = allSavedPlans.findIndex(function (x) { return x.id === loadedPlan.id; });
+            if (existingIdx >= 0) {
+              allSavedPlans[existingIdx] = loadedPlan;
+            } else {
+              allSavedPlans.push(loadedPlan);
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('loadPlanById disk read error:', e);
+      }
+    }
+  }
+
+  // ── Coverage Matrix Operations ───────────────────────────────────────
+  window.lcOpenCoverageModal = function () {
+    lcRenderCoverageMatrix();
+    document.getElementById('coverageModal').style.display = 'flex';
+  };
+
+  window.lcRenderCoverageMatrix = function () {
+    var subId = currentPlan.subjectId || 'science';
+    var yrId = document.getElementById('covFilterYear').value;
+    var semId = document.getElementById('covFilterSem').value;
+
+    var compiled = LessonCreatorService.compileCurriculumCoverage(allSavedPlans, allDescriptors, {
+      subjectId: subId,
+      yearLevel: yrId,
+      semester: semId,
+      classId: currentPlan.classId
+    });
+
+    var st = compiled.stats;
+    document.getElementById('coverageSummaryText').textContent =
+      'Total: ' + st.total + ' | Covered: ' + st.covered + ' (' + st.percentage + '%) | Remaining: ' + st.remaining;
+
+    var container = document.getElementById('coverageAccordionContainer');
+    container.innerHTML = '';
+
+    Object.keys(compiled.categories).forEach(function (catName) {
+      var catObj = compiled.categories[catName];
+      var catCard = document.createElement('div');
+      catCard.className = 'coverage-cat-card';
+
+      var hd = document.createElement('div');
+      hd.className = 'coverage-cat-hd';
+      hd.innerHTML = '<span>' + escapeHtml(catName) + '</span><span>' + catObj.covered + ' / ' + catObj.total + ' (' + Math.round((catObj.covered / catObj.total) * 100) + '%)</span>';
+      catCard.appendChild(hd);
+
+      var table = document.createElement('table');
+      table.className = 'coverage-desc-table';
+      table.innerHTML = '<thead><tr><th>Code</th><th>Standard / Description</th><th>Subcategory</th><th>Status</th></tr></thead><tbody></tbody>';
+      var tbody = table.querySelector('tbody');
+
+      Object.keys(catObj.subCategories).forEach(function (subName) {
+        var subObj = catObj.subCategories[subName];
+        subObj.items.forEach(function (item) {
+          var tr = document.createElement('tr');
+          var isCovered = item.count > 0 || item.isTicked;
+          var statusBadge = isCovered
+            ? '<span style="background:var(--neo-green);padding:2px 6px;border-radius:4px;font-weight:800;">Done (' + item.count + ')</span>'
+            : '<span style="background:var(--neo-yellow);padding:2px 6px;border-radius:4px;font-weight:800;">Left to teach</span>';
+
+          tr.innerHTML = [
+            '<td><strong>' + escapeHtml(item.descriptor.code) + '</strong></td>',
+            '<td>' + escapeHtml(item.descriptor.title) + '<br><small style="color:#666;">' + escapeHtml(item.descriptor.description) + '</small></td>',
+            '<td>' + escapeHtml(subName) + '</td>',
+            '<td>' + statusBadge + '</td>'
+          ].join('');
+          tbody.appendChild(tr);
+        });
+      });
+
+      catCard.appendChild(table);
+      container.appendChild(catCard);
+    });
+  };
+
+  // ── Board Export Operations ──────────────────────────────────────────
+  window.lcOpenBoardExportModal = async function () {
+    var select = document.getElementById('boardExistingSelect');
+    select.innerHTML = '<option value="">Select a mindmap file…</option>';
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+        var listRes = await Desktop.listByPath('user', 'mindmaps', { extensions: ['.js', '.json'] });
+        var files = (listRes && listRes.ok && Array.isArray(listRes.files)) ? listRes.files : [];
+        files.forEach(function (f) {
+          if (f && f.filename) {
+            var opt = document.createElement('option');
+            opt.value = f.filename;
+            opt.textContent = f.filename;
+            select.appendChild(opt);
+          }
+        });
+      }
+    } catch (_) {}
+    document.getElementById('boardExportModal').style.display = 'flex';
+  };
+
+  window.lcOnBoardModeChange = function () {
+    var mode = document.querySelector('input[name="boardExportMode"]:checked').value;
+    document.getElementById('boardMergeSelectWrap').style.display = mode === 'merge' ? 'flex' : 'none';
+  };
+
+  window.lcExecuteBoardExport = async function () {
+    var mode = document.querySelector('input[name="boardExportMode"]:checked').value;
+    var isMerge = mode === 'merge';
+    var selectedFile = document.getElementById('boardExistingSelect').value;
+    var existingSession = null;
+
+    if (isMerge && selectedFile && window.Desktop && Desktop.isElectron()) {
+      try {
+        var r = await Desktop.readText('user', 'mindmaps/' + selectedFile);
+        if (r && r.ok && r.content) {
+          existingSession = JSON.parse(r.content.replace(/^window\.CONSTELLATION_SESSION_EXPORT\s*=\s*/, '').replace(/;$/, ''));
+        }
+      } catch (_) {}
+    }
+
+    var sessionData = LessonCreatorService.buildConstellationSession(currentPlan, {
+      isMerge: isMerge,
+      existingSession: existingSession
+    });
+
+    var exportFilename = isMerge && selectedFile ? selectedFile : ('mindmap_' + (currentPlan.classId || 'class') + '_' + (currentPlan.date || 'date') + '.js');
+    var jsFileContent = 'window.CONSTELLATION_SESSION_EXPORT = ' + JSON.stringify(sessionData, null, 2) + ';\n';
+
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('user', 'mindmaps/' + exportFilename, jsFileContent);
+        lcCloseModal('boardExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t("lcBoardExportedToast"));
+        Desktop.openTool('board.html', {
+          query: {
+            openSession: '1',
+            openTarget: 'mindmaps',
+            openFilename: exportFilename,
+            openRelPath: 'mindmaps/' + exportFilename
+          }
+        });
+      } else {
+        if (typeof showToast === 'function') showToast(i18n.t("lcMindmapExportedToast"));
+      }
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Board export failed: ' + e.message, true);
+    }
+  };
+
+  // ── Class Management Live Launcher ───────────────────────────────────
+  window.lcRunInClassManagement = async function () {
+    await lcSavePlan();
+    var targetClassId = currentPlan ? (currentPlan.classId || '') : '';
+    var targetPlanId = currentPlan ? (currentPlan.id || '') : '';
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        var ch = new BroadcastChannel('cms-lesson-runner');
+        ch.postMessage({ action: 'load-plan', planId: targetPlanId, classId: targetClassId });
+        setTimeout(function () { ch.close(); }, 1000);
+      } catch (_) {}
+    }
+
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('class-management.html', {
+        query: {
+          loadLessonPlanId: targetPlanId,
+          classId: targetClassId
+        },
+        noReload: true
+      });
+    } else {
+      var url = 'class-management.html?loadLessonPlanId=' + encodeURIComponent(targetPlanId) + '&classId=' + encodeURIComponent(targetClassId);
+      window.open(url, 'cmt-class-management');
+    }
+  };
+
+  // ── Team & Cooperative Learning Config ──────────────────────────────
+  var tempTeamRoles = [];
+
+  window.lcOpenTeamModal = function () {
+    if (!currentPlan.teamConfig) {
+      currentPlan.teamConfig = {
+        enabled: false,
+        teamSize: 4,
+        roles: [
+          { name: 'Leader / Facilitator', desc: 'Keeps team on task and manages timeline' },
+          { name: 'Scribe / Recorder', desc: 'Writes down group responses and notes' },
+          { name: 'Spokesperson / Presenter', desc: 'Presents findings to the class' },
+          { name: 'Timekeeper / Materials', desc: 'Manages timer and resource pickup' }
+        ]
+      };
+    }
+    var cfg = currentPlan.teamConfig;
+    var chk = document.getElementById('teamEnableCheck');
+    if (chk) chk.checked = !!cfg.enabled;
+    var sizeInp = document.getElementById('teamSizeInput');
+    if (sizeInp) sizeInp.value = cfg.teamSize || 4;
+    tempTeamRoles = JSON.parse(JSON.stringify(cfg.roles || []));
+    lcOnTeamToggle();
+    renderTeamRolesList();
+    var m = document.getElementById('teamModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcOnTeamToggle = function () {
+    var chk = document.getElementById('teamEnableCheck');
+    var body = document.getElementById('teamSettingsBody');
+    if (!chk || !body) return;
+    var enabled = chk.checked;
+    body.style.opacity = enabled ? '1' : '0.4';
+    body.style.pointerEvents = enabled ? 'auto' : 'none';
+  };
+
+  function renderTeamRolesList() {
+    var container = document.getElementById('teamRolesList');
+    if (!container) return;
+    container.innerHTML = '';
+    tempTeamRoles.forEach(function (role, i) {
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;';
+      row.innerHTML =
+        '<input type="text" class="meta-input" style="flex:1;font-weight:700;" value="' + escapeHtml(role.name || '') + '" placeholder="Role title" data-lc-change="team-role-name" data-lc-idx="' + i + '">' +
+        '<input type="text" class="meta-input" style="flex:2;font-size:0.8rem;" value="' + escapeHtml(role.desc || '') + '" placeholder="Responsibilities" data-lc-change="team-role-desc" data-lc-idx="' + i + '">' +
+        '<button class="icon-btn danger" data-lc-action="remove-team-role" data-lc-idx="' + i + '">&times;</button>';
+      container.appendChild(row);
+    });
+  }
+
+  window.lcAddTeamRole = function () {
+    tempTeamRoles.push({ name: 'New Role', desc: '' });
+    renderTeamRolesList();
+  };
+
+  window.lcRemoveTeamRole = function (idx) {
+    tempTeamRoles.splice(idx, 1);
+    renderTeamRolesList();
+  };
+
+  window.lcSaveTeamConfig = function () {
+    var chk = document.getElementById('teamEnableCheck');
+    var sizeInp = document.getElementById('teamSizeInput');
+    currentPlan.teamConfig = {
+      enabled: chk ? chk.checked : false,
+      teamSize: sizeInp ? (parseInt(sizeInp.value, 10) || 4) : 4,
+      roles: tempTeamRoles.filter(function (r) { return r.name && r.name.trim(); })
+    };
+    isDirty = true;
+    renderTeamBadge();
+    lcCloseModal('teamModal');
+    if (typeof showToast === 'function') showToast(i18n.t("lcTeamConfigSavedToast"));
+  };
+
+  // ── Unit Sequence Manager ───────────────────────────────────────────
+  var initialSequencePlanIds = [];
+
+  function ensureUnitSequence() {
+    if (!currentPlan.unitSequence) {
+      currentPlan.unitSequence = { title: '', lessonIndex: 1, totalLessons: 1, lessons: [] };
+    }
+    if (!Array.isArray(currentPlan.unitSequence.lessons)) {
+      currentPlan.unitSequence.lessons = [];
+    }
+    if (currentPlan.unitSequence.lessons.length === 0 && currentPlan.id) {
+      currentPlan.unitSequence.lessons.push({
+        id: currentPlan.id,
+        type: 'lesson',
+        title: currentPlan.title || 'Current Lesson',
+        filename: currentPlan._filename || ('lp_' + currentPlan.id + '.json')
+      });
+      currentPlan.unitSequence.lessonIndex = 1;
+      currentPlan.unitSequence.totalLessons = 1;
+    }
+    return currentPlan.unitSequence;
+  }
+
+  function updateSequenceBar() {
+    var seq = currentPlan && currentPlan.unitSequence;
+
+    var seqBadge = document.getElementById('lcUnitSeqDisplay');
+    if (seqBadge) {
+      if (seq && seq.title && seq.lessons && seq.lessons.length > 0) {
+        var pos = (seq.lessonIndex || 1);
+        var tot = seq.lessons.length;
+        seqBadge.textContent = seq.title + ' (' + pos + '/' + tot + ')';
+      } else {
+        seqBadge.textContent = (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcUnitSeqNone') : '') || 'None';
+      }
+    }
+
+    var bar = document.getElementById('sequenceBar');
+    if (!bar) return;
+    if (!seq || !seq.title || !seq.lessons || seq.lessons.length < 2) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'flex';
+    var titleEl = document.getElementById('seqTitleDisplay');
+    if (titleEl) titleEl.textContent = seq.title || 'Unit Sequence';
+    var indexEl = document.getElementById('seqIndexDisplay');
+    var n = seq.lessonIndex || 1;
+    var m = seq.lessons.length;
+    if (indexEl) {
+      if (typeof tFmt === 'function') {
+        indexEl.textContent = tFmt('lcSeqPosition', { n: n, m: m });
+      } else {
+        indexEl.textContent = 'Lesson ' + n + ' of ' + m;
+      }
+    }
+    var prevBtn = document.getElementById('seqPrevBtn');
+    var nextBtn = document.getElementById('seqNextBtn');
+    var idx = n - 1;
+    if (prevBtn) prevBtn.disabled = (idx <= 0);
+    if (nextBtn) nextBtn.disabled = (idx >= seq.lessons.length - 1);
+  }
+
+  function renderSequenceMemberList() {
+    var container = document.getElementById('sequenceLessonsList');
+    var countBadge = document.getElementById('seqMemberCountBadge');
+    if (!container) return;
+    var seq = currentPlan.unitSequence;
+    var lessons = (seq && Array.isArray(seq.lessons)) ? seq.lessons : [];
+
+    if (countBadge) {
+      countBadge.textContent = lessons.length + (lessons.length === 1 ? ' item' : ' items');
+    }
+
+    if (lessons.length === 0) {
+      container.innerHTML = '<div style="color:var(--neo-gray-dark,#666);font-size:0.85rem;padding:8px 0;" data-i18n="lcSeqEmpty">' +
+        (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqEmpty') : 'No lessons or tests in sequence yet. Add from the list below.') +
+        '</div>';
+      return;
+    }
+
+    if (container.firstElementChild && container.firstElementChild.getAttribute('data-i18n') === 'lcSeqEmpty') {
+      container.innerHTML = '';
+    }
+
+    while (container.children.length > lessons.length) {
+      container.removeChild(container.lastChild);
+    }
+
+    var lessonTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemLesson') : 'Lesson';
+    var testTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemTest') : 'Test / Exam';
+    var upTitle = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqMoveUp') : 'Move Up';
+    var downTitle = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqMoveDown') : 'Move Down';
+    var removeTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqRemove') : 'Remove';
+    var openTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcOpenLessonBtn') : 'Open';
+
+    lessons.forEach(function (les, idx) {
+      var isTest = (les.type === 'test');
+      var isCurrent = currentPlan && (les.id === currentPlan.id);
+      var row = container.children[idx];
+      if (!row || !row.classList.contains('seq-member-row')) {
+        row = document.createElement('div');
+        row.className = 'seq-member-row';
+        if (idx < container.children.length) {
+          container.insertBefore(row, container.children[idx]);
+        } else {
+          container.appendChild(row);
+        }
+      }
+      row.className = 'seq-member-row' + (isCurrent ? ' is-current' : '');
+
+      var badgeHtml = isTest
+        ? '<span class="seq-item-badge badge-test">' + escapeHtml(testTxt) + '</span>'
+        : '<span class="seq-item-badge badge-lesson">' + escapeHtml(lessonTxt) + '</span>';
+
+      var actionHtml = '';
+      if (isCurrent) {
+        actionHtml = '<span style="font-size:0.72rem;font-weight:900;background:var(--neo-dark,#111);color:#fff;padding:2px 6px;border-radius:3px;">' + escapeHtml(i18n.t('lcCurrentBadge')) + '</span>';
+      } else if (isTest) {
+        actionHtml = '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;background:#fef08a;color:#713f12;" data-lc-action="open-seq-test" data-lc-val="' + escapeHtml(les.id) + '" data-lc-file="' + escapeHtml(les.filename || '') + '" title="Open in Test Creator">' + escapeHtml(openTxt) + '</button>';
+      } else {
+        actionHtml = '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" data-lc-action="open-seq-lesson" data-lc-val="' + escapeHtml(les.id) + '" title="' + escapeHtml(openTxt) + '">' + escapeHtml(openTxt) + '</button>';
+      }
+
+      row.innerHTML =
+        '<span class="seq-member-num">' + (idx + 1) + '</span>' +
+        badgeHtml +
+        '<span class="seq-member-title" title="' + escapeHtml(les.title || 'Untitled') + '">' + escapeHtml(les.title || 'Untitled') + '</span>' +
+        actionHtml +
+        '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" data-lc-action="seq-move" data-lc-idx="' + idx + '" data-lc-delta="-1" title="' + escapeHtml(upTitle) + '" ' + (idx === 0 ? 'disabled' : '') + '>▲</button>' +
+        '<button type="button" class="neo-btn" style="padding:2px 7px;font-size:0.75rem;" data-lc-action="seq-move" data-lc-idx="' + idx + '" data-lc-delta="1" title="' + escapeHtml(downTitle) + '" ' + (idx === lessons.length - 1 ? 'disabled' : '') + '>▼</button>' +
+        '<button type="button" class="neo-btn danger" style="padding:2px 7px;font-size:0.75rem;" data-lc-action="seq-remove" data-lc-idx="' + idx + '">' + escapeHtml(removeTxt) + '</button>';
+    });
+  }
+
+  window.lcSetSeqPickerFilterType = function (type) {
+    _seqPickerFilterType = type || 'all';
+    ['All', 'Lessons', 'Tests'].forEach(function (pill) {
+      var btn = document.getElementById('seqFilter' + pill);
+      if (btn) {
+        if (pill.toLowerCase().indexOf(_seqPickerFilterType.toLowerCase()) === 0 || (_seqPickerFilterType === 'all' && pill === 'All')) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      }
+    });
+    var searchVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(searchVal);
+  };
+
+  function renderSeqPickerList(filter) {
+    var container = document.getElementById('seqPickerList');
+    if (!container) return;
+    var seq = currentPlan.unitSequence;
+    var seqIds = {};
+    if (seq && Array.isArray(seq.lessons)) {
+      seq.lessons.forEach(function (l) { seqIds[l.id] = true; });
+    }
+
+    var available = [];
+    if (_seqPickerFilterType === 'all' || _seqPickerFilterType === 'lessons') {
+      (allSavedPlans || []).forEach(function (p) {
+        if (p && p.id && !seqIds[p.id]) {
+          available.push({
+            id: p.id,
+            title: p.title || 'Untitled Lesson',
+            type: 'lesson',
+            subtitle: p.subjectId || p.subject || '',
+            date: p.date || '',
+            filename: p._filename || ('lp_' + p.id + '.json')
+          });
+        }
+      });
+    }
+
+    if (_seqPickerFilterType === 'all' || _seqPickerFilterType === 'tests') {
+      (allSavedTests || []).forEach(function (t) {
+        if (t && t.id && !seqIds[t.id]) {
+          available.push({
+            id: t.id,
+            title: t.title || 'Untitled Test',
+            type: 'test',
+            subtitle: t.subject || (t.exercises ? t.exercises.length + ' exercises' : 'Test'),
+            date: t.date || '',
+            filename: t._filename || ('test_' + t.id + '.json')
+          });
+        }
+      });
+    }
+
+    filter = (filter || '').toLowerCase().trim();
+    if (filter) {
+      available = available.filter(function (item) {
+        return (item.title || '').toLowerCase().indexOf(filter) !== -1 ||
+               (item.subtitle || '').toLowerCase().indexOf(filter) !== -1;
+      });
+    }
+
+    container.innerHTML = '';
+    if (available.length === 0) {
+      var emptyMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqNoneAvailable') : 'No items found.';
+      container.innerHTML = '<div style="color:var(--neo-gray-dark,#666);font-size:0.85rem;padding:8px 0;">' + escapeHtml(emptyMsg) + '</div>';
+      return;
+    }
+
+    var addTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqAddLesson') : '+ Add';
+    var lessonBadgeTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemLesson') : 'Lesson';
+    var testBadgeTxt = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcItemTest') : 'Test';
+
+    available.forEach(function (item) {
+      var row = document.createElement('div');
+      row.className = 'seq-picker-row';
+      var badgeClass = (item.type === 'test') ? 'badge-test' : 'badge-lesson';
+      var badgeText = (item.type === 'test') ? testBadgeTxt : lessonBadgeTxt;
+
+      row.innerHTML =
+        '<span class="seq-item-badge ' + badgeClass + '">' + escapeHtml(badgeText) + '</span>' +
+        '<span class="seq-picker-title" title="' + escapeHtml(item.title) + '">' + escapeHtml(item.title) + '</span>' +
+        (item.subtitle ? '<span style="font-size:0.75rem;color:var(--neo-gray-dark,#666);font-weight:700;">' + escapeHtml(item.subtitle) + '</span>' : '') +
+        '<button type="button" class="neo-btn primary" style="padding:3px 8px;font-size:0.75rem;" data-lc-action="seq-add" data-lc-val="' + escapeHtml(item.id) + '" data-lc-type="' + escapeHtml(item.type) + '">' + escapeHtml(addTxt) + '</button>';
+      container.appendChild(row);
+    });
+  }
+
+  async function loadAllSavedSequences() {
+    var seqMap = new Map();
+    try {
+      var rawList = [];
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+        var readIdx = await Desktop.readText('user', 'lesson-sequences.json').catch(function () {});
+        if (readIdx && readIdx.ok && readIdx.content) {
+          try { rawList = JSON.parse(readIdx.content); } catch (_) {}
+        }
+      } else {
+        var raw = localStorage.getItem('cmt-lesson-sequences');
+        if (raw) {
+          try { rawList = JSON.parse(raw); } catch (_) {}
+        }
+      }
+      if (Array.isArray(rawList)) {
+        rawList.forEach(function (s) {
+          if (s && s.title && Array.isArray(s.lessons) && s.lessons.length > 0) {
+            seqMap.set(s.title.toLowerCase().trim(), {
+              id: s.id || ('seq_' + Date.now()),
+              title: s.title,
+              lessons: s.lessons
+            });
+          }
+        });
+      }
+    } catch (_) {}
+
+    if (Array.isArray(allSavedPlans)) {
+      allSavedPlans.forEach(function (p) {
+        if (p && p.unitSequence && p.unitSequence.title) {
+          var key = p.unitSequence.title.toLowerCase().trim();
+          if (!seqMap.has(key)) {
+            var lList = (p.unitSequence.lessons && p.unitSequence.lessons.length > 0)
+              ? p.unitSequence.lessons
+              : [{ id: p.id, type: 'lesson', title: p.title || 'Untitled', filename: p._filename || ('lp_' + p.id + '.json') }];
+            seqMap.set(key, {
+              id: 'seq_' + (p.id || Date.now()),
+              title: p.unitSequence.title,
+              lessons: lList
+            });
+          }
+        }
+      });
+    }
+
+    return Array.from(seqMap.values());
+  }
+
+  async function populateSavedSequencesDropdown() {
+    var sel = document.getElementById('savedSequencesSelect');
+    var btn = document.getElementById('btnOpenChosenSeq');
+    if (!sel) return;
+    var placeholderTxt = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+      ? i18n.t('lcChooseSequencePlaceholder')
+      : '-- Choose a sequence to open --';
+
+    sel.innerHTML = '<option value="">' + escapeHtml(placeholderTxt) + '</option>';
+    if (btn) btn.disabled = true;
+
+    var sequences = await loadAllSavedSequences();
+    window._availableSequences = sequences;
+
+    var currentSeqTitle = (currentPlan && currentPlan.unitSequence && currentPlan.unitSequence.title)
+      ? currentPlan.unitSequence.title.trim().toLowerCase()
+      : '';
+
+    sequences.forEach(function (s, idx) {
+      var opt = document.createElement('option');
+      opt.value = String(idx);
+      var count = (s.lessons && s.lessons.length) || 0;
+      opt.textContent = s.title + ' (' + count + (count === 1 ? ' item' : ' items') + ')';
+      if (currentSeqTitle && s.title.trim().toLowerCase() === currentSeqTitle) {
+        opt.selected = true;
+      }
+      sel.appendChild(opt);
+    });
+
+    if (sel.value !== '') {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  window.lcOnSavedSequenceSelectChange = function () {
+    var sel = document.getElementById('savedSequencesSelect');
+    var btn = document.getElementById('btnOpenChosenSeq');
+    if (!sel || !btn) return;
+    btn.disabled = (sel.value === '');
+  };
+
+  window.lcOpenSelectedSequence = async function () {
+    var sel = document.getElementById('savedSequencesSelect');
+    if (!sel || sel.value === '') return;
+    var seqIdx = parseInt(sel.value, 10);
+    var sequences = window._availableSequences || [];
+    var chosenSeq = sequences[seqIdx];
+    if (!chosenSeq) return;
+
+    if (isDirty) {
+      await lcSavePlan();
+    }
+
+    var lessons = chosenSeq.lessons || [];
+    if (lessons.length === 0) {
+      if (typeof showToast === 'function') showToast(i18n.t("lcNoItemsInSequenceToast"), true);
+      return;
+    }
+
+    var targetLesson = lessons.find(function (l) { return currentPlan && l.id === currentPlan.id; });
+    if (!targetLesson) {
+      // Find first lesson item if possible
+      targetLesson = lessons.find(function (l) { return l.type !== 'test'; }) || lessons[0];
+    }
+
+    if (targetLesson && targetLesson.type === 'test') {
+      lcOpenSequenceMemberTest(targetLesson.id, targetLesson.filename);
+      return;
+    }
+
+    var targetPlan = allSavedPlans.find(function (p) { return p.id === targetLesson.id; });
+    if (!targetPlan && window.Desktop && Desktop.isElectron() && targetLesson.filename) {
+      try {
+        var readRes = await Desktop.readByPath('user', 'lessons/' + targetLesson.filename);
+        if (readRes && readRes.ok && readRes.content) {
+          targetPlan = JSON.parse(readRes.content);
+          targetPlan._filename = targetLesson.filename;
+          targetPlan._relPath = 'lessons/' + targetLesson.filename;
+          targetPlan._target = 'user';
+          targetPlan._itemType = 'lesson';
+          allSavedPlans.push(targetPlan);
+        }
+      } catch (_) {}
+    }
+    if (!targetPlan) {
+      var lsKey = 'cmt-lesson-' + targetLesson.id;
+      var raw = localStorage.getItem(lsKey);
+      if (raw) {
+        try {
+          targetPlan = JSON.parse(raw);
+          allSavedPlans.push(targetPlan);
+        } catch (_) {}
+      }
+    }
+
+    if (targetPlan) {
+      currentPlan = targetPlan;
+      var foundIdx = lessons.findIndex(function (l) { return l.id === targetPlan.id; });
+      currentPlan.unitSequence = {
+        title: chosenSeq.title,
+        lessonIndex: (foundIdx >= 0) ? (foundIdx + 1) : 1,
+        totalLessons: lessons.length,
+        lessons: JSON.parse(JSON.stringify(lessons))
+      };
+      renderPlan();
+      isDirty = false;
+    } else {
+      currentPlan.unitSequence = {
+        title: chosenSeq.title,
+        lessonIndex: 1,
+        totalLessons: lessons.length,
+        lessons: JSON.parse(JSON.stringify(lessons))
+      };
+      renderPlan();
+    }
+
+    var titleInp = document.getElementById('seqTitleInput');
+    if (titleInp) titleInp.value = chosenSeq.title || '';
+    initialSequencePlanIds = (currentPlan.unitSequence && currentPlan.unitSequence.lessons)
+      ? currentPlan.unitSequence.lessons.map(function (l) { return l.id; })
+      : [];
+
+    var badge = document.getElementById('seqPositionBadge');
+    if (badge) {
+      badge.style.display = 'block';
+      var n = (currentPlan.unitSequence && currentPlan.unitSequence.lessonIndex) || 1;
+      var m = (currentPlan.unitSequence && currentPlan.unitSequence.totalLessons) || lessons.length;
+      badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+    }
+
+    renderSequenceMemberList();
+    var searchVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(searchVal);
+    updateSequenceBar();
+
+    var toastMsg = typeof tFmt === 'function'
+      ? tFmt('lcSeqOpenedToast', { title: chosenSeq.title })
+      : ('Opened sequence: ' + chosenSeq.title);
+    if (typeof showToast === 'function') showToast(toastMsg);
+  };
+
+  window.lcOpenSequenceMemberLesson = async function (planId) {
+    if (!planId) return;
+    if (currentPlan && currentPlan.id === planId) return;
+
+    if (isDirty) {
+      await lcSavePlan();
+    }
+
+    var seq = currentPlan && currentPlan.unitSequence;
+    var lessons = (seq && seq.lessons) ? seq.lessons : [];
+    var targetMember = lessons.find(function (l) { return l.id === planId; });
+
+    var targetPlan = allSavedPlans.find(function (p) { return p.id === planId; });
+    if (!targetPlan && window.Desktop && Desktop.isElectron() && targetMember && targetMember.filename) {
+      try {
+        var readRes = await Desktop.readByPath('user', 'lessons/' + targetMember.filename);
+        if (readRes && readRes.ok && readRes.content) {
+          targetPlan = JSON.parse(readRes.content);
+          targetPlan._filename = targetMember.filename;
+          targetPlan._relPath = 'lessons/' + targetMember.filename;
+          targetPlan._target = 'user';
+          allSavedPlans.push(targetPlan);
+        }
+      } catch (_) {}
+    }
+    if (!targetPlan) {
+      var lsKey = 'cmt-lesson-' + planId;
+      var raw = localStorage.getItem(lsKey);
+      if (raw) {
+        try {
+          targetPlan = JSON.parse(raw);
+          allSavedPlans.push(targetPlan);
+        } catch (_) {}
+      }
+    }
+
+    if (targetPlan) {
+      currentPlan = targetPlan;
+      var newIdx = lessons.findIndex(function (l) { return l.id === planId; });
+      if (currentPlan.unitSequence) {
+        currentPlan.unitSequence.lessonIndex = (newIdx >= 0) ? (newIdx + 1) : 1;
+        currentPlan.unitSequence.totalLessons = lessons.length;
+        currentPlan.unitSequence.lessons = lessons;
+      }
+      renderPlan();
+      isDirty = false;
+
+      var badge = document.getElementById('seqPositionBadge');
+      if (badge) {
+        badge.style.display = 'block';
+        var n = (newIdx >= 0) ? (newIdx + 1) : 1;
+        var m = lessons.length;
+        badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+      }
+
+      renderSequenceMemberList();
+      updateSequenceBar();
+      if (typeof showToast === 'function') showToast((currentPlan.title || 'Lesson') + ' loaded');
+    } else {
+      if (typeof showToast === 'function') showToast('Could not load plan: ' + planId, true);
+    }
+  };
+
+  window.lcOpenSequenceMemberTest = function (testId, filename) {
+    if (!testId && !filename) return;
+    var testUrl = 'test-creator.html?testId=' + encodeURIComponent(testId || '') + '&file=' + encodeURIComponent(filename || '');
+    if (window.Desktop && Desktop.isElectron && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('test-creator.html', { query: { testId: testId, file: filename }, forceNewWindow: true });
+    } else if (window.Desktop && Desktop.isElectron && typeof Desktop.openHtml === 'function') {
+      Desktop.openHtml({ pageFile: 'test-creator.html', title: 'Test Creator - ' + (testId || filename), query: { testId: testId, file: filename } });
+    } else {
+      window.open(testUrl, '_blank');
+    }
+  };
+
+  window.lcCreateTestForUnit = async function () {
+    var seq = ensureUnitSequence();
+    var seqTitle = (seq && seq.title) || (currentPlan && currentPlan.title) || 'Unit';
+    var defaultTestTitle = 'Unit Evaluation: ' + seqTitle;
+
+    var promptMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+      ? i18n.t('lcPromptCreateTestTitle')
+      : 'Enter title for the new unit evaluation test:';
+
+    var testTitle = defaultTestTitle;
+    if (typeof showPrompt === 'function') {
+      testTitle = await showPrompt(promptMsg, defaultTestTitle);
+      if (!testTitle) return;
+    }
+
+    var newTestId = 'test_' + Date.now();
+    var newTestFilename = newTestId + '.json';
+    var newTestObj = {
+      id: newTestId,
+      title: testTitle,
+      subject: currentPlan.subjectId || '',
+      className: currentPlan.className || '',
+      classId: currentPlan.classId || '',
+      unitSequence: {
+        title: seq.title || seqTitle,
+        lessons: JSON.parse(JSON.stringify(seq.lessons || []))
+      },
+      exercises: []
+    };
+
+    // Add test to current sequence
+    seq.lessons.push({
+      id: newTestId,
+      type: 'test',
+      title: testTitle,
+      filename: newTestFilename
+    });
+    seq.totalLessons = seq.lessons.length;
+
+    // Save test to user/tests/
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+      await Desktop.saveJson('tests', newTestFilename, newTestObj).catch(function () {});
+    } else {
+      try {
+        var rawList = localStorage.getItem('cmt_tests');
+        var list = rawList ? JSON.parse(rawList) : [];
+        list.push(newTestObj);
+        localStorage.setItem('cmt_tests', JSON.stringify(list));
+      } catch (_) {}
+    }
+
+    allSavedTests.push(newTestObj);
+    isDirty = true;
+    renderSequenceMemberList();
+    updateSequenceBar();
+
+    var successMsg = typeof i18n !== 'undefined' && typeof i18n.t === 'function'
+      ? i18n.t('lcTestCreatedForUnitToast')
+      : 'Test created and linked to sequence! Opening in Test Creator…';
+    if (typeof showToast === 'function') showToast(successMsg);
+
+    setTimeout(function () {
+      lcOpenSequenceMemberTest(newTestId, newTestFilename);
+    }, 300);
+  };
+
+  window.lcStartNewSequence = function () {
+    currentPlan.unitSequence = {
+      title: '',
+      lessonIndex: 1,
+      totalLessons: 1,
+      lessons: currentPlan.id ? [{
+        id: currentPlan.id,
+        type: 'lesson',
+        title: currentPlan.title || 'Current Lesson',
+        filename: currentPlan._filename || ('lp_' + currentPlan.id + '.json')
+      }] : []
+    };
+    initialSequencePlanIds = (currentPlan.unitSequence.lessons || []).map(function (l) { return l.id; });
+
+    var titleInp = document.getElementById('seqTitleInput');
+    if (titleInp) titleInp.value = '';
+    var sel = document.getElementById('savedSequencesSelect');
+    if (sel) sel.value = '';
+    var btn = document.getElementById('btnOpenChosenSeq');
+    if (btn) btn.disabled = true;
+
+    var badge = document.getElementById('seqPositionBadge');
+    if (badge) {
+      if (currentPlan.unitSequence.lessons.length > 0) {
+        badge.style.display = 'block';
+        badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: 1, m: 1 }) : 'Lesson 1 of 1';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    isDirty = true;
+    renderSequenceMemberList();
+    var searchVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(searchVal);
+    updateSequenceBar();
+    if (titleInp) titleInp.focus();
+  };
+
+  window.lcOpenSequenceModal = async function () {
+    await loadSavedPlansIndex();
+    var seq = ensureUnitSequence();
+    initialSequencePlanIds = (seq && Array.isArray(seq.lessons)) ? seq.lessons.map(function (l) { return l.id; }) : [];
+
+    var titleInp = document.getElementById('seqTitleInput');
+    if (titleInp) titleInp.value = (seq && seq.title) || '';
+
+    var badge = document.getElementById('seqPositionBadge');
+    if (badge) {
+      if (seq && seq.lessons && seq.lessons.length > 0) {
+        badge.style.display = 'block';
+        var n = seq.lessonIndex || 1;
+        var m = seq.lessons.length;
+        badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: n, m: m }) : ('Lesson ' + n + ' of ' + m);
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    var searchEl = document.getElementById('seqPickerSearch');
+    if (searchEl) searchEl.value = '';
+
+    await populateSavedSequencesDropdown();
+
+    renderSequenceMemberList();
+    renderSeqPickerList('');
+
+    var m = document.getElementById('sequenceModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcFilterSeqPicker = function () {
+    var val = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(val);
+  };
+
+  window.lcAddLessonToSequence = function (itemId, itemType) {
+    itemType = itemType || 'lesson';
+    var itemTitle = 'Untitled';
+    var itemFilename = '';
+
+    if (itemType === 'test') {
+      var testItem = allSavedTests.find(function (t) { return t.id === itemId; });
+      if (testItem) {
+        itemTitle = testItem.title || 'Untitled Test';
+        itemFilename = testItem._filename || ('test_' + testItem.id + '.json');
+      }
+    } else {
+      var planItem = allSavedPlans.find(function (p) { return p.id === itemId; });
+      if (planItem) {
+        itemTitle = planItem.title || 'Untitled Lesson';
+        itemFilename = planItem._filename || ('lp_' + planItem.id + '.json');
+      }
+    }
+
+    var seq = ensureUnitSequence();
+    if (seq.lessons.some(function (l) { return l.id === itemId; })) return;
+    seq.lessons.push({ id: itemId, type: itemType, title: itemTitle, filename: itemFilename });
+    seq.totalLessons = seq.lessons.length;
+
+    var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+    seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+    var badge = document.getElementById('seqPositionBadge');
+    if (badge) {
+      badge.style.display = 'block';
+      badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+    }
+
+    isDirty = true;
+    renderSequenceMemberList();
+    var filterVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(filterVal);
+    updateSequenceBar();
+  };
+
+  window.lcRemoveLessonFromSequence = function (idx) {
+    var seq = currentPlan.unitSequence;
+    if (!seq || !seq.lessons || !seq.lessons[idx]) return;
+    var removed = seq.lessons[idx];
+    seq.lessons.splice(idx, 1);
+    seq.totalLessons = seq.lessons.length;
+
+    if (currentPlan && removed.id === currentPlan.id) {
+      currentPlan.unitSequence = null;
+      var badge = document.getElementById('seqPositionBadge');
+      if (badge) badge.style.display = 'none';
+    } else {
+      var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+      seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+      var badge2 = document.getElementById('seqPositionBadge');
+      if (badge2) {
+        if (seq.lessons.length > 0) {
+          badge2.style.display = 'block';
+          badge2.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+        } else {
+          badge2.style.display = 'none';
+        }
+      }
+      if (seq.lessons.length === 0) {
+        currentPlan.unitSequence = null;
+      }
+    }
+
+    isDirty = true;
+    renderSequenceMemberList();
+    var filterVal = document.getElementById('seqPickerSearch') ? document.getElementById('seqPickerSearch').value : '';
+    renderSeqPickerList(filterVal);
+    updateSequenceBar();
+  };
+
+  window.lcMoveLessonInSequence = function (idx, dir) {
+    var seq = currentPlan.unitSequence;
+    if (!seq || !seq.lessons) return;
+    var targetIdx = idx + dir;
+    if (targetIdx < 0 || targetIdx >= seq.lessons.length) return;
+    var tmp = seq.lessons[idx];
+    seq.lessons[idx] = seq.lessons[targetIdx];
+    seq.lessons[targetIdx] = tmp;
+
+    var curIdx = seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; });
+    seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+    var badge = document.getElementById('seqPositionBadge');
+    if (badge) {
+      badge.textContent = typeof tFmt === 'function' ? tFmt('lcSeqPosition', { n: seq.lessonIndex, m: seq.totalLessons }) : ('Lesson ' + seq.lessonIndex + ' of ' + seq.totalLessons);
+    }
+
+    isDirty = true;
+    renderSequenceMemberList();
+    updateSequenceBar();
+  };
+
+  window.lcSaveSequence = async function () {
+    var titleInp = document.getElementById('seqTitleInput');
+    var titleVal = titleInp ? titleInp.value.trim() : '';
+
+    if (!currentPlan.unitSequence) {
+      if (!titleVal) {
+        lcCloseModal('sequenceModal');
+        return;
+      }
+      ensureUnitSequence();
+    }
+
+    var seq = currentPlan.unitSequence;
+    seq.title = titleVal;
+    seq.totalLessons = (seq.lessons && seq.lessons.length) || 0;
+    var curIdx = seq.lessons ? seq.lessons.findIndex(function (l) { return currentPlan && l.id === currentPlan.id; }) : -1;
+    seq.lessonIndex = curIdx >= 0 ? (curIdx + 1) : 1;
+
+    if (!currentPlan.id) {
+      currentPlan.id = 'lp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    }
+
+    if (seq.lessons && curIdx >= 0) {
+      seq.lessons[curIdx].title = currentPlan.title || 'Untitled';
+      seq.lessons[curIdx].filename = currentPlan._filename || ('lp_' + currentPlan.id + '.json');
+      seq.lessons[curIdx].type = 'lesson';
+    }
+
+    var currentSeqIds = (seq.lessons || []).map(function (l) { return l.id; });
+
+    // Check if any previously attached lessons were removed
+    for (var r = 0; r < initialSequencePlanIds.length; r++) {
+      var removedId = initialSequencePlanIds[r];
+      if (currentSeqIds.indexOf(removedId) === -1 && removedId !== currentPlan.id) {
+        var removedPlan = allSavedPlans.find(function (p) { return p.id === removedId; });
+        if (!removedPlan && window.Desktop && Desktop.isElectron()) {
+          try {
+            var rRead = await Desktop.readByPath('user', 'lessons/lp_' + removedId + '.json');
+            if (rRead && rRead.ok && rRead.content) {
+              removedPlan = JSON.parse(rRead.content);
+            }
+          } catch (_) {}
+        }
+        if (removedPlan) {
+          removedPlan.unitSequence = null;
+          try {
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+              var rfn = removedPlan._filename || ('lp_' + removedPlan.id + '.json');
+              await Desktop.saveJson('lessons', rfn, removedPlan);
+            } else {
+              localStorage.setItem('cmt-lesson-' + removedPlan.id, JSON.stringify(removedPlan));
+            }
+          } catch (e) {
+            console.warn('Failed to clear unitSequence on removed plan:', e);
+          }
+        }
+      }
+    }
+
+    // Propagate to all sibling plans and tests in sequence
+    var myId = currentPlan.id;
+    var lessons = seq.lessons || [];
+    for (var i = 0; i < lessons.length; i++) {
+      var les = lessons[i];
+      if (les.id === myId) continue;
+      if (les.type === 'test') {
+        // Update unitSequence in test file
+        var testObj = allSavedTests.find(function (t) { return t.id === les.id; });
+        if (!testObj && window.Desktop && Desktop.isElectron() && les.filename) {
+          try {
+            var trRes = await Desktop.readByPath('user', 'tests/' + les.filename);
+            if (trRes && trRes.ok && trRes.content) {
+              testObj = JSON.parse(trRes.content);
+            }
+          } catch (_) {}
+        }
+        if (testObj) {
+          testObj.unitSequence = {
+            title: seq.title,
+            lessons: JSON.parse(JSON.stringify(seq.lessons))
+          };
+          if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+            var tfn = testObj._filename || les.filename || ('test_' + testObj.id + '.json');
+            await Desktop.saveJson('tests', tfn, testObj).catch(function () {});
+          }
+        }
+      } else {
+        var siblingPlan = allSavedPlans.find(function (p) { return p.id === les.id; });
+        if (!siblingPlan && window.Desktop && Desktop.isElectron() && les.filename) {
+          try {
+            var readRes = await Desktop.readByPath('user', 'lessons/' + les.filename);
+            if (readRes && readRes.ok && readRes.content) {
+              siblingPlan = JSON.parse(readRes.content);
+            }
+          } catch (_) {}
+        }
+        if (siblingPlan) {
+          siblingPlan.unitSequence = {
+            title: seq.title,
+            lessonIndex: i + 1,
+            totalLessons: seq.totalLessons,
+            lessons: JSON.parse(JSON.stringify(seq.lessons))
+          };
+          try {
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+              var fn = siblingPlan._filename || les.filename || ('lp_' + siblingPlan.id + '.json');
+              await Desktop.saveJson('lessons', fn, siblingPlan);
+            } else {
+              localStorage.setItem('cmt-lesson-' + siblingPlan.id, JSON.stringify(siblingPlan));
+            }
+          } catch (err) {
+            console.warn('Failed to save sibling plan ' + les.id, err);
+          }
+        }
+      }
+    }
+
+    // Save lightweight sequence index user/lesson-sequences.json
+    try {
+      var seqIndex = [];
+      if (window.Desktop && Desktop.isElectron()) {
+        var readIdx = await Desktop.readText('user', 'lesson-sequences.json').catch(function () {});
+        if (readIdx && readIdx.ok && readIdx.content) {
+          try { seqIndex = JSON.parse(readIdx.content); } catch (_) {}
+        }
+      } else {
+        var raw = localStorage.getItem('cmt-lesson-sequences');
+        if (raw) {
+          try { seqIndex = JSON.parse(raw); } catch (_) {}
+        }
+      }
+      if (!Array.isArray(seqIndex)) seqIndex = [];
+
+      var seqEntry = seqIndex.find(function (s) {
+        return s.title === seq.title || (s.lessons && s.lessons.some(function (l) { return l.id === myId; }));
+      });
+      if (!seqEntry) {
+        seqEntry = { id: 'seq_' + Date.now(), title: seq.title, lessons: [] };
+        seqIndex.push(seqEntry);
+      }
+      seqEntry.title = seq.title;
+      seqEntry.lessons = (seq.lessons || []).map(function (l) { return { id: l.id, type: l.type || 'lesson', title: l.title, filename: l.filename }; });
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'lesson-sequences.json', seqIndex);
+      } else {
+        localStorage.setItem('cmt-lesson-sequences', JSON.stringify(seqIndex));
+      }
+    } catch (err) {
+      console.warn('Failed to update lesson-sequences.json:', err);
+    }
+
+    isDirty = true;
+    await lcSavePlan();
+    await populateSavedSequencesDropdown();
+    lcCloseModal('sequenceModal');
+    updateSequenceBar();
+    var savedToast = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqSavedToast') : 'Sequence saved and synced to all lessons and tests';
+    if (typeof showToast === 'function') showToast(savedToast);
+  };
+
+  window.lcNavSequence = async function (dir) {
+    var seq = currentPlan && currentPlan.unitSequence;
+    if (!seq || !seq.lessons || seq.lessons.length === 0) {
+      if (typeof showToast === 'function') showToast('No sequence lessons to navigate.', true);
+      return;
+    }
+    var currentIdx = (seq.lessonIndex || 1) - 1;
+    var nextIdx = currentIdx + dir;
+    if (nextIdx < 0 || nextIdx >= seq.lessons.length) return;
+
+    if (isDirty) {
+      await lcSavePlan();
+      var navSavedToast = typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcSeqNavSaved') : 'Plan auto-saved before navigation';
+      if (typeof showToast === 'function') showToast(navSavedToast);
+    }
+
+    var targetMember = seq.lessons[nextIdx];
+    if (!targetMember || !targetMember.id) return;
+
+    if (targetMember.type === 'test') {
+      lcOpenSequenceMemberTest(targetMember.id, targetMember.filename);
+      return;
+    }
+
+    var targetPlan = allSavedPlans.find(function (p) { return p.id === targetMember.id; });
+    if (!targetPlan && window.Desktop && Desktop.isElectron() && targetMember.filename) {
+      try {
+        var readRes = await Desktop.readByPath('user', 'lessons/' + targetMember.filename);
+        if (readRes && readRes.ok && readRes.content) {
+          targetPlan = JSON.parse(readRes.content);
+          targetPlan._filename = targetMember.filename;
+          targetPlan._relPath = 'lessons/' + targetMember.filename;
+          targetPlan._target = 'user';
+          allSavedPlans.push(targetPlan);
+        }
+      } catch (_) {}
+    }
+    if (!targetPlan) {
+      var lsKey = 'cmt-lesson-' + targetMember.id;
+      var raw = localStorage.getItem(lsKey);
+      if (raw) {
+        try {
+          targetPlan = JSON.parse(raw);
+          allSavedPlans.push(targetPlan);
+        } catch (_) {}
+      }
+    }
+
+    if (targetPlan) {
+      currentPlan = targetPlan;
+      if (currentPlan.unitSequence) {
+        currentPlan.unitSequence.lessonIndex = nextIdx + 1;
+      }
+      renderPlan();
+      isDirty = false;
+    } else {
+      if (typeof showToast === 'function') showToast('Could not load plan: ' + (targetMember.title || targetMember.id), true);
+    }
+  };
+
+  // ── Entire Unit Sequence Export Handlers ─────────────────────────────
+  window.lcSwitchSeqExportTab = function (tab) {
+    ['all', 'toc', 'lessons', 'tests'].forEach(function (t) {
+      var btn = document.getElementById('seqTabBtn_' + t);
+      if (btn) btn.classList.toggle('active', t === tab);
+    });
+    var pToc = document.getElementById('seqExportPanel_toc');
+    var pLes = document.getElementById('seqExportPanel_lessons');
+    var pTst = document.getElementById('seqExportPanel_tests');
+    if (pToc) pToc.style.display = (tab === 'all' || tab === 'toc') ? 'flex' : 'none';
+    if (pLes) pLes.style.display = (tab === 'all' || tab === 'lessons') ? 'flex' : 'none';
+    if (pTst) pTst.style.display = (tab === 'all' || tab === 'tests') ? 'flex' : 'none';
+  };
+
+  window.lcOnSeqCssThemeChange = function () {
+    var themeInp = document.querySelector('input[name="seqCssTheme"]:checked');
+    var val = themeInp ? themeInp.value : 'neobrutalist';
+    if (val === 'horizontal_table') {
+      var tblRadio = document.querySelector('input[name="seqLessonLayout"][value="horizontal_table"]');
+      if (tblRadio) tblRadio.checked = true;
+    }
+  };
+
+  window.lcOnSeqAnswerKeysChange = function (checked) {
+    // Keep answer key toggle in sync
+    var el = document.getElementById('seqOptAnswerKeys');
+    if (el) el.checked = !!checked;
+  };
+
+  window.lcApplySeqLessonPreset = function (preset) {
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+    var activeSet = keys;
+    if (preset === 'teacher') {
+      activeSet = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                   'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+    } else if (preset === 'student') {
+      activeSet = ['metaHeader', 'metaDate', 'metaDuration',
+                   'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources', 'phaseCustomFields'];
+    } else if (preset === 'outline') {
+      activeSet = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
+                   'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+    }
+    keys.forEach(function (k) {
+      var el = document.getElementById('seqLt_' + k);
+      if (el) el.checked = activeSet.indexOf(k) !== -1;
+    });
+  };
+
+  function lcGetSequenceExportModalOptions() {
+    var compLayoutInput = document.querySelector('input[name="seqCompLayout"]:checked');
+    var compLayout = compLayoutInput ? compLayoutInput.value : 'column';
+    var critModeInput = document.querySelector('input[name="seqTestCriteriaMode"]:checked');
+    var testCriteriaMode = critModeInput ? critModeInput.value : 'compact';
+    var compModeInput = document.querySelector('input[name="seqTestCompetencesMode"]:checked');
+    var testCompetencesMode = compModeInput ? compModeInput.value : 'compact';
+    var themeInput = document.querySelector('input[name="seqCssTheme"]:checked');
+    var cssTheme = themeInput ? themeInput.value : 'neobrutalist';
+    var lessonLayoutInput = document.querySelector('input[name="seqLessonLayout"]:checked');
+    var lessonLayout = lessonLayoutInput ? lessonLayoutInput.value : (cssTheme === 'horizontal_table' ? 'horizontal_table' : 'cards');
+    var testRenderModeInput = document.querySelector('input[name="seqTestRenderMode"]:checked');
+    var testRenderMode = testRenderModeInput ? testRenderModeInput.value : 'full_exam';
+    var testVariantInput = document.querySelector('input[name="seqTestVariant"]:checked');
+    var testVariant = testVariantInput ? testVariantInput.value : 'A';
+    var testScaleModeInput = document.querySelector('input[name="seqTestScaleMode"]:checked');
+    var testScaleDisplayMode = testScaleModeInput ? testScaleModeInput.value : 'use_test';
+
+    var ltKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                  'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields'];
+    var lessonToggles = {};
+    ltKeys.forEach(function (k) {
+      var el = document.getElementById('seqLt_' + k);
+      lessonToggles[k] = el ? el.checked : true;
+    });
+
+    var tocCols = {
+      showType: document.getElementById('seqTocCol_type') ? document.getElementById('seqTocCol_type').checked : true,
+      showDate: document.getElementById('seqTocCol_date') ? document.getElementById('seqTocCol_date').checked : false,
+      showObjectives: document.getElementById('seqTocCol_objectives') ? document.getElementById('seqTocCol_objectives').checked : true,
+      showDuration: document.getElementById('seqTocCol_duration') ? document.getElementById('seqTocCol_duration').checked : true
+    };
+
+    var testHeaderToggles = {
+      showStudentName: document.getElementById('seqTh_showStudentName') ? document.getElementById('seqTh_showStudentName').checked : true,
+      showDate: document.getElementById('seqTh_showDate') ? document.getElementById('seqTh_showDate').checked : true,
+      showClass: document.getElementById('seqTh_showClass') ? document.getElementById('seqTh_showClass').checked : true,
+      showDuration: document.getElementById('seqTh_showDuration') ? document.getElementById('seqTh_showDuration').checked : true,
+      showScoreBox: document.getElementById('seqTh_showScoreBox') ? document.getElementById('seqTh_showScoreBox').checked : true,
+      showGradeBox: document.getElementById('seqTh_showGradeBox') ? document.getElementById('seqTh_showGradeBox').checked : true,
+      showScale: document.getElementById('seqTh_showScale') ? document.getElementById('seqTh_showScale').checked : true,
+      showSignature: document.getElementById('seqTh_showSignature') ? document.getElementById('seqTh_showSignature').checked : true,
+      showInstructions: document.getElementById('seqTh_showInstructions') ? document.getElementById('seqTh_showInstructions').checked : true
+    };
+
+    var testCompCols = {
+      showCodeCol: document.getElementById('seqTcCol_code') ? document.getElementById('seqTcCol_code').checked : true,
+      showTitleCol: document.getElementById('seqTcCol_title') ? document.getElementById('seqTcCol_title').checked : true,
+      showDescriptions: document.getElementById('seqTcCol_desc') ? document.getElementById('seqTcCol_desc').checked : true,
+      showLevelCol: document.getElementById('seqTcCol_level') ? document.getElementById('seqTcCol_level').checked : true,
+      showScoreCol: document.getElementById('seqTcCol_score') ? document.getElementById('seqTcCol_score').checked : true,
+      showCommentsCol: document.getElementById('seqTcCol_comments') ? document.getElementById('seqTcCol_comments').checked : false
+    };
+
+    var testCritCols = {
+      showCriterionCol: document.getElementById('seqCrCol_criterion') ? document.getElementById('seqCrCol_criterion').checked : true,
+      showLevelsCol: document.getElementById('seqCrCol_levels') ? document.getElementById('seqCrCol_levels').checked : true,
+      showDescriptions: document.getElementById('seqCrCol_desc') ? document.getElementById('seqCrCol_desc').checked : true,
+      showMaxCol: document.getElementById('seqCrCol_max') ? document.getElementById('seqCrCol_max').checked : true,
+      showScoreCol: document.getElementById('seqCrCol_score') ? document.getElementById('seqCrCol_score').checked : true,
+      showCommentsCol: document.getElementById('seqCrCol_comments') ? document.getElementById('seqCrCol_comments').checked : false
+    };
+
+    return {
+      includeSummary: document.getElementById('seqOptSummary') ? document.getElementById('seqOptSummary').checked : true,
+      includeVocab: document.getElementById('seqOptVocab') ? document.getElementById('seqOptVocab').checked : true,
+      includePhases: document.getElementById('seqOptPhases') ? document.getElementById('seqOptPhases').checked : true,
+      includeTests: document.getElementById('seqOptTests') ? document.getElementById('seqOptTests').checked : true,
+      includeGradingScale: document.getElementById('seqOptGradingScale') ? document.getElementById('seqOptGradingScale').checked : true,
+      includeAnswerKeys: document.getElementById('seqOptAnswerKeys') ? document.getElementById('seqOptAnswerKeys').checked : false,
+      competenceLayout: compLayout,
+      tocCols: tocCols,
+      lessonLayout: lessonLayout,
+      lessonToggles: lessonToggles,
+      testRenderMode: testRenderMode,
+      testVariant: testVariant,
+      testNumberedLines: document.getElementById('seqTestNumberedLines') ? document.getElementById('seqTestNumberedLines').checked : false,
+      testHeaderToggles: testHeaderToggles,
+      testScaleDisplayMode: testScaleDisplayMode,
+      testCriteriaMode: testCriteriaMode,
+      testCritCols: testCritCols,
+      testCompetencesMode: testCompetencesMode,
+      testCompCols: testCompCols,
+      cssTheme: cssTheme,
+      allCompetences: (typeof allCompetences !== 'undefined' && Array.isArray(allCompetences)) ? allCompetences : [],
+      getActivityLabel: typeof getActivityLabel === 'function' ? getActivityLabel : null,
+      getInteractionLabel: typeof getInteractionLabel === 'function' ? getInteractionLabel : null
+    };
+  }
+
+  window.lcOpenSequenceExportModal = async function () {
+    await loadSavedPlansIndex();
+    var seq = currentPlan && currentPlan.unitSequence;
+    if (!seq || !seq.title || !seq.lessons || seq.lessons.length === 0) {
+      if (typeof showToast === 'function') {
+        showToast(typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('lcNoSequenceToExport') : 'Please attach this lesson to a unit sequence first.', true);
+      }
+      lcOpenSequenceModal();
+      return;
+    }
+    var m = document.getElementById('sequenceExportModal');
+    if (m) m.style.display = 'flex';
+    if (typeof lcOnSeqExportFormatChange === 'function') {
+      lcOnSeqExportFormatChange();
+    }
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('lc-seq-export-style-selector-wrap'), {
+        toolKey: 'lessonCreator',
+        onChange: function (styleId) {
+          var ifr = document.getElementById('exportPreviewIframe');
+          if (ifr && document.getElementById('exportPreviewModal').style.display === 'flex') {
+            ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        }
+      });
+    }
+  };
+
+  window.lcOnSeqExportFormatChange = function () {
+    var fmt = document.querySelector('input[name="seqExportFormat"]:checked');
+    var val = fmt ? fmt.value : 'html';
+    ['Html', 'Pdf', 'Docx', 'Xlsx', 'Ods', 'Csv', 'Md', 'Json'].forEach(function (k) {
+      var el = document.getElementById('seqCard' + k);
+      if (el) {
+        var isSel = (el.querySelector('input') && el.querySelector('input').checked);
+        if (isSel) el.classList.add('active');
+        else el.classList.remove('active');
+      }
+    });
+    var previewBtn = document.getElementById('seqBtnPreview');
+    if (previewBtn) {
+      previewBtn.style.display = (val === 'html' || val === 'pdf' || val === 'docx') ? 'inline-block' : 'none';
+    }
+    var themeSec = document.getElementById('seqThemeSection');
+    if (themeSec) {
+      themeSec.style.display = (val === 'json' || val === 'xlsx' || val === 'ods' || val === 'csv') ? 'none' : 'flex';
+    }
+  };
+
+  async function lcCollectSequenceFullData(seq) {
+    var lessons = seq.lessons || [];
+    var fullLessons = [];
+    var fullTests = [];
+
+    for (var i = 0; i < lessons.length; i++) {
+      var item = lessons[i];
+      if (item.type === 'test') {
+        var fullTest = allSavedTests.find(function (t) { return t.id === item.id; });
+        if (!fullTest && window.Desktop && Desktop.isElectron() && item.filename) {
+          try {
+            var tRead = await Desktop.readByPath('user', 'tests/' + item.filename);
+            if (tRead && tRead.ok && tRead.content) fullTest = JSON.parse(tRead.content);
+          } catch (_) {}
+        }
+        if (fullTest) fullTests.push(fullTest);
+      } else {
+        var fullPlan = (currentPlan && currentPlan.id === item.id) ? currentPlan : allSavedPlans.find(function (p) { return p.id === item.id; });
+        if (!fullPlan && window.Desktop && Desktop.isElectron() && item.filename) {
+          try {
+            var pRead = await Desktop.readByPath('user', 'lessons/' + item.filename);
+            if (pRead && pRead.ok && pRead.content) fullPlan = JSON.parse(pRead.content);
+          } catch (_) {}
+        }
+        if (fullPlan) fullLessons.push(fullPlan);
+      }
+    }
+    return { fullLessons: fullLessons, fullTests: fullTests };
+  }
+
+  window.lcPreviewSequenceExport = async function () {
+    var seq = currentPlan && currentPlan.unitSequence;
+    if (!seq) return;
+    var collected = await lcCollectSequenceFullData(seq);
+    var options = lcGetSequenceExportModalOptions();
+
+    var html = LessonCreatorService.exportSequenceToHtml(seq, collected.fullLessons, collected.fullTests, options);
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+    }
+    var modal = document.getElementById('exportPreviewModal');
+    var iframe = document.getElementById('exportPreviewIframe');
+    if (iframe) {
+      iframe.srcdoc = html;
+      iframe.onload = function () {
+        if (window.ExportStylesService) {
+          var sId = ExportStylesService.getSelectedStyle('lessonCreator');
+          ExportStylesService.applyStyleToIframe(iframe, sId);
+        }
+      };
+    }
+    if (modal) modal.style.display = 'flex';
+  };
+
+  window.lcExecuteSequenceExport = async function () {
+    var seq = currentPlan && currentPlan.unitSequence;
+    if (!seq) return;
+
+    var fmtInput = document.querySelector('input[name="seqExportFormat"]:checked');
+    var format = fmtInput ? fmtInput.value : 'html';
+    var options = lcGetSequenceExportModalOptions();
+    var cssTheme = options.cssTheme;
+
+    var collected = await lcCollectSequenceFullData(seq);
+    options.subjectLabel = getSubjectLabel(seq.subject || (collected.fullLessons[0] && collected.fullLessons[0].subjectId));
+    options.classLabel = getClassLabel(seq.classId || (collected.fullLessons[0] && collected.fullLessons[0].classId));
+
+    var safeSeqName = (seq.title || 'unit_sequence').toLowerCase().replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'unit_sequence';
+
+    if (format === 'html') {
+      var htmlContent = LessonCreatorService.exportSequenceToHtml(seq, collected.fullLessons, collected.fullTests, options);
+      if (window.ExportStylesService) {
+        htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('lessonCreator'));
+      }
+      var htmlFilename = safeSeqName + '_booklet.html';
+      if (window.Desktop && Desktop.isElectron()) {
+        var hResult = await Desktop.saveToDisk({
+          title: 'Save Unit HTML Booklet',
+          defaultPath: htmlFilename,
+          filters: [{ name: 'HTML Booklet', extensions: ['html', 'htm'] }],
+          content: htmlContent,
+          encoding: 'utf8'
+        });
+        if (hResult && hResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(hResult.path, hResult.name || htmlFilename, 'Unit booklet exported successfully.');
+        }
+      } else {
+        downloadExportBlob(htmlFilename, htmlContent, 'text/html;charset=utf-8');
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t("lcUnitBookletExportedToast"));
+      }
+    } else if (format === 'docx') {
+      var docHtml = LessonCreatorService.exportSequenceToDocxHtml(seq, collected.fullLessons, collected.fullTests, options);
+      if (window.ExportStylesService) {
+        docHtml = await ExportStylesService.injectStyleIntoHtml(docHtml, ExportStylesService.getSelectedStyle('lessonCreator'));
+      }
+      var docFilename = safeSeqName + '_booklet.doc';
+      if (window.Desktop && Desktop.isElectron()) {
+        var dResult = await Desktop.saveToDisk({
+          title: 'Save Unit Word Booklet',
+          defaultPath: docFilename,
+          filters: [{ name: 'Word Document', extensions: ['doc', 'docx'] }],
+          content: docHtml,
+          encoding: 'utf8'
+        });
+        if (dResult && dResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(dResult.path, dResult.name || docFilename, 'Unit Word document exported successfully.');
+        }
+      } else {
+        downloadExportBlob(docFilename, docHtml, 'application/msword;charset=utf-8');
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast('Unit Word document exported successfully.');
+      }
+    } else if (format === 'markdown') {
+      var mdContent = LessonCreatorService.exportSequenceToMarkdown(seq, collected.fullLessons, collected.fullTests, options);
+      var mdFilename = safeSeqName + '_unit.md';
+      if (window.Desktop && Desktop.isElectron()) {
+        var mResult = await Desktop.saveToDisk({
+          title: 'Save Unit Markdown Document',
+          defaultPath: mdFilename,
+          filters: [{ name: 'Markdown Document', extensions: ['md', 'markdown'] }],
+          content: mdContent,
+          encoding: 'utf8'
+        });
+        if (mResult && mResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(mResult.path, mResult.name || mdFilename, 'Unit Markdown exported successfully.');
+        }
+      } else {
+        downloadExportBlob(mdFilename, mdContent, 'text/markdown;charset=utf-8');
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t("lcUnitMdExportedToast"));
+      }
+    } else if (format === 'pdf') {
+      var pdfHtml = LessonCreatorService.exportSequenceToHtml(seq, collected.fullLessons, collected.fullTests, Object.assign({}, options, { forPrint: true }));
+      if (window.ExportStylesService) {
+        pdfHtml = await ExportStylesService.injectStyleIntoHtml(pdfHtml, ExportStylesService.getSelectedStyle('lessonCreator'));
+      }
+      var pdfFilename = safeSeqName + '_booklet.pdf';
+      var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
+      var isLandscape = (cssTheme === 'horizontal_table' || options.lessonLayout === 'horizontal_table') || pdfSettings.isLandscape;
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
+        try {
+          var pRes = await Desktop.printPdf({
+            html: pdfHtml,
+            title: 'Save Unit PDF Booklet',
+            defaultPath: pdfFilename,
+            pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: isLandscape }
+          });
+          if (pRes && pRes.ok) {
+            lcCloseModal('sequenceExportModal');
+            handleExportSuccess(pRes.path, pRes.name || pdfFilename, 'Unit PDF booklet exported successfully.');
+          }
+        } catch (pErr) {
+          if (typeof showToast === 'function') showToast('Could not export PDF: ' + pErr.message, true);
+        }
+      } else {
+        var pWin = window.open('', '_blank');
+        if (pWin) {
+          pWin.document.write(pdfHtml);
+          pWin.document.close();
+          setTimeout(function () { pWin.print(); }, 400);
+        }
+        lcCloseModal('sequenceExportModal');
+      }
+    } else if (format === 'xlsx' || format === 'ods') {
+      if (typeof XLSX === 'undefined') {
+        if (typeof showToast === 'function') showToast('Spreadsheet export library (SheetJS) is not loaded.', true);
+        return;
+      }
+      var wb = LessonCreatorService.buildSequenceWorkbook(seq, collected.fullLessons, collected.fullTests, options);
+      if (!wb) return;
+      var isOds = (format === 'ods');
+      var ext = isOds ? 'ods' : 'xlsx';
+      var mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      var wbout = XLSX.write(wb, { bookType: ext, type: 'array' });
+      var sheetFilename = safeSeqName + '_sequence.' + ext;
+
+      if (window.Desktop && Desktop.isElectron()) {
+        var binary = '';
+        var bytes = new Uint8Array(wbout);
+        var len = bytes.byteLength;
+        for (var i = 0; i < len; i += 8192) {
+          binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+        }
+        var base64 = btoa(binary);
+        var xResult = await Desktop.saveToDisk({
+          title: isOds ? 'Save Unit Sequence LibreOffice Spreadsheet' : 'Save Unit Sequence Excel Spreadsheet',
+          defaultPath: sheetFilename,
+          filters: [{ name: isOds ? 'LibreOffice Calc Workbook' : 'Excel Workbook', extensions: [ext] }],
+          content: base64,
+          encoding: 'base64'
+        });
+        if (xResult && xResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(xResult.path, xResult.name || sheetFilename, i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence spreadsheet exported successfully.');
+        }
+      } else {
+        downloadExportBlob(sheetFilename, wbout, mime);
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t('lcUnitXlsxExportedToast') || 'Unit sequence spreadsheet exported successfully.');
+      }
+    } else if (format === 'csv') {
+      var csvContent = LessonCreatorService.exportSequenceToCsv(seq, collected.fullLessons, collected.fullTests, options);
+      var csvFilename = safeSeqName + '_sequence.csv';
+
+      if (window.Desktop && Desktop.isElectron()) {
+        var cResult = await Desktop.saveToDisk({
+          title: 'Save Unit Sequence CSV',
+          defaultPath: csvFilename,
+          filters: [{ name: 'CSV Spreadsheet', extensions: ['csv'] }],
+          content: csvContent,
+          encoding: 'utf8'
+        });
+        if (cResult && cResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(cResult.path, cResult.name || csvFilename, i18n.t('lcUnitCsvExportedToast') || 'Unit sequence CSV spreadsheet exported successfully.');
+        }
+      } else {
+        downloadExportBlob(csvFilename, csvContent, 'text/csv;charset=utf-8');
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t('lcUnitCsvExportedToast') || 'Unit sequence CSV spreadsheet exported successfully.');
+      }
+    } else if (format === 'json') {
+      var jsonBundle = LessonCreatorService.createUnitArchiveBundle(seq, collected.fullLessons, collected.fullTests);
+      var jsonStr = JSON.stringify(jsonBundle, null, 2);
+      var jsonFilename = safeSeqName + '_bundle.json';
+      if (window.Desktop && Desktop.isElectron()) {
+        var jResult = await Desktop.saveToDisk({
+          title: 'Save Unit JSON Bundle',
+          defaultPath: jsonFilename,
+          filters: [{ name: 'JSON Archive Bundle', extensions: ['json'] }],
+          content: jsonStr,
+          encoding: 'utf8'
+        });
+        if (jResult && jResult.ok) {
+          lcCloseModal('sequenceExportModal');
+          handleExportSuccess(jResult.path, jResult.name || jsonFilename, 'Unit JSON bundle exported successfully.');
+        }
+      } else {
+        downloadExportBlob(jsonFilename, jsonStr, 'application/json;charset=utf-8');
+        lcCloseModal('sequenceExportModal');
+        if (typeof showToast === 'function') showToast(i18n.t("lcUnitJsonExportedToast"));
+      }
+    }
+  };
+
+  // ── Tagging & Universal Linking Integration ─────────────────────────
+  function lcGetActivePlanUrn() {
+    if (!currentPlan) return 'cmt:lesson:temp';
+    if (!currentPlan.id) {
+      currentPlan.id = (typeof LessonCreatorService !== 'undefined' && LessonCreatorService.generateId) ? LessonCreatorService.generateId('plan') : ('plan_' + Date.now());
+    }
+    return 'cmt:lesson:' + currentPlan.id;
+  }
+  window.lcGetActivePlanUrn = lcGetActivePlanUrn;
+
+  function lcUpdatePlanLinksBadge() {
+    var btn = document.getElementById('btn-lc-plan-links');
+    if (!btn || !currentPlan) return;
+    var urn = lcGetActivePlanUrn();
+    var linkCount = 0;
+    var tagCount = (currentPlan.tags && Array.isArray(currentPlan.tags)) ? currentPlan.tags.length : 0;
+    if (typeof LinksService !== 'undefined') {
+      if (typeof LinksService.getLinksFor === 'function') {
+        LinksService.getLinksFor(urn).then(function (links) {
+          if (Array.isArray(links)) {
+            var btnInner = document.getElementById('btn-lc-plan-links');
+            if (btnInner) {
+              var curTags = (currentPlan && currentPlan.tags && Array.isArray(currentPlan.tags)) ? currentPlan.tags.length : 0;
+              btnInner.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[' + links.length + ' | ' + curTags + ']';
+            }
+          }
+        }).catch(function () {});
+      }
+      if (typeof LinksService.getLinksForSync === 'function') {
+        var syncLinks = LinksService.getLinksForSync(urn);
+        if (Array.isArray(syncLinks)) linkCount = syncLinks.length;
+      }
+      if (typeof LinksService.getTagsForSync === 'function') {
+        var svcTags = LinksService.getTagsForSync(urn);
+        if (Array.isArray(svcTags) && svcTags.length > tagCount) tagCount = svcTags.length;
+      }
+    }
+    btn.innerHTML = '<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: ' + linkCount + ' | TAGS: ' + tagCount + ']';
+  }
+  window.lcUpdatePlanLinksBadge = lcUpdatePlanLinksBadge;
+
+  window.lcOpenPlanLinksModal = function () {
+    if (!currentPlan) return;
+    var urn = lcGetActivePlanUrn();
+    if (typeof LinksService !== 'undefined') {
+      var regFn = LinksService.registerEntity || LinksService.registerItem;
+      if (typeof regFn === 'function') {
+        regFn.call(LinksService, urn, {
+          title: currentPlan.title || 'Untitled Lesson Plan',
+          type: 'lesson',
+          id: currentPlan.id,
+          classId: currentPlan.classId || '',
+          date: currentPlan.date || '',
+          tags: currentPlan.tags || []
+        });
+      }
+    }
+    if (typeof TagLinkModal !== 'undefined' && TagLinkModal.open) {
+      TagLinkModal.open({
+        urn: urn,
+        title: currentPlan.title || 'Lesson Plan',
+        type: 'lesson',
+        onLinksChanged: function () {
+          lcUpdatePlanLinksBadge();
+        },
+        onTagsChanged: function (newTags) {
+          currentPlan.tags = newTags || [];
+          renderTags();
+          lcUpdatePlanLinksBadge();
+          lcOnPlanDirty();
+        }
+      });
+    } else if (typeof showToast === 'function') {
+      showToast('Links modal not available', true);
+    }
+  };
+
+  function updatePlannerSlotBadge() {
+    var btn = document.getElementById('btn-lc-planner-slot');
+    var textEl = document.getElementById('btn-lc-planner-slot-text');
+    if (!btn || !textEl) return;
+    if (currentPlan && currentPlan.plannerEntryId) {
+      btn.style.display = 'inline-flex';
+      var label = '[SLOT: ' + (currentPlan.date || currentPlan.plannerEntryId.slice(0, 8)) + ']';
+      textEl.textContent = label;
+      btn.title = 'Assigned to planner timetable slot: ' + currentPlan.plannerEntryId + ' (Click to manage)';
+    } else {
+      btn.style.display = 'none';
+    }
+  }
+  window.updatePlannerSlotBadge = updatePlannerSlotBadge;
+
+  window.lcOpenPlannerSlotLink = function () {
+    lcOpenPlannerLinkModal();
+  };
+
+  // ── Planner Timetable Slot Linking Modal ──────────────────────────────
+  var _cachedPlannerEntries = [];
+  window.lcOpenPlannerLinkModal = async function () {
+    var modal = document.getElementById('plannerLinkModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    // 1. Populate class filter
+    var clsSelect = document.getElementById('plannerLinkClassSelect');
+    if (clsSelect) {
+      var curVal = (currentPlan && currentPlan.classId) ? currentPlan.classId : 'all';
+      clsSelect.innerHTML = '<option value="all">All Classes</option>';
+      var classes = [];
+      if (window.CLASS_GROUPS && typeof window.CLASS_GROUPS === 'object') {
+        Object.keys(window.CLASS_GROUPS).forEach(function (k) {
+          var g = window.CLASS_GROUPS[k];
+          var name = (g && g.name) ? g.name : k;
+          classes.push({ id: k, name: name });
+        });
+      }
+      classes.forEach(function (c) {
+        var opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        if (c.id === curVal) opt.selected = true;
+        clsSelect.appendChild(opt);
+      });
+      if (curVal !== 'all' && clsSelect.value !== curVal) {
+        clsSelect.value = 'all';
+      }
+    }
+
+    // 2. Load planner entries
+    _cachedPlannerEntries = [];
+    try {
+      if (window.PLANNER_CONFIG && Array.isArray(window.PLANNER_CONFIG.entries)) {
+        _cachedPlannerEntries = window.PLANNER_CONFIG.entries;
+      } else if (window.Desktop && Desktop.isElectron()) {
+        var res = await Desktop.readText('user', 'planner-config.js');
+        if (res && res.ok && res.content) {
+          var match = res.content.match(/window\.PLANNER_CONFIG\s*=\s*(\{[\s\S]*\});?\s*$/);
+          if (match) {
+            var cfg = JSON.parse(match[1]);
+            if (cfg && Array.isArray(cfg.entries)) _cachedPlannerEntries = cfg.entries;
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (!_cachedPlannerEntries.length) {
+      try {
+        var rawLocal = localStorage.getItem('cmt_planner_config');
+        if (rawLocal) {
+          var pcfg = JSON.parse(rawLocal);
+          if (pcfg && Array.isArray(pcfg.entries)) _cachedPlannerEntries = pcfg.entries;
+        }
+      } catch (_) {}
+    }
+
+    lcFilterPlannerSlotsList();
+  };
+
+  window.lcFilterPlannerSlotsList = function () {
+    var container = document.getElementById('plannerSlotsList');
+    if (!container) return;
+    var cls = document.getElementById('plannerLinkClassSelect') ? document.getElementById('plannerLinkClassSelect').value : 'all';
+    var q = (document.getElementById('plannerLinkSearchInput') ? document.getElementById('plannerLinkSearchInput').value : '').toLowerCase().trim();
+
+    var filtered = _cachedPlannerEntries.filter(function (e) {
+      if (!e) return false;
+      if (cls !== 'all' && e.classId !== cls) return false;
+      if (q) {
+        var str = ((e.topic || '') + ' ' + (e.date || '') + ' ' + (e.time || '') + ' ' + (e.room || '') + ' ' + (e.classId || '')).toLowerCase();
+        if (str.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if (!filtered.length) {
+      container.innerHTML = '<div style="text-align:center;padding:16px;color:#64748b;font-size:0.82rem;">No timetable slots found matching criteria.</div>';
+      return;
+    }
+
+    filtered.sort(function (a, b) {
+      return String(a.date || '').localeCompare(String(b.date || ''));
+    });
+
+    container.innerHTML = filtered.map(function (e) {
+      var isLinked = currentPlan && currentPlan.plannerEntryId === e.id;
+      var className = getClassLabel(e.classId) || e.classId || 'Class';
+      var timeStr = e.time || (e.startHour ? (e.startHour + ':' + (e.startMinute || '00')) : '');
+      return '<div class="planner-slot-row" style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border:1.5px solid ' + (isLinked ? '#2563eb' : '#000') + ';background:' + (isLinked ? '#eff6ff' : '#f8fafc') + ';border-radius:4px;cursor:pointer;margin-bottom:4px;" data-lc-action="select-planner-slot" data-lc-id="' + escapeHtml(e.id) + '" data-lc-date="' + escapeHtml(e.date || '') + '" data-lc-time="' + escapeHtml(timeStr) + '" data-lc-class="' + escapeHtml(e.classId || '') + '" data-lc-topic="' + escapeHtml(e.topic || '') + '">' +
+        '<div>' +
+          '<div style="font-weight:800;font-size:0.85rem;color:#0f172a;">' + escapeHtml(e.date || 'No Date') + ' ' + (timeStr ? ('(' + escapeHtml(timeStr) + ')') : '') + ' &bull; ' + escapeHtml(className) + '</div>' +
+          '<div style="font-size:0.78rem;color:#475569;">' + escapeHtml(e.topic || 'No topic') + ' ' + (e.room ? ('&bull; Room ' + escapeHtml(e.room)) : '') + '</div>' +
+        '</div>' +
+        '<div>' +
+          (isLinked ? '<span style="font-weight:900;color:#2563eb;font-size:0.78rem;padding:2px 6px;background:#dbeafe;border:1px solid #2563eb;border-radius:3px;">LINKED</span>' : '<button type="button" class="neo-btn" style="font-size:0.75rem;padding:3px 8px;">Select</button>') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  };
+
+  window.lcSelectPlannerSlot = async function (entryId, slotDate, slotTime, slotClassId, slotTopic) {
+    if (!currentPlan) return;
+    currentPlan.plannerEntryId = entryId;
+    if (slotDate && !currentPlan.date) {
+      currentPlan.date = slotDate;
+      var dInp = document.getElementById('planDate');
+      if (dInp) dInp.value = slotDate;
+    }
+    if (slotClassId && !currentPlan.classId) {
+      currentPlan.classId = slotClassId;
+      var cSel = document.getElementById('planClass');
+      if (cSel) cSel.value = slotClassId;
+    }
+    if (slotTime) {
+      currentPlan.startTime = slotTime;
+    }
+    if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+      LinksService.addLink(lcGetActivePlanUrn(), 'cmt:planner:' + entryId, {
+        relation: 'scheduled-slot',
+        meta: { label: 'Planner Slot ' + (slotDate || '') + ' ' + (slotTime || '') }
+      });
+    }
+    updatePlannerSlotBadge();
+    lcUpdatePlanLinksBadge();
+    lcCloseModal('plannerLinkModal');
+    await lcSavePlan();
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.notifyDataChanged === 'function') {
+      Desktop.notifyDataChanged({ target: 'planner' });
+    }
+    if (typeof showToast === 'function') {
+      showToast((typeof i18n !== 'undefined' && i18n.t ? i18n.t('lcPlanLinkedToSlot') : '') || 'Lesson plan linked to planner slot!');
+    }
+  };
+
+  // ── Phase Mindmap Modal Logic ─────────────────────────────────────────
+  var _activePhaseMindmapIdx = -1;
+  window.lcOpenPhaseMindmapLink = async function (phaseIdx) {
+    _activePhaseMindmapIdx = phaseIdx;
+    var modal = document.getElementById('phaseMindmapModal');
+    if (!modal) return;
+    var sec = currentPlan && currentPlan.sections ? currentPlan.sections[phaseIdx] : null;
+    if (!sec) return;
+
+    var sel = document.getElementById('phaseMindmapFileSelect');
+    var nodeInput = document.getElementById('phaseMindmapNodeInput');
+    var nodeWrap = document.getElementById('phaseMindmapNodeWrap');
+    if (nodeInput) nodeInput.value = sec.boardNodeId || '';
+    if (nodeWrap) nodeWrap.style.display = 'block';
+
+    sel.innerHTML = '<option value="">-- No linked mindmap --</option>';
+
+    var files = [];
+    try {
+      if (window.Desktop && Desktop.isElectron() && (typeof Desktop.listByPath === 'function' || typeof Desktop.listFiles === 'function')) {
+        var res = typeof Desktop.listByPath === 'function'
+          ? await Desktop.listByPath('mindmaps', '', {
+              extensions: ['.cstz', '.js', '.json', '.zip'],
+              recursive: true,
+              excludeDirs: ['archived', 'history', 'pics', 'sounds', 'videos', 'pdf', 'templates']
+            })
+          : await Desktop.listFiles('mindmaps', { extensions: ['.js', '.json'] });
+        var list = Array.isArray(res) ? res : (res && res.files ? res.files : []);
+        list.forEach(function (f) {
+          var name = typeof f === 'string' ? f : (f.relativePath || f.filename || f.name);
+          if (!name) return;
+          name = String(name).replace(/\\/g, '/');
+          if (!name.endsWith('.bak') && !name.includes('-Autosave') && !name.includes('/history/') && !name.startsWith('history/')) files.push(name);
+        });
+      }
+    } catch (_) {}
+
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+        var resC = await Desktop.listFiles('constellations', { extensions: ['.js', '.json'] });
+        var listC = Array.isArray(resC) ? resC : (resC && resC.files ? resC.files : []);
+        listC.forEach(function (f) {
+          var name = typeof f === 'string' ? f : (f.filename || f.name);
+          if (name && !name.endsWith('.bak') && files.indexOf(name) === -1) files.push(name);
+        });
+      }
+    } catch (_) {}
+
+    files.sort().forEach(function (fn) {
+      var opt = document.createElement('option');
+      opt.value = fn;
+      opt.textContent = fn.replace(/\.(cstz|zip|js|json)$/i, '');
+      if (sec.boardFile && (sec.boardFile === fn || sec.boardFile.endsWith(fn))) {
+        opt.selected = true;
+      }
+      sel.appendChild(opt);
+    });
+
+    modal.style.display = 'flex';
+  };
+
+  window.lcOnPhaseMindmapFileChange = function () {
+    var sel = document.getElementById('phaseMindmapFileSelect');
+    var nodeWrap = document.getElementById('phaseMindmapNodeWrap');
+    if (nodeWrap) {
+      nodeWrap.style.display = (sel && sel.value) ? 'block' : 'none';
+    }
+  };
+
+  window.lcSavePhaseMindmapLink = function () {
+    if (_activePhaseMindmapIdx < 0 || !currentPlan || !currentPlan.sections) return;
+    var sec = currentPlan.sections[_activePhaseMindmapIdx];
+    if (!sec) return;
+
+    var sel = document.getElementById('phaseMindmapFileSelect');
+    var nodeInput = document.getElementById('phaseMindmapNodeInput');
+    var chosenFile = sel ? sel.value : '';
+    var chosenNode = nodeInput ? nodeInput.value.trim() : '';
+
+    if (chosenFile) {
+      sec.boardFile = chosenFile;
+      sec.boardNodeId = chosenNode || '';
+      if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+        LinksService.addLink(lcGetActivePlanUrn() + ':phase:' + _activePhaseMindmapIdx, 'cmt:board:' + chosenFile, {
+          relation: 'phase-mindmap',
+          meta: { label: 'Phase ' + (_activePhaseMindmapIdx + 1) + ' Board: ' + chosenFile.replace(/\.(js|json)$/i, '') }
+        });
+      }
+    } else {
+      delete sec.boardFile;
+      delete sec.boardNodeId;
+    }
+
+    lcCloseModal('phaseMindmapModal');
+    renderPhaseCards();
+    lcOnPlanDirty();
+    if (typeof showToast === 'function') {
+      showToast(chosenFile ? ('Linked phase to mindmap: ' + chosenFile) : 'Mindmap link removed');
+    }
+  };
+
+  window.lcRemovePhaseMindmapLink = function () {
+    if (_activePhaseMindmapIdx < 0 || !currentPlan || !currentPlan.sections) return;
+    var sec = currentPlan.sections[_activePhaseMindmapIdx];
+    if (sec) {
+      delete sec.boardFile;
+      delete sec.boardNodeId;
+    }
+    lcCloseModal('phaseMindmapModal');
+    renderPhaseCards();
+    lcOnPlanDirty();
+    if (typeof showToast === 'function') showToast('Mindmap link removed');
+  };
+
+  // ── Word & Grammar Bank Drawer Logic ──────────────────────────────────
+  var _cachedWordBankItems = [];
+  var _wordBankCurrentType = 'wordbanks';
+
+  function parseGenericBankContent(content) {
+    if (!content || typeof content !== 'string') return [];
+    var trimmed = content.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        var p = JSON.parse(trimmed);
+        if (Array.isArray(p)) return p;
+      } catch (_) {}
+    }
+    var match = content.match(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:\[|\{)/);
+    if (match) {
+      try {
+        var fn = new Function(content + '\n;try{return ' + match[1] + ';}catch(e){return [];}');
+        var res = fn();
+        if (Array.isArray(res)) return res;
+        if (res && typeof res === 'object') {
+          if (Array.isArray(res.records)) return res.records;
+          if (Array.isArray(res.items)) return res.items;
+          return Object.values(res);
+        }
+      } catch (_) {}
+    }
+    return [];
+  }
+
+  window.lcOnWordBankFileChange = function () {
+    var sel = document.getElementById('lcWordBankFileSelect');
+    _wordBankCurrentType = sel ? sel.value : 'wordbanks';
+    lcLoadWordBankItems();
+  };
+
+  window.lcLoadWordBankItems = async function () {
+    var type = document.getElementById('lcWordBankFileSelect') ? document.getElementById('lcWordBankFileSelect').value : 'wordbanks';
+    _wordBankCurrentType = type;
+    var listEl = document.getElementById('lcWordBankList');
+    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:0.85rem;">Loading vocabulary &amp; grammar database...</div>';
+
+    var targetMap = {
+      wordbanks: { target: 'customWordbanks', defaultFile: 'wordDb.js' },
+      grammarbanks: { target: 'customGrammarbanks', defaultFile: 'grammar.js' },
+      gapfillbanks: { target: 'customGapfillbanks', defaultFile: 'gapFillBank.js' }
+    };
+
+    var cfg = targetMap[type] || targetMap.wordbanks;
+    var items = [];
+
+    try {
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.listFiles === 'function') {
+        var fileList = await window.Desktop.listFiles(cfg.target, { extensions: ['.js', '.json'] });
+        var files = Array.isArray(fileList) ? fileList : ((fileList && Array.isArray(fileList.files)) ? fileList.files : []);
+        var candidateFiles = files.map(function (f) {
+          return typeof f === 'string' ? f : (f.filename || f.name);
+        }).filter(function (fn) {
+          return fn && !fn.endsWith('.bak') && fn !== 'simple-wiktionary-core.zip' && fn !== 'barrasDb.js';
+        });
+
+        if (type === 'wordbanks') {
+          ['wordDb.js', 'simple-wiktionary-core.js', 'phrasalVerbs.js', 'simple-wiktionary.js'].forEach(function (wbf) {
+            if (candidateFiles.indexOf(wbf) !== -1) {
+              candidateFiles = [wbf].concat(candidateFiles.filter(function (f) { return f !== wbf; }));
+            }
+          });
+        } else if (candidateFiles.indexOf(cfg.defaultFile) !== -1) {
+          candidateFiles = [cfg.defaultFile].concat(candidateFiles.filter(function (f) { return f !== cfg.defaultFile; }));
+        } else if (candidateFiles.length === 0 && cfg.defaultFile) {
+          candidateFiles = [cfg.defaultFile];
+        }
+
+        for (var i = 0; i < Math.min(candidateFiles.length, 6); i++) {
+          var fn = candidateFiles[i];
+          try {
+            var r = await window.Desktop.readText(cfg.target, fn);
+            if (r && r.ok && r.content) {
+              var parsed = parseGenericBankContent(r.content);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                parsed.forEach(function (it) {
+                  if (it && typeof it === 'object') {
+                    it._sourceFile = fn;
+                    items.push(it);
+                  }
+                });
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (items.length === 0 && type === 'wordbanks' && window.Desktop && typeof Desktop.readByPath === 'function') {
+        try {
+          var altRes = await window.Desktop.readByPath('customData', 'wordbanks/wordDb.js');
+          if (altRes && altRes.ok && altRes.content) {
+            var parsedAlt = parseGenericBankContent(altRes.content);
+            if (Array.isArray(parsedAlt)) {
+              parsedAlt.forEach(function (it) {
+                if (it && typeof it === 'object') {
+                  it._sourceFile = 'wordDb.js';
+                  items.push(it);
+                }
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (items.length === 0) {
+        if (type === 'wordbanks' && window.vocabBank && Array.isArray(window.vocabBank)) {
+          items = window.vocabBank;
+        } else if (type === 'gapfillbanks' && window.gapFillBank && Array.isArray(window.gapFillBank)) {
+          items = window.gapFillBank;
+        } else if (type === 'grammarbanks' && window.grammarBank && Array.isArray(window.grammarBank)) {
+          items = window.grammarBank;
+        }
+      }
+    } catch (err) {
+      console.warn('lcLoadWordBankItems error:', err);
+    }
+
+    _cachedWordBankItems = items;
+
+    var themesSet = new Set();
+    (items || []).forEach(function (it) {
+      var themes = it.themes || it.theme || it.topic || it.topics || [];
+      if (Array.isArray(themes)) themes.forEach(function (t) { if (t) themesSet.add(String(t).trim()); });
+      else if (themes) themesSet.add(String(themes).trim());
+    });
+    var themeSel = document.getElementById('lcWordBankThemeFilter');
+    if (themeSel) {
+      var thOpts = ['<option value="all">All Themes (' + themesSet.size + ')</option>'];
+      Array.from(themesSet).sort().forEach(function (t) {
+        thOpts.push('<option value="' + escapeHtml(t) + '">' + escapeHtml(t) + '</option>');
+      });
+      themeSel.innerHTML = thOpts.join('');
+    }
+
+    lcFilterWordBankDrawer();
+  };
+
+  window.lcFilterWordBankDrawer = function () {
+    var listEl = document.getElementById('lcWordBankList');
+    var countEl = document.getElementById('lcWordBankMatchCount');
+    if (!listEl) return;
+
+    var q = (document.getElementById('lcWordBankSearch') ? document.getElementById('lcWordBankSearch').value : '').toLowerCase().trim();
+    var th = document.getElementById('lcWordBankThemeFilter') ? document.getElementById('lcWordBankThemeFilter').value : 'all';
+    var lvl = document.getElementById('lcWordBankLevelFilter') ? document.getElementById('lcWordBankLevelFilter').value : 'all';
+
+    var filtered = _cachedWordBankItems.filter(function (it) {
+      if (!it) return false;
+      if (th !== 'all') {
+        var itemThemes = it.themes || it.theme || it.topic || it.topics || [];
+        var matchedTh = false;
+        if (Array.isArray(itemThemes)) {
+          matchedTh = itemThemes.some(function (t) { return String(t).trim() === th; });
+        } else if (itemThemes) {
+          matchedTh = String(itemThemes).trim() === th;
+        }
+        if (!matchedTh) return false;
+      }
+      if (lvl !== 'all') {
+        var itemLvl = String(it.level || it.difficulty || '').toUpperCase();
+        if (itemLvl !== lvl.toUpperCase()) return false;
+      }
+      if (q) {
+        var searchStr = [
+          it.word, it.french, it.translation, it.ipa,
+          Array.isArray(it.definition) ? it.definition.join(' ') : it.definition,
+          it.sentence, it.removedWord, it.name, it.rule, it.explanation,
+          it.partOfSpeech, it.grammarType
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (searchStr.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+
+    if (countEl) countEl.textContent = filtered.length + ' items';
+
+    if (!filtered.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#64748b;font-size:0.85rem;">No items found matching filter criteria.</div>';
+      return;
+    }
+
+    listEl.innerHTML = filtered.slice(0, 100).map(function (it, idx) {
+      var origIdx = _cachedWordBankItems.indexOf(it);
+      if (origIdx === -1) origIdx = idx;
+
+      var title = '';
+      var subtitle = '';
+      var badgesHtml = '';
+
+      if (it.word) {
+        title = escapeHtml(it.word) + (it.ipa ? (' <span style="font-weight:400;font-size:0.8rem;color:#64748b;">/' + escapeHtml(it.ipa) + '/</span>') : '');
+        var def = Array.isArray(it.definition) ? it.definition.join('; ') : (it.definition || it.french || it.translation || '');
+        subtitle = escapeHtml(def);
+        if (it.partOfSpeech || it.pos) badgesHtml += '<span class="comp-badge" style="background:#e0e7ff;color:#3730a3;font-size:0.7rem;padding:1px 5px;border:1px solid #3730a3;border-radius:3px;">' + escapeHtml(String(it.partOfSpeech || it.pos)) + '</span>';
+        if (it.level) badgesHtml += '<span class="comp-badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem;padding:1px 5px;border:1px solid #92400e;border-radius:3px;">' + escapeHtml(String(it.level)) + '</span>';
+      } else if (it.sentence) {
+        title = escapeHtml(it.sentence);
+        subtitle = it.removedWord ? ('Gap: <strong>' + escapeHtml(it.removedWord) + '</strong>') : '';
+        if (it.grammarType) badgesHtml += '<span class="comp-badge" style="background:#e0e7ff;color:#3730a3;font-size:0.7rem;padding:1px 5px;border:1px solid #3730a3;border-radius:3px;">' + escapeHtml(String(it.grammarType)) + '</span>';
+        if (it.level) badgesHtml += '<span class="comp-badge" style="background:#fef3c7;color:#92400e;font-size:0.7rem;padding:1px 5px;border:1px solid #92400e;border-radius:3px;">' + escapeHtml(String(it.level)) + '</span>';
+      } else {
+        title = escapeHtml(it.name || it.rule || 'Grammar Item');
+        subtitle = escapeHtml(it.explanation || it.description || '');
+      }
+
+      return '<div class="drawer-comp-card" style="display:flex;flex-direction:column;gap:4px;padding:8px;border:2px solid var(--neo-dark);border-radius:var(--neo-radius-sm);background:#fff;margin-bottom:6px;cursor:grab;" draggable="true" data-lc-wb-drag="' + origIdx + '">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">' +
+          '<div style="font-weight:800;font-size:0.85rem;color:#0f172a;">' + title + '</div>' +
+          '<button type="button" class="neo-btn" style="font-size:0.72rem;padding:2px 6px;background:#fde047;border:1.5px solid #000;font-weight:900;" data-lc-action="insert-wb-item" data-lc-idx="' + origIdx + '" title="Insert into active lesson phase">' +
+            '<img src="../assets/icons/save.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:2px;" /><span>+ Phase</span>' +
+          '</button>' +
+        '</div>' +
+        (subtitle ? ('<div style="font-size:0.78rem;color:#475569;line-height:1.3;">' + subtitle + '</div>') : '') +
+        (badgesHtml ? ('<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:2px;">' + badgesHtml + '</div>') : '') +
+      '</div>';
+    }).join('');
+  };
+
+  window.lcInsertWordBankItemToPhase = function (itemIdx, targetPhaseIdx) {
+    if (!currentPlan.sections || currentPlan.sections.length === 0) {
+      lcAddPhase();
+    }
+    var pIdx = (typeof targetPhaseIdx === 'number' && targetPhaseIdx >= 0 && targetPhaseIdx < currentPlan.sections.length)
+      ? targetPhaseIdx
+      : currentPlan.sections.length - 1;
+    var sec = currentPlan.sections[pIdx];
+    var it = _cachedWordBankItems[itemIdx];
+    if (!sec || !it) return;
+
+    var textToAdd = '';
+    if (it.word) {
+      textToAdd = it.word + (it.ipa ? (' /' + it.ipa + '/') : '') + (it.definition ? (': ' + (Array.isArray(it.definition) ? it.definition.join('; ') : it.definition)) : (it.french ? (': ' + it.french) : ''));
+    } else if (it.sentence) {
+      textToAdd = it.sentence + (it.removedWord ? (' [Gap: ' + it.removedWord + ']') : '');
+    } else if (it.rule || it.name) {
+      textToAdd = (it.name || 'Grammar Rule') + ': ' + (it.explanation || it.rule || '');
+    }
+
+    if (textToAdd) {
+      if (sec.studentAction) {
+        sec.studentAction += '\n• ' + textToAdd;
+      } else {
+        sec.studentAction = '• ' + textToAdd;
+      }
+      renderPhaseCards();
+      lcOnPlanDirty();
+
+      // Automatically establish links in LinksService
+      if (typeof LinksService !== 'undefined' && typeof LinksService.addLink === 'function') {
+        var planUrn = (typeof lcGetActivePlanUrn === 'function') ? lcGetActivePlanUrn() : ('cmt:lesson:' + currentPlan.id);
+        var urnType = it.word ? 'wordbank' : (it.sentence ? 'gapfill' : 'grammar');
+        var srcFile = it._sourceFile || (urnType === 'wordbank' ? 'wordDb.js' : (urnType === 'gapfill' ? 'gapFillBank.js' : 'grammar.js'));
+        var itemKey = it.word || it.removedWord || it.name || it.rule || 'item';
+        var itemUrn = (typeof LinksService.makeUrn === 'function')
+          ? LinksService.makeUrn(urnType, srcFile, encodeURIComponent(itemKey))
+          : ('cmt:' + urnType + ':' + srcFile + '#' + encodeURIComponent(itemKey));
+
+        var itemTitle = it.word || (it.sentence ? ('Gap: ' + (it.removedWord || it.sentence.slice(0, 30))) : (it.name || it.rule || 'Grammar Rule'));
+
+        if (typeof LinksService.registerEntity === 'function') {
+          LinksService.registerEntity(itemUrn, {
+            title: itemTitle,
+            type: urnType,
+            file: srcFile,
+            word: it.word || '',
+            sentence: it.sentence || '',
+            removedWord: it.removedWord || '',
+            rule: it.rule || it.name || ''
+          });
+        }
+
+        LinksService.addLink(planUrn, itemUrn, {
+          relation: 'includes-term',
+          meta: { label: itemTitle, title: itemTitle, urnType: urnType }
+        });
+
+        if (sec.id) {
+          LinksService.addLink(planUrn + '#' + sec.id, itemUrn, {
+            relation: 'includes-term',
+            meta: { label: itemTitle, phaseTitle: sec.title || ('Phase ' + (pIdx + 1)) }
+          });
+        }
+
+        if (typeof lcUpdatePlanLinksBadge === 'function') lcUpdatePlanLinksBadge();
+      }
+
+      if (typeof showToast === 'function') {
+        showToast((typeof i18n !== 'undefined' && i18n.t ? i18n.t('lcAddedToPhase') : '') || ('Added "' + (it.word || it.name || 'Item') + '" to Phase ' + (pIdx + 1)));
+      }
+    }
+  };
+
+  window.lcExportCoverageCsv = async function () {
+    var rows = [['Competence Code', 'Category', 'Description', 'Tagged Phase']];
+    (currentPlan.sections || []).forEach(function (sec) {
+      (sec.descriptors || []).forEach(function (desc) {
+        rows.push([
+          '"' + (desc.code || '').replace(/"/g, '""') + '"',
+          '"' + (desc.category || '').replace(/"/g, '""') + '"',
+          '"' + (desc.title || desc.text || '').replace(/"/g, '""') + '"',
+          '"' + (sec.title || '').replace(/"/g, '""') + '"'
+        ]);
+      });
+    });
+    var csvContent = '\uFEFF' + rows.map(function (e) { return e.join(','); }).join('\r\n');
+    var filename = 'curriculum_coverage_' + (currentPlan.classId || 'class') + '.csv';
+
+    if (window.saveExportWithDestination) {
+      return await window.saveExportWithDestination({
+        filename: filename,
+        content: csvContent,
+        encoding: 'utf8',
+        mimeType: 'text/csv;charset=utf-8',
+        filters: [{ name: 'CSV File', extensions: ['csv'] }, { name: 'All Files', extensions: ['*'] }],
+        title: 'Save Curriculum Coverage CSV'
+      });
+    }
+
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    if (typeof showToast === 'function') {
+      showToast(i18n.t('lcExportCopySuccess') || 'Curriculum coverage CSV exported successfully.');
+    }
+  };
+
+  // ── Sound & Audio Preview ────────────────────────────────────────────
+  window.lcOpenSoundModal = function () {
+    document.getElementById('soundPresetSelect').value = currentPlan.soundAlert ? currentPlan.soundAlert.preset : 'chime';
+    document.getElementById('soundModal').style.display = 'flex';
+  };
+
+  window.lcPreviewSound = function () {
+    var preset = document.getElementById('soundPresetSelect').value;
+    var vol = document.getElementById('soundVolumeRange').value;
+    LessonCreatorService.playPresetSound(preset, vol);
+  };
+
+  window.lcSaveSoundSettings = function () {
+    currentPlan.soundAlert = {
+      preset: document.getElementById('soundPresetSelect').value,
+      volume: Number(document.getElementById('soundVolumeRange').value) || 90
+    };
+    lcCloseModal('soundModal');
+    lcOnPlanDirty();
+  };
+
+  // ── Templates & Custom Templates ─────────────────────────────────────
+  window.lcOpenTemplatePicker = async function () {
+    await loadCustomTemplates();
+    var container = document.getElementById('templateOptionsList');
+    container.innerHTML = '';
+
+    var allTemplates = (LessonCreatorService.LESSON_TEMPLATES || []).concat(userCustomTemplates);
+
+    if (allTemplates.length === 0) {
+      container.innerHTML = '<div style="color:#888;text-align:center;padding:20px;">No lesson templates available.</div>';
+      return;
+    }
+
+    allTemplates.forEach(function (tpl) {
+      var card = document.createElement('div');
+      card.className = 'phase-card';
+      card.style.cursor = 'pointer';
+
+      var badgeHtml = tpl.isCustom
+        ? '<span style="font-size:0.7rem;background:var(--neo-purple, #8b5cf6);color:#fff;padding:2px 6px;border-radius:4px;font-weight:800;margin-left:6px;">Custom</span>'
+        : '';
+
+      var deleteBtnHtml = tpl.isCustom
+        ? '<button class="icon-btn danger" style="padding:2px 6px;font-size:0.75rem;margin-left:auto;" data-lc-action="del-custom-tpl" data-lc-val="' + escapeHtml(tpl.id) + '" title="Delete custom template">&times;</button>'
+        : '';
+
+      card.innerHTML = [
+        '<div style="display:flex;align-items:center;justify-content:space-between;width:100%;">',
+        '  <div><strong>' + escapeHtml(tpl.name) + ' (' + (tpl.targetDuration || 60) + 'm)</strong>' + badgeHtml + '</div>',
+        deleteBtnHtml,
+        '</div>',
+        '<div style="font-size:0.82rem;color:#555;margin-top:4px;">' + escapeHtml(tpl.description || '') + ' (' + (tpl.sections || []).length + ' phases)</div>'
+      ].join('');
+
+      card.onclick = async function () {
+        var confirmTmplMsg = (i18n.tFmt ? i18n.tFmt('lcConfirmLoadTemplate', { name: tpl.name }) : (i18n.t('lcConfirmLoadTemplate') || 'Load template "{name}"?').replace('{name}', tpl.name));
+        var confirmed = (typeof showConfirm === 'function') ? await showConfirm(confirmTmplMsg) : confirm(confirmTmplMsg);
+        if (confirmed) {
+          currentPlan.sections = JSON.parse(JSON.stringify(tpl.sections || []));
+          currentPlan.targetDuration = tpl.targetDuration || 60;
+          renderPhaseCards();
+          updateDurationMeter();
+          lcCloseModal('templateModal');
+          lcOnPlanDirty();
+          if (typeof showToast === 'function') showToast((i18n.tFmt ? i18n.tFmt('lcTemplateLoadedToast', { name: tpl.name }) : (i18n.t('lcTemplateLoadedToast') || 'Template loaded: {name}').replace('{name}', tpl.name)));
+        }
+      };
+
+      container.appendChild(card);
+    });
+
+    document.getElementById('templateModal').style.display = 'flex';
+  };
+
+  window.lcSaveAsTemplate = async function () {
+    if (!currentPlan || !currentPlan.sections || currentPlan.sections.length === 0) {
+      if (typeof showToast === 'function') showToast(i18n.t("lcEmptyTimelineTemplateError"), true);
+      return;
+    }
+
+    var defaultName = (currentPlan.title && currentPlan.title.trim()) ? (currentPlan.title.trim() + ' Template') : 'My Custom Lesson Template';
+    var tplName = (typeof showPrompt === 'function')
+      ? await showPrompt(i18n.t('lcPromptTemplateName'), defaultName)
+      : prompt(i18n.t('lcPromptTemplateName'), defaultName);
+
+    if (!tplName || !tplName.trim()) return;
+    tplName = tplName.trim();
+
+    var defaultDesc = 'Custom template with ' + currentPlan.sections.length + ' phase(s) (' + (currentPlan.targetDuration || 60) + ' min)';
+    var tplDesc = (typeof showPrompt === 'function')
+      ? await showPrompt(i18n.t('lcPromptTemplateDesc'), defaultDesc)
+      : prompt(i18n.t('lcPromptTemplateDesc'), defaultDesc);
+
+    var newTemplate = {
+      id: 'tpl_custom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      name: tplName,
+      description: (tplDesc || defaultDesc).trim(),
+      targetDuration: Number(currentPlan.targetDuration) || 60,
+      isCustom: true,
+      sections: JSON.parse(JSON.stringify(currentPlan.sections))
+    };
+
+    userCustomTemplates.push(newTemplate);
+    await saveCustomTemplatesToDisk();
+
+    if (typeof showToast === 'function') showToast((i18n.tFmt ? i18n.tFmt('lcTemplateSavedToast', { name: tplName }) : (i18n.t('lcTemplateSavedToast') || 'Template saved: "{name}"!').replace('{name}', tplName)));
+
+    var modal = document.getElementById('templateModal');
+    if (modal && modal.style.display !== 'none') {
+      lcOpenTemplatePicker();
+    }
+  };
+
+  window.lcDeleteCustomTemplate = async function (tplId, e) {
+    if (e) e.stopPropagation();
+    var confirmed = (typeof showConfirm === 'function')
+      ? await showConfirm(i18n.t("lcConfirmDeleteTemplate"))
+      : confirm(i18n.t('lcConfirmDeleteTemplate'));
+    if (!confirmed) return;
+
+    userCustomTemplates = userCustomTemplates.filter(function (t) { return t.id !== tplId; });
+    await saveCustomTemplatesToDisk();
+    if (typeof showToast === 'function') showToast(i18n.t("lcTemplateDeletedToast"));
+    lcOpenTemplatePicker();
+  };
+
+  // ── Helper Utilities ─────────────────────────────────────────────────
+  window.lcOpenDescriptorDb = function () {
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('manage-database.html', { query: { type: 'competences' } });
+    } else {
+      window.open('manage-database.html?type=competences', '_blank');
+    }
+  };
+  window.lcOpenCompetenceDb = window.lcOpenDescriptorDb;
+
+  window.lcOpenDescriptorImporter = function () {
+    document.getElementById('descFileInput').value = '';
+    document.getElementById('importPreviewStatus').textContent = '';
+    document.getElementById('descriptorImportModal').style.display = 'flex';
+  };
+
+  window.lcExecuteDescriptorImport = async function () {
+    var fileInput = document.getElementById('descFileInput');
+    var file = fileInput.files && fileInput.files[0];
+    if (!file) {
+      if (typeof showToast === 'function') showToast(i18n.t("lcSelectFileImportError"), true);
+      return;
+    }
+
+    var statusEl = document.getElementById('importPreviewStatus');
+    statusEl.textContent = 'Reading and importing file…';
+
+    try {
+      var text = await file.text();
+      var imported = [];
+      if (file.name.endsWith('.json')) {
+        var parsed = JSON.parse(text);
+        imported = Array.isArray(parsed) ? parsed : (parsed.descriptors || parsed.customDescriptorBank || []);
+      } else if (file.name.endsWith('.csv') || file.name.endsWith('.txt')) {
+        var lines = text.split(/\r?\n/).filter(Boolean);
+        if (lines.length > 1) {
+          var headers = lines[0].split(',').map(function (h) { return h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); });
+          for (var i = 1; i < lines.length; i++) {
+            var cols = lines[i].split(',');
+            var obj = {};
+            headers.forEach(function (h, idx) {
+              obj[h] = (cols[idx] || '').trim();
+            });
+            var descObj = {
+              id: obj.id || (obj.code ? ('desc_' + obj.code.toLowerCase().replace(/[^a-z0-9]/g, '_')) : ('desc_' + Math.random().toString(36).substr(2, 9))),
+              code: obj.code || obj.standard || ('STD.' + i),
+              title: obj.title || obj.name || obj.standard || 'Curriculum Standard',
+              category: obj.category || obj.domain || 'General',
+              subCategory: obj.subcategory || obj.substrand || '',
+              subjectId: obj.subjectid || obj.subject || currentPlan.subjectId || 'science',
+              yearLevel: obj.yearlevel || obj.year || obj.grade || 'all',
+              semester: obj.semester || obj.term || 'all',
+              level: obj.level || obj.tier || '',
+              description: obj.description || obj.desc || obj.title || '',
+              tags: obj.tags ? obj.tags.split(';').map(function (s) { return s.trim(); }) : [],
+              comments: obj.comments || obj.notes || ''
+            };
+            imported.push(descObj);
+          }
+        }
+      }
+
+      if (!imported.length) {
+        statusEl.textContent = 'Could not parse competences from file.';
+        return;
+      }
+
+      var saveFilename = 'imported_' + file.name.replace(/[^a-zA-Z0-9_-]/g, '_') + '.js';
+      var jsContent = '// customCompetenceBank\nconst customCompetenceBank = ' + JSON.stringify(imported, null, 2) + ';\n';
+
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+        await Desktop.saveText('customCompetences', saveFilename, jsContent);
+      } else {
+        var existing = JSON.parse(localStorage.getItem('cmt-lesson-competences') || localStorage.getItem('cmt-lesson-descriptors') || '[]');
+        var combined = existing.concat(imported);
+        localStorage.setItem('cmt-lesson-competences', JSON.stringify(combined));
+      }
+
+      lcCloseModal('descriptorImportModal');
+      await loadSavedDescriptors();
+      renderDrawer();
+      if (typeof showToast === 'function') showToast('Imported ' + imported.length + ' competences!');
+    } catch (err) {
+      statusEl.textContent = 'Import error: ' + err.message;
+    }
+  };
+
+  window.lcCloseModal = function (modalId) {
+    var m = document.getElementById(modalId);
+    if (m) m.style.display = 'none';
+  };
+
+  window.lcOpenShortcuts = function () {
+    if (typeof ShortcutsModal !== 'undefined') {
+      ShortcutsModal.open({
+        title: 'Lesson Creator Shortcuts',
+        rows: [
+          { keys: ['Ctrl', 'S'], desc: 'Save active lesson plan' },
+          { keys: ['Ctrl', 'O'], desc: 'Open saved lesson plan picker' },
+          { keys: ['Ctrl', 'N'], desc: 'New blank lesson plan' },
+          { keys: ['Ctrl', 'P'], desc: 'Print / Export PDF' },
+          { keys: ['Ctrl', 'E'], desc: 'Export lesson plan (All Formats)' },
+          { keys: ['Ctrl', 'B'], desc: 'Toggle Descriptor Bank Drawer' },
+          { keys: ['Ctrl', 'R'], desc: 'Run active plan in Class Management' },
+          { keys: ['Ctrl', 'Shift', 'A'], desc: 'Add new phase to timeline' }
+        ]
+      });
+    }
+  };
+
+  window.lcStartTutorial = function () {
+    if (typeof Tutorial !== 'undefined') {
+      Tutorial.start([
+        { selector: '#planTitle', title: 'Lesson Title & Subject', text: 'Set your lesson topic, target subject, class group, and planned duration.' },
+        { selector: '#phaseCardsList', title: 'Interactive Timeline Builder', text: 'Add, drag to reorder, split, and edit timing, objectives, activity types, and interaction modes with built-in beginner explanations (click "?" on any phase).' },
+        { selector: '#descriptorDrawer', title: 'Descriptor Bank', text: 'Filter curriculum standards by year, semester, and category. Click "+ Tag" to link standards to phases.' },
+        { selector: '#app-nav', title: 'Tools & Navigation', text: 'Instantly launch your plan in Class Management, export to mindmaps, or manage your descriptor database.' }
+      ]);
+    }
+  };
+
+  function setupShortcuts() {
+    window.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        lcSavePlan();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        lcOpenPlanPicker();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
+        e.preventDefault();
+        lcNewPlan();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        lcOpenExportModal('pdf');
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        lcOpenExportModal();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          lcToggleDrawer('activities');
+        } else {
+          lcToggleDrawer('competences');
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'r') {
+        e.preventDefault();
+        lcRunInClassManagement();
+      }
+    });
+  }
+
+  // ── Unified Lesson Plan Export Engine ─────────────────────────────────
+  var DEFAULT_EXPORT_CONFIG = {
+    format: 'html',
+    metaHeader: true,
+    metaDate: true,
+    metaDuration: true,
+    metaSequence: true,
+    metaTags: true,
+    metaTeams: true,
+    phaseTitle: true,
+    phaseDuration: true,
+    phaseActivity: true,
+    phaseObjective: true,
+    phaseTeacher: true,
+    phaseStudent: true,
+    phaseResources: true,
+    phaseDescriptors: true,
+    phaseDescText: false,
+    phaseDiff: true,
+    phaseAssess: true,
+    compCode: true,
+    compTitle: true,
+    compDesc: true,
+    compDetailed: false,
+    compLevel: false,
+    compCategory: false,
+    compTags: false,
+    compComments: false
+  };
+
+  var activeExportFormat = 'html';
+  var activeSelectedPhaseIndices = new Set();
+
+  var ACTIVITY_COLOR_MAP = {
+    warm_up: { border: '#b45309', bg: '#fef3c7', text: '#78350f', label: 'Warm-up' },
+    direct_instruction: { border: '#1d4ed8', bg: '#dbeafe', text: '#1e3a8a', label: 'Direct Instruction' },
+    guided_practice: { border: '#047857', bg: '#d1fae5', text: '#064e3b', label: 'Guided Practice' },
+    independent_work: { border: '#4338ca', bg: '#e0e7ff', text: '#312e81', label: 'Independent Practice' },
+    group_activity: { border: '#6d28d9', bg: '#ede9fe', text: '#4c1d95', label: 'Group Task' },
+    discussion: { border: '#be185d', bg: '#fce7f3', text: '#831843', label: 'Discussion' },
+    assessment: { border: '#b91c1c', bg: '#fee2e2', text: '#7f1d1d', label: 'Assessment' },
+    plenary: { border: '#0f766e', bg: '#ccfbf1', text: '#134e4a', label: 'Plenary' }
+  };
+
+  function getSafeExportFilename(ext) {
+    var rawTitle = String((currentPlan && currentPlan.title) || 'lesson_plan').normalize('NFC');
+    var base = rawTitle.toLowerCase().replace(/[^\p{L}\p{N}\p{M}]+/gu, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    if (!base) base = 'lesson_plan';
+    var stamp = (currentPlan && currentPlan.date) ? ('_' + currentPlan.date) : '';
+    var cleanExt = String(ext || '').replace(/^\.+/, '');
+    return base + stamp + (cleanExt ? ('.' + cleanExt) : '');
+  }
+
+  function downloadExportBlob(filename, content, mimeType) {
+    var blob = (content instanceof Blob) ? content : new Blob([content], { type: mimeType });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      if (a.parentNode) a.parentNode.removeChild(a);
+      URL.revokeObjectURL(a.href);
+    }, 300);
+  }
+
+  window.lcOpenExportModal = function (initialFormat) {
+    if (initialFormat) {
+      activeExportFormat = initialFormat;
+    } else if (!activeExportFormat) {
+      activeExportFormat = 'html';
+    }
+
+    var saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('cmt_lc_export_config') || 'null');
+    } catch (_) {}
+    var cfg = Object.assign({}, DEFAULT_EXPORT_CONFIG, saved || {});
+
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess'];
+    keys.forEach(function (k) {
+      var el = document.getElementById('exportTgl_' + k);
+      if (el) el.checked = (cfg[k] === true);
+      if (el && k !== 'phaseDescText') el.checked = (cfg[k] !== false);
+    });
+
+    var compKeys = ['compCode', 'compTitle', 'compDesc', 'compDetailed', 'compLevel', 'compCategory', 'compTags', 'compComments'];
+    compKeys.forEach(function (ck) {
+      var el = document.getElementById('exportTgl_' + ck);
+      if (el) {
+        if (cfg[ck] !== undefined) {
+          el.checked = !!cfg[ck];
+        } else if (saved && saved.phaseDescText !== undefined) {
+          if (ck === 'compCode' || ck === 'compTitle' || ck === 'compDesc') el.checked = true;
+          else if (ck === 'compDetailed') el.checked = !!saved.phaseDescText;
+          else el.checked = false;
+        } else {
+          el.checked = !!DEFAULT_EXPORT_CONFIG[ck];
+        }
+      }
+    });
+
+    // Initialize selected phases (all phases selected by default)
+    activeSelectedPhaseIndices.clear();
+    (currentPlan.sections || []).forEach(function (_, i) {
+      activeSelectedPhaseIndices.add(i);
+    });
+
+    renderExportPhasesList();
+    lcSelectExportFormat(activeExportFormat);
+    lcOnExportToggleChange();
+
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('lc-export-style-selector-wrap'), {
+        toolKey: 'lessonCreator',
+        onChange: function (styleId) {
+          var ifr = document.getElementById('exportPreviewIframe');
+          if (ifr && document.getElementById('exportPreviewModal').style.display === 'flex') {
+            ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        }
+      });
+    }
+
+    var m = document.getElementById('exportPlanModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcSelectExportFormat = function (fmt) {
+    activeExportFormat = fmt || 'html';
+    var cards = document.querySelectorAll('.export-format-card');
+    cards.forEach(function (c) {
+      if (c.dataset.format === activeExportFormat) {
+        c.classList.add('active');
+      } else {
+        c.classList.remove('active');
+      }
+    });
+
+    var submitLabelEl = document.getElementById('exportSubmitBtnLabel');
+    var previewBtn = document.getElementById('btnExportPreview');
+    if (previewBtn) {
+      previewBtn.style.display = (activeExportFormat === 'html' || activeExportFormat === 'pdf' || activeExportFormat === 'docx') ? 'inline-flex' : 'none';
+    }
+
+    if (submitLabelEl) {
+      var labelText = 'Export';
+      switch (activeExportFormat) {
+        case 'html': labelText = 'Export HTML (.html)'; break;
+        case 'pdf': labelText = 'Print / PDF (.pdf)'; break;
+        case 'docx': labelText = 'Download Word (.doc)'; break;
+        case 'xlsx': labelText = 'Download Excel (.xlsx)'; break;
+        case 'ods': labelText = 'Download LibreOffice Calc (.ods)'; break;
+        case 'csv': labelText = 'Download CSV (.csv)'; break;
+        case 'json': labelText = 'Download JSON (.json)'; break;
+        case 'text': labelText = 'Download Text (.md)'; break;
+      }
+      submitLabelEl.textContent = labelText;
+    }
+
+    lcUpdateExportSummary();
+  };
+
+  window.lcApplyExportPreset = function (preset) {
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+
+    if (preset === 'full') {
+      keys.forEach(function (k) {
+        var el = document.getElementById('exportTgl_' + k);
+        if (el) el.checked = true;
+      });
+      var descTextEl = document.getElementById('exportTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = true;
+      lcSetExportCompFieldsPreset('all');
+    } else if (preset === 'teacher') {
+      var teacherKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                         'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseResources', 'phaseDescriptors', 'phaseDiff', 'phaseAssess'];
+      keys.forEach(function (k) {
+        var el = document.getElementById('exportTgl_' + k);
+        if (el) el.checked = teacherKeys.includes(k);
+      });
+      var descTextEl = document.getElementById('exportTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = true;
+      lcSetExportCompFieldsPreset('teacher');
+    } else if (preset === 'student') {
+      var studentKeys = ['metaHeader', 'metaDate', 'metaDuration',
+                         'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseStudent', 'phaseResources'];
+      keys.forEach(function (k) {
+        var el = document.getElementById('exportTgl_' + k);
+        if (el) el.checked = studentKeys.includes(k);
+      });
+      var descTextEl = document.getElementById('exportTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = false;
+      lcSetExportCompFieldsPreset('standard');
+    } else if (preset === 'outline') {
+      var outlineKeys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence',
+                         'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+      keys.forEach(function (k) {
+        var el = document.getElementById('exportTgl_' + k);
+        if (el) el.checked = outlineKeys.includes(k);
+      });
+      var descTextEl = document.getElementById('exportTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = false;
+      lcSetExportCompFieldsPreset('minimal');
+    }
+
+    lcOnExportToggleChange();
+  };
+
+  window.lcSetExportCompFieldsPreset = function (mode) {
+    var elCode = document.getElementById('exportTgl_compCode');
+    var elTitle = document.getElementById('exportTgl_compTitle');
+    var elDesc = document.getElementById('exportTgl_compDesc');
+    var elDetailed = document.getElementById('exportTgl_compDetailed');
+    var elLevel = document.getElementById('exportTgl_compLevel');
+    var elCat = document.getElementById('exportTgl_compCategory');
+    var elTags = document.getElementById('exportTgl_compTags');
+    var elComments = document.getElementById('exportTgl_compComments');
+
+    if (mode === 'all') {
+      if (elCode) elCode.checked = true;
+      if (elTitle) elTitle.checked = true;
+      if (elDesc) elDesc.checked = true;
+      if (elDetailed) elDetailed.checked = true;
+      if (elLevel) elLevel.checked = true;
+      if (elCat) elCat.checked = true;
+      if (elTags) elTags.checked = true;
+      if (elComments) elComments.checked = true;
+    } else if (mode === 'teacher') {
+      if (elCode) elCode.checked = true;
+      if (elTitle) elTitle.checked = true;
+      if (elDesc) elDesc.checked = true;
+      if (elDetailed) elDetailed.checked = true;
+      if (elLevel) elLevel.checked = true;
+      if (elCat) elCat.checked = true;
+      if (elTags) elTags.checked = false;
+      if (elComments) elComments.checked = false;
+    } else if (mode === 'standard') {
+      if (elCode) elCode.checked = true;
+      if (elTitle) elTitle.checked = true;
+      if (elDesc) elDesc.checked = true;
+      if (elDetailed) elDetailed.checked = false;
+      if (elLevel) elLevel.checked = true;
+      if (elCat) elCat.checked = false;
+      if (elTags) elTags.checked = false;
+      if (elComments) elComments.checked = false;
+    } else if (mode === 'minimal') {
+      if (elCode) elCode.checked = true;
+      if (elTitle) elTitle.checked = true;
+      if (elDesc) elDesc.checked = false;
+      if (elDetailed) elDetailed.checked = false;
+      if (elLevel) elLevel.checked = false;
+      if (elCat) elCat.checked = false;
+      if (elTags) elTags.checked = false;
+      if (elComments) elComments.checked = false;
+    }
+    lcOnExportToggleChange();
+  };
+
+  window.lcOnExportToggleChange = function () {
+    var parentEl = document.getElementById('exportTgl_phaseDescriptors');
+    var panelEl = document.getElementById('exportCompFieldsPanel');
+    var isParentOn = parentEl ? parentEl.checked : true;
+    if (panelEl) {
+      panelEl.style.opacity = isParentOn ? '1' : '0.45';
+      panelEl.style.pointerEvents = isParentOn ? 'auto' : 'none';
+    }
+    var descTextEl = document.getElementById('exportTgl_phaseDescText');
+    var elDesc = document.getElementById('exportTgl_compDesc');
+    var elDetailed = document.getElementById('exportTgl_compDetailed');
+    if (descTextEl) {
+      descTextEl.checked = !!((elDesc && elDesc.checked) || (elDetailed && elDetailed.checked));
+    }
+
+    var toggles = lcGetExportToggles();
+    try {
+      localStorage.setItem('cmt_lc_export_config', JSON.stringify(toggles));
+    } catch (_) {}
+    lcUpdateExportSummary();
+  };
+
+  function lcGetExportToggles() {
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseDiff', 'phaseAssess', 'phaseCustomFields',
+                'compCode', 'compTitle', 'compDesc', 'compDetailed', 'compLevel', 'compCategory', 'compTags', 'compComments'];
+    var res = {};
+    keys.forEach(function (k) {
+      var el = document.getElementById('exportTgl_' + k);
+      if (el) {
+        res[k] = el.checked;
+      } else {
+        if (k === 'compCode' || k === 'compTitle' || k === 'compDesc') res[k] = true;
+        else if (k.startsWith('comp')) res[k] = false;
+        else res[k] = (k !== 'phaseDescText');
+      }
+    });
+    res.phaseDescText = !!(res.compDesc || res.compDetailed);
+    return res;
+  }
+
+  function lcFormatExportCompetence(id, sec, toggles) {
+    toggles = toggles || {};
+    var targetIdStr = String(id || '').toLowerCase().trim();
+    var d = (allDescriptors || []).find(function (item) {
+      return item && (String(item.id || '').toLowerCase().trim() === targetIdStr || String(item.code || '').toLowerCase().trim() === targetIdStr);
+    });
+
+    var showCode = toggles.compCode !== false;
+    var showTitle = toggles.compTitle !== false;
+    var showDesc = !!toggles.compDesc;
+    var showDetailed = !!toggles.compDetailed;
+    var showLevel = !!toggles.compLevel;
+    var showCategory = !!toggles.compCategory;
+    var showTags = !!toggles.compTags;
+    var showComments = !!toggles.compComments;
+
+    // Defensive fallback: if all fields disabled, fallback to title or code
+    if (!showCode && !showTitle && !showDesc && !showDetailed && !showLevel && !showCategory && !showTags && !showComments) {
+      showTitle = true;
+    }
+
+    var code = showCode ? (d ? (d.code || d.id || '') : id) : '';
+    var rawTitle = d ? (d.title || '') : '';
+    var title = showTitle ? (rawTitle || (!showCode ? (d ? (d.code || d.id) : id) : '')) : '';
+    var level = showLevel && d ? (d.level || d.yearLevel || '') : '';
+    var category = showCategory && d ? (d.subCategory || d.category || getSubjectLabel(d.subjectId || d.subject) || '') : '';
+    var baseDesc = showDesc && d ? (d.description || d.statement || '') : '';
+
+    var detailedLines = [];
+    if (showDetailed && d) {
+      if (window.CompetenceAggregatorService && typeof window.CompetenceAggregatorService.getVisibleDetailedLines === 'function') {
+        var hiddenMap = competenceDisplayConfig && competenceDisplayConfig.hiddenDetailLines;
+        if (sec && sec.detailHiddenLines && sec.detailHiddenLines[d.id]) {
+          hiddenMap = {};
+          hiddenMap[d.id] = sec.detailHiddenLines[d.id];
+        }
+        detailedLines = window.CompetenceAggregatorService.getVisibleDetailedLines(d, hiddenMap) || [];
+      } else if (Array.isArray(d.detailedDescription)) {
+        detailedLines = d.detailedDescription;
+      } else if (d.detailedDescription) {
+        detailedLines = String(d.detailedDescription).split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
+      }
+    }
+
+    var tags = [];
+    if (showTags && d) {
+      if (Array.isArray(d.tags)) tags = d.tags;
+      else if (d.tags) tags = String(d.tags).split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+    }
+
+    var comments = showComments && d ? (d.comments || d.sampleTasks || d.notes || '') : '';
+    var hasBody = !!(baseDesc || detailedLines.length > 0 || tags.length > 0 || comments);
+
+    return {
+      descriptor: d,
+      code: code,
+      title: title,
+      level: level,
+      category: category,
+      baseDesc: baseDesc,
+      detailedLines: detailedLines,
+      tags: tags,
+      comments: comments,
+      hasBody: hasBody
+    };
+  }
+
+  function renderExportPhasesList() {
+    var container = document.getElementById('exportPhasesList');
+    if (!container) return;
+    container.innerHTML = '';
+
+    var phases = currentPlan.sections || [];
+    if (phases.length === 0) {
+      container.innerHTML = '<div style="padding:10px;text-align:center;color:var(--neo-gray-dark);font-size:0.8rem;">' + escapeHtml(i18n.t('lcNoPhasesInPlan')) + '</div>';
+      return;
+    }
+
+    phases.forEach(function (sec, idx) {
+      var isChecked = activeSelectedPhaseIndices.has(idx);
+      var item = document.createElement('label');
+      item.className = 'export-phase-item';
+
+      var actName = getActivityLabel(sec.activityTypeId) || 'Phase';
+      var pDur = Number(sec.duration) || 0;
+      var pTitle = sec.title || ('Phase ' + (idx + 1));
+
+      item.innerHTML = [
+        '<div class="export-phase-item-left">',
+        '  <span class="export-phase-num">' + (idx + 1) + '</span>',
+        '  <span class="export-phase-title" title="' + escapeHtml(pTitle) + '">' + escapeHtml(pTitle) + '</span>',
+        '</div>',
+        '<div class="export-phase-item-right">',
+        '  <span style="font-size:0.75rem;font-weight:700;color:var(--neo-gray-dark);">' + escapeHtml(actName) + ' (' + pDur + 'm)</span>',
+        '  <input type="checkbox" ' + (isChecked ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer;">',
+        '</div>'
+      ].join('');
+
+      var cb = item.querySelector('input[type="checkbox"]');
+      cb.addEventListener('change', function (e) {
+        e.stopPropagation();
+        if (cb.checked) {
+          activeSelectedPhaseIndices.add(idx);
+        } else {
+          activeSelectedPhaseIndices.delete(idx);
+        }
+        lcUpdateExportSummary();
+      });
+
+      container.appendChild(item);
+    });
+  }
+
+  window.lcExportToggleAllPhases = function (selectAll) {
+    var phases = currentPlan.sections || [];
+    activeSelectedPhaseIndices.clear();
+    if (selectAll) {
+      phases.forEach(function (_, i) { activeSelectedPhaseIndices.add(i); });
+    }
+    renderExportPhasesList();
+    lcUpdateExportSummary();
+  };
+
+  function lcUpdateExportSummary() {
+    var phases = currentPlan.sections || [];
+    var selectedCount = activeSelectedPhaseIndices.size;
+    var totalMin = 0;
+    phases.forEach(function (s, i) {
+      if (activeSelectedPhaseIndices.has(i)) {
+        totalMin += (Number(s.duration) || 0);
+      }
+    });
+
+    var fmtBadge = document.getElementById('exportSummaryFormatBadge');
+    if (fmtBadge) {
+      var extMap = { html: 'HTML (.html)', pdf: 'PDF (.pdf)', docx: 'Word (.doc)', xlsx: 'Excel (.xlsx)', ods: 'LibreOffice Calc (.ods)', csv: 'CSV (.csv)', json: 'JSON (.json)', text: 'Text (.md)' };
+      fmtBadge.textContent = extMap[activeExportFormat] || activeExportFormat.toUpperCase();
+    }
+
+    var phasesBadge = document.getElementById('exportSummaryPhasesBadge');
+    if (phasesBadge) {
+      phasesBadge.textContent = selectedCount + ' of ' + phases.length + ' Phases';
+    }
+
+    var durBadge = document.getElementById('exportSummaryDurationBadge');
+    if (durBadge) {
+      durBadge.textContent = totalMin + ' min';
+    }
+
+    var fnEl = document.getElementById('exportSummaryFilename');
+    if (fnEl) {
+      var ext = (activeExportFormat === 'text') ? 'md' : ((activeExportFormat === 'docx') ? 'doc' : activeExportFormat);
+      fnEl.textContent = getSafeExportFilename(ext);
+    }
+  }
+
+  // ── Clean & Readable HTML Document Generator ──────────────────────────
+  function formatExportMultiline(val) {
+    if (val === null || val === undefined || val === '') return '';
+    return escapeHtml(String(val)).replace(/\r\n/g, '<br>').replace(/[\r\n]/g, '<br>');
+  }
+
+  function tExport(key, fallback) {
+    var val = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t(key) : '';
+    return (val && val !== key) ? val : fallback;
+  }
+
+  window.lcGenerateExportHtml = function (options) {
+    options = options || {};
+    var toggles = options.toggles || lcGetExportToggles();
+    var isForPrint = !!options.forPrint;
+    var layoutModeEl = document.querySelector('input[name="exportPlanLayoutMode"]:checked');
+    var isHorizTable = !!(layoutModeEl && layoutModeEl.value === 'horizontal_table');
+    var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', orientation: 'portrait', margin: '12mm 10mm' });
+
+    var phases = (currentPlan.sections || []).filter(function (_, i) {
+      return activeSelectedPhaseIndices.has(i);
+    });
+
+    var planTitle = currentPlan.title || 'Lesson Plan';
+    var subName = getSubjectLabel(currentPlan.subjectId);
+    var clsName = getClassLabel(currentPlan.classId);
+    var yrName = getYearLevelLabel(currentPlan.yearLevel);
+    var totalDur = phases.reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+    var targetDur = currentPlan.targetDuration || 60;
+
+    var html = '<!DOCTYPE html>\n<html lang="en">\n<head>\n' +
+      '  <meta charset="utf-8">\n' +
+      '  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+      '  <title>' + escapeHtml(planTitle) + '</title>\n' +
+      '  <link rel="stylesheet" href="../modules/lexend/lexend.css">\n' +
+      '  <style>\n' +
+      '    :root {\n' +
+      '      --neo-bg: #f5f5f0;\n' +
+      '      --neo-card-bg: #ffffff;\n' +
+      '      --neo-card-bg-subtle: #fafaf7;\n' +
+      '      --neo-border-color: #333333;\n' +
+      '      --neo-border-width: 2px;\n' +
+      '      --neo-border-sm: 1.5px;\n' +
+      '      --neo-shadow-lg: 4px 4px 0 #555555;\n' +
+      '      --neo-shadow-md: 3px 3px 0 #555555;\n' +
+      '      --neo-shadow-sm: 2px 2px 0 #888888;\n' +
+      '      --neo-radius-lg: 10px;\n' +
+      '      --neo-radius-md: 6px;\n' +
+      '      --neo-radius-sm: 4px;\n' +
+      '      --neo-yellow: #e2c96e;\n' +
+      '      --neo-green: #6abf8e;\n' +
+      '      --neo-blue: #5b8fcc;\n' +
+      '      --neo-purple: #8b7cc2;\n' +
+      '      --neo-pink: #d97fa8;\n' +
+      '      --neo-orange: #d4895a;\n' +
+      '      --neo-red: #c96b6b;\n' +
+      '      --neo-teal: #4aabac;\n' +
+      '      --neo-dark: #222222;\n' +
+      '      --neo-gray-light: #f8fafc;\n' +
+      '      --neo-gray-dark: #475569;\n' +
+      '    }\n' +
+      '    * { box-sizing: border-box; margin: 0; padding: 0; }\n' +
+      '    body {\n' +
+      '      font-family: "Lexend", system-ui, -apple-system, sans-serif;\n' +
+      '      background: var(--neo-bg);\n' +
+      '      color: var(--neo-dark);\n' +
+      '      padding: 26px 20px;\n' +
+      '      line-height: 1.55;\n' +
+      '      font-size: 14px;\n' +
+      '      -webkit-font-smoothing: antialiased;\n' +
+      '    }\n' +
+      '    .export-container {\n' +
+      '      max-width: 900px;\n' +
+      '      margin: 0 auto;\n' +
+      '    }\n' +
+      '    /* Light Neobrutalist Plan Hero */\n' +
+      '    .plan-hero {\n' +
+      '      background: var(--neo-card-bg);\n' +
+      '      border: var(--neo-border-width) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-lg);\n' +
+      '      box-shadow: var(--neo-shadow-lg);\n' +
+      '      padding: 16px 20px;\n' +
+      '      margin-bottom: 16px;\n' +
+      '    }\n' +
+      '    .plan-hero-title {\n' +
+      '      font-size: 1.35rem;\n' +
+      '      font-weight: 900;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      letter-spacing: -0.02em;\n' +
+      '      line-height: 1.25;\n' +
+      '      margin-bottom: 10px;\n' +
+      '    }\n' +
+      '    .plan-badges-row {\n' +
+      '      display: flex;\n' +
+      '      flex-wrap: wrap;\n' +
+      '      gap: 8px;\n' +
+      '      align-items: center;\n' +
+      '    }\n' +
+      '    .meta-tag {\n' +
+      '      display: inline-flex;\n' +
+      '      align-items: center;\n' +
+      '      gap: 5px;\n' +
+      '      padding: 4px 10px;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-sm);\n' +
+      '      box-shadow: var(--neo-shadow-sm);\n' +
+      '      font-size: 0.8rem;\n' +
+      '      font-weight: 600;\n' +
+      '      background: var(--neo-card-bg);\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .meta-tag strong {\n' +
+      '      font-weight: 800;\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .meta-tag-highlight {\n' +
+      '      background: var(--neo-yellow);\n' +
+      '      color: #111111;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      font-weight: 700;\n' +
+      '    }\n' +
+      '    .meta-tag-highlight strong {\n' +
+      '      color: #111111;\n' +
+      '    }\n' +
+      '    /* Light Neobrutalist Phase Cards */\n' +
+      '    .phase-export-card {\n' +
+      '      background: var(--neo-card-bg);\n' +
+      '      border: var(--neo-border-width) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-lg);\n' +
+      '      box-shadow: var(--neo-shadow-md);\n' +
+      '      margin-bottom: 14px;\n' +
+      '      overflow: hidden;\n' +
+      '      page-break-inside: avoid;\n' +
+      '      break-inside: avoid;\n' +
+      '    }\n' +
+      '    .phase-header {\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: space-between;\n' +
+      '      flex-wrap: wrap;\n' +
+      '      gap: 10px;\n' +
+      '      padding: 10px 14px;\n' +
+      '      border-bottom: var(--neo-border-width) solid var(--neo-border-color);\n' +
+      '      background: var(--neo-card-bg-subtle);\n' +
+      '    }\n' +
+      '    .phase-header-left {\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      gap: 8px;\n' +
+      '      flex-wrap: wrap;\n' +
+      '    }\n' +
+      '    .phase-num {\n' +
+      '      background: var(--neo-dark);\n' +
+      '      color: #ffffff;\n' +
+      '      font-size: 0.8rem;\n' +
+      '      font-weight: 800;\n' +
+      '      padding: 2px 7px;\n' +
+      '      border-radius: var(--neo-radius-sm);\n' +
+      '      line-height: 1.2;\n' +
+      '    }\n' +
+      '    .phase-title {\n' +
+      '      font-size: 1.05rem;\n' +
+      '      font-weight: 700;\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .phase-header-right {\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      gap: 6px;\n' +
+      '      flex-wrap: wrap;\n' +
+      '    }\n' +
+      '    .phase-badge {\n' +
+      '      font-size: 0.76rem;\n' +
+      '      font-weight: 700;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      background: #ffffff;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-sm);\n' +
+      '      box-shadow: var(--neo-shadow-sm);\n' +
+      '      padding: 2px 7px;\n' +
+      '    }\n' +
+      '    .phase-badge-duration {\n' +
+      '      font-weight: 700;\n' +
+      '      color: #ffffff;\n' +
+      '      background: var(--neo-dark);\n' +
+      '      border-color: var(--neo-border-color);\n' +
+      '    }\n' +
+      '    .phase-body {\n' +
+      '      padding: 12px 14px;\n' +
+      '      display: flex;\n' +
+      '      flex-direction: column;\n' +
+      '      gap: 8px;\n' +
+      '    }\n' +
+      '    .sec-box {\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-md);\n' +
+      '      padding: 8px 12px;\n' +
+      '      background: #ffffff;\n' +
+      '    }\n' +
+      '    .box-tag {\n' +
+      '      font-size: 0.7rem;\n' +
+      '      font-weight: 800;\n' +
+      '      text-transform: uppercase;\n' +
+      '      letter-spacing: 0.5px;\n' +
+      '      margin-bottom: 4px;\n' +
+      '      display: block;\n' +
+      '      color: var(--neo-gray-dark);\n' +
+      '    }\n' +
+      '    .box-text {\n' +
+      '      font-size: 0.88rem;\n' +
+      '      line-height: 1.55;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      white-space: pre-wrap;\n' +
+      '      word-break: break-word;\n' +
+      '    }\n' +
+      '    .objective-box {\n' +
+      '      background: #fffdf5;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-left: 5px solid var(--neo-yellow);\n' +
+      '    }\n' +
+      '    .objective-text {\n' +
+      '      font-size: 0.92rem;\n' +
+      '      font-weight: 600;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      line-height: 1.5;\n' +
+      '      white-space: pre-wrap;\n' +
+      '      word-break: break-word;\n' +
+      '    }\n' +
+      '    .actions-grid {\n' +
+      '      display: grid;\n' +
+      '      grid-template-columns: 1fr 1fr;\n' +
+      '      gap: 8px;\n' +
+      '    }\n' +
+      '    @media (max-width: 640px) {\n' +
+      '      .actions-grid { grid-template-columns: 1fr; }\n' +
+      '    }\n' +
+      '    .teacher-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-blue);\n' +
+      '    }\n' +
+      '    .student-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-green);\n' +
+      '    }\n' +
+      '    .resources-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-purple);\n' +
+      '    }\n' +
+      '    .diff-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-orange);\n' +
+      '    }\n' +
+      '    .assess-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-red);\n' +
+      '    }\n' +
+      '    .custom-field-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-left: 4px solid #8b7cc2;\n' +
+      '      margin-top: 6px;\n' +
+      '    }\n' +
+      '    .custom-field-content {\n' +
+      '      font-size: 0.88rem;\n' +
+      '      line-height: 1.55;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      white-space: normal;\n' +
+      '      word-break: break-word;\n' +
+      '    }\n' +
+      '    .custom-field-content p { margin: 0 0 6px 0; }\n' +
+      '    .custom-field-content p:last-child { margin-bottom: 0; }\n' +
+      '    .custom-field-content ul, .custom-field-content ol { margin: 4px 0 6px 20px; padding: 0; }\n' +
+      '    .custom-field-content table { border-collapse: collapse; margin: 6px 0; width: 100%; font-size: 0.82rem; }\n' +
+      '    .custom-field-content th, .custom-field-content td { border: 1px solid #333; padding: 4px 8px; text-align: left; }\n' +
+      '    .custom-field-content th { background: #f1f5f9; font-weight: 700; }\n' +
+      '    .custom-field-content code { background: #f1f5f9; padding: 2px 5px; border-radius: 4px; font-family: monospace; font-size: 0.82rem; }\n' +
+      '    .custom-field-content pre { background: #1e293b; color: #f8fafc; border: 1px solid #333; padding: 8px; border-radius: 4px; overflow-x: auto; }\n' +
+      '    .descriptors-box {\n' +
+      '      background: #ffffff;\n' +
+      '      border-left: 4px solid var(--neo-teal);\n' +
+      '    }\n' +
+      '    .comp-chips {\n' +
+      '      display: flex;\n' +
+      '      flex-wrap: wrap;\n' +
+      '      gap: 5px;\n' +
+      '      margin-top: 4px;\n' +
+      '    }\n' +
+      '    .comp-chip {\n' +
+      '      background: #ffffff;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-sm);\n' +
+      '      box-shadow: var(--neo-shadow-sm);\n' +
+      '      padding: 2px 7px;\n' +
+      '      font-size: 0.76rem;\n' +
+      '      font-weight: 600;\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .comp-list {\n' +
+      '      display: flex;\n' +
+      '      flex-direction: column;\n' +
+      '      gap: 4px;\n' +
+      '      margin-top: 5px;\n' +
+      '    }\n' +
+      '    .comp-item {\n' +
+      '      padding: 6px 8px;\n' +
+      '      background: #ffffff;\n' +
+      '      border: var(--neo-border-sm) solid var(--neo-border-color);\n' +
+      '      border-radius: var(--neo-radius-sm);\n' +
+      '    }\n' +
+      '    .comp-item-header {\n' +
+      '      display: flex;\n' +
+      '      align-items: baseline;\n' +
+      '      gap: 5px;\n' +
+      '      flex-wrap: wrap;\n' +
+      '    }\n' +
+      '    .comp-item-code {\n' +
+      '      font-weight: 800;\n' +
+      '      font-size: 0.78rem;\n' +
+      '      color: #ffffff;\n' +
+      '      background: var(--neo-dark);\n' +
+      '      padding: 2px 5px;\n' +
+      '      border-radius: 3px;\n' +
+      '      line-height: 1.2;\n' +
+      '    }\n' +
+      '    .comp-item-title {\n' +
+      '      font-weight: 600;\n' +
+      '      font-size: 0.84rem;\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .comp-item-text {\n' +
+      '      margin-top: 4px;\n' +
+      '      font-size: 0.82rem;\n' +
+      '      line-height: 1.45;\n' +
+      '      color: var(--neo-dark);\n' +
+      '      border-top: 1px dashed var(--neo-border-color);\n' +
+      '      padding-top: 4px;\n' +
+      '      white-space: pre-wrap;\n' +
+      '      word-break: break-word;\n' +
+      '    }\n' +
+      '    .comp-badge {\n' +
+      '      display: inline-block;\n' +
+      '      font-size: 0.7rem;\n' +
+      '      font-weight: 700;\n' +
+      '      padding: 1px 5px;\n' +
+      '      border-radius: 3px;\n' +
+      '      line-height: 1.2;\n' +
+      '      border: 1px solid var(--neo-border-color);\n' +
+      '    }\n' +
+      '    .comp-level-badge { background: #fef3c7; color: #78350f; border-color: #b45309; }\n' +
+      '    .comp-cat-badge { background: #e0e7ff; color: #3730a3; border-color: #4338ca; }\n' +
+      '    .comp-detailed-list {\n' +
+      '      margin-top: 4px;\n' +
+      '      padding-left: 18px;\n' +
+      '      font-size: 0.8rem;\n' +
+      '      line-height: 1.4;\n' +
+      '      color: var(--neo-dark);\n' +
+      '    }\n' +
+      '    .comp-detailed-list li { margin-bottom: 2px; }\n' +
+      '    .comp-tags-wrap {\n' +
+      '      display: flex;\n' +
+      '      flex-wrap: wrap;\n' +
+      '      gap: 4px;\n' +
+      '      margin-top: 4px;\n' +
+      '    }\n' +
+      '    .comp-tag-pill {\n' +
+      '      background: #f1f5f9;\n' +
+      '      border: 1px solid #cbd5e1;\n' +
+      '      border-radius: 3px;\n' +
+      '      font-size: 0.7rem;\n' +
+      '      font-weight: 600;\n' +
+      '      padding: 1px 5px;\n' +
+      '      color: #334155;\n' +
+      '    }\n' +
+      '    .comp-comments-text {\n' +
+      '      margin-top: 4px;\n' +
+      '      font-size: 0.78rem;\n' +
+      '      color: #64748b;\n' +
+      '      font-style: italic;\n' +
+      '    }\n' +
+      '    .plan-footer {\n' +
+      '      margin-top: 20px;\n' +
+      '      padding: 8px 0;\n' +
+      '      border-top: var(--neo-border-width) solid var(--neo-border-color);\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: space-between;\n' +
+      '      font-size: 0.76rem;\n' +
+      '      font-weight: 600;\n' +
+      '      color: var(--neo-gray-dark);\n' +
+      '      text-transform: uppercase;\n' +
+      '      letter-spacing: 0.5px;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table-wrap {\n' +
+      '      background: var(--neo-surface);\n' +
+      '      border: var(--neo-border-width) solid var(--neo-border-color);\n' +
+      '      border-radius: 6px;\n' +
+      '      box-shadow: 3px 3px 0 #888888;\n' +
+      '      overflow-x: hidden;\n' +
+      '      width: 100%;\n' +
+      '      max-width: 100%;\n' +
+      '      box-sizing: border-box;\n' +
+      '      margin-bottom: 12px;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table {\n' +
+      '      width: 100% !important;\n' +
+      '      max-width: 100% !important;\n' +
+      '      min-width: 0 !important;\n' +
+      '      border-collapse: collapse;\n' +
+      '      table-layout: fixed;\n' +
+      '      font-size: 0.78rem;\n' +
+      '      text-align: left;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table th {\n' +
+      '      background: #e2c96e;\n' +
+      '      color: #333333;\n' +
+      '      padding: 0;\n' +
+      '      font-weight: 800;\n' +
+      '      font-size: 0.72rem;\n' +
+      '      text-transform: uppercase;\n' +
+      '      letter-spacing: 0.25px;\n' +
+      '      border-bottom: 2px solid #333333;\n' +
+      '      border-right: 1px solid #cbd5e1;\n' +
+      '      position: relative;\n' +
+      '      user-select: none;\n' +
+      '      vertical-align: middle;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table th:last-child { border-right: none; }\n' +
+      '    .lesson-horiz-table th .th-wrap {\n' +
+      '      position: relative;\n' +
+      '      display: flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: flex-start;\n' +
+      '      padding: 5px 6px;\n' +
+      '      min-height: 28px;\n' +
+      '      box-sizing: border-box;\n' +
+      '      width: 100%;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table th .th-text {\n' +
+      '      display: block;\n' +
+      '      width: 100%;\n' +
+      '      overflow: visible !important;\n' +
+      '      text-overflow: clip !important;\n' +
+      '      white-space: normal !important;\n' +
+      '      word-break: normal !important;\n' +
+      '      overflow-wrap: break-word !important;\n' +
+      '      line-height: 1.2 !important;\n' +
+      '      hyphens: none;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .col-resizer {\n' +
+      '      position: absolute;\n' +
+      '      top: 0;\n' +
+      '      right: -4px;\n' +
+      '      width: 8px;\n' +
+      '      height: 100%;\n' +
+      '      cursor: col-resize;\n' +
+      '      user-select: none;\n' +
+      '      touch-action: none;\n' +
+      '      z-index: 2;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .col-resizer::after {\n' +
+      '      content: "";\n' +
+      '      position: absolute;\n' +
+      '      right: 3px;\n' +
+      '      top: 18%;\n' +
+      '      bottom: 18%;\n' +
+      '      width: 1.5px;\n' +
+      '      background: #333333;\n' +
+      '      opacity: 0.4;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .col-resizer:hover::after,\n' +
+      '    .lesson-horiz-table .col-resizer.resizing::after {\n' +
+      '      opacity: 1;\n' +
+      '      background: #000000;\n' +
+      '      width: 2px;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .col-resizer:hover {\n' +
+      '      background: rgba(0, 0, 0, 0.05);\n' +
+      '    }\n' +
+      '    .lesson-horiz-table td {\n' +
+      '      padding: 5px 6px;\n' +
+      '      border-bottom: 1px solid #cbd5e1;\n' +
+      '      border-right: 1px solid #e2e8f0;\n' +
+      '      vertical-align: top;\n' +
+      '      white-space: pre-wrap;\n' +
+      '      word-break: normal;\n' +
+      '      overflow-wrap: break-word;\n' +
+      '      word-wrap: break-word;\n' +
+      '      hyphens: none;\n' +
+      '      line-height: 1.32;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table td:last-child { border-right: none; }\n' +
+      '    .lesson-horiz-table tr:nth-child(even) td { background: #fafaf7; }\n' +
+      '    .lesson-horiz-table .horiz-phase-cell-header {\n' +
+      '      display: flex;\n' +
+      '      align-items: flex-start;\n' +
+      '      gap: 5px;\n' +
+      '      margin-bottom: 3px;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .horiz-phase-num {\n' +
+      '      display: inline-flex;\n' +
+      '      align-items: center;\n' +
+      '      justify-content: center;\n' +
+      '      min-width: 19px;\n' +
+      '      height: 19px;\n' +
+      '      padding: 0 4px;\n' +
+      '      background: #e2c96e;\n' +
+      '      color: #333333;\n' +
+      '      border: 1.5px solid #333333;\n' +
+      '      border-radius: 4px;\n' +
+      '      font-size: 0.7rem;\n' +
+      '      font-weight: 900;\n' +
+      '      line-height: 1;\n' +
+      '      flex-shrink: 0;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .horiz-phase-title {\n' +
+      '      font-weight: 800;\n' +
+      '      color: #1e293b;\n' +
+      '      line-height: 1.25;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .horiz-phase-dur {\n' +
+      '      display: inline-block;\n' +
+      '      background: #eef2ff;\n' +
+      '      color: #1e3a8a;\n' +
+      '      border: 1px solid #94a3b8;\n' +
+      '      border-radius: 4px;\n' +
+      '      padding: 1px 5px;\n' +
+      '      font-size: 0.68rem;\n' +
+      '      font-weight: 800;\n' +
+      '      line-height: 1.2;\n' +
+      '      margin-top: 2px;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .horiz-act-pill {\n' +
+      '      display: inline-block;\n' +
+      '      background: #f1f5f9;\n' +
+      '      color: #334155;\n' +
+      '      border: 1px solid #cbd5e1;\n' +
+      '      border-radius: 4px;\n' +
+      '      padding: 1px 5px;\n' +
+      '      font-size: 0.7rem;\n' +
+      '      font-weight: 700;\n' +
+      '      line-height: 1.25;\n' +
+      '      margin: 1px 2px 1px 0;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .comp-chip {\n' +
+      '      background: #f1f5f9;\n' +
+      '      border: 1px solid #cbd5e1;\n' +
+      '      border-radius: 4px;\n' +
+      '      box-shadow: none !important;\n' +
+      '      padding: 1px 5px;\n' +
+      '      font-size: 0.68rem;\n' +
+      '      font-weight: 600;\n' +
+      '      color: #334155;\n' +
+      '      display: inline-block;\n' +
+      '      margin: 1px 2px 1px 0;\n' +
+      '      line-height: 1.25;\n' +
+      '      word-break: normal;\n' +
+      '      overflow-wrap: break-word;\n' +
+      '      hyphens: none;\n' +
+      '    }\n' +
+      '    .lesson-horiz-table .comp-desc-text {\n' +
+      '      font-size: 0.68rem;\n' +
+      '      color: #475569;\n' +
+      '      margin-top: 2px;\n' +
+      '      line-height: 1.25;\n' +
+      '      word-break: normal;\n' +
+      '      overflow-wrap: break-word;\n' +
+      '      hyphens: none;\n' +
+      '    }\n' +
+      '    @media print {\n' +
+      '      body { background: #ffffff !important; padding: 0 !important; font-size: 11pt !important; color: #000000 !important; }\n' +
+      '      .export-container { max-width: 100% !important; margin: 0 !important; }\n' +
+      '      .plan-hero { box-shadow: none !important; border: 1.5px solid #333333 !important; margin-bottom: 12px !important; }\n' +
+      '      .phase-export-card { page-break-inside: avoid !important; break-inside: avoid !important; border: 1.5px solid #333333 !important; box-shadow: none !important; margin-bottom: 10px !important; }\n' +
+      '      .lesson-horiz-table-wrap { box-shadow: none !important; border: 1.5px solid #333333 !important; overflow: hidden !important; }\n' +
+      '      .phase-header { background: #f8fafc !important; border-bottom: 1.5px solid #333333 !important; }\n' +
+      '      .sec-box { border: 1px solid #333333 !important; }\n' +
+      '      .plan-footer { border-top: 1.5px solid #333333 !important; }\n' +
+      '      .col-resizer { display: none !important; }\n' +
+      '      .lesson-horiz-table th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; }\n' +
+      '      @page { margin: ' + (isHorizTable ? '6mm 8mm' : (pdfSettings.margin || '12mm 10mm')) + '; size: ' + (pdfSettings.pageSize || 'A4') + ' ' + (isHorizTable ? 'landscape' : (pdfSettings.orientation || 'portrait')) + '; }\n' +
+      '      -webkit-print-color-adjust: exact; print-color-adjust: exact;\n' +
+      '    }\n' +
+      '  </style>\n' +
+      '</head>\n' +
+      '<body' + (isHorizTable ? ' class="horiz-table-mode"' : '') + '>\n' +
+      (isHorizTable ? (
+        '  <style id="cmt-horiz-table-overrides">\n' +
+        '    body.horiz-table-mode { padding: 12px 14px !important; overflow-x: hidden !important; }\n' +
+        '    body.horiz-table-mode .export-container { max-width: 100% !important; width: 100% !important; margin: 0 auto !important; box-sizing: border-box !important; }\n' +
+        '    body.horiz-table-mode .plan-hero { padding: 10px 14px !important; margin-bottom: 10px !important; }\n' +
+        '    body.horiz-table-mode .plan-hero-title { font-size: 1.15rem !important; margin-bottom: 6px !important; }\n' +
+        '    body.horiz-table-mode .meta-tag { padding: 2px 7px !important; font-size: 0.72rem !important; }\n' +
+        '    body.horiz-table-mode .lesson-horiz-table-wrap { overflow-x: hidden !important; width: 100% !important; max-width: 100% !important; margin-bottom: 8px !important; }\n' +
+        '    body.horiz-table-mode #lessonPlanHorizTable { width: 100% !important; max-width: 100% !important; min-width: 0 !important; table-layout: fixed !important; margin: 0 !important; }\n' +
+        '    body.horiz-table-mode #lessonPlanHorizTable th { padding: 0 !important; font-size: 0.68rem !important; }\n' +
+        '    body.horiz-table-mode #lessonPlanHorizTable th .th-wrap { padding: 4px 5px !important; min-height: 26px !important; }\n' +
+        '    body.horiz-table-mode #lessonPlanHorizTable th .th-text { white-space: normal !important; overflow: visible !important; text-overflow: clip !important; word-break: normal !important; overflow-wrap: break-word !important; line-height: 1.18 !important; }\n' +
+        '    body.horiz-table-mode #lessonPlanHorizTable td { padding: 4px 5px !important; font-size: 0.74rem !important; line-height: 1.28 !important; overflow-wrap: break-word !important; word-break: normal !important; }\n' +
+        '    body.horiz-table-mode .plan-footer { margin-top: 8px !important; padding-top: 6px !important; font-size: 0.68rem !important; }\n' +
+        '    @page { size: ' + (pdfSettings.pageSize || 'A4') + ' landscape !important; margin: 6mm 8mm !important; }\n' +
+        '    @media print {\n' +
+        '      html, body.horiz-table-mode { width: 100% !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; }\n' +
+        '      body.horiz-table-mode .plan-hero { padding: 6px 10px !important; margin-bottom: 6px !important; page-break-inside: avoid !important; break-inside: avoid !important; }\n' +
+        '      body.horiz-table-mode .plan-hero-title { font-size: 1rem !important; margin-bottom: 4px !important; }\n' +
+        '      body.horiz-table-mode .meta-tag { padding: 1px 5px !important; font-size: 0.65rem !important; }\n' +
+        '      body.horiz-table-mode #lessonPlanHorizTable th .th-wrap { padding: 3px 4px !important; min-height: 22px !important; }\n' +
+        '      body.horiz-table-mode #lessonPlanHorizTable th { font-size: 0.62rem !important; }\n' +
+        '      body.horiz-table-mode #lessonPlanHorizTable td { padding: 3px 4px !important; font-size: 0.66rem !important; line-height: 1.22 !important; }\n' +
+        '      body.horiz-table-mode .plan-footer { margin-top: 4px !important; padding-top: 4px !important; font-size: 0.62rem !important; }\n' +
+        '    }\n' +
+        '  </style>\n'
+      ) : '') +
+      '  <div class="export-container">\n';
+
+    // 1. Hero Block
+    if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration || toggles.metaSequence || toggles.metaTags || toggles.metaTeams) {
+      html += '    <div class="plan-hero">\n';
+      if (toggles.metaHeader) {
+        html += '      <h1 class="plan-hero-title">' + escapeHtml(planTitle) + '</h1>\n';
+      }
+      html += '      <div class="plan-badges-row">\n';
+      if (toggles.metaHeader) {
+        if (subName) html += '        <span class="meta-tag meta-tag-highlight">' + escapeHtml(subName) + '</span>\n';
+        if (clsName) html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblClass', tExport('tcElemClassGroup', 'Class'))) + ':</strong> ' + escapeHtml(clsName) + '</span>\n';
+      }
+      if (toggles.metaDate) {
+        if (currentPlan.date) html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblDate', tExport('tcElemDate', 'Date'))) + ':</strong> ' + escapeHtml(currentPlan.date) + '</span>\n';
+        if (yrName && currentPlan.yearLevel !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblYear', tExport('compYear', 'Year'))) + ':</strong> ' + escapeHtml(yrName) + '</span>\n';
+        if (currentPlan.semester && currentPlan.semester !== 'all') html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lblSemester', tExport('smLabelSemester', 'Semester'))) + ':</strong> ' + escapeHtml(currentPlan.semester.toUpperCase()) + '</span>\n';
+      }
+      if (toggles.metaDuration) {
+        html += '        <span class="meta-tag meta-tag-highlight"><strong>' + escapeHtml(tExport('lblDuration', tExport('tcElemDuration', 'Duration'))) + ':</strong> ' + totalDur + ' min / ' + targetDur + ' min</span>\n';
+      }
+      if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+        var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+        html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lcSequenceLabel', 'Unit')) + ':</strong> ' + escapeHtml(seqStr) + '</span>\n';
+      }
+      if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+        var rList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+        var teamsWord = tExport('lcExportMetaTeams', 'Teams');
+        var studWord = tExport('lcExportMetaStudents', 'students');
+        html += '        <span class="meta-tag"><strong>' + escapeHtml(teamsWord) + ':</strong> ' + currentPlan.teamConfig.teamSize + ' ' + escapeHtml(studWord) + (rList ? (' (' + escapeHtml(rList) + ')') : '') + '</span>\n';
+      }
+      if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+        html += '        <span class="meta-tag"><strong>' + escapeHtml(tExport('lcTagsLabel', 'Tags:')) + '</strong> ' + escapeHtml(currentPlan.tags.join(', ')) + '</span>\n';
+      }
+      html += '      </div>\n';
+      html += '    </div>\n';
+    }
+
+    // 2. Phases Block
+    if (isHorizTable) {
+      var customTableTitles = [];
+      if (toggles.phaseCustomFields !== false) {
+        phases.forEach(function (sec) {
+          if (Array.isArray(sec.customFields)) {
+            sec.customFields.forEach(function (cf) {
+              var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+              if (customTableTitles.indexOf(t) === -1) customTableTitles.push(t);
+            });
+          }
+        });
+      }
+
+      var hasAnyContent = function (checkFn) {
+        return phases.some(checkFn);
+      };
+
+      var colDefs = [];
+      // Consolidate Phase #, Phase Title, and Duration into a single compact Phase column to save horizontal space
+      colDefs.push({
+        id: 'phase',
+        name: tExport('lcExportPhaseTitle', 'Phase'),
+        weight: (toggles.phaseTitle !== false) ? 11 : 6
+      });
+      if (toggles.phaseActivity) {
+        var hasAct = hasAnyContent(function (s) { return !!(getActivityLabel(s.activityTypeId, false) || getInteractionLabel(s.interactionTypeId, false)); });
+        colDefs.push({ id: 'act', name: tExport('lcExportActivityMode', 'Activity & Mode'), weight: hasAct ? 9 : 6 });
+      }
+      if (toggles.phaseObjective) {
+        var hasObj = hasAnyContent(function (s) { return !!(s.objective && String(s.objective).trim()); });
+        colDefs.push({ id: 'obj', name: tExport('lcExportObjective', 'Learning Objective'), weight: hasObj ? 14 : 7 });
+      }
+      if (toggles.phaseTeacher) {
+        var hasT = hasAnyContent(function (s) { return !!(s.teacherAction && String(s.teacherAction).trim()); });
+        colDefs.push({ id: 'teacher', name: tExport('lcExportTeacherActions', 'Teacher Actions'), weight: hasT ? 17 : 8 });
+      }
+      if (toggles.phaseStudent) {
+        var hasS = hasAnyContent(function (s) { return !!(s.studentAction && String(s.studentAction).trim()); });
+        colDefs.push({ id: 'student', name: tExport('lcExportStudentTasks', 'Student Tasks'), weight: hasS ? 17 : 8 });
+      }
+      if (toggles.phaseResources) {
+        var hasRes = hasAnyContent(function (s) { return !!(s.resources && String(s.resources).trim()); });
+        colDefs.push({ id: 'res', name: tExport('lcExportResources', 'Resources'), weight: hasRes ? 10 : 6 });
+      }
+      if (toggles.phaseDescriptors) {
+        var hasComp = hasAnyContent(function (s) { return Array.isArray(s.descriptorIds) && s.descriptorIds.length > 0; });
+        colDefs.push({ id: 'comp', name: tExport('lcExportTaggedCompetences', 'Competences'), weight: hasComp ? 13 : 6 });
+      }
+      if (toggles.phaseDiff) {
+        var hasDiff = hasAnyContent(function (s) { return !!(s.differentiation && String(s.differentiation).trim()); });
+        colDefs.push({ id: 'diff', name: tExport('lcExportDifferentiation', 'Differentiation'), weight: hasDiff ? 11 : 6 });
+      }
+      if (toggles.phaseAssess) {
+        var hasAss = hasAnyContent(function (s) { return !!(s.assessmentStrategy && String(s.assessmentStrategy).trim()); });
+        colDefs.push({ id: 'assess', name: tExport('lcExportAssessmentStrategy', 'Assessment'), weight: hasAss ? 11 : 6 });
+      }
+      customTableTitles.forEach(function (ct, ctIdx) {
+        colDefs.push({ id: 'custom_' + ctIdx, name: ct, weight: 10 });
+      });
+
+      var totalWeight = colDefs.reduce(function (sum, c) { return sum + (c.weight || 10); }, 0) || 100;
+      colDefs.forEach(function (c) {
+        c.pct = ((c.weight || 10) / totalWeight * 100).toFixed(2);
+      });
+
+      html += '    <div class="lesson-horiz-table-wrap">\n';
+      html += '      <table class="lesson-horiz-table resizable-table" id="lessonPlanHorizTable">\n';
+      html += '        <colgroup>\n';
+      colDefs.forEach(function (c, cIdx) {
+        html += '          <col data-col="' + cIdx + '" style="width:' + c.pct + '%;">\n';
+      });
+      html += '        </colgroup>\n';
+      html += '        <thead><tr>\n';
+      colDefs.forEach(function (c, cIdx) {
+        var alignStyle = c.align ? ' style="text-align:' + c.align + ';"' : '';
+        var resizerHtml = (cIdx < colDefs.length - 1) ? '<span class="col-resizer" data-col="' + cIdx + '" title="Drag to resize column"></span>' : '';
+        html += '          <th data-col="' + cIdx + '"' + alignStyle + '><span class="th-wrap"><span class="th-text">' + escapeHtml(c.name) + '</span>' + resizerHtml + '</span></th>\n';
+      });
+      html += '        </tr></thead>\n';
+      html += '        <tbody>\n';
+      phases.forEach(function (sec, idx) {
+        var actLabel = getActivityLabel(sec.activityTypeId, false);
+        var modeLabel = getInteractionLabel(sec.interactionTypeId, false);
+        var pDur = Number(sec.duration) || 0;
+        var pTitle = sec.title || ('Phase ' + (idx + 1));
+        html += '          <tr>\n';
+        var phaseCellHtml = '<div class="horiz-phase-cell-header"><span class="horiz-phase-num">' + (idx + 1) + '</span>';
+        if (toggles.phaseTitle !== false) {
+          phaseCellHtml += '<span class="horiz-phase-title">' + escapeHtml(pTitle) + '</span>';
+        }
+        phaseCellHtml += '</div>';
+        if (toggles.phaseDuration !== false) {
+          phaseCellHtml += '<span class="horiz-phase-dur">' + pDur + ' min</span>';
+        }
+        html += '            <td>' + phaseCellHtml + '</td>\n';
+        if (toggles.phaseActivity) {
+          var amPills = [];
+          if (actLabel) amPills.push('<span class="horiz-act-pill">' + escapeHtml(actLabel) + '</span>');
+          if (modeLabel) amPills.push('<span class="horiz-act-pill">' + escapeHtml(modeLabel) + '</span>');
+          html += '            <td>' + (amPills.length > 0 ? amPills.join(' ') : '—') + '</td>\n';
+        }
+        if (toggles.phaseObjective) html += '            <td>' + (sec.objective ? formatExportMultiline(sec.objective) : '—') + '</td>\n';
+        if (toggles.phaseTeacher) html += '            <td>' + (sec.teacherAction ? formatExportMultiline(sec.teacherAction) : '—') + '</td>\n';
+        if (toggles.phaseStudent) html += '            <td>' + (sec.studentAction ? formatExportMultiline(sec.studentAction) : '—') + '</td>\n';
+        if (toggles.phaseResources) html += '            <td>' + (sec.resources ? formatExportMultiline(sec.resources) : '—') + '</td>\n';
+        if (toggles.phaseDescriptors) {
+          var descHtml = '—';
+          if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+            descHtml = sec.descriptorIds.map(function (id) {
+              var c = lcFormatExportCompetence(id, sec, toggles);
+              var chipParts = [];
+              if (c.code) chipParts.push(escapeHtml(c.code));
+              if (c.title && c.title !== c.code) chipParts.push(escapeHtml(c.title));
+              var s = '<div style="margin-bottom:3px;">';
+              if (chipParts.length > 0 || c.level || c.category) {
+                s += '<span class="comp-chip">' + (chipParts.join(' - ') || 'Competence');
+                if (c.level) s += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+                if (c.category) s += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
+                s += '</span>';
+              }
+              if (c.baseDesc) {
+                s += '<div class="comp-desc-text">' + formatExportMultiline(c.baseDesc) + '</div>';
+              }
+              if (c.detailedLines.length > 0) {
+                s += '<ul class="comp-detailed-list">' + c.detailedLines.map(function (l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>';
+              }
+              if (c.tags.length > 0) {
+                s += '<div class="comp-tags-wrap">' + c.tags.map(function (t) { return '<span class="comp-tag-pill">' + escapeHtml(t) + '</span>'; }).join('') + '</div>';
+              }
+              if (c.comments) {
+                s += '<div class="comp-comments-text"><em>' + formatExportMultiline(c.comments) + '</em></div>';
+              }
+              s += '</div>';
+              return s;
+            }).join('');
+          }
+          html += '            <td>' + descHtml + '</td>\n';
+        }
+        if (toggles.phaseDiff) html += '            <td>' + (sec.differentiation ? formatExportMultiline(sec.differentiation) : '—') + '</td>\n';
+        if (toggles.phaseAssess) html += '            <td>' + (sec.assessmentStrategy ? formatExportMultiline(sec.assessmentStrategy) : '—') + '</td>\n';
+        customTableTitles.forEach(function (ct) {
+          var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+            return (f.title || '').trim().toLowerCase() === ct.toLowerCase();
+          }) : null;
+          html += '            <td>' + (match ? renderMarkdownOrHtml(match.content || '', match.format) : '—') + '</td>\n';
+        });
+        html += '          </tr>\n';
+      });
+      html += '        </tbody>\n';
+      html += '      </table>\n';
+      html += '    </div>\n';
+    } else {
+    phases.forEach(function (sec, idx) {
+      var actLabel = getActivityLabel(sec.activityTypeId, false);
+      var modeLabel = getInteractionLabel(sec.interactionTypeId, false);
+      var pDur = Number(sec.duration) || 0;
+      var pTitle = sec.title || ('Phase ' + (idx + 1));
+
+      html += '    <div class="phase-export-card">\n';
+      html += '      <div class="phase-header">\n';
+      html += '        <div class="phase-header-left">\n';
+      if (toggles.phaseTitle) {
+        html += '          <span class="phase-num">' + (idx + 1) + '</span>\n';
+        html += '          <span class="phase-title">' + escapeHtml(pTitle) + '</span>\n';
+      }
+      if (toggles.phaseDuration) {
+        html += '          <span class="phase-badge phase-badge-duration">' + pDur + ' min</span>\n';
+      }
+      html += '        </div>\n';
+      html += '        <div class="phase-header-right">\n';
+      if (toggles.phaseActivity) {
+        if (actLabel) {
+          html += '          <span class="phase-badge">' + escapeHtml(actLabel) + '</span>\n';
+        }
+        if (modeLabel) {
+          html += '          <span class="phase-badge">' + escapeHtml(modeLabel) + '</span>\n';
+        }
+      }
+      html += '        </div>\n';
+      html += '      </div>\n';
+
+      html += '      <div class="phase-body">\n';
+
+      // Objective
+      if (toggles.phaseObjective && sec.objective) {
+        var objTag = tExport('lcExportObjective', 'Learning Objective');
+        html += '        <div class="sec-box objective-box">\n';
+        html += '          <span class="box-tag">' + escapeHtml(objTag) + '</span>\n';
+        html += '          <div class="objective-text">' + formatExportMultiline(sec.objective) + '</div>\n';
+        html += '        </div>\n';
+      }
+
+      // Two-column Teacher / Student grid
+      var hasTeacher = toggles.phaseTeacher && sec.teacherAction;
+      var hasStudent = toggles.phaseStudent && sec.studentAction;
+      if (hasTeacher || hasStudent) {
+        html += '        <div class="actions-grid">\n';
+        if (hasTeacher) {
+          var tTag = tExport('lcExportTeacherActions', 'Teacher Actions');
+          html += '          <div class="sec-box teacher-box">\n';
+          html += '            <span class="box-tag">' + escapeHtml(tTag) + '</span>\n';
+          html += '            <div class="box-text">' + formatExportMultiline(sec.teacherAction) + '</div>\n';
+          html += '          </div>\n';
+        } else if (hasStudent) {
+          html += '          <div></div>\n';
+        }
+        if (hasStudent) {
+          var sTag = tExport('lcExportStudentTasks', 'Student Tasks');
+          html += '          <div class="sec-box student-box">\n';
+          html += '            <span class="box-tag">' + escapeHtml(sTag) + '</span>\n';
+          html += '            <div class="box-text">' + formatExportMultiline(sec.studentAction) + '</div>\n';
+          html += '          </div>\n';
+        }
+        html += '        </div>\n';
+      }
+
+      // Resources
+      if (toggles.phaseResources && sec.resources) {
+        var resTag = tExport('lcExportResources', 'Resources & Materials');
+        html += '        <div class="sec-box resources-box">\n';
+        html += '          <span class="box-tag">' + escapeHtml(resTag) + '</span>\n';
+        html += '          <div class="box-text">' + formatExportMultiline(sec.resources) + '</div>\n';
+        html += '        </div>\n';
+      }
+
+      // Tagged Competences
+      if (toggles.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+        var compTag = tExport('lcExportTaggedCompetences', 'Tagged Competences');
+        html += '        <div class="sec-box descriptors-box">\n';
+        html += '          <span class="box-tag">' + escapeHtml(compTag) + '</span>\n';
+        var sortedDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+          var targetA = String(a || '').toLowerCase().trim();
+          var targetB = String(b || '').toLowerCase().trim();
+          var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+          var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+          var codeA = da ? (da.code || da.id || a) : a;
+          var codeB = db ? (db.code || db.id || b) : b;
+          return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        var anyHasBody = sortedDescIds.some(function (id) {
+          return lcFormatExportCompetence(id, sec, toggles).hasBody;
+        });
+
+        if (anyHasBody) {
+          html += '          <div class="comp-list">\n';
+          sortedDescIds.forEach(function (id) {
+            var c = lcFormatExportCompetence(id, sec, toggles);
+            html += '            <div class="comp-item">\n';
+            html += '              <div class="comp-item-header">';
+            if (c.code) html += '<span class="comp-item-code">' + escapeHtml(c.code) + '</span>';
+            if (c.title && c.title !== c.code) html += ' <span class="comp-item-title">' + escapeHtml(c.title) + '</span>';
+            if (c.level) html += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+            if (c.category) html += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
+            html += '</div>\n';
+            if (c.baseDesc) {
+              html += '              <div class="comp-item-text">' + formatExportMultiline(c.baseDesc) + '</div>\n';
+            }
+            if (c.detailedLines.length > 0) {
+              html += '              <ul class="comp-detailed-list">' + c.detailedLines.map(function (l) { return '<li>' + escapeHtml(l) + '</li>'; }).join('') + '</ul>\n';
+            }
+            if (c.tags.length > 0) {
+              html += '              <div class="comp-tags-wrap">' + c.tags.map(function (t) { return '<span class="comp-tag-pill">' + escapeHtml(t) + '</span>'; }).join('') + '</div>\n';
+            }
+            if (c.comments) {
+              html += '              <div class="comp-comments-text"><em>' + formatExportMultiline(c.comments) + '</em></div>\n';
+            }
+            html += '            </div>\n';
+          });
+          html += '          </div>\n';
+        } else {
+          html += '          <div class="comp-chips">\n';
+          sortedDescIds.forEach(function (id) {
+            var c = lcFormatExportCompetence(id, sec, toggles);
+            var chipParts = [];
+            if (c.code) chipParts.push(escapeHtml(c.code));
+            if (c.title && c.title !== c.code) chipParts.push(escapeHtml(c.title));
+            html += '            <span class="comp-chip">' + (chipParts.join(' - ') || 'Competence');
+            if (c.level) html += ' <span class="comp-badge comp-level-badge">' + escapeHtml(c.level) + '</span>';
+            if (c.category) html += ' <span class="comp-badge comp-cat-badge">' + escapeHtml(c.category) + '</span>';
+            html += '</span>\n';
+          });
+          html += '          </div>\n';
+        }
+        html += '        </div>\n';
+      }
+
+      // Differentiation
+      if (toggles.phaseDiff && sec.differentiation) {
+        var diffTag = tExport('lcExportDifferentiation', 'Differentiation & Support');
+        html += '        <div class="sec-box diff-box">\n';
+        html += '          <span class="box-tag">' + escapeHtml(diffTag) + '</span>\n';
+        html += '          <div class="box-text">' + formatExportMultiline(sec.differentiation) + '</div>\n';
+        html += '        </div>\n';
+      }
+
+      // Formative Assessment
+      if (toggles.phaseAssess && sec.assessmentStrategy) {
+        var assessTag = tExport('lcExportAssessmentStrategy', 'Formative Assessment');
+        html += '        <div class="sec-box assess-box">\n';
+        html += '          <span class="box-tag">' + escapeHtml(assessTag) + '</span>\n';
+        html += '          <div class="box-text">' + formatExportMultiline(sec.assessmentStrategy) + '</div>\n';
+        html += '        </div>\n';
+      }
+
+      // Custom Phase Fields
+      if (toggles.phaseCustomFields !== false && Array.isArray(sec.customFields) && sec.customFields.length > 0) {
+        sec.customFields.forEach(function (cf) {
+          if (cf && (cf.content || cf.title)) {
+            var cfTitle = cf.title || tExport('lcCustomField', 'Custom Field');
+            var renderedContent = renderMarkdownOrHtml(cf.content || '', cf.format);
+            html += '        <div class="sec-box custom-field-box">\n';
+            html += '          <span class="box-tag">' + escapeHtml(cfTitle) + '</span>\n';
+            html += '          <div class="box-text custom-field-content">' + renderedContent + '</div>\n';
+            html += '        </div>\n';
+          }
+        });
+      }
+
+      html += '      </div>\n';
+      html += '    </div>\n';
+    });
+    }
+
+    // Footer Banner
+    var teacherName = (typeof window.getAppTeacherName === 'function') ? window.getAppTeacherName() : '';
+    html += '    <footer class="plan-footer exp-footer">\n' +
+      '      <span class="exp-footer-left">' + escapeHtml(planTitle) + ' | Class Management Tools</span>\n' +
+      (teacherName ? ('      <span class="exp-footer-center">' + escapeHtml(teacherName) + '</span>\n') : '') +
+      '      <span class="exp-footer-right">Exported: ' + new Date().toLocaleDateString() + '</span>\n' +
+      '    </footer>\n' +
+      '  </div>\n';
+
+    if (options && options.autoPrint) {
+      html += '  <script>window.addEventListener("load", function() { setTimeout(function() { window.print(); }, 250); });<\/script>\n';
+    }
+
+    if (isHorizTable) {
+      html += '  <script>\n' +
+        '    (function() {\n' +
+        '      function initColResizers() {\n' +
+        '        var tables = document.querySelectorAll("table.resizable-table, table.lesson-horiz-table");\n' +
+        '        tables.forEach(function(table) {\n' +
+        '          if (table._resizerInitialized) return;\n' +
+        '          table._resizerInitialized = true;\n' +
+        '          var minPct = 4;\n' +
+        '          var active = null, startX = 0;\n' +
+        '          function onMove(e) {\n' +
+        '            if (!active || !active.col || !active.nextCol) return;\n' +
+        '            var clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
+        '            var deltaPx = clientX - startX;\n' +
+        '            var deltaPct = (deltaPx / active.tableW) * 100;\n' +
+        '            var combinedPct = active.startPct + active.nextStartPct;\n' +
+        '            var newPct = Math.max(minPct, Math.min(combinedPct - minPct, active.startPct + deltaPct));\n' +
+        '            var newNextPct = combinedPct - newPct;\n' +
+        '            active.col.style.width = newPct.toFixed(2) + "%";\n' +
+        '            active.nextCol.style.width = newNextPct.toFixed(2) + "%";\n' +
+        '          }\n' +
+        '          function onUp() {\n' +
+        '            if (!active) return;\n' +
+        '            if (active.handle) active.handle.classList.remove("resizing");\n' +
+        '            active = null;\n' +
+        '            document.body.style.cursor = "";\n' +
+        '            window.removeEventListener("mousemove", onMove);\n' +
+        '            window.removeEventListener("mouseup", onUp);\n' +
+        '            window.removeEventListener("touchmove", onMove);\n' +
+        '            window.removeEventListener("touchend", onUp);\n' +
+        '          }\n' +
+        '          table.querySelectorAll(".col-resizer").forEach(function(handle) {\n' +
+        '            function onStart(e) {\n' +
+        '              e.preventDefault();\n' +
+        '              e.stopPropagation();\n' +
+        '              var idx = parseInt(handle.getAttribute("data-col"), 10);\n' +
+        '              var col = table.querySelector("col[data-col=\'" + idx + "\']");\n' +
+        '              var nextCol = table.querySelector("col[data-col=\'" + (idx + 1) + "\']");\n' +
+        '              if (!col || !nextCol) return;\n' +
+        '              var tableW = table.getBoundingClientRect().width || 800;\n' +
+        '              var th = table.querySelector("th[data-col=\'" + idx + "\']");\n' +
+        '              var nextTh = table.querySelector("th[data-col=\'" + (idx + 1) + "\']");\n' +
+        '              var startPct = parseFloat(col.style.width) || ((th ? th.getBoundingClientRect().width : 80) / tableW * 100);\n' +
+        '              var nextStartPct = parseFloat(nextCol.style.width) || ((nextTh ? nextTh.getBoundingClientRect().width : 80) / tableW * 100);\n' +
+        '              active = {\n' +
+        '                handle: handle,\n' +
+        '                col: col,\n' +
+        '                nextCol: nextCol,\n' +
+        '                tableW: tableW,\n' +
+        '                startPct: startPct,\n' +
+        '                nextStartPct: nextStartPct\n' +
+        '              };\n' +
+        '              startX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;\n' +
+        '              handle.classList.add("resizing");\n' +
+        '              document.body.style.cursor = "col-resize";\n' +
+        '              window.addEventListener("mousemove", onMove);\n' +
+        '              window.addEventListener("mouseup", onUp);\n' +
+        '              window.addEventListener("touchmove", onMove, { passive: false });\n' +
+        '              window.addEventListener("touchend", onUp);\n' +
+        '            }\n' +
+        '            handle.addEventListener("mousedown", onStart);\n' +
+        '            handle.addEventListener("touchstart", onStart, { passive: false });\n' +
+        '          });\n' +
+        '        });\n' +
+        '      }\n' +
+        '      function fitHorizTableToOnePage() {\n' +
+        '        var container = document.querySelector(".export-container");\n' +
+        '        if (!container) return;\n' +
+        '        container.style.zoom = "";\n' +
+        '        var maxPageHeightPx = 710;\n' +
+        '        var actualH = container.scrollHeight;\n' +
+        '        if (actualH > maxPageHeightPx) {\n' +
+        '          var ratio = Math.max(0.62, Math.min(1, maxPageHeightPx / actualH));\n' +
+        '          container.style.zoom = ratio.toFixed(3);\n' +
+        '        }\n' +
+        '      }\n' +
+        '      window.addEventListener("beforeprint", fitHorizTableToOnePage);\n' +
+        '      window.addEventListener("afterprint", function() {\n' +
+        '        var container = document.querySelector(".export-container");\n' +
+        '        if (container) container.style.zoom = "";\n' +
+        '      });\n' +
+        '      if (document.readyState === "loading") {\n' +
+        '        document.addEventListener("DOMContentLoaded", initColResizers);\n' +
+        '      } else {\n' +
+        '        initColResizers();\n' +
+        '      }\n' +
+        '    })();\n' +
+        '  <\/script>\n';
+    }
+
+    html += '</body>\n</html>';
+    return html;
+  };
+
+  window.lcPreviewExportInBrowser = function () {
+    var toggles = lcGetExportToggles();
+    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    var modal = document.getElementById('exportPreviewModal');
+    var iframe = document.getElementById('exportPreviewIframe');
+    if (iframe) {
+      iframe.srcdoc = html;
+      iframe.onload = function () {
+        if (window.ExportStylesService) {
+          var sId = ExportStylesService.getSelectedStyle('lessonCreator');
+          ExportStylesService.applyStyleToIframe(iframe, sId);
+        }
+      };
+    }
+    if (modal) {
+      modal.style.display = 'flex';
+    }
+    if (window.ExportStylesService) {
+      ExportStylesService.renderStyleSelector(document.getElementById('lc-preview-style-selector-wrap'), {
+        toolKey: 'lessonCreator',
+        onChange: function (styleId) {
+          var ifr = document.getElementById('exportPreviewIframe');
+          if (ifr) ExportStylesService.applyStyleToIframe(ifr, styleId);
+        }
+      });
+    }
+  };
+
+  window.lcPrintPreviewIframe = function () {
+    var ifr = document.getElementById('exportPreviewIframe');
+    if (ifr && ifr.contentWindow) {
+      try {
+        ifr.contentWindow.focus();
+        ifr.contentWindow.print();
+      } catch (_) {
+        window.print();
+      }
+    }
+  };
+
+  window.lcOpenPreviewInExternalBrowser = async function () {
+    var toggles = lcGetExportToggles();
+    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+    }
+    if (window.Desktop && Desktop.isElectron()) {
+      try {
+        var tempName = '_preview_' + getSafeExportFilename('html');
+        var result = await Desktop.saveText('toPrint', tempName, html);
+        var filePath = (result && result.path) || (result && result.file && result.file.path);
+        if (filePath) {
+          await Desktop.openNative({ absolutePath: filePath });
+        } else if (typeof showToast === 'function') {
+          showToast('Preview saved to print folder: ' + tempName);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not open external browser: ' + err.message, true);
+      }
+    } else {
+      try {
+        var blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        var url = URL.createObjectURL(blob);
+        var w = window.open(url, '_blank');
+        if (!w) {
+          downloadExportBlob(getSafeExportFilename('html'), html, 'text/html;charset=utf-8');
+        }
+      } catch (_) {
+        downloadExportBlob(getSafeExportFilename('html'), html, 'text/html;charset=utf-8');
+      }
+    }
+  };
+
+  window.lcExecuteFromPreview = function () {
+    lcCloseModal('exportPreviewModal');
+    lcExecuteCurrentExport();
+  };
+
+  // ── Export Destination & Location Handler ─────────────────────────────
+  var destinationModalCallback = null;
+  window.lastExportedFilePath = null;
+
+  function lcPromptExportDestination() {
+    if (!window.Desktop || !Desktop.isElectron()) {
+      return Promise.resolve('browser');
+    }
+    return new Promise(function (resolve) {
+      destinationModalCallback = resolve;
+      var m = document.getElementById('exportDestinationModal');
+      if (m) m.style.display = 'flex';
+    });
+  }
+
+  window.lcCloseDestinationModal = function (dest) {
+    var m = document.getElementById('exportDestinationModal');
+    if (m) m.style.display = 'none';
+    if (destinationModalCallback) {
+      var cb = destinationModalCallback;
+      destinationModalCallback = null;
+      cb(dest);
+    }
+  };
+
+  window.lcOpenLastExportLocation = function () {
+    if (window.lastExportedFilePath && window.Desktop && typeof Desktop.showItemInFolder === 'function') {
+      Desktop.showItemInFolder(window.lastExportedFilePath);
+    } else if (typeof showToast === 'function') {
+      showToast('No exported file path available.', true);
+    }
+  };
+
+  function handleExportSuccess(filePath, fileName, defaultToastMsg) {
+    window.lastExportedFilePath = filePath;
+    lcCloseModal('exportPlanModal');
+    if (window.showExportSuccessPopup && filePath) {
+      showExportSuccessPopup(filePath, fileName);
+    } else if (typeof showToast === 'function') {
+      showToast(defaultToastMsg || i18n.t('lcExportCopySuccess') || 'Export complete.');
+    }
+  }
+
+  window.lcExecuteExportHtml = async function (dest) {
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var toggles = lcGetExportToggles();
+    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+    }
+    var filename = getSafeExportFilename('html');
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          result = await Desktop.saveText('toPrint', filename, html);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          result = await Desktop.saveToDisk({
+            title: 'Save HTML Document',
+            defaultPath: filename,
+            filters: [{ name: 'HTML Document', extensions: ['html', 'htm'] }],
+            content: html,
+            encoding: 'utf8'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'HTML document exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save HTML: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save HTML: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, html, 'text/html;charset=utf-8');
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'HTML document exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteExportPdf = async function (dest) {
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var toggles = lcGetExportToggles();
+    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+    }
+    var filename = getSafeExportFilename('pdf');
+
+    if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function' && dest !== 'browser') {
+      try {
+        var pdfSettings = (window.Desktop && typeof Desktop.getPdfExportSettings === 'function') ? Desktop.getPdfExportSettings() : (typeof getPdfExportSettings === 'function' ? getPdfExportSettings() : { pageSize: 'A4', isLandscape: false });
+        var isHorizPdf = !!(document.querySelector('input[name="exportPlanLayoutMode"]:checked') && document.querySelector('input[name="exportPlanLayoutMode"]:checked').value === 'horizontal_table');
+        var isLandscape = isHorizPdf || pdfSettings.isLandscape;
+        var req = {
+          html: html,
+          defaultName: filename,
+          landscape: isLandscape,
+          pdfOptions: {
+            pageSize: pdfSettings.pageSize || 'A4',
+            landscape: isLandscape,
+            marginsType: 1,
+            preferCSSPageSize: true,
+            printBackground: true
+          }
+        };
+        if (dest === 'to-print') {
+          req.target = 'toPrint';
+          req.filename = filename;
+        }
+        var result = await Desktop.printPdf(req);
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'PDF exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') {
+            showToast('Could not save PDF: ' + (result.error || 'unknown error'), true);
+          }
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') {
+          showToast('Could not save PDF: ' + err.message, true);
+        }
+      }
+    } else {
+      var win = window.open('', '_blank');
+      if (win) {
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+        win.focus();
+        setTimeout(function () {
+          try { win.print(); } catch (_) {}
+        }, 300);
+        lcCloseModal('exportPlanModal');
+      } else {
+        window.print();
+      }
+    }
+  };
+
+  window.lcExecuteExportXlsx = async function (dest, format = 'xlsx') {
+    if (typeof XLSX === 'undefined') {
+      if (typeof showToast === 'function') showToast('Excel export library (SheetJS) is not loaded.', true);
+      return;
+    }
+
+    var toggles = lcGetExportToggles();
+    var phases = (currentPlan.sections || []).filter(function (_, i) {
+      return activeSelectedPhaseIndices.has(i);
+    });
+
+    if (phases.length === 0 && (currentPlan.sections || []).length > 0) {
+      if (typeof showToast === 'function') showToast('No phases selected to export.', true);
+      return;
+    }
+
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var wb = XLSX.utils.book_new();
+
+    // Sheet 1: Lesson Plan
+    var aoa = [];
+    aoa.push(['LESSON PLAN', (currentPlan.title || 'Untitled Lesson Plan').toUpperCase()]);
+
+    if (toggles.metaHeader || toggles.metaDate || toggles.metaDuration) {
+      var subLabel = getSubjectLabel(currentPlan.subjectId);
+      var clsLabel = getClassLabel(currentPlan.classId);
+      var yrLabel = getYearLevelLabel(currentPlan.yearLevel);
+      var totalDur = phases.reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+
+      if (toggles.metaHeader) {
+        aoa.push(['Subject', subLabel || 'All', 'Class', clsLabel || 'All']);
+      }
+      if (toggles.metaDate) {
+        aoa.push(['Date', currentPlan.date || '', 'Year Level', yrLabel || 'All', 'Semester', (currentPlan.semester || 'all').toUpperCase()]);
+      }
+      if (toggles.metaDuration) {
+        aoa.push(['Selected Duration', totalDur + ' min', 'Target Duration', (currentPlan.targetDuration || 60) + ' min']);
+      }
+      if (toggles.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+        var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+        aoa.push(['Unit Sequence', seqStr]);
+      }
+      if (toggles.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+        var rolesList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+        aoa.push(['Teams', 'Teams of ' + currentPlan.teamConfig.teamSize + (rolesList ? (' (' + rolesList + ')') : '')]);
+      }
+      if (toggles.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+        aoa.push(['Tags', currentPlan.tags.join(', ')]);
+      }
+    }
+
+    aoa.push([]);
+
+    var headers = ['Phase #'];
+    if (toggles.phaseTitle) headers.push('Title');
+    if (toggles.phaseDuration) headers.push('Duration (min)');
+    if (toggles.phaseActivity) {
+      headers.push('Activity Type');
+      headers.push('Interaction Mode');
+    }
+    if (toggles.phaseObjective) headers.push('Learning Objective');
+    if (toggles.phaseTeacher) headers.push('Teacher Actions / Prompts');
+    if (toggles.phaseStudent) headers.push('Student Tasks / Activities');
+    if (toggles.phaseResources) headers.push('Resources & Materials');
+    if (toggles.phaseDescriptors) headers.push('Tagged Competences');
+    if (toggles.phaseDiff) headers.push('Differentiation & Support');
+    if (toggles.phaseAssess) headers.push('Formative Assessment');
+    var customFieldTitles = [];
+    if (toggles.phaseCustomFields !== false) {
+      phases.forEach(function (sec) {
+        if (Array.isArray(sec.customFields)) {
+          sec.customFields.forEach(function (cf) {
+            var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+            if (customFieldTitles.indexOf(t) === -1) customFieldTitles.push(t);
+          });
+        }
+      });
+      customFieldTitles.forEach(function (t) { headers.push(t); });
+    }
+
+    aoa.push(headers);
+
+    phases.forEach(function (sec, idx) {
+      var row = [idx + 1];
+      if (toggles.phaseTitle) row.push(sec.title || ('Phase ' + (idx + 1)));
+      if (toggles.phaseDuration) row.push(Number(sec.duration) || 0);
+      if (toggles.phaseActivity) {
+        row.push(getActivityLabel(sec.activityTypeId) || '');
+        row.push(getInteractionLabel(sec.interactionTypeId) || '');
+      }
+      if (toggles.phaseObjective) row.push(sec.objective || '');
+      if (toggles.phaseTeacher) row.push(sec.teacherAction || '');
+      if (toggles.phaseStudent) row.push(sec.studentAction || '');
+      if (toggles.phaseResources) row.push(sec.resources || '');
+      if (toggles.phaseDescriptors) {
+        var descStr = '';
+        if (Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+          var sortedXlsxDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+            var targetA = String(a || '').toLowerCase().trim();
+            var targetB = String(b || '').toLowerCase().trim();
+            var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+            var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+            var codeA = da ? (da.code || da.id || a) : a;
+            var codeB = db ? (db.code || db.id || b) : b;
+            return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+          });
+          descStr = sortedXlsxDescIds.map(function (id) {
+            var c = lcFormatExportCompetence(id, sec, toggles);
+            var parts = [];
+            var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || '');
+            if (c.level) head += ' (' + c.level + ')';
+            if (c.category) head += ' {' + c.category + '}';
+            if (head.trim()) parts.push(head.trim());
+            if (c.baseDesc) parts.push(c.baseDesc);
+            if (c.detailedLines.length > 0) parts.push('• ' + c.detailedLines.join('; '));
+            if (c.tags.length > 0) parts.push('Tags: ' + c.tags.join(', '));
+            if (c.comments) parts.push('Note: ' + c.comments);
+            return parts.join(' — ') || id;
+          }).join(';\n');
+        }
+        row.push(descStr);
+      }
+      if (toggles.phaseDiff) row.push(sec.differentiation || '');
+      if (toggles.phaseAssess) row.push(sec.assessmentStrategy || '');
+      if (toggles.phaseCustomFields !== false) {
+        customFieldTitles.forEach(function (t) {
+          var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+            return (f.title || '').trim().toLowerCase() === t.toLowerCase();
+          }) : null;
+          row.push(match ? (match.content || '') : '');
+        });
+      }
+      aoa.push(row);
+    });
+
+    var ws1 = XLSX.utils.aoa_to_sheet(aoa);
+    ws1['!cols'] = headers.map(function (h, i) {
+      if (i === 0) return { wch: 8 };
+      if (h.includes('Title')) return { wch: 24 };
+      if (h.includes('Duration')) return { wch: 14 };
+      if (h.includes('Objective')) return { wch: 32 };
+      if (h.includes('Teacher') || h.includes('Student')) return { wch: 38 };
+      if (h.includes('Competences')) return { wch: 30 };
+      return { wch: 20 };
+    });
+
+    XLSX.utils.book_append_sheet(wb, ws1, 'Lesson Plan');
+
+    // Sheet 2: Competences Matrix
+    if (toggles.phaseDescriptors) {
+      var matrixHeaders = [];
+      if (toggles.compCode !== false) matrixHeaders.push('Code');
+      if (toggles.compTitle !== false) matrixHeaders.push('Standard / Competence Title');
+      if (toggles.compLevel) matrixHeaders.push('Level');
+      if (toggles.compCategory) matrixHeaders.push('Category');
+      if (toggles.compDesc) matrixHeaders.push('Base Description');
+      if (toggles.compDetailed) matrixHeaders.push('Detailed Description');
+      if (toggles.compTags) matrixHeaders.push('Keywords / Tags');
+      if (toggles.compComments) matrixHeaders.push('Notes / Sample Tasks');
+      if (matrixHeaders.length === 0) matrixHeaders.push('Competence');
+      matrixHeaders.push('Subject');
+      matrixHeaders.push('Phases Tagged In');
+
+      var compRows = [matrixHeaders];
+      var usedDescMap = new Map();
+
+      phases.forEach(function (sec, pIdx) {
+        (sec.descriptorIds || []).forEach(function (id) {
+          var c = lcFormatExportCompetence(id, sec, toggles);
+          var d = c.descriptor;
+          var key = d ? (d.code || d.id) : id;
+          if (!usedDescMap.has(key)) {
+            usedDescMap.set(key, {
+              code: c.code || (d ? (d.code || d.id) : key),
+              title: c.title || (d ? (d.title || d.id) : key),
+              level: c.level,
+              category: c.category || (d ? (d.category || d.subCategory || '') : ''),
+              baseDesc: c.baseDesc || (d ? (d.description || d.statement || '') : ''),
+              detailedDesc: c.detailedLines.join('; '),
+              tags: c.tags.join(', '),
+              comments: c.comments,
+              subject: d ? (getSubjectLabel(d.subjectId) || d.subjectId || '') : '',
+              phases: []
+            });
+          }
+          usedDescMap.get(key).phases.push('Phase ' + (pIdx + 1));
+        });
+      });
+
+      if (usedDescMap.size > 0) {
+        Array.from(usedDescMap.values()).sort(function (a, b) {
+          return String(a.code || a.title).localeCompare(String(b.code || b.title), undefined, { numeric: true, sensitivity: 'base' });
+        }).forEach(function (val) {
+          var rowData = [];
+          if (toggles.compCode !== false) rowData.push(val.code);
+          if (toggles.compTitle !== false) rowData.push(val.title);
+          if (toggles.compLevel) rowData.push(val.level);
+          if (toggles.compCategory) rowData.push(val.category);
+          if (toggles.compDesc) rowData.push(val.baseDesc);
+          if (toggles.compDetailed) rowData.push(val.detailedDesc);
+          if (toggles.compTags) rowData.push(val.tags);
+          if (toggles.compComments) rowData.push(val.comments);
+          if (rowData.length === 0) rowData.push(val.code || val.title);
+          rowData.push(val.subject);
+          rowData.push(val.phases.join(', '));
+          compRows.push(rowData);
+        });
+        var ws2 = XLSX.utils.aoa_to_sheet(compRows);
+        XLSX.utils.book_append_sheet(wb, ws2, 'Competences Matrix');
+      }
+    }
+
+    var isOds = format === 'ods';
+    var wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
+    var ext = isOds ? 'ods' : 'xlsx';
+    var filename = getSafeExportFilename(ext);
+    var mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          var blob = new Blob([wbout], { type: mime });
+          result = await Desktop.saveBlob('toPrint', filename, blob);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          var binary = '';
+          var bytes = new Uint8Array(wbout);
+          var len = bytes.byteLength;
+          for (var i = 0; i < len; i += 8192) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, Math.min(i + 8192, len)));
+          }
+          var base64 = btoa(binary);
+          result = await Desktop.saveToDisk({
+            title: isOds ? 'Save LibreOffice Calc Spreadsheet' : 'Save Excel Spreadsheet',
+            defaultPath: filename,
+            filters: [{ name: isOds ? 'LibreOffice Calc Workbook' : 'Excel Workbook', extensions: [ext] }],
+            content: base64,
+            encoding: 'base64'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Spreadsheet exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save spreadsheet: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save spreadsheet: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, wbout, mime);
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'Spreadsheet exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteExportCsv = async function (dest) {
+    var toggles = lcGetExportToggles();
+    var phases = (currentPlan.sections || []).filter(function (_, i) {
+      return activeSelectedPhaseIndices.has(i);
+    });
+
+    if (phases.length === 0 && (currentPlan.sections || []).length > 0) {
+      if (typeof showToast === 'function') showToast('No phases selected to export.', true);
+      return;
+    }
+
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    function escCsv(val) {
+      var s = String(val === null || val === undefined ? '' : val);
+      if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+        return '"' + s.replace(/"/g, '""') + '"';
+      }
+      return s;
+    }
+
+    var rows = [];
+
+    if (toggles.metaHeader) {
+      rows.push(['# Lesson Plan', currentPlan.title || 'Untitled'].map(escCsv).join(','));
+      rows.push(['# Subject', getSubjectLabel(currentPlan.subjectId) || 'All', '# Class', getClassLabel(currentPlan.classId) || 'All'].map(escCsv).join(','));
+    }
+    if (toggles.metaDate) {
+      rows.push(['# Date', currentPlan.date || '', '# Year Level', getYearLevelLabel(currentPlan.yearLevel) || 'All'].map(escCsv).join(','));
+    }
+
+    var headers = ['Phase Number'];
+    if (toggles.phaseTitle) headers.push('Phase Title');
+    if (toggles.phaseDuration) headers.push('Duration Minutes');
+    if (toggles.phaseActivity) {
+      headers.push('Activity Type');
+      headers.push('Interaction Mode');
+    }
+    if (toggles.phaseObjective) headers.push('Learning Objective');
+    if (toggles.phaseTeacher) headers.push('Teacher Actions');
+    if (toggles.phaseStudent) headers.push('Student Tasks');
+    if (toggles.phaseResources) headers.push('Resources');
+    if (toggles.phaseDescriptors) headers.push('Tagged Competences');
+    if (toggles.phaseDiff) headers.push('Differentiation');
+    if (toggles.phaseAssess) headers.push('Formative Assessment');
+    var customCsvTitles = [];
+    if (toggles.phaseCustomFields !== false) {
+      phases.forEach(function (sec) {
+        if (Array.isArray(sec.customFields)) {
+          sec.customFields.forEach(function (cf) {
+            var t = (cf && cf.title ? cf.title.trim() : 'Custom Field');
+            if (customCsvTitles.indexOf(t) === -1) customCsvTitles.push(t);
+          });
+        }
+      });
+      customCsvTitles.forEach(function (t) { headers.push(t); });
+    }
+
+    rows.push(headers.map(escCsv).join(','));
+
+    phases.forEach(function (sec, idx) {
+      var r = [idx + 1];
+      if (toggles.phaseTitle) r.push(sec.title || ('Phase ' + (idx + 1)));
+      if (toggles.phaseDuration) r.push(Number(sec.duration) || 0);
+      if (toggles.phaseActivity) {
+        r.push(getActivityLabel(sec.activityTypeId) || '');
+        r.push(getInteractionLabel(sec.interactionTypeId) || '');
+      }
+      if (toggles.phaseObjective) r.push(sec.objective || '');
+      if (toggles.phaseTeacher) r.push(sec.teacherAction || '');
+      if (toggles.phaseStudent) r.push(sec.studentAction || '');
+      if (toggles.phaseResources) r.push(sec.resources || '');
+      if (toggles.phaseDescriptors) {
+        var sortedCsvDescIds = (sec.descriptorIds || []).slice().sort(function (a, b) {
+          var targetA = String(a || '').toLowerCase().trim();
+          var targetB = String(b || '').toLowerCase().trim();
+          var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+          var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+          var codeA = da ? (da.code || da.id || a) : a;
+          var codeB = db ? (db.code || db.id || b) : b;
+          return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+        });
+        var descStr = sortedCsvDescIds.map(function (id) {
+          var c = lcFormatExportCompetence(id, sec, toggles);
+          var parts = [];
+          var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || '');
+          if (c.level) head += ' (' + c.level + ')';
+          if (c.category) head += ' {' + c.category + '}';
+          if (head.trim()) parts.push(head.trim());
+          if (c.baseDesc) parts.push(c.baseDesc);
+          if (c.detailedLines.length > 0) parts.push('• ' + c.detailedLines.join('; '));
+          if (c.tags.length > 0) parts.push('Tags: ' + c.tags.join(', '));
+          if (c.comments) parts.push('Note: ' + c.comments);
+          return parts.join(' — ') || id;
+        }).join('; ');
+        r.push(descStr);
+      }
+      if (toggles.phaseDiff) r.push(sec.differentiation || '');
+      if (toggles.phaseAssess) r.push(sec.assessmentStrategy || '');
+      if (toggles.phaseCustomFields !== false) {
+        customCsvTitles.forEach(function (t) {
+          var match = Array.isArray(sec.customFields) ? sec.customFields.find(function (f) {
+            return (f.title || '').trim().toLowerCase() === t.toLowerCase();
+          }) : null;
+          r.push(match ? (match.content || '') : '');
+        });
+      }
+      rows.push(r.map(escCsv).join(','));
+    });
+
+    var csvContent = '\uFEFF' + rows.join('\r\n');
+    var filename = getSafeExportFilename('csv');
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          result = await Desktop.saveText('toPrint', filename, csvContent);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          result = await Desktop.saveToDisk({
+            title: 'Save CSV Spreadsheet',
+            defaultPath: filename,
+            filters: [{ name: 'CSV File', extensions: ['csv'] }],
+            content: csvContent,
+            encoding: 'utf8'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'CSV exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save CSV: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save CSV: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, csvContent, 'text/csv;charset=utf-8');
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'CSV exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteExportJson = async function (dest) {
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var phases = (currentPlan.sections || []).filter(function (_, i) {
+      return activeSelectedPhaseIndices.has(i);
+    });
+
+    var exportPayload = Object.assign({}, currentPlan, {
+      sections: phases
+    });
+
+    var jsonStr = JSON.stringify(exportPayload, null, 2);
+    var filename = getSafeExportFilename('json');
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          result = await Desktop.saveText('toPrint', filename, jsonStr);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          result = await Desktop.saveToDisk({
+            title: 'Save Lesson Plan JSON',
+            defaultPath: filename,
+            filters: [{ name: 'JSON File', extensions: ['json'] }],
+            content: jsonStr,
+            encoding: 'utf8'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Plan JSON exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save JSON: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save JSON: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, jsonStr, 'application/json;charset=utf-8');
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'Plan JSON exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteExportText = async function (dest) {
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var toggles = lcGetExportToggles();
+    var text = lcGeneratePlanText(toggles);
+    var filename = getSafeExportFilename('md');
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          result = await Desktop.saveText('toPrint', filename, text);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          result = await Desktop.saveToDisk({
+            title: 'Save Text Document',
+            defaultPath: filename,
+            filters: [{ name: 'Markdown File', extensions: ['md', 'txt'] }],
+            content: text,
+            encoding: 'utf8'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Text document exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save text: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save text: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, text, 'text/markdown;charset=utf-8');
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'Text document exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteExportDocx = async function (dest) {
+    if (!dest) {
+      dest = await lcPromptExportDestination();
+      if (!dest) return;
+    }
+
+    var toggles = lcGetExportToggles();
+    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    if (window.ExportStylesService) {
+      html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('lessonCreator'));
+    }
+    var docHtml = html.replace('<html lang="en">', '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">')
+      .replace('<head>', '<head><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->');
+    var filename = getSafeExportFilename('doc');
+
+    if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
+      try {
+        var result = null;
+        if (dest === 'to-print') {
+          result = await Desktop.saveText('toPrint', filename, docHtml);
+          if (result && result.file && result.file.path) result.path = result.file.path;
+          if (result && !result.name) result.name = filename;
+        } else {
+          result = await Desktop.saveToDisk({
+            title: 'Save Word Document (.doc)',
+            defaultPath: filename,
+            filters: [{ name: 'Word Document', extensions: ['doc'] }],
+            content: docHtml,
+            encoding: 'utf8'
+          });
+        }
+        if (result && result.ok) {
+          handleExportSuccess(result.path, result.name || filename, i18n.t('lcExportCopySuccess') || 'Word document exported successfully.');
+        } else if (result && !result.ok && !result.canceled) {
+          if (typeof showToast === 'function') showToast('Could not save Word document: ' + (result.error || 'unknown error'), true);
+        }
+      } catch (err) {
+        if (typeof showToast === 'function') showToast('Could not save Word document: ' + err.message, true);
+      }
+    } else {
+      downloadExportBlob(filename, docHtml, 'application/msword;charset=utf-8');
+      lcCloseModal('exportPlanModal');
+      if (typeof showToast === 'function') {
+        showToast(i18n.t('lcExportCopySuccess') || 'Word document exported successfully.');
+      }
+    }
+  };
+
+  window.lcExecuteCurrentExport = async function () {
+    var destination = await lcPromptExportDestination();
+    if (!destination) return;
+
+    switch (activeExportFormat) {
+      case 'html':
+        await lcExecuteExportHtml(destination);
+        break;
+      case 'pdf':
+        await lcExecuteExportPdf(destination);
+        break;
+      case 'docx':
+        await lcExecuteExportDocx(destination);
+        break;
+      case 'xlsx':
+        await lcExecuteExportXlsx(destination, 'xlsx');
+        break;
+      case 'ods':
+        await lcExecuteExportXlsx(destination, 'ods');
+        break;
+      case 'csv':
+        await lcExecuteExportCsv(destination);
+        break;
+      case 'json':
+        await lcExecuteExportJson(destination);
+        break;
+      case 'text':
+        await lcExecuteExportText(destination);
+        break;
+      default:
+        await lcExecuteExportHtml(destination);
+        break;
+    }
+  };
+
+  window.lcExportPdf = function () {
+    lcOpenExportModal('pdf');
+  };
+
+  window.lcExportStandaloneHtml = function () {
+    lcOpenExportModal('html');
+  };
+
+  window.lcExportJson = function () {
+    lcOpenExportModal('json');
+  };
+
+  // ── Copy as Text System ────────────────────────────────────────────────
+  var DEFAULT_COPY_TEXT_CONFIG = {
+    format: 'markdown',
+    metaHeader: true,
+    metaDate: true,
+    metaDuration: true,
+    metaSequence: true,
+    metaTags: true,
+    metaTeams: true,
+    phaseTitle: true,
+    phaseDuration: true,
+    phaseActivity: true,
+    phaseObjective: true,
+    phaseTeacher: true,
+    phaseStudent: true,
+    phaseResources: true,
+    phaseDescriptors: true,
+    phaseDescText: false,
+    phaseCustomFields: true
+  };
+
+  function getActivityLabel(aId, isShort) {
+    if (!aId) return '';
+    var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+    var idToToken = {
+      'warm_up': 'lcActWarmUp',
+      'direct_instruction': 'lcActDirectInstruction',
+      'guided_practice': 'lcActGuidedPractice',
+      'independent_work': 'lcActIndependentWork',
+      'group_activity': 'lcActGroupActivity',
+      'discussion': 'lcActDiscussion',
+      'assessment': 'lcActAssessment',
+      'plenary': 'lcActPlenary'
+    };
+    var token = idToToken[aId];
+    if (token && typeof i18n !== 'undefined' && i18n.t) {
+      if (isShort) {
+        var sToken = token + 'Short';
+        var sVal = i18n.t(sToken);
+        if (sVal && sVal !== sToken) return sVal;
+      }
+      var val = i18n.t(token);
+      if (val && val !== token) return val;
+    }
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES)) {
+      var found = LessonCreatorService.DEFAULT_ACTIVITY_TYPES.find(function (a) { return a.id === aId; });
+      if (found) {
+        if (lang === 'fr') {
+          if (isShort && found.shortName_fr) return found.shortName_fr;
+          if (found.name_fr) return found.name_fr;
+        }
+        return isShort ? (found.shortName || found.name) : (found.name || found.shortName);
+      }
+    }
+    return aId.charAt(0).toUpperCase() + aId.slice(1).replace(/_/g, ' ');
+  }
+
+  function getInteractionLabel(iId, isShort) {
+    if (!iId) return '';
+    var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+    var idToToken = {
+      'whole_class': 'lcModeWholeClass',
+      'teacher_led': 'lcModeTeacherLed',
+      'individual': 'lcModeIndividual',
+      'pairs': 'lcModePairs',
+      'small_groups': 'lcModeSmallGroups',
+      'stations': 'lcModeStations'
+    };
+    var token = idToToken[iId];
+    if (token && typeof i18n !== 'undefined' && i18n.t) {
+      if (isShort) {
+        var sToken = token + 'Short';
+        var sVal = i18n.t(sToken);
+        if (sVal && sVal !== sToken) return sVal;
+      }
+      var val = i18n.t(token);
+      if (val && val !== token) return val;
+    }
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_INTERACTION_TYPES)) {
+      var found = LessonCreatorService.DEFAULT_INTERACTION_TYPES.find(function (i) { return i.id === iId; });
+      if (found) {
+        if (lang === 'fr') {
+          if (isShort && found.shortName_fr) return found.shortName_fr;
+          if (found.name_fr) return found.name_fr;
+        }
+        return isShort ? (found.shortName || found.name) : (found.name || found.shortName);
+      }
+    }
+    return iId.charAt(0).toUpperCase() + iId.slice(1).replace(/_/g, ' ');
+  }
+
+  function getActivityExplanation(aId) {
+    if (!aId) return '';
+    var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+    var idToToken = {
+      'warm_up': 'lcActWarmUpDesc',
+      'direct_instruction': 'lcActDirectInstructionDesc',
+      'guided_practice': 'lcActGuidedPracticeDesc',
+      'independent_work': 'lcActIndependentWorkDesc',
+      'group_activity': 'lcActGroupActivityDesc',
+      'discussion': 'lcActDiscussionDesc',
+      'assessment': 'lcActAssessmentDesc',
+      'plenary': 'lcActPlenaryDesc'
+    };
+    var token = idToToken[aId];
+    if (token && typeof i18n !== 'undefined' && i18n.t) {
+      var val = i18n.t(token);
+      if (val && val !== token) return val;
+    }
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_ACTIVITY_TYPES)) {
+      var found = LessonCreatorService.DEFAULT_ACTIVITY_TYPES.find(function (a) { return a.id === aId; });
+      if (found) {
+        if (lang === 'fr' && found.desc_fr) return found.desc_fr;
+        if (lang === 'de' && found.desc_de) return found.desc_de;
+        if (lang === 'it' && found.desc_it) return found.desc_it;
+        if (found.desc) return found.desc;
+      }
+    }
+    return '';
+  }
+
+  function getInteractionExplanation(iId) {
+    if (!iId) return '';
+    var lang = (typeof i18n !== 'undefined') ? (i18n.getLang ? i18n.getLang() : (i18n.getLanguage ? i18n.getLanguage() : 'en')) : 'en';
+    var idToToken = {
+      'whole_class': 'lcModeWholeClassDesc',
+      'teacher_led': 'lcModeTeacherLedDesc',
+      'individual': 'lcModeIndividualDesc',
+      'pairs': 'lcModePairsDesc',
+      'small_groups': 'lcModeSmallGroupsDesc',
+      'stations': 'lcModeStationsDesc'
+    };
+    var token = idToToken[iId];
+    if (token && typeof i18n !== 'undefined' && i18n.t) {
+      var val = i18n.t(token);
+      if (val && val !== token) return val;
+    }
+    if (typeof LessonCreatorService !== 'undefined' && Array.isArray(LessonCreatorService.DEFAULT_INTERACTION_TYPES)) {
+      var found = LessonCreatorService.DEFAULT_INTERACTION_TYPES.find(function (i) { return i.id === iId; });
+      if (found) {
+        if (lang === 'fr' && found.desc_fr) return found.desc_fr;
+        if (lang === 'de' && found.desc_de) return found.desc_de;
+        if (lang === 'it' && found.desc_it) return found.desc_it;
+        if (found.desc) return found.desc;
+      }
+    }
+    return '';
+  }
+  window.getActivityExplanation = getActivityExplanation;
+  window.getInteractionExplanation = getInteractionExplanation;
+
+  function lcOpenPillsGuideModal(tab) {
+    window._currentPillsGuideTab = (tab === 'modes') ? 'modes' : 'activities';
+    lcRenderPillsGuideContent();
+    lcOpenModal('pillsGuideModal');
+  }
+  window.lcOpenPillsGuideModal = lcOpenPillsGuideModal;
+
+  function lcSwitchPillsGuideTab(tab) {
+    window._currentPillsGuideTab = (tab === 'modes') ? 'modes' : 'activities';
+    lcRenderPillsGuideContent();
+  }
+  window.lcSwitchPillsGuideTab = lcSwitchPillsGuideTab;
+
+  function lcRenderPillsGuideContent() {
+    var tab = window._currentPillsGuideTab || 'activities';
+    var tabActBtn = document.getElementById('tabGuideActivities');
+    var tabModeBtn = document.getElementById('tabGuideModes');
+    if (tabActBtn) tabActBtn.classList.toggle('active', tab === 'activities');
+    if (tabModeBtn) tabModeBtn.classList.toggle('active', tab === 'modes');
+
+    var container = document.getElementById('pillsGuideModalBody');
+    if (!container) return;
+
+    if (tab === 'activities') {
+      var items = LessonCreatorService.DEFAULT_ACTIVITY_TYPES || [];
+      container.innerHTML = items.map(function (a) {
+        var iconHtml = a.icon ? '<img src="../assets/icons/' + escapeHtml(a.icon) + '" class="phase-pill-icon" alt="" style="width:15px;height:15px;">' : '';
+        var displayName = getActivityLabel(a.id, true);
+        var fullTitle = getActivityLabel(a.id, false);
+        var exp = getActivityExplanation(a.id);
+        var bg = a.bg || '#fef3c7';
+        var col = a.color || '#111';
+        var whenToken = 'lcAct_' + a.id + '_when';
+        var whenText = (typeof i18n !== 'undefined' && i18n.t(whenToken) !== whenToken) ? i18n.t(whenToken) : (a.when || '');
+        var whenLabel = (typeof i18n !== 'undefined' && i18n.t('lcPillWhenToUse')) || 'When to use:';
+        return '<div class="guide-item-card">' +
+          '  <div class="guide-item-header">' +
+          '    <span class="phase-pill" style="background:' + bg + ';color:' + col + ';border-color:var(--neo-dark);font-weight:800;cursor:default;">' +
+                 iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+          '    </span>' +
+          '    <span class="guide-item-title">' + escapeHtml(fullTitle) + '</span>' +
+          '  </div>' +
+          '  <div class="guide-item-desc">' + escapeHtml(exp) + '</div>' +
+          (whenText ? ('  <div class="guide-item-when"><strong>' + escapeHtml(whenLabel) + '</strong> ' + escapeHtml(whenText) + '</div>') : '') +
+          '</div>';
+      }).join('');
+    } else {
+      var modes = LessonCreatorService.DEFAULT_INTERACTION_TYPES || [];
+      container.innerHTML = modes.map(function (m) {
+        var iconHtml = m.icon ? '<img src="../assets/icons/' + escapeHtml(m.icon) + '" class="phase-pill-icon" alt="" style="width:15px;height:15px;">' : '';
+        var displayName = getInteractionLabel(m.id, true);
+        var fullTitle = getInteractionLabel(m.id, false);
+        var exp = getInteractionExplanation(m.id);
+        var whenToken = 'lcMode_' + m.id + '_when';
+        var whenText = (typeof i18n !== 'undefined' && i18n.t(whenToken) !== whenToken) ? i18n.t(whenToken) : (m.when || '');
+        var whenLabel = (typeof i18n !== 'undefined' && i18n.t('lcPillPedagogy')) || 'Pedagogical focus:';
+        return '<div class="guide-item-card">' +
+          '  <div class="guide-item-header">' +
+          '    <span class="phase-pill mode-pill active" style="cursor:default;">' +
+                 iconHtml + '<span>' + escapeHtml(displayName) + '</span>' +
+          '    </span>' +
+          '    <span class="guide-item-title">' + escapeHtml(fullTitle) + '</span>' +
+          '  </div>' +
+          '  <div class="guide-item-desc">' + escapeHtml(exp) + '</div>' +
+          (whenText ? ('  <div class="guide-item-when"><strong>' + escapeHtml(whenLabel) + '</strong> ' + escapeHtml(whenText) + '</div>') : '') +
+          '</div>';
+      }).join('');
+    }
+  }
+  window.lcRenderPillsGuideContent = lcRenderPillsGuideContent;
+
+  function lcGetCopyTextToggles() {
+    return {
+      format: document.getElementById('copyTextFormatSelect') ? document.getElementById('copyTextFormatSelect').value : 'markdown',
+      metaHeader: !!(document.getElementById('copyTgl_metaHeader') && document.getElementById('copyTgl_metaHeader').checked),
+      metaDate: !!(document.getElementById('copyTgl_metaDate') && document.getElementById('copyTgl_metaDate').checked),
+      metaDuration: !!(document.getElementById('copyTgl_metaDuration') && document.getElementById('copyTgl_metaDuration').checked),
+      metaSequence: !!(document.getElementById('copyTgl_metaSequence') && document.getElementById('copyTgl_metaSequence').checked),
+      metaTags: !!(document.getElementById('copyTgl_metaTags') && document.getElementById('copyTgl_metaTags').checked),
+      metaTeams: !!(document.getElementById('copyTgl_metaTeams') && document.getElementById('copyTgl_metaTeams').checked),
+      phaseTitle: !!(document.getElementById('copyTgl_phaseTitle') && document.getElementById('copyTgl_phaseTitle').checked),
+      phaseDuration: !!(document.getElementById('copyTgl_phaseDuration') && document.getElementById('copyTgl_phaseDuration').checked),
+      phaseActivity: !!(document.getElementById('copyTgl_phaseActivity') && document.getElementById('copyTgl_phaseActivity').checked),
+      phaseObjective: !!(document.getElementById('copyTgl_phaseObjective') && document.getElementById('copyTgl_phaseObjective').checked),
+      phaseTeacher: !!(document.getElementById('copyTgl_phaseTeacher') && document.getElementById('copyTgl_phaseTeacher').checked),
+      phaseStudent: !!(document.getElementById('copyTgl_phaseStudent') && document.getElementById('copyTgl_phaseStudent').checked),
+      phaseResources: !!(document.getElementById('copyTgl_phaseResources') && document.getElementById('copyTgl_phaseResources').checked),
+      phaseDescriptors: !!(document.getElementById('copyTgl_phaseDescriptors') && document.getElementById('copyTgl_phaseDescriptors').checked),
+      phaseDescText: !!(document.getElementById('copyTgl_phaseDescText') && document.getElementById('copyTgl_phaseDescText').checked),
+      phaseCustomFields: !(document.getElementById('copyTgl_phaseCustomFields') && !document.getElementById('copyTgl_phaseCustomFields').checked)
+    };
+  }
+
+  function lcGeneratePlanText(cfg) {
+    cfg = cfg || lcGetCopyTextToggles();
+    var isMd = (cfg.format === 'markdown');
+    var lines = [];
+
+    function formatField(label, val) {
+      if (!val) return '';
+      var sVal = String(val);
+      if (sVal.indexOf('\n') !== -1) {
+        var indent = isMd ? '    ' : '  ';
+        var formatted = sVal.split(/\r?\n/).join('\n' + indent);
+        return isMd ? ('- **' + label + '**:\n' + indent + formatted) : ('* ' + label + ':\n' + indent + formatted);
+      }
+      return isMd ? ('- **' + label + '**: ' + sVal) : ('* ' + label + ': ' + sVal);
+    }
+
+    // 1. Metadata Block
+    var hasMeta = false;
+    var metaLines = [];
+
+    if (cfg.metaHeader) {
+      hasMeta = true;
+      var planTitle = currentPlan.title || 'Untitled Lesson Plan';
+      if (isMd) {
+        metaLines.push('# ' + planTitle);
+      } else {
+        metaLines.push(planTitle.toUpperCase());
+        metaLines.push('='.repeat(Math.max(40, planTitle.length)));
+      }
+      var subName = getSubjectLabel(currentPlan.subjectId);
+      var clsName = getClassLabel(currentPlan.classId);
+      if (subName) metaLines.push(formatField('Subject', subName));
+      if (clsName) metaLines.push(formatField('Class', clsName));
+    }
+
+    if (cfg.metaDate) {
+      hasMeta = true;
+      if (currentPlan.date) metaLines.push(formatField('Date', currentPlan.date));
+      if (currentPlan.yearLevel && currentPlan.yearLevel !== 'all') metaLines.push(formatField('Year Level', getYearLevelLabel(currentPlan.yearLevel)));
+      if (currentPlan.semester && currentPlan.semester !== 'all') metaLines.push(formatField('Semester', currentPlan.semester.toUpperCase()));
+    }
+
+    if (cfg.metaDuration) {
+      hasMeta = true;
+      var totalDur = (currentPlan.sections || []).reduce(function (sum, s) { return sum + (Number(s.duration) || 0); }, 0);
+      var targetDur = currentPlan.targetDuration || 60;
+      metaLines.push(formatField('Duration', totalDur + ' min (Target: ' + targetDur + ' min)'));
+    }
+
+    if (cfg.metaSequence && currentPlan.unitSequence && currentPlan.unitSequence.title) {
+      hasMeta = true;
+      var seqStr = currentPlan.unitSequence.title + ' (Lesson ' + (currentPlan.unitSequence.lessonIndex || 1) + ' of ' + (currentPlan.unitSequence.totalLessons || 1) + ')';
+      metaLines.push(formatField('Unit Sequence', seqStr));
+    }
+
+    if (cfg.metaTags && Array.isArray(currentPlan.tags) && currentPlan.tags.length > 0) {
+      hasMeta = true;
+      metaLines.push(formatField('Tags', currentPlan.tags.join(', ')));
+    }
+
+    if (cfg.metaTeams && currentPlan.teamConfig && currentPlan.teamConfig.enabled) {
+      hasMeta = true;
+      var rolesList = (currentPlan.teamConfig.roles || []).map(function (r) { return r.name || r; }).join(', ');
+      var teamsStr = 'Teams of ' + currentPlan.teamConfig.teamSize + (rolesList ? (' (Roles: ' + rolesList + ')') : '');
+      metaLines.push(formatField('Teams', teamsStr));
+    }
+
+    if (metaLines.length > 0) {
+      lines = lines.concat(metaLines);
+    }
+
+    // 2. Phase Sections Block
+    var phases = currentPlan.sections || [];
+    if (phases.length > 0) {
+      if (hasMeta) {
+        lines.push(isMd ? '\n---\n' : '\n----------------------------------------\n');
+      }
+
+      phases.forEach(function (sec, idx) {
+        var pDur = Number(sec.duration) || 0;
+        var pLines = [];
+
+        // Phase Header / Title
+        if (cfg.phaseTitle) {
+          var phaseNum = idx + 1;
+          var pTitle = sec.title || ('Phase ' + phaseNum);
+          var timeBadge = '';
+          if (cfg.phaseDuration) {
+            timeBadge = ' (' + pDur + ' min)';
+          }
+          if (isMd) {
+            pLines.push('### ' + phaseNum + '. ' + pTitle + timeBadge);
+          } else {
+            pLines.push('PHASE ' + phaseNum + ': ' + pTitle + timeBadge);
+          }
+        } else if (cfg.phaseDuration) {
+          pLines.push(isMd ? ('- **Duration**: ' + pDur + ' min') : ('* Duration: ' + pDur + ' min'));
+        }
+
+        // Activity & Mode
+        if (cfg.phaseActivity) {
+          var actName = getActivityLabel(sec.activityTypeId);
+          var modeName = getInteractionLabel(sec.interactionTypeId);
+          var actModeStr = actName + (modeName ? (' (' + modeName + ')') : '');
+          if (actModeStr.trim()) pLines.push(formatField('Activity & Mode', actModeStr));
+        }
+
+        // Objective
+        if (cfg.phaseObjective && sec.objective) {
+          pLines.push(formatField('Objective', sec.objective));
+        }
+
+        // Teacher
+        if (cfg.phaseTeacher && sec.teacherAction) {
+          pLines.push(formatField('Teacher Actions', sec.teacherAction));
+        }
+
+        // Student
+        if (cfg.phaseStudent && sec.studentAction) {
+          pLines.push(formatField('Student Tasks', sec.studentAction));
+        }
+
+        // Resources
+        if (cfg.phaseResources && sec.resources) {
+          pLines.push(formatField('Resources', sec.resources));
+        }
+
+        // Descriptors / Competences
+        if (cfg.phaseDescriptors && Array.isArray(sec.descriptorIds) && sec.descriptorIds.length > 0) {
+          var sortedTxtDescIds = sec.descriptorIds.slice().sort(function (a, b) {
+            var targetA = String(a || '').toLowerCase().trim();
+            var targetB = String(b || '').toLowerCase().trim();
+            var da = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetA || String(item.code || '').toLowerCase().trim() === targetA); });
+            var db = (allDescriptors || []).find(function (item) { return item && (String(item.id || '').toLowerCase().trim() === targetB || String(item.code || '').toLowerCase().trim() === targetB); });
+            var codeA = da ? (da.code || da.id || a) : a;
+            var codeB = db ? (db.code || db.id || b) : b;
+            return String(codeA).localeCompare(String(codeB), undefined, { numeric: true, sensitivity: 'base' });
+          });
+
+          var anyHasBody = sortedTxtDescIds.some(function (id) {
+            return lcFormatExportCompetence(id, sec, cfg).hasBody;
+          });
+
+          if (anyHasBody) {
+            var descBlock = sortedTxtDescIds.map(function (id) {
+              var c = lcFormatExportCompetence(id, sec, cfg);
+              var head = (c.code ? ('[' + c.code + '] ') : '') + (c.title || id);
+              if (c.level) head += ' (' + c.level + ')';
+              if (c.category) head += ' {' + c.category + '}';
+              var subLines = [head];
+              if (c.baseDesc) subLines.push('  ' + (isMd ? '*' : '') + c.baseDesc + (isMd ? '*' : ''));
+              if (c.detailedLines.length > 0) {
+                c.detailedLines.forEach(function (l) { subLines.push('  - ' + l); });
+              }
+              if (c.tags.length > 0) subLines.push('  Tags: ' + c.tags.join(', '));
+              if (c.comments) subLines.push('  Note: ' + c.comments);
+              return subLines.join('\n');
+            }).join('\n\n  • ');
+            pLines.push(formatField('Competences', '\n  • ' + descBlock));
+          } else {
+            var descNames = sortedTxtDescIds.map(function (id) {
+              var c = lcFormatExportCompetence(id, sec, cfg);
+              var s = (c.code ? (c.code + ' - ') : '') + (c.title || id);
+              if (c.level) s += ' (' + c.level + ')';
+              if (c.category) s += ' {' + c.category + '}';
+              return s;
+            }).join('; ');
+            pLines.push(formatField('Competences', descNames));
+          }
+        }
+
+        // Custom Fields
+        if (cfg.phaseCustomFields !== false && Array.isArray(sec.customFields) && sec.customFields.length > 0) {
+          sec.customFields.forEach(function (cf) {
+            if (cf && cf.content) {
+              pLines.push(formatField(cf.title || 'Custom Field', cf.content));
+            }
+          });
+        }
+
+        if (pLines.length > 0) {
+          lines.push(pLines.join('\n'));
+          lines.push(''); // Blank separator between phases
+        }
+      });
+    }
+
+    return lines.join('\n').trim();
+  }
+
+  window.lcOpenCopyTextModal = function () {
+    var saved = null;
+    try {
+      saved = JSON.parse(localStorage.getItem('cmt_lc_copy_text_config') || 'null');
+    } catch (_) {}
+    var cfg = Object.assign({}, DEFAULT_COPY_TEXT_CONFIG, saved || {});
+
+    var fmtSel = document.getElementById('copyTextFormatSelect');
+    if (fmtSel) fmtSel.value = cfg.format || 'markdown';
+
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                 'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors', 'phaseDescText', 'phaseCustomFields'];
+    keys.forEach(function (k) {
+      var el = document.getElementById('copyTgl_' + k);
+      if (el) el.checked = (cfg[k] === true);
+      if (el && k !== 'phaseDescText') el.checked = (cfg[k] !== false);
+    });
+
+    lcOnCopyToggleChange();
+    var m = document.getElementById('copyTextModal');
+    if (m) m.style.display = 'flex';
+  };
+
+  window.lcOnCopyToggleChange = function () {
+    var parentEl = document.getElementById('copyTgl_phaseDescriptors');
+    var childEl = document.getElementById('copyTgl_phaseDescText');
+    var childWrap = document.getElementById('copyTgl_phaseDescText_wrap');
+    if (parentEl && childEl && childWrap) {
+      childEl.disabled = !parentEl.checked;
+      childWrap.style.opacity = parentEl.checked ? '1' : '0.45';
+      childWrap.style.pointerEvents = parentEl.checked ? 'auto' : 'none';
+    }
+    var cfg = lcGetCopyTextToggles();
+    try {
+      localStorage.setItem('cmt_lc_copy_text_config', JSON.stringify(cfg));
+    } catch (_) {}
+    lcUpdateCopyTextPreview();
+  };
+
+  window.lcApplyCopyTextPreset = function (preset) {
+    var keys = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'metaTags', 'metaTeams',
+                 'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective', 'phaseTeacher', 'phaseStudent', 'phaseResources', 'phaseDescriptors'];
+
+    if (preset === 'full') {
+      keys.forEach(function (k) {
+        var el = document.getElementById('copyTgl_' + k);
+        if (el) el.checked = true;
+      });
+      var descTextEl = document.getElementById('copyTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = true;
+    } else if (preset === 'summary') {
+      var summaryTrue = ['metaHeader', 'metaDate', 'metaDuration', 'metaSequence', 'phaseTitle', 'phaseDuration', 'phaseActivity', 'phaseObjective'];
+      keys.forEach(function (k) {
+        var el = document.getElementById('copyTgl_' + k);
+        if (el) el.checked = summaryTrue.includes(k);
+      });
+      var descTextEl = document.getElementById('copyTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = false;
+    } else if (preset === 'phasesOnly') {
+      keys.forEach(function (k) {
+        var el = document.getElementById('copyTgl_' + k);
+        if (el) el.checked = k.startsWith('phase');
+      });
+      var descTextEl = document.getElementById('copyTgl_phaseDescText');
+      if (descTextEl) descTextEl.checked = false;
+    }
+
+    lcOnCopyToggleChange();
+  };
+
+  window.lcUpdateCopyTextPreview = function () {
+    var text = lcGeneratePlanText();
+    var area = document.getElementById('copyTextPreviewArea');
+    if (area) area.value = text;
+  };
+
+  window.lcExecuteCopyToClipboard = async function () {
+    var text = lcGeneratePlanText();
+    if (!text) {
+      if (typeof showToast === 'function') showToast(i18n.t("lcPlanEmptyToCopy"), true);
+      return;
+    }
+
+    var copied = false;
+
+    // 1. Try modern navigator.clipboard with try/catch fallback
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      } catch (_) {
+        copied = false;
+      }
+    }
+
+    // 2. Fallback to execCommand on preview textarea
+    if (!copied) {
+      try {
+        var area = document.getElementById('copyTextPreviewArea');
+        if (area) {
+          area.value = text;
+          area.focus();
+          area.select();
+          area.setSelectionRange(0, text.length);
+          copied = document.execCommand('copy');
+        }
+      } catch (_) {
+        copied = false;
+      }
+    }
+
+    // 3. Fallback to offscreen textarea element
+    if (!copied) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '-9999px';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        copied = document.execCommand('copy');
+        if (ta.parentNode) ta.parentNode.removeChild(ta);
+      } catch (_) {
+        copied = false;
+      }
+    }
+
+    if (copied) {
+      lcCloseModal('copyTextModal');
+      if (typeof showToast === 'function') {
+        var msg = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('lcCopiedToast') : 'Lesson plan copied to clipboard!';
+        showToast(msg);
+      }
+    } else {
+      var previewEl = document.getElementById('copyTextPreviewArea');
+      if (previewEl) {
+        previewEl.focus();
+        previewEl.select();
+      }
+      if (typeof showToast === 'function') {
+        showToast(i18n.t("lcManualCopyNote"), true);
+      }
+    }
+  };
+
+  window.lcDownloadPlanTxt = function () {
+    var text = lcGeneratePlanText();
+    if (!text) {
+      if (typeof showToast === 'function') showToast('Plan is empty.', true);
+      return;
+    }
+    var fmt = document.getElementById('copyTextFormatSelect') ? document.getElementById('copyTextFormatSelect').value : 'markdown';
+    var ext = (fmt === 'markdown') ? 'md' : 'txt';
+    var mime = (fmt === 'markdown') ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8';
+    var blob = new Blob([text], { type: mime });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = getSafeExportFilename(ext);
+    a.click();
+  };
+
+  function escapeHtml(str) {
+    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+    try {
+      var _dataChannel = new BroadcastChannel('cmt_data_sync');
+      _dataChannel.onmessage = function (ev) {
+        if (ev && ev.data && (ev.data.file === 'class-groups.js' || ev.data.type === 'class-groups')) {
+          loadClassRosters();
+          if (typeof showDataChangedBanner === 'function') {
+            showDataChangedBanner({ file: 'class-groups.js', label: 'Class Groups' });
+          }
+        }
+      };
+    } catch (_) {}
+  }
+
+})();

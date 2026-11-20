@@ -669,6 +669,15 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('interval-import-plan-btn');
+      if (!el) return;
+      el.addEventListener('click', function () {
+        if (typeof window.importLessonPlanToSequence === 'function') {
+          window.importLessonPlanToSequence();
+        }
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-cmev-112]');
       if (!el) return;
       var handler = function (event) { deleteIntervalPreset() };
@@ -1201,6 +1210,15 @@
       if (!el) return;
       var handler = function (event) { CmsLessonRunner.completePhase() };
       el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.getElementById('clr-load-sequence-btn');
+      if (!el) return;
+      el.addEventListener('click', function () {
+        if (window.CmsLessonRunner && typeof CmsLessonRunner.sendToSequenceTimer === 'function') {
+          CmsLessonRunner.sendToSequenceTimer(false);
+        }
+      });
     })();
     (function () {
       var el = document.querySelector('[data-cmev-201]');

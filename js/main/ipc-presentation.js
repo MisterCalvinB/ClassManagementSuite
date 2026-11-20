@@ -19,8 +19,10 @@ function registerPresentationIpc(ctx) {
     syncTargetWindowToSource,
     applyPresentationDefaultBounds,
     dockTargetWindow,
-    maximizePresenterWindow
+    maximizePresenterWindow,
+    notifyWindowsChanged
   } = ctx;
+  const _notify = typeof notifyWindowsChanged === 'function' ? notifyWindowsChanged : () => {};
 
   ipcMain.handle('app:has-second-display', async () => {
     return screen.getAllDisplays().length > 1;
@@ -118,6 +120,7 @@ function registerPresentationIpc(ctx) {
     winRefs.mirror.on('closed', () => {
       winRefs.mirror = null;
       winRefs.mirrorSource = null;
+      _notify();
     });
     // When no second screen and no custom presentation size: keep presentation window the same size as the main window
     if (!secondDisplay && !hasCustomPres && senderWin) {
@@ -141,6 +144,7 @@ function registerPresentationIpc(ctx) {
         winRefs.mirror.webContents.setZoomFactor(srcZoom);
       } catch (_) { }
     }
+    _notify();
     return { ok: true };
   });
 
@@ -176,6 +180,7 @@ function registerPresentationIpc(ctx) {
       case 'toggle-always-on-top': {
         const nextTop = !winRefs.mirror.isAlwaysOnTop();
         winRefs.mirror.setAlwaysOnTop(nextTop, 'floating');
+        _notify();
         return { ok: true, alwaysOnTop: winRefs.mirror.isAlwaysOnTop() };
       }
       case 'get-always-on-top':
@@ -183,6 +188,7 @@ function registerPresentationIpc(ctx) {
       default:
         return { ok: false, reason: 'unknown-command' };
     }
+    _notify();
     return { ok: true };
   });
 
@@ -257,7 +263,10 @@ function registerPresentationIpc(ctx) {
       winRefs.cms.maximize();
     }
     setupWindowExternalLinkHandling(winRefs.cms);
-    winRefs.cms.on('closed', () => { winRefs.cms = null; });
+    winRefs.cms.on('closed', () => {
+      winRefs.cms = null;
+      _notify();
+    });
 
     try {
       await winRefs.cms.loadFile(
@@ -274,6 +283,7 @@ function registerPresentationIpc(ctx) {
         winRefs.cms.webContents.setZoomFactor(srcZoom);
       } catch (_) { }
     }
+    _notify();
     return { ok: true };
   });
 
@@ -296,12 +306,14 @@ function registerPresentationIpc(ctx) {
       case 'toggle-always-on-top': {
         const nextTop = !winRefs.cms.isAlwaysOnTop();
         winRefs.cms.setAlwaysOnTop(nextTop, 'floating');
+        _notify();
         return { ok: true, alwaysOnTop: winRefs.cms.isAlwaysOnTop() };
       }
       case 'get-always-on-top':
         return { ok: true, alwaysOnTop: winRefs.cms.isAlwaysOnTop() };
       default: return { ok: false, reason: 'unknown-command' };
     }
+    _notify();
     return { ok: true };
   });
 

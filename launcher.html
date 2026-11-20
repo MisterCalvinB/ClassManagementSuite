@@ -15,6 +15,7 @@
   <script src="js/shared/tutorial.js"></script>
   <script src="js/shared/pins.js"></script>
   <script src="js/shared/quick-switcher.js"></script>
+  <script src="js/shared/window-helper.js"></script>
   <script>
     // Startup: open configured apps in the background after the launcher renders.
     // Runs once per window session — navigating back to the launcher skips this.
@@ -131,6 +132,7 @@
     <div class="l-header-actions">
       <button class="l-header-btn" id="headerSyncBtn" data-hover-help-accent="green" data-hover-help="{green:**Sync**} data folder now" data-i18n-help="btnHeaderSync"><span data-i18n="btnHeaderSync">Sync</span></button>
       <button class="l-header-btn" id="headerUnitExplorerBtn" data-hover-help-accent="blue" data-hover-help="Explore all resources by {blue:**Unit &amp; Tag**}" data-i18n-help="btnHeaderUnitExplorer"><img src="assets/icons/links.svg" class="l-hdr-icon-img" alt="" /> <span data-i18n="headerUnitExplorer">Links</span></button>
+      <button type="button" class="l-header-btn" id="headerWindowHelperBtn" data-hover-help="**Reorder Windows** (Ctrl+Shift+W)" data-i18n-help="wh_open_helper" aria-label="Reorder Windows (Ctrl+Shift+W)"><img src="assets/icons/layout.svg" class="l-hdr-icon-img" alt="" /></button>
       <button class="l-header-btn sb-toggle-btn" id="sbToggleBtn" data-i18n="sbToggleBtn">Panel</button>
 
       <div class="l-more-dropdown-wrap" id="headerMoreWrap">
@@ -2657,7 +2659,9 @@
                     url: qd.href,
                     mode: qd.mode,
                     studentName: item.cat === 'student' ? item.title : '',
-                    className: item.cat === 'student' ? item.sub : item.title
+                    studentId: item.cat === 'student' ? (item.studentId || '') : '',
+                    className: item.cat === 'student' ? item.sub : item.title,
+                    classId: item.classId || ''
                   });
                 });
                 acts.appendChild(b);
@@ -5726,6 +5730,7 @@
       if (el) el.addEventListener('click', fn);
     };
     on('headerSyncBtn', function () { if (typeof openModalAndSync === 'function') openModalAndSync(); });
+    on('headerWindowHelperBtn', function () { if (window.WindowHelper && typeof window.WindowHelper.open === 'function') window.WindowHelper.open(); });
     on('headerUnitExplorerBtn', function () { if (typeof openUnitExplorerModal === 'function') openUnitExplorerModal(); });
     on('headerSetupWizardBtn', function () { if (typeof closeHeaderMoreMenu === 'function') closeHeaderMoreMenu(); if (typeof openModal === 'function') openModal('pages/setup-wizard.html'); });
     on('headerConfigBtn', function () { if (typeof closeHeaderMoreMenu === 'function') closeHeaderMoreMenu(); if (typeof openModal === 'function') openModal('pages/general-config.html'); });

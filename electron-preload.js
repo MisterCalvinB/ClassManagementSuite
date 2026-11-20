@@ -281,6 +281,32 @@ const exposedApi = {
   arrangeSideBySide(request) {
     return invoke('app:arrange-side-by-side', request);
   },
+  getWindowsState() {
+    return invoke('app:get-windows-state');
+  },
+  reorderWindows(request) {
+    return invoke('app:reorder-windows', request);
+  },
+  applyWindowPreset(request) {
+    return invoke('app:apply-window-preset', request);
+  },
+  windowAction(request) {
+    return invoke('app:window-action', request);
+  },
+  getWindowPresets() {
+    return invoke('app:get-window-presets');
+  },
+  saveWindowPresets(request) {
+    return invoke('app:save-window-presets', request);
+  },
+  onWindowsChanged(callback) {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload);
+    ipcRenderer.on('app:windows-changed', handler);
+    return () => {
+      try { ipcRenderer.removeListener('app:windows-changed', handler); } catch (_) {}
+    };
+  },
   goToLauncher() {
     return invoke('app:go-to-launcher');
   },

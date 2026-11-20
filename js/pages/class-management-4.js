@@ -597,6 +597,9 @@
                     }
 
                     this.renderCurrentPhase();
+                    if (typeof window.refreshIntervalPlanImportBtn === 'function') {
+                        window.refreshIntervalPlanImportBtn();
+                    }
                     if (!PRESENTATION_MODE && typeof _broadcastPresentationState === 'function') {
                         _broadcastPresentationState();
                     }
@@ -608,12 +611,24 @@
                     this.activePhaseIndex = 0;
                     var container = document.getElementById('cms-lesson-runner-container');
                     if (container) container.style.display = 'none';
+                    if (typeof window.refreshIntervalPlanImportBtn === 'function') {
+                        window.refreshIntervalPlanImportBtn();
+                    }
                     if (!PRESENTATION_MODE && typeof _broadcastPresentationState === 'function') {
                         _broadcastPresentationState();
                     }
                 },
 
-                renderCurrentPhase: function () {
+                sendToSequenceTimer: function (autoStart) {
+                    if (!this.activePlan) return false;
+                    if (typeof window.importLessonPlanToSequence === 'function') {
+                        return window.importLessonPlanToSequence(this.activePlan, !!autoStart);
+                    }
+                    return false;
+                },
+
+                renderCurrentPhase: function (opts) {
+                    opts = opts || {};
                     if (!this.activePlan || !this.activePlan.sections) return;
                     var phases = this.activePlan.sections;
                     var phase = phases[this.activePhaseIndex];
@@ -694,6 +709,9 @@
                                 chip.onclick = function () {
                                     self.activePhaseIndex = idx;
                                     self.renderCurrentPhase();
+                                    if (typeof window.jumpIntervalToLessonPhase === 'function') {
+                                        window.jumpIntervalToLessonPhase(idx);
+                                    }
                                 };
                             }
                             timelineEl.appendChild(chip);
@@ -707,14 +725,16 @@
                         }
                     }
 
-                    // Auto-preset timer duration
+                    // Auto-preset timer duration (skip if driven by an active sequence step)
                     var durMins = Number(phase.duration) || 5;
-                    var minsInput = document.getElementById('overlay-timer-minutes');
-                    var hrsInput = document.getElementById('overlay-timer-hours');
-                    if (minsInput && hrsInput) {
-                        hrsInput.value = 0;
-                        minsInput.value = durMins;
-                        if (typeof syncOverlaySettingsToPopup === 'function') syncOverlaySettingsToPopup();
+                    if (!opts.skipTimerPreset) {
+                        var minsInput = document.getElementById('overlay-timer-minutes');
+                        var hrsInput = document.getElementById('overlay-timer-hours');
+                        if (minsInput && hrsInput) {
+                            hrsInput.value = 0;
+                            minsInput.value = durMins;
+                            if (typeof syncOverlaySettingsToPopup === 'function') syncOverlaySettingsToPopup();
+                        }
                     }
 
                     // Broadcast to presentation window
@@ -750,6 +770,9 @@
                     if (this.activePhaseIndex < this.activePlan.sections.length - 1) {
                         this.activePhaseIndex++;
                         this.renderCurrentPhase();
+                        if (typeof window.jumpIntervalToLessonPhase === 'function') {
+                            window.jumpIntervalToLessonPhase(this.activePhaseIndex);
+                        }
                     } else {
                         if (typeof showToast === 'function') showToast('All lesson phases completed!');
                     }
@@ -760,6 +783,9 @@
                     if (this.activePhaseIndex > 0) {
                         this.activePhaseIndex--;
                         this.renderCurrentPhase();
+                        if (typeof window.jumpIntervalToLessonPhase === 'function') {
+                            window.jumpIntervalToLessonPhase(this.activePhaseIndex);
+                        }
                     }
                 },
 

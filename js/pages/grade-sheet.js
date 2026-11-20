@@ -1013,30 +1013,35 @@
         const targetDateParam = params.date;
         const targetTestNameParam = params.testName || params.topic;
 
-        let targetClass = null;
-
-        if (targetClassParam) {
-          const rawTarget = String(targetClassParam).trim();
+        function findClassByParam(paramVal) {
+          if (!paramVal) return null;
+          const rawTarget = String(paramVal).trim();
           const normTarget = rawTarget.toLowerCase();
 
           // 1. Match by c.id or c.groupId exact match
-          targetClass = appState.classes.find(c => c.id === rawTarget || c.groupId === rawTarget);
+          let found = appState.classes.find(c => c.id === rawTarget || c.groupId === rawTarget);
 
           // 2. Match by name
-          if (!targetClass) {
-            targetClass = appState.classes.find(c => (c.name || '').trim().toLowerCase() === normTarget);
+          if (!found) {
+            found = appState.classes.find(c => (c.name || '').trim().toLowerCase() === normTarget);
           }
 
           // 3. Match by slugified name
-          if (!targetClass && typeof slugifyForPath === 'function') {
-            targetClass = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === normTarget);
+          if (!found && typeof slugifyForPath === 'function') {
+            found = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === normTarget);
           }
 
           // 4. Match by slugified target against slugified class name
-          if (!targetClass && typeof slugifyForPath === 'function') {
+          if (!found && typeof slugifyForPath === 'function') {
             const slugTarget = slugifyForPath(rawTarget).toLowerCase();
-            targetClass = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === slugTarget);
+            found = appState.classes.find(c => slugifyForPath(c.name || '').toLowerCase() === slugTarget);
           }
+          return found || null;
+        }
+
+        let targetClass = findClassByParam(targetClassParam);
+        if (!targetClass && params.className && params.className !== targetClassParam) {
+          targetClass = findClassByParam(params.className);
         }
 
         // 5. Fallback: match by date or test name across all classes
@@ -1108,6 +1113,27 @@
           }
         }
 
+        function findStudentInClass(students, studentParam) {
+          if (!studentParam || !Array.isArray(students)) return null;
+          const normStudent = String(studentParam).trim().toUpperCase();
+          return students.find(s =>
+            String(s.id).toUpperCase() === normStudent ||
+            String(s.uuid || '').toUpperCase() === normStudent ||
+            ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
+            ((s.lastName || '') + ' ' + (s.firstName || '')).trim().toUpperCase() === normStudent ||
+            (s.firstName && s.firstName.trim().toUpperCase() === normStudent) ||
+            (s.customName && s.customName.trim().toUpperCase() === normStudent)
+          ) || null;
+        }
+
+        function resolveTargetStudent(students) {
+          let sMatch = findStudentInClass(students, targetStudentParam);
+          if (!sMatch && params.studentName && params.studentName !== targetStudentParam) {
+            sMatch = findStudentInClass(students, params.studentName);
+          }
+          return sMatch;
+        }
+
         if (resolvedTestIndex >= 0 && resolvedTestIndex < TEST_COUNT_PER_SEM) {
           if ((targetClass.testCounts[targetSem] || 0) <= resolvedTestIndex) {
             targetClass.testCounts[targetSem] = resolvedTestIndex + 1;
@@ -1117,50 +1143,32 @@
           renderTestSheet();
           showScreen("test");
 
-          if (targetStudentParam && Array.isArray(targetClass.students)) {
-            const normStudent = String(targetStudentParam).trim().toUpperCase();
-            const sMatch = targetClass.students.find(s =>
-              String(s.id).toUpperCase() === normStudent ||
-              ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
-              ((s.lastName || '') + ' ' + (s.firstName || '')).trim().toUpperCase() === normStudent ||
-              (s.firstName && s.firstName.trim().toUpperCase() === normStudent) ||
-              (s.customName && s.customName.trim().toUpperCase() === normStudent)
-            );
-            if (sMatch) {
-              requestAnimationFrame(() => {
-                const testTr = document.querySelector(`#test-table tbody tr[data-student-id="${sMatch.id}"]`);
-                if (testTr) {
-                  testTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  testTr.classList.add('selected-student-row');
-                  setTimeout(() => testTr.classList.remove('selected-student-row'), 4000);
-                }
-              });
-            }
+          const sMatch = resolveTargetStudent(targetClass.students);
+          if (sMatch) {
+            requestAnimationFrame(() => {
+              const testTr = document.querySelector(`#test-table tbody tr[data-student-id="${sMatch.id}"]`);
+              if (testTr) {
+                testTr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                testTr.classList.add('selected-student-row');
+                setTimeout(() => testTr.classList.remove('selected-student-row'), 4000);
+              }
+            });
           }
           return true;
         } else {
           appState.activeClassId = targetClass.id;
           renderSummary();
           showScreen("summary");
-          if (targetStudentParam && Array.isArray(targetClass.students)) {
-            const normStudent = String(targetStudentParam).trim().toUpperCase();
-            const sMatch = targetClass.students.find(s =>
-              String(s.id).toUpperCase() === normStudent ||
-              ((s.firstName || '') + ' ' + (s.lastName || '')).trim().toUpperCase() === normStudent ||
-              ((s.lastName || '') + ' ' + (s.firstName || '')).trim().toUpperCase() === normStudent ||
-              (s.firstName && s.firstName.trim().toUpperCase() === normStudent) ||
-              (s.customName && s.customName.trim().toUpperCase() === normStudent)
-            );
-            if (sMatch) {
-              requestAnimationFrame(() => {
-                const tr = document.querySelector(`#summary-table tbody tr[data-summary-student-id="${sMatch.id}"]`);
-                if (tr) {
-                  tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  tr.classList.add('selected-student-row');
-                  setTimeout(() => tr.classList.remove('selected-student-row'), 4000);
-                }
-              });
-            }
+          const sMatch = resolveTargetStudent(targetClass.students);
+          if (sMatch) {
+            requestAnimationFrame(() => {
+              const tr = document.querySelector(`#summary-table tbody tr[data-summary-student-id="${sMatch.id}"]`);
+              if (tr) {
+                tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                tr.classList.add('selected-student-row');
+                setTimeout(() => tr.classList.remove('selected-student-row'), 4000);
+              }
+            });
           }
           return true;
         }

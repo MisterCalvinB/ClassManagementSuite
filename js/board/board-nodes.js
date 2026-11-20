@@ -5798,7 +5798,8 @@
             + '<button type="button" class="pres-btn" data-pres-action="default-size" data-tooltip="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" title="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '" aria-label="' + (boardT('pres_default_size_title') || boardT('pres_default_size') || 'Default size') + '"><img src="../assets/icons/monitor.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="maximise" data-tooltip="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" title="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '" aria-label="' + (boardT('pres_maximize_title') || boardT('presMaximise')) + '"><img src="../assets/icons/maximize.svg" alt="" /></button>'
             + '<button type="button" class="pres-btn" data-pres-action="left" data-tooltip="' + (boardT('pres_left_title') || boardT('presLeft')) + '" title="' + (boardT('pres_left_title') || boardT('presLeft')) + '" aria-label="' + (boardT('pres_left_title') || boardT('presLeft')) + '"><img src="../assets/icons/triangle-left.svg" alt="" /></button>'
-            + '<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>';
+            + '<button type="button" class="pres-btn" data-pres-action="right" data-tooltip="' + (boardT('pres_right_title') || boardT('presRight')) + '" title="' + (boardT('pres_right_title') || boardT('presRight')) + '" aria-label="' + (boardT('pres_right_title') || boardT('presRight')) + '"><img src="../assets/icons/triangle-right.svg" alt="" /></button>'
+            + '<button type="button" class="pres-btn" data-pres-action="reorder-windows" data-tooltip="' + (boardT('wh_open_helper') || 'Reorder Windows') + '" title="' + (boardT('wh_open_helper') || 'Reorder Windows') + '" aria-label="' + (boardT('wh_open_helper') || 'Reorder Windows') + '"><img src="../assets/icons/layout.svg" alt="" /></button>';
           menu.addEventListener('click', function (event) {
             const btn = event.target && event.target.closest ? event.target.closest('[data-pres-action]') : null;
             if (!btn) return;
@@ -5813,6 +5814,7 @@
             else if (action === 'maximise') window.conMirrorMaximiseWindow();
             else if (action === 'right') window.conMirrorDockRight();
             else if (action === 'left') window.conMirrorDockLeft();
+            else if (action === 'reorder-windows' && window.WindowHelper && typeof window.WindowHelper.open === 'function') window.WindowHelper.open();
           });
 
           // Make the popup draggable
@@ -6654,6 +6656,27 @@
             window._conMirrorSend({ type: 'mirror-pin-state', on: _mirrorAlwaysOnTop });
           }
         };
+        if (window.Desktop && typeof window.Desktop.onWindowsChanged === 'function') {
+          const _unsubBoardWin = window.Desktop.onWindowsChanged(function (snapshot) {
+            if (!snapshot || !Array.isArray(snapshot.windows)) return;
+            const mirrorWin = snapshot.windows.find(function (w) {
+              return w && w.role === 'mirror' && w.pageFile === 'board.html';
+            });
+            if (mirrorWin) {
+              if (_mirrorAlwaysOnTop !== !!mirrorWin.isAlwaysOnTop) {
+                _mirrorAlwaysOnTop = !!mirrorWin.isAlwaysOnTop;
+                if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+              }
+            } else if (_mirrorControlMenuEl && _mirrorControlMenuEl.style.display !== 'none') {
+              _mirrorAlwaysOnTop = false;
+              if (typeof _syncMirrorPinButtons === 'function') _syncMirrorPinButtons();
+              _mirrorControlMenuEl.style.display = 'none';
+            }
+          });
+          window.addEventListener('beforeunload', function () {
+            try { _unsubBoardWin(); } catch (_) {}
+          });
+        }
       } else {
         window.conOpenMirrorWindow = function () { };
         window.conCloseMirrorWindow = function () { };
