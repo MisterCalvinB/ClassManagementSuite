@@ -182,7 +182,7 @@ function buildSpecificEditorHtml(ex) {
             '    </div>' +
             '    <div class="subitem-field-grp">' +
             '      <span class="subitem-field-label">' + escapeHtml(i18n.t('tcLineColorLabel') || 'Colour:') + '</span>' +
-            '      <input type="color" value="' + escapeAttr(q.lineColor || exOpts.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateOpenQuestionItem(\'' + ex.id + '\', ' + qIdx + ', \'lineColor\', this.value)">' +
+            '      <input type="color" data-color-css="' + escapeAttr(q.lineColor || exOpts.lineColor || '#94a3b8') + '" value="' + escapeAttr(q.lineColor || exOpts.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateOpenQuestionItem(\'' + ex.id + '\', ' + qIdx + ', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
             '    </div>' +
             '    <div class="subitem-field-grp flex-1">' +
             '      <span class="subitem-field-label">' + escapeHtml(i18n.t('tcStarterLbl')) + '</span>' +
@@ -263,7 +263,7 @@ function buildSpecificEditorHtml(ex) {
             '    </div>' +
             '    <div class="subitem-field-grp">' +
             '      <span class="subitem-field-label">' + (t('tcLineColorLabel') || 'Colour:') + '</span>' +
-            '      <input type="color" value="' + escapeAttr(cItem.lineColor || exOpts.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateCompositionItem(\'' + ex.id + '\', ' + cIdx + ', \'lineColor\', this.value)">' +
+            '      <input type="color" data-color-css="' + escapeAttr(cItem.lineColor || exOpts.lineColor || '#94a3b8') + '" value="' + escapeAttr(cItem.lineColor || exOpts.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateCompositionItem(\'' + ex.id + '\', ' + cIdx + ', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
             '    </div>' +
             '  </div>' +
             '</div>';
@@ -494,7 +494,7 @@ function buildSpecificEditorHtml(ex) {
             '    </div>' +
             '    <div class="subitem-field-grp">' +
             '      <span class="subitem-field-label">' + escapeHtml(i18n.t('tcLineColorLabel') || 'Colour:') + '</span>' +
-            '      <input type="color" value="' + escapeAttr(pIt.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdatePictureItem(\'' + ex.id + '\', ' + pIdx + ', \'lineColor\', this.value)">' +
+            '      <input type="color" data-color-css="' + escapeAttr(pIt.lineColor || '#94a3b8') + '" value="' + escapeAttr(pIt.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdatePictureItem(\'' + ex.id + '\', ' + pIdx + ', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
             '    </div>' +
             '    <div class="subitem-field-grp flex-1">' +
             '      <span class="subitem-solution-icon" title="Teacher Model Answer">🔑</span>' +
@@ -681,7 +681,7 @@ function buildSpecificEditorHtml(ex) {
             '    </div>' +
             '    <div class="subitem-field-grp">' +
             '      <span class="subitem-field-label">' + escapeHtml(i18n.t('tcLineColorLabel') || 'Colour:') + '</span>' +
-            '      <input type="color" value="' + escapeAttr(sq.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateReadingSubQ(\'' + ex.id + '\', ' + sIdx + ', \'lineColor\', this.value)">' +
+            '      <input type="color" data-color-css="' + escapeAttr(sq.lineColor || '#94a3b8') + '" value="' + escapeAttr(sq.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateReadingSubQ(\'' + ex.id + '\', ' + sIdx + ', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
             '    </div>' +
             '    <div class="subitem-field-grp flex-1">' +
             '      <span class="subitem-field-label">' + escapeHtml(i18n.t('tcStarterLbl')) + '</span>' +

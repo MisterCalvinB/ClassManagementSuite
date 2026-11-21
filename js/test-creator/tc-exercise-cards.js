@@ -1159,7 +1159,7 @@ function buildLinesSectionCardHtml(ex, idx) {
     '      </div>' +
     '      <label class="tc-lb-field">' +
     '        <span>' + T('tcLineColorLabel', 'Colour:') + '</span>' +
-    '        <input type="color" value="' + escapeAttr(c.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateLinesSectionField(\'' + ex.id + '\', \'lineColor\', this.value)">' +
+    '        <input type="color" data-color-css="' + escapeAttr(c.lineColor || '#94a3b8') + '" value="' + escapeAttr(c.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateLinesSectionField(\'' + ex.id + '\', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
     '      </label>' +
     '      <label class="card-checkbox-label">' +
     '        <input type="checkbox"' + (numbered ? ' checked' : '') + ' onchange="tcUpdateLinesSectionField(\'' + ex.id + '\', \'numberedLines\', this.checked)">' +
@@ -2029,7 +2029,7 @@ function tcRenderExLineBlocksHtml(ex) {
             tcBuildUnitInputHtml(lb.lineThickness || '1px', 'px', ['px', 'pt', 'mm'], 'tcUpdateExLineBlock(\'' + ex.id + '\', ' + lbIdx + ', \'lineThickness\', __VAL__)') +
           '</div>' +
           '<label class="tc-lb-field"><span>' + T('tcLineColorLabel', 'Colour:') + '</span>' +
-            '<input type="color" value="' + escapeAttr(lb.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateExLineBlock(\'' + ex.id + '\', ' + lbIdx + ', \'lineColor\', this.value)">' +
+            '<input type="color" data-color-css="' + escapeAttr(lb.lineColor || '#94a3b8') + '" value="' + escapeAttr(lb.lineColor || '#94a3b8') + '" style="width:28px;height:24px;padding:1px;border:1.5px solid #333;border-radius:4px;cursor:pointer;" onchange="tcUpdateExLineBlock(\'' + ex.id + '\', ' + lbIdx + ', \'lineColor\', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)">' +
           '</label>' +
           '<label class="tc-lb-field"><span>' + T('tcLinePosLabel', 'Position:') + '</span>' +
             '<select class="meta-select sm" onchange="tcUpdateExLineBlock(\'' + ex.id + '\', ' + lbIdx + ', \'position\', this.value)">' +

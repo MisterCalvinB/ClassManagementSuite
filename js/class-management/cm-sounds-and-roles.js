@@ -3084,10 +3084,10 @@
                     }).join('');
 
                     // Custom color picker button
-                    html += `<label title="Add Custom Color Flag" style="padding:4px 8px; border-radius:4px; background:#fff; color:#555; border:1.5px dashed #ccc; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700; position:relative; overflow:hidden;">
-                        <input type="color" onchange="toggleStudentManualFlag(${student.id}, this.value)" style="position:absolute; opacity:0; width:100%; height:100%; cursor:pointer;">
-                        <span>🎨 Custom...</span>
-                    </label>`;
+                    html += `<button type="button" title="Add Custom Color Flag" onclick="window.UnifiedColorPicker && window.UnifiedColorPicker.open({ anchor: this, value: '#ef4444', onChange: function(col){ toggleStudentManualFlag(${student.id}, col); } })" style="padding:4px 8px; border-radius:4px; background:#fff; color:#555; border:1.5px dashed #ccc; cursor:pointer; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; font-weight:700;">
+                        <img src="../assets/icons/palette.svg" class="btn-icon" style="width:12px; height:12px;" alt="" />
+                        <span>Custom...</span>
+                    </button>`;
 
                     paletteEl.innerHTML = html;
                 }

@@ -2449,6 +2449,593 @@
       container.querySelectorAll(rowSelector).forEach(attachRow);
     }
 
+    function _bcEsc(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function _bcExtractAlpha(val) {
+      const v = String(val || '').trim().toLowerCase();
+      if (!v || v === 'transparent') return 0;
+      const m = v.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([0-9.]+)\s*\)$/);
+      if (m) {
+        const a = parseFloat(m[1]);
+        return isNaN(a) ? 1 : Math.max(0, Math.min(1, a));
+      }
+      return 1;
+    }
+
+    function _bcFormatRgba(hex, alpha) {
+      const h = /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '#ffffff';
+      const r = parseInt(h.slice(1, 3), 16);
+      const g = parseInt(h.slice(3, 5), 16);
+      const b = parseInt(h.slice(5, 7), 16);
+      const a = Number(Math.max(0, Math.min(1, alpha)).toFixed(2));
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    function _bcBindModalColorPair(pickerEl, textEl, onChange) {
+      if (!pickerEl || !textEl) return;
+
+      const pairWrap = pickerEl.closest('.bc-ie-color-pair');
+      let alphaSlider = null;
+      let alphaValEl = null;
+
+      if (pairWrap && pairWrap.parentElement) {
+        const alphaRow = document.createElement('div');
+        alphaRow.className = 'bc-ie-alpha-row';
+
+        const alphaLbl = document.createElement('span');
+        alphaLbl.className = 'bc-ie-alpha-lbl';
+        alphaLbl.textContent = 'Opacity';
+
+        alphaSlider = document.createElement('input');
+        alphaSlider.type = 'range';
+        alphaSlider.className = 'bc-ie-alpha-slider';
+        alphaSlider.min = '0';
+        alphaSlider.max = '100';
+        alphaSlider.step = '1';
+        const initPct = Math.round(_bcExtractAlpha(textEl.value) * 100);
+        alphaSlider.value = String(initPct);
+
+        alphaValEl = document.createElement('span');
+        alphaValEl.className = 'bc-ie-alpha-val';
+        alphaValEl.textContent = initPct + '%';
+
+        alphaRow.appendChild(alphaLbl);
+        alphaRow.appendChild(alphaSlider);
+        alphaRow.appendChild(alphaValEl);
+        pairWrap.parentElement.appendChild(alphaRow);
+
+        alphaSlider.addEventListener('input', () => {
+          const pct = parseInt(alphaSlider.value, 10);
+          alphaValEl.textContent = pct + '%';
+          textEl.value = _bcFormatRgba(pickerEl.value, pct / 100);
+          if (typeof onChange === 'function') onChange();
+        });
+      }
+
+      textEl.addEventListener('input', () => {
+        const val = textEl.value.trim();
+        _bcSyncPickerFromText(pickerEl, val);
+        if (alphaSlider && alphaValEl) {
+          const pct = Math.round(_bcExtractAlpha(val) * 100);
+          alphaSlider.value = String(pct);
+          alphaValEl.textContent = pct + '%';
+        }
+        if (typeof onChange === 'function') onChange();
+      });
+
+      pickerEl.addEventListener('input', () => {
+        const pct = alphaSlider ? parseInt(alphaSlider.value, 10) : Math.round(_bcExtractAlpha(textEl.value) * 100);
+        textEl.value = _bcFormatRgba(pickerEl.value, pct / 100);
+        if (typeof onChange === 'function') onChange();
+      });
+    }
+
+    function _bcBindUnitConversion(inputEl, unitSel, toPxFn, fromPxFn, onChange) {
+      if (!inputEl || !unitSel) return;
+      unitSel.dataset.lastUnit = unitSel.value;
+      unitSel.addEventListener('change', () => {
+        const prevUnit = unitSel.dataset.lastUnit || 'px';
+        const newUnit = unitSel.value;
+        const val = parseFloat(inputEl.value);
+        if (!isNaN(val) && typeof toPxFn === 'function' && typeof fromPxFn === 'function') {
+          inputEl.value = String(fromPxFn(toPxFn(val, prevUnit), newUnit));
+        }
+        unitSel.dataset.lastUnit = newUnit;
+        if (typeof onChange === 'function') onChange();
+      });
+    }
+
+    let _bcItemEditorCleanup = null;
+
+    function bcCloseItemEditor() {
+      const ov = document.getElementById('bc-item-editor-overlay');
+      if (ov) ov.classList.remove('active');
+      if (typeof _bcItemEditorCleanup === 'function') {
+        _bcItemEditorCleanup();
+        _bcItemEditorCleanup = null;
+      }
+    }
+    window.bcCloseItemEditor = bcCloseItemEditor;
+
+    function bcOpenItemEditor(opts) {
+      const ov = document.getElementById('bc-item-editor-overlay');
+      const modal = document.getElementById('bc-item-editor-modal');
+      const titleEl = document.getElementById('bc-ie-title');
+      const body = document.getElementById('bc-ie-body');
+      const closeBtn = document.getElementById('bc-ie-close-btn');
+      const cancelBtn = document.getElementById('bc-ie-cancel-btn');
+      const saveBtn = document.getElementById('bc-ie-save-btn');
+      const delBtn = document.getElementById('bc-ie-delete-btn');
+      if (!ov || !modal || !titleEl || !body) return;
+
+      if (typeof _bcItemEditorCleanup === 'function') {
+        _bcItemEditorCleanup();
+        _bcItemEditorCleanup = null;
+      }
+
+      const mode = opts.mode || 'swatch';
+      const isNodePreset = mode === 'node-preset';
+      const isNotePreset = mode === 'note-preset';
+      const isPreset = isNodePreset || isNotePreset;
+      const isPalette = mode === 'node-palette';
+
+      modal.classList.toggle('bc-ie-compact', !isPreset);
+      titleEl.textContent = opts.title || (
+        isNodePreset ? 'Edit Node Preset' :
+        isNotePreset ? 'Edit Note Preset' :
+        isPalette ? 'Edit Node Colour Swatch' : 'Edit Colour Swatch'
+      );
+
+      if (delBtn) delBtn.style.display = typeof opts.onDelete === 'function' ? '' : 'none';
+      body.innerHTML = '';
+
+      let collectValue = () => null;
+      let updatePreview = () => {};
+
+      if (isPreset) {
+        const p = opts.item || {};
+        const fmt = p.fmt || {};
+        const bwVal = p.borderWidth != null ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.borderWidth, p.borderWidthUnit || 'px') : p.borderWidth) : (isNodePreset ? 2 : 0);
+        const fsVal = p.fontSize != null && p.fontSize !== '' ? (typeof conPxToFontUnit === 'function' ? conPxToFontUnit(p.fontSize, p.fontSizeUnit || 'px') : p.fontSize) : '';
+        const tswVal = p.textStrokeWidth != null && p.textStrokeWidth !== '' ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.textStrokeWidth, p.textStrokeWidthUnit || 'px') : p.textStrokeWidth) : 0;
+
+        body.innerHTML = `
+          <div class="bc-ie-preview-stage">
+            <div class="bc-ie-preview-node" id="bc-ie-preview-el">Sample</div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">Identity</div>
+            <div class="bc-ie-grid-2">
+              <div class="bc-ie-field">
+                <label for="bc-ie-key">Key (short code)</label>
+                <input type="text" id="bc-ie-key" class="bc-ie-input" maxlength="12" value="${_bcEsc(p.key || '')}" placeholder="key">
+              </div>
+              <div class="bc-ie-field">
+                <label for="bc-ie-label">Label</label>
+                <input type="text" id="bc-ie-label" class="bc-ie-input" maxlength="24" value="${_bcEsc(p.label || '')}" placeholder="Label">
+              </div>
+            </div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">Colours</div>
+            <div class="bc-ie-grid-2">
+              <div class="bc-ie-field">
+                <label>Background</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-bg-picker" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-bg" class="bc-ie-input" value="${_bcEsc(p.bg || '#ffffff')}" placeholder="#fff / rgba(...)">
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Text Colour</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-color-picker" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-color" class="bc-ie-input" value="${_bcEsc(p.color || '#111111')}" placeholder="#111 / rgba(...)">
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Border Colour</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-bdr-picker" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-bdr" class="bc-ie-input" value="${_bcEsc(p.borderColor || '#111111')}" placeholder="#111 / rgba(...)">
+                </div>
+              </div>
+              ${isNodePreset ? `
+              <div class="bc-ie-field">
+                <label>Highlight Glow</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-hl-picker" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-hl" class="bc-ie-input" value="${_bcEsc(p.highlight || '')}" placeholder="none / rgba(...)">
+                </div>
+              </div>` : ''}
+            </div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">${isNodePreset ? 'Border &amp; Shape' : 'Border'}</div>
+            <div class="bc-ie-grid-2">
+              <div class="bc-ie-field">
+                <label>Border Width</label>
+                <div class="bc-ie-unit-pair">
+                  <input type="number" id="bc-ie-bw" class="bc-ie-input" min="0" max="30" step="any" value="${_bcEsc(bwVal)}">
+                  <select id="bc-ie-bw-unit" class="bc-ie-select">
+                    <option value="px" ${(p.borderWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                    <option value="pt" ${p.borderWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
+                    <option value="mm" ${p.borderWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
+                  </select>
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Border Style</label>
+                <select id="bc-ie-bs" class="bc-ie-select">
+                  <option value="solid" ${p.borderStyle === 'solid' ? 'selected' : ''}>Solid</option>
+                  <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>Dashed</option>
+                  <option value="dotted" ${p.borderStyle === 'dotted' ? 'selected' : ''}>Dotted</option>
+                  <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>Double</option>
+                </select>
+              </div>
+              ${isNodePreset ? `
+              <div class="bc-ie-field">
+                <label>Shape</label>
+                <select id="bc-ie-shape" class="bc-ie-select">
+                  <option value="rectangle" ${(p.shape || 'rectangle') === 'rectangle' ? 'selected' : ''}>Rectangle</option>
+                  <option value="oval" ${p.shape === 'oval' ? 'selected' : ''}>Oval</option>
+                  <option value="circle" ${p.shape === 'circle' ? 'selected' : ''}>Circle</option>
+                  <option value="square" ${p.shape === 'square' ? 'selected' : ''}>Square</option>
+                </select>
+              </div>` : ''}
+            </div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">Typography &amp; Formatting</div>
+            <div class="bc-ie-grid-2">
+              <div class="bc-ie-field">
+                <label>Font Family</label>
+                <div id="bc-ie-font-wrap"></div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Font Size</label>
+                <div class="bc-ie-unit-pair">
+                  <input type="number" id="bc-ie-fs" class="bc-ie-input" min="1" max="144" step="any" value="${_bcEsc(fsVal)}" placeholder="Default">
+                  <select id="bc-ie-fs-unit" class="bc-ie-select">
+                    <option value="px" ${(p.fontSizeUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                    <option value="pt" ${p.fontSizeUnit === 'pt' ? 'selected' : ''}>pt</option>
+                  </select>
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Text Style</label>
+                <div class="bc-ie-fmt-row" id="bc-ie-fmt-row">
+                  <button type="button" class="bc-ie-fmt-btn${fmt.bold ? ' active' : ''}" data-fmt="bold"><b>B</b></button>
+                  <button type="button" class="bc-ie-fmt-btn${fmt.italic ? ' active' : ''}" data-fmt="italic"><i>I</i></button>
+                  <button type="button" class="bc-ie-fmt-btn${fmt.underline ? ' active' : ''}" data-fmt="underline"><u>U</u></button>
+                  <button type="button" class="bc-ie-fmt-btn${fmt.strike ? ' active' : ''}" data-fmt="strike"><s>S</s></button>
+                </div>
+              </div>
+              ${isNodePreset ? `
+              <div class="bc-ie-field">
+                <label>Text Stroke Colour</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-tsc-picker" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-tsc" class="bc-ie-input" value="${_bcEsc(p.textStrokeColor || '')}" placeholder="none / #hex">
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Text Stroke Width</label>
+                <div class="bc-ie-unit-pair">
+                  <input type="number" id="bc-ie-tsw" class="bc-ie-input" min="0" max="30" step="any" value="${_bcEsc(tswVal)}">
+                  <select id="bc-ie-tsw-unit" class="bc-ie-select">
+                    <option value="px" ${(p.textStrokeWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
+                    <option value="pt" ${p.textStrokeWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
+                    <option value="mm" ${p.textStrokeWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
+                  </select>
+                </div>
+              </div>` : ''}
+            </div>
+          </div>
+        `;
+
+        const fontWrap = document.getElementById('bc-ie-font-wrap');
+        let fontSel = null;
+        if (fontWrap && typeof _bcBuildFontSelect === 'function') {
+          fontSel = _bcBuildFontSelect('bc-ie-font', p.fontFamily || '', '');
+          fontSel.className = 'bc-ie-select';
+          fontWrap.appendChild(fontSel);
+        }
+
+        const keyEl = document.getElementById('bc-ie-key');
+        const labelEl = document.getElementById('bc-ie-label');
+        const bgEl = document.getElementById('bc-ie-bg');
+        const bgPkr = document.getElementById('bc-ie-bg-picker');
+        const colEl = document.getElementById('bc-ie-color');
+        const colPkr = document.getElementById('bc-ie-color-picker');
+        const bdrEl = document.getElementById('bc-ie-bdr');
+        const bdrPkr = document.getElementById('bc-ie-bdr-picker');
+        const hlEl = document.getElementById('bc-ie-hl');
+        const hlPkr = document.getElementById('bc-ie-hl-picker');
+        const bwEl = document.getElementById('bc-ie-bw');
+        const bwUnitEl = document.getElementById('bc-ie-bw-unit');
+        const bsEl = document.getElementById('bc-ie-bs');
+        const shapeEl = document.getElementById('bc-ie-shape');
+        const fsEl = document.getElementById('bc-ie-fs');
+        const fsUnitEl = document.getElementById('bc-ie-fs-unit');
+        const tscEl = document.getElementById('bc-ie-tsc');
+        const tscPkr = document.getElementById('bc-ie-tsc-picker');
+        const tswEl = document.getElementById('bc-ie-tsw');
+        const tswUnitEl = document.getElementById('bc-ie-tsw-unit');
+        const fmtRow = document.getElementById('bc-ie-fmt-row');
+        const prevEl = document.getElementById('bc-ie-preview-el');
+
+        _bcSyncPickerFromText(bgPkr, bgEl.value);
+        _bcSyncPickerFromText(colPkr, colEl.value);
+        _bcSyncPickerFromText(bdrPkr, bdrEl.value);
+        if (hlPkr && hlEl) _bcSyncPickerFromText(hlPkr, hlEl.value || '#ffffff');
+        if (tscPkr && tscEl) _bcSyncPickerFromText(tscPkr, tscEl.value || '#000000');
+
+        collectValue = () => {
+          const key = (keyEl.value || '').trim();
+          if (!key) { keyEl.focus(); return null; }
+          const label = (labelEl.value || key).trim() || key;
+          const bwUnit = bwUnitEl.value || 'px';
+          const rawBw = parseFloat(bwEl.value);
+          const borderWidth = !isNaN(rawBw) && rawBw >= 0 ? (typeof conThicknessUnitToPx === 'function' ? conThicknessUnitToPx(rawBw, bwUnit) : rawBw) : 0;
+          const fsUnit = fsUnitEl.value || 'px';
+          const rawFs = parseFloat(fsEl.value);
+          const fontSize = !isNaN(rawFs) && rawFs > 0 ? (typeof conFontUnitToPx === 'function' ? conFontUnitToPx(rawFs, fsUnit) : rawFs) : null;
+          const out = {
+            key,
+            label,
+            bg: (bgEl.value || '#ffffff').trim() || '#ffffff',
+            color: (colEl.value || '#111111').trim() || '#111111',
+            borderColor: (bdrEl.value || '#111111').trim() || '#111111',
+            borderWidth,
+            borderWidthUnit: bwUnit,
+            borderStyle: bsEl.value || 'solid',
+            fontFamily: fontSel ? (fontSel.value || '') : '',
+            fontSize,
+            fontSizeUnit: fsUnit,
+            fmt: {
+              bold: fmtRow.querySelector('[data-fmt="bold"]').classList.contains('active'),
+              italic: fmtRow.querySelector('[data-fmt="italic"]').classList.contains('active'),
+              underline: fmtRow.querySelector('[data-fmt="underline"]').classList.contains('active'),
+              strike: fmtRow.querySelector('[data-fmt="strike"]').classList.contains('active')
+            }
+          };
+          if (isNodePreset) {
+            const tswUnit = tswUnitEl.value || 'px';
+            const rawTsw = parseFloat(tswEl.value);
+            out.highlight = hlEl ? hlEl.value.trim() : '';
+            out.shape = shapeEl ? shapeEl.value : 'rectangle';
+            out.textStrokeColor = tscEl ? tscEl.value.trim() : '';
+            out.textStrokeWidth = !isNaN(rawTsw) && rawTsw > 0 ? (typeof conThicknessUnitToPx === 'function' ? conThicknessUnitToPx(rawTsw, tswUnit) : rawTsw) : 0;
+            out.textStrokeWidthUnit = tswUnit;
+          }
+          return out;
+        };
+
+        updatePreview = () => {
+          if (!prevEl) return;
+          const v = collectValue() || {
+            key: keyEl.value || 'Aa', label: labelEl.value || 'Sample',
+            bg: bgEl.value || '#ffffff', color: colEl.value || '#111111',
+            borderColor: bdrEl.value || '#111111', borderWidth: parseFloat(bwEl.value) || 0,
+            borderStyle: bsEl.value || 'solid', shape: shapeEl ? shapeEl.value : 'rectangle',
+            highlight: hlEl ? hlEl.value : '', fontFamily: fontSel ? fontSel.value : '',
+            fontSize: parseFloat(fsEl.value) || 15, fmt: {
+              bold: fmtRow.querySelector('[data-fmt="bold"]').classList.contains('active'),
+              italic: fmtRow.querySelector('[data-fmt="italic"]').classList.contains('active'),
+              underline: fmtRow.querySelector('[data-fmt="underline"]').classList.contains('active'),
+              strike: fmtRow.querySelector('[data-fmt="strike"]').classList.contains('active')
+            }
+          };
+          prevEl.textContent = labelEl.value.trim() || keyEl.value.trim() || (isNodePreset ? 'Sample Node' : 'Sample Note');
+          prevEl.style.background = v.bg || '#ffffff';
+          prevEl.style.color = v.color || '#111111';
+          prevEl.style.borderWidth = Math.min(8, Math.max(0, v.borderWidth || 0)) + 'px';
+          prevEl.style.borderStyle = v.borderStyle || 'solid';
+          prevEl.style.borderColor = v.borderColor || '#111111';
+          prevEl.style.fontFamily = v.fontFamily || 'inherit';
+          prevEl.style.fontSize = Math.min(28, Math.max(11, v.fontSize || 15)) + 'px';
+          prevEl.style.fontWeight = v.fmt.bold ? '700' : '500';
+          prevEl.style.fontStyle = v.fmt.italic ? 'italic' : 'normal';
+          const decs = [];
+          if (v.fmt.underline) decs.push('underline');
+          if (v.fmt.strike) decs.push('line-through');
+          prevEl.style.textDecoration = decs.length ? decs.join(' ') : 'none';
+          prevEl.style.boxShadow = (v.highlight && v.highlight.trim()) ? `0 0 12px 3px ${v.highlight.trim()}` : 'none';
+          if (isNodePreset && shapeEl) {
+            const sh = shapeEl.value;
+            prevEl.style.borderRadius = (sh === 'oval' || sh === 'circle') ? '999px' : '5px';
+            prevEl.style.minWidth = (sh === 'circle' || sh === 'square') ? '48px' : '';
+            prevEl.style.minHeight = (sh === 'circle' || sh === 'square') ? '48px' : '';
+          } else {
+            prevEl.style.borderRadius = '6px';
+          }
+          if (isNodePreset && v.textStrokeWidth > 0 && v.textStrokeColor) {
+            if (typeof window.conApplyTextStrokeStyle === 'function') {
+              window.conApplyTextStrokeStyle(prevEl, Math.min(12, v.textStrokeWidth), v.textStrokeColor);
+            } else {
+              prevEl.style.webkitTextStroke = `${Math.min(12, v.textStrokeWidth)}px ${v.textStrokeColor}`;
+              prevEl.style.paintOrder = 'stroke fill';
+            }
+          } else if (typeof window.conApplyTextStrokeStyle === 'function') {
+            window.conApplyTextStrokeStyle(prevEl, 0, '');
+          } else {
+            prevEl.style.webkitTextStroke = '';
+            prevEl.style.paintOrder = '';
+          }
+        };
+
+        _bcBindModalColorPair(bgPkr, bgEl, updatePreview);
+        _bcBindModalColorPair(colPkr, colEl, updatePreview);
+        _bcBindModalColorPair(bdrPkr, bdrEl, updatePreview);
+        if (hlPkr && hlEl) _bcBindModalColorPair(hlPkr, hlEl, updatePreview);
+        if (tscPkr && tscEl) _bcBindModalColorPair(tscPkr, tscEl, updatePreview);
+
+        _bcBindUnitConversion(bwEl, bwUnitEl, window.conThicknessUnitToPx, window.conPxToThicknessUnit, updatePreview);
+        _bcBindUnitConversion(fsEl, fsUnitEl, window.conFontUnitToPx, window.conPxToFontUnit, updatePreview);
+        if (tswEl && tswUnitEl) _bcBindUnitConversion(tswEl, tswUnitEl, window.conThicknessUnitToPx, window.conPxToThicknessUnit, updatePreview);
+
+        [keyEl, labelEl, bwEl, bsEl, shapeEl, fsEl, tswEl, fontSel].forEach(el => {
+          if (el) el.addEventListener('input', updatePreview);
+          if (el) el.addEventListener('change', updatePreview);
+        });
+        fmtRow.querySelectorAll('.bc-ie-fmt-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            btn.classList.toggle('active');
+            updatePreview();
+          });
+        });
+        updatePreview();
+        setTimeout(() => { if (keyEl) keyEl.focus(); }, 20);
+      } else if (isPalette) {
+        const item = opts.item || { bg: '#ffffff', color: '#111111', border: '#111111', name: '' };
+        body.innerHTML = `
+          <div class="bc-ie-preview-stage">
+            <div class="bc-ie-preview-node" id="bc-ie-preview-el" style="border-width:2px;border-style:solid;border-radius:6px;">Sample Node</div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">Swatch Details</div>
+            <div class="bc-ie-field">
+              <label for="bc-ie-pal-name">Name</label>
+              <input type="text" id="bc-ie-pal-name" class="bc-ie-input" value="${_bcEsc(item.name || '')}" placeholder="e.g. Soft Blue">
+            </div>
+            <div class="bc-ie-grid-2">
+              <div class="bc-ie-field">
+                <label>Background</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-pal-bg-pkr" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-pal-bg" class="bc-ie-input" value="${_bcEsc(item.bg || '#ffffff')}" placeholder="#hex / rgba(...)">
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Text Colour</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-pal-col-pkr" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-pal-col" class="bc-ie-input" value="${_bcEsc(item.color || '#111111')}" placeholder="#hex / rgba(...)">
+                </div>
+              </div>
+              <div class="bc-ie-field">
+                <label>Border Colour</label>
+                <div class="bc-ie-color-pair">
+                  <input type="color" id="bc-ie-pal-bdr-pkr" class="bc-ie-color-picker">
+                  <input type="text" id="bc-ie-pal-bdr" class="bc-ie-input" value="${_bcEsc(item.border || '#111111')}" placeholder="#hex / rgba(...)">
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        const nameEl = document.getElementById('bc-ie-pal-name');
+        const bgEl = document.getElementById('bc-ie-pal-bg');
+        const bgPkr = document.getElementById('bc-ie-pal-bg-pkr');
+        const colEl = document.getElementById('bc-ie-pal-col');
+        const colPkr = document.getElementById('bc-ie-pal-col-pkr');
+        const bdrEl = document.getElementById('bc-ie-pal-bdr');
+        const bdrPkr = document.getElementById('bc-ie-pal-bdr-pkr');
+        const prevEl = document.getElementById('bc-ie-preview-el');
+
+        _bcSyncPickerFromText(bgPkr, bgEl.value);
+        _bcSyncPickerFromText(colPkr, colEl.value);
+        _bcSyncPickerFromText(bdrPkr, bdrEl.value);
+
+        updatePreview = () => {
+          prevEl.style.background = bgEl.value.trim() || 'transparent';
+          prevEl.style.color = colEl.value.trim() || '#111111';
+          prevEl.style.borderColor = bdrEl.value.trim() || '#111111';
+          prevEl.textContent = nameEl.value.trim() || 'Sample Node';
+        };
+        _bcBindModalColorPair(bgPkr, bgEl, updatePreview);
+        _bcBindModalColorPair(colPkr, colEl, updatePreview);
+        _bcBindModalColorPair(bdrPkr, bdrEl, updatePreview);
+        nameEl.addEventListener('input', updatePreview);
+        updatePreview();
+
+        collectValue = () => ({
+          bg: bgEl.value.trim() || '#ffffff',
+          color: colEl.value.trim() || '#111111',
+          border: bdrEl.value.trim() || '#111111',
+          name: nameEl.value.trim()
+        });
+        setTimeout(() => { if (nameEl) nameEl.focus(); }, 20);
+      } else {
+        const curColor = opts.color || '#ffffff';
+        const allowBlink = !!opts.allowBlink;
+        body.innerHTML = `
+          <div class="bc-ie-preview-stage">
+            <div class="bc-ie-preview-swatch" id="bc-ie-preview-el">${_bcEsc(curColor)}</div>
+          </div>
+          <div class="bc-ie-group">
+            <div class="bc-ie-group-title">Colour Value</div>
+            <div class="bc-ie-field">
+              <label for="bc-ie-sw-text">CSS Colour (hex, rgba, named${allowBlink ? ', blink' : ''})</label>
+              <div class="bc-ie-color-pair">
+                <input type="color" id="bc-ie-sw-pkr" class="bc-ie-color-picker">
+                <input type="text" id="bc-ie-sw-text" class="bc-ie-input" value="${_bcEsc(curColor)}" placeholder="#ffffff or rgba(...)">
+              </div>
+            </div>
+            <div class="bc-ie-quick-row">
+              <button type="button" class="bc-ie-quick-btn" id="bc-ie-q-transparent">transparent</button>
+              ${allowBlink ? '<button type="button" class="bc-ie-quick-btn" id="bc-ie-q-blink">blink</button>' : ''}
+            </div>
+          </div>
+        `;
+        const textEl = document.getElementById('bc-ie-sw-text');
+        const pkrEl = document.getElementById('bc-ie-sw-pkr');
+        const prevEl = document.getElementById('bc-ie-preview-el');
+        _bcSyncPickerFromText(pkrEl, curColor);
+
+        updatePreview = () => {
+          const val = textEl.value.trim() || 'transparent';
+          _bcApplySwatchPreview(prevEl, val);
+          prevEl.textContent = val;
+        };
+        _bcBindModalColorPair(pkrEl, textEl, updatePreview);
+        const trBtn = document.getElementById('bc-ie-q-transparent');
+        if (trBtn) trBtn.addEventListener('click', () => { textEl.value = 'transparent'; textEl.dispatchEvent(new Event('input')); });
+        const blBtn = document.getElementById('bc-ie-q-blink');
+        if (blBtn) blBtn.addEventListener('click', () => { textEl.value = 'blink'; textEl.dispatchEvent(new Event('input')); });
+        updatePreview();
+
+        collectValue = () => (textEl.value || '').trim() || null;
+        setTimeout(() => { if (textEl) textEl.focus(); }, 20);
+      }
+
+      const onOverlayClick = (e) => { if (e.target === ov) bcCloseItemEditor(); };
+      const onKeyDown = (e) => {
+        if (e.key === 'Escape') { e.stopPropagation(); bcCloseItemEditor(); }
+      };
+      const onSave = () => {
+        const val = collectValue();
+        if (val === null) return;
+        if (typeof opts.onSave === 'function') opts.onSave(val);
+        bcCloseItemEditor();
+      };
+      const onDelete = () => {
+        if (typeof opts.onDelete === 'function') opts.onDelete();
+        bcCloseItemEditor();
+      };
+
+      ov.addEventListener('click', onOverlayClick);
+      document.addEventListener('keydown', onKeyDown, true);
+      if (closeBtn) closeBtn.addEventListener('click', bcCloseItemEditor);
+      if (cancelBtn) cancelBtn.addEventListener('click', bcCloseItemEditor);
+      if (saveBtn) saveBtn.addEventListener('click', onSave);
+      if (delBtn) delBtn.addEventListener('click', onDelete);
+
+      _bcItemEditorCleanup = () => {
+        ov.removeEventListener('click', onOverlayClick);
+        document.removeEventListener('keydown', onKeyDown, true);
+        if (closeBtn) closeBtn.removeEventListener('click', bcCloseItemEditor);
+        if (cancelBtn) cancelBtn.removeEventListener('click', bcCloseItemEditor);
+        if (saveBtn) saveBtn.removeEventListener('click', onSave);
+        if (delBtn) delBtn.removeEventListener('click', onDelete);
+      };
+
+      ov.classList.add('active');
+    }
+    window.bcOpenItemEditor = bcOpenItemEditor;
+
     function _bcBuildNodePaletteGrid(customPalette) {
       const defaults = window.CON_PALETTES || [
         ['#ffffff', '#111111', '#111111'], ['#374151', '#ffffff', '#111111'],
@@ -2464,118 +3051,82 @@
       if (!grid) return;
       grid.innerHTML = '';
 
-      function _bcMakePaletteColorCell(colorVal, title, onColorChange) {
-        const cell = document.createElement('div');
-        cell.className = 'bc-palette-color-cell';
+      function _bcMakePaletteCard(bg, color, border, name) {
+        const card = document.createElement('div');
+        card.className = 'bc-palette-card';
+        card.draggable = true;
 
-        const colorBtn = document.createElement('input');
-        colorBtn.type = 'color';
-        colorBtn.className = 'bc-palette-color-btn';
-        colorBtn.title = title;
-        _bcSyncPickerFromText(colorBtn, colorVal);
-
-        const textInput = document.createElement('input');
-        textInput.type = 'text';
-        textInput.className = 'bc-palette-color-input';
-        textInput.value = colorVal || '';
-        textInput.placeholder = '#hex or rgba(...)';
-        textInput.title = title;
-
-        textInput.oninput = () => {
-          _bcSyncPickerFromText(colorBtn, textInput.value.trim());
-          if (typeof onColorChange === 'function') onColorChange();
-        };
-
-        colorBtn.oninput = () => {
-          const hex = colorBtn.value;
-          const curText = textInput.value.trim();
-          const rgbaMatch = curText.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i);
-          if (rgbaMatch) {
-            const r = parseInt(hex.slice(1, 3), 16);
-            const g = parseInt(hex.slice(3, 5), 16);
-            const b = parseInt(hex.slice(5, 7), 16);
-            const alpha = rgbaMatch[4];
-            textInput.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-          } else {
-            textInput.value = hex;
-          }
-          if (typeof onColorChange === 'function') onColorChange();
-        };
-
-        cell.appendChild(colorBtn);
-        cell.appendChild(textInput);
-        return { cell, textInput, colorBtn };
-      }
-
-      function _bcMakePaletteRow(bg, text, border, name) {
-        const row = document.createElement('div');
-        row.className = 'bc-palette-row';
-
-        const nameInput = document.createElement('input');
-        nameInput.type = 'text';
-        nameInput.className = 'bc-palette-name';
-        nameInput.value = name || '';
-        nameInput.placeholder = 'Name…';
-
-        const previewWrap = document.createElement('div');
-        previewWrap.className = 'bc-palette-preview-wrap';
         const preview = document.createElement('div');
-        preview.className = 'bc-palette-preview';
-        previewWrap.appendChild(preview);
+        preview.className = 'bc-palette-card-preview';
 
-        function updatePreview() {
-          const bgVal = bgCell.textInput.value.trim() || 'transparent';
-          const txVal = txCell.textInput.value.trim() || '#111111';
-          const brVal = brCell.textInput.value.trim() || '#111111';
-          preview.style.background = bgVal;
-          preview.style.color = txVal;
-          preview.style.borderColor = brVal;
-          preview.textContent = nameInput.value.slice(0, 6) || 'Aa';
+        const nameEl = document.createElement('div');
+        nameEl.className = 'bc-palette-card-name';
+
+        function syncCard(data) {
+          card.dataset.bg = data.bg || '#ffffff';
+          card.dataset.color = data.color || '#111111';
+          card.dataset.border = data.border || '#111111';
+          card.dataset.name = data.name || '';
+          preview.style.background = card.dataset.bg || 'transparent';
+          preview.style.color = card.dataset.color;
+          preview.style.borderColor = card.dataset.border;
+          preview.textContent = (data.name || '').slice(0, 10) || 'Aa';
+          nameEl.textContent = data.name || 'Unnamed';
         }
+        syncCard({ bg, color, border, name });
 
-        nameInput.oninput = () => updatePreview();
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'bc-card-del-btn';
+        delBtn.title = 'Remove this swatch';
+        delBtn.textContent = 'x';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          card.remove();
+        });
 
-        const bgCell = _bcMakePaletteColorCell(bg, 'Background colour (hex, rgba, transparent)', updatePreview);
-        const txCell = _bcMakePaletteColorCell(text, 'Text colour (hex, rgba)', updatePreview);
-        const brCell = _bcMakePaletteColorCell(border, 'Border colour (hex, rgba)', updatePreview);
+        card.addEventListener('click', () => {
+          bcOpenItemEditor({
+            mode: 'node-palette',
+            item: {
+              bg: card.dataset.bg,
+              color: card.dataset.color,
+              border: card.dataset.border,
+              name: card.dataset.name
+            },
+            onSave: (updated) => syncCard(updated),
+            onDelete: () => card.remove()
+          });
+        });
 
-        updatePreview();
-
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'x';
-        removeBtn.className = 'bc-swatch-remove';
-        removeBtn.title = 'Remove this swatch';
-        removeBtn.style.cssText = 'width:22px;height:22px;display:flex;align-items:center;justify-content:center;padding:0;font-size:0.7rem;';
-        removeBtn.onclick = () => row.remove();
-
-        const dragHandle = document.createElement('span');
-        dragHandle.className = 'bc-drag-handle';
-        dragHandle.textContent = '\u2807';
-        dragHandle.title = 'Drag to reorder';
-
-        row.appendChild(dragHandle);
-        row.appendChild(nameInput);
-        row.appendChild(previewWrap);
-        row.appendChild(bgCell.cell);
-        row.appendChild(txCell.cell);
-        row.appendChild(brCell.cell);
-        row.appendChild(removeBtn);
-        return row;
+        card.appendChild(delBtn);
+        card.appendChild(preview);
+        card.appendChild(nameEl);
+        return card;
       }
-
-      source.forEach(([bg, text, border, name], i) => {
-        grid.appendChild(_bcMakePaletteRow(bg, text, border, name || defaultLabels[i] || ''));
-      });
 
       const addBtn = document.createElement('button');
-      addBtn.textContent = '＋ Add colour';
-      addBtn.className = 'action-btn btn-grey bc-add-btn';
-      addBtn.onclick = () => {
-        grid.insertBefore(_bcMakePaletteRow('#ffffff', '#111111', '#111111', ''), addBtn);
-        _bcEnableDragReorder(grid, '.bc-palette-row');
-      };
+      addBtn.type = 'button';
+      addBtn.textContent = '+ Add colour';
+      addBtn.className = 'bc-grid-add-card';
+      addBtn.addEventListener('click', () => {
+        bcOpenItemEditor({
+          mode: 'node-palette',
+          title: 'Add Node Colour Swatch',
+          item: { bg: '#ffffff', color: '#111111', border: '#111111', name: '' },
+          onSave: (created) => {
+            const card = _bcMakePaletteCard(created.bg, created.color, created.border, created.name);
+            grid.insertBefore(card, addBtn);
+            _bcEnableDragReorder(grid, '.bc-palette-card');
+          }
+        });
+      });
+
+      source.forEach(([bg, text, border, name], i) => {
+        grid.appendChild(_bcMakePaletteCard(bg, text, border, name || defaultLabels[i] || ''));
+      });
       grid.appendChild(addBtn);
-      _bcEnableDragReorder(grid, '.bc-palette-row');
+      _bcEnableDragReorder(grid, '.bc-palette-card');
     }
 
     function _bcApplySwatchPreview(preview, color) {
@@ -2639,61 +3190,86 @@
       const container = document.getElementById(containerId);
       if (!container) return;
       container.innerHTML = '';
+      const allowBlink = containerId === 'bc-note-hl-list';
 
-      function makeRow(color) {
-        const row = document.createElement('div');
-        row.className = 'bc-swatch-row';
+      function makeChip(color) {
+        const chip = document.createElement('div');
+        chip.className = 'bc-swatch-chip';
+        chip.draggable = true;
 
         const preview = document.createElement('div');
-        preview.className = 'bc-swatch-preview';
-        _bcApplySwatchPreview(preview, color);
+        preview.className = 'bc-swatch-chip-preview';
 
-        const colorBtn = document.createElement('input');
-        colorBtn.type = 'color'; colorBtn.className = 'bc-swatch-color-btn';
-        colorBtn.title = 'Open colour picker';
-        _bcSyncPickerFromText(colorBtn, color);
+        const label = document.createElement('span');
+        label.className = 'bc-swatch-chip-label';
 
-        const input = document.createElement('input');
-        input.type = 'text'; input.value = color; input.className = 'bc-swatch-input';
-        input.placeholder = 'CSS colour, e.g. #fff · rgba(255,229,0,.9) · blink';
-        input.oninput = () => {
-          _bcApplySwatchPreview(preview, input.value.trim());
-          _bcSyncPickerFromText(colorBtn, input.value.trim());
-        };
+        function syncChip(c) {
+          const val = (c || '').trim() || '#ffffff';
+          chip.dataset.color = val;
+          _bcApplySwatchPreview(preview, val);
+          label.textContent = val;
+          chip.title = val;
+        }
+        syncChip(color);
 
-        colorBtn.oninput = () => {
-          input.value = colorBtn.value;
-          _bcApplySwatchPreview(preview, colorBtn.value);
-        };
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'bc-card-del-btn';
+        delBtn.title = 'Remove this colour';
+        delBtn.textContent = 'x';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          chip.remove();
+        });
 
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'x'; removeBtn.className = 'bc-swatch-remove';
-        removeBtn.title = 'Remove this colour';
-        removeBtn.onclick = () => row.remove();
+        chip.addEventListener('click', () => {
+          bcOpenItemEditor({
+            mode: 'swatch',
+            color: chip.dataset.color,
+            allowBlink,
+            onSave: (newColor) => syncChip(newColor),
+            onDelete: () => chip.remove()
+          });
+        });
 
-        const dragHandle = document.createElement('span');
-        dragHandle.className = 'bc-drag-handle';
-        dragHandle.textContent = '\u2807';
-        dragHandle.title = 'Drag to reorder';
-        row.appendChild(dragHandle);
-        row.appendChild(preview);
-        row.appendChild(colorBtn);
-        row.appendChild(input);
-        row.appendChild(removeBtn);
-        return row;
+        chip.appendChild(delBtn);
+        chip.appendChild(preview);
+        chip.appendChild(label);
+        return chip;
       }
 
-      colors.forEach(c => container.appendChild(makeRow(c)));
-
       const addBtn = document.createElement('button');
-      addBtn.textContent = '＋ Add colour';
-      addBtn.className = 'action-btn btn-grey bc-add-btn';
-      addBtn.onclick = () => { container.insertBefore(makeRow('#ffffff'), addBtn); _bcEnableDragReorder(container, '.bc-swatch-row'); };
+      addBtn.type = 'button';
+      addBtn.textContent = '+ Add colour';
+      addBtn.className = 'bc-swatch-add-chip';
+      addBtn.addEventListener('click', () => {
+        bcOpenItemEditor({
+          mode: 'swatch',
+          title: 'Add Colour Swatch',
+          color: '#ffffff',
+          allowBlink,
+          onSave: (newColor) => {
+            container.insertBefore(makeChip(newColor), addBtn);
+            _bcEnableDragReorder(container, '.bc-swatch-chip');
+          }
+        });
+      });
+
+      colors.forEach(c => container.appendChild(makeChip(c)));
       container.appendChild(addBtn);
-      _bcEnableDragReorder(container, '.bc-swatch-row');
+      _bcEnableDragReorder(container, '.bc-swatch-chip');
     }
 
     function _bcGetPalette() {
+      const cards = document.querySelectorAll('#bc-node-palette-grid .bc-palette-card');
+      if (cards.length) {
+        return Array.from(cards).map(card => [
+          (card.dataset.bg || '#ffffff').trim() || '#ffffff',
+          (card.dataset.color || '#111111').trim() || '#111111',
+          (card.dataset.border || '#111111').trim() || '#111111',
+          (card.dataset.name || '').trim()
+        ]);
+      }
       const rows = document.querySelectorAll('#bc-node-palette-grid .bc-palette-row');
       return Array.from(rows).map(row => {
         const nameInput = row.querySelector('.bc-palette-name');
@@ -2717,6 +3293,10 @@
     }
 
     function _bcGetSwatchList(containerId) {
+      const chips = document.querySelectorAll('#' + containerId + ' .bc-swatch-chip');
+      if (chips.length) {
+        return Array.from(chips).map(chip => (chip.dataset.color || '').trim()).filter(Boolean);
+      }
       const rows = document.querySelectorAll('#' + containerId + ' .bc-swatch-row');
       return Array.from(rows).map(row => {
         const input = row.querySelector('input[type="text"]');
@@ -2826,8 +3406,12 @@
         boardCustomHeightPx: boardLayout.customHeight,
         boardBackgroundPresets,
         boardBgPresets: boardBackgroundPresets.slice(),
-        constellationPresets: Array.isArray(existing.constellationPresets) ? existing.constellationPresets : [],
-        notePresets: Array.isArray(existing.notePresets) ? existing.notePresets : [],
+        constellationPresets: (typeof window.conGetPresetEditorDraft === 'function' && window.conGetPresetEditorDraft().length)
+          ? window.conGetPresetEditorDraft().filter(p => !!p.key)
+          : (Array.isArray(existing.constellationPresets) ? existing.constellationPresets : []),
+        notePresets: (typeof window.noteGetPresetEditorDraft === 'function' && window.noteGetPresetEditorDraft().length)
+          ? window.noteGetPresetEditorDraft().filter(p => !!p.key)
+          : (Array.isArray(existing.notePresets) ? existing.notePresets : []),
         penPresets: _bcGetPenPresets(),
         shortcuts: _bcGetCustomShortcutsMap(),
         soundEffects: _bcGetSoundSettings(),

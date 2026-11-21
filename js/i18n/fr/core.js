@@ -1770,6 +1770,8 @@
   "importBtnImportAnother": "Importer un autre fichier",
   "importBtnClose": "Fermer",
   "importSaving": "Enregistrement…",
+  "importModalNoExtraDesc": "Prêt pour l'importation. Cliquez sur Suivant pour charger et mapper votre fichier.",
+  "importModalFileCopyDesc": "Importation directe de fichiers. Cliquez sur Choisir des fichiers pour les copier dans votre espace.",
   "importErrNoFile": "Veuillez sélectionner un fichier",
   "importErrEmptyFile": "Le fichier semble vide",
   "importErrNoFirstName": "La colonne « Prénom » doit être associée",
@@ -3325,5 +3327,15 @@
   "wh_edit_preset": "Modifier",
   "wh_add_slot": "Ajouter une app",
   "wh_width": "L",
-  "wh_height": "H"
+  "wh_height": "H",
+  "colorPickerTitle": "Sélecteur de couleur",
+  "colorPickerOpacity": "Opacité",
+  "colorPickerPresets": "Préréglages",
+  "colorPickerSaved": "Couleurs enregistrées",
+  "colorPickerSaveBtn": "Enregistrer",
+  "colorPickerSaveNamePlaceholder": "Nom de la couleur...",
+  "colorPickerNoSaved": "Aucune couleur enregistrée",
+  "colorPickerRecent": "Récentes",
+  "colorPickerClear": "Effacer",
+  "colorPickerHexLabel": "Hex / RGBA"
 });

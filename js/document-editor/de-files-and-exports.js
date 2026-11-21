@@ -4793,17 +4793,24 @@ function initDocumentInspector() {
     const text = document.getElementById(textId);
     if (picker && text) {
       picker.addEventListener('input', () => {
-        text.value = picker.value;
-        deApplyInspectorStyle(prop, picker.value, false);
+        const val = window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(picker) : picker.value;
+        text.value = val;
+        deApplyInspectorStyle(prop, val, false);
       });
       picker.addEventListener('change', () => {
-        text.value = picker.value;
-        deApplyInspectorStyle(prop, picker.value, true);
+        const val = window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(picker) : picker.value;
+        text.value = val;
+        deApplyInspectorStyle(prop, val, true);
       });
       text.addEventListener('input', () => {
-        const hex = deNormalizeHexColor(text.value);
-        if (hex) picker.value = hex;
-        deApplyInspectorStyle(prop, text.value.trim(), false);
+        const raw = text.value.trim();
+        if (window.UnifiedColorPicker && window.UnifiedColorPicker.isValidColor(raw)) {
+          window.UnifiedColorPicker.setValue(picker, raw);
+        } else {
+          const hex = deNormalizeHexColor(raw);
+          if (hex) picker.value = hex;
+        }
+        deApplyInspectorStyle(prop, raw, false);
       });
       text.addEventListener('change', () => {
         deApplyInspectorStyle(prop, text.value.trim(), true);

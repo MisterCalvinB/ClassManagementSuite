@@ -494,129 +494,21 @@
       "#ff4d6d", "#fb7185", "#ff9e00", "#ffea00", "#a3e635", "#2dd4bf", "#38bdf8", "#00b0ff", "#a855f7", "#f472b6"
     ];
 
-    let _refColorPickerCleanup = null;
     function openRefColorPicker(anchorEl, currentColor, onSelect) {
-      closeRefColorPicker();
-      let popover = document.getElementById("ref-color-picker-popover");
-      if (!popover) {
-        popover = document.createElement("div");
-        popover.id = "ref-color-picker-popover";
-        popover.className = "ref-color-popover hidden";
-        document.body.appendChild(popover);
-      }
-
-      popover.innerHTML = "";
-      const grid = document.createElement("div");
-      grid.className = "ref-color-popover-grid";
-
-      REF_GRADE_PALETTE_50.forEach(col => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.className = "ref-color-popover-swatch" + (col.toLowerCase() === (currentColor || "").toLowerCase() ? " active" : "");
-        btn.style.backgroundColor = col;
-        btn.title = col;
-        btn.addEventListener("click", (e) => {
-          e.stopPropagation();
-          onSelect(col);
-          closeRefColorPicker();
+      if (window.UnifiedColorPicker) {
+        window.UnifiedColorPicker.open({
+          anchor: anchorEl,
+          value: currentColor || "#10b981",
+          presets: REF_GRADE_PALETTE_50,
+          onInput: function (col) { if (typeof onSelect === "function") onSelect(col); },
+          onChange: function (col) { if (typeof onSelect === "function") onSelect(col); }
         });
-        grid.appendChild(btn);
-      });
-      popover.appendChild(grid);
-
-      // Custom color row with native picker + hex input
-      const customRow = document.createElement("div");
-      customRow.className = "ref-color-popover-custom-row";
-      customRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid #e2e8f0;";
-
-      const customNative = document.createElement("input");
-      customNative.type = "color";
-      customNative.className = "ref-color-custom-native";
-      customNative.value = (currentColor && currentColor.startsWith("#")) ? currentColor : "#10b981";
-      customNative.style.cssText = "-webkit-appearance:none;appearance:none;width:24px;height:24px;border:1.5px solid #333;border-radius:4px;cursor:pointer;padding:0;background:none;flex-shrink:0;";
-
-      const customLbl = document.createElement("span");
-      customLbl.style.cssText = "font-size:0.75rem;font-weight:700;color:#475569;flex:1;";
-      customLbl.textContent = (typeof i18n !== 'undefined' ? i18n.t('gsCustomColor') : null) || "Custom…";
-
-      const customHex = document.createElement("input");
-      customHex.type = "text";
-      customHex.className = "ref-color-custom-hex";
-      customHex.value = (currentColor && currentColor.startsWith("#")) ? currentColor : "#10b981";
-      customHex.maxLength = 7;
-      customHex.style.cssText = "width:64px;font-family:monospace;font-size:0.78rem;padding:2px 4px;border:1.5px solid #333;border-radius:4px;text-align:center;";
-
-      customNative.addEventListener("input", (e) => {
-        const val = e.target.value;
-        customHex.value = val;
-        onSelect(val);
-      });
-
-      customHex.addEventListener("input", (e) => {
-        let val = customHex.value.trim();
-        if (!val.startsWith("#")) val = "#" + val;
-        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
-          customNative.value = val;
-          onSelect(val);
-        }
-      });
-
-      customRow.appendChild(customNative);
-      customRow.appendChild(customLbl);
-      customRow.appendChild(customHex);
-      popover.appendChild(customRow);
-
-      popover.classList.remove("hidden");
-      const rect = anchorEl.getBoundingClientRect();
-      const popW = 296;
-      const popH = 200;
-      let left = rect.left;
-      if (left + popW > window.innerWidth - 12) {
-        left = Math.max(12, window.innerWidth - popW - 12);
       }
-      if (left < 12) left = 12;
-
-      let top = rect.bottom + 6;
-      if (top + popH > window.innerHeight - 12) {
-        top = Math.max(12, rect.top - popH - 6);
-      }
-      popover.style.left = `${left}px`;
-      popover.style.top = `${top}px`;
-
-      const onDocClick = (e) => {
-        if (!popover.contains(e.target) && e.target !== anchorEl) {
-          closeRefColorPicker();
-        }
-      };
-      let colorPickerUnreg = null;
-      const onDocKey = (e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          closeRefColorPicker();
-        }
-      };
-      if (window.cmtPushEscapeHandler) {
-        colorPickerUnreg = window.cmtPushEscapeHandler({ el: popover, close: closeRefColorPicker });
-      }
-      _refColorPickerCleanup = () => {
-        if (colorPickerUnreg) { colorPickerUnreg(); colorPickerUnreg = null; }
-        document.removeEventListener("pointerdown", onDocClick, true);
-        document.removeEventListener("keydown", onDocKey, true);
-      };
-      setTimeout(() => {
-        document.addEventListener("pointerdown", onDocClick, true);
-        document.addEventListener("keydown", onDocKey, true);
-      }, 10);
     }
 
     function closeRefColorPicker() {
-      const popover = document.getElementById("ref-color-picker-popover");
-      if (popover) popover.classList.add("hidden");
-      if (_refColorPickerCleanup) {
-        _refColorPickerCleanup();
-        _refColorPickerCleanup = null;
+      if (window.UnifiedColorPicker) {
+        window.UnifiedColorPicker.close();
       }
     }
 

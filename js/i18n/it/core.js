@@ -3061,6 +3061,8 @@
   "importBtnImportAnother": "Importa un altro file",
   "importBtnClose": "Chiudi",
   "importSaving": "Salvataggio...",
+  "importModalNoExtraDesc": "Pronto per l'importazione. Clicca su Avanti per caricare e mappare il tuo file.",
+  "importModalFileCopyDesc": "Importazione diretta di file. Clicca su Scegli file per copiarli nel tuo spazio di lavoro.",
   "importErrNoFile": "Seleziona un file",
   "importErrEmptyFile": "Il file sembra essere vuoto",
   "importErrNoFirstName": "La colonna \"Nome\" deve essere mappata",
@@ -3325,5 +3327,15 @@
   "wh_edit_preset": "Modifica",
   "wh_add_slot": "Aggiungi app",
   "wh_width": "L",
-  "wh_height": "A"
+  "wh_height": "A",
+  "colorPickerTitle": "Selettore colore",
+  "colorPickerOpacity": "Opacità",
+  "colorPickerPresets": "Predefiniti",
+  "colorPickerSaved": "Colori salvati",
+  "colorPickerSaveBtn": "Salva",
+  "colorPickerSaveNamePlaceholder": "Nome colore...",
+  "colorPickerNoSaved": "Nessun colore salvato",
+  "colorPickerRecent": "Recenti",
+  "colorPickerClear": "Cancella",
+  "colorPickerHexLabel": "Hex / RGBA"
 });

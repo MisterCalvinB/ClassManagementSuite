@@ -153,9 +153,13 @@
     }
 
     function mdbOnColorPickerInput(id, color) {
+      const picker = document.getElementById(id + '_picker');
+      const resolved = (picker && window.UnifiedColorPicker)
+        ? window.UnifiedColorPicker.getValue(picker)
+        : color;
       const txt = document.getElementById(id);
       if (txt) {
-        txt.value = color;
+        txt.value = resolved;
         txt.dispatchEvent(new Event('input', { bubbles: true }));
       }
     }
@@ -163,7 +167,9 @@
 
     function mdbOnColorTextInput(id, text) {
       const picker = document.getElementById(id + '_picker');
-      if (picker && isValidHexColor(text)) {
+      if (picker && window.UnifiedColorPicker && window.UnifiedColorPicker.isValidColor(text)) {
+        window.UnifiedColorPicker.setValue(picker, text.trim());
+      } else if (picker && isValidHexColor(text)) {
         const norm = text.trim();
         picker.value = norm.length === 4 ? `#${norm[1]}${norm[1]}${norm[2]}${norm[2]}${norm[3]}${norm[3]}` : norm;
       }
@@ -178,7 +184,8 @@
         txt.dispatchEvent(new Event('input', { bubbles: true }));
       }
       if (picker) {
-        picker.value = color;
+        if (window.UnifiedColorPicker) window.UnifiedColorPicker.setValue(picker, color);
+        else picker.value = color;
       }
     }
     window.mdbApplySwatch = mdbApplySwatch;

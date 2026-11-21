@@ -1632,6 +1632,14 @@ Built-in comprehensive user manual and data directory reference map for the enti
 
 ---
 
+### Unified Colour Picker (`js/shared/color-picker.js`)
+
+All tools share a single Light Neobrutalist colour picker popover (`window.UnifiedColorPicker`) that replaces native OS colour dialogs and ad-hoc swatch popovers:
+- **Full Colour & Opacity Control**: Interactive 2D Saturation/Brightness canvas, Hue slider, checkerboard-backed **Opacity (`0%–100%`)** slider with percentage input, and live Hex / `rgba(...)` text input.
+- **Presets, Saved Named Colours & Recent Colours**: Includes built-in Light Neobrutalist and tool-specific presets, a **Saved Colours** section where you can save colours with custom names (persisted across all apps), and a **Recent** row of recently used colours.
+
+---
+
 <p align="center">
   <strong>Class Management Tools</strong> — Built for Teachers. Offline-First & Privacy-Focused.
 </p>

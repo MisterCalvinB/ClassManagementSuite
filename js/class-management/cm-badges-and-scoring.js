@@ -2801,7 +2801,7 @@
                                 ${presetColors}
                                 <option value="custom" ${!FLAG_PRESETS.some(p => p.key === r.color) ? 'selected' : ''}>🎨 Custom Color...</option>
                             </select>
-                            <input type="color" class="af-rule-custom-color" value="${getFlagColorHex(r.color)}" onchange="tempFlagRules[${idx}].color = this.value" style="width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; ${!FLAG_PRESETS.some(p => p.key === r.color) ? '' : 'display:none;'}">
+                            <input type="color" class="af-rule-custom-color" value="${getFlagColorHex(r.color)}" onchange="tempFlagRules[${idx}].color = (window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value)" style="width:26px; height:26px; padding:0; border:none; background:none; cursor:pointer; ${!FLAG_PRESETS.some(p => p.key === r.color) ? '' : 'display:none;'}">
                         </div>
                     </td>
                     <td style="padding: 6px;">

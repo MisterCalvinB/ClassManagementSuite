@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="../css/board.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dom-sync.js"></script>
   <script src="../js/shared/pins.js"></script>
@@ -4156,20 +4157,9 @@
           <!-- Nodes Tab -->
           <div class="bc-tab-pane active" data-pane="nodes">
             <!-- 1. Node swatches -->
-            <!-- 1. Node swatches -->
             <div class="bc-section">
               <div class="bc-section-title">Node Colour Swatches</div>
-              <div class="bc-section-hint">Palette used when applying colours to nodes. Each entry: background / text
-                colour / border colour (supports hex, rgba with opacity, etc.).</div>
-              <div class="bc-palette-labels">
-                <span class="bc-palette-hdr-handle"></span>
-                <span style="text-align:left">Name</span>
-                <span>Preview</span>
-                <span data-hover-help="Background colour (hex, rgba)">Bg</span>
-                <span data-hover-help="Text colour (hex, rgba)">Txt</span>
-                <span data-hover-help="Border colour (hex, rgba)">Bdr</span>
-                <span></span>
-              </div>
+              <div class="bc-section-hint">Palette used when applying colours to nodes. Click any swatch to edit its background, text, and border colours, or drag to reorder.</div>
               <div id="bc-node-palette-grid"></div>
             </div>
 
@@ -4890,6 +4880,28 @@
       <div class="bc-footer">
         <button class="action-btn btn-grey" data-bev-843="1">Cancel</button>
         <button class="action-btn" data-bev-844="1">Save to config.js</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-modal for editing individual Node/Note presets and colour swatches -->
+  <div id="bc-item-editor-overlay">
+    <div id="bc-item-editor-modal" role="dialog" aria-modal="true" aria-labelledby="bc-ie-title">
+      <div class="bc-ie-header">
+        <span id="bc-ie-title">Edit Item</span>
+        <button type="button" class="action-btn btn-grey bc-ie-close-btn" id="bc-ie-close-btn" aria-label="Close">
+          <img src="../assets/icons/close.svg" class="btn-icon" alt="" style="margin:0;width:12px;height:12px;" />
+        </button>
+      </div>
+      <div class="bc-ie-body" id="bc-ie-body"></div>
+      <div class="bc-ie-footer">
+        <button type="button" class="action-btn bc-ie-del-btn" id="bc-ie-delete-btn">
+          <img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;margin:0;" />
+          <span data-i18n="btnDelete">Delete</span>
+        </button>
+        <div style="flex:1;"></div>
+        <button type="button" class="action-btn btn-grey" id="bc-ie-cancel-btn" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="action-btn" id="bc-ie-save-btn" data-i18n="btnSave">Save</button>
       </div>
     </div>
   </div>

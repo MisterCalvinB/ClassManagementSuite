@@ -1197,6 +1197,7 @@
       <div class="color-swatch" data-color="#6abf8e" style="background:#6abf8e;" data-hover-help="Emerald"></div>
       <div class="color-swatch" data-color="#8b7cc2" style="background:#8b7cc2;" data-hover-help="Purple"></div>
       <div class="color-swatch" data-color="#e2c96e" style="background:#e2c96e;" data-hover-help="Warm Gold"></div>
+      <input type="color" id="pdfCustomColorInput" value="#333333" style="width:24px;height:24px;" data-hover-help="Custom colour & opacity" />
     </div>
 
     <select class="size-picker" id="strokeSizeSelect" data-hover-help="Stroke Thickness">
@@ -1303,6 +1304,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/menus.js"></script>
   <script src="../js/shared/tutorial.js"></script>
 
@@ -1593,8 +1595,26 @@
           document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
           sw.classList.add('active');
           state.currentColor = sw.getAttribute('data-color');
+          const customInput = document.getElementById('pdfCustomColorInput');
+          if (customInput && window.UnifiedColorPicker) {
+            window.UnifiedColorPicker.setValue(customInput, state.currentColor);
+          }
         });
       });
+
+      const pdfCustomColorInput = document.getElementById('pdfCustomColorInput');
+      if (pdfCustomColorInput) {
+        const applyPdfCustomColor = () => {
+          const val = window.UnifiedColorPicker
+            ? window.UnifiedColorPicker.getValue(pdfCustomColorInput)
+            : pdfCustomColorInput.value;
+          if (!val) return;
+          document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+          state.currentColor = val;
+        };
+        pdfCustomColorInput.addEventListener('input', applyPdfCustomColor);
+        pdfCustomColorInput.addEventListener('change', applyPdfCustomColor);
+      }
 
       // Stroke Thickness
       document.getElementById('strokeSizeSelect').addEventListener('change', (e) => {

@@ -496,3 +496,459 @@ button.action-btn:not(.btn-grey):not(.btn-yellow):not(.btn-orange):not(.btn-blue
   border: 0;
 }
 
+/* ── Unified Light Neobrutalist Colour Picker ── */
+.cmt-color-input-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.cmt-cp-checker {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(45deg, #d8dde6 25%, transparent 25%),
+    linear-gradient(-45deg, #d8dde6 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #d8dde6 75%),
+    linear-gradient(-45deg, transparent 75%, #d8dde6 75%);
+  background-size: 8px 8px;
+  background-position: 0 0, 0 4px, 4px -4px, -4px 0;
+}
+
+.cmt-color-trigger {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+  cursor: pointer;
+  overflow: hidden;
+  flex-shrink: 0;
+  vertical-align: middle;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.cmt-color-trigger:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+}
+
+.cmt-color-trigger:active {
+  transform: translate(1px, 1px);
+  box-shadow: var(--neo-shadow-active, 1px 1px 0 #888888);
+}
+
+.cmt-color-trigger-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.cmt-color-popover {
+  position: fixed;
+  z-index: 10000010;
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  width: 262px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  padding: 12px;
+  box-sizing: border-box;
+  background: var(--neo-card-bg, #ffffff);
+  color: var(--neo-dark, #222222);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-lg, 10px);
+  box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+  font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.cmt-cp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1.5px solid var(--neo-gray-mid, #e2e8f0);
+}
+
+.cmt-cp-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.cmt-cp-icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.cmt-cp-icon-xs {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+
+.cmt-cp-close {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neo-card-bg, #ffffff);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  box-shadow: 1px 1px 0 #888888;
+  cursor: pointer;
+  padding: 0;
+}
+
+.cmt-cp-close:hover {
+  background: var(--neo-bg, #f5f5f0);
+}
+
+.cmt-cp-sv-wrap {
+  position: relative;
+  width: 100%;
+  height: 132px;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.cmt-cp-sv-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cmt-cp-sv-thumb {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1.5px #222222;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cmt-cp-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cmt-cp-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cmt-cp-track {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: 999px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.cmt-cp-hue-track {
+  background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
+}
+
+.cmt-cp-alpha-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+}
+
+.cmt-cp-thumb {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 1.5px #222222;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.cmt-cp-alpha-num-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  padding: 2px 4px;
+  background: var(--neo-card-bg, #ffffff);
+  flex-shrink: 0;
+}
+
+.cmt-cp-alpha-num {
+  width: 34px;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-align: right;
+  background: transparent;
+  color: var(--neo-dark, #222222);
+  padding: 0;
+}
+
+.cmt-cp-alpha-pct {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--neo-gray-dark, #475569);
+}
+
+.cmt-cp-input-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cmt-cp-preview {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cmt-cp-preview-fill {
+  position: absolute;
+  inset: 0;
+}
+
+.cmt-cp-hex-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  background: var(--neo-card-bg, #ffffff);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.cmt-cp-clear-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  background: var(--neo-card-bg, #ffffff);
+  box-shadow: 2px 2px 0 #888888;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.cmt-cp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px solid var(--neo-gray-mid, #e2e8f0);
+}
+
+.cmt-cp-section-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.cmt-cp-section-label {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--neo-gray-dark, #475569);
+}
+
+.cmt-cp-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+}
+
+.cmt-cp-swatch {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.cmt-cp-swatch:hover {
+  transform: scale(1.14);
+}
+
+.cmt-cp-swatch-fill {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+.cmt-cp-save-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  font-family: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: var(--neo-yellow, #e2c96e);
+  color: #111111;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  box-shadow: 1.5px 1.5px 0 #555555;
+  cursor: pointer;
+}
+
+.cmt-cp-save-form {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cmt-cp-save-name {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.cmt-cp-save-confirm {
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--neo-green, #6abf8e);
+  color: #111111;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  cursor: pointer;
+}
+
+.cmt-cp-saved-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 76px;
+  overflow-y: auto;
+}
+
+.cmt-cp-saved-empty {
+  font-size: 0.72rem;
+  color: var(--neo-gray-dark, #475569);
+  font-style: italic;
+}
+
+.cmt-cp-saved-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  padding: 2px 4px;
+}
+
+.cmt-cp-saved-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+  max-width: 105px;
+}
+
+.cmt-cp-saved-swatch {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--neo-border-color, #333333);
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.cmt-cp-saved-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cmt-cp-saved-del {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+.cmt-cp-saved-del:hover {
+  opacity: 1;
+}
+
+.cmt-cp-saved-del img {
+  width: 9px;
+  height: 9px;
+  display: block;
+}
+

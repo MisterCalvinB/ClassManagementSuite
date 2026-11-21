@@ -1931,13 +1931,19 @@
     (function () {
       var el = document.querySelector('[data-tcev-322]');
       if (!el) return;
-      var handler = function (event) { tcUbhExec('foreColor', this.value) };
+      var handler = function (event) {
+        var col = window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value;
+        tcUbhExec('foreColor', col);
+      };
       el.addEventListener('change', handler);
     })();
     (function () {
       var el = document.querySelector('[data-tcev-323]');
       if (!el) return;
-      var handler = function (event) { tcUbhExec('hiliteColor', this.value) };
+      var handler = function (event) {
+        var col = window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(this) : this.value;
+        tcUbhExec('hiliteColor', col);
+      };
       el.addEventListener('change', handler);
     })();
     (function () {

@@ -1690,157 +1690,81 @@
     }
     window.noteClosePresetEditor = noteClosePresetEditor;
 
+    window.noteGetPresetEditorDraft = () => _notePresetEditorDraft;
+
     function _notePresetEditorRender() {
-      function _wnEsc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'); }
-      function _wnSafeHex(s, fallback = '#ffffff') {
-        const v = (s || '').trim();
-        if (/^#[0-9a-fA-F]{6}$/.test(v)) return v;
-        if (/^#[0-9a-fA-F]{3}$/.test(v)) return '#' + v[1] + v[1] + v[2] + v[2] + v[3] + v[3];
-        try {
-          const tmp = document.createElement('div');
-          tmp.style.color = v;
-          document.body.appendChild(tmp);
-          const comp = getComputedStyle(tmp).color;
-          document.body.removeChild(tmp);
-          const m = comp.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-          if (m) {
-            const h = n => parseInt(n).toString(16).padStart(2, '0');
-            return '#' + h(m[1]) + h(m[2]) + h(m[3]);
-          }
-        } catch (e) { }
-        return fallback;
-      }
       const list = document.getElementById('note-preset-editor-list');
       if (!list) return;
       list.innerHTML = '';
-      const hdr = document.createElement('div');
-      hdr.className = 'con-preset-editor-labels';
-      hdr.innerHTML = `<span></span><span>Key</span><span>Label</span><span title="${t('conPresetBgColorTitle')}">BG</span><span title="${t('conPresetTextColorTitle')}">Txt</span><span title="${t('conPresetBorderColorTitle')}">Bdr</span><span title="${t('conPresetBorderWidthTitle')}">W</span><span title="${t('conPresetBorderStyleTitle')}">Style</span><span>Font</span><span title="${t('conPresetFontSizeTitle')}">Size</span><span>Fmt</span><span></span>`;
-      list.appendChild(hdr);
+
       _notePresetEditorDraft.forEach((p, i) => {
-        const row = document.createElement('div');
-        row.className = 'con-preset-editor-row';
-        row.draggable = true;
-        const bwVal = p.borderWidth != null ? (typeof conPxToThicknessUnit === 'function' ? conPxToThicknessUnit(p.borderWidth, p.borderWidthUnit || 'px') : p.borderWidth) : 0;
-        const fsVal = p.fontSize != null && p.fontSize !== '' ? (typeof conPxToFontUnit === 'function' ? conPxToFontUnit(p.fontSize, p.fontSizeUnit || 'px') : p.fontSize) : '';
-        row.innerHTML = `
-          <span class="pe-drag-handle" title="Drag to reorder">⠇</span>
-          <input type="text" class="pe-key" value="${_wnEsc(p.key)}" maxlength="12" placeholder="key" title="Short code shown on button">
-          <input type="text" class="pe-label" value="${_wnEsc(p.label)}" maxlength="24" placeholder="Label" title="${t('conPresetTooltipTitle')}">
-          <div class="pe-color-cell">
-            <input type="color" class="pe-color-btn pe-bg-btn" value="${_wnSafeHex(p.bg, '#ffffff')}" title="${t('conPresetBgColorTitle')}">
-            <input type="text" class="pe-color-input pe-bg" value="${_wnEsc(p.bg)}" placeholder="#fff / rgba(...)" title="${t('conPresetBgColorTitle')}">
-          </div>
-          <div class="pe-color-cell">
-            <input type="color" class="pe-color-btn pe-color-btn-tx" value="${_wnSafeHex(p.color, '#111111')}" title="${t('conPresetTextColorTitle')}">
-            <input type="text" class="pe-color-input pe-color" value="${_wnEsc(p.color)}" placeholder="#111 / rgba(...)" title="${t('conPresetTextColorTitle')}">
-          </div>
-          <div class="pe-color-cell">
-            <input type="color" class="pe-color-btn pe-bdr-btn" value="${_wnSafeHex(p.borderColor, '#111111')}" title="${t('conPresetBorderColorTitle')}">
-            <input type="text" class="pe-color-input pe-bdr" value="${_wnEsc(p.borderColor)}" placeholder="#111 / rgba(...)" title="${t('conPresetBorderColorTitle')}">
-          </div>
-          <div class="pe-unit-input-wrap">
-            <input type="number" class="pe-bw" min="0" max="30" step="any" value="${_wnEsc(bwVal)}" title="${t('conPresetBorderWidthTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
-            <select class="pe-bw-unit" title="Unit (px, pt, mm)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:38px;">
-              <option value="px" ${(p.borderWidthUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
-              <option value="pt" ${p.borderWidthUnit === 'pt' ? 'selected' : ''}>pt</option>
-              <option value="mm" ${p.borderWidthUnit === 'mm' ? 'selected' : ''}>mm</option>
-            </select>
-          </div>
-          <select class="pe-bs" title="${t('conPresetBorderStyleTitle')}">
-            <option value="solid" ${p.borderStyle === 'solid' ? 'selected' : ''}>${t('conPresetSolid')}</option>
-            <option value="dashed" ${p.borderStyle === 'dashed' ? 'selected' : ''}>${t('conPresetDashed')}</option>
-            <option value="dotted" ${p.borderStyle === 'dotted' ? 'selected' : ''}>${t('conPresetDotted')}</option>
-            <option value="double" ${p.borderStyle === 'double' ? 'selected' : ''}>${t('conPresetDouble')}</option>
-          </select>
-          <div class="pe-font-wrap"></div>
-          <div class="pe-unit-input-wrap">
-            <input type="number" class="pe-fs" min="1" max="144" step="any" value="${_wnEsc(fsVal)}" placeholder="—" title="${t('conPresetFontSizeTitle')}" style="font-family:inherit;font-size:0.75rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;outline:none;min-width:0;width:100%;">
-            <select class="pe-fs-unit" title="Unit (px or pt)" style="font-size:0.68rem;padding:2px 1px;border:1.5px solid #ccc;border-radius:3px;background:#fff;width:34px;">
-              <option value="px" ${(p.fontSizeUnit || 'px') === 'px' ? 'selected' : ''}>px</option>
-              <option value="pt" ${p.fontSizeUnit === 'pt' ? 'selected' : ''}>pt</option>
-            </select>
-          </div>
-          <div class="pe-fmt-btns">
-            <button class="pe-fmt-btn${p.fmt.bold ? ' active' : ''}" data-fmt="bold" onclick="this.classList.toggle('active')" title="${t('conPresetBoldTitle')}"><b>B</b></button>
-            <button class="pe-fmt-btn${p.fmt.italic ? ' active' : ''}" data-fmt="italic" onclick="this.classList.toggle('active')" title="${t('conPresetItalicTitle')}"><i>I</i></button>
-            <button class="pe-fmt-btn${p.fmt.underline ? ' active' : ''}" data-fmt="under" onclick="this.classList.toggle('active')" title="${t('conPresetUnderlineTitle')}"><u>U</u></button>
-            <button class="pe-fmt-btn${p.fmt.strike ? ' active' : ''}" data-fmt="strike" onclick="this.classList.toggle('active')" title="${t('conPresetStrikethroughTitle')}"><s>S</s></button>
-          </div>
-          <button class="con-preset-editor-del-btn" title="${t('conPresetRemoveTitle')}" onclick="notePresetEditorDeleteRow(${i})"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" style="width:13px;height:13px;" /></button>
-        `;
+        const card = document.createElement('div');
+        card.className = 'bc-preset-card';
+        card.draggable = true;
+        card.dataset.index = String(i);
 
-        function _bindColorPair(btnEl, inputEl) {
-          if (!btnEl || !inputEl) return;
-          inputEl.addEventListener('input', () => {
-            if (typeof _bcSyncPickerFromText === 'function') {
-              _bcSyncPickerFromText(btnEl, inputEl.value.trim());
-            } else if (typeof window._bcSyncPickerFromText === 'function') {
-              window._bcSyncPickerFromText(btnEl, inputEl.value.trim());
-            }
-          });
-          btnEl.addEventListener('input', () => {
-            const hex = btnEl.value;
-            const curText = inputEl.value.trim();
-            const rgbaMatch = curText.match(/^rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/i);
-            if (rgbaMatch) {
-              const r = parseInt(hex.slice(1, 3), 16);
-              const g = parseInt(hex.slice(3, 5), 16);
-              const b = parseInt(hex.slice(5, 7), 16);
-              const alpha = rgbaMatch[4];
-              inputEl.value = `rgba(${r}, ${g}, ${b}, ${alpha})`;
-            } else {
-              inputEl.value = hex;
-            }
-          });
-        }
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'bc-card-del-btn';
+        delBtn.title = t('conPresetRemoveTitle') || 'Remove this preset';
+        delBtn.textContent = 'x';
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          notePresetEditorDeleteRow(i);
+        });
 
-        _bindColorPair(row.querySelector('.pe-bg-btn'), row.querySelector('.pe-bg'));
-        _bindColorPair(row.querySelector('.pe-color-btn-tx'), row.querySelector('.pe-color'));
-        _bindColorPair(row.querySelector('.pe-bdr-btn'), row.querySelector('.pe-bdr'));
+        const stage = document.createElement('div');
+        stage.className = 'bc-preset-card-stage';
 
-        // Bind unit conversion listeners
-        const bwInput = row.querySelector('.pe-bw');
-        const bwUnitSel = row.querySelector('.pe-bw-unit');
-        if (bwInput && bwUnitSel) {
-          bwUnitSel.dataset.lastUnit = bwUnitSel.value;
-          bwUnitSel.addEventListener('change', () => {
-            const prevUnit = bwUnitSel.dataset.lastUnit || 'px';
-            const newUnit = bwUnitSel.value;
-            const val = parseFloat(bwInput.value);
-            if (!isNaN(val)) {
-              const px = conThicknessUnitToPx(val, prevUnit);
-              bwInput.value = String(conPxToThicknessUnit(px, newUnit));
-            }
-            bwUnitSel.dataset.lastUnit = newUnit;
-          });
-        }
+        const prev = document.createElement('div');
+        prev.className = 'bc-preset-card-preview';
+        prev.textContent = p.label || p.key || 'Sample';
+        prev.style.background = p.bg || '#ffffff';
+        prev.style.color = p.color || '#111111';
+        prev.style.borderWidth = Math.min(6, Math.max(0, p.borderWidth != null ? p.borderWidth : 0)) + 'px';
+        prev.style.borderStyle = p.borderStyle || 'solid';
+        prev.style.borderColor = p.borderColor || '#111111';
+        prev.style.borderRadius = '6px';
+        if (p.fontFamily) prev.style.fontFamily = p.fontFamily;
+        if (p.fontSize) prev.style.fontSize = Math.min(20, Math.max(10, p.fontSize)) + 'px';
+        const fmt = p.fmt || {};
+        prev.style.fontWeight = fmt.bold ? '700' : '500';
+        prev.style.fontStyle = fmt.italic ? 'italic' : 'normal';
+        const decs = [];
+        if (fmt.underline) decs.push('underline');
+        if (fmt.strike) decs.push('line-through');
+        if (decs.length) prev.style.textDecoration = decs.join(' ');
+        stage.appendChild(prev);
 
-        const fsInput = row.querySelector('.pe-fs');
-        const fsUnitSel = row.querySelector('.pe-fs-unit');
-        if (fsInput && fsUnitSel) {
-          fsUnitSel.dataset.lastUnit = fsUnitSel.value;
-          fsUnitSel.addEventListener('change', () => {
-            const prevUnit = fsUnitSel.dataset.lastUnit || 'px';
-            const newUnit = fsUnitSel.value;
-            const val = parseFloat(fsInput.value);
-            if (!isNaN(val)) {
-              const px = conFontUnitToPx(val, prevUnit);
-              fsInput.value = String(conPxToFontUnit(px, newUnit));
-            }
-            fsUnitSel.dataset.lastUnit = newUnit;
-          });
-        }
+        const meta = document.createElement('div');
+        meta.className = 'bc-preset-card-meta';
+        const keyEl = document.createElement('span');
+        keyEl.className = 'bc-preset-card-key';
+        keyEl.textContent = p.key || 'key';
+        const labelEl = document.createElement('span');
+        labelEl.className = 'bc-preset-card-label';
+        labelEl.textContent = p.label || p.key || '';
+        meta.appendChild(keyEl);
+        meta.appendChild(labelEl);
 
-        const fontWrap = row.querySelector('.pe-font-wrap');
-        if (fontWrap && typeof _bcBuildFontSelect === 'function') {
-          const fsel = _bcBuildFontSelect('', p.fontFamily || '', '');
-          fsel.className = 'pe-font';
-          fsel.title = 'Font family (blank = default)';
-          fsel.style.cssText = 'width:100%;font-size:0.72rem;border:1.5px solid #ccc;border-radius:3px;padding:2px 3px;font-family:inherit;';
-          fontWrap.appendChild(fsel);
-        }
-        list.appendChild(row);
+        card.addEventListener('click', () => {
+          if (typeof window.bcOpenItemEditor === 'function') {
+            window.bcOpenItemEditor({
+              mode: 'note-preset',
+              item: _notePresetEditorDraft[i],
+              onSave: (updated) => {
+                _notePresetEditorDraft[i] = updated;
+                _notePresetEditorRender();
+              },
+              onDelete: () => notePresetEditorDeleteRow(i)
+            });
+          }
+        });
+
+        card.appendChild(delBtn);
+        card.appendChild(stage);
+        card.appendChild(meta);
+        list.appendChild(card);
       });
       const addBtn = document.getElementById('note-preset-add-btn');
       if (addBtn) addBtn.disabled = _notePresetEditorDraft.length >= 15;
@@ -1896,21 +1820,16 @@
 
     function _notePresetEditorEnableDrag(list) {
       let dragSrc = null;
-      list.querySelectorAll('.con-preset-editor-row').forEach(row => {
-        const handle = row.querySelector('.pe-drag-handle');
-        if (handle) {
-          handle.addEventListener('mousedown', () => { row.draggable = true; });
-          handle.addEventListener('mouseup', () => { row.draggable = false; });
-        }
-        row.addEventListener('dragstart', e => { dragSrc = row; e.dataTransfer.effectAllowed = 'move'; row.classList.add('pe-row-dragging'); });
-        row.addEventListener('dragend', () => { row.classList.remove('pe-row-dragging'); list.querySelectorAll('.con-preset-editor-row').forEach(r => r.classList.remove('pe-row-drag-over')); dragSrc = null; });
-        row.addEventListener('dragover', e => { e.preventDefault(); if (dragSrc && dragSrc !== row) row.classList.add('pe-row-drag-over'); });
-        row.addEventListener('dragleave', () => row.classList.remove('pe-row-drag-over'));
-        row.addEventListener('drop', e => {
-          e.preventDefault(); row.classList.remove('pe-row-drag-over');
-          if (!dragSrc || dragSrc === row) return;
-          const rows = Array.from(list.querySelectorAll('.con-preset-editor-row'));
-          const fromIdx = rows.indexOf(dragSrc), toIdx = rows.indexOf(row);
+      list.querySelectorAll('.bc-preset-card').forEach(card => {
+        card.addEventListener('dragstart', e => { dragSrc = card; e.dataTransfer.effectAllowed = 'move'; card.classList.add('bc-card-dragging'); });
+        card.addEventListener('dragend', () => { card.classList.remove('bc-card-dragging'); list.querySelectorAll('.bc-preset-card').forEach(c => c.classList.remove('bc-card-drag-over')); dragSrc = null; });
+        card.addEventListener('dragover', e => { e.preventDefault(); if (dragSrc && dragSrc !== card) card.classList.add('bc-card-drag-over'); });
+        card.addEventListener('dragleave', () => card.classList.remove('bc-card-drag-over'));
+        card.addEventListener('drop', e => {
+          e.preventDefault(); card.classList.remove('bc-card-drag-over');
+          if (!dragSrc || dragSrc === card) return;
+          const cards = Array.from(list.querySelectorAll('.bc-preset-card'));
+          const fromIdx = cards.indexOf(dragSrc), toIdx = cards.indexOf(card);
           if (fromIdx < 0 || toIdx < 0) return;
           _notePresetEditorFlushDOM();
           const [moved] = _notePresetEditorDraft.splice(fromIdx, 1);
@@ -1923,11 +1842,22 @@
     window.notePresetEditorAddRow = function () {
       if (_notePresetEditorDraft.length >= 15) return;
       _notePresetEditorFlushDOM();
-      _notePresetEditorDraft.push({ key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 0, borderWidthUnit: 'px', borderStyle: 'solid', fontFamily: '', fontSize: null, fontSizeUnit: 'px', fmt: { bold: false, italic: false, underline: false, strike: false } });
+      const newPreset = { key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 0, borderWidthUnit: 'px', borderStyle: 'solid', fontFamily: '', fontSize: null, fontSizeUnit: 'px', fmt: { bold: false, italic: false, underline: false, strike: false } };
+      _notePresetEditorDraft.push(newPreset);
+      const idx = _notePresetEditorDraft.length - 1;
       _notePresetEditorRender();
-      const rows = document.querySelectorAll('#note-preset-editor-list .con-preset-editor-row');
-      const last = rows[rows.length - 1];
-      if (last) { const kf = last.querySelector('.pe-key'); if (kf) kf.focus(); }
+      if (typeof window.bcOpenItemEditor === 'function') {
+        window.bcOpenItemEditor({
+          mode: 'note-preset',
+          title: 'Add Note Preset',
+          item: _notePresetEditorDraft[idx],
+          onSave: (updated) => {
+            _notePresetEditorDraft[idx] = updated;
+            _notePresetEditorRender();
+          },
+          onDelete: () => notePresetEditorDeleteRow(idx)
+        });
+      }
     };
 
     window.notePresetEditorSave = async function () {

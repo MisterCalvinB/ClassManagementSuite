@@ -3494,17 +3494,31 @@
         return '<div class="color-swatch' + (c === selected ? ' selected' : '') +
           '" style="background:' + c + '" title="' + c + '" data-pl-action="pick-color" data-pl-color="' + esc(c) + '"></div>';
       }).join('');
-      html += '<div class="custom-color-wrap"><input type="color" id="custom-color" value="' + esc(selected) +
+      html += '<div class="custom-color-wrap"><input type="color" id="custom-color" data-color-css="' + esc(selected) + '" value="' + esc(selected) +
         '" data-pl-input="pick-color"><label for="custom-color">' + esc(t('pl_customColor')) + '</label></div>';
       el.innerHTML = html;
+      var customEl = document.getElementById('custom-color');
+      if (customEl && window.UnifiedColorPicker) {
+        window.UnifiedColorPicker.setValue(customEl, selected);
+      }
     }
     function pickColor(c) {
-      document.querySelectorAll('#color-row .color-swatch').forEach(function (s) { s.classList.toggle('selected', s.title === c); });
-      document.getElementById('custom-color').value = c;
+      var customEl = document.getElementById('custom-color');
+      var resolved = c;
+      if (customEl && window.UnifiedColorPicker && !c) {
+        resolved = window.UnifiedColorPicker.getValue(customEl);
+      }
+      document.querySelectorAll('#color-row .color-swatch').forEach(function (s) { s.classList.toggle('selected', s.title === resolved); });
+      if (customEl) {
+        if (window.UnifiedColorPicker) window.UnifiedColorPicker.setValue(customEl, resolved);
+        else customEl.value = resolved;
+      }
     }
     function getPickedColor() {
       var sel = document.querySelector('#color-row .color-swatch.selected');
-      return sel ? sel.title : document.getElementById('custom-color').value;
+      if (sel) return sel.title;
+      var customEl = document.getElementById('custom-color');
+      return (customEl && window.UnifiedColorPicker) ? window.UnifiedColorPicker.getValue(customEl) : (customEl ? customEl.value : '#5b8fcc');
     }
 
     var DAY_KEYS = ['pl_daySun', 'pl_dayMon', 'pl_dayTue', 'pl_dayWed', 'pl_dayThu', 'pl_dayFri', 'pl_daySat'];

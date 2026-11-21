@@ -1853,6 +1853,8 @@
   "importBtnImportAnother": "Import another file",
   "importBtnClose": "Close",
   "importSaving": "Saving…",
+  "importModalNoExtraDesc": "Ready to import. Click Next to upload and map your file.",
+  "importModalFileCopyDesc": "Direct file import. Click Pick Files to choose files to copy into your workspace.",
   "importErrNoFile": "Please select a file",
   "importErrEmptyFile": "The file appears to be empty",
   "importErrNoFirstName": "\"First Name\" column must be mapped",
@@ -3324,5 +3326,15 @@
   "wh_edit_preset": "Edit",
   "wh_add_slot": "Add App",
   "wh_width": "W",
-  "wh_height": "H"
+  "wh_height": "H",
+  "colorPickerTitle": "Colour Picker",
+  "colorPickerOpacity": "Opacity",
+  "colorPickerPresets": "Presets",
+  "colorPickerSaved": "Saved Colours",
+  "colorPickerSaveBtn": "Save",
+  "colorPickerSaveNamePlaceholder": "Colour name...",
+  "colorPickerNoSaved": "No saved colours yet",
+  "colorPickerRecent": "Recent",
+  "colorPickerClear": "Clear",
+  "colorPickerHexLabel": "Hex / RGBA"
 });

@@ -11,6 +11,7 @@
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/shortcuts-modal.js"></script>
   <script src="../js/shared/tutorial.js"></script>
@@ -91,87 +92,118 @@
           <!-- populated by JS -->
         </div>
 
-        <!-- Admin group auto-target info (shown when adminGroups is selected) -->
-        <div class="group-options" id="admin-group-info">
-          <h4 data-i18n="importAdminGroupPickLabel">Target Administrative Group</h4>
-          <div id="admin-group-target-text" style="font-size:0.88rem; font-weight:800; color:#111; display:flex; align-items:center; gap:8px;">
-            <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" data-ev-3="1" />
-            <span id="admin-group-target-name"></span>
-          </div>
-          <div id="admin-group-target-sub" style="font-size:0.75rem; color:#64748b; margin-top:4px;"></div>
-        </div>
-
-        <!-- Group options (shown when class-groups is selected) -->
-        <div class="group-options" id="group-options">
-          <h4 data-i18n="importGroupPickLabel">Assign to group</h4>
-          <div class="grp-toggle">
-            <button class="grp-toggle-btn active" id="grp-btn-new" data-ev-4="1" data-i18n="importGroupNew">Create new group</button>
-            <button class="grp-toggle-btn" id="grp-btn-existing" data-ev-5="1" data-i18n="importGroupExisting">Use existing group</button>
-          </div>
-
-          <!-- New group fields -->
-          <div id="grp-new-fields">
-            <div class="grp-field">
-              <label data-i18n="importGroupName">Group name *</label>
-              <input type="text" id="grp-name" placeholder="e.g. 4AN-02">
-            </div>
-            <div class="grp-row">
-              <div class="grp-field">
-                <label data-i18n="importGroupYear">Year</label>
-                <input type="text" id="grp-year" placeholder="2026-2027">
-              </div>
-              <div class="grp-field">
-                <label data-i18n="importGroupSemester">Semester</label>
-                <select id="grp-semester">
-                  <option value="">—</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="all">All (Full Year)</option>
-                </select>
-              </div>
-              <div class="grp-field">
-                <label data-i18n="importGroupLevel">Level</label>
-                <input type="text" id="grp-level" placeholder="e.g. 4">
-              </div>
-            </div>
-          </div>
-
-          <!-- Existing group picker -->
-          <div id="grp-existing-fields" style="display:none;">
-            <div class="grp-field">
-              <label data-i18n="importGroupExisting">Existing group</label>
-              <select id="grp-existing-select">
-                <option value="" data-i18n="loading">Loading…</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <!-- File-picker options (shown for wordbank / quiz / gapfill) -->
-        <div class="group-options" id="wb-options">
-          <h4 id="wb-pick-label" data-i18n="importWbPickLabel">Target file</h4>
-          <div class="grp-toggle">
-            <button class="grp-toggle-btn active" id="wb-btn-new" data-ev-6="1" data-i18n="importWbNew">Create new file</button>
-            <button class="grp-toggle-btn" id="wb-btn-existing" data-ev-7="1" data-i18n="importWbExisting">Add to existing file</button>
-          </div>
-          <div id="wb-new-fields">
-            <div class="grp-field">
-              <label data-i18n="importWbFileName">File name *</label>
-              <input type="text" id="wb-new-name" placeholder="e.g. vocabulary" data-ev-8="1">
-              <small style="color:#888;font-size:0.72rem;" data-i18n="importWbFileNameHint">.js will be added automatically</small>
-            </div>
-          </div>
-          <div id="wb-existing-fields" style="display:none;">
-            <div class="grp-field">
-              <label data-i18n="importWbExistingLabel">Existing wordbank</label>
-              <select id="wb-existing-select" data-ev-9="1">
-                <option value="" data-i18n="loading">Loading…</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <div class="error-msg" id="err-step1"></div>
+      </div>
+
+      <!-- ── Destination Config Modal ── -->
+      <div id="dest-config-modal" class="dest-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="dest-modal-title" style="display:none;">
+        <div class="dest-modal-box">
+          <div class="dest-modal-header">
+            <div class="dest-modal-title-wrap">
+              <span class="dest-modal-icon" id="dest-modal-icon"></span>
+              <div>
+                <h3 class="dest-modal-title" id="dest-modal-title"></h3>
+                <p class="dest-modal-desc" id="dest-modal-desc"></p>
+              </div>
+            </div>
+            <button type="button" class="dest-modal-close" id="dest-modal-close" aria-label="Close" data-i18n-aria="close">
+              <img src="../assets/icons/close.svg" alt="" class="btn-icon">
+            </button>
+          </div>
+          <div class="dest-modal-body">
+            <!-- Admin group auto-target info (shown when adminGroups is selected) -->
+            <div class="group-options" id="admin-group-info">
+              <h4 data-i18n="importAdminGroupPickLabel">Target Administrative Group</h4>
+              <div id="admin-group-target-text" style="font-size:0.88rem; font-weight:800; color:#111; display:flex; align-items:center; gap:8px;">
+                <img src="../assets/icons/admin-groups.svg" class="btn-icon" alt="" style="width:16px;height:16px;" data-ev-3="1" />
+                <span id="admin-group-target-name"></span>
+              </div>
+              <div id="admin-group-target-sub" style="font-size:0.75rem; color:#64748b; margin-top:4px;"></div>
+            </div>
+
+            <!-- Group options (shown when class-groups is selected) -->
+            <div class="group-options" id="group-options">
+              <h4 data-i18n="importGroupPickLabel">Assign to group</h4>
+              <div class="grp-toggle">
+                <button type="button" class="grp-toggle-btn active" id="grp-btn-new" data-ev-4="1" data-i18n="importGroupNew">Create new group</button>
+                <button type="button" class="grp-toggle-btn" id="grp-btn-existing" data-ev-5="1" data-i18n="importGroupExisting">Use existing group</button>
+              </div>
+
+              <!-- New group fields -->
+              <div id="grp-new-fields">
+                <div class="grp-field">
+                  <label data-i18n="importGroupName">Group name *</label>
+                  <input type="text" id="grp-name" placeholder="e.g. 4AN-02">
+                </div>
+                <div class="grp-row">
+                  <div class="grp-field">
+                    <label data-i18n="importGroupYear">Year</label>
+                    <input type="text" id="grp-year" placeholder="2026-2027">
+                  </div>
+                  <div class="grp-field">
+                    <label data-i18n="importGroupSemester">Semester</label>
+                    <select id="grp-semester">
+                      <option value="">—</option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="all">All (Full Year)</option>
+                    </select>
+                  </div>
+                  <div class="grp-field">
+                    <label data-i18n="importGroupLevel">Level</label>
+                    <input type="text" id="grp-level" placeholder="e.g. 4">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Existing group picker -->
+              <div id="grp-existing-fields" style="display:none;">
+                <div class="grp-field">
+                  <label data-i18n="importGroupExisting">Existing group</label>
+                  <select id="grp-existing-select">
+                    <option value="" data-i18n="loading">Loading…</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- File-picker options (shown for wordbank / quiz / gapfill) -->
+            <div class="group-options" id="wb-options">
+              <h4 id="wb-pick-label" data-i18n="importWbPickLabel">Target file</h4>
+              <div class="grp-toggle">
+                <button type="button" class="grp-toggle-btn active" id="wb-btn-new" data-ev-6="1" data-i18n="importWbNew">Create new file</button>
+                <button type="button" class="grp-toggle-btn" id="wb-btn-existing" data-ev-7="1" data-i18n="importWbExisting">Add to existing file</button>
+              </div>
+              <div id="wb-new-fields">
+                <div class="grp-field">
+                  <label data-i18n="importWbFileName">File name *</label>
+                  <input type="text" id="wb-new-name" placeholder="e.g. vocabulary" data-ev-8="1">
+                  <small style="color:#888;font-size:0.72rem;" data-i18n="importWbFileNameHint">.js will be added automatically</small>
+                </div>
+              </div>
+              <div id="wb-existing-fields" style="display:none;">
+                <div class="grp-field">
+                  <label data-i18n="importWbExistingLabel">Existing wordbank</label>
+                  <select id="wb-existing-select" data-ev-9="1">
+                    <option value="" data-i18n="loading">Loading…</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Info summary when no extra fields are required -->
+            <div id="dest-no-extra-info" class="dest-no-extra-info" style="display:none;">
+              <img src="../assets/icons/info.svg" class="btn-icon" alt="">
+              <span id="dest-no-extra-text"></span>
+            </div>
+
+            <div class="error-msg" id="err-dest-modal"></div>
+          </div>
+          <div class="dest-modal-footer">
+            <button type="button" class="btn btn-secondary" id="dest-modal-cancel" data-i18n="cancel">Cancel</button>
+            <button type="button" class="btn btn-primary" id="dest-modal-continue" data-i18n="importBtnNext">Next →</button>
+          </div>
+        </div>
       </div>
 
       <!-- ── STEP 2 ── -->
@@ -296,7 +328,7 @@
         </div>
         <div class="right" style="display:flex; align-items:center; gap:10px;">
           <span class="saving-msg" id="saving-msg">
-            <span>⏳</span><span data-i18n="importSaving">Saving…</span>
+            <img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:14px;height:14px;"><span data-i18n="importSaving">Saving…</span>
           </span>
           <button class="btn btn-primary" id="btn-next" data-ev-20="1" data-i18n="importBtnNext">Next →</button>
         </div>
@@ -317,6 +349,8 @@
       {
         appI18nKey: 'app_adminGroups_title',
         defaultTitle: 'Administrative Group Management',
+        icon: 'group-editor.svg',
+        accent: 'is-blue',
         modules: [
           window.IMPORT_MODULE_ADMIN_GROUPS,
           window.IMPORT_MODULE_CLASS_GROUPS,
@@ -326,6 +360,8 @@
       {
         appI18nKey: 'app_manageDatabase_title',
         defaultTitle: 'Database Manager & Learning Tools',
+        icon: 'manage-database.svg',
+        accent: 'is-yellow',
         modules: [
           window.IMPORT_MODULE_WORDBANK,
           window.IMPORT_MODULE_QUIZ,
@@ -343,6 +379,8 @@
       {
         appI18nKey: 'app_board_title',
         defaultTitle: 'Board',
+        icon: 'board.svg',
+        accent: 'is-purple',
         modules: [
           window.IMPORT_MODULE_BOOKS
         ]
@@ -350,6 +388,8 @@
       {
         appI18nKey: 'app_documentEditor_title',
         defaultTitle: 'Document Editor',
+        icon: 'document-editor.svg',
+        accent: 'is-green',
         modules: [
           window.IMPORT_MODULE_DOCUMENTS
         ]
@@ -357,11 +397,40 @@
       {
         appI18nKey: 'app_gradeSheet_title',
         defaultTitle: 'Grade Sheet',
+        icon: 'grade-sheet.svg',
+        accent: 'is-orange',
         modules: [
           window.IMPORT_MODULE_GRADE_SHEET_CRITERIA
         ]
       }
     ];
+
+    var MODULE_ICONS = {
+      adminGroups: 'admin-groups.svg',
+      classGroups: 'groups.svg',
+      students: 'user-check.svg',
+      wordbank: 'word-card.svg',
+      quiz: 'quiz.svg',
+      competences: 'competence-portfolio.svg',
+      gapfill: 'gapfill.svg',
+      dictation: 'dictation.svg',
+      grammar: 'grammar.svg',
+      sentence: 'sentence.svg',
+      story: 'book.svg',
+      quote: 'quote.svg',
+      error: 'error.svg',
+      sounds: 'volume.svg',
+      books: 'library.svg',
+      documents: 'document-editor.svg',
+      gradeSheetCriteria: 'grade-sheet.svg'
+    };
+
+    var MODULE_ACCENTS = {};
+    MODULE_GROUPS.forEach(function (grp) {
+      grp.modules.forEach(function (m) {
+        if (m) MODULE_ACCENTS[m.id] = grp.accent || 'is-blue';
+      });
+    });
 
     var MODULES = [];
     MODULE_GROUPS.forEach(function (grp) {
@@ -412,7 +481,7 @@
     function buildDestCards() {
       var container = document.getElementById('dest-options');
       container.innerHTML = '';
-      var descs = {
+      var DESCS = {
         adminGroups: tt('importDestAdminGroupsDesc', 'Import student data to feed columns of Administrative Groups'),
         students: tt('importDestStudentsDesc', 'Add students to the student roster'),
         classGroups: tt('importDestClassGroupsDesc', 'Import students and assign them to a class group'),
@@ -438,7 +507,16 @@
 
         var titleEl = document.createElement('div');
         titleEl.className = 'dest-group-title';
-        titleEl.textContent = tt(grp.appI18nKey, grp.defaultTitle);
+        if (grp.icon) {
+          var gImg = document.createElement('img');
+          gImg.src = '../assets/icons/' + grp.icon;
+          gImg.alt = '';
+          gImg.className = 'dest-group-icon';
+          titleEl.appendChild(gImg);
+        }
+        var gSpan = document.createElement('span');
+        gSpan.textContent = tt(grp.appI18nKey, grp.defaultTitle);
+        titleEl.appendChild(gSpan);
         groupEl.appendChild(titleEl);
 
         var cardsGrid = document.createElement('div');
@@ -447,14 +525,19 @@
         grp.modules.forEach(function (mod) {
           if (!mod) return;
           var isSelected = (selectedModule && selectedModule.id === mod.id);
+          var iconFile = MODULE_ICONS[mod.id] || grp.icon || 'import-tool.svg';
+          var accentCls = grp.accent || 'is-blue';
           var card = document.createElement('label');
           card.className = 'dest-card' + (isSelected ? ' selected' : '');
           card.dataset.modId = mod.id;
           card.innerHTML =
             '<input type="radio" name="dest" value="' + mod.id + '"' + (isSelected ? ' checked' : '') + '>' +
-            '<div><div class="dest-card-label">' + tt(mod.i18nKey, mod.id) + '</div>' +
-            '<div class="dest-card-desc">' + (descs[mod.id] || '') + '</div></div>';
-          card.addEventListener('click', function () { selectModule(mod); });
+            '<span class="dest-card-icon ' + accentCls + '"><img src="../assets/icons/' + iconFile + '" alt=""></span>' +
+            '<div class="dest-card-body">' +
+              '<div class="dest-card-label">' + tt(mod.i18nKey, mod.id) + '</div>' +
+              '<div class="dest-card-desc">' + (DESCS[mod.id] || '') + '</div>' +
+            '</div>';
+          card.addEventListener('click', function () { selectModule(mod, true); });
           cardsGrid.appendChild(card);
         });
 
@@ -490,32 +573,108 @@
       }
     }
 
-    function selectModule(mod) {
+    function selectModule(mod, openModal) {
       selectedModule = mod;
       document.querySelectorAll('.dest-card').forEach(function (c) {
         c.classList.toggle('selected', c.dataset.modId === mod.id);
       });
+      var hasGrp = !!mod.hasGroupStep && !mod.isFileCopy && mod.id !== 'adminGroups';
+      var hasAdm = mod.id === 'adminGroups';
+      var hasWb = !!mod.hasWbStep && !mod.isFileCopy;
+
       var grpOpts = document.getElementById('group-options');
-      grpOpts.classList.toggle('visible', !!mod.hasGroupStep && !mod.isFileCopy && mod.id !== 'adminGroups');
+      if (grpOpts) grpOpts.classList.toggle('visible', hasGrp);
       var admInfo = document.getElementById('admin-group-info');
       if (admInfo) {
-        admInfo.classList.toggle('visible', mod.id === 'adminGroups');
-        if (mod.id === 'adminGroups') {
-          updateAdminGroupInfo();
-        }
+        admInfo.classList.toggle('visible', hasAdm);
+        if (hasAdm) updateAdminGroupInfo();
       }
       var wbOpts = document.getElementById('wb-options');
-      wbOpts.classList.toggle('visible', !!mod.hasWbStep && !mod.isFileCopy);
-      if (mod.hasWbStep && !mod.isFileCopy) {
+      if (wbOpts) wbOpts.classList.toggle('visible', hasWb);
+      if (hasWb) {
         var pickLabel = document.getElementById('wb-pick-label');
         if (pickLabel) pickLabel.textContent = tt(mod.filePickerLabelKey || 'importWbPickLabel', 'Target file');
         setWbMode(wbMode);
         loadWbFiles();
       }
+      var noExtra = document.getElementById('dest-no-extra-info');
+      var noExtraText = document.getElementById('dest-no-extra-text');
+      if (noExtra && noExtraText) {
+        var showNoExtra = !hasGrp && !hasAdm && !hasWb;
+        noExtra.style.display = showNoExtra ? 'flex' : 'none';
+        if (showNoExtra) {
+          noExtraText.textContent = mod.isFileCopy
+            ? tt('importModalFileCopyDesc', 'Direct file import. Click Pick Files to choose files to copy into your workspace.')
+            : tt('importModalNoExtraDesc', 'Ready to import. Click Next to upload and map your file.');
+        }
+      }
       if (typeof mod.loadExisting === 'function') {
         mod.loadExisting().catch(function (e) { console.warn('Failed to load module existing data:', e); });
       }
       updateFooterButtons();
+      if (openModal) {
+        openDestConfigModal(mod);
+      }
+    }
+
+    function openDestConfigModal(mod) {
+      var modal = document.getElementById('dest-config-modal');
+      if (!modal || !mod) return;
+      var iconWrap = document.getElementById('dest-modal-icon');
+      var titleEl = document.getElementById('dest-modal-title');
+      var descEl = document.getElementById('dest-modal-desc');
+      var btnContinue = document.getElementById('dest-modal-continue');
+
+      if (iconWrap) {
+        var iconFile = MODULE_ICONS[mod.id] || 'import-tool.svg';
+        var accentCls = MODULE_ACCENTS[mod.id] || 'is-blue';
+        iconWrap.className = 'dest-modal-icon ' + accentCls;
+        iconWrap.innerHTML = '<img src="../assets/icons/' + iconFile + '" alt="">';
+      }
+      if (titleEl) titleEl.textContent = tt(mod.i18nKey, mod.id);
+      if (descEl) {
+        var cardDesc = document.querySelector('.dest-card[data-mod-id="' + mod.id + '"] .dest-card-desc');
+        descEl.textContent = cardDesc ? cardDesc.textContent : '';
+      }
+      clearError('err-dest-modal');
+      clearError('err-step1');
+      if (btnContinue) {
+        btnContinue.textContent = mod.isFileCopy
+          ? tt('importBtnPickFiles', 'Pick Files…')
+          : tt('importBtnNext', 'Next →');
+      }
+
+      modal.style.display = 'flex';
+
+      setTimeout(function () {
+        if (mod.hasGroupStep && !mod.isFileCopy && mod.id !== 'adminGroups' && groupMode === 'new') {
+          var gn = document.getElementById('grp-name');
+          if (gn) gn.focus();
+        } else if (mod.hasWbStep && !mod.isFileCopy && wbMode === 'new') {
+          var wn = document.getElementById('wb-new-name');
+          if (wn) wn.focus();
+        } else if (btnContinue) {
+          btnContinue.focus();
+        }
+      }, 20);
+    }
+
+    function closeDestConfigModal() {
+      var modal = document.getElementById('dest-config-modal');
+      if (modal) modal.style.display = 'none';
+      clearError('err-dest-modal');
+    }
+
+    function confirmDestConfigModal() {
+      if (!validateStep1()) {
+        var stepErr = document.getElementById('err-step1');
+        if (stepErr && stepErr.textContent) {
+          showError('err-dest-modal', stepErr.textContent);
+        }
+        return;
+      }
+      closeDestConfigModal();
+      goNext();
     }
 
     window.setWbMode = function (mode) {
@@ -1455,7 +1614,15 @@
     // ── Wizard navigation ───────────────────────────────────────
     window.goNext = function () {
       if (currentStep === 1) {
-        if (!validateStep1()) return;
+        if (!validateStep1()) {
+          var modal = document.getElementById('dest-config-modal');
+          if (modal && modal.style.display !== 'flex' && selectedModule) {
+            openDestConfigModal(selectedModule);
+            var stepErr = document.getElementById('err-step1');
+            if (stepErr && stepErr.textContent) showError('err-dest-modal', stepErr.textContent);
+          }
+          return;
+        }
         if (selectedModule.isFileCopy) {
           runFileCopyImport();
           return;
@@ -1683,6 +1850,33 @@
 
     window.openImportShortcutsModal = openImportShortcutsModal;
     window.startImportTutorial = startImportTutorial;
+    window.closeDestConfigModal = closeDestConfigModal;
+    window.confirmDestConfigModal = confirmDestConfigModal;
+
+    (function bindDestModalEvents() {
+      var modal = document.getElementById('dest-config-modal');
+      var closeBtn = document.getElementById('dest-modal-close');
+      var cancelBtn = document.getElementById('dest-modal-cancel');
+      var contBtn = document.getElementById('dest-modal-continue');
+      if (closeBtn) closeBtn.addEventListener('click', closeDestConfigModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeDestConfigModal);
+      if (contBtn) contBtn.addEventListener('click', confirmDestConfigModal);
+      if (modal) {
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) closeDestConfigModal();
+        });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (!modal || modal.style.display !== 'flex') return;
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          closeDestConfigModal();
+        } else if (e.key === 'Enter' && e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) {
+          e.preventDefault();
+          confirmDestConfigModal();
+        }
+      });
+    })();
 
   })();
   </script>

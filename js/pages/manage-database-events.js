@@ -755,12 +755,24 @@
       var id = el.getAttribute('data-mdb-id') || '';
       if (act === 'color-picker') mdbOnColorPickerInput(id, el.value);
       else if (act === 'color-text') mdbOnColorTextInput(id, el.value);
-      else if (act === 'grade-color') mdbOnGradePickerChange(id, el.getAttribute('data-mdb-grade') || '', el.value);
+      else if (act === 'grade-color') mdbOnGradePickerChange(id, el.getAttribute('data-mdb-grade') || '', window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(el) : el.value);
       else if (act === 'all-search') setAllFieldsFilterDebounced(el.value);
       else if (act === 'ms-filter') mdbMsFilterList(el);
       else if (act === 'col-filter') setFilterDebounced(el.getAttribute('data-filter-key') || '', el.value);
-      else if (act === 'inline-color-picker' && el.nextElementSibling) el.nextElementSibling.value = el.value;
-      else if (act === 'inline-color-text' && /^#[0-9a-fA-F]{6}$/.test(el.value) && el.previousElementSibling) el.previousElementSibling.value = el.value;
+      else if (act === 'inline-color-picker') {
+        var wrap = el.closest('.cell-inline-color-wrap');
+        var txtEl = wrap ? wrap.querySelector('.cell-inline-input') : null;
+        if (txtEl) txtEl.value = window.UnifiedColorPicker ? window.UnifiedColorPicker.getValue(el) : el.value;
+      }
+      else if (act === 'inline-color-text') {
+        var wrap2 = el.closest('.cell-inline-color-wrap');
+        var pkrEl = wrap2 ? wrap2.querySelector('.cell-inline-color-picker') : null;
+        if (pkrEl && window.UnifiedColorPicker && window.UnifiedColorPicker.isValidColor(el.value)) {
+          window.UnifiedColorPicker.setValue(pkrEl, el.value);
+        } else if (pkrEl && /^#[0-9a-fA-F]{6}$/.test(el.value)) {
+          pkrEl.value = el.value;
+        }
+      }
       else if (act === 'sync-grade-colors') mdbSyncGradeColorsFromText(id);
       else if (act === 'word-pic') mdbOnWordPictureInput(id);
     });

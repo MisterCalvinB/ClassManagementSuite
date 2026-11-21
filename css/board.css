@@ -16377,6 +16377,632 @@ body.con-anim-paused .con-group[class*="con-anim-"]::before {
       border-color: #555555;
     }
 
+    /* ── Visual Card & Chip Grids for Nodes/Notes Customisation ── */
+    #board-customise-modal #bc-node-palette-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .bc-palette-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 5px;
+      padding: 8px 8px 7px;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 8px;
+      box-shadow: 2px 2px 0 #555555;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .bc-palette-card:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555555;
+    }
+
+    .bc-palette-card-preview {
+      height: 30px;
+      border: 2px solid #111111;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 0 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bc-palette-card-name {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #333333;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bc-card-del-btn {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid #333333;
+      background: #ffffff;
+      color: #b94040;
+      font-size: 0.72rem;
+      font-weight: 800;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.12s ease, background-color 0.12s ease;
+      padding: 0;
+      z-index: 2;
+    }
+
+    .bc-palette-card:hover .bc-card-del-btn,
+    .bc-swatch-chip:hover .bc-card-del-btn,
+    .bc-preset-card:hover .bc-card-del-btn {
+      opacity: 1;
+    }
+
+    .bc-card-del-btn:hover {
+      background: #fee2e2;
+    }
+
+    .bc-grid-add-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      min-height: 62px;
+      padding: 8px;
+      background: #f5f5f0;
+      border: 2px dashed #666666;
+      border-radius: 8px;
+      color: #333333;
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.12s ease, border-color 0.12s ease;
+    }
+
+    .bc-grid-add-card:hover {
+      background: #eaeae2;
+      border-color: #333333;
+    }
+
+    /* Single-colour swatch chip grid */
+    #board-customise-modal #bc-node-border-list,
+    #board-customise-modal #bc-note-bg-list,
+    #board-customise-modal #bc-note-text-list,
+    #board-customise-modal #bc-note-hl-list,
+    #board-customise-modal #bc-note-border-list,
+    #board-customise-modal #bc-board-bg-preset-list {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 4px;
+    }
+
+    .bc-swatch-chip {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px 4px 5px;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      box-shadow: 2px 2px 0 #555555;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .bc-swatch-chip:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555555;
+    }
+
+    .bc-swatch-chip-preview {
+      width: 20px;
+      height: 20px;
+      border: 1.5px solid #333333;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+
+    .bc-swatch-chip-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #333333;
+      max-width: 88px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bc-swatch-add-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: #f5f5f0;
+      border: 2px dashed #666666;
+      border-radius: 6px;
+      color: #333333;
+      font-family: inherit;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .bc-swatch-add-chip:hover {
+      background: #eaeae2;
+      border-color: #333333;
+    }
+
+    /* Preset card grid (Node & Note Presets) */
+    #board-customise-modal #con-preset-editor-list,
+    #board-customise-modal #note-preset-editor-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
+      gap: 8px;
+      max-height: none;
+      overflow: visible;
+    }
+
+    .bc-preset-card {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 6px;
+      padding: 8px;
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 8px;
+      box-shadow: 2px 2px 0 #555555;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .bc-preset-card:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 3px 3px 0 #555555;
+    }
+
+    .bc-preset-card-stage {
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafaf7;
+      border: 1px solid #e2e2da;
+      border-radius: 5px;
+      padding: 4px;
+      overflow: hidden;
+    }
+
+    .bc-preset-card-preview {
+      padding: 3px 10px;
+      font-size: 0.74rem;
+      line-height: 1.25;
+      max-width: 100%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      box-sizing: border-box;
+    }
+
+    .bc-preset-card-meta {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .bc-preset-card-key {
+      font-size: 0.66rem;
+      font-weight: 800;
+      background: #e9e9e2;
+      color: #222222;
+      border: 1px solid #333333;
+      border-radius: 4px;
+      padding: 1px 5px;
+      flex-shrink: 0;
+    }
+
+    .bc-preset-card-label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #444444;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bc-card-dragging {
+      opacity: 0.45;
+    }
+
+    .bc-card-drag-over {
+      outline: 2px solid #5b8fcc;
+      outline-offset: 2px;
+    }
+
+    /* ── Item Editor Sub-Modal (Clear Rectangular Layout) ── */
+    #bc-item-editor-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 5600;
+      background: rgba(0, 0, 0, 0.48);
+      align-items: center;
+      justify-content: center;
+    }
+
+    #bc-item-editor-overlay.active {
+      display: flex;
+    }
+
+    #bc-item-editor-modal {
+      background: #f5f5f0;
+      border: 2px solid #333333;
+      border-radius: 10px;
+      box-shadow: 5px 5px 0 #555555;
+      width: 580px;
+      max-width: 94vw;
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: inherit;
+    }
+
+    #bc-item-editor-modal.bc-ie-compact {
+      width: 420px;
+    }
+
+    .bc-ie-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #ffffff;
+      border-bottom: 2px solid #333333;
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: #222222;
+    }
+
+    .bc-ie-close-btn {
+      margin-left: auto;
+      padding: 4px 8px !important;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bc-ie-body {
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .bc-ie-preview-stage {
+      background: #ffffff;
+      border: 2px solid #333333;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-image: repeating-linear-gradient(45deg, #f2f2ec 25%, transparent 25%),
+                        repeating-linear-gradient(-45deg, #f2f2ec 25%, transparent 25%),
+                        repeating-linear-gradient(45deg, transparent 75%, #f2f2ec 75%),
+                        repeating-linear-gradient(-45deg, transparent 75%, #f2f2ec 75%);
+      background-size: 12px 12px;
+      background-position: 0 0, 0 6px, 6px -6px, -6px 0px;
+    }
+
+    .bc-ie-preview-node {
+      padding: 6px 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+      transition: background-color 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+    }
+
+    .bc-ie-preview-swatch {
+      width: 100%;
+      height: 48px;
+      border: 2px solid #333333;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .bc-ie-group {
+      background: #ffffff;
+      border: 1.5px solid #333333;
+      border-radius: 8px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .bc-ie-group-title {
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #555555;
+      border-bottom: 1px solid #e5e5de;
+      padding-bottom: 4px;
+    }
+
+    .bc-ie-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px 12px;
+    }
+
+    .bc-ie-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .bc-ie-field label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #333333;
+    }
+
+    .bc-ie-input,
+    .bc-ie-select {
+      font-family: inherit;
+      font-size: 0.8rem;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      padding: 5px 8px;
+      background: #ffffff;
+      color: #222222;
+      outline: none;
+      min-width: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .bc-ie-input:focus,
+    .bc-ie-select:focus {
+      border-color: #5b8fcc;
+    }
+
+    .bc-ie-color-pair {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .bc-ie-color-picker {
+      width: 32px;
+      height: 30px;
+      padding: 0;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      cursor: pointer;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+
+    .bc-ie-alpha-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+    }
+
+    .bc-ie-alpha-lbl {
+      font-size: 0.66rem;
+      font-weight: 700;
+      color: #666666;
+      flex-shrink: 0;
+    }
+
+    .bc-ie-alpha-slider {
+      flex: 1;
+      min-width: 0;
+      height: 4px;
+      accent-color: #333333;
+      cursor: pointer;
+    }
+
+    .bc-ie-alpha-val {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #444444;
+      min-width: 32px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .bc-ie-unit-pair {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .bc-ie-unit-pair .bc-ie-select {
+      width: 64px;
+      flex-shrink: 0;
+    }
+
+    .bc-ie-fmt-row {
+      display: flex;
+      gap: 6px;
+    }
+
+    .bc-ie-fmt-btn {
+      font-family: inherit;
+      font-size: 0.8rem;
+      width: 32px;
+      height: 30px;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      background: #f5f5f0;
+      color: #333333;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .bc-ie-fmt-btn.active {
+      background: #333333;
+      color: #ffffff;
+    }
+
+    .bc-ie-quick-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .bc-ie-quick-btn {
+      font-family: inherit;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border: 1.5px solid #333333;
+      border-radius: 5px;
+      background: #f5f5f0;
+      color: #333333;
+      cursor: pointer;
+    }
+
+    .bc-ie-quick-btn:hover {
+      background: #e5e5dc;
+    }
+
+    .bc-ie-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: #ffffff;
+      border-top: 2px solid #333333;
+    }
+
+    .bc-ie-del-btn {
+      background: #c96b6b !important;
+      color: #ffffff !important;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Dark mode for visual grids and Item Editor Modal */
+    body.dark-mode .bc-palette-card,
+    html.dark .bc-palette-card,
+    body.dark-mode .bc-swatch-chip,
+    html.dark .bc-swatch-chip,
+    body.dark-mode .bc-preset-card,
+    html.dark .bc-preset-card {
+      background: #1e1e1e;
+      border-color: #555555;
+      box-shadow: 2px 2px 0 #111111;
+    }
+
+    body.dark-mode .bc-palette-card-name,
+    html.dark .bc-palette-card-name,
+    body.dark-mode .bc-swatch-chip-label,
+    html.dark .bc-swatch-chip-label,
+    body.dark-mode .bc-preset-card-label,
+    html.dark .bc-preset-card-label {
+      color: #e5e5e5;
+    }
+
+    body.dark-mode .bc-preset-card-stage,
+    html.dark .bc-preset-card-stage {
+      background: #2a2a2a;
+      border-color: #444444;
+    }
+
+    body.dark-mode .bc-grid-add-card,
+    html.dark .bc-grid-add-card,
+    body.dark-mode .bc-swatch-add-chip,
+    html.dark .bc-swatch-add-chip {
+      background: #242424;
+      border-color: #666666;
+      color: #e5e5e5;
+    }
+
+    body.dark-mode #bc-item-editor-modal,
+    html.dark #bc-item-editor-modal {
+      background: #1b1b1b;
+      border-color: #555555;
+    }
+
+    body.dark-mode .bc-ie-header,
+    html.dark .bc-ie-header,
+    body.dark-mode .bc-ie-footer,
+    html.dark .bc-ie-footer,
+    body.dark-mode .bc-ie-group,
+    html.dark .bc-ie-group {
+      background: #242424;
+      border-color: #444444;
+      color: #e5e5e5;
+    }
+
+    body.dark-mode .bc-ie-field label,
+    html.dark .bc-ie-field label,
+    body.dark-mode .bc-ie-group-title,
+    html.dark .bc-ie-group-title,
+    body.dark-mode .bc-ie-alpha-lbl,
+    html.dark .bc-ie-alpha-lbl,
+    body.dark-mode .bc-ie-alpha-val,
+    html.dark .bc-ie-alpha-val {
+      color: #cccccc;
+    }
+
+    body.dark-mode .bc-ie-input,
+    html.dark .bc-ie-input,
+    body.dark-mode .bc-ie-select,
+    html.dark .bc-ie-select {
+      background: #1a1a1a;
+      color: #f0f0f0;
+      border-color: #555555;
+    }
+
     /* ── Animation Tab & Picker Popover (Light Neobrutalist) ── */
     .bc-anim-preview-stage {
       margin-top: 12px;
