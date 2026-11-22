@@ -3337,5 +3337,8 @@
   "colorPickerNoSaved": "Aucune couleur enregistrée",
   "colorPickerRecent": "Récentes",
   "colorPickerClear": "Effacer",
-  "colorPickerHexLabel": "Hex / RGBA"
+  "colorPickerHexLabel": "Hex / RGBA",
+  "btnMinimize": "Réduire",
+  "btnMaximize": "Agrandir",
+  "btnRestore": "Restaurer"
 });

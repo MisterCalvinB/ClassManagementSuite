@@ -374,7 +374,19 @@
       }
     }
 
-    overlay.classList.add('open');
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(overlay, {
+        initialFocus: searchInput || null,
+        onClose: function () {
+          if (document.body) document.body.classList.remove('cmt-modal-open');
+          if (_currentOpts && typeof _currentOpts.onClose === 'function') {
+            _currentOpts.onClose();
+          }
+        }
+      });
+    } else {
+      overlay.classList.add('open');
+    }
     if (document.body) document.body.classList.add('cmt-modal-open');
 
     // Register this entity in the registry for future reverse discovery
@@ -393,6 +405,10 @@
 
   function close() {
     var overlay = document.getElementById('cmt-link-modal-overlay');
+    if (window.CmtModal && typeof window.CmtModal.close === 'function' && overlay) {
+      window.CmtModal.close(overlay);
+      return;
+    }
     if (overlay) overlay.classList.remove('open');
     if (document.body) document.body.classList.remove('cmt-modal-open');
     if (_currentOpts && typeof _currentOpts.onClose === 'function') {
@@ -2400,7 +2416,11 @@
       openInOs(cleanPath);
     };
 
-    overlay.classList.add('open');
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(overlay);
+    } else {
+      overlay.classList.add('open');
+    }
     if (document.body) document.body.classList.add('cmt-modal-open');
 
     var lower = cleanPath.toLowerCase();
@@ -5706,7 +5726,11 @@
     var subEl = document.getElementById('cmt-dos-sub');
     var bodyEl = document.getElementById('cmt-dos-body');
 
-    overlay.classList.add('open');
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(overlay);
+    } else {
+      overlay.classList.add('open');
+    }
     if (document.body) document.body.classList.add('cmt-modal-open');
     bodyEl.innerHTML = '<div class="cmt-lm-empty">' + t('lmLoading', 'Loading 360° academic dossier...') + '</div>';
 

@@ -844,15 +844,29 @@
     _dictItems = [];
     _dictQuery = '';
     _input.value = '';
-    _backdrop.classList.add('open');
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(_backdrop, {
+        initialFocus: _input,
+        onClose: function () {
+          clearTimeout(_dictTimer);
+          _dictSeq++;
+        }
+      });
+    } else {
+      _backdrop.classList.add('open');
+      setTimeout(function () { if (_input) _input.focus(); }, 20);
+    }
     _renderList('');
     _collectDynamicItems();
-    setTimeout(function () { if (_input) _input.focus(); }, 20);
   }
 
   function _close() {
     clearTimeout(_dictTimer);
     _dictSeq++;
+    if (window.CmtModal && typeof window.CmtModal.close === 'function' && _backdrop) {
+      window.CmtModal.close(_backdrop);
+      return;
+    }
     if (_backdrop) _backdrop.classList.remove('open');
   }
 

@@ -659,13 +659,30 @@
     _ensureModalElements();
 
     var overlay = document.getElementById('slm-model-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    if (overlay) {
+      if (global.CmtModal && typeof global.CmtModal.open === 'function') {
+        global.CmtModal.open(overlay, {
+          onClose: function () {
+            if (_slmModalActiveOptions && typeof _slmModalActiveOptions.onClose === 'function') {
+              try { _slmModalActiveOptions.onClose(); } catch (_) {}
+            }
+            _slmModalActiveOptions = null;
+          }
+        });
+      } else {
+        overlay.style.display = 'flex';
+      }
+    }
 
     _renderModelsList();
   }
 
   function closeSlmModelManager() {
     var overlay = document.getElementById('slm-model-overlay');
+    if (global.CmtModal && typeof global.CmtModal.close === 'function' && overlay) {
+      global.CmtModal.close(overlay);
+      return;
+    }
     if (overlay) overlay.style.display = 'none';
     if (_slmModalActiveOptions && typeof _slmModalActiveOptions.onClose === 'function') {
       try { _slmModalActiveOptions.onClose(); } catch (_) {}

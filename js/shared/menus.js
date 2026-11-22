@@ -294,7 +294,7 @@
             if (lbl) btn.setAttribute('aria-label', lbl);
           }
         });
-        document.querySelectorAll('.modal-bg, .modal-overlay').forEach(function (m) {
+        document.querySelectorAll('.modal-bg, .modal-overlay, .neo-modal-overlay').forEach(function (m) {
           if (!m.hasAttribute('role')) m.setAttribute('role', 'dialog');
           if (!m.hasAttribute('aria-modal')) m.setAttribute('aria-modal', 'true');
         });
@@ -306,4 +306,105 @@
       _applyA11yDefaults();
     }
   }
+
+  // ── Unified Popup / Context-Menu / Dropdown Controller (CmtPopup) ──────────
+  var _activePopups = {}; // group -> { el, unregEsc, onClose, docHandler }
+
+  function _clampPopupToViewport(el, x, y) {
+    if (!el) return;
+    var pad = 8;
+    var rect = el.getBoundingClientRect();
+    var vw = window.innerWidth || document.documentElement.clientWidth || 1024;
+    var vh = window.innerHeight || document.documentElement.clientHeight || 768;
+    var w = rect.width || el.offsetWidth || 220;
+    var h = rect.height || el.offsetHeight || 180;
+    var nx = typeof x === 'number' ? x : rect.left;
+    var ny = typeof y === 'number' ? y : rect.top;
+    if (nx + w > vw - pad) nx = Math.max(pad, vw - w - pad);
+    if (ny + h > vh - pad) ny = Math.max(pad, vh - h - pad);
+    if (nx < pad) nx = pad;
+    if (ny < pad) ny = pad;
+    el.style.left = Math.round(nx) + 'px';
+    el.style.top = Math.round(ny) + 'px';
+  }
+
+  function _closePopupEntry(group, entry) {
+    if (!entry) return;
+    if (_activePopups[group] === entry) delete _activePopups[group];
+    if (entry.unregEsc) { try { entry.unregEsc(); } catch (_) {} }
+    if (entry.docHandler) {
+      document.removeEventListener('pointerdown', entry.docHandler, true);
+    }
+    if (entry.el) {
+      entry.el.classList.remove('open', 'is-open');
+      if (entry.useDisplay) entry.el.style.display = 'none';
+    }
+    if (typeof entry.onClose === 'function') {
+      try { entry.onClose(entry.el); } catch (_) {}
+    }
+  }
+
+  window.CmtPopup = {
+    open: function (el, opts) {
+      if (!el) return;
+      opts = opts || {};
+      var group = opts.group || 'default';
+      if (_activePopups[group] && _activePopups[group].el !== el) {
+        _closePopupEntry(group, _activePopups[group]);
+      }
+      var useDisplay = opts.useDisplay !== undefined ? !!opts.useDisplay : (el.style.display === 'none');
+      if (useDisplay) el.style.display = opts.displayValue || 'block';
+      el.classList.add('open', 'is-open');
+
+      var entry = { el: el, onClose: opts.onClose, useDisplay: useDisplay, unregEsc: null, docHandler: null };
+      if (typeof window.cmtPushEscapeHandler === 'function') {
+        entry.unregEsc = window.cmtPushEscapeHandler({
+          el: el,
+          close: function () { _closePopupEntry(group, entry); }
+        });
+      }
+      if (opts.outsideClick !== false) {
+        entry.docHandler = function (ev) {
+          if (!el.contains(ev.target) && (!opts.anchorEl || !opts.anchorEl.contains(ev.target))) {
+            _closePopupEntry(group, entry);
+          }
+        };
+        setTimeout(function () {
+          if (_activePopups[group] === entry) {
+            document.addEventListener('pointerdown', entry.docHandler, true);
+          }
+        }, 0);
+      }
+      _activePopups[group] = entry;
+
+      if (opts.clamp !== false) {
+        requestAnimationFrame(function () {
+          if (_activePopups[group] === entry) {
+            _clampPopupToViewport(el, opts.x, opts.y);
+          }
+        });
+      }
+    },
+    close: function (elOrGroup) {
+      if (typeof elOrGroup === 'string') {
+        if (_activePopups[elOrGroup]) _closePopupEntry(elOrGroup, _activePopups[elOrGroup]);
+        return;
+      }
+      Object.keys(_activePopups).forEach(function (g) {
+        if (_activePopups[g] && _activePopups[g].el === elOrGroup) {
+          _closePopupEntry(g, _activePopups[g]);
+        }
+      });
+    },
+    closeAll: function (group) {
+      if (group) {
+        if (_activePopups[group]) _closePopupEntry(group, _activePopups[group]);
+        return;
+      }
+      Object.keys(_activePopups).forEach(function (g) {
+        _closePopupEntry(g, _activePopups[g]);
+      });
+    },
+    clamp: _clampPopupToViewport
+  };
 })();

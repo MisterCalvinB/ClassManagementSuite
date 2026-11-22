@@ -1915,6 +1915,7 @@
     let _wnCtxNoteData = null;
 
     function wnCtxOpen(noteData, noteEl, e) {
+      if (typeof window.conCloseAllContextMenus === 'function') window.conCloseAllContextMenus('wn-ctx-menu');
       _wnCtxNoteData = noteData;
       const menu = document.getElementById('wn-ctx-menu');
       if (!menu) return;
@@ -1953,6 +1954,7 @@
         menu.style.maxHeight = '';
       }
     }
+    window.wnCtxClose = wnCtxClose;
 
     function wnCtxStyle() {
       const nd = _wnCtxNoteData; wnCtxClose(); if (!nd) return;

@@ -4409,20 +4409,48 @@ html.con-exporting #con-board-title {
 #con-board-ctx-menu {
   position: fixed;
   z-index: 9000;
-  background: #fff;
-  border: 2px solid #333;
-  border-radius: 8px;
-  box-shadow: 4px 4px 0 #555;
-  min-width: 260px;
-  max-width: 500px;
-  max-height: calc(100vh - 16px);
+  background: var(--neo-card-bg, #ffffff);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+  min-width: min(260px, calc(100vw - 16px));
+  max-width: min(500px, calc(100vw - 16px));
+  max-height: calc(100dvh - 16px);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   box-sizing: border-box;
   padding: 0;
   display: none;
   flex-direction: column;
   font-family: inherit;
+}
+
+/* Unified responsive bounds for all Board context menus */
+#search-ctx-menu,
+#con-media-ctx-menu,
+#con-edge-ctx-menu,
+#con-group-ctx-menu,
+#note-ctx-menu,
+#wn-ctx-menu {
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  border-color: var(--neo-border-color, #333333);
+  box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
+  box-sizing: border-box;
+  scrollbar-width: thin;
+}
+
+#search-ctx-menu::-webkit-scrollbar,
+#con-media-ctx-menu::-webkit-scrollbar,
+#con-edge-ctx-menu::-webkit-scrollbar,
+#con-group-ctx-menu::-webkit-scrollbar,
+#note-ctx-menu::-webkit-scrollbar,
+#wn-ctx-menu::-webkit-scrollbar {
+  width: 5px;
 }
 
 #con-board-ctx-menu.visible {
@@ -8970,17 +8998,18 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   text-transform: uppercase;
   letter-spacing: 1.2px;
   color: #999;
-  padding: 4px 10px 3px;
-  border-bottom: 2px solid #111;
+  padding: 4px 12px 3px;
+  border-bottom: 2px solid var(--neo-border-color, #333333);
   margin-bottom: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .wn-ctx-item {
-  padding: 6px 10px;
+  padding: 6px 12px;
   font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
@@ -8989,6 +9018,7 @@ body.is-dragging-mini-thumb .con-page-mini-thumb img,
   display: flex;
   align-items: center;
   gap: 7px;
+  box-sizing: border-box;
 }
 
 .wn-ctx-item:hover {
@@ -12683,13 +12713,13 @@ body.con-anim-paused .con-group[class*="con-anim-"]::before {
     }
 
     .con-ctx-body {
-      padding: 6px 12px 8px 10px;
+      padding: 6px 10px 8px;
       box-sizing: border-box;
       width: 100%;
     }
 
     .wn-sp-body {
-      padding: 4px 8px 6px;
+      padding: 6px 10px 8px;
       box-sizing: border-box;
       width: 100%;
     }
@@ -12707,7 +12737,7 @@ body.con-anim-paused .con-group[class*="con-anim-"]::before {
       min-width: 0;
       padding: 6px 10px 8px;
       box-sizing: border-box;
-      overflow: hidden;
+      overflow-x: hidden;
     }
 
     #con-ctx-menu.is-multi .wn-sp-row > *,
@@ -12715,10 +12745,13 @@ body.con-anim-paused .con-group[class*="con-anim-"]::before {
       min-width: 0;
     }
 
+    #con-ctx-preset-btns,
     #con-ctx-menu.is-multi #con-ctx-preset-btns {
       display: flex !important;
       flex-wrap: wrap !important;
       gap: 3px;
+      min-width: 0;
+      flex: 1 1 0%;
     }
 
     #con-ctx-menu.is-multi .con-ctx-col-left,
@@ -18182,15 +18215,16 @@ body.wfa-open #search-results {
 #con-ctx-menu {
   position: fixed;
   z-index: 9000;
-  background: rgba(255, 255, 255, 0.98);
-  border: 2px solid #111;
-  border-radius: 6px;
-  box-shadow: 3px 3px 0 #111;
+  background: var(--neo-card-bg, #ffffff);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-lg, 4px 4px 0 #555555);
   width: 320px;
   max-width: min(340px, calc(100vw - 16px));
-  max-height: calc(100vh - 16px);
+  max-height: calc(100dvh - 16px);
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
   box-sizing: border-box;
   padding: 3px 0;
   display: none;

@@ -1000,17 +1000,11 @@
           btn.onclick = function () { conApplyNodePreset(p.key); };
           container.appendChild(btn);
         });
-        // Use a 2-row grid layout when there are more than 6 presets
-        if (presets.length > 6) {
-          const cols = Math.ceil(presets.length / 2);
-          container.style.display = 'grid';
-          container.style.gridTemplateColumns = `repeat(${cols}, auto)`;
-          container.style.justifyContent = 'start';
-        } else {
-          container.style.display = 'flex';
-          container.style.gridTemplateColumns = '';
-          container.style.justifyContent = '';
-        }
+        container.style.display = 'flex';
+        container.style.flexWrap = 'wrap';
+        container.style.gap = '3px';
+        container.style.gridTemplateColumns = '';
+        container.style.justifyContent = '';
       }
 
       // ── Preset Editor ─────────────────────────────────────────────────

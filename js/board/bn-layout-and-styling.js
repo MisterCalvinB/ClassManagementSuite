@@ -2346,6 +2346,39 @@
       };
 
 
+      window.conCloseAllContextMenus = function (exceptId) {
+        if (exceptId !== 'con-ctx-menu') {
+          if (typeof conCtxClose === 'function') conCtxClose(); else if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        }
+        if (exceptId !== 'con-node-card') {
+          if (typeof conCloseNodeWordCard === 'function') conCloseNodeWordCard(); else if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
+        }
+        if (exceptId !== 'con-board-ctx-menu') {
+          if (typeof conBoardCtxClose === 'function') conBoardCtxClose(); else if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
+        }
+        if (exceptId !== 'con-group-ctx-menu' && typeof window.conGroupCtxClose === 'function') window.conGroupCtxClose();
+        if (exceptId !== 'con-edge-ctx-menu' && typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose();
+        if (exceptId !== 'search-ctx-menu' && typeof window.searchCtxClose === 'function') window.searchCtxClose();
+        if (exceptId !== 'wn-ctx-menu') {
+          if (typeof window.wnCtxClose === 'function') window.wnCtxClose();
+          else {
+            const wnMenu = document.getElementById('wn-ctx-menu');
+            if (wnMenu) wnMenu.classList.remove('visible');
+          }
+        }
+        if (exceptId !== 'note-ctx-menu') {
+          const nMenu = document.getElementById('note-ctx-menu');
+          if (nMenu) nMenu.classList.remove('visible');
+        }
+        if (exceptId !== 'con-media-ctx-menu') {
+          const mMenu = document.getElementById('con-media-ctx-menu');
+          if (mMenu) mMenu.classList.remove('visible');
+        }
+        if (exceptId !== 'con-class-dropdown' && typeof window.conCloseClassDropdown === 'function') window.conCloseClassDropdown();
+        if (exceptId !== 'save-sync-menu' && typeof window.closeSaveSyncMenu === 'function') window.closeSaveSyncMenu();
+        if (!exceptId && window.CmtPopup && typeof window.CmtPopup.closeAll === 'function') window.CmtPopup.closeAll();
+      };
+
       document.addEventListener('click', function (e) {
         if (!e.target.closest('#con-ctx-menu')) conCtxClose();
         if (!e.target.closest('#con-node-card-popup') && !e.target.closest('#con-ctx-card-btn')) conCloseNodeWordCard();
@@ -2371,6 +2404,11 @@
         }
         if (!e.target.closest('#con-edge-ctx-menu')) window.conEdgeCtxClose(true);
         if (!e.target.closest('#con-mask-style-overlay')) window.conMaskCtxClose();
+        if (!e.target.closest('#wn-ctx-menu') && typeof window.wnCtxClose === 'function') window.wnCtxClose();
+        if (!e.target.closest('#con-media-ctx-menu')) {
+          const mm = document.getElementById('con-media-ctx-menu');
+          if (mm && mm.classList.contains('visible')) mm.classList.remove('visible');
+        }
       });
       document.addEventListener('keydown', function (e) {
         if (!e || typeof e.key !== 'string') return;
@@ -2486,16 +2524,9 @@
             return;
           }
 
-          const openCtx = document.querySelector('#con-ctx-menu.visible, #con-board-ctx-menu.visible, #con-group-ctx-menu.visible, #con-edge-ctx-menu[style*="display: flex"], #search-ctx-menu.visible, #con-class-dropdown.open, #save-sync-menu.open');
+          const openCtx = document.querySelector('#con-ctx-menu.visible, #con-board-ctx-menu.visible, #con-group-ctx-menu.visible, #con-edge-ctx-menu[style*="display: flex"], #search-ctx-menu.visible, #wn-ctx-menu.visible, #note-ctx-menu.visible, #con-media-ctx-menu.visible, #con-class-dropdown.open, #save-sync-menu.open');
           if (openCtx) {
-            if (typeof conCtxClose === 'function') conCtxClose(); else if (typeof window.conCtxClose === 'function') window.conCtxClose();
-            if (typeof conCloseNodeWordCard === 'function') conCloseNodeWordCard(); else if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
-            if (typeof conBoardCtxClose === 'function') conBoardCtxClose(); else if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
-            if (typeof window.conGroupCtxClose === 'function') window.conGroupCtxClose();
-            if (typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose();
-            if (typeof window.searchCtxClose === 'function') window.searchCtxClose();
-            if (typeof window.conCloseClassDropdown === 'function') window.conCloseClassDropdown();
-            if (typeof window.closeSaveSyncMenu === 'function') window.closeSaveSyncMenu();
+            if (typeof window.conCloseAllContextMenus === 'function') window.conCloseAllContextMenus();
             return;
           }
 

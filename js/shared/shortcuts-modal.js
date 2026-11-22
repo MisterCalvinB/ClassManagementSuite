@@ -12,29 +12,31 @@
   'use strict';
 
   var OVERLAY_ID = 'skm-overlay';
-  var _escHandler = null;
+
+  function _iconPath(name) {
+    return (typeof location !== 'undefined' && /\/pages\//.test(location.pathname))
+      ? '../assets/icons/' + name
+      : 'assets/icons/' + name;
+  }
 
   function injectStyles() {
     if (document.getElementById('skm-styles')) return;
     var s = document.createElement('style');
     s.id = 'skm-styles';
     s.textContent = [
-      '#skm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9500;justify-content:center;align-items:center;backdrop-filter:blur(2px);user-select:none;-webkit-user-select:none}',
-      '#skm-overlay.open{display:flex}',
-      '#skm-panel{background:#fff;border:2px solid #111;border-radius:8px;box-shadow:4px 4px 0 #ccc;max-width:600px;width:calc(100% - 32px);max-height:85vh;overflow-y:auto;position:relative;padding:24px 28px 20px;font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;box-sizing:border-box;user-select:none;-webkit-user-select:none}',
-      '#skm-close{position:absolute;top:12px;right:14px;background:none;border:none;font-size:1.4rem;cursor:pointer;color:#888;line-height:1;padding:2px 6px;border-radius:4px;user-select:none;-webkit-user-select:none}',
-      '#skm-close:hover{background:#f0f0f0;color:#111}',
-      '#skm-title{font-size:1rem;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#111;margin:0 0 18px;padding-right:30px;user-select:none;-webkit-user-select:none}',
+      '#skm-overlay{z-index:9500;user-select:none;-webkit-user-select:none}',
+      '#skm-panel{font-family:"Lexend",system-ui,-apple-system,sans-serif}',
+      '#skm-title{font-size:1rem;font-weight:900;text-transform:uppercase;letter-spacing:0.8px;color:var(--neo-dark,#222);margin:0}',
       '.skm-table{width:100%;border-collapse:collapse;font-size:.84rem}',
       '.skm-table td{padding:6px 8px;vertical-align:middle}',
-      '.skm-table tr:not(.skm-sec-row)+tr:not(.skm-sec-row) td{border-top:1px solid #f0f0f0}',
-      '.skm-sec-row td{padding-top:16px;padding-bottom:4px;font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:#999;border-top:none!important;user-select:none;-webkit-user-select:none}',
+      '.skm-table tr:not(.skm-sec-row)+tr:not(.skm-sec-row) td{border-top:1px solid var(--neo-gray-mid,#e2e8f0)}',
+      '.skm-sec-row td{padding-top:14px;padding-bottom:4px;font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:1.2px;color:var(--neo-gray-dark,#475569);border-top:none!important;user-select:none;-webkit-user-select:none}',
       '.skm-sec-row:first-child td{padding-top:4px}',
       '.skm-keys{white-space:nowrap;width:1%;padding-right:14px;user-select:none;-webkit-user-select:none}',
-      '.skm-keys kbd{display:inline-block;background:#f0f0f0;border:1px solid #bbb;border-bottom:2px solid #999;border-radius:3px;padding:1px 6px;font-family:inherit;font-size:.8em;font-weight:700;color:#333;user-select:none;-webkit-user-select:none}',
-      '.skm-or{font-size:.72rem;color:#999;margin:0 3px}',
-      '.skm-desc{color:#444;line-height:1.45}',
-      '.skm-none{font-size:.85rem;color:#888;font-style:italic;margin:0}'
+      '.skm-keys kbd{display:inline-block;background:var(--neo-bg,#f5f5f0);border:1.5px solid var(--neo-border-color,#333);border-bottom-width:2.5px;border-radius:var(--neo-radius-sm,4px);padding:1px 6px;font-family:inherit;font-size:.8em;font-weight:700;color:var(--neo-dark,#222);user-select:none;-webkit-user-select:none}',
+      '.skm-or{font-size:.72rem;color:var(--neo-gray-dark,#475569);margin:0 3px}',
+      '.skm-desc{color:var(--neo-dark,#222);line-height:1.45}',
+      '.skm-none{font-size:.85rem;color:var(--neo-gray-dark,#475569);font-style:italic;margin:0}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -85,59 +87,60 @@
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = OVERLAY_ID;
+      overlay.className = 'neo-modal-overlay';
       document.body.appendChild(overlay);
     }
 
     var panel = document.createElement('div');
     panel.id = 'skm-panel';
+    panel.className = 'neo-modal neo-modal-md';
 
-    var closeBtn = document.createElement('button');
-    closeBtn.id = 'skm-close';
-    closeBtn.setAttribute('aria-label', 'Close');
-    closeBtn.innerHTML = '&times;';
-    closeBtn.addEventListener('click', close);
+    var header = document.createElement('div');
+    header.className = 'neo-modal-header';
 
     var titleEl = document.createElement('h2');
     titleEl.id = 'skm-title';
-    titleEl.textContent = config.title || '⌨ Keyboard Shortcuts';
+    titleEl.className = 'neo-modal-title';
+    titleEl.textContent = config.title || 'Keyboard Shortcuts';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.id = 'skm-close';
+    closeBtn.type = 'button';
+    closeBtn.className = 'neo-icon-btn neo-close-btn';
+    closeBtn.setAttribute('aria-label', 'Close');
+    closeBtn.innerHTML = '<img src="' + _iconPath('close.svg') + '" class="neo-icon" alt="" />';
+    closeBtn.addEventListener('click', close);
+
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
 
     var bodyEl = document.createElement('div');
+    bodyEl.className = 'neo-modal-body';
     bodyEl.innerHTML = renderTable(config.rows, config.noShortcutsText);
 
-    panel.appendChild(closeBtn);
-    panel.appendChild(titleEl);
+    panel.appendChild(header);
     panel.appendChild(bodyEl);
 
     overlay.innerHTML = '';
     overlay.appendChild(panel);
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
-    overlay.classList.add('open');
-
-    _escHandler = function (e) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        e.stopImmediatePropagation();
-        close();
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(overlay, { initialFocus: closeBtn });
+    } else {
+      overlay.classList.add('open');
+      if (window.cmtPushEscapeHandler) {
+        _escUnreg = window.cmtPushEscapeHandler({ el: overlay, close: close });
       }
-    };
-    if (window.cmtPushEscapeHandler) {
-      _escUnreg = window.cmtPushEscapeHandler({ el: overlay, close: close });
     }
-    document.addEventListener('keydown', _escHandler);
   }
 
   var _escUnreg = null;
   function close() {
-    if (_escUnreg) {
-      _escUnreg();
-      _escUnreg = null;
-    }
     var overlay = document.getElementById(OVERLAY_ID);
-    if (overlay) overlay.classList.remove('open');
-    if (_escHandler) {
-      document.removeEventListener('keydown', _escHandler);
-      _escHandler = null;
+    if (window.CmtModal && typeof window.CmtModal.close === 'function' && overlay) {
+      window.CmtModal.close(overlay);
+    } else {
+      if (_escUnreg) { _escUnreg(); _escUnreg = null; }
+      if (overlay) overlay.classList.remove('open');
     }
   }
 

@@ -4,63 +4,80 @@
   'use strict';
 
   // ── Injected CSS ───────────────────────────────────────────────────────────
+  var _dlgIconPrefix = (typeof location !== 'undefined' && /\/pages\//.test(location.pathname)) ? '../assets/icons/' : 'assets/icons/';
   var style = document.createElement('style');
   style.textContent = [
     '#cmt-toast{',
       'position:fixed;bottom:18px;left:50%;',
       'transform:translateX(-50%) translateY(60px);',
-      'background:#1a1a1a;color:#fff;',
-      'padding:8px 20px;border-radius:20px;',
-      'font-size:.82rem;font-weight:700;',
+      'background:var(--neo-dark,#222222);color:#ffffff;',
+      'border:2px solid var(--neo-border-color,#333333);',
+      'box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);',
+      'padding:8px 20px;border-radius:var(--neo-radius-md,6px);',
+      'font-size:.84rem;font-weight:700;',
       'z-index:10000002;pointer-events:none;',
-      'opacity:0;transition:transform .25s,opacity .25s;',
-      'max-width:80vw;text-align:center;white-space:pre-wrap;',
+      'opacity:0;transition:transform .2s ease,opacity .2s ease;',
+      'max-width:min(88vw,540px);text-align:center;white-space:pre-wrap;',
       'user-select:none;-webkit-user-select:none;',
     '}',
     '#cmt-toast.show{transform:translateX(-50%) translateY(0);opacity:1;}',
-    '#cmt-toast.error{background:#c00;}',
+    '#cmt-toast.error{background:var(--neo-red,#c96b6b);color:#ffffff;}',
     '.cmt-overlay{',
-      'display:none;position:fixed;inset:0;',
-      'background:rgba(0,0,0,.45);',
+      'display:none;position:fixed;inset:0;padding:12px;',
+      'background:rgba(20,20,20,.45);',
       'z-index:10000000;align-items:center;justify-content:center;',
+      'box-sizing:border-box;',
       'user-select:none;-webkit-user-select:none;',
     '}',
     '.cmt-overlay.open{display:flex;}',
     '.cmt-dialog-box{',
-      'background:#fff;border:2px solid #000;border-radius:10px;',
-      'box-shadow:4px 4px 0 rgba(0,0,0,.2);',
-      'padding:24px 28px 18px;min-width:280px;max-width:420px;',
+      'background:var(--neo-card-bg,#ffffff);color:var(--neo-dark,#222222);',
+      'border:2px solid var(--neo-border-color,#333333);',
+      'border-radius:var(--neo-radius-lg,10px);',
+      'box-shadow:6px 6px 0 var(--neo-dark,#222222);',
+      'padding:20px 22px 18px;width:100%;max-width:min(440px,calc(100vw - 24px));',
+      'max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;',
       'box-sizing:border-box;',
     '}',
     '.cmt-dialog-msg{',
-      'margin:0 0 16px;font-size:.95rem;',
+      'margin:0 0 14px;font-size:.92rem;font-weight:600;',
       'white-space:pre-wrap;line-height:1.45;',
     '}',
     '.cmt-dialog-input{',
       'width:100%;box-sizing:border-box;',
-      'border:1.5px solid #aaa;border-radius:6px;',
-      'padding:6px 10px;font-size:.9rem;margin-bottom:14px;',
+      'border:2px solid var(--neo-border-color,#333333);',
+      'border-radius:var(--neo-radius-md,6px);',
+      'background:#ffffff;color:var(--neo-dark,#222222);',
+      'padding:7px 11px;font-family:inherit;font-size:.9rem;margin-bottom:14px;',
       'user-select:text;-webkit-user-select:text;',
+      'transition:border-color .12s ease,box-shadow .12s ease;',
     '}',
-    '.cmt-dialog-btns{display:flex;gap:10px;justify-content:flex-end;user-select:none;-webkit-user-select:none;}',
+    '.cmt-dialog-input:focus{outline:none;border-color:var(--neo-dark,#222222);box-shadow:0 0 0 2px var(--neo-yellow,#e2c96e);}',
+    '.cmt-dialog-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;user-select:none;-webkit-user-select:none;}',
     '.cmt-btn-cancel,.cmt-btn-ok{',
-      'padding:6px 18px;border-radius:6px;border:1.5px solid #000;',
+      'font-family:inherit;padding:7px 16px;',
+      'border-radius:var(--neo-radius-md,6px);',
+      'border:2px solid var(--neo-border-color,#333333);',
+      'box-shadow:var(--neo-shadow-sm,2px 2px 0 #888888);',
       'font-size:.85rem;font-weight:700;cursor:pointer;',
       'user-select:none;-webkit-user-select:none;',
+      'transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;',
     '}',
-    '.cmt-btn-cancel{background:#fff;}',
-    '.cmt-btn-ok{background:#000;color:#fff;}',
+    '.cmt-btn-cancel{background:var(--neo-card-bg,#ffffff);color:var(--neo-dark,#222222);}',
+    '.cmt-btn-cancel:hover{background:var(--neo-bg,#f5f5f0);transform:translate(-1px,-1px);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);}',
+    '.cmt-btn-ok{background:var(--neo-yellow,#e2c96e);color:#111111;}',
+    '.cmt-btn-ok:hover{background:#ebd47c;transform:translate(-1px,-1px);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);}',
     // Data-sync banner
     '#cmt-sync-banner{',
       'position:fixed;top:-90px;left:50%;transform:translateX(-50%);',
-      'background:#1a1a2e;color:#e8e8f0;',
-      'border:1.5px solid #4a6fa5;border-radius:0 0 10px 10px;',
-      'box-shadow:0 4px 18px rgba(0,0,0,.45);',
+      'background:var(--neo-dark,#222222);color:#ffffff;',
+      'border:2px solid var(--neo-border-color,#333333);border-top:none;border-radius:0 0 10px 10px;',
+      'box-shadow:var(--neo-shadow-lg,4px 4px 0 #555555);',
       'padding:10px 16px 10px 14px;',
-      'display:flex;align-items:center;gap:10px;',
+      'display:flex;align-items:center;gap:10px;flex-wrap:wrap;',
       'font-size:.82rem;z-index:999997;',
       'transition:top .3s cubic-bezier(.22,1,.36,1);',
-      'max-width:90vw;white-space:nowrap;',
+      'max-width:min(92vw,720px);',
       'user-select:none;-webkit-user-select:none;',
     '}',
     '#cmt-sync-banner.cmt-sync-show{top:0;}',
@@ -68,15 +85,15 @@
     '#cmt-sync-banner .cmt-sync-msg{flex:1;overflow:hidden;text-overflow:ellipsis;}',
     '#cmt-sync-banner .cmt-sync-btns{display:flex;gap:6px;flex-shrink:0;}',
     '#cmt-sync-banner button{',
-      'padding:4px 10px;border-radius:5px;border:1px solid #4a6fa5;',
-      'font-size:.78rem;font-weight:700;cursor:pointer;background:#253450;color:#e8e8f0;',
+      'padding:4px 10px;border-radius:var(--neo-radius-sm,4px);border:1.5px solid var(--neo-blue,#5b8fcc);',
+      'font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--neo-blue,#5b8fcc);color:#ffffff;',
       'user-select:none;-webkit-user-select:none;',
     '}',
-    '#cmt-sync-banner button:hover{background:#4a6fa5;}',
+    '#cmt-sync-banner button:hover{filter:brightness(1.08);}',
     '#cmt-sync-banner .cmt-sync-dismiss{',
-      'background:transparent;border-color:#555;color:#999;',
+      'background:transparent;border-color:#666666;color:#cccccc;',
     '}',
-    '#cmt-sync-banner .cmt-sync-dismiss:hover{background:#333;color:#e8e8f0;}',
+    '#cmt-sync-banner .cmt-sync-dismiss:hover{background:#333333;color:#ffffff;}',
   ].join('');
   document.head.appendChild(style);
 
@@ -159,6 +176,116 @@
     }
   }, true);
 
+  // ── Unified Modal Lifecycle Controller (CmtModal) ──────────────────────────
+  function _resolveModalEl(target) {
+    if (!target) return null;
+    if (typeof target === 'string') return document.getElementById(target) || document.querySelector(target);
+    return target;
+  }
+
+  function _getFocusable(root) {
+    if (!root) return null;
+    return root.querySelector('input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]):not(.neo-close-btn), [tabindex]:not([tabindex="-1"])')
+      || root.querySelector('button:not([disabled])');
+  }
+
+  function _bindSafeBackdrop(overlay, onClose) {
+    if (!overlay || overlay._cmtSafeBackdropBound) return;
+    overlay._cmtSafeBackdropBound = true;
+    var downOnOverlay = false;
+    overlay.addEventListener('mousedown', function (e) {
+      downOnOverlay = (e.target === overlay);
+    });
+    overlay.addEventListener('click', function (e) {
+      if (downOnOverlay && e.target === overlay && overlay._cmtBackdropClose !== false) {
+        onClose();
+      }
+      downOnOverlay = false;
+    });
+  }
+
+  window.CmtModal = {
+    open: function (target, opts) {
+      var el = _resolveModalEl(target);
+      if (!el) return null;
+      opts = opts || {};
+      el._cmtPrevFocus = document.activeElement && typeof document.activeElement.focus === 'function' ? document.activeElement : null;
+      el._cmtOnClose = typeof opts.onClose === 'function' ? opts.onClose : null;
+      el._cmtBackdropClose = opts.backdropClose !== false;
+      if (!el.hasAttribute('role')) el.setAttribute('role', 'dialog');
+      if (!el.hasAttribute('aria-modal')) el.setAttribute('aria-modal', 'true');
+      if (el.style.display === 'none') {
+        el._cmtUsedDisplay = true;
+        el.style.display = 'flex';
+      }
+      el.classList.add('open', 'is-open');
+      _bindSafeBackdrop(el, function () { window.CmtModal.close(el); });
+      if (typeof window.cmtPushEscapeHandler === 'function') {
+        el._cmtEscUnreg = window.cmtPushEscapeHandler({
+          el: el,
+          close: function () { window.CmtModal.close(el); }
+        });
+      }
+      setTimeout(function () {
+        var focusTarget = opts.initialFocus ? _resolveModalEl(opts.initialFocus) : _getFocusable(el);
+        if (focusTarget && typeof focusTarget.focus === 'function') {
+          try { focusTarget.focus(); } catch (_) {}
+        }
+      }, 20);
+      return el;
+    },
+    close: function (target) {
+      var el = _resolveModalEl(target);
+      if (!el) return;
+      if (el._cmtEscUnreg) {
+        try { el._cmtEscUnreg(); } catch (_) {}
+        el._cmtEscUnreg = null;
+      }
+      el.classList.remove('open', 'is-open');
+      if (el._cmtUsedDisplay) el.style.display = 'none';
+      if (el._cmtPrevFocus && document.body && document.body.contains(el._cmtPrevFocus)) {
+        try { el._cmtPrevFocus.focus(); } catch (_) {}
+      }
+      el._cmtPrevFocus = null;
+      if (typeof el._cmtOnClose === 'function') {
+        var cb = el._cmtOnClose;
+        el._cmtOnClose = null;
+        try { cb(el); } catch (_) {}
+      }
+    },
+    toggleMaximize: function (modalOrBtn, btnEl) {
+      var modal = _resolveModalEl(modalOrBtn);
+      if (!modal) return false;
+      if (!modal.classList.contains('neo-modal')) {
+        modal = modal.closest('.neo-modal') || modal.querySelector('.neo-modal') || modal;
+      }
+      var isMax = modal.classList.toggle('is-maximized');
+      var btn = btnEl || modal.querySelector('[data-neo-modal-max], .neo-max-btn');
+      if (btn) {
+        btn.setAttribute('aria-pressed', isMax ? 'true' : 'false');
+        var img = btn.querySelector('img');
+        if (img) {
+          img.src = _dlgIconPrefix + (isMax ? 'minimize.svg' : 'maximize.svg');
+        }
+      }
+      return isMax;
+    }
+  };
+
+  document.addEventListener('click', function (e) {
+    var closeBtn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-neo-modal-close]') : null;
+    if (closeBtn) {
+      var overlay = closeBtn.closest('.neo-modal-overlay, .cmt-overlay, .modal-overlay, .modal-bg');
+      if (overlay) window.CmtModal.close(overlay);
+      return;
+    }
+    var maxBtn = e.target && typeof e.target.closest === 'function' ? e.target.closest('[data-neo-modal-max]') : null;
+    if (maxBtn) {
+      var modalBox = maxBtn.closest('.neo-modal');
+      if (modalBox) window.CmtModal.toggleMaximize(modalBox, maxBtn);
+    }
+  });
+
   // ── Toast ──────────────────────────────────────────────────────────────────
   var toastEl = null;
   var toastTimer = null;
@@ -191,18 +318,21 @@
     if (confirmOverlay) return;
     confirmOverlay = document.createElement('div');
     confirmOverlay.className = 'cmt-overlay';
+    confirmOverlay.setAttribute('role', 'dialog');
+    confirmOverlay.setAttribute('aria-modal', 'true');
     confirmOverlay.innerHTML =
       '<div class="cmt-dialog-box">' +
         '<p class="cmt-dialog-msg"></p>' +
         '<div class="cmt-dialog-btns">' +
-          '<button class="cmt-btn-cancel">Cancel</button>' +
-          '<button class="cmt-btn-ok">OK</button>' +
+          '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
+          '<button type="button" class="cmt-btn-ok">OK</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(confirmOverlay);
 
     confirmOverlay.querySelector('.cmt-btn-ok').addEventListener('click', function () { resolveConfirm(true); });
     confirmOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolveConfirm(false); });
+    _bindSafeBackdrop(confirmOverlay, function () { resolveConfirm(false); });
     confirmOverlay.addEventListener('keydown', function (e) {
       if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(true);  }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(false); }
@@ -245,13 +375,15 @@
     if (promptOverlay) return;
     promptOverlay = document.createElement('div');
     promptOverlay.className = 'cmt-overlay';
+    promptOverlay.setAttribute('role', 'dialog');
+    promptOverlay.setAttribute('aria-modal', 'true');
     promptOverlay.innerHTML =
       '<div class="cmt-dialog-box">' +
         '<p class="cmt-dialog-msg"></p>' +
         '<input class="cmt-dialog-input" type="text">' +
         '<div class="cmt-dialog-btns">' +
-          '<button class="cmt-btn-cancel">Cancel</button>' +
-          '<button class="cmt-btn-ok">OK</button>' +
+          '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
+          '<button type="button" class="cmt-btn-ok">OK</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(promptOverlay);
@@ -259,6 +391,7 @@
     var input = promptOverlay.querySelector('.cmt-dialog-input');
     promptOverlay.querySelector('.cmt-btn-ok').addEventListener('click', function () { resolvePrompt(input.value); });
     promptOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolvePrompt(null); });
+    _bindSafeBackdrop(promptOverlay, function () { resolvePrompt(null); });
     input.addEventListener('keydown', function (e) {
       if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(input.value); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(null); }
@@ -303,16 +436,18 @@
     if (timedConfirmOverlay) return;
     timedConfirmOverlay = document.createElement('div');
     timedConfirmOverlay.className = 'cmt-overlay';
+    timedConfirmOverlay.setAttribute('role', 'dialog');
+    timedConfirmOverlay.setAttribute('aria-modal', 'true');
     timedConfirmOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: center; max-width: 440px; padding: 24px 26px 20px;">' +
-        '<div style="font-size: 2rem; margin-bottom: 10px; line-height: 1;">💾</div>' +
+        '<div style="margin-bottom: 10px; line-height: 1;"><img src="' + _dlgIconPrefix + 'save.svg" class="neo-icon" alt="" style="width: 28px; height: 28px;" /></div>' +
         '<h3 class="cmt-timed-title" style="margin: 0 0 10px; font-size: 1.1rem; font-weight: 800; color: inherit;"></h3>' +
         '<p class="cmt-timed-msg" style="margin: 0 0 12px; font-size: .92rem; line-height: 1.45; color: inherit; white-space: pre-wrap;"></p>' +
-        '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: #888;"></div>' +
+        '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: var(--neo-gray-dark,#475569);"></div>' +
         '<div class="cmt-dialog-btns" style="justify-content: center; gap: 12px; flex-wrap: wrap;">' +
-          '<button class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
-          '<button class="cmt-btn-cancel cmt-timed-btn-cancel" style="min-width: 90px; padding: 8px 18px; display: none;"></button>' +
-          '<button class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
+          '<button type="button" class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
+          '<button type="button" class="cmt-btn-cancel cmt-timed-btn-cancel" style="min-width: 90px; padding: 8px 18px; display: none;"></button>' +
+          '<button type="button" class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(timedConfirmOverlay);
@@ -730,37 +865,39 @@
     if (destinationOverlay) return;
     destinationOverlay = document.createElement('div');
     destinationOverlay.className = 'cmt-overlay';
+    destinationOverlay.setAttribute('role', 'dialog');
+    destinationOverlay.setAttribute('aria-modal', 'true');
     destinationOverlay.innerHTML =
-      '<div class="cmt-dialog-box" style="text-align: left; max-width: 460px; padding: 24px 22px 18px; border: 2.5px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 8px;">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">' +
+      '<div class="cmt-dialog-box" style="text-align: left; max-width: min(460px, calc(100vw - 24px)); padding: 22px 22px 18px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
           '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<img src="../assets/icons/folder.svg" style="width:20px;height:20px;" alt="">' +
-            '<h3 class="cmt-dest-title" style="margin: 0; font-size: 1.12rem; font-weight: 800; font-family: inherit; color: #111;">Choose Export Location</h3>' +
+            '<img src="' + _dlgIconPrefix + 'folder.svg" style="width:20px;height:20px;" alt="">' +
+            '<h3 class="cmt-dest-title" style="margin: 0; font-size: 1.08rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Choose Export Location</h3>' +
           '</div>' +
-          '<button type="button" class="cmt-dest-close-x" style="background:none;border:none;font-size:1.3rem;font-weight:700;cursor:pointer;line-height:1;padding:2px 6px;color:#444;">&times;</button>' +
+          '<button type="button" class="cmt-dest-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
         '</div>' +
-        '<p class="cmt-dest-prompt" style="margin: 0 0 12px; font-size: .86rem; line-height: 1.45; color: #555; font-family: inherit;">Where do you want to save the exported file?</p>' +
+        '<p class="cmt-dest-prompt" style="margin: 0 0 12px; font-size: .86rem; line-height: 1.45; color: var(--neo-gray-dark, #475569); font-family: inherit;">Where do you want to save the exported file?</p>' +
         '<div class="cmt-dest-filename-wrap" style="margin-bottom: 14px;">' +
-          '<label class="cmt-dest-filename-label" for="cmt-dest-filename-input" style="display:block;font-size:0.75rem;font-weight:800;text-transform:uppercase;letter-spacing:0.04em;color:#222;margin-bottom:5px;">File Name:</label>' +
-          '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input" style="width:100%;box-sizing:border-box;padding:8px 10px;font-size:0.92rem;font-weight:700;border:2px solid #000;border-radius:6px;box-shadow:2px 2px 0 #000;font-family:inherit;background:#fff;color:#111;outline:none;" />' +
+          '<label class="cmt-dest-filename-label neo-label" for="cmt-dest-filename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
+          '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input neo-input" style="font-weight:700;" />' +
         '</div>' +
         '<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">' +
-          '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef08a;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="../assets/icons/document-editor.svg" style="width:20px;height:20px;" alt="">' +
+          '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef9c3;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
+            '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              '<img src="' + _dlgIconPrefix + 'document-editor.svg" style="width:20px;height:20px;" alt="">' +
             '</div>' +
             '<div style="flex:1;">' +
-              '<div class="cmt-dest-doceditor-title" style="font-size:0.92rem;font-weight:800;color:#000;">Document Editor (user/document-editor/docs)</div>' +
-              '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:#444;font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
+              '<div class="cmt-dest-doceditor-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Document Editor (user/document-editor/docs)</div>' +
+              '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
             '</div>' +
           '</button>' +
-          '<button type="button" class="cmt-btn-dest-samefolder" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#86efac;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="../assets/icons/media.svg" style="width:20px;height:20px;" alt="">' +
+          '<button type="button" class="cmt-btn-dest-samefolder" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#ffffff;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
+            '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-green,#6abf8e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              '<img src="' + _dlgIconPrefix + 'media.svg" style="width:20px;height:20px;" alt="">' +
             '</div>' +
             '<div style="flex:1;">' +
-              '<div class="cmt-dest-samefolder-title" style="font-size:0.92rem;font-weight:800;color:#000;">Same Folder as Original Media</div>' +
-              '<div class="cmt-dest-samefolder-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Save in the original source folder</div>' +
+              '<div class="cmt-dest-samefolder-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Same Folder as Original Media</div>' +
+              '<div class="cmt-dest-samefolder-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Save in the original source folder</div>' +
             '</div>' +
           '</button>' +
           '<button type="button" class="cmt-btn-dest-print" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
@@ -1138,21 +1275,23 @@
     var iconPrefix = (location.pathname.indexOf('/pages/') !== -1 || location.pathname.indexOf('\\pages\\') !== -1) ? '../assets/icons/' : 'assets/icons/';
     exportOverlay = document.createElement('div');
     exportOverlay.className = 'cmt-overlay';
+    exportOverlay.setAttribute('role', 'dialog');
+    exportOverlay.setAttribute('aria-modal', 'true');
     exportOverlay.innerHTML =
-      '<div class="cmt-dialog-box" style="text-align: center; max-width: 420px; padding: 28px 24px 20px; border: 2.5px solid #000; box-shadow: 4px 4px 0 #000; border-radius: 8px;">' +
+      '<div class="cmt-dialog-box" style="text-align: center; max-width: min(420px, calc(100vw - 24px)); padding: 26px 22px 20px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
         '<div style="display: flex; justify-content: center; margin-bottom: 12px;">' +
-          '<div style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #000; background: #86efac; display: flex; align-items: center; justify-content: center; box-shadow: 2px 2px 0 #000;">' +
+          '<div style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--neo-border-color, #333333); background: var(--neo-green, #6abf8e); display: flex; align-items: center; justify-content: center; box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);">' +
             '<img src="' + iconPrefix + 'check.svg" style="width: 22px; height: 22px;" alt="" />' +
           '</div>' +
         '</div>' +
-        '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.15rem; font-weight: 800; font-family: inherit; color: #111;">Export Complete</h3>' +
-        '<p class="cmt-export-msg" style="margin: 0 0 22px; font-size: .88rem; line-height: 1.5; color: #555; word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
+        '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.12rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Export Complete</h3>' +
+        '<p class="cmt-export-msg" style="margin: 0 0 20px; font-size: .88rem; line-height: 1.5; color: var(--neo-gray-dark, #475569); word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
         '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
-          '<button class="cmt-btn-open-file" style="padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #000; color: #fff; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open File</button>' +
-          '<button class="cmt-btn-open-doc-editor" style="display: none; padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fef08a; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open with Document Editor</button>' +
-          '<button class="cmt-btn-open-pdf-viewer" style="display: none; padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fef08a; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open with PDF Viewer</button>' +
-          '<button class="cmt-btn-show-in-folder" style="padding: 10px 18px; border-radius: 6px; border: 2px solid #000; font-size: .85rem; font-weight: 700; cursor: pointer; background: #fff; color: #000; box-shadow: 2px 2px 0 #000; transition: background .12s, transform .08s, box-shadow .08s; outline: none; font-family: inherit;">Open Folder</button>' +
-          '<button class="cmt-btn-close-export" style="padding: 6px 18px; border-radius: 6px; border: none; font-size: .82rem; font-weight: 600; cursor: pointer; background: transparent; color: #777; transition: color .12s; margin-top: 4px; outline: none; font-family: inherit;">Close</button>' +
+          '<button type="button" class="cmt-btn-open-file neo-btn neo-btn-dark" style="width: 100%; justify-content: center;">Open File</button>' +
+          '<button type="button" class="cmt-btn-open-doc-editor neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with Document Editor</button>' +
+          '<button type="button" class="cmt-btn-open-pdf-viewer neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with PDF Viewer</button>' +
+          '<button type="button" class="cmt-btn-show-in-folder neo-btn" style="width: 100%; justify-content: center;">Open Folder</button>' +
+          '<button type="button" class="cmt-btn-close-export neo-btn neo-btn-ghost" style="width: 100%; justify-content: center; margin-top: 2px;">Close</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(exportOverlay);

@@ -820,7 +820,19 @@
   async function open() {
     if (_isPresMode) return;
     _ensureDom();
-    _backdrop.classList.add('open');
+    if (window.CmtModal && typeof window.CmtModal.open === 'function') {
+      window.CmtModal.open(_backdrop, {
+        onClose: function () {
+          _showPresetForm = false;
+          if (_unsubWindows) {
+            try { _unsubWindows(); } catch (_) {}
+            _unsubWindows = null;
+          }
+        }
+      });
+    } else {
+      _backdrop.classList.add('open');
+    }
     await _loadPresets();
     await _refreshState();
     if (!_unsubWindows && window.Desktop && typeof window.Desktop.onWindowsChanged === 'function') {
@@ -836,6 +848,10 @@
   }
 
   function close() {
+    if (window.CmtModal && typeof window.CmtModal.close === 'function' && _backdrop) {
+      window.CmtModal.close(_backdrop);
+      return;
+    }
     if (_backdrop) _backdrop.classList.remove('open');
     _showPresetForm = false;
     if (_unsubWindows) {

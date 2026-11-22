@@ -204,6 +204,15 @@ The suite features a centralized CSS export engine (`js/shared/export-styles-ser
 </details>
 
 <details>
+<summary><strong>Unified Light Neobrutalist UI, Modals &amp; Controls (<code>neo-ui.css</code>, <code>CmtModal</code>, <code>CmtPopup</code>)</strong></summary>
+
+All tools share canonical Light Neobrutalist styling and lifecycle controllers across desktop and narrow/split-screen viewports:
+- **Canonical CSS Components (`css/neo-ui.css`)**: Standardized `.neo-modal-overlay` / `.neo-modal` (`.neo-modal-sm`/`md`/`lg`/`xl`, `.is-maximized`), `.neo-icon-btn` / `.neo-close-btn` / `.neo-back-btn` / `.neo-save-btn` (SVG icons from `assets/icons/`), `.neo-input` / `.neo-select` / `.neo-textarea`, `.neo-ctx-menu` / `.neo-dropdown`, `.neo-tabs` / `.neo-segmented`, `.neo-badge` / `.neo-chip`, `.neo-table`, `.neo-empty-state`, `.neo-toolbar` / `.neo-filter-bar`, unified scrollbars, and responsive touch/small-screen rules.
+- **Unified Modal Lifecycle (`window.CmtModal` in `js/shared/dialogs.js`)**: Provides `CmtModal.open()`, `CmtModal.close()`, `CmtModal.toggleMaximize()`, `role="dialog"` / `aria-modal="true"`, `cmtPushEscapeHandler` LIFO stack integration, focus restoration, `[data-neo-modal-close]` / `[data-neo-modal-max]` delegation, and safe backdrop-click dismissal (requiring both `mousedown` and `click` on the backdrop).
+- **Unified Popup & Context Menu Controller (`window.CmtPopup` in `js/shared/menus.js`)**: Provides group mutual exclusion, Escape stack integration, outside-pointerdown dismissal, and `requestAnimationFrame` viewport-edge clamping for dropdowns and context menus.
+</details>
+
+<details>
 <summary><strong>Universal Tagging, Bidirectional Linking & Context Inheritance</strong></summary>
 
 The suite includes a centralized graph engine and modal manager (`js/shared/links-service.js`, `js/shared/tag-link-modal.js`, `css/tag-link-modal.css`):

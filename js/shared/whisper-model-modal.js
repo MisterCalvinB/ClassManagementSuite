@@ -630,7 +630,15 @@
     _ensureModalElements();
 
     var overlay = document.getElementById('whisper-model-overlay');
-    if (overlay) overlay.style.display = 'flex';
+    if (overlay) {
+      if (global.CmtModal && typeof global.CmtModal.open === 'function') {
+        global.CmtModal.open(overlay, {
+          onClose: function () { _whisperModalActiveOptions = null; }
+        });
+      } else {
+        overlay.style.display = 'flex';
+      }
+    }
 
     _renderModelsList();
   }
@@ -640,6 +648,10 @@
    */
   function closeWhisperModelManager() {
     var overlay = document.getElementById('whisper-model-overlay');
+    if (global.CmtModal && typeof global.CmtModal.close === 'function' && overlay) {
+      global.CmtModal.close(overlay);
+      return;
+    }
     if (overlay) overlay.style.display = 'none';
     _whisperModalActiveOptions = null;
   }
