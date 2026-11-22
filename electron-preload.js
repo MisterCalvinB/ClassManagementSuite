@@ -639,6 +639,68 @@ const exposedApi = {
       } catch (_) {}
     }
     return file ? (file.path || '') : '';
+  },
+  // ── Audit Console & Diagnostic Logging ─────────────────────────────────────
+  auditOpenConsole() {
+    return invoke('audit:open-console');
+  },
+  auditGetSnapshot() {
+    return invoke('audit:get-snapshot');
+  },
+  auditGetStats() {
+    return invoke('audit:get-stats');
+  },
+  auditClear() {
+    return invoke('audit:clear');
+  },
+  auditResetPeaks() {
+    return invoke('audit:reset-peaks');
+  },
+  onAuditSpike(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, spike) => {
+      try { callback(spike); } catch (e) { console.error('Audit spike listener error:', e); }
+    };
+    ipcRenderer.on('audit:spike', listener);
+    return () => {
+      try { ipcRenderer.removeListener('audit:spike', listener); } catch (_) {}
+    };
+  },
+  auditSetEnabled(flag) {
+    return invoke('audit:set-enabled', !!flag);
+  },
+  auditSetStartOnLaunch(flag) {
+    return invoke('audit:set-start-on-launch', !!flag);
+  },
+  auditSetAlwaysOnTop(flag) {
+    return invoke('audit:set-always-on-top', !!flag);
+  },
+  auditIsEnabled() {
+    return invoke('audit:is-enabled');
+  },
+  auditSendRendererLogs(entries) {
+    if (!ipcRenderer || typeof ipcRenderer.send !== 'function') return;
+    try { ipcRenderer.send('audit:renderer-log', entries); } catch (_) {}
+  },
+  onAuditLogBatch(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, batch) => {
+      try { callback(batch); } catch (e) { console.error('Audit log batch listener error:', e); }
+    };
+    ipcRenderer.on('audit:log-batch', listener);
+    return () => {
+      try { ipcRenderer.removeListener('audit:log-batch', listener); } catch (_) {}
+    };
+  },
+  onAuditModeChanged(callback) {
+    if (!ipcRenderer || typeof ipcRenderer.on !== 'function') return () => {};
+    const listener = (_event, state) => {
+      try { callback(state); } catch (e) { console.error('Audit mode listener error:', e); }
+    };
+    ipcRenderer.on('audit:mode-changed', listener);
+    return () => {
+      try { ipcRenderer.removeListener('audit:mode-changed', listener); } catch (_) {}
+    };
   }
 };
 

@@ -895,7 +895,9 @@
       window.conApplyTextStrokeStyle = conApplyTextStrokeStyle;
 
       function conGetNodePresets() {
-        const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+        const bc = (typeof window !== 'undefined' && window.BOARD_CONFIG)
+          ? window.BOARD_CONFIG
+          : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {});
         const saved = Array.isArray(bc.constellationPresets) && bc.constellationPresets.length ? bc.constellationPresets : null;
         if (!saved) return [];
         return saved.map(p => ({
@@ -915,6 +917,7 @@
           textStrokeColor: String(p.textStrokeColor || ''),
           textStrokeWidth: (p.textStrokeWidth != null && p.textStrokeWidth !== '') ? Number(p.textStrokeWidth) : 0,
           textStrokeWidthUnit: String(p.textStrokeWidthUnit || 'px'),
+          isNodeAct: !!(p.isNodeAct || p.isPageNumber),
           fmt: p.fmt && typeof p.fmt === 'object' ? {
             bold: !!p.fmt.bold,
             italic: !!p.fmt.italic,
@@ -924,11 +927,17 @@
         }));
       }
 
-      function conApplyNodePreset(presetKey, targetIds) {
+      function conGetNodeActPreset() {
+        const presets = conGetNodePresets();
+        return presets.find(p => !!p.isNodeAct) || null;
+      }
+      window.conGetNodeActPreset = conGetNodeActPreset;
+
+      function conApplyNodePreset(presetKey, targetIds, options) {
         const presets = conGetNodePresets();
         const preset = presets.find(p => p.key === presetKey);
         if (!preset) return;
-        conPushUndo();
+        if (!options || !options.skipUndo) conPushUndo();
         const ids = targetIds || (conMultiSelected.size > 1 ? [...conMultiSelected] : (conCtxNodeId ? [conCtxNodeId] : []));
         ids.forEach(id => {
           const node = conNodes.find(n => n.id === id);
@@ -1100,6 +1109,13 @@
           labelEl.textContent = p.label || p.key || '';
           meta.appendChild(keyEl);
           meta.appendChild(labelEl);
+          if (p.isNodeAct) {
+            const actBadge = document.createElement('span');
+            actBadge.className = 'bc-preset-card-act-badge';
+            actBadge.textContent = (typeof t === 'function' ? t('bcPresetPageNumberNodeBadge') : '') || 'Page';
+            actBadge.title = (typeof t === 'function' ? t('bcPresetPageNumberNodeToggle') : '') || 'Use for ((...)) Page Number Nodes (only one preset)';
+            meta.appendChild(actBadge);
+          }
 
           card.addEventListener('click', () => {
             if (typeof window.bcOpenItemEditor === 'function') {
@@ -1107,6 +1123,11 @@
                 mode: 'node-preset',
                 item: _conPresetEditorDraft[i],
                 onSave: (updated) => {
+                  if (updated && updated.isNodeAct) {
+                    _conPresetEditorDraft.forEach((other, idx) => {
+                      if (idx !== i && other) other.isNodeAct = false;
+                    });
+                  }
                   _conPresetEditorDraft[i] = updated;
                   _conPresetEditorRender();
                 },
@@ -1246,7 +1267,7 @@
       window.conPresetEditorAddRow = function () {
         if (_conPresetEditorDraft.length >= 15) return;
         _conPresetEditorFlushDOM();
-        const newPreset = { key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderWidthUnit: 'px', borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, fontSizeUnit: 'px', textStrokeColor: '', textStrokeWidth: 0, textStrokeWidthUnit: 'px', fmt: { bold: false, italic: false, underline: false, strike: false } };
+        const newPreset = { key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderWidthUnit: 'px', borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, fontSizeUnit: 'px', textStrokeColor: '', textStrokeWidth: 0, textStrokeWidthUnit: 'px', isNodeAct: false, fmt: { bold: false, italic: false, underline: false, strike: false } };
         _conPresetEditorDraft.push(newPreset);
         const idx = _conPresetEditorDraft.length - 1;
         _conPresetEditorRender();
@@ -1256,6 +1277,11 @@
             title: 'Add Node Preset',
             item: _conPresetEditorDraft[idx],
             onSave: (updated) => {
+              if (updated && updated.isNodeAct) {
+                _conPresetEditorDraft.forEach((other, otherIdx) => {
+                  if (otherIdx !== idx && other) other.isNodeAct = false;
+                });
+              }
               _conPresetEditorDraft[idx] = updated;
               _conPresetEditorRender();
             },
@@ -1271,7 +1297,9 @@
         if (!result.length) { mdbToast(' At least one preset required.'); return; }
 
         // Update in-memory config
-        const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
+        const bc = (typeof window !== 'undefined' && window.BOARD_CONFIG)
+          ? { ...window.BOARD_CONFIG }
+          : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? { ...BOARD_CONFIG } : {});
         bc.constellationPresets = result;
         window.BOARD_CONFIG = bc;
 

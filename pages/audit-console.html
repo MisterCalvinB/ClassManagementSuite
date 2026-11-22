@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' file: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="auditTitle">Audit Console</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../css/neo-ui.css">
+  <link rel="stylesheet" href="../css/pages/audit-console.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+</head>
+
+<body data-neo-hover-all="1">
+  <div class="audit-shell">
+    <header class="audit-header">
+      <div class="audit-title-group">
+        <img src="../assets/icons/zap.svg" class="audit-logo-icon" alt="" />
+        <div>
+          <h1 class="audit-title" data-i18n="auditTitle">Audit Console</h1>
+          <p class="audit-subtitle" data-i18n="auditSubtitle">Live diagnostic stream for Main, Renderers, IPC, Sync, I/O &amp; Classroom Server</p>
+        </div>
+      </div>
+      <div class="audit-header-actions">
+        <button type="button" class="neo-btn neo-btn-sm" id="auditPauseBtn" title="Pause / Resume stream">
+          <img src="../assets/icons/pause.svg" class="btn-icon" id="auditPauseIcon" alt="" />
+          <span id="auditPauseLabel" data-i18n="auditPause">Pause</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm active-toggle" id="auditAutoScrollBtn" title="Auto-scroll to newest">
+          <img src="../assets/icons/arrow-down.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditAutoScroll">Auto-scroll</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm" id="auditPinBtn" title="Always on top">
+          <img src="../assets/icons/pin.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditAlwaysOnTop">Pin</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm" id="auditCopyBtn" title="Copy visible logs">
+          <img src="../assets/icons/copy.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditCopy">Copy</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm" id="auditExportTxtBtn" title="Export visible logs as .txt">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditExportTxt">Export .txt</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm" id="auditExportJsonBtn" title="Export visible logs as .json">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditExportJson">Export .json</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm neo-btn-danger" id="auditClearBtn" title="Clear log buffer">
+          <img src="../assets/icons/trash.svg" class="btn-icon" alt="" />
+          <span data-i18n="auditClear">Clear</span>
+        </button>
+        <button type="button" class="neo-btn neo-btn-sm neo-tour-btn" id="auditTourBtn" title="Interactive tour">?</button>
+      </div>
+    </header>
+
+    <section class="audit-stats-bar" id="auditStatsBar">
+      <div class="stat-pill">
+        <img src="../assets/icons/monitor.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatWindows">Windows:</span>
+        <strong id="statWindows">0</strong>
+      </div>
+      <div class="stat-pill">
+        <img src="../assets/icons/zap.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatCpu">CPU:</span>
+        <strong id="statCpu">0% (Peak 0%)</strong>
+      </div>
+      <div class="stat-pill">
+        <img src="../assets/icons/storage.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatMemory">RAM:</span>
+        <strong id="statMemory">0 MB (Peak 0 MB)</strong>
+      </div>
+      <div class="stat-pill">
+        <img src="../assets/icons/clock.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatLag">Lag:</span>
+        <strong id="statLag">0ms (Peak 0ms)</strong>
+      </div>
+      <div class="stat-pill">
+        <img src="../assets/icons/network.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatServer">Server:</span>
+        <strong id="statServer">Off</strong>
+      </div>
+      <button type="button" class="stat-pill stat-pill-btn" id="statSpikesBtn" title="Toggle Resource Spikes &amp; Event Correlation">
+        <img src="../assets/icons/error.svg" class="stat-icon" alt="" />
+        <span class="stat-label" data-i18n="auditStatSpikes">Spikes:</span>
+        <strong id="statSpikes">0</strong>
+      </button>
+      <div class="stat-pill stat-pill-right">
+        <span class="stat-label" data-i18n="auditStatBuffer">Buffered:</span>
+        <strong id="statBuffer">0 / 5000</strong>
+        <span class="stat-sep">|</span>
+        <span class="stat-label" data-i18n="auditStatShowing">Showing:</span>
+        <strong id="statShowing">0</strong>
+      </div>
+    </section>
+
+    <section class="audit-spikes-panel" id="auditSpikesPanel" hidden>
+      <div class="spikes-panel-head">
+        <div class="spikes-panel-title">
+          <img src="../assets/icons/zap.svg" class="stat-icon" alt="" />
+          <strong data-i18n="auditSpikesTitle">Resource Spikes &amp; Correlated Events</strong>
+          <span class="spikes-peaks-summary" id="spikesPeaksSummary"></span>
+        </div>
+        <div class="spikes-panel-actions">
+          <button type="button" class="neo-btn neo-btn-sm" id="auditResetPeaksBtn">
+            <img src="../assets/icons/refresh.svg" class="btn-icon" alt="" />
+            <span data-i18n="auditResetPeaks">Reset Peaks</span>
+          </button>
+          <button type="button" class="neo-btn neo-btn-sm" id="auditCloseSpikesBtn">
+            <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+          </button>
+        </div>
+      </div>
+      <div class="spikes-list" id="auditSpikesList">
+        <div class="spikes-empty" data-i18n="auditSpikesEmpty">No CPU, memory, event-loop, or slow-IPC spikes detected yet.</div>
+      </div>
+    </section>
+
+    <section class="audit-filter-bar">
+      <div class="level-chips" id="auditLevelChips">
+        <button type="button" class="level-chip active" data-level="all" data-i18n="auditLvlAll">All</button>
+        <button type="button" class="level-chip" data-level="log">log</button>
+        <button type="button" class="level-chip" data-level="info">info</button>
+        <button type="button" class="level-chip" data-level="warn">warn</button>
+        <button type="button" class="level-chip" data-level="error">error</button>
+        <button type="button" class="level-chip" data-level="ipc">ipc</button>
+        <button type="button" class="level-chip" data-level="sync">sync</button>
+        <button type="button" class="level-chip" data-level="io">io</button>
+        <button type="button" class="level-chip" data-level="server">server</button>
+        <button type="button" class="level-chip" data-level="perf">perf</button>
+      </div>
+
+      <div class="filter-inputs">
+        <select id="auditSourceSelect" class="audit-select" aria-label="Filter by source">
+          <option value="all" data-i18n="auditAllSources">All Sources</option>
+        </select>
+        <div class="search-box">
+          <img src="../assets/icons/search.svg" class="search-icon" alt="" />
+          <input type="text" id="auditSearchInput" data-i18n-placeholder="auditSearchPlaceholder" placeholder="Filter logs (text or regex)..." />
+          <button type="button" class="regex-btn" id="auditRegexBtn" title="Toggle Regular Expression search">.*</button>
+        </div>
+      </div>
+    </section>
+
+    <main class="audit-stream-wrap" id="auditStreamWrap">
+      <div class="audit-empty" id="auditEmptyState" data-i18n="auditEmpty">Waiting for log events...</div>
+      <div class="audit-list" id="auditList" role="log" aria-live="polite"></div>
+    </main>
+  </div>
+
+  <script src="../js/pages/audit-console.js"></script>
+</body>
+
+</html>

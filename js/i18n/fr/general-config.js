@@ -6,6 +6,9 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "gcActiveModelLabel": "Modèle actif :",
+  "gcOpenAuditConsole": "Ouvrir la console d'audit",
+  "gcStartAuditOnLaunch": "Activer le mode Audit au démarrage",
+  "gcStartAuditOnLaunchHint": "Capture les journaux IPC, console, synchro et E/S dès le lancement de l'application.",
   "gcBack": "← Retour au Lanceur",
   "gcTitle": "Configuration générale",
   "gcTabGeneral": "Général",

@@ -2057,6 +2057,9 @@
             existing.fmt = n.fmt || {};
             existing.locked = !!n.locked;
             existing.pageNum = n.pageNum != null ? n.pageNum : null;
+            existing.isNodeAct = !!n.isNodeAct;
+            existing.actNodeId = n.actNodeId || null;
+            existing.actParentId = n.actParentId || null;
             existing.phraseOrder = n.phraseOrder != null ? n.phraseOrder : null;
             if (existing.phraseOrder == null && existing.el) {
               if (typeof window.conClearNodePhraseClasses === 'function') {
@@ -2168,6 +2171,9 @@
               fmt: n.fmt || {},
               locked: !!n.locked,
               pageNum: n.pageNum != null ? n.pageNum : null,
+              isNodeAct: !!n.isNodeAct,
+              actNodeId: n.actNodeId || null,
+              actParentId: n.actParentId || null,
               phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
               emoji: n.emoji || null,
               isTimer: !!n.isTimer,
@@ -2976,6 +2982,9 @@
           fmt: n.fmt || {},
           locked: !!n.locked,
           pageNum: n.pageNum != null ? n.pageNum : null,
+          isNodeAct: !!n.isNodeAct,
+          actNodeId: n.actNodeId || null,
+          actParentId: n.actParentId || null,
           phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
           emoji: n.emoji || null,
           isTimer: !!n.isTimer,

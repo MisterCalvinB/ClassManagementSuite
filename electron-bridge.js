@@ -1535,6 +1535,58 @@
     pickAndCopyFiles,
     zipAndDeleteArchived,
     fetchUrl,
+    auditOpenConsole() {
+      if (!isElectron()) return Promise.resolve({ ok: false, error: 'web-fallback' });
+      var api = getDesktopApi();
+      return (api && typeof api.auditOpenConsole === 'function') ? api.auditOpenConsole() : Promise.resolve({ ok: false });
+    },
+    auditGetSnapshot() {
+      if (!isElectron()) return Promise.resolve({ ok: false, logs: [] });
+      var api = getDesktopApi();
+      return (api && typeof api.auditGetSnapshot === 'function') ? api.auditGetSnapshot() : Promise.resolve({ ok: false, logs: [] });
+    },
+    auditGetStats() {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditGetStats === 'function') ? api.auditGetStats() : Promise.resolve({ ok: false });
+    },
+    auditClear() {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditClear === 'function') ? api.auditClear() : Promise.resolve({ ok: false });
+    },
+    auditResetPeaks() {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditResetPeaks === 'function') ? api.auditResetPeaks() : Promise.resolve({ ok: false });
+    },
+    onAuditSpike(cb) {
+      var api = getDesktopApi();
+      return (api && typeof api.onAuditSpike === 'function') ? api.onAuditSpike(cb) : function () {};
+    },
+    auditSetEnabled(flag) {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditSetEnabled === 'function') ? api.auditSetEnabled(flag) : Promise.resolve({ ok: false });
+    },
+    auditSetStartOnLaunch(flag) {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditSetStartOnLaunch === 'function') ? api.auditSetStartOnLaunch(flag) : Promise.resolve({ ok: false });
+    },
+    auditSetAlwaysOnTop(flag) {
+      if (!isElectron()) return Promise.resolve({ ok: false });
+      var api = getDesktopApi();
+      return (api && typeof api.auditSetAlwaysOnTop === 'function') ? api.auditSetAlwaysOnTop(flag) : Promise.resolve({ ok: false });
+    },
+    onAuditLogBatch(cb) {
+      var api = getDesktopApi();
+      return (api && typeof api.onAuditLogBatch === 'function') ? api.onAuditLogBatch(cb) : function () {};
+    },
+    onAuditModeChanged(cb) {
+      var api = getDesktopApi();
+      return (api && typeof api.onAuditModeChanged === 'function') ? api.onAuditModeChanged(cb) : function () {};
+    },
     reloadPlannerReminders() {
       var api = getDesktopApi();
       if (api && typeof api.reloadPlannerReminders === 'function') api.reloadPlannerReminders();
@@ -1908,6 +1960,137 @@
           }
         } catch (e) {}
       });
+    }
+  } catch (e) {}
+
+  // ── Live Audit Console Renderer Instrumentation ─────────────────────────────
+  try {
+    const _isAuditConsolePage = typeof location !== 'undefined' && /audit-console\.html$/i.test(location.pathname || '');
+    if (isElectron() && !_isAuditConsolePage) {
+      const desktopApi = getDesktopApi();
+      let _auditActive = false;
+      let _auditQueue = [];
+      let _auditFlushTimer = null;
+      const _pageName = (typeof location !== 'undefined' ? (location.pathname.split('/').pop() || 'renderer') : 'renderer');
+      const _origConsole = {
+        log: console.log.bind(console),
+        info: console.info.bind(console),
+        warn: console.warn.bind(console),
+        error: console.error.bind(console)
+      };
+
+      const _flushAuditQueue = function () {
+        _auditFlushTimer = null;
+        if (!_auditQueue.length) return;
+        const batch = _auditQueue.splice(0, _auditQueue.length);
+        if (desktopApi && typeof desktopApi.auditSendRendererLogs === 'function') {
+          desktopApi.auditSendRendererLogs(batch);
+        }
+      };
+
+      const _pushAuditEntry = function (level, message, payload) {
+        if (!_auditActive) return;
+        _auditQueue.push({
+          ts: Date.now(),
+          level: level,
+          source: _pageName,
+          message: String(message || ''),
+          payload: payload
+        });
+        if (_auditQueue.length >= 40) {
+          if (_auditFlushTimer) { clearTimeout(_auditFlushTimer); _auditFlushTimer = null; }
+          _flushAuditQueue();
+        } else if (!_auditFlushTimer) {
+          _auditFlushTimer = setTimeout(_flushAuditQueue, 60);
+        }
+      };
+
+      const _formatConsoleArgs = function (args) {
+        const parts = [];
+        let payload;
+        for (let i = 0; i < args.length; i++) {
+          const a = args[i];
+          if (typeof a === 'string') {
+            parts.push(a);
+          } else if (a instanceof Error) {
+            parts.push(a.message || String(a));
+            if (payload === undefined) payload = { name: a.name, message: a.message, stack: a.stack };
+          } else if (typeof a === 'object' && a !== null) {
+            try {
+              const s = JSON.stringify(a);
+              parts.push(s && s.length <= 120 ? s : '[Object]');
+            } catch (_) {
+              parts.push('[Object]');
+            }
+            if (payload === undefined) payload = a;
+          } else {
+            parts.push(String(a));
+          }
+        }
+        return { message: parts.join(' '), payload: payload };
+      };
+
+      ['log', 'info', 'warn', 'error'].forEach(function (lvl) {
+        console[lvl] = function () {
+          _origConsole[lvl].apply(console, arguments);
+          if (!_auditActive) return;
+          try {
+            const formatted = _formatConsoleArgs(arguments);
+            _pushAuditEntry(lvl, formatted.message, formatted.payload);
+          } catch (_) {}
+        };
+      });
+
+      window.addEventListener('error', function (ev) {
+        if (!_auditActive) return;
+        _pushAuditEntry('error', ev.message || 'Uncaught error', {
+          filename: ev.filename,
+          lineno: ev.lineno,
+          colno: ev.colno,
+          stack: ev.error ? ev.error.stack : ''
+        });
+      });
+
+      window.addEventListener('unhandledrejection', function (ev) {
+        if (!_auditActive) return;
+        const r = ev.reason;
+        _pushAuditEntry('error', 'Unhandled rejection: ' + (r && r.message ? r.message : String(r)), r);
+      });
+
+      if (typeof window.BroadcastChannel === 'function') {
+        const OrigBC = window.BroadcastChannel;
+        window.BroadcastChannel = function (name) {
+          const ch = new OrigBC(name);
+          const origPost = ch.postMessage.bind(ch);
+          ch.postMessage = function (msg) {
+            if (_auditActive) {
+              _pushAuditEntry('sync', 'BroadcastChannel[' + name + '] -> postMessage', msg);
+            }
+            return origPost(msg);
+          };
+          ch.addEventListener('message', function (ev) {
+            if (_auditActive) {
+              _pushAuditEntry('sync', 'BroadcastChannel[' + name + '] <- message', ev.data);
+            }
+          });
+          return ch;
+        };
+        window.BroadcastChannel.prototype = OrigBC.prototype;
+      }
+
+      if (desktopApi) {
+        if (typeof desktopApi.onAuditModeChanged === 'function') {
+          desktopApi.onAuditModeChanged(function (state) {
+            _auditActive = !!(state && state.enabled);
+            if (!_auditActive) _auditQueue.length = 0;
+          });
+        }
+        if (typeof desktopApi.auditIsEnabled === 'function') {
+          desktopApi.auditIsEnabled().then(function (res) {
+            if (res && res.ok) _auditActive = !!res.enabled;
+          }).catch(function () {});
+        }
+      }
     }
   } catch (e) {}
 })();

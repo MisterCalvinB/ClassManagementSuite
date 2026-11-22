@@ -3483,10 +3483,10 @@
             const unitNodeIds = [];
 
             part.words.forEach((word, wordIdx) => {
-              const pageMatch = word.match(/\(\(([^)]+)\)\)/);
-              const pageNum = pageMatch ? pageMatch[1].trim() : null;
+              const actMatch = word.match(/\(\(([^)]+)\)\)/);
+              const actText = actMatch ? actMatch[1].trim() : null;
               const cleanWord = word.replace(/\s*\(\([^)]+\)\)\s*/, '').trim();
-              if (!cleanWord) return;
+              if (!cleanWord && !actText) return;
               const ox = partOffsetX + wordIdx * 6;
               const oy = partOffsetY + wordIdx * (28 + 4);
               let nx = baseX + ox;
@@ -3501,22 +3501,46 @@
                     ? { x: nx, y: ny }
                     : conFindFreePositionBounded(nx, ny, originX, originY, 150, pendingSrc))
                 : { x: nx, y: ny };
-              if (cleanWord.includes('_')) {
-                // Underscore-separated phrase → seamless phrase group (one node per segment)
-                const phraseWords = cleanWord.split('_').map(w => w.trim()).filter(Boolean);
-                const phraseIds = conCreatePhraseGroup(phraseWords, _fp.x, _fp.y);
-                if (phraseIds.length) {
-                  unitNodeIds.push(phraseIds[0]);
-                  phraseIds.forEach(nid => { chainNodeIds.push(nid); allNewIds.push(nid); });
-                  lastId = phraseIds[0];
+              if (cleanWord) {
+                if (cleanWord.includes('_')) {
+                  // Underscore-separated phrase → seamless phrase group (one node per segment)
+                  const phraseWords = cleanWord.split('_').map(w => w.trim()).filter(Boolean);
+                  const phraseIds = conCreatePhraseGroup(phraseWords, _fp.x, _fp.y);
+                  if (phraseIds.length) {
+                    unitNodeIds.push(phraseIds[0]);
+                    phraseIds.forEach(nid => { chainNodeIds.push(nid); allNewIds.push(nid); });
+                    lastId = phraseIds[0];
+                    if (actText && typeof window.conCreateNodeActForNode === 'function') {
+                      const actId = window.conCreateNodeActForNode(phraseIds[phraseIds.length - 1], actText);
+                      if (actId) allNewIds.push(actId);
+                    }
+                  }
+                } else {
+                  const newId = conAddWordAt(cleanWord, _fp.x, _fp.y, null);
+                  if (newId) {
+                    unitNodeIds.push(newId);
+                    chainNodeIds.push(newId);
+                    allNewIds.push(newId);
+                    lastId = newId;
+                    if (actText && typeof window.conCreateNodeActForNode === 'function') {
+                      const actId = window.conCreateNodeActForNode(newId, actText);
+                      if (actId) allNewIds.push(actId);
+                    }
+                  }
                 }
-              } else {
-                const newId = conAddWordAt(cleanWord, _fp.x, _fp.y, pageNum);
-                if (newId) {
-                  unitNodeIds.push(newId);
-                  chainNodeIds.push(newId);
-                  allNewIds.push(newId);
-                  lastId = newId;
+              } else if (actText) {
+                const actOnlyId = conAddWordAt(actText, _fp.x, _fp.y, null);
+                if (actOnlyId) {
+                  const actOnlyNode = conNodes.find(n => n.id === actOnlyId);
+                  if (actOnlyNode) actOnlyNode.isNodeAct = true;
+                  const actPreset = (typeof window.conGetNodeActPreset === 'function') ? window.conGetNodeActPreset() : null;
+                  if (actPreset && actPreset.key && typeof window.conApplyNodePreset === 'function') {
+                    window.conApplyNodePreset(actPreset.key, [actOnlyId], { skipUndo: true });
+                  }
+                  unitNodeIds.push(actOnlyId);
+                  chainNodeIds.push(actOnlyId);
+                  allNewIds.push(actOnlyId);
+                  lastId = actOnlyId;
                 }
               }
             });
@@ -3676,6 +3700,40 @@
         return id;
       }
 
+      function conCreateNodeActForNode(mainNodeId, actText) {
+        const cleanAct = String(actText || '').trim();
+        if (!cleanAct) return null;
+        const mainNode = conNodes.find(n => n.id === mainNodeId);
+        if (!mainNode) return null;
+        const mainW = (mainNode.el && mainNode.el.offsetWidth) || conDetermineNodeWidth(mainNode.baseWord) || 88;
+        const mainH = (mainNode.el && mainNode.el.offsetHeight) || 34;
+        const rawX = mainNode.x + mainW + 28;
+        const rawY = mainNode.y;
+        const pos = (typeof conFindFreePositionBounded === 'function')
+          ? conFindFreePositionBounded(rawX, rawY, mainNode.x + mainW / 2, mainNode.y + mainH / 2, 180, mainNodeId)
+          : { x: rawX, y: rawY };
+        const actId = conAddWordAt(cleanAct, pos.x, pos.y, null);
+        if (!actId) return null;
+        const actNode = conNodes.find(n => n.id === actId);
+        if (actNode) {
+          actNode.isNodeAct = true;
+          actNode.actParentId = mainNodeId;
+        }
+        mainNode.actNodeId = actId;
+        const actPreset = (typeof window.conGetNodeActPreset === 'function') ? window.conGetNodeActPreset() : null;
+        if (actPreset && actPreset.key && typeof window.conApplyNodePreset === 'function') {
+          window.conApplyNodePreset(actPreset.key, [actId], { skipUndo: true });
+        }
+        if (typeof conAddEdge === 'function') {
+          conAddEdge(mainNodeId, actId, 'forward');
+        }
+        if (typeof conRedrawEdges === 'function') {
+          conRedrawEdges();
+        }
+        return actId;
+      }
+      window.conCreateNodeActForNode = conCreateNodeActForNode;
+
       function conDuplicateNodeById(nodeId, offsetX, offsetY) {
         const src = conNodes.find(n => n.id === nodeId);
         if (!src) return null;
@@ -3693,6 +3751,7 @@
 
         dup.dbWord = src.dbWord || null;
         dup.pageNum = src.pageNum != null ? src.pageNum : null;
+        if (src.isNodeAct) dup.isNodeAct = true;
         if (src.sourceWord) dup.sourceWord = src.sourceWord;
         if (src.relation) dup.relation = src.relation;
         if (src.fmt) dup.fmt = Object.assign({}, src.fmt);

@@ -2616,6 +2616,13 @@
                 <label for="bc-ie-label">Label</label>
                 <input type="text" id="bc-ie-label" class="bc-ie-input" maxlength="24" value="${_bcEsc(p.label || '')}" placeholder="Label">
               </div>
+              ${isNodePreset ? `
+              <div class="bc-ie-field bc-ie-field-full">
+                <label class="bc-ie-toggle-label" for="bc-ie-node-act">
+                  <input type="checkbox" id="bc-ie-node-act" ${p.isNodeAct ? 'checked' : ''}>
+                  <span>${_bcEsc((typeof t === 'function' ? t('bcPresetPageNumberNodeToggle') : '') || 'Use for ((...)) Page Number Nodes (only one preset)')}</span>
+                </label>
+              </div>` : ''}
             </div>
           </div>
           <div class="bc-ie-group">
@@ -2764,6 +2771,7 @@
         const tscPkr = document.getElementById('bc-ie-tsc-picker');
         const tswEl = document.getElementById('bc-ie-tsw');
         const tswUnitEl = document.getElementById('bc-ie-tsw-unit');
+        const nodeActEl = document.getElementById('bc-ie-node-act');
         const fmtRow = document.getElementById('bc-ie-fmt-row');
         const prevEl = document.getElementById('bc-ie-preview-el');
 
@@ -2810,6 +2818,7 @@
             out.textStrokeColor = tscEl ? tscEl.value.trim() : '';
             out.textStrokeWidth = !isNaN(rawTsw) && rawTsw > 0 ? (typeof conThicknessUnitToPx === 'function' ? conThicknessUnitToPx(rawTsw, tswUnit) : rawTsw) : 0;
             out.textStrokeWidthUnit = tswUnit;
+            out.isNodeAct = !!(nodeActEl && nodeActEl.checked);
           }
           return out;
         };

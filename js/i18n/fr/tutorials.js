@@ -6,6 +6,12 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "tutSw1Title": "Assistant de configuration",
+  "tutAudit1Title": "Statistiques système en direct",
+  "tutAudit1Text": "Surveillez les fenêtres ouvertes, la mémoire du processus Main, l'état du serveur et le tampon de journaux.",
+  "tutAudit2Title": "Filtrer par flux et niveau",
+  "tutAudit2Text": "Isolez les erreurs, avertissements, appels IPC, messages de synchro, E/S fichiers ou logs serveur en un clic.",
+  "tutAudit3Title": "Inspecter les détails",
+  "tutAudit3Text": "Cliquez sur une entrée avec un badge {...} pour déplier son contenu JSON ou sa trace d'erreur.",
   "tutSw1Text": "Bienvenue ! Cet assistant vous guide pour configurer tous les paramètres fondamentaux dans une liste claire.",
   "tutSw2Title": "Données de démonstration",
   "tutSw2Text": "Cliquez ici pour charger des exemples de classes, semestres et horaires pour explorer la suite sans attendre.",

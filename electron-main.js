@@ -79,7 +79,8 @@ const PAGE_FILES = {
   testCreator: 'test-creator.html',
   mediaConverter: 'media-converter.html',
   dictionary: 'dictionary.html',
-  setupWizard: 'setup-wizard.html'
+  setupWizard: 'setup-wizard.html',
+  auditConsole: 'audit-console.html'
 };
 
 const PAGE_ARG_MAP = {
@@ -184,7 +185,8 @@ const PAGE_LABELS = {
   [PAGE_FILES.testCreator]: 'Test Creator',
   [PAGE_FILES.mediaConverter]: 'Video & Sound Converter',
   [PAGE_FILES.dictionary]: 'Quick Dictionary',
-  [PAGE_FILES.setupWizard]: 'Setup Wizard'
+  [PAGE_FILES.setupWizard]: 'Setup Wizard',
+  [PAGE_FILES.auditConsole]: 'Audit Console'
 };
 
 function getDefaultWritableRootDir() {
@@ -1389,7 +1391,25 @@ function buildMenu() {
       submenu: toolMenu
     },
     {
-      role: 'viewMenu'
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'forceReload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        {
+          label: 'Open Audit Console',
+          click: () => {
+            if (typeof _openAuditConsole === 'function') _openAuditConsole();
+          }
+        },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' }
+      ]
     },
     {
       role: 'windowMenu'
@@ -2847,6 +2867,9 @@ ipcMain.handle('app:load-page', async (event, request = {}) => {
   if (!pageFile || !knownPages.has(pageFile)) {
     return { ok: false, error: `Unknown page: ${pageFile}` };
   }
+  if (pageFile === PAGE_FILES.auditConsole && typeof _openAuditConsole === 'function') {
+    return _openAuditConsole();
+  }
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed()) {
     return { ok: false, error: 'Window not available.' };
@@ -3223,6 +3246,9 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   const knownPages = new Set(Object.values(PAGE_FILES));
   if (!pageFile || !knownPages.has(pageFile)) {
     return { ok: false, error: `Unknown page: ${pageFile}` };
+  }
+  if (pageFile === PAGE_FILES.auditConsole && typeof _openAuditConsole === 'function') {
+    return _openAuditConsole();
   }
   const mergedQuery = Object.assign({}, inlineQuery, (request && typeof request.query === 'object' && request.query) ? request.query : {});
   const query = Object.keys(mergedQuery).length > 0 ? mergedQuery : null;
@@ -4127,6 +4153,19 @@ function applyPresentationDefaultBounds(targetWindow, sourceWindow, toolId, over
   return false;
 }
 
+const { registerAuditIpc } = require('./js/main/ipc-audit');
+const {
+  auditLog: _auditLog,
+  instrumentIpcMain: _instrumentIpcMain,
+  openAuditConsole: _openAuditConsole
+} = registerAuditIpc({
+  app, BrowserWindow, ipcMain, path, fsSync,
+  ROOT_DIR, PAGE_FILES, getLoadedPageFile, getWritableRootDir,
+  setupWindowExternalLinkHandling,
+  getClassroomServerStatus: () => ({ running: false, port: null })
+});
+_instrumentIpcMain(ipcMain);
+
 const { registerWindowsIpc } = require('./js/main/ipc-windows');
 const { notifyWindowsChanged } = registerWindowsIpc({
   BrowserWindow, ipcMain, screen, fs, path, getWritableRootDir, PAGE_FILES, PAGE_LABELS,
@@ -4224,7 +4263,8 @@ registerCloudSyncIpc({
 const { registerRemoteQuizIpc } = require('./js/main/ipc-remote-quiz');
 const { stopQuizServer, findClassManagementWindow: _cmsFindClassManagementWindow } = registerRemoteQuizIpc({
   app, BrowserWindow, ipcMain, fs, path, http, os, crypto, spawn,
-  ROOT_DIR, PAGE_FILES, isPresentationWindow, getLoadedPageFile, getRequestingPage, resolveAllowedTargetPath
+  ROOT_DIR, PAGE_FILES, isPresentationWindow, getLoadedPageFile, getRequestingPage, resolveAllowedTargetPath,
+  auditLog: _auditLog
 });
 ipcMain.handle('app:open-external', async (_event, request = {}) => {
   const url = String(request.url || '').trim();

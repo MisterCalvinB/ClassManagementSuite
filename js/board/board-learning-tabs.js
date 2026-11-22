@@ -2331,6 +2331,235 @@
       const importField = (meta && meta.importField) || 'title';
       const nameDisplayMode = (meta && meta.nameDisplayMode) || 'full';
 
+      // Output -1: Document Conversion Formats (Documents Domain)
+      if (meta && (meta.subType === 'doceditor-docs' || meta.domain === 'documents' || String(chosenFormat).startsWith('doc-'))) {
+        const parseDoc = (typeof UniversalImporter !== 'undefined' && typeof UniversalImporter.parseDocument === 'function')
+          ? UniversalImporter.parseDocument
+          : (raw) => ({ title: 'Document', headings: [], sections: [{ level: 1, title: 'Document', body: String(raw || '') }], paragraphs: [], markdown: String(raw || '') });
+
+        const filterHeadings = (parsed, docTitle) => {
+          if (importField === 'paragraphs') {
+            if (parsed.paragraphs && parsed.paragraphs.length > 0) {
+              return parsed.paragraphs.map(p => ({ level: 1, text: p.split('\n')[0].slice(0, 120) }));
+            }
+            return (parsed.sections || []).map(s => ({ level: Math.max(1, s.level || 1), text: s.title || docTitle }));
+          }
+          let hs = Array.isArray(parsed.headings) ? parsed.headings.slice() : [];
+          if (importField === 'h1_only') hs = hs.filter(h => h.level <= 1);
+          else if (importField === 'h1_h2') hs = hs.filter(h => h.level <= 2);
+          if (hs.length === 0) {
+            if (parsed.sections && parsed.sections.length > 0) {
+              hs = parsed.sections.map(s => ({ level: Math.max(1, s.level || 1), text: s.title || docTitle }));
+            } else {
+              hs = [{ level: 1, text: docTitle }];
+            }
+          }
+          return hs;
+        };
+
+        if (chosenFormat === 'doc-link-node') {
+          let created = 0;
+          selectedItems.forEach((it, idx) => {
+            const nx = centerX;
+            const ny = centerY + idx * 58;
+            if (typeof conAddLinkNodeAt === 'function') {
+              conAddLinkNodeAt({
+                title: it.title || 'Document',
+                linkType: 'doc',
+                target: (it.raw && (it.raw.relativePath || it.raw.filename)) || it.id,
+                subtitle: it.subtitle || 'Document',
+                urn: it.urn || '',
+                tags: it.tags || []
+              }, nx, ny);
+              created++;
+            } else if (addWordFn) {
+              addWordFn(it.title || 'Document', nx, ny);
+              created++;
+            }
+          });
+          if (typeof showToast === 'function') showToast(`Inserted ${created} document link node(s).`);
+          return;
+        }
+
+        if (chosenFormat === 'doc-full-note') {
+          let created = 0;
+          selectedItems.forEach((it, idx) => {
+            const rawContent = (it.raw && typeof it.raw.content === 'string') ? it.raw.content : '';
+            const ext = (it.raw && it.raw.ext) || 'md';
+            const parsed = parseDoc(rawContent, ext, it.title || 'Document');
+            const mdText = (parsed.markdown || rawContent || `# ${it.title || 'Document'}`).trim();
+            if (typeof conNoteAdd === 'function') {
+              conNoteAdd(centerX - 180 + (idx * 45), centerY - 120 + (idx * 45), mdText);
+              created++;
+            }
+          });
+          if (typeof showToast === 'function') showToast(`Imported ${created} document(s) as note(s).`);
+          return;
+        }
+
+        if (chosenFormat === 'doc-outline-checklist') {
+          let created = 0;
+          selectedItems.forEach((it, idx) => {
+            const docTitle = it.title || 'Document';
+            const rawContent = (it.raw && typeof it.raw.content === 'string') ? it.raw.content : '';
+            const ext = (it.raw && it.raw.ext) || 'md';
+            const parsed = parseDoc(rawContent, ext, docTitle);
+            const headings = filterHeadings(parsed, docTitle);
+            const minLvl = Math.min(...headings.map(h => h.level || 1));
+            const lines = headings.map(h => {
+              const indent = '  '.repeat(Math.max(0, (h.level || 1) - minLvl));
+              return `${indent}- [ ] **${h.text}**`;
+            });
+            const mdText = `## ${docTitle}\n\n${lines.join('\n')}`;
+            if (typeof conNoteAdd === 'function') {
+              conNoteAdd(centerX - 160 + (idx * 45), centerY - 120 + (idx * 45), mdText);
+              created++;
+            }
+          });
+          if (typeof showToast === 'function') showToast(`Created outline checklist note(s) for ${created} document(s).`);
+          return;
+        }
+
+        if (chosenFormat === 'doc-sections-notes') {
+          const allSections = [];
+          selectedItems.forEach(it => {
+            const docTitle = it.title || 'Document';
+            const rawContent = (it.raw && typeof it.raw.content === 'string') ? it.raw.content : '';
+            const ext = (it.raw && it.raw.ext) || 'md';
+            const parsed = parseDoc(rawContent, ext, docTitle);
+
+            let secs = [];
+            if (importField === 'paragraphs' && parsed.paragraphs && parsed.paragraphs.length > 0) {
+              secs = parsed.paragraphs.map((p, i) => ({ title: `${docTitle} — ${i + 1}`, body: p }));
+            } else {
+              secs = (parsed.sections || []).filter(s => s && (s.title || s.body));
+              if (importField === 'h1_only') secs = secs.filter(s => (s.level || 1) <= 1);
+              else if (importField === 'h1_h2') secs = secs.filter(s => (s.level || 1) <= 2);
+            }
+            if (secs.length === 0) {
+              secs = [{ title: docTitle, body: parsed.markdown || rawContent || '' }];
+            }
+            secs.forEach(s => allSections.push(s));
+          });
+
+          const count = allSections.length;
+          const cols = count <= 2 ? count : 3;
+          const COL_W = 360;
+          const ROW_H = 240;
+          const startX = centerX - Math.round((cols * COL_W) / 2);
+          const startY = centerY - Math.round((Math.ceil(count / cols) * ROW_H) / 2);
+
+          allSections.forEach((sec, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const nx = startX + col * COL_W;
+            const ny = startY + row * ROW_H;
+            const headingPrefix = sec.level > 0 ? '#'.repeat(Math.min(3, sec.level)) : '##';
+            const md = sec.title
+              ? (sec.body ? `${headingPrefix} ${sec.title}\n\n${sec.body}` : `${headingPrefix} ${sec.title}`)
+              : (sec.body || '');
+            if (typeof conNoteAdd === 'function' && md.trim()) {
+              conNoteAdd(nx, ny, md.trim());
+            }
+          });
+          if (typeof showToast === 'function') showToast(`Created ${allSections.length} section note(s).`);
+          return;
+        }
+
+        if (chosenFormat === 'doc-headings-mindmap') {
+          if (!addWordFn) {
+            if (typeof showToast === 'function') showToast('Node creator not available.', true);
+            return;
+          }
+          let totalNodes = 0;
+          selectedItems.forEach((it, docIdx) => {
+            const docTitle = it.title || 'Document';
+            const rawContent = (it.raw && typeof it.raw.content === 'string') ? it.raw.content : '';
+            const ext = (it.raw && it.raw.ext) || 'md';
+            const parsed = parseDoc(rawContent, ext, docTitle);
+            const headings = filterHeadings(parsed, docTitle);
+            const minLvl = Math.min(...headings.map(h => h.level || 1));
+
+            const docStartX = centerX - 240 + (docIdx * 520);
+            const totalH = Math.max(1, headings.length) * 58;
+            const startY = centerY - Math.round(totalH / 2);
+
+            const rootId = addWordFn(docTitle, docStartX, centerY);
+            if (rootId) totalNodes++;
+            const stack = [{ level: 0, id: rootId }];
+
+            headings.forEach((h, i) => {
+              const lvl = Math.max(1, (h.level || 1) - minLvl + 1);
+              const nx = docStartX + (lvl * 220);
+              const ny = startY + (i * 58);
+              const nid = addWordFn(h.text, nx, ny);
+              if (!nid) return;
+              totalNodes++;
+
+              while (stack.length > 1 && stack[stack.length - 1].level >= lvl) {
+                stack.pop();
+              }
+              const parent = stack[stack.length - 1];
+              if (parent && parent.id && typeof conCreateEdge === 'function') {
+                conCreateEdge(parent.id, nid);
+              }
+              stack.push({ level: lvl, id: nid });
+            });
+          });
+          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          if (typeof showToast === 'function') showToast(`Created document mindmap with ${totalNodes} node(s).`);
+          return;
+        }
+
+        // Default for documents: 'doc-headings-nodes'
+        if (!addWordFn) {
+          if (typeof showToast === 'function') showToast('Node creator not available.', true);
+          return;
+        }
+        let totalCreated = 0;
+        selectedItems.forEach((it, docIdx) => {
+          const docTitle = it.title || 'Document';
+          const rawContent = (it.raw && typeof it.raw.content === 'string') ? it.raw.content : '';
+          const ext = (it.raw && it.raw.ext) || 'md';
+          const parsed = parseDoc(rawContent, ext, docTitle);
+          const headings = filterHeadings(parsed, docTitle);
+          const minLvl = Math.min(...headings.map(h => h.level || 1));
+
+          const docStartX = centerX - 120 + (docIdx * 340);
+          const startY = centerY - Math.round((headings.length * 56) / 2);
+          const docNodeIds = [];
+
+          headings.forEach((h, i) => {
+            const indentX = Math.max(0, (h.level || 1) - minLvl) * 44;
+            const nid = addWordFn(h.text, docStartX + indentX, startY + (i * 56));
+            if (nid) {
+              docNodeIds.push(nid);
+              totalCreated++;
+              if (typeof conNodes !== 'undefined') {
+                const nodeObj = conNodes.find(n => n && n.id === nid);
+                if (nodeObj) {
+                  nodeObj.urn = it.urn;
+                  nodeObj.subType = it.subType;
+                  nodeObj.domain = it.domain;
+                  if (nodeObj.el && it.urn) nodeObj.el.setAttribute('data-urn', it.urn);
+                }
+              }
+            }
+          });
+
+          if (docNodeIds.length > 1 && typeof conGroupCreate === 'function') {
+            const grp = conGroupCreate(docNodeIds, docStartX - 14, startY - 14, null, null, null, { title: docTitle });
+            if (grp) {
+              grp.title = docTitle;
+              if (typeof conGroupRefit === 'function') conGroupRefit(grp);
+              if (typeof conGroupApplyStyle === 'function') conGroupApplyStyle(grp);
+            }
+          }
+        });
+        if (typeof showToast === 'function') showToast(`Imported ${totalCreated} heading node(s) from ${selectedItems.length} document(s).`);
+        return;
+      }
+
       // Output 0: Class Plan Visual Card
       if (chosenFormat === 'classplan' || (meta.subType === 'seating' && chosenFormat !== 'table' && chosenFormat !== 'note' && chosenFormat !== 'nodes' && chosenFormat !== 'tray' && chosenFormat !== 'mindmap')) {
         selectedItems.forEach((it, idx) => {

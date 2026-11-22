@@ -6,6 +6,12 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "tutSw1Title": "Procedura di configurazione",
+  "tutAudit1Title": "Statistiche di sistema in tempo reale",
+  "tutAudit1Text": "Monitora le finestre aperte, la memoria del processo Main, lo stato del server e la capacità del buffer.",
+  "tutAudit2Title": "Filtra per flusso e livello",
+  "tutAudit2Text": "Isola errori, avvisi, chiamate IPC, sincronizzazione, I/O file o log del server con un clic.",
+  "tutAudit3Title": "Ispeziona i payload",
+  "tutAudit3Text": "Clicca su qualsiasi voce con il badge {...} per espandere il payload JSON completo o lo stack trace.",
   "tutSw1Text": "Benvenuto! Questa procedura ti guida nella configurazione di base in una lista chiara.",
   "tutSw2Title": "Dati dimostrativi",
   "tutSw2Text": "Clicca qui per caricare dati di esempio e provare subito tutte le funzioni.",

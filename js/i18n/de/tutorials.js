@@ -6,6 +6,12 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "tutSw1Title": "Einrichtungsassistent",
+  "tutAudit1Title": "Live-Systemstatistiken",
+  "tutAudit1Text": "Überwachen Sie geöffnete Fenster, den Speicherverbrauch, den Serverstatus und die Puffergröße.",
+  "tutAudit2Title": "Nach Stream & Level filtern",
+  "tutAudit2Text": "Filtern Sie Fehler, Warnungen, IPC-Aufrufe, Sync-Nachrichten, Datei-E/A oder Server-Logs mit einem Klick.",
+  "tutAudit3Title": "Payloads untersuchen",
+  "tutAudit3Text": "Klicken Sie auf einen Eintrag mit {...}-Symbol, um das vollständige JSON-Payload oder den Stack-Trace anzuzeigen.",
   "tutSw1Text": "Willkommen! Der Assistent hilft Ihnen bei allen grundlegenden Einstellungen in einer übersichtlichen Checkliste.",
   "tutSw2Title": "Beispieldaten",
   "tutSw2Text": "Klicken Sie hier, um Beispieldaten zu laden und die Apps sofort auszuprobieren.",

@@ -536,6 +536,19 @@
         }
       }
     });
+    _items.push({
+      id: 'action:audit-console',
+      cat: 'tool',
+      catLabel: _t('qsCatTool', 'Tool'),
+      title: _t('auditTitle', 'Audit Console'),
+      sub: _t('auditSubtitle', 'Live diagnostic stream (Main, IPC, Renderers, Sync, I/O, Server)'),
+      icon: 'zap.svg',
+      onSelect: function () {
+        if (window.Desktop && typeof window.Desktop.auditOpenConsole === 'function') {
+          window.Desktop.auditOpenConsole();
+        }
+      }
+    });
     var apps = Array.isArray(window.CMT_APPS) ? window.CMT_APPS : [];
     apps.forEach(function (app) {
       if (!app || !app.href) return;

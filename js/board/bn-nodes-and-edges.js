@@ -3621,7 +3621,10 @@
         if (!popup) return;
         const inp = document.getElementById('con-page-popup-input');
         if (!inp) return;
-        inp.value = node.pageNum != null ? String(node.pageNum) : '';
+        const linkedAct = node.actNodeId ? conNodes.find(n => n.id === node.actNodeId) : null;
+        inp.value = linkedAct
+          ? (linkedAct.baseWord || '')
+          : (node.pageNum != null ? String(node.pageNum) : '');
         const rect = node.el.getBoundingClientRect();
         popup.style.left = Math.max(10, Math.min(rect.right + 6, window.innerWidth - 175)) + 'px';
         popup.style.top = Math.max(10, Math.min(rect.top, window.innerHeight - 80)) + 'px';
@@ -3642,13 +3645,35 @@
         if (!node) return;
         conPushUndo();
         const trimmed = inp.value.trim();
+        const linkedAct = node.actNodeId ? conNodes.find(n => n.id === node.actNodeId) : null;
         if (trimmed === '') {
+          if (linkedAct && typeof conRemoveNode === 'function') {
+            conRemoveNode(linkedAct.id);
+          }
+          node.actNodeId = null;
           node.pageNum = null;
+          conRenderNodeLabel(node);
+          conRedrawEdges();
+          return;
+        }
+        // Clear legacy page badge if converting/adding as Node Act
+        if (node.pageNum != null) {
+          node.pageNum = null;
+          conRenderNodeLabel(node);
+        }
+        if (linkedAct) {
+          const dbMatch = conFindDbEntry(trimmed);
+          linkedAct.baseWord = trimmed;
+          linkedAct.dbWord = dbMatch ? dbMatch.word : null;
+          conRenderNodeLabel(linkedAct);
+          conRedrawEdges();
+        } else if (typeof window.conCreateNodeActForNode === 'function') {
+          window.conCreateNodeActForNode(node.id, trimmed);
         } else {
           node.pageNum = trimmed;
+          conRenderNodeLabel(node);
+          conRedrawEdges();
         }
-        conRenderNodeLabel(node);
-        conRedrawEdges();
       };
 
       window.conPagePopupRemove = function () {
@@ -3656,6 +3681,11 @@
         document.getElementById('con-page-popup').classList.remove('visible');
         if (!node) return;
         conPushUndo();
+        const linkedAct = node.actNodeId ? conNodes.find(n => n.id === node.actNodeId) : null;
+        if (linkedAct && typeof conRemoveNode === 'function') {
+          conRemoveNode(linkedAct.id);
+        }
+        node.actNodeId = null;
         node.pageNum = null;
         conRenderNodeLabel(node);
         conRedrawEdges();
@@ -3950,17 +3980,17 @@
           const entries = rawText.split(',,').map(w => w.trim()).filter(Boolean);
 
           function parseEntry(entryRaw, fallbackText) {
-            const pageMatch = String(entryRaw || '').match(/\(\(([^)]+)\)\)/);
-            const page = pageMatch ? pageMatch[1].trim() : undefined;
+            const actMatch = String(entryRaw || '').match(/\(\(([^)]+)\)\)/);
+            const act = actMatch ? actMatch[1].trim() : undefined;
             const text = String(entryRaw || '').replace(/\s*\(\([^)]+\)\)\s*/, '').trim() || fallbackText;
-            return { text, page };
+            return { text, act };
           }
 
           const first = parseEntry(entries[0] || rawText, currentText);
           const newText = first.text;
-          const newPage = first.page;
+          const newAct = first.act;
 
-          if (entries.length <= 1 && newText === currentText && newPage === undefined) { // no change, just re-render
+          if (entries.length <= 1 && newText === currentText && newAct === undefined) { // no change, just re-render
             conRenderNodeLabel(node);
             conRedrawEdges();
             return;
@@ -3977,7 +4007,7 @@
               node.dbWord = firstDb ? firstDb.word : null;
               node.phraseOrder = 0;
               el.className = 'con-node' + (firstDb ? ' con-node-matched' : '');
-              if (newPage !== undefined) node.pageNum = newPage || null;
+              if (newAct !== undefined) node.pageNum = null;
               conRenderNodeLabel(node);
               // Create additional nodes for remaining phrase words
               const phraseIds = [node.id];
@@ -3989,6 +4019,9 @@
               }
               const group = conGroupCreate(phraseIds, node.x, node.y, [], [], [], { phraseGroup: true });
               if (group) requestAnimationFrame(() => conPhraseGroupLayout(group));
+              if (newAct && typeof window.conCreateNodeActForNode === 'function') {
+                window.conCreateNodeActForNode(phraseIds[phraseIds.length - 1], newAct);
+              }
               conRedrawEdges();
               return;
             }
@@ -3996,10 +4029,21 @@
           const dbMatch = conFindDbEntry(newText);
           node.baseWord = newText;
           node.dbWord = dbMatch ? dbMatch.word : null;
-          if (newPage !== undefined) node.pageNum = newPage || null;
+          if (newAct !== undefined) node.pageNum = null;
           el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
           conRenderNodeLabel(node);
           conAddNodeStarBtn(node);
+          if (newAct) {
+            const existingAct = node.actNodeId ? conNodes.find(n => n.id === node.actNodeId) : null;
+            if (existingAct) {
+              const actDb = conFindDbEntry(newAct);
+              existingAct.baseWord = newAct;
+              existingAct.dbWord = actDb ? actDb.word : null;
+              conRenderNodeLabel(existingAct);
+            } else if (typeof window.conCreateNodeActForNode === 'function') {
+              window.conCreateNodeActForNode(node.id, newAct);
+            }
+          }
 
           // Support editing with ",," to create additional nodes from one edit action.
           if (entries.length > 1) {
@@ -4012,11 +4056,17 @@
               if (text.includes('_') && !text.startsWith('_') && !text.endsWith('_')) {
                 const phraseWords = text.split('_').map(w => w.trim()).filter(Boolean);
                 if (phraseWords.length >= 2) {
-                  conCreatePhraseGroup(phraseWords, node.x + ox, node.y + oy);
+                  const pIds = conCreatePhraseGroup(phraseWords, node.x + ox, node.y + oy);
+                  if (parsed.act && pIds && pIds.length && typeof window.conCreateNodeActForNode === 'function') {
+                    window.conCreateNodeActForNode(pIds[pIds.length - 1], parsed.act);
+                  }
                   return;
                 }
               }
-              conAddWordAt(text, node.x + ox, node.y + oy, parsed.page);
+              const addedId = conAddWordAt(text, node.x + ox, node.y + oy, null);
+              if (addedId && parsed.act && typeof window.conCreateNodeActForNode === 'function') {
+                window.conCreateNodeActForNode(addedId, parsed.act);
+              }
             });
           }
 

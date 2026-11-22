@@ -17,7 +17,8 @@ function registerRemoteQuizIpc(ctx) {
     isPresentationWindow,
     getLoadedPageFile,
     getRequestingPage,
-    resolveAllowedTargetPath
+    resolveAllowedTargetPath,
+    auditLog
   } = ctx;
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -54,11 +55,40 @@ function registerRemoteQuizIpc(ctx) {
 
     try {
       const child = spawn(process.execPath, [scriptPath], {
-        cwd: ROOT_DIR, env, detached: false, stdio: 'ignore', windowsHide: true
+        cwd: ROOT_DIR, env, detached: false, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true
       });
-      child.on('exit', () => { if (_localServerProc === child) _localServerProc = null; });
-      child.on('error', () => { if (_localServerProc === child) _localServerProc = null; });
+      if (child.stdout && typeof auditLog === 'function') {
+        child.stdout.on('data', (chunk) => {
+          const lines = String(chunk || '').split(/\r?\n/).filter(Boolean);
+          for (const line of lines) {
+            auditLog({ level: 'server', source: 'server', message: line });
+          }
+        });
+      }
+      if (child.stderr && typeof auditLog === 'function') {
+        child.stderr.on('data', (chunk) => {
+          const lines = String(chunk || '').split(/\r?\n/).filter(Boolean);
+          for (const line of lines) {
+            auditLog({ level: 'error', source: 'server', message: line });
+          }
+        });
+      }
+      child.on('exit', (code) => {
+        if (typeof auditLog === 'function') {
+          auditLog({ level: 'server', source: 'server', message: `Classroom server exited (code=${code})` });
+        }
+        if (_localServerProc === child) _localServerProc = null;
+      });
+      child.on('error', (err) => {
+        if (typeof auditLog === 'function') {
+          auditLog({ level: 'error', source: 'server', message: `Classroom server error: ${err && err.message ? err.message : err}` });
+        }
+        if (_localServerProc === child) _localServerProc = null;
+      });
       _localServerProc = child;
+      if (typeof auditLog === 'function') {
+        auditLog({ level: 'server', source: 'server', message: `Classroom server starting on port ${requestedPort}` });
+      }
 
       // Brief wait for the server process to bind its port
       await new Promise(resolve => setTimeout(resolve, 450));

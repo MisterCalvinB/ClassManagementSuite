@@ -6,6 +6,12 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "tutSw1Title": "Setup Wizard",
+  "tutAudit1Title": "Live System Stats",
+  "tutAudit1Text": "Monitor open windows, Main process memory usage, Classroom Server status, and log buffer capacity.",
+  "tutAudit2Title": "Filter by Stream & Level",
+  "tutAudit2Text": "Isolate errors, warnings, IPC calls, cross-window sync, file I/O, or server logs with one click.",
+  "tutAudit3Title": "Inspect Payloads",
+  "tutAudit3Text": "Click any log entry with a {...} badge to expand and inspect its full JSON payload or stack trace.",
   "tutSw1Text": "Welcome! The Setup Wizard helps you configure all fundamental suite settings in one organized checklist.",
   "tutSw2Title": "Demo Data Loader",
   "tutSw2Text": "Click here to populate sample classes, term dates, and timetable periods to test the apps immediately.",

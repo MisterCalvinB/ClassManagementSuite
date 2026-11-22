@@ -55,13 +55,14 @@
   };
 
   var ALL_NAMESPACES = [
-    'core', 'tutorials', 'board', 'class-plan', 'document-editor', 'file-manager',
+    'core', 'tutorials', 'audit-console', 'board', 'class-plan', 'document-editor', 'file-manager',
     'general-config', 'grade-sheet', 'group-editor', 'how-to', 'lesson-creator',
     'manage-database', 'oral-marking', 'participation-tracker', 'planner',
     'schedule-maker', 'test-creator'
   ];
 
   var PAGE_NAMESPACES = {
+    'audit-console': ['audit-console'],
     'board': ['board'],
     'class-plan': ['class-plan'],
     'document-editor': ['document-editor'],

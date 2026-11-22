@@ -303,6 +303,14 @@
               <button class="btn btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
               <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
               <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
+              <button class="btn btn-outline" id="openAuditConsoleBtn" type="button" data-i18n="gcOpenAuditConsole">Open Audit Console</button>
+            </div>
+            <div class="field" style="margin-top:12px;">
+              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.86rem;font-weight:700;">
+                <input type="checkbox" id="startAuditOnLaunchToggle" style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+                <span data-i18n="gcStartAuditOnLaunch">Start Audit Mode on launch</span>
+              </label>
+              <p class="field-hint" data-i18n="gcStartAuditOnLaunchHint">Captures verbose IPC, console, sync, and I/O logs from app startup in the background.</p>
             </div>
             <div class="status" style="margin-top:8px;" id="dataStatus"></div>
 
@@ -3864,6 +3872,24 @@
       on('gcManageWhisperBtn', function () { if (typeof openWhisperModelManager === 'function') openWhisperModelManager({ onModelChanged: gcRefreshWhisperModel }); });
       on('gcManageSlmBtn', function () { if (typeof openSlmModelManager === 'function') openSlmModelManager({ onModelChanged: gcRefreshSlmModel }); });
       on('openCrashDumpsBtn', function () { if (typeof gcOpenCrashDumps === 'function') gcOpenCrashDumps(); });
+      on('openAuditConsoleBtn', function () {
+        if (window.Desktop && typeof window.Desktop.auditOpenConsole === 'function') {
+          window.Desktop.auditOpenConsole();
+        } else if (typeof showToast === 'function') {
+          showToast('Audit Console is available when running in Electron desktop mode.');
+        }
+      });
+      var auditLaunchToggle = document.getElementById('startAuditOnLaunchToggle');
+      if (auditLaunchToggle && window.electronApi && typeof window.electronApi.auditIsEnabled === 'function') {
+        window.electronApi.auditIsEnabled().then(function (res) {
+          if (res && res.ok) auditLaunchToggle.checked = !!res.startOnLaunch;
+        }).catch(function () {});
+        auditLaunchToggle.addEventListener('change', function () {
+          if (window.Desktop && typeof window.Desktop.auditSetStartOnLaunch === 'function') {
+            window.Desktop.auditSetStartOnLaunch(!!auditLaunchToggle.checked);
+          }
+        });
+      }
       on('openArchivingWizardBtn', function () { if (typeof gcOpenArchivingWizard === 'function') gcOpenArchivingWizard(); });
       on('gcCloseCreditsBtn', function () { if (typeof closeCreditsModal === 'function') closeCreditsModal(); });
       var creditsOverlay = document.getElementById('credits-overlay');

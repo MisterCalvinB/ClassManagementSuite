@@ -7,6 +7,9 @@
 })({
   "gcActiveModelLabel": "Active Model:",
   "gcOpenCrashDumps": "Open Crash Logs",
+  "gcOpenAuditConsole": "Open Audit Console",
+  "gcStartAuditOnLaunch": "Start Audit Mode on launch",
+  "gcStartAuditOnLaunchHint": "Captures verbose IPC, console, sync, and I/O logs from app startup in the background.",
   "gcBack": "← Back to Launcher",
   "gcTitle": "General Config",
   "gcTabGeneral": "General",

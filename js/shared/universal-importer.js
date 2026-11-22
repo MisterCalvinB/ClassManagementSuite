@@ -537,6 +537,20 @@
         }
       }
 
+      case 'doceditor-docs': {
+        const title = item.title || 'Document';
+        const sub = item.subtitle || '';
+        switch (fieldChoice) {
+          case 'h1_only': return `${title} (H1 Headings)`;
+          case 'h1_h2': return `${title} (H1–H2 Headings)`;
+          case 'paragraphs': return `${title} (Paragraphs / Sections)`;
+          case 'all_headings': return `${title} (All Headings)`;
+          case 'subtitle': return sub || title;
+          case 'both_dash': return sub ? `${title} — ${sub}` : title;
+          default: return title;
+        }
+      }
+
       default: {
         const primaryTitle = item.title || '';
         const secondaryText = (item.subtitle || '').trim();
@@ -628,7 +642,8 @@
     { id: 'class', label: 'Class & Rosters', icon: 'groups.svg' },
     { id: 'grades', label: 'Grade Sheet', icon: 'table.svg' },
     { id: 'participation', label: 'Participation Tracker', icon: 'participation-tracker.svg' },
-    { id: 'bookmarks', label: 'Bookmarks & Links', icon: 'links.svg' }
+    { id: 'bookmarks', label: 'Bookmarks & Links', icon: 'links.svg' },
+    { id: 'documents', label: 'Documents', icon: 'document-editor.svg', i18nKey: 'uimpDocEditorDocs' }
   ];
 
   const SUB_SOURCES = [
@@ -671,13 +686,17 @@
     // 6. Bookmarks & Deep Links
     { id: 'web-bookmarks', domain: 'bookmarks', label: 'Web Bookmarks', icon: 'links.svg', special: 'web-bookmarks' },
     { id: 'board-mindmaps', domain: 'bookmarks', label: 'Other Mindmaps', icon: 'board.svg', special: 'board-mindmaps' },
-    { id: 'doceditor-docs', domain: 'bookmarks', label: 'Documents', icon: 'document-editor.svg', special: 'doceditor-docs' },
-    { id: 'board-canvas', domain: 'bookmarks', label: 'This Board Elements', icon: 'nodes.svg', special: 'board-canvas' }
+    { id: 'board-canvas', domain: 'bookmarks', label: 'This Board Elements', icon: 'nodes.svg', special: 'board-canvas' },
+
+    // 7. Documents (Document Editor & Local Files)
+    { id: 'doceditor-docs', domain: 'documents', label: 'Documents', icon: 'document-editor.svg', special: 'doceditor-docs' }
   ];
 
   // ---------------------------------------------------------------------------
   // Module State & In-Memory Cache
   // ---------------------------------------------------------------------------
+  const _localDocRecords = [];
+
   const _cache = {
     recordsBySubType: new Map(), // subTypeId -> Array of normalized UniversalImportItem
     fileSetsBySubType: new Map(), // subTypeId -> Array of { filename, count, records }
@@ -2047,33 +2066,67 @@
         _cache.recordsBySubType.set('board-mindmaps', mindmapRecords);
         _cache.fileSetsBySubType.set('board-mindmaps', [{ filename: 'constellations', count: mindmapRecords.length, records: mindmapRecords }]);
 
-        // C. Document Editor Docs
+        // C. Document Editor Docs & Local Documents (recursive)
         const docRecords = [];
-        if (isEl && typeof window.Desktop.listFiles === 'function') {
+        if (isEl && (typeof window.Desktop.listByPath === 'function' || typeof window.Desktop.listFiles === 'function')) {
           try {
-            const dList = await window.Desktop.listFiles('docEditorDocs', { extensions: ['.md', '.markdown'] });
+            let dList = null;
+            const docExts = ['.md', '.markdown', '.txt', '.html', '.htm'];
+            if (typeof window.Desktop.listByPath === 'function') {
+              dList = await window.Desktop.listByPath('docEditorDocs', '', { recursive: true, extensions: docExts }).catch(() => null);
+            }
+            if (!dList || !Array.isArray(dList.files)) {
+              if (typeof window.Desktop.listFiles === 'function') {
+                dList = await window.Desktop.listFiles('docEditorDocs', { extensions: docExts }).catch(() => null);
+              }
+            }
             const dFiles = dList?.files || (Array.isArray(dList) ? dList : []);
             dFiles.forEach((f) => {
-              const fname = typeof f === 'string' ? f : (f.filename || f.name);
-              if (!fname || /\.(v\d{8}-\d{6}|tmp|bak)\./i.test(fname)) return;
+              const relPath = typeof f === 'string' ? f : (f.relativePath || f.filename || f.name || '');
+              const fname = typeof f === 'string' ? f.split(/[\\/]/).pop() : (f.filename || f.name || relPath.split(/[\\/]/).pop());
+              if (!relPath || !fname || /\.(v\d{8}-\d{6}|tmp|bak)\./i.test(fname)) return;
+              const normRel = relPath.replace(/\\/g, '/');
+              const slashIdx = normRel.lastIndexOf('/');
+              const folder = slashIdx > 0 ? normRel.slice(0, slashIdx) : '';
+              const extMatch = fname.match(/\.([^.]+)$/);
+              const ext = extMatch ? extMatch[1].toLowerCase() : 'md';
               docRecords.push({
-                id: fname,
-                urn: `cmt:doc:${fname}`,
-                domain: 'bookmarks',
+                id: normRel,
+                urn: `cmt:doc:${normRel}`,
+                domain: 'documents',
                 subType: 'doceditor-docs',
-                title: fname.replace(/\.(md|markdown)$/i, ''),
-                subtitle: 'Markdown Document',
-                badge: 'DOC',
+                fileSet: folder ? `doceditor/${folder}` : 'doceditor',
+                title: fname.replace(/\.(md|markdown|txt|html|htm)$/i, ''),
+                subtitle: folder ? `${folder} (${ext.toUpperCase()})` : `Document Editor (${ext.toUpperCase()})`,
+                badge: ext.toUpperCase(),
                 level: '',
-                theme: 'Documents',
-                tags: ['#document', '#markdown'],
-                raw: { filename: fname, kind: 'doc' }
+                theme: folder || 'Document Editor',
+                tags: ['#document', `#${ext}`],
+                raw: { filename: fname, relativePath: normRel, kind: 'doc', ext, source: 'doceditor', content: null }
               });
             });
           } catch (_) {}
         }
+        if (Array.isArray(_localDocRecords) && _localDocRecords.length > 0) {
+          _localDocRecords.forEach(lr => docRecords.push(lr));
+        }
         _cache.recordsBySubType.set('doceditor-docs', docRecords);
-        _cache.fileSetsBySubType.set('doceditor-docs', [{ filename: 'doceditor', count: docRecords.length, records: docRecords }]);
+        const docFileSetMap = new Map();
+        docRecords.filter(r => r.source !== 'local' && r.fileSet !== 'local').forEach(r => {
+          const fsKey = r.fileSet || 'doceditor';
+          if (!docFileSetMap.has(fsKey)) {
+            const label = fsKey === 'doceditor' ? 'Document Editor (Root)' : fsKey.replace(/^doceditor\//, 'Folder: ');
+            docFileSetMap.set(fsKey, { filename: fsKey, displayName: label, count: 0, records: [] });
+          }
+          const entry = docFileSetMap.get(fsKey);
+          entry.count++;
+          entry.records.push(r);
+        });
+        const docFileSets = Array.from(docFileSetMap.values());
+        if (_localDocRecords.length > 0) {
+          docFileSets.push({ filename: 'local', displayName: 'Local Files', count: _localDocRecords.length, records: _localDocRecords });
+        }
+        _cache.fileSetsBySubType.set('doceditor-docs', docFileSets);
 
         // D. Board Canvas Elements
         const canvasRecords = [];
@@ -2282,8 +2335,14 @@
           { value: 'domain', label: 'Domain Hostname', i18nKey: 'uimpFieldDomain' },
           { value: 'both_dash', label: 'Title — Domain', i18nKey: 'uimpFieldBothDash' }
         ];
-      case 'board-mindmaps':
       case 'doceditor-docs':
+        return [
+          { value: 'all_headings', label: 'All Headings (H1–H6)', i18nKey: 'uimpDocFieldAllHeadings' },
+          { value: 'h1_h2', label: 'Main Headings Only (H1–H2)', i18nKey: 'uimpDocFieldH1H2' },
+          { value: 'h1_only', label: 'Top-Level Headings Only (H1)', i18nKey: 'uimpDocFieldH1Only' },
+          { value: 'paragraphs', label: 'Paragraphs / Sections', i18nKey: 'uimpDocFieldParagraphs' }
+        ];
+      case 'board-mindmaps':
       case 'board-canvas':
         return [
           { value: 'title', label: 'Item Name / Title', i18nKey: 'uimpFieldTitle' },
@@ -2463,7 +2522,7 @@
     tabsBar.innerHTML = DOMAINS.map(d => `
       <button type="button" class="uimp-domain-tab ${d.id === _state.activeDomain ? 'active' : ''}" onclick="UniversalImporter.switchDomain('${d.id}')">
         ${renderSvgIcon(d.icon)}
-        <span>${escHtml(d.label)}</span>
+        <span${d.i18nKey ? ` data-i18n="${d.i18nKey}"` : ''}>${escHtml(d.label)}</span>
       </button>
     `).join('');
   }
@@ -2500,6 +2559,12 @@
           </button>
           <button type="button" class="uimp-btn-sm" onclick="UniversalImporter.quickAddBookmark()" title="Add custom URL bookmark">
             ${renderSvgIcon('plus.svg')} <span data-i18n="uimpAddBookmark">Add Bookmark</span>
+          </button>
+        `;
+      } else if (_state.activeDomain === 'documents' || _state.activeSubType === 'doceditor-docs') {
+        extraActionEl.innerHTML = `
+          <button type="button" class="uimp-btn-sm" onclick="UniversalImporter.importLocalDocument()" title="Browse a local .md, .txt, or .html document from your computer">
+            ${renderSvgIcon('import.svg')} <span data-i18n="uimpImportLocalDoc">Browse Local File…</span>
           </button>
         `;
       } else {
@@ -2634,9 +2699,17 @@
           { value: 'note', label: 'Sticky Note / Checklist Card', i18nKey: 'uimpFormatNote' },
           { value: 'table', label: 'Editable Table Grid', i18nKey: 'uimpFormatTable' }
         ];
+      case 'doceditor-docs':
+        return [
+          { value: 'doc-headings-nodes', label: 'Headings as Nodes', i18nKey: 'uimpFormatDocHeadingsNodes' },
+          { value: 'doc-headings-mindmap', label: 'Headings as Mindmap Tree', i18nKey: 'uimpFormatDocHeadingsMindmap' },
+          { value: 'doc-full-note', label: 'Complete Document as Note', i18nKey: 'uimpFormatDocFullNote' },
+          { value: 'doc-sections-notes', label: 'Sections as Separate Notes', i18nKey: 'uimpFormatDocSectionsNotes' },
+          { value: 'doc-outline-checklist', label: 'Outline as Checklist Note', i18nKey: 'uimpFormatDocOutlineChecklist' },
+          { value: 'doc-link-node', label: 'Document Link Node', i18nKey: 'uimpFormatDocLinkNode' }
+        ];
       case 'web-bookmarks':
       case 'board-mindmaps':
-      case 'doceditor-docs':
       case 'board-canvas':
         return [
           { value: 'vertical-stack', label: 'Vertical Stack (Column)', i18nKey: 'uimpFormatVerticalStack' },
@@ -3492,6 +3565,31 @@
       const autolinkCb = document.getElementById('uimp-autolink-checkbox');
       const autoLinkEnabled = autolinkCb ? autolinkCb.checked : _state.autoLink;
 
+      // Load document contents on demand for doceditor-docs before passing to host callback
+      if (_state.activeSubType === 'doceditor-docs' && typeof window !== 'undefined' && window.Desktop) {
+        for (const item of selected) {
+          if (item && item.raw && item.raw.kind === 'doc' && item.raw.content == null && item.raw.source === 'doceditor') {
+            const relPath = item.raw.relativePath || item.raw.filename;
+            if (!relPath) continue;
+            try {
+              let res = null;
+              if (typeof window.Desktop.readByPath === 'function') {
+                res = await window.Desktop.readByPath('docEditorDocs', relPath);
+              } else if (typeof window.Desktop.readText === 'function') {
+                res = await window.Desktop.readText('docEditorDocs', relPath);
+              }
+              if (res && typeof res === 'object' && typeof res.content === 'string') {
+                item.raw.content = res.content;
+              } else if (typeof res === 'string') {
+                item.raw.content = res;
+              }
+            } catch (err) {
+              console.warn('[UniversalImporter] Failed to read document:', relPath, err);
+            }
+          }
+        }
+      }
+
       // Automatic Link Graph Registration
       if (autoLinkEnabled && typeof window !== 'undefined' && window.LinksService) {
         try {
@@ -3609,6 +3707,278 @@
         _renderItemsList();
         _updateSelectedCounter();
       }
+    },
+
+    async importLocalDocument() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.md,.markdown,.txt,.html,.htm';
+      input.multiple = true;
+      input.onchange = async () => {
+        const files = Array.from(input.files || []);
+        if (files.length === 0) return;
+
+        const readPromises = files.map(file => new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const text = typeof reader.result === 'string' ? reader.result : '';
+            const extMatch = file.name.match(/\.([^.]+)$/);
+            const ext = extMatch ? extMatch[1].toLowerCase() : 'txt';
+            const id = `local:${file.name}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`;
+            resolve({
+              id,
+              urn: `cmt:doc:local:${encodeURIComponent(file.name)}`,
+              domain: 'documents',
+              subType: 'doceditor-docs',
+              fileSet: 'local',
+              title: file.name.replace(/\.(md|markdown|txt|html|htm)$/i, ''),
+              subtitle: `Local Document (${file.name})`,
+              badge: ext.toUpperCase(),
+              level: '',
+              theme: 'Local Files',
+              tags: ['#document', '#local', `#${ext}`],
+              raw: { filename: file.name, kind: 'doc', ext, source: 'local', content: text }
+            });
+          };
+          reader.onerror = () => resolve(null);
+          reader.readAsText(file);
+        }));
+
+        const addedRecords = (await Promise.all(readPromises)).filter(Boolean);
+        if (addedRecords.length === 0) return;
+
+        addedRecords.forEach(rec => {
+          _localDocRecords.unshift(rec);
+          _state.selectedItems.add(rec.id);
+        });
+
+        const existing = _cache.recordsBySubType.get('doceditor-docs') || [];
+        const merged = [...addedRecords, ...existing];
+        _cache.recordsBySubType.set('doceditor-docs', merged);
+
+        const docEditorCount = merged.filter(r => r.fileSet === 'doceditor').length;
+        const fileSets = [];
+        if (docEditorCount > 0) {
+          fileSets.push({ filename: 'doceditor', displayName: 'Document Editor', count: docEditorCount, records: merged.filter(r => r.fileSet === 'doceditor') });
+        }
+        fileSets.push({ filename: 'local', displayName: 'Local Files', count: _localDocRecords.length, records: _localDocRecords });
+        _cache.fileSetsBySubType.set('doceditor-docs', fileSets);
+
+        _renderSubtypePills();
+        _renderFilterOptions();
+        _renderItemsList();
+        _updateSelectedCounter();
+        _updateFieldPreview();
+
+        if (typeof showToast === 'function') {
+          showToast(`Loaded ${addedRecords.length} local document(s).`);
+        }
+      };
+      input.click();
+    },
+
+    parseDocument(rawText, ext = 'md', docTitle = 'Document') {
+      const normalized = String(rawText || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const cleanExt = String(ext || 'md').toLowerCase().replace(/^\./, '');
+      const headings = [];
+      const sections = [];
+      const paragraphs = [];
+      let markdownText = normalized;
+
+      const isHtml = cleanExt === 'html' || cleanExt === 'htm' || /^\s*(?:<!doctype\s+html|<html[\s>])/i.test(normalized);
+
+      if (isHtml && typeof DOMParser !== 'undefined') {
+        try {
+          const doc = new DOMParser().parseFromString(normalized, 'text/html');
+          doc.querySelectorAll('script, style, noscript').forEach(el => el.remove());
+          const body = doc.body;
+          if (body) {
+            const mdLines = [];
+            let currentSection = null;
+
+            const pushCurrentSection = () => {
+              if (currentSection && (currentSection.title || currentSection.bodyLines.length > 0)) {
+                sections.push({
+                  level: currentSection.level,
+                  title: currentSection.title || docTitle,
+                  body: currentSection.bodyLines.join('\n\n').trim()
+                });
+              }
+            };
+
+            const walkBlocks = (rootEl) => {
+              Array.from(rootEl.children).forEach(el => {
+                const tag = el.tagName.toLowerCase();
+                if (/^h([1-6])$/.test(tag)) {
+                  const lvl = parseInt(tag[1], 10);
+                  const text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                  if (text) {
+                    headings.push({ level: lvl, text });
+                    mdLines.push(`${'#'.repeat(lvl)} ${text}`);
+                    pushCurrentSection();
+                    currentSection = { level: lvl, title: text, bodyLines: [] };
+                  }
+                } else if (tag === 'ul' || tag === 'ol') {
+                  const items = Array.from(el.querySelectorAll(':scope > li')).map((li, idx) => {
+                    const txt = (li.textContent || '').replace(/\s+/g, ' ').trim();
+                    return tag === 'ol' ? `${idx + 1}. ${txt}` : `- ${txt}`;
+                  }).filter(Boolean);
+                  if (items.length > 0) {
+                    const block = items.join('\n');
+                    mdLines.push(block);
+                    paragraphs.push(block);
+                    if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+                    currentSection.bodyLines.push(block);
+                  }
+                } else if (tag === 'pre') {
+                  const code = (el.textContent || '').trimEnd();
+                  if (code) {
+                    const block = '```\n' + code + '\n```';
+                    mdLines.push(block);
+                    paragraphs.push(block);
+                    if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+                    currentSection.bodyLines.push(block);
+                  }
+                } else if (tag === 'blockquote') {
+                  const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                  if (txt) {
+                    const block = `> ${txt}`;
+                    mdLines.push(block);
+                    paragraphs.push(block);
+                    if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+                    currentSection.bodyLines.push(block);
+                  }
+                } else if (tag === 'div' || tag === 'section' || tag === 'article' || tag === 'main') {
+                  if (el.querySelector('h1,h2,h3,h4,h5,h6,p,ul,ol,pre,blockquote')) {
+                    walkBlocks(el);
+                  } else {
+                    const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                    if (txt) {
+                      mdLines.push(txt);
+                      paragraphs.push(txt);
+                      if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+                      currentSection.bodyLines.push(txt);
+                    }
+                  }
+                } else {
+                  const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                  if (txt) {
+                    mdLines.push(txt);
+                    paragraphs.push(txt);
+                    if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+                    currentSection.bodyLines.push(txt);
+                  }
+                }
+              });
+            };
+
+            walkBlocks(body);
+            pushCurrentSection();
+            markdownText = mdLines.join('\n\n').trim() || (body.textContent || '').trim();
+          }
+        } catch (_) {}
+        return { title: docTitle, headings, sections, paragraphs, markdown: markdownText };
+      }
+
+      // Markdown / Plain Text line parser
+      const lines = normalized.split('\n');
+      let inCodeFence = false;
+      let currentSection = null;
+      let currentPara = [];
+
+      const flushPara = () => {
+        if (currentPara.length > 0) {
+          const p = currentPara.join('\n').trim();
+          if (p) paragraphs.push(p);
+          currentPara = [];
+        }
+      };
+
+      const pushSection = () => {
+        if (currentSection) {
+          const body = currentSection.bodyLines.join('\n').trim();
+          if (currentSection.title || body) {
+            sections.push({
+              level: currentSection.level,
+              title: currentSection.title || docTitle,
+              body
+            });
+          }
+        }
+      };
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        if (/^(```|~~~)/.test(trimmed)) {
+          inCodeFence = !inCodeFence;
+          if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+          currentSection.bodyLines.push(line);
+          currentPara.push(line);
+          continue;
+        }
+
+        if (!inCodeFence) {
+          const atxMatch = line.match(/^\s{0,3}(#{1,6})\s+(.+?)(?:\s+#+)?\s*$/);
+          if (atxMatch) {
+            flushPara();
+            pushSection();
+            const level = atxMatch[1].length;
+            const text = atxMatch[2].trim();
+            headings.push({ level, text });
+            currentSection = { level, title: text, bodyLines: [] };
+            continue;
+          }
+
+          // Setext headings (Title\n=== or Title\n---)
+          if (i + 1 < lines.length && trimmed.length > 0 && !/^[-*_`>#]/.test(trimmed)) {
+            const nextTrimmed = lines[i + 1].trim();
+            if (/^={3,}$/.test(nextTrimmed)) {
+              flushPara();
+              pushSection();
+              headings.push({ level: 1, text: trimmed });
+              currentSection = { level: 1, title: trimmed, bodyLines: [] };
+              i++;
+              continue;
+            }
+            if (/^-{3,}$/.test(nextTrimmed)) {
+              flushPara();
+              pushSection();
+              headings.push({ level: 2, text: trimmed });
+              currentSection = { level: 2, title: trimmed, bodyLines: [] };
+              i++;
+              continue;
+            }
+          }
+        }
+
+        if (!trimmed && !inCodeFence) {
+          flushPara();
+        } else {
+          currentPara.push(line);
+        }
+
+        if (!currentSection) currentSection = { level: 0, title: docTitle, bodyLines: [] };
+        currentSection.bodyLines.push(line);
+      }
+
+      flushPara();
+      pushSection();
+
+      // If plain text had no headings and only 1 section, split paragraphs into sections if multiple paragraphs exist
+      if (headings.length === 0 && sections.length <= 1 && paragraphs.length > 1) {
+        sections.length = 0;
+        paragraphs.forEach((p, idx) => {
+          const firstLine = p.split('\n')[0].trim();
+          const rest = p.split('\n').slice(1).join('\n').trim();
+          const secTitle = firstLine.length <= 60 ? firstLine : `${docTitle} (${idx + 1})`;
+          const secBody = firstLine.length <= 60 ? rest : p;
+          sections.push({ level: 1, title: secTitle, body: secBody || p });
+        });
+      }
+
+      return { title: docTitle, headings, sections, paragraphs, markdown: normalized.trim() };
     },
 
     getItemText,
