@@ -124,13 +124,20 @@
             }
 
             // ── Modal open / close ─────────────────────────────────────
-            window.openRemoteModal = function () {
+            window.openRemoteModal = function (triggerEvent) {
+                if (window.CmtWizard && !(triggerEvent && triggerEvent.shiftKey)) {
+                    openRemoteWizard();
+                    return;
+                }
+                openLegacyRemoteModal();
+            };
+
+            function openLegacyRemoteModal() {
                 var overlay = document.getElementById('remote-overlay');
                 if (!overlay) return;
                 overlay.style.display = 'flex';
 
                 if (window.Desktop && window.Desktop.isElectron()) {
-                    // Load saved config then sync server state
                     var loadCfg = typeof Desktop.remoteConfigRead === 'function'
                         ? Desktop.remoteConfigRead()
                         : Promise.resolve({ ok: true, config: {} });
@@ -152,7 +159,179 @@
                         if (s && s.running) { _showServerOn(s); } else { _showServerOff(); }
                     }).catch(function () { _showServerOff(); });
                 }
-            };
+            }
+
+            function openRemoteWizard() {
+                var tr = function (k, fb) {
+                    try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+                    return fb;
+                };
+                var initialCfg = { mode: 'local', port: 8787, serverUrl: '', hostSecret: '', status: null };
+
+                var wiz = CmtWizard.open({
+                    id: 'cm-remote-wizard',
+                    title: tr('cmRemoteWizTitle', 'Connect Your Phone Remote'),
+                    icon: 'remote.svg',
+                    width: '680px',
+                    initialState: initialCfg,
+                    quickModeToggle: {
+                        label: tr('wizQuickAdvanced', 'Quick / Advanced'),
+                        icon: 'settings.svg',
+                        onClick: function (w) {
+                            w.close();
+                            openLegacyRemoteModal();
+                        }
+                    },
+                    steps: [
+                        {
+                            id: 'network',
+                            label: tr('cmRemoteWizStep1', '1. Wi-Fi'),
+                            render: function (container, st, ctx) {
+                                container.innerHTML =
+                                    '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteWizNetHeading', 'How is your phone connected?')) + '</h3>' +
+                                    '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteWizNetSub', 'Most teachers use Classroom Wi-Fi. Use External Server only if your school blocks direct device connections.')) + '</p>';
+                                var opts = [
+                                    { id: 'local', icon: 'wifi.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('cmRemoteOptLocal', 'Same Classroom Wi-Fi'), desc: tr('cmRemoteOptLocalDesc', 'Phone and computer are on the same Wi-Fi or hotspot. Fastest setup.') },
+                                    { id: 'external', icon: 'globe.svg', badge: 'Web', title: tr('cmRemoteOptExt', 'School / External Server'), desc: tr('cmRemoteOptExtDesc', 'Connect through a relay URL if your school network isolates devices.') }
+                                ];
+                                ctx.renderCards(container, opts, st.mode, function (item) {
+                                    st.mode = item.id;
+                                    extBox.style.display = st.mode === 'external' ? 'block' : 'none';
+                                });
+                                var extBox = document.createElement('div');
+                                extBox.className = 'cmt-wiz-section';
+                                extBox.style.marginTop = '12px';
+                                extBox.style.display = st.mode === 'external' ? 'block' : 'none';
+                                extBox.innerHTML =
+                                    '<label class="cmt-wiz-label">' + ctx.escHtml(tr('cmRemoteExtUrl', 'Server URL')) + '</label>' +
+                                    '<input type="text" class="cmt-wiz-input" id="cm-wiz-ext-url" placeholder="https://..." value="' + ctx.escHtml(st.serverUrl) + '" style="margin-bottom:10px;">' +
+                                    '<label class="cmt-wiz-label">' + ctx.escHtml(tr('cmRemoteExtSecret', 'Host Secret (Optional)')) + '</label>' +
+                                    '<input type="password" class="cmt-wiz-input" id="cm-wiz-ext-secret" value="' + ctx.escHtml(st.hostSecret) + '">';
+                                extBox.querySelector('#cm-wiz-ext-url').addEventListener('input', function () { st.serverUrl = this.value.trim(); });
+                                extBox.querySelector('#cm-wiz-ext-secret').addEventListener('input', function () { st.hostSecret = this.value; });
+                                container.appendChild(extBox);
+                            },
+                            validate: function (st) {
+                                if (st.mode === 'external' && !st.serverUrl) {
+                                    return tr('cmRemoteErrUrl', 'Please enter the external server URL.');
+                                }
+                                return true;
+                            }
+                        },
+                        {
+                            id: 'connect',
+                            label: tr('cmRemoteWizStep2', '2. Start'),
+                            render: function (container, st, ctx) {
+                                var running = st.status && st.status.running;
+                                container.innerHTML =
+                                    '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteWizStartHeading', 'Start Classroom Connection')) + '</h3>' +
+                                    '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteWizStartSub', 'Turn on the connection so your phone can link to this session.')) + '</p>' +
+                                    '<div class="cmt-wiz-summary-box" id="cm-wiz-conn-box">' +
+                                      '<div><strong>' + ctx.escHtml(tr('cmRemoteStatusLabel', 'Status:')) + '</strong> <span id="cm-wiz-status-txt">' + ctx.escHtml(running ? tr('cmRemoteRunning', 'Connected & Ready') : tr('cmRemoteStopped', 'Not started yet')) + '</span></div>' +
+                                    '</div>' +
+                                    '<div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">' +
+                                      '<button type="button" class="cmt-wiz-btn cmt-wiz-btn-primary" id="cm-wiz-start-btn">' + ctx.iconHtml('play.svg') + ' <span>' + ctx.escHtml(running ? tr('cmRemoteRestartBtn', 'Restart Connection') : tr('cmRemoteStartBtn', 'Start Connection')) + '</span></button>' +
+                                      (running ? '<button type="button" class="cmt-wiz-btn" id="cm-wiz-stop-btn">' + ctx.iconHtml('close.svg') + ' <span>' + ctx.escHtml(tr('cmRemoteStopBtn', 'Stop')) + '</span></button>' : '') +
+                                    '</div>';
+
+                                container.querySelector('#cm-wiz-start-btn').addEventListener('click', function () {
+                                    if (!window.Desktop || !window.Desktop.isElectron()) {
+                                        ctx.setError('Desktop API not available in browser preview.');
+                                        return;
+                                    }
+                                    var cfgToSave = { mode: st.mode, serverUrl: st.serverUrl, hostSecret: st.hostSecret };
+                                    if (typeof Desktop.remoteConfigSave === 'function') Desktop.remoteConfigSave(cfgToSave).catch(function () {});
+                                    var opts = st.mode === 'local'
+                                        ? { mode: 'local', port: st.port || 8787 }
+                                        : { mode: 'external', serverUrl: st.serverUrl, hostSecret: st.hostSecret };
+                                    Desktop.remoteStart(opts).then(function (res) {
+                                        if (res && res.ok) {
+                                            st.status = res;
+                                            _showServerOn(res);
+                                            ctx.next();
+                                        } else {
+                                            ctx.setError((res && res.error) || 'Could not start remote server.');
+                                        }
+                                    }).catch(function (e) { ctx.setError(e && e.message ? e.message : String(e)); });
+                                });
+                                var stopBtn = container.querySelector('#cm-wiz-stop-btn');
+                                if (stopBtn) {
+                                    stopBtn.addEventListener('click', function () {
+                                        if (window.Desktop && Desktop.remoteStop) {
+                                            Desktop.remoteStop().then(function () {
+                                                st.status = null;
+                                                _showServerOff();
+                                                ctx.refresh();
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        },
+                        {
+                            id: 'scan',
+                            label: tr('cmRemoteWizStep3', '3. Scan QR'),
+                            render: function (container, st, ctx) {
+                                var s = st.status;
+                                if (!s || !s.running) {
+                                    container.innerHTML =
+                                        '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteNotReady', 'Connection not started')) + '</h3>' +
+                                        '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteGoBackStart', 'Go back to Step 2 and click Start Connection first.')) + '</p>';
+                                    return;
+                                }
+                                var url = (s.mode === 'external' && s.httpUrl)
+                                    ? (s.httpUrl.replace(/\/remote\.html$/, '') + '/?t=' + s.token)
+                                    : ('http://' + s.ip + ':' + s.port + '/?t=' + s.token);
+                                var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=4&data=' + encodeURIComponent(url);
+                                container.innerHTML =
+                                    '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteScanHeading', 'Scan this QR code with your phone')) + '</h3>' +
+                                    '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteScanSub', 'Open your phone camera and point it at the QR code, or open the link below.')) + '</p>' +
+                                    '<div class="cmt-wiz-section" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
+                                      '<img src="' + ctx.escHtml(qrSrc) + '" alt="QR Code" style="width:120px;height:120px;border:2px solid #333;border-radius:6px;background:#fff;">' +
+                                      '<div style="flex:1;min-width:200px;">' +
+                                        '<div style="font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;">' + ctx.escHtml(tr('cmRemoteJoinLink', 'Direct Link')) + '</div>' +
+                                        '<div style="word-break:break-all;font-size:0.84rem;font-weight:700;padding:6px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;margin-bottom:8px;">' + ctx.escHtml(url) + '</div>' +
+                                        '<button type="button" class="cmt-wiz-btn cmt-wiz-btn-subtle" id="cm-wiz-copy-url">' + ctx.iconHtml('copy.svg') + ' <span>' + ctx.escHtml(tr('copy', 'Copy Link')) + '</span></button>' +
+                                      '</div>' +
+                                    '</div>' +
+                                    '<details style="margin-top:10px;font-size:0.8rem;color:#475569;">' +
+                                      '<summary style="cursor:pointer;font-weight:700;">' + ctx.escHtml(tr('cmRemoteHelpTitle', 'Phone cannot connect on school Wi-Fi?')) + '</summary>' +
+                                      '<p style="margin:6px 0 0;">' + ctx.escHtml(tr('cmRemoteHelpText', 'If Windows Firewall blocks the connection, ask IT to allow port ' + s.port + ', or go back to Step 1 and switch to External Server.')) + '</p>' +
+                                    '</details>';
+                                container.querySelector('#cm-wiz-copy-url').addEventListener('click', function () {
+                                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                                        navigator.clipboard.writeText(url).then(function () {
+                                            if (typeof showToast === 'function') showToast(tr('copied', 'Link copied!'));
+                                        });
+                                    }
+                                });
+                            }
+                        }
+                    ],
+                    finishLabel: tr('wizFinish', 'Done'),
+                    finishIcon: 'check.svg'
+                });
+
+                if (window.Desktop && window.Desktop.isElectron() && wiz) {
+                    var loadCfg = typeof Desktop.remoteConfigRead === 'function' ? Desktop.remoteConfigRead() : Promise.resolve({ ok: true, config: {} });
+                    loadCfg.then(function (r) {
+                        var cfg = (r && r.config) || {};
+                        wiz.setState({
+                            mode: cfg.mode === 'external' ? 'external' : 'local',
+                            serverUrl: cfg.serverUrl || '',
+                            hostSecret: cfg.hostSecret || ''
+                        });
+                        return Desktop.remoteStatus();
+                    }).then(function (s) {
+                        if (s && s.running) {
+                            wiz.setState({ status: s });
+                            wiz.goTo(2);
+                        } else {
+                            wiz.refresh();
+                        }
+                    }).catch(function () {});
+                }
+            }
 
             window.closeRemoteModal = function () {
                 var overlay = document.getElementById('remote-overlay');

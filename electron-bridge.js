@@ -2036,7 +2036,10 @@
           if (!_auditActive) return;
           try {
             const formatted = _formatConsoleArgs(arguments);
-            _pushAuditEntry(lvl, formatted.message, formatted.payload);
+            const effectiveLvl = ((lvl === 'log' || lvl === 'info') && /^\[(SlmWorker|SLM|Whisper|SpeechTranscriber|AI)\]/i.test(formatted.message))
+              ? 'ai'
+              : lvl;
+            _pushAuditEntry(effectiveLvl, formatted.message, formatted.payload);
           } catch (_) {}
         };
       });

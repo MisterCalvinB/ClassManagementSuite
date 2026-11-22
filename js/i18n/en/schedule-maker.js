@@ -141,5 +141,22 @@
   "smExportOptMetaSection": "Headers & Summary",
   "smExportOptMetadata": "Header Info Box (Title, Subject, Room, Date)",
   "smExportOptFooter": "Schedule Duration Summary (Footer)",
-  "smBtnConfirmExport": "Export File"
+  "smBtnConfirmExport": "Export File",
+  "smExpWizTitle": "Export Oral Exam Schedule",
+  "smExpWizStep1": "1. Format",
+  "smExpWizFmtHeading": "How do you want to share this schedule?",
+  "smExpWizFmtSub": "Choose PDF for posting/printing, Word to edit, or Spreadsheet for records.",
+  "smExpFmtPdf": "Printable PDF",
+  "smExpFmtPdfDesc": "Ready to print or post on the classroom door.",
+  "smExpFmtDocx": "Word Document (.docx)",
+  "smExpFmtDocxDesc": "Edit student notes or headers in Word.",
+  "smExpFmtHtml": "Webpage (.html)",
+  "smExpFmtHtmlDesc": "Opens in Document Editor or browser.",
+  "smExpFmtXlsx": "Excel Spreadsheet (.xlsx)",
+  "smExpFmtXlsxDesc": "Open timings in Excel or LibreOffice Calc.",
+  "smExpWizStep2": "2. Details",
+  "smExpWizDetHeading": "What should be visible?",
+  "smExpWizDetSub": "Hide SEN indicators if posting a public copy for students.",
+  "smWizShowPrep": "Show preparation start times",
+  "smWizShowSen": "Show SEN accommodation badges (turn off for public door sheets)"
 });

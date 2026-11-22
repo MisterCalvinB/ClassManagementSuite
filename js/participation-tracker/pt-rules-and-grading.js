@@ -93,6 +93,156 @@ function loadRulesForActiveGroup() {
     updateProvisionalGradesPreview();
 }
 
+function openRulesWizard(targetGroupId = null) {
+    if (!window.CmtWizard) {
+        openRulesModal(targetGroupId);
+        return;
+    }
+    const tr = (k, fb) => {
+        try { if (window.i18n && i18n.t) { const v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+        return fb;
+    };
+
+    const groups = (typeof extractGroupsFromData === 'function') ? extractGroupsFromData() : [];
+    const knownGroups = (typeof CLASS_GROUPS_META !== 'undefined' && CLASS_GROUPS_META) ? CLASS_GROUPS_META : {};
+    const allGroupIds = Array.from(new Set([...groups, ...Object.keys(knownGroups)]))
+        .filter(gId => !(typeof isGroupArchived === 'function' && isGroupArchived(gId)));
+
+    const initialGroup = targetGroupId || (typeof currentGroupId !== 'undefined' ? currentGroupId : '') || '';
+    const existingCfg = (initialGroup && window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES[initialGroup])
+        || (window.CMS_PARTICIPATION_RULES && window.CMS_PARTICIPATION_RULES['_default'])
+        || { maxGrade: 20, scaleToMax: false };
+
+    CmtWizard.open({
+        id: 'pt-rules-wizard',
+        title: tr('ptRulesWizTitle', 'Auto-Grade Builder'),
+        icon: 'grade-sheet.svg',
+        width: '700px',
+        initialState: {
+            groupId: initialGroup,
+            style: 'balanced',
+            maxGrade: existingCfg.maxGrade || 20,
+            scaleToMax: !!existingCfg.scaleToMax
+        },
+        quickModeToggle: {
+            label: tr('wizQuickFormula', 'Advanced Formula Editor'),
+            icon: 'settings.svg',
+            onClick: function (w) {
+                w.close();
+                openRulesModal(w.state.groupId || null);
+            }
+        },
+        steps: [
+            {
+                id: 'class',
+                label: tr('ptWizStep1', '1. Class'),
+                render: function (container, st, ctx) {
+                    container.innerHTML =
+                        '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ptWizClassHeading', 'Which class are these grading rules for?')) + '</h3>' +
+                        '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ptWizClassSub', 'You can set one default rule for all classes, or customize per class.')) + '</p>';
+                    const sec = document.createElement('div');
+                    sec.className = 'cmt-wiz-section';
+                    sec.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(tr('ptSelectGroup', 'Class / Group')) + '</label>';
+                    const sel = document.createElement('select');
+                    sel.className = 'cmt-wiz-select';
+                    const defOpt = document.createElement('option');
+                    defOpt.value = '';
+                    defOpt.textContent = tr('ptAllGroups', 'Default (All Groups)');
+                    sel.appendChild(defOpt);
+                    allGroupIds.forEach(gId => {
+                        const opt = document.createElement('option');
+                        opt.value = gId;
+                        opt.textContent = (typeof groupDisplayName === 'function') ? groupDisplayName(gId) : gId;
+                        if (gId === st.groupId) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                    sel.addEventListener('change', () => { st.groupId = sel.value; });
+                    sec.appendChild(sel);
+                    container.appendChild(sec);
+                }
+            },
+            {
+                id: 'style',
+                label: tr('ptWizStep2', '2. Grading Style'),
+                render: function (container, st, ctx) {
+                    container.innerHTML =
+                        '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ptWizStyleHeading', 'How should participation be graded?')) + '</h3>' +
+                        '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ptWizStyleSub', 'Pick a teacher-friendly preset—no formulas required.')) + '</p>';
+                    const presets = [
+                        { id: 'balanced', icon: 'award.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('ptWizStyleBalanced', 'Points + Attendance'), desc: tr('ptWizStyleBalancedDesc', 'Rewards both net participation points and regular class attendance.') },
+                        { id: 'effort', icon: 'sparkles.svg', badge: 'Points', title: tr('ptWizStyleEffort', 'Participation Points Only'), desc: tr('ptWizStyleEffortDesc', 'Grades purely on positive vs. negative participation points earned.') },
+                        { id: 'attendance', icon: 'check-circle.svg', badge: 'Presence', title: tr('ptWizStyleAttend', 'Attendance Focused'), desc: tr('ptWizStyleAttendDesc', 'Weights attendance rate heavily with a small bonus for active participation.') }
+                    ];
+                    ctx.renderCards(container, presets, st.style, function (item) { st.style = item.id; });
+
+                    const scaleSec = document.createElement('div');
+                    scaleSec.className = 'cmt-wiz-section';
+                    scaleSec.style.marginTop = '12px';
+                    scaleSec.innerHTML =
+                        '<label class="cmt-wiz-label">' + ctx.escHtml(tr('ptWizMaxGradeLabel', 'Maximum Grade (e.g. 20, 10, 100)')) + '</label>' +
+                        '<input type="number" class="cmt-wiz-input" id="pt-wiz-max-grade" min="1" max="1000" value="' + ctx.escHtml(st.maxGrade) + '" style="max-width:160px;margin-bottom:8px;">' +
+                        '<label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:600;cursor:pointer;">' +
+                          '<input type="checkbox" id="pt-wiz-scale-chk" ' + (st.scaleToMax ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;">' +
+                          '<span>' + ctx.escHtml(tr('ptWizScaleLabel', 'Automatically scale totals to fit Maximum Grade')) + '</span>' +
+                        '</label>';
+                    scaleSec.querySelector('#pt-wiz-max-grade').addEventListener('input', function () {
+                        st.maxGrade = parseFloat(this.value) || 20;
+                    });
+                    scaleSec.querySelector('#pt-wiz-scale-chk').addEventListener('change', function () {
+                        st.scaleToMax = this.checked;
+                    });
+                    container.appendChild(scaleSec);
+                }
+            },
+            {
+                id: 'apply',
+                label: tr('ptWizStep3', '3. Save & Apply'),
+                render: function (container, st, ctx) {
+                    const gName = st.groupId ? ((typeof groupDisplayName === 'function') ? groupDisplayName(st.groupId) : st.groupId) : tr('ptAllGroups', 'Default (All Groups)');
+                    container.innerHTML =
+                        '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ptWizConfirmHeading', 'Ready to save grading rules')) + '</h3>' +
+                        '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ptWizConfirmSub', 'Click Save Rules to apply this setup and calculate provisional grades.')) + '</p>' +
+                        '<div class="cmt-wiz-summary-box">' +
+                          '<div><strong>' + ctx.escHtml(tr('ptSelectGroup', 'Class:')) + '</strong> ' + ctx.escHtml(gName) + '</div>' +
+                          '<div><strong>' + ctx.escHtml(tr('ptWizStyleLabel', 'Grading Style:')) + '</strong> ' + ctx.escHtml(st.style.toUpperCase()) + '</div>' +
+                          '<div><strong>' + ctx.escHtml(tr('ptWizMaxGradeLabel', 'Maximum Grade:')) + '</strong> ' + ctx.escHtml(st.maxGrade) + '</div>' +
+                        '</div>';
+                }
+            }
+        ],
+        finishLabel: tr('ptWizSaveBtn', 'Save Rules'),
+        finishIcon: 'save.svg',
+        onFinish: function (st) {
+            rulesModalActiveGroup = st.groupId || null;
+            populateRulesModalGroupSelect();
+            const groupSel = document.getElementById('rulesModalGroupSelect');
+            if (groupSel) groupSel.value = st.groupId || '';
+            const maxEl = document.getElementById('rulesMaxGrade');
+            if (maxEl) maxEl.value = st.maxGrade;
+            const scaleEl = document.getElementById('rulesScaleToMax');
+            if (scaleEl) scaleEl.checked = !!st.scaleToMax;
+
+            const tbody = document.getElementById('rulesTableBody');
+            if (tbody) {
+                tbody.innerHTML = '';
+                const half = Math.round((st.maxGrade / 2) * 10) / 10;
+                const quarter = Math.round((st.maxGrade / 4) * 10) / 10;
+                if (st.style === 'balanced') {
+                    addRuleRow('netPoints', 0, 1, 5, quarter, 12, half, '');
+                    addRuleRow('attendanceRate', 50, 1, 75, quarter, 95, half, '');
+                } else if (st.style === 'effort') {
+                    addRuleRow('netPoints', 0, 2, 6, half, 15, st.maxGrade, '');
+                } else {
+                    addRuleRow('attendanceRate', 50, quarter, 80, half, 98, Math.round(st.maxGrade * 0.8 * 10) / 10, '');
+                    addRuleRow('netPoints', 1, 0, 4, Math.round(st.maxGrade * 0.1 * 10) / 10, 10, Math.round(st.maxGrade * 0.2 * 10) / 10, '');
+                }
+            }
+            if (typeof saveRulesConfig === 'function') saveRulesConfig();
+            if (typeof updateProvisionalGradesPreview === 'function') updateProvisionalGradesPreview();
+        }
+    });
+}
+
 function openRulesModal(targetGroupId = null) {
     rulesModalActiveGroup = targetGroupId || currentGroupId || null;
     

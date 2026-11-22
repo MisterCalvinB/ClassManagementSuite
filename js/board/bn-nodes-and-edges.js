@@ -3091,6 +3091,7 @@
         const hasSyn = allSynonyms.length > 0;
         const hasAnt = allAntonyms.length > 0;
         const hasDef = entries.some(e => Array.isArray(e.definition) ? e.definition.some(d => String(d || '').trim()) : !!String(e.definition || e.def || '').trim());
+        const hasEty = entries.some(e => Array.isArray(e.etymology) ? e.etymology.some(x => String(x || '').trim()) : !!String(e.etymology || '').trim());
         const hasFr = entries.some(e => Array.isArray(e.french) ? e.french.some(f => String(f || '').trim()) : !!String(e.french || e.translation || '').trim());
         const hasIpa = entries.some(e => !!String(e.ipa || '').trim());
 
@@ -3109,6 +3110,9 @@
 
         const defBtn = document.getElementById('con-fmt-def');
         if (defBtn) defBtn.style.display = hasDef ? '' : 'none';
+
+        const etyBtn = document.getElementById('con-fmt-ety');
+        if (etyBtn) etyBtn.style.display = hasEty ? '' : 'none';
 
         const transBtn = document.getElementById('con-fmt-trans');
         if (transBtn) transBtn.style.display = hasFr ? '' : 'none';
@@ -3134,7 +3138,7 @@
 
         const relSep = document.getElementById('con-ctx-relations-sep');
         if (relSep) {
-          relSep.style.display = (hasSyn || hasAnt || hasDef || hasFr || hasIpa || hasNetwork) ? '' : 'none';
+          relSep.style.display = (hasSyn || hasAnt || hasDef || hasEty || hasFr || hasIpa || hasNetwork) ? '' : 'none';
         }
 
         // Show/hide Card button
@@ -3249,8 +3253,8 @@
           return null;
         }
 
-        const tagLabels = { synonyms: 'Synonym', antonyms: 'Antonym', related: 'Related', otherForms: 'Other Form' };
-        const tagClasses = { synonyms: 'syn', antonyms: 'ant', related: 'rel', otherForms: 'form' };
+        const tagLabels = { synonyms: 'Synonym', antonyms: 'Antonym', related: 'Related', otherForms: 'Other Form', etymology: 'Etymology', ipa: 'IPA', translation: 'Translation' };
+        const tagClasses = { synonyms: 'syn', antonyms: 'ant', related: 'rel', otherForms: 'form', etymology: 'ety', ipa: 'ipa', translation: 'trans' };
 
         // Resolve origin: stamped metadata takes precedence, then live lookup
         let originWord = node && node.sourceWord ? node.sourceWord : null;

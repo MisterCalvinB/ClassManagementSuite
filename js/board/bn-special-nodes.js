@@ -5360,6 +5360,11 @@
           const choices = conGetIpaChoices(dbEntries);
           conTransPickerOpen(node, baseWord, choices, 'ipa');
           return;
+        } else if (type === 'etymology') {
+          if (!dbEntries.some(e => Array.isArray(e.etymology) ? e.etymology.some(x => String(x || '').trim()) : !!String(e.etymology || '').trim())) return;
+          const choices = conGetEtymologyChoices(dbEntries);
+          conTransPickerOpen(node, baseWord, choices, 'etymology');
+          return;
         }
       };
 

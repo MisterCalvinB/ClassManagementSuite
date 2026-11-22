@@ -141,5 +141,22 @@
   "smExportOptMetaSection": "En-têtes et résumé",
   "smExportOptMetadata": "En-tête d'informations (Titre, Matière, Salle, Date)",
   "smExportOptFooter": "Résumé de durée globale (Pied de page)",
-  "smBtnConfirmExport": "Exporter le fichier"
+  "smBtnConfirmExport": "Exporter le fichier",
+  "smExpWizTitle": "Exporter le planning d'oraux",
+  "smExpWizStep1": "1. Format",
+  "smExpWizFmtHeading": "Comment souhaitez-vous partager ce planning ?",
+  "smExpWizFmtSub": "Choisissez PDF pour afficher/imprimer, Word pour modifier ou Tableur.",
+  "smExpFmtPdf": "PDF imprimable",
+  "smExpFmtPdfDesc": "Prêt à imprimer ou à afficher sur la porte de la salle.",
+  "smExpFmtDocx": "Document Word (.docx)",
+  "smExpFmtDocxDesc": "Modifiez les remarques ou en-têtes dans Word.",
+  "smExpFmtHtml": "Page web (.html)",
+  "smExpFmtHtmlDesc": "S'ouvre dans l'éditeur de documents ou un navigateur.",
+  "smExpFmtXlsx": "Tableur Excel (.xlsx)",
+  "smExpFmtXlsxDesc": "Ouvrir les horaires dans Excel ou LibreOffice Calc.",
+  "smExpWizStep2": "2. Détails",
+  "smExpWizDetHeading": "Que faut-il afficher ?",
+  "smExpWizDetSub": "Masquez les mentions d'aménagement (SEN) pour un affichage public devant la salle.",
+  "smWizShowPrep": "Afficher les heures de début de préparation",
+  "smWizShowSen": "Afficher les badges d'aménagement (désactiver pour un affichage public)"
 });

@@ -259,13 +259,20 @@ function registerAuditIpc(ctx) {
   function _buildRemedyHint(kind, metrics, correlated) {
     const counts = Object.create(null);
     let slowItem = null;
+    let hasAiEvent = false;
     for (let i = 0; i < correlated.length; i++) {
       const ev = correlated[i];
       const key = `${ev.source}:${ev.level}`;
       counts[key] = (counts[key] || 0) + 1;
+      if (ev.level === 'ai' || /\[(SlmWorker|SLM|Whisper|SpeechTranscriber|AI)\]/i.test(ev.message || '')) {
+        hasAiEvent = true;
+      }
       if (typeof ev.durationMs === 'number' && (!slowItem || ev.durationMs > slowItem.durationMs)) {
         slowItem = ev;
       }
+    }
+    if (hasAiEvent && (kind === 'cpu' || kind === 'memory' || kind === 'event-loop')) {
+      return `AI model activity (SLM/Whisper) detected during ${kind} spike (${metrics.cpuPct}% CPU, ${metrics.workingSetMB} MB RAM). Consider switching to a lighter model tier or unloading idle AI workers.`;
     }
     if (kind === 'slow-ipc' && slowItem) {
       return `Slow IPC (${slowItem.durationMs}ms) from ${slowItem.source}: consider offloading heavy disk/CPU work to a worker thread or chunking the payload.`;
@@ -505,10 +512,12 @@ function registerAuditIpc(ctx) {
           const res = await listener(event, ...args);
           const dt = Date.now() - t0;
           const isIo = /^app:(save-|read-|delete-|list-|copy-|move-|rename-|create-dir|run-sync|run-backup)/.test(channel);
+          const isAi = /^(slm|whisper):/.test(channel);
+          const lvl = isAi ? 'ai' : (isIo ? 'io' : 'ipc');
           auditLog({
-            level: isIo ? 'io' : 'ipc',
+            level: lvl,
             source: sourceWin,
-            message: `${isIo ? 'io' : 'invoke'} ${channel} (${dt}ms)`,
+            message: `${lvl === 'ipc' ? 'invoke' : lvl} ${channel} (${dt}ms)`,
             durationMs: dt,
             payload: args.length ? { args: args.length === 1 ? args[0] : args, result: res } : { result: res }
           });
@@ -521,9 +530,9 @@ function registerAuditIpc(ctx) {
               [{
                 id: _nextId - 1,
                 ts: Date.now(),
-                level: isIo ? 'io' : 'ipc',
+                level: lvl,
                 source: sourceWin,
-                message: `${isIo ? 'io' : 'invoke'} ${channel} (${dt}ms)`,
+                message: `${lvl === 'ipc' ? 'invoke' : lvl} ${channel} (${dt}ms)`,
                 durationMs: dt
               }]
             );

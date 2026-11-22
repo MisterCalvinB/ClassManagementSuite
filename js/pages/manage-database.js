@@ -1194,6 +1194,11 @@
       for (const c of customCols) {
         if (!keyOrder.includes(c.key)) keyOrder.push(c.key);
       }
+      if (S.typeKey === 'wordbanks' && !keyOrder.includes('etymology')) {
+        const afterIdx = keyOrder.indexOf('exampleSentence');
+        if (afterIdx !== -1) keyOrder.splice(afterIdx + 1, 0, 'etymology');
+        else keyOrder.push('etymology');
+      }
 
       const ALWAYS_LONG_ARRAYS = ['definition', 'exampleSentence'];
 
@@ -1233,7 +1238,7 @@
             customLabel: customDef.label || cap(key)
           };
         }
-        if (!vals.length) return { key, type: 'string', isLong: false, longArray: false, uniqueVals: [], useSelect: false, isCustom: Boolean(customDef), customLabel: customDef?.label };
+        if (!vals.length) return { key, type: 'string', isLong: (S.typeKey === 'wordbanks' && key === 'etymology'), longArray: false, uniqueVals: [], useSelect: false, isCustom: Boolean(customDef), customLabel: customDef?.label };
         if (ALWAYS_LONG_ARRAYS.includes(key)) return { key, type: 'array', isLong: false, longArray: true, uniqueVals: [], useSelect: false, isCustom: Boolean(customDef), customLabel: customDef?.label };
 
         let type = customDef ? customDef.type : 'string';
@@ -1245,7 +1250,8 @@
         }
 
         const isWordbankPicField = (S.typeKey === 'wordbanks' && key === 'picture');
-        const isLong = isWordbankPicField ? false : (customDef ? Boolean(customDef.isLong) : (type === 'string' && vals.some(v => String(v).length > 65)));
+        const isWordbankEtyField = (S.typeKey === 'wordbanks' && key === 'etymology');
+        const isLong = isWordbankPicField ? false : (isWordbankEtyField ? true : (customDef ? Boolean(customDef.isLong) : (type === 'string' && vals.some(v => String(v).length > 65))));
         let longArray = false;
         if (type === 'array') {
           if (customDef && customDef.longArray !== undefined) {
@@ -1263,7 +1269,7 @@
         const isBadgeTextField = (S.typeKey === 'badgebanks' && ['icon', 'label', 'meaning', 'coefficient'].includes(key));
         const isModeTextField = (S.typeKey === 'modebanks' && ['icon', 'name', 'shortcutKey', 'title', 'subtitle', 'pictureSrc', 'soundFile', 'soundVol'].includes(key));
         const isCriteriaType = (S.typeKey === 'criteria');
-        if (!isWordbankPicField && !isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
+        if (!isWordbankPicField && !isWordbankEtyField && !isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
           const valSet = new Set();
           for (let i = 0; i < records.length; i++) {
             const v = records[i]?.[key];
@@ -1302,6 +1308,7 @@
         addStr('italian');
         addArr('definition', { longArray: true });
         addArr('exampleSentence', { longArray: true });
+        addStr('etymology', { isLong: true });
         addArr('synonyms');
         addArr('antonyms');
         addArr('otherForms');
@@ -7046,6 +7053,7 @@ Format:
     "italian": "resiliente",
     "definition": "Able to recover quickly from difficulties.",
     "exampleSentence": "She is a resilient person.",
+    "etymology": "From Latin resilientem, present participle of resilire (to rebound).",
     "synonyms": ["tough", "adaptable"],
     "antonyms": ["fragile"],
     "otherForms": ["resilience", "resiliently"],
@@ -7605,10 +7613,311 @@ Rules:
     function exportCSV() { openColPicker('csv'); }
     function exportPDF() { openColPicker('pdf'); }
 
-    function toggleExportMenu(event) {
+    function getAllLoadedRecords() {
+      const rows = [];
+      for (let fi = 0; fi < S.files.length; fi++) {
+        const file = S.files[fi];
+        if (file.status !== 'loaded' || !Array.isArray(file.records)) continue;
+        for (let ri = 0; ri < file.records.length; ri++) {
+          const rec = file.records[ri];
+          if (rec) {
+            rec._fi = fi;
+            rec._ri = ri;
+            rec._src = file.name;
+            rows.push(rec);
+          }
+        }
+      }
+      return rows;
+    }
+
+    function openLegacyExportMenu(event) {
       if (event) event.stopPropagation();
       const menu = document.getElementById('export-menu');
       if (menu) menu.classList.toggle('hidden');
+    }
+
+    function toggleExportMenu(event) {
+      if (event) event.stopPropagation();
+      if (window.CmtWizard && !(event && event.shiftKey)) {
+        const menu = document.getElementById('export-menu');
+        if (menu) menu.classList.add('hidden');
+        openMdbExportWizard(event);
+        return;
+      }
+      openLegacyExportMenu(event);
+    }
+
+    function openMdbExportWizard(triggerEvent) {
+      const filteredRows = getDisplayRecords();
+      const allRows = getAllLoadedRecords();
+      if (!allRows.length) { showToast(t('mdbAlertNoRecords')); return; }
+
+      const priorityKeys = ['title', 'term', 'word', 'name', 'label', 'sentence', 'quote', 'correct', 'translation', 'definition', 'meaning', 'example', 'category', 'topic', 'theme', 'level'];
+      const schemaCols = S.schema.filter(f => f.type !== 'object' || isStructuredObjectField(S.typeKey, f.key));
+      const essentialCols = schemaCols.filter(f => priorityKeys.includes(f.key.toLowerCase())).slice(0, 5);
+      const defaultEssential = essentialCols.length ? essentialCols.map(f => f.key) : schemaCols.slice(0, 4).map(f => f.key);
+      const allColKeys = schemaCols.map(f => f.key);
+
+      let defaultTitleKey = (schemaCols.find(f => f.key.toLowerCase() === 'title') || {}).key;
+      if (!defaultTitleKey) {
+        for (const pk of priorityKeys) {
+          const match = schemaCols.find(f => f.key.toLowerCase() === pk);
+          if (match) { defaultTitleKey = match.key; break; }
+        }
+      }
+      if (!defaultTitleKey && schemaCols.length) defaultTitleKey = schemaCols[0].key;
+
+      const hasActiveFilters = filteredRows.length !== allRows.length;
+
+      CmtWizard.open({
+        id: 'mdb-export-wizard',
+        title: t('mdbExportWizTitle') || 'Export Database',
+        icon: 'export.svg',
+        width: '720px',
+        initialState: {
+          goal: 'handout',
+          format: 'pdf',
+          scope: hasActiveFilters ? 'filtered' : 'all',
+          colPreset: 'essential',
+          selectedKeys: defaultEssential.slice(),
+          titleKey: defaultTitleKey || ''
+        },
+        quickModeToggle: {
+          label: t('wizQuickAdvanced') || 'Quick / Advanced Formats',
+          icon: 'settings.svg',
+          onClick: function (wiz) {
+            wiz.close();
+            const menu = document.getElementById('export-menu');
+            if (menu) menu.classList.remove('hidden');
+          }
+        },
+        steps: [
+          {
+            id: 'goal',
+            label: t('mdbWizStepGoal') || '1. Format',
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(t('mdbWizGoalHeading') || 'What do you want to create?') + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(t('mdbWizGoalSub') || 'Pick a goal below, or use Quick / Advanced Formats for direct one-click options.') + '</p>';
+              const goals = [
+                { id: 'handout', icon: 'print.svg', badge: 'PDF / DOCX', title: t('mdbWizGoalHandout') || 'Printable Handout', desc: t('mdbWizGoalHandoutDesc') || 'Clean table ready to print (PDF) or edit in Word (.docx).' },
+                { id: 'cards', icon: 'search.svg', badge: 'HTML', title: t('mdbWizGoalCards') || 'Interactive Study Cards', desc: t('mdbWizGoalCardsDesc') || 'Self-contained webpage where students can search and filter cards.' },
+                { id: 'spreadsheet', icon: 'table.svg', badge: 'XLSX / ODS / CSV', title: t('mdbWizGoalSheet') || 'Spreadsheet', desc: t('mdbWizGoalSheetDesc') || 'Open in Excel, LibreOffice Calc, or import into other apps.' },
+                { id: 'document', icon: 'document-editor.svg', badge: 'HTML / MD', title: t('mdbWizGoalDoc') || 'Editable Document', desc: t('mdbWizGoalDocDesc') || 'Open in Document Editor for custom styling or Markdown editing.' }
+              ];
+              const subWrap = document.createElement('div');
+              subWrap.className = 'cmt-wiz-section';
+              subWrap.style.marginTop = '12px';
+
+              function renderSubFormat() {
+                const map = {
+                  handout: [
+                    { id: 'pdf', label: t('mdbWizFmtPdf') || 'PDF (Print Ready)' },
+                    { id: 'docx', label: t('mdbWizFmtDocx') || 'Word Document (.docx)' }
+                  ],
+                  cards: [
+                    { id: 'html-filter', label: t('mdbWizFmtHtmlFilter') || 'Interactive & Filterable Webpage (.html)' }
+                  ],
+                  spreadsheet: [
+                    { id: 'xlsx', label: t('mdbWizFmtXlsx') || 'Microsoft Excel (.xlsx)' },
+                    { id: 'ods', label: t('mdbWizFmtOds') || 'LibreOffice Calc (.ods)' },
+                    { id: 'csv', label: t('mdbWizFmtCsv') || 'Universal CSV (.csv)' }
+                  ],
+                  document: [
+                    { id: 'html', label: t('mdbWizFmtHtmlEdit') || 'Editable Webpage (.html)' },
+                    { id: 'md', label: t('mdbWizFmtMd') || 'Markdown Text (.md)' }
+                  ]
+                };
+                const opts = map[st.goal] || map.handout;
+                if (!opts.some(o => o.id === st.format)) st.format = opts[0].id;
+                subWrap.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(t('mdbWizFileTypeLabel') || 'File Type') + '</label>';
+                const sel = document.createElement('select');
+                sel.className = 'cmt-wiz-select';
+                opts.forEach(o => {
+                  const opt = document.createElement('option');
+                  opt.value = o.id;
+                  opt.textContent = o.label;
+                  if (o.id === st.format) opt.selected = true;
+                  sel.appendChild(opt);
+                });
+                sel.addEventListener('change', () => { st.format = sel.value; });
+                subWrap.appendChild(sel);
+              }
+
+              ctx.renderCards(container, goals, st.goal, function (item) {
+                st.goal = item.id;
+                renderSubFormat();
+              });
+              renderSubFormat();
+              container.appendChild(subWrap);
+            }
+          },
+          {
+            id: 'records',
+            label: t('mdbWizStepRecords') || '2. Records',
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(t('mdbWizRecordsHeading') || 'Which records should be exported?') + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(t('mdbWizRecordsSub') || 'Choose between your currently filtered view or every loaded record.') + '</p>';
+              const choices = [
+                {
+                  id: 'filtered',
+                  icon: 'filter.svg',
+                  badge: filteredRows.length + ' ' + (t('mdbWizItems') || 'items'),
+                  title: t('mdbWizScopeFiltered') || 'Currently Filtered Records',
+                  desc: hasActiveFilters
+                    ? (t('mdbWizScopeFilteredDesc') || 'Exports only the records matching your active search or filters.')
+                    : (t('mdbWizScopeAllSameDesc') || 'All loaded records are currently visible.')
+                },
+                {
+                  id: 'all',
+                  icon: 'database.svg',
+                  badge: allRows.length + ' ' + (t('mdbWizItems') || 'items'),
+                  title: t('mdbWizScopeAll') || 'All Loaded Records',
+                  desc: t('mdbWizScopeAllDesc') || 'Includes every record from all loaded files, ignoring active filters.'
+                }
+              ];
+              ctx.renderCards(container, choices, st.scope, function (item) {
+                st.scope = item.id;
+              });
+            },
+            validate: function (st) {
+              const target = st.scope === 'filtered' ? filteredRows : allRows;
+              if (!target.length) return t('mdbAlertNoRecords') || 'No records available in this selection.';
+              return true;
+            }
+          },
+          {
+            id: 'columns',
+            label: t('mdbWizStepColumns') || '3. Columns',
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(t('mdbWizColsHeading') || 'Which columns do you want to include?') + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(t('mdbWizColsSub') || 'Pick a preset for a clean layout, or customize individual fields.') + '</p>';
+
+              const presets = [
+                { id: 'essential', icon: 'sparkles.svg', badge: defaultEssential.length + ' cols', title: t('mdbWizPresetEssential') || 'Essential Fields', desc: t('mdbWizPresetEssentialDesc') || 'Keeps the handout clean by selecting only key fields.' },
+                { id: 'all', icon: 'check-circle.svg', badge: allColKeys.length + ' cols', title: t('mdbWizPresetAll') || 'All Fields', desc: t('mdbWizPresetAllDesc') || 'Includes every column in this database.' },
+                { id: 'custom', icon: 'edit.svg', badge: st.selectedKeys.length + ' cols', title: t('mdbWizPresetCustom') || 'Custom Selection', desc: t('mdbWizPresetCustomDesc') || 'Pick exact columns manually.' }
+              ];
+
+              const box = document.createElement('div');
+              box.className = 'cmt-wiz-section';
+              box.style.marginTop = '12px';
+              box.style.display = 'grid';
+              box.style.gridTemplateColumns = 'repeat(auto-fill, minmax(170px, 1fr))';
+              box.style.gap = '8px';
+
+              const isSpreadsheet = st.format === 'csv' || st.format === 'xlsx' || st.format === 'ods';
+              const availCols = isSpreadsheet ? S.schema : schemaCols;
+              const multiFile = S.files.filter(f => f.status === 'loaded').length > 1;
+
+              function renderCheckboxes() {
+                box.innerHTML = '';
+                availCols.forEach(f => {
+                  const lbl = document.createElement('label');
+                  lbl.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:0.84rem;font-weight:600;cursor:pointer;';
+                  const cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.value = f.key;
+                  cb.checked = st.selectedKeys.includes(f.key);
+                  cb.style.cssText = 'width:15px;height:15px;accent-color:#222;cursor:pointer;';
+                  cb.addEventListener('change', () => {
+                    st.colPreset = 'custom';
+                    if (cb.checked && !st.selectedKeys.includes(f.key)) st.selectedKeys.push(f.key);
+                    else if (!cb.checked) st.selectedKeys = st.selectedKeys.filter(k => k !== f.key);
+                  });
+                  lbl.appendChild(cb);
+                  const sp = document.createElement('span');
+                  sp.textContent = cap(f.key);
+                  lbl.appendChild(sp);
+                  box.appendChild(lbl);
+                });
+                if (multiFile) {
+                  const lbl = document.createElement('label');
+                  lbl.style.cssText = 'display:flex;align-items:center;gap:7px;font-size:0.84rem;font-weight:600;cursor:pointer;color:#475569;';
+                  const cb = document.createElement('input');
+                  cb.type = 'checkbox';
+                  cb.value = '_src';
+                  cb.checked = st.selectedKeys.includes('_src');
+                  cb.style.cssText = 'width:15px;height:15px;accent-color:#222;cursor:pointer;';
+                  cb.addEventListener('change', () => {
+                    if (cb.checked && !st.selectedKeys.includes('_src')) st.selectedKeys.push('_src');
+                    else if (!cb.checked) st.selectedKeys = st.selectedKeys.filter(k => k !== '_src');
+                  });
+                  lbl.appendChild(cb);
+                  const sp = document.createElement('span');
+                  sp.textContent = t('mdbSourceFileLabel') || 'Source File';
+                  lbl.appendChild(sp);
+                  box.appendChild(lbl);
+                }
+              }
+
+              ctx.renderCards(container, presets, st.colPreset, function (item) {
+                st.colPreset = item.id;
+                if (item.id === 'essential') st.selectedKeys = defaultEssential.slice();
+                else if (item.id === 'all') st.selectedKeys = availCols.map(f => f.key);
+                renderCheckboxes();
+              });
+              renderCheckboxes();
+              container.appendChild(box);
+
+              if (st.format === 'html-filter' || st.format === 'html') {
+                const titleBox = document.createElement('div');
+                titleBox.className = 'cmt-wiz-section';
+                titleBox.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(t('mdbWizCardHeadingLabel') || 'Main Heading on Each Card') + '</label>';
+                const sel = document.createElement('select');
+                sel.className = 'cmt-wiz-select';
+                availCols.forEach(f => {
+                  const opt = document.createElement('option');
+                  opt.value = f.key;
+                  opt.textContent = cap(f.key);
+                  if (f.key === st.titleKey) opt.selected = true;
+                  sel.appendChild(opt);
+                });
+                sel.addEventListener('change', () => { st.titleKey = sel.value; });
+                titleBox.appendChild(sel);
+                container.appendChild(titleBox);
+              }
+            },
+            validate: function (st) {
+              if (!st.selectedKeys || !st.selectedKeys.length) {
+                return t('mdbAlertSelectColumn') || 'Please select at least one column.';
+              }
+              return true;
+            }
+          },
+          {
+            id: 'confirm',
+            label: t('mdbWizStepConfirm') || '4. Export',
+            render: function (container, st, ctx) {
+              const targetRows = st.scope === 'filtered' ? filteredRows : allRows;
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(t('mdbWizConfirmHeading') || 'Ready to export') + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(t('mdbWizConfirmSub') || 'Review your choices and click Export to save or print.') + '</p>' +
+                '<div class="cmt-wiz-summary-box">' +
+                  '<div><strong>' + ctx.escHtml(t('mdbWizSummaryFormat') || 'Format:') + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
+                  '<div><strong>' + ctx.escHtml(t('mdbWizSummaryRecords') || 'Records:') + '</strong> ' + targetRows.length + '</div>' +
+                  '<div><strong>' + ctx.escHtml(t('mdbWizSummaryCols') || 'Columns:') + '</strong> ' + ctx.escHtml(st.selectedKeys.map(k => k === '_src' ? (t('mdbSourceFileLabel') || 'Source File') : cap(k)).join(', ')) + '</div>' +
+                '</div>';
+            }
+          }
+        ],
+        finishLabel: t('mdbBtnExport') || 'Export',
+        finishIcon: 'export.svg',
+        onFinish: function (st) {
+          const targetRows = st.scope === 'filtered' ? filteredRows : allRows;
+          const keys = st.selectedKeys.slice();
+          if (st.format === 'pdf') doExportPDF(targetRows, keys);
+          else if (st.format === 'csv') doExportCSV(targetRows, keys);
+          else if (st.format === 'html') doExportHTML(targetRows, keys);
+          else if (st.format === 'html-filter') doExportFilterableHTML(targetRows, keys, st.titleKey);
+          else if (st.format === 'md') doExportMarkdown(targetRows, keys);
+          else if (st.format === 'xlsx' || st.format === 'ods') doExportXLSX(targetRows, keys, st.format);
+          else if (st.format === 'docx') doExportDocx(targetRows, keys);
+        }
+      });
     }
 
     function handleExportClick(mode) {
@@ -9776,7 +10085,7 @@ Rules:
         }
 
         // Long descriptions
-        if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'explanation' || col.key === 'sampleTasks') {
+        if (col.isLong || col.key === 'description' || col.key === 'comment' || col.key === 'text' || col.key === 'definition' || col.key === 'example' || col.key === 'etymology' || col.key === 'explanation' || col.key === 'sampleTasks') {
           if (!hideBody) {
             const useBullets = !hiddenElements.has('bulletOnLinebreaks');
             const formattedDesc = formatLongDescriptionText(rawVal, useBullets);

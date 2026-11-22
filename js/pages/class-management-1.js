@@ -1419,8 +1419,9 @@
             let label = '';
             try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch { }
             const titleEl = document.getElementById('main-title');
-            if (titleEl) titleEl.textContent = label + ': Class Management';
-            document.title = label + ': Class Management';
+            const fullTitle = label ? (label + ': Class Management') : 'Class Management';
+            if (titleEl) titleEl.textContent = fullTitle;
+            document.title = fullTitle;
         }
 
         async function openSettingsModal(tabName = 'general') {

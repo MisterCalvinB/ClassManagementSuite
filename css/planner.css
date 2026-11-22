@@ -434,6 +434,7 @@ body {
 /* ── Main ── */
 #planner-body {
   flex: 1;
+  min-height: 0;
   display: flex;
   overflow: hidden;
   position: relative;
@@ -442,10 +443,33 @@ body {
 
 #main {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px 16px 24px 48px;
   min-width: 0;
   contain: layout;
+}
+
+#main.cal-fit-view {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 8px 14px 10px 44px;
+}
+
+#main.cal-fit-view #cal-nav-bar {
+  flex-shrink: 0;
+  width: 100%;
+  margin: 0 auto 8px auto;
+  padding: 5px 12px;
+}
+
+#main.cal-fit-view #agenda {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 #agenda {
@@ -2565,6 +2589,179 @@ body {
   z-index: 1;
 }
 
+.at-day-lane .at-cell {
+  padding: 4px 6px;
+  gap: 2px;
+}
+
+.at-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
+.at-day-lane .at-cell .at-time {
+  font-size: .64rem;
+  line-height: 1.2;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.at-day-lane .at-cell .at-class-title {
+  font-size: .74rem;
+  line-height: 1.2;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.at-day-lane .at-cell .at-topic {
+  font-size: .73rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.at-day-lane .at-cell.at-cell-tall .at-topic {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.at-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 3px;
+  min-width: 0;
+  margin-top: 1px;
+}
+
+.at-badges-row:empty {
+  display: none;
+}
+
+.at-day-lane .at-cell .at-badges-row .entry-type-badge,
+.at-day-lane .at-cell .at-badges-row .gs-badge,
+.at-day-lane .at-cell .at-badges-row .lesson-plan-badge,
+.at-day-lane .at-cell .at-badges-row .board-session-badge,
+.at-day-lane .at-cell .at-badges-row .sub-feed-badge,
+.at-day-lane .at-cell .at-badges-row .planner-tag-badge {
+  font-size: 0.56rem;
+  padding: 0 4px;
+  line-height: 1.35;
+}
+
+.at-day-lane .at-cell .at-badges-row .planner-badges-wrap {
+  margin-left: 0;
+  gap: 2px;
+}
+
+.at-day-lane .at-cell .at-badges-row .planner-tag-badge {
+  border-width: 1px;
+  border-color: #333;
+  box-shadow: 1px 1px 0 #555;
+}
+
+/* Compact micro-cues for short week/day entries */
+.at-cues {
+  display: none;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.at-cues:empty {
+  display: none !important;
+}
+
+.at-cue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Lexend', sans-serif;
+  font-size: 0.54rem;
+  font-weight: 800;
+  line-height: 1.25;
+  padding: 0 3px;
+  min-width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  border: 1px solid #333333;
+  cursor: pointer;
+  pointer-events: auto;
+  flex-shrink: 0;
+  letter-spacing: 0.1px;
+}
+
+.at-cue-icon {
+  width: 9px;
+  height: 9px;
+  display: block;
+}
+
+.at-cue-sub {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #3b82f6;
+}
+
+.at-cue-gs {
+  background: #bbf7d0;
+  color: #14532d;
+}
+
+.at-cue-lp {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.at-cue-board {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
+.at-cue-tag {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.at-day-lane .at-cell.at-cell-compact {
+  padding: 3px 6px;
+  gap: 1px;
+}
+
+.at-day-lane .at-cell.at-cell-compact .at-cues {
+  display: inline-flex;
+}
+
+.at-day-lane .at-cell.at-cell-compact .at-badges-row,
+.at-day-lane .at-cell.at-cell-compact .at-cell-detail {
+  display: none;
+}
+
+.at-day-lane .at-cell.at-cell-micro {
+  padding: 2px 5px;
+  gap: 0;
+  justify-content: center;
+}
+
+.at-day-lane .at-cell.at-cell-micro .at-cues {
+  display: inline-flex;
+}
+
+.at-day-lane .at-cell.at-cell-micro .at-badges-row,
+.at-day-lane .at-cell.at-cell-micro .at-topic,
+.at-day-lane .at-cell.at-cell-micro .at-cell-detail {
+  display: none;
+}
+
 .at-hol-cell {
   background: #f1f5f9 !important;
   color: #64748b !important;
@@ -3799,6 +3996,151 @@ body {
 .year-dot-test { background: #c96b6b; }
 .year-dot-todo { background: #8b7cc2; }
 .year-dot-empty { background: #6abf8e; }
+
+/* ── Fit-to-viewport overrides for Day, Week, Month, Year views (no outer scroll) ── */
+#main.cal-fit-view .day-view-wrap {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#main.cal-fit-view .day-view-wrap .allday-strip {
+  flex-shrink: 0;
+  margin-bottom: 6px;
+  padding: 5px 10px;
+}
+
+#main.cal-fit-view .day-view-table {
+  flex: 1;
+  min-height: 0;
+}
+
+#main.cal-fit-view .at-week-block {
+  margin-bottom: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  content-visibility: visible;
+}
+
+#main.cal-fit-view .at-week-block .table-wrap {
+  margin-top: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#main.cal-fit-view .agenda-table thead th {
+  padding: 6px 8px;
+}
+
+#main.cal-fit-view .week-allday-row th,
+#main.cal-fit-view .week-allday-row td {
+  padding: 4px 6px;
+}
+
+#main.cal-fit-view .month-grid-wrap {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+#main.cal-fit-view .month-dow-row {
+  flex-shrink: 0;
+}
+
+#main.cal-fit-view .month-dow-cell {
+  padding: 5px 8px;
+}
+
+#main.cal-fit-view .month-grid {
+  flex: 1;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+#main.cal-fit-view .month-cell {
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 5px;
+  gap: 2px;
+}
+
+#main.cal-fit-view .month-day-num {
+  min-width: 20px;
+  height: 20px;
+  font-size: 0.74rem;
+}
+
+#main.cal-fit-view .month-cell-items {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  gap: 2px;
+}
+
+#main.cal-fit-view .year-grid {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+#main.cal-fit-view .year-month-card {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#main.cal-fit-view .year-month-title {
+  font-size: 0.8rem;
+  padding: 2px 4px 4px 4px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+
+#main.cal-fit-view .year-mini-dow {
+  flex-shrink: 0;
+}
+
+#main.cal-fit-view .year-mini-dow-cell {
+  font-size: 0.6rem;
+  padding-bottom: 1px;
+}
+
+#main.cal-fit-view .year-mini-grid {
+  flex: 1;
+  min-height: 0;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 1px;
+}
+
+#main.cal-fit-view .year-day-cell {
+  min-height: 0;
+  padding: 1px;
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+#main.cal-fit-view .year-day-dots {
+  margin-top: 1px;
+  min-height: 4px;
+}
+
+#main.cal-fit-view .year-dot {
+  width: 4px;
+  height: 4px;
+}
 
 /* ── Phase 1: Icon contrast on dark base / active / hover buttons ── */
 .tb-btn.primary img.btn-icon,

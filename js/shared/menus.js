@@ -104,7 +104,7 @@
     } catch (e) {}
     if (!appTitle) return;
     var el = document.querySelector('.nav-brand');
-    if (el) el.textContent = appTitle;
+    if (el && el.children.length === 0) el.textContent = appTitle;
     if (document.title && !document.title.startsWith(appTitle)) {
       document.title = appTitle + ': ' + document.title;
     }
@@ -301,9 +301,13 @@
       } catch (_) {}
     };
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', _applyA11yDefaults);
+      document.addEventListener('DOMContentLoaded', function () {
+        _applyA11yDefaults();
+        window._cmtApplyNavBrand();
+      });
     } else {
       _applyA11yDefaults();
+      window._cmtApplyNavBrand();
     }
   }
 

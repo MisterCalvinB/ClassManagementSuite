@@ -443,6 +443,20 @@
       document.getElementById('det-edit-ex').value = _editableStr(item.exampleSentence);
 
       _detPopulateSynAnt(item);
+      const _detEtyRow = document.getElementById('det-ety-row');
+      const _detEtyEl = document.getElementById('det-ety');
+      const _detEditEty = document.getElementById('det-edit-ety');
+      const etyVal = Array.isArray(item.etymology) ? item.etymology.join(' ') : String(item.etymology || '').trim();
+      if (_detEtyRow && _detEtyEl) {
+        if (etyVal) {
+          _detEtyEl.textContent = etyVal;
+          _detEtyRow.style.display = '';
+        } else {
+          _detEtyEl.textContent = '';
+          _detEtyRow.style.display = 'none';
+        }
+      }
+      if (_detEditEty) _detEditEty.value = etyVal;
 
       if (!_detWordList.length) _detWordList = vocabBank.map(i => i.word);
       _detUpdateNavButtons();
@@ -534,6 +548,7 @@
       const newEx = (function () { const v = document.getElementById('det-edit-ex').value.trim(); const lines = v.split('\n').map(s => s.trim()).filter(Boolean); return lines.length > 1 ? lines : (lines[0] || ''); })();
       const newSyns = document.getElementById('det-edit-syn').value.split(',').map(s => s.trim()).filter(Boolean);
       const newAnts = document.getElementById('det-edit-ant').value.split(',').map(s => s.trim()).filter(Boolean);
+      const newEty = (document.getElementById('det-edit-ety')?.value || '').trim();
 
       if (!newWord) {
         const fb = document.getElementById('det-save-feedback');
@@ -547,7 +562,7 @@
       const update = {
         word: newWord, ipa: newIpa, french: newFrench, english: newEnglish, german: newGerman, italian: newItalian,
         partOfSpeech: newPos, level: newLevel,
-        definition: newDef, exampleSentence: newEx,
+        definition: newDef, exampleSentence: newEx, etymology: newEty,
         synonyms: newSyns, antonyms: newAnts
       };
 

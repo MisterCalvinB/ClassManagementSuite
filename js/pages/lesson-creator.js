@@ -6757,6 +6757,92 @@
   }
 
   window.lcOpenExportModal = function (initialFormat) {
+    if (!initialFormat && window.CmtWizard) {
+      lcOpenExportWizard();
+      return;
+    }
+    lcOpenLegacyExportModal(initialFormat);
+  };
+
+  function lcOpenExportWizard() {
+    var tr = function (k, fb) {
+      try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+      return fb;
+    };
+    CmtWizard.open({
+      id: 'lc-export-wizard',
+      title: tr('lcExpWizTitle', 'Export Lesson Plan'),
+      icon: 'export.svg',
+      width: '700px',
+      initialState: {
+        preset: 'teacher',
+        format: 'pdf'
+      },
+      quickModeToggle: {
+        label: tr('wizQuickAdvanced', 'Quick / Advanced Options'),
+        icon: 'settings.svg',
+        onClick: function (w) {
+          w.close();
+          lcOpenLegacyExportModal();
+        }
+      },
+      steps: [
+        {
+          id: 'purpose',
+          label: tr('lcExpWizStep1', '1. Purpose'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('lcExpWizPurposeHeading', 'Who is this lesson export for?')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('lcExpWizPurposeSub', 'We will automatically select the right sections for your goal.')) + '</p>';
+            ctx.renderCards(container, [
+              { id: 'teacher', icon: 'book.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('lcExpPresetTeacher', 'Teacher Guide'), desc: tr('lcExpPresetTeacherDesc', 'Includes timings, teacher notes, differentiation, and resources.') },
+              { id: 'student', icon: 'users.svg', badge: 'Handout', title: tr('lcExpPresetStudent', 'Student Handout'), desc: tr('lcExpPresetStudentDesc', 'Shows student activities and objectives without teacher notes.') },
+              { id: 'outline', icon: 'file-text.svg', badge: 'Brief', title: tr('lcExpPresetOutline', 'Quick Outline'), desc: tr('lcExpPresetOutlineDesc', 'Compact summary of lesson phases and timings.') },
+              { id: 'full', icon: 'check-circle.svg', badge: 'Full', title: tr('lcExpPresetFull', 'Complete Archive'), desc: tr('lcExpPresetFullDesc', 'Includes every field, competence descriptor, and assessment note.') }
+            ], st.preset, function (item) { st.preset = item.id; });
+          }
+        },
+        {
+          id: 'format',
+          label: tr('lcExpWizStep2', '2. Format'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('lcExpWizFmtHeading', 'Choose file format')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('lcExpWizFmtSub', 'Pick PDF to print, Word to edit, or Spreadsheet for planning tables.')) + '</p>';
+            ctx.renderCards(container, [
+              { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('lcExpFmtPdf', 'Printable PDF'), desc: tr('lcExpFmtPdfDesc', 'Ready for printing or sharing with colleagues.') },
+              { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('lcExpFmtDocx', 'Word Document (.docx)'), desc: tr('lcExpFmtDocxDesc', 'Editable in Microsoft Word or LibreOffice Writer.') },
+              { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('lcExpFmtHtml', 'Webpage (.html)'), desc: tr('lcExpFmtHtmlDesc', 'Opens in Document Editor for custom themes.') },
+              { id: 'xlsx', icon: 'table.svg', badge: 'XLSX', title: tr('lcExpFmtXlsx', 'Excel Spreadsheet (.xlsx)'), desc: tr('lcExpFmtXlsxDesc', 'Exports phases and timings into spreadsheet rows.') }
+            ], st.format, function (item) { st.format = item.id; });
+          }
+        },
+        {
+          id: 'confirm',
+          label: tr('lcExpWizStep3', '3. Export'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('lcExpWizConfirmHeading', 'Ready to export lesson')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('lcExpWizConfirmSub', 'Click Export to choose where to save your file.')) + '</p>' +
+              '<div class="cmt-wiz-summary-box">' +
+                '<div><strong>' + ctx.escHtml(tr('lcExpSummaryPreset', 'Style:')) + '</strong> ' + ctx.escHtml(st.preset.toUpperCase()) + '</div>' +
+                '<div><strong>' + ctx.escHtml(tr('lcExpSummaryFmt', 'Format:')) + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
+              '</div>';
+          }
+        }
+      ],
+      finishLabel: tr('btnExport', 'Export'),
+      finishIcon: 'export.svg',
+      onFinish: function (st) {
+        if (typeof window.lcApplyExportPreset === 'function') window.lcApplyExportPreset(st.preset);
+        if (typeof window.lcSelectExportFormat === 'function') window.lcSelectExportFormat(st.format);
+        activeExportFormat = st.format;
+        if (typeof window.lcExecuteCurrentExport === 'function') window.lcExecuteCurrentExport();
+      }
+    });
+  }
+
+  function lcOpenLegacyExportModal(initialFormat) {
     if (initialFormat) {
       activeExportFormat = initialFormat;
     } else if (!activeExportFormat) {

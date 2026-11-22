@@ -1,0 +1,421 @@
+/* Shared Light Neobrutalist Step-by-Step Wizard Component
+   Used by Manage Database, Board, and future tool wizards. */
+
+.cmt-wiz-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  padding: 14px;
+  background: rgba(20, 20, 20, 0.48);
+  z-index: 10000010;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font-family: 'Lexend', system-ui, -apple-system, sans-serif;
+}
+
+.cmt-wiz-overlay.open {
+  display: flex;
+}
+
+.cmt-wiz-dialog {
+  background: var(--neo-card-bg, #ffffff);
+  color: var(--neo-dark, #222222);
+  border: 2.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-lg, 10px);
+  box-shadow: 6px 6px 0 var(--neo-dark, #222222);
+  width: 100%;
+  max-width: min(700px, calc(100vw - 24px));
+  max-height: calc(100dvh - 28px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: cmtWizPopIn 0.16s ease-out;
+}
+
+@keyframes cmtWizPopIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.cmt-wiz-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 18px;
+  background: var(--neo-dark, #222222);
+  color: #ffffff;
+  border-bottom: 2px solid var(--neo-border-color, #333333);
+  flex-shrink: 0;
+}
+
+.cmt-wiz-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cmt-wiz-title-icon {
+  width: 20px;
+  height: 20px;
+  filter: invert(1);
+  flex-shrink: 0;
+}
+
+.cmt-wiz-title {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmt-wiz-close {
+  background: #333333;
+  color: #ffffff;
+  border: 1.5px solid #666666;
+  border-radius: var(--neo-radius-sm, 4px);
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.cmt-wiz-close:hover {
+  background: #444444;
+  transform: translate(-1px, -1px);
+}
+
+.cmt-wiz-close img {
+  width: 14px;
+  height: 14px;
+  filter: invert(1);
+}
+
+/* Stepper Bar */
+.cmt-wiz-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 18px;
+  background: var(--neo-bg, #f5f5f0);
+  border-bottom: 2px solid var(--neo-border-color, #333333);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.cmt-wiz-step-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  border-radius: var(--neo-radius-md, 6px);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  background: #ffffff;
+  color: var(--neo-gray-dark, #475569);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: default;
+  box-shadow: 2px 2px 0 #888888;
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.cmt-wiz-step-pill.is-done {
+  background: #eef8f1;
+  color: #165b33;
+  cursor: pointer;
+}
+
+.cmt-wiz-step-pill.is-done:hover {
+  transform: translate(-1px, -1px);
+}
+
+.cmt-wiz-step-pill.is-active {
+  background: var(--neo-yellow, #e2c96e);
+  color: #111111;
+  box-shadow: 3px 3px 0 #555555;
+}
+
+.cmt-wiz-step-num {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--neo-dark, #222222);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cmt-wiz-step-pill.is-done .cmt-wiz-step-num {
+  background: var(--neo-green, #6abf8e);
+  color: #111111;
+}
+
+.cmt-wiz-step-num img {
+  width: 11px;
+  height: 11px;
+}
+
+/* Body */
+.cmt-wiz-body {
+  padding: 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  flex: 1;
+  min-height: 180px;
+}
+
+.cmt-wiz-step-heading {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+
+.cmt-wiz-step-sub {
+  margin: 0 0 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--neo-gray-dark, #475569);
+  line-height: 1.45;
+}
+
+.cmt-wiz-error {
+  display: none;
+  margin-bottom: 12px;
+  padding: 9px 12px;
+  background: #fef2f2;
+  color: #991b1b;
+  border: 2px solid var(--neo-red, #c96b6b);
+  border-radius: var(--neo-radius-md, 6px);
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+.cmt-wiz-error.show {
+  display: block;
+}
+
+/* Goal / Option Cards Grid */
+.cmt-wiz-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 11px;
+}
+
+.cmt-wiz-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 13px 14px;
+  text-align: left;
+  font-family: inherit;
+  background: #ffffff;
+  color: var(--neo-dark, #222222);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: 3px 3px 0 #555555;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+.cmt-wiz-card:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #555555;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+}
+
+.cmt-wiz-card.is-selected {
+  background: #fdf6d8;
+  box-shadow: 4px 4px 0 #222222;
+}
+
+.cmt-wiz-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.cmt-wiz-card-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--neo-radius-sm, 4px);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  background: var(--neo-bg, #f5f5f0);
+  flex-shrink: 0;
+}
+
+.cmt-wiz-card.is-selected .cmt-wiz-card-icon-wrap {
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.cmt-wiz-card-icon-wrap img {
+  width: 16px;
+  height: 16px;
+}
+
+.cmt-wiz-card-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--neo-radius-sm, 4px);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  background: var(--neo-bg, #f5f5f0);
+  color: var(--neo-dark, #222222);
+}
+
+.cmt-wiz-card-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.cmt-wiz-card-desc {
+  font-size: 0.79rem;
+  font-weight: 500;
+  color: var(--neo-gray-dark, #475569);
+  line-height: 1.38;
+}
+
+/* Form helpers inside wizard */
+.cmt-wiz-section {
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+}
+
+.cmt-wiz-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--neo-dark, #222222);
+  margin-bottom: 6px;
+}
+
+.cmt-wiz-select,
+.cmt-wiz-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 7px 10px;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  background: #ffffff;
+  color: var(--neo-dark, #222222);
+}
+
+.cmt-wiz-select:focus,
+.cmt-wiz-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--neo-yellow, #e2c96e);
+}
+
+.cmt-wiz-summary-box {
+  background: #f0f6fc;
+  border: 2px solid var(--neo-blue, #5b8fcc);
+  border-radius: var(--neo-radius-md, 6px);
+  padding: 12px 14px;
+  font-size: 0.86rem;
+  line-height: 1.5;
+}
+
+/* Footer */
+.cmt-wiz-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 18px;
+  background: var(--neo-bg, #f5f5f0);
+  border-top: 2px solid var(--neo-border-color, #333333);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.cmt-wiz-footer-left,
+.cmt-wiz-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cmt-wiz-btn {
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: var(--neo-radius-md, 6px);
+  border: 2px solid var(--neo-border-color, #333333);
+  background: #ffffff;
+  color: var(--neo-dark, #222222);
+  box-shadow: 3px 3px 0 #555555;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+
+.cmt-wiz-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #555555;
+}
+
+.cmt-wiz-btn:active:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 #888888;
+}
+
+.cmt-wiz-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cmt-wiz-btn-primary {
+  background: var(--neo-yellow, #e2c96e);
+  color: #111111;
+}
+
+.cmt-wiz-btn-finish {
+  background: var(--neo-green, #6abf8e);
+  color: #111111;
+}
+
+.cmt-wiz-btn-subtle {
+  background: #ffffff;
+  font-size: 0.78rem;
+  padding: 6px 11px;
+  box-shadow: 2px 2px 0 #888888;
+}
+
+.cmt-wiz-btn img {
+  width: 15px;
+  height: 15px;
+}

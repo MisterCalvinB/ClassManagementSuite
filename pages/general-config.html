@@ -8,9 +8,11 @@
   <title>General Config</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
+  <link rel="stylesheet" href="../css/wizard.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/wizard.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/speech-transcriber.js"></script>
   <script src="../js/shared/whisper-model-modal.js"></script>
@@ -29,13 +31,12 @@
 
     <div class="gc-container">
       <div class="gc-sidebar">
-        <div class="gc-sidebar-item active" data-tab="general" data-i18n="gcTabGeneral">
-          General</div>
-        <div class="gc-sidebar-item" data-tab="storage" data-i18n="gcTabStorage">Storage
-          &amp; Sync</div>
-        <div class="gc-sidebar-item" data-tab="remote" data-i18n="gcTabRemote">Remote
-          Server</div>
-        <div class="gc-sidebar-item" data-tab="notes" data-i18n="gcTabNotes">App Notes</div>
+        <div class="gc-sidebar-item active" data-tab="general" data-i18n="gcTabGeneral">General</div>
+        <div class="gc-sidebar-item" data-tab="startup" data-i18n="gcTabStartup">Startup</div>
+        <div class="gc-sidebar-item" data-tab="storage" data-i18n="gcTabDataBackups">Data &amp; Backups</div>
+        <div class="gc-sidebar-item" data-tab="sync" data-i18n="gcTabSync">Sync</div>
+        <div class="gc-sidebar-item" data-tab="ai" data-i18n="gcTabAiModels">AI Models</div>
+        <div class="gc-sidebar-item" data-tab="remote" data-i18n="gcTabRemoteDiagnostics">Remote &amp; Diagnostics</div>
       </div>
       <div class="gc-content">
         <div class="gc-collapse-controls">
@@ -52,7 +53,7 @@
         <div class="gc-tab-pane active" data-pane="general">
 
           <!-- ── App Identity ─────────────────────────────────── -->
-          <section class="config-section">
+          <section class="config-section" id="gcSecIdentitySection">
             <h2 data-i18n="gcSecIdentity">App Identity</h2>
             <p class="section-desc" data-i18n="gcSecIdentityDesc">Customize the name shown in the launcher and window
               titles.</p>
@@ -75,23 +76,6 @@
             </div>
           </section>
 
-          <!-- ── Default Student Name Display ─────────────────── -->
-          <section class="config-section">
-            <h2 data-i18n="gcFieldDefaultNameDisplay">Default student name display</h2>
-            <p class="section-desc" data-i18n="gcFieldDefaultNameDisplayHint">Default naming format used across all tools and classroom views.</p>
-            <div class="field">
-              <select id="defaultNameDisplaySelect" class="form-input" style="max-width:320px; padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; background:#fff; color:var(--text);">
-                <option value="full" data-i18n="cpNameFull">First + Last name</option>
-                <option value="first" data-i18n="cpNameFirst">First name only</option>
-                <option value="last" data-i18n="cpNameLast">Last name only</option>
-                <option value="custom" data-i18n="cpNameCustom">Custom name / Nickname</option>
-              </select>
-              <p class="field-hint" style="margin-top:8px;">
-                <span class="save-status" id="nameDisplaySaveStatus" data-i18n="saved">Saved</span>
-              </p>
-            </div>
-          </section>
-
           <!-- ── Language ─────────────────────────────────────── -->
           <section class="config-section">
             <h2 data-i18n="gcSecLanguage">Language</h2>
@@ -100,10 +84,10 @@
             <div class="field">
               <label class="field-label" data-i18n="gcFieldLang">Interface language</label>
               <div class="lang-grid" id="langGrid">
-                <button class="lang-btn" data-lang="fr">🇫🇷 Français</button>
-                <button class="lang-btn" data-lang="en">🇬🇧 English</button>
-                <button class="lang-btn" data-lang="de">🇩🇪 Deutsch</button>
-                <button class="lang-btn" data-lang="it">🇮🇹 Italiano</button>
+                <button class="lang-btn" data-lang="fr">Français</button>
+                <button class="lang-btn" data-lang="en">English</button>
+                <button class="lang-btn" data-lang="de">Deutsch</button>
+                <button class="lang-btn" data-lang="it">Italiano</button>
               </div>
               <p class="field-hint" style="margin-top:8px;">
                 <span class="save-status" id="langSaveStatus" data-i18n="saved">Saved</span>
@@ -111,90 +95,30 @@
             </div>
           </section>
 
-          <!-- ── Startup & Launch ──────────────────────────────── -->
+          <!-- ── Classroom & Display Defaults ─────────────────── -->
           <section class="config-section">
-            <h2 data-i18n="gcSecStartup">Startup &amp; Launch</h2>
-            <p class="section-desc" data-i18n="gcSecStartupDesc">Configure which tools open when the app starts and how
-              they are arranged on screen.</p>
-
-            <!-- Layout picker -->
+            <h2 data-i18n="gcSecClassroomDefaults">Classroom &amp; Display Defaults</h2>
+            <p class="section-desc" data-i18n="gcSecClassroomDefaultsDesc">Default student naming format and classroom feedback options.</p>
             <div class="field">
-              <label class="field-label" data-i18n="gcFieldWindowArrangement">Window arrangement</label>
-              <div class="layout-grid" id="layoutGrid">
-                <label class="layout-card" data-layout="separate">
-                  <input type="radio" name="layout" value="separate">
-                  <span class="layout-icon">⬜⬜</span>
-                  <span class="layout-label" data-i18n="gcLayoutSeparate">Separate</span>
-                  <span class="layout-hint" data-i18n="gcLayoutSeparateHint">Each app in its own window</span>
-                </label>
-                <label class="layout-card" data-layout="split">
-                  <input type="radio" name="layout" value="split">
-                  <span class="layout-icon">▌▐</span>
-                  <span class="layout-label" data-i18n="gcLayoutSplit">Split screen</span>
-                  <span class="layout-hint" data-i18n="gcLayoutSplitHint">Two apps, side by side</span>
-                </label>
-                <label class="layout-card" data-layout="maximize">
-                  <input type="radio" name="layout" value="maximize">
-                  <span class="layout-icon">⬛</span>
-                  <span class="layout-label" data-i18n="gcLayoutMaximize">Maximized</span>
-                  <span class="layout-hint" data-i18n="gcLayoutMaximizeHint">Each window fills the screen</span>
-                </label>
-              </div>
+              <label class="field-label" for="defaultNameDisplaySelect" data-i18n="gcFieldDefaultNameDisplay">Default student name display</label>
+              <select id="defaultNameDisplaySelect" class="form-input" style="max-width:320px; padding:6px 10px; border:1.5px solid var(--border); border-radius:6px; font-family:inherit; font-size:0.85rem; background:#fff; color:var(--text);">
+                <option value="full" data-i18n="cpNameFull">First + Last name</option>
+                <option value="first" data-i18n="cpNameFirst">First name only</option>
+                <option value="last" data-i18n="cpNameLast">Last name only</option>
+                <option value="custom" data-i18n="cpNameCustom">Custom name / Nickname</option>
+              </select>
+              <p class="field-hint" style="margin-top:6px;">
+                <span data-i18n="gcFieldDefaultNameDisplayHint">Default naming format used across all tools and classroom views.</span>
+                <span class="save-status" id="nameDisplaySaveStatus" data-i18n="saved">Saved</span>
+              </p>
             </div>
-
-            <!-- Apps to open (separate + maximize modes) -->
-            <div class="field" id="appsField">
-              <label class="field-label" data-i18n="gcFieldAppsToOpen">Apps to open at startup</label>
-              <div class="app-check-grid" id="appsCheckGrid"></div>
-              <p class="field-hint" style="margin-top:8px;" data-i18n="gcAppsHint">Selected apps open automatically when
-                the launcher loads.</p>
-            </div>
-
-            <!-- Split controls (split mode only) -->
-            <div class="split-controls field" id="splitControls">
-              <label class="field-label" data-i18n="gcFieldSplitConfig">Split configuration</label>
-
-              <div class="split-preview">
-                <select id="splitLeftSelect"></select>
-                <span class="split-divider">⇔</span>
-                <select id="splitRightSelect"></select>
-              </div>
-
-              <label class="field-label" style="margin-top:4px;" data-i18n="gcFieldSplitRatio">Split ratio</label>
-              <div class="slider-row">
-                <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;"
-                  data-i18n="gcSplitLeft">Left</span>
-                <input type="range" id="splitSlider" min="20" max="80" value="50" step="5">
-                <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;"
-                  data-i18n="gcSplitRight">Right</span>
-                <span class="slider-pct" id="splitPct">50 / 50</span>
-              </div>
-              <p class="field-hint" style="margin-top:6px;" data-i18n="gcSplitDragHint">Drag to set how much screen
-                width each side receives.</p>
-            </div>
-
-            <p class="field-hint" style="margin-top:8px;">
-              <span data-i18n="gcStartupNote">The launcher stays open after apps are launched.</span> <span
-                class="save-status" id="startupSaveStatus" data-i18n="saved">Saved</span>
-            </p>
-
-            <div class="field" style="margin-top:14px;">
-              <label
-                style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
-                <input type="checkbox" id="showDevFeaturesToggle"
-                  style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
-                <span data-i18n="gcShowDevFeatures">Show features in development</span>
-              </label>
-              <p class="field-hint" data-i18n="gcShowDevFeaturesHint">When off, hides beta tools (Phone Remote, Student
-                Input Note, Multiplayer Host).</p>
-            </div>
-
             <div class="field" style="margin-top:14px;">
               <label
                 style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
                 <input type="checkbox" id="scoringMotivatorsToggle"
                   style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
-                <span data-i18n="gcFieldScoringMotivators">Scoring motivators & encouraging tips</span>
+                <span data-i18n="gcFieldScoringMotivators">Scoring motivators &amp; encouraging tips</span>
+                <span class="save-status" id="classroomDefaultsSaveStatus" data-i18n="saved">Saved</span>
               </label>
               <p class="field-hint" data-i18n="gcFieldScoringMotivatorsDesc">Show playful progress milestones, pace estimates, and cheerful messages during test scoring.</p>
             </div>
@@ -237,7 +161,95 @@
           </section>
         </div>
 
-        <!-- Tab pane: Storage & Sync -->
+        <!-- Tab pane: Startup -->
+        <div class="gc-tab-pane" data-pane="startup">
+
+          <!-- ── Startup & Launch ──────────────────────────────── -->
+          <section class="config-section" id="gcSecStartupSection">
+            <h2 data-i18n="gcSecStartup">Startup &amp; Launch</h2>
+            <p class="section-desc" data-i18n="gcSecStartupDesc">Configure which tools open when the app starts and how
+              they are arranged on screen.</p>
+
+            <!-- Layout picker -->
+            <div class="field">
+              <label class="field-label" data-i18n="gcFieldWindowArrangement">Window arrangement</label>
+              <div class="layout-grid" id="layoutGrid">
+                <label class="layout-card" data-layout="separate">
+                  <input type="radio" name="layout" value="separate">
+                  <span class="layout-icon"><img src="../assets/icons/layout.svg" class="btn-icon" alt="" /></span>
+                  <span class="layout-label" data-i18n="gcLayoutSeparate">Separate</span>
+                  <span class="layout-hint" data-i18n="gcLayoutSeparateHint">Each app in its own window</span>
+                </label>
+                <label class="layout-card" data-layout="split">
+                  <input type="radio" name="layout" value="split">
+                  <span class="layout-icon"><img src="../assets/icons/split.svg" class="btn-icon" alt="" /></span>
+                  <span class="layout-label" data-i18n="gcLayoutSplit">Split screen</span>
+                  <span class="layout-hint" data-i18n="gcLayoutSplitHint">Two apps, side by side</span>
+                </label>
+                <label class="layout-card" data-layout="maximize">
+                  <input type="radio" name="layout" value="maximize">
+                  <span class="layout-icon"><img src="../assets/icons/maximize.svg" class="btn-icon" alt="" /></span>
+                  <span class="layout-label" data-i18n="gcLayoutMaximize">Maximized</span>
+                  <span class="layout-hint" data-i18n="gcLayoutMaximizeHint">Each window fills the screen</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Apps to open (separate + maximize modes) -->
+            <div class="field" id="appsField">
+              <label class="field-label" data-i18n="gcFieldAppsToOpen">Apps to open at startup</label>
+              <div class="app-check-grid" id="appsCheckGrid"></div>
+              <p class="field-hint" style="margin-top:8px;" data-i18n="gcAppsHint">Selected apps open automatically when
+                the launcher loads.</p>
+            </div>
+
+            <!-- Split controls (split mode only) -->
+            <div class="split-controls field" id="splitControls">
+              <label class="field-label" data-i18n="gcFieldSplitConfig">Split configuration</label>
+
+              <div class="split-preview">
+                <select id="splitLeftSelect"></select>
+                <span class="split-divider">&lt;-&gt;</span>
+                <select id="splitRightSelect"></select>
+              </div>
+
+              <label class="field-label" style="margin-top:4px;" data-i18n="gcFieldSplitRatio">Split ratio</label>
+              <div class="slider-row">
+                <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;"
+                  data-i18n="gcSplitLeft">Left</span>
+                <input type="range" id="splitSlider" min="20" max="80" value="50" step="5">
+                <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;"
+                  data-i18n="gcSplitRight">Right</span>
+                <span class="slider-pct" id="splitPct">50 / 50</span>
+              </div>
+              <p class="field-hint" style="margin-top:6px;" data-i18n="gcSplitDragHint">Drag to set how much screen
+                width each side receives.</p>
+            </div>
+
+            <p class="field-hint" style="margin-top:8px;">
+              <span data-i18n="gcStartupNote">The launcher stays open after apps are launched.</span> <span
+                class="save-status" id="startupSaveStatus" data-i18n="saved">Saved</span>
+            </p>
+          </section>
+
+          <!-- ── Developer & Beta Features ────────────────────── -->
+          <section class="config-section">
+            <h2 data-i18n="gcSecDevFeatures">Developer &amp; Beta Features</h2>
+            <p class="section-desc" data-i18n="gcSecDevFeaturesDesc">Enable experimental tools and remote sync providers that are still in development.</p>
+            <div class="field">
+              <label
+                style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
+                <input type="checkbox" id="showDevFeaturesToggle"
+                  style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+                <span data-i18n="gcShowDevFeatures">Show features in development</span>
+                <span class="save-status" id="devFeaturesSaveStatus" data-i18n="saved">Saved</span>
+              </label>
+              <p class="field-hint" data-i18n="gcShowDevFeaturesHint">When off, hides beta tools and remote sync features (FTP, Google Drive, WebDAV, Phone Remote, Student Input Note, Multiplayer Host).</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab pane: Data & Backups -->
         <div class="gc-tab-pane" data-pane="storage">
           <!-- ── First-run banner ─────────────────────────────── -->
           <div id="firstRunBanner" class="first-run-banner">
@@ -254,42 +266,6 @@
             <div id="firstRunStatus" class="status"></div>
           </div>
 
-          <!-- ── Data Location ───────────────────────────────── -->
-          <section class="config-section">
-            <h2 data-i18n="whisperModelManagerTitle">Speech Recognition Models (Whisper AI)</h2>
-            <p class="section-desc" data-i18n="whisperModelManagerSubtitle">Select, download and switch between offline speech models.</p>
-            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
-              <div>
-                <strong style="font-size: 0.92rem; color: #111;" data-i18n="whisperEngineTitle">Offline Whisper Speech Engine</strong>
-                <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
-                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-whisper-model" style="font-weight: 700; color: #337a4e;">Whisper Tiny (Quantized)</span>
-                </div>
-              </div>
-              <button type="button" class="btn" id="gcManageWhisperBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                <img src="../assets/icons/gear.svg" style="width: 15px; height: 15px;" alt="" />
-                <span data-i18n="whisperManageModels">Manage Models...</span>
-              </button>
-            </div>
-          </section>
-
-          <!-- ── Offline Small Language Models (SLM) ─────────── -->
-          <section class="config-section">
-            <h2 data-i18n="slmModelManagerTitle">Local Language Models (SLM AI)</h2>
-            <p class="section-desc" data-i18n="slmModelManagerSubtitle">Select, download, and switch between offline language models for Mind Mapping, Text Analysis, and Database Autofill.</p>
-            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
-              <div>
-                <strong style="font-size: 0.92rem; color: #111;" data-i18n="slmEngineTitle">Offline Small Language Model (Board &amp; Database)</strong>
-                <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
-                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-slm-model" data-slm-active-label style="font-weight: 700; color: #337a4e;">Loading…</span>
-                </div>
-              </div>
-              <button type="button" class="btn" id="gcManageSlmBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-                <img src="../assets/icons/brain.svg" style="width: 15px; height: 15px;" alt="" />
-                <span data-i18n="slmManageModels">Manage AI Models...</span>
-              </button>
-            </div>
-          </section>
-
           <section class="config-section">
             <h2 data-i18n="gcSecData">Data Location</h2>
             <p class="section-desc" data-i18n="gcSecDataDesc">The data folder holds all custom content, class groups,
@@ -301,16 +277,6 @@
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
               <button class="btn btn-outline" id="changeDataBtn" data-i18n="gcChangeFolder">Change folder…</button>
               <button class="btn btn-outline" id="resetDataBtn" data-i18n="gcResetDefault">Reset to default</button>
-              <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
-              <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
-              <button class="btn btn-outline" id="openAuditConsoleBtn" type="button" data-i18n="gcOpenAuditConsole">Open Audit Console</button>
-            </div>
-            <div class="field" style="margin-top:12px;">
-              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.86rem;font-weight:700;">
-                <input type="checkbox" id="startAuditOnLaunchToggle" style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
-                <span data-i18n="gcStartAuditOnLaunch">Start Audit Mode on launch</span>
-              </label>
-              <p class="field-hint" data-i18n="gcStartAuditOnLaunchHint">Captures verbose IPC, console, sync, and I/O logs from app startup in the background.</p>
             </div>
             <div class="status" style="margin-top:8px;" id="dataStatus"></div>
 
@@ -386,8 +352,42 @@
             <div id="lastBackupDisplay" style="font-size:0.83rem;color:var(--muted);margin-top:10px;"></div>
 
           </section>
+
+          <section class="config-section">
+            <h2 data-i18n="gcBakManagerTitle">Backup Files</h2>
+            <p class="setting-desc" style="margin-bottom:10px;">
+              <span data-i18n="gcBakManagerBtn">Manage backup files…</span>
+            </p>
+            <button class="btn" type="button" id="openBakManagerBtn" data-i18n="gcBakManagerBtn">Manage backup
+              files…</button>
+          </section>
+
+          <!-- ── Year-End & Term Archiving ────────────────────── -->
+          <section class="config-section">
+            <h2 data-i18n="gcArchiveSectionTitle">Year-End &amp; Term Archiving</h2>
+            <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcArchiveSectionDesc">Archive past lessons, grades, attendance, and session files in one click to prepare a fresh workspace for the new school year.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn" type="button" id="openArchivingWizardBtn" data-i18n="gcArchiveWizardBtn">Open Archiving Wizard…</button>
+            </div>
+          </section>
+
+          <!-- ── Reset App ───────────────────────────────────── -->
+          <section class="config-section" style="border-color:#c00;">
+            <h2 style="color:#c00;">Reset App</h2>
+            <p class="section-desc">Permanently erase selected app data folders. A backup ZIP will be offered first.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn-danger" id="resetAppBtn" type="button">Reset App…</button>
+            </div>
+          </section>
+        </div>
+
+        <!-- Tab pane: Sync -->
+        <div class="gc-tab-pane" data-pane="sync">
           <section class="config-section" id="localSyncSection">
-            <h2 data-i18n="gcSyncLocation">Local Sync</h2>
+            <div class="config-section-header">
+              <h2 data-i18n="gcSyncLocation" style="margin:0;">Local Sync</h2>
+              <button class="btn btn-outline" id="gcSyncWizardBtn" type="button" data-i18n="gcSyncWizBtn">Guided Sync Setup</button>
+            </div>
             <p class="section-desc" style="margin-bottom:4px;" data-i18n="gcSyncDesc">Synchronize the current data
               folder with another saved location.</p>
             <p style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;" data-i18n="gcSyncUserFolderNote">Sync mirrors the contents of your active user database folder (user/).</p>
@@ -448,9 +448,10 @@
               </div>
             </details>
 
-            <!-- ── FTP Sync ─────────────────────────────────── -->
           </section>
-          <section class="config-section" data-dev-only="true">
+
+          <!-- ── FTP Sync ─────────────────────────────────── -->
+          <section class="config-section" id="ftpSyncSection" data-dev-only="true">
             <h2 data-i18n="gcFtpSync">FTP Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcFtpSyncDesc">Upload or download your data
               to/from an FTP or FTPS server.</p>
@@ -524,7 +525,7 @@
 
             <!-- ── Google Drive Sync ─────────────────────────── -->
           </section>
-          <section class="config-section" data-dev-only="true">
+          <section class="config-section" id="gdriveSyncSection" data-dev-only="true">
             <h2 data-i18n="gcDriveSync">Google Drive Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcDriveSyncDesc">Sync your data with Google
               Drive using your own OAuth 2.0 credentials.</p>
@@ -583,7 +584,7 @@
 
             <!-- ── WebDAV Sync ───────────────────────────────── -->
           </section>
-          <section class="config-section" data-dev-only="true">
+          <section class="config-section" id="webdavSyncSection" data-dev-only="true">
             <h2 data-i18n="gcWebdavSync">WebDAV Sync <span class="badge badge-dev" style="font-size:0.72rem;font-weight:600;padding:2px 7px;border-radius:10px;background:rgba(234,179,8,0.15);color:#b45309;border:1px solid rgba(234,179,8,0.4);margin-left:8px;vertical-align:middle;">Dev</span></h2>
             <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcWebdavSyncDesc">Upload or download your
               data via WebDAV — compatible with kDrive, Nextcloud, ownCloud, and others.</p>
@@ -648,30 +649,43 @@
             <div class="status" style="margin-top:8px;" id="webdavStatus"></div>
 
           </section>
-          <!-- ── Year-End & Term Archiving ────────────────────── -->
+        </div>
+
+        <!-- Tab pane: AI Models -->
+        <div class="gc-tab-pane" data-pane="ai">
+          <!-- ── Speech Recognition Models (Whisper AI) ──────── -->
           <section class="config-section">
-            <h2 data-i18n="gcArchiveSectionTitle">Year-End &amp; Term Archiving</h2>
-            <p class="section-desc" style="margin-bottom:10px;" data-i18n="gcArchiveSectionDesc">Archive past lessons, grades, attendance, and session files in one click to prepare a fresh workspace for the new school year.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn" type="button" id="openArchivingWizardBtn" data-i18n="gcArchiveWizardBtn">Open Archiving Wizard…</button>
+            <h2 data-i18n="whisperModelManagerTitle">Speech Recognition Models (Whisper AI)</h2>
+            <p class="section-desc" data-i18n="whisperModelManagerSubtitle">Select, download and switch between offline speech models.</p>
+            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
+              <div>
+                <strong style="font-size: 0.92rem; color: #111;" data-i18n="whisperEngineTitle">Offline Whisper Speech Engine</strong>
+                <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
+                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-whisper-model" style="font-weight: 700; color: #337a4e;">Whisper Tiny (Quantized)</span>
+                </div>
+              </div>
+              <button type="button" class="btn" id="gcManageWhisperBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <img src="../assets/icons/gear.svg" style="width: 15px; height: 15px;" alt="" />
+                <span data-i18n="whisperManageModels">Manage Models...</span>
+              </button>
             </div>
           </section>
 
+          <!-- ── Offline Small Language Models (SLM) ─────────── -->
           <section class="config-section">
-            <h2 data-i18n="gcBakManagerTitle">Backup Files</h2>
-            <p class="setting-desc" style="margin-bottom:10px;">
-              <span data-i18n="gcBakManagerBtn">Manage backup files…</span>
-            </p>
-            <button class="btn" type="button" id="openBakManagerBtn" data-i18n="gcBakManagerBtn">Manage backup
-              files…</button>
-          </section>
-
-          <!-- ── Reset App ───────────────────────────────────── -->
-          <section class="config-section" style="border-color:#c00;">
-            <h2 style="color:#c00;">Reset App</h2>
-            <p class="section-desc">Permanently erase selected app data folders. A backup ZIP will be offered first.</p>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button class="btn-danger" id="resetAppBtn" type="button">Reset App…</button>
+            <h2 data-i18n="slmModelManagerTitle">Local Language Models (SLM AI)</h2>
+            <p class="section-desc" data-i18n="slmModelManagerSubtitle">Select, download, and switch between offline language models for Mind Mapping, Text Analysis, and Database Autofill.</p>
+            <div style="margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #ffffff; border: 2px solid #333333; border-radius: 8px; box-shadow: 2px 2px 0 #555555; padding: 12px 14px;">
+              <div>
+                <strong style="font-size: 0.92rem; color: #111;" data-i18n="slmEngineTitle">Offline Small Language Model (Board &amp; Database)</strong>
+                <div style="font-size: 0.8rem; color: #555; margin-top: 2px;">
+                  <span data-i18n="gcActiveModelLabel">Active Model:</span> <span id="gc-active-slm-model" data-slm-active-label style="font-weight: 700; color: #337a4e;">Loading…</span>
+                </div>
+              </div>
+              <button type="button" class="btn" id="gcManageSlmBtn" style="padding: 7px 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+                <img src="../assets/icons/brain.svg" style="width: 15px; height: 15px;" alt="" />
+                <span data-i18n="slmManageModels">Manage AI Models...</span>
+              </button>
             </div>
           </section>
         </div>
@@ -745,7 +759,7 @@
           </div>
         </div>
 
-        <!-- Tab pane: Remote Server -->
+        <!-- Tab pane: Remote & Diagnostics -->
         <div class="gc-tab-pane" data-pane="remote">
           <!-- ── Remote Classroom Server ──────────────────────── -->
           <section class="config-section">
@@ -768,16 +782,23 @@
               <span class="save-status" id="remoteServerSaveStatus"></span>
             </div>
           </section>
-        </div>
 
-        <!-- Tab pane: App Notes -->
-        <div class="gc-tab-pane" data-pane="notes">
-          <!-- ── Per-app Notes ────────────────────────────────── -->
+          <!-- ── Updates & Diagnostics ────────────────────────── -->
           <section class="config-section">
-            <h2 data-i18n="gcSecPerAppNotes">Per-app Notes</h2>
-            <p class="section-desc" data-i18n="gcSecPerAppNotesDesc">Personal notes for each tool. These are the same
-              notes shown in the launcher card panels.</p>
-            <div class="app-accordion" id="appAccordion"></div>
+            <h2 data-i18n="gcSecDiagnostics">Updates &amp; Diagnostics</h2>
+            <p class="section-desc" data-i18n="gcSecDiagnosticsDesc">Check for application updates, inspect crash logs, or enable background audit logging.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <button class="btn btn-outline" id="checkBtn" data-i18n="gcCheckUpdates">Check for Updates</button>
+              <button class="btn btn-outline" id="openCrashDumpsBtn" type="button" data-i18n="gcOpenCrashDumps">Open Crash Logs</button>
+              <button class="btn btn-outline" id="openAuditConsoleBtn" type="button" data-i18n="gcOpenAuditConsole">Open Audit Console</button>
+            </div>
+            <div class="field" style="margin-top:12px;">
+              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.86rem;font-weight:700;">
+                <input type="checkbox" id="startAuditOnLaunchToggle" style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+                <span data-i18n="gcStartAuditOnLaunch">Start Audit Mode on launch</span>
+              </label>
+              <p class="field-hint" data-i18n="gcStartAuditOnLaunchHint">Captures verbose IPC, console, sync, and I/O logs from app startup in the background.</p>
+            </div>
           </section>
         </div>
       </div>
@@ -1169,8 +1190,9 @@
     var titleStatus = document.getElementById('titleSaveStatus');
 
     titleInput.addEventListener('input', function () {
-      patchLauncherSettings({ appTitle: titleInput.value.trim() });
-      document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
+      var appTitle = titleInput.value.trim();
+      patchLauncherSettings({ appTitle: appTitle });
+      document.title = appTitle ? (appTitle + ': General Config') : 'General Config';
       flashSaved(titleStatus);
     });
 
@@ -1257,19 +1279,21 @@
     }
 
     var showDevFeaturesToggle = document.getElementById('showDevFeaturesToggle');
+    var devFeaturesSaveStatus = document.getElementById('devFeaturesSaveStatus');
     showDevFeaturesToggle.addEventListener('change', function () {
       patchLauncherSettings({ showDevFeatures: !!showDevFeaturesToggle.checked });
       updateDevFeaturesVisibility();
-      flashSaved(startupStatus);
+      flashSaved(devFeaturesSaveStatus || startupStatus);
     });
 
     var scoringMotivatorsToggle = document.getElementById('scoringMotivatorsToggle');
+    var classroomDefaultsSaveStatus = document.getElementById('classroomDefaultsSaveStatus');
     if (scoringMotivatorsToggle) {
       scoringMotivatorsToggle.addEventListener('change', function () {
         try {
           localStorage.setItem('cmt-scoring-motivators-enabled', scoringMotivatorsToggle.checked ? 'true' : 'false');
         } catch(e) {}
-        flashSaved(startupStatus);
+        flashSaved(classroomDefaultsSaveStatus || startupStatus);
       });
     }
 
@@ -3321,52 +3345,6 @@
     function openCreditsModal() { var o = document.getElementById('credits-overlay'); if (o) o.style.display = 'flex'; }
     function closeCreditsModal() { var o = document.getElementById('credits-overlay'); if (o) o.style.display = 'none'; }
 
-    /* ── per-app accordion ─────────────────────────────── */
-    function buildAccordion() {
-      var container = document.getElementById('appAccordion');
-      APPS.forEach(function (app) {
-        var cfg = getCardConfig(app.id);
-        var item = document.createElement('div');
-        item.className = 'acc-item';
-
-        var trigger = document.createElement('button');
-        trigger.className = 'acc-trigger';
-        trigger.innerHTML = '<span>' + app.label + '</span><span class="acc-arrow">▼</span>';
-
-        var body = document.createElement('div');
-        body.className = 'acc-body';
-        var inner = document.createElement('div');
-        inner.className = 'acc-body-inner';
-
-        var lbl = document.createElement('label');
-        lbl.style.cssText = 'display:block;font-size:0.78rem;font-weight:600;margin-bottom:4px;color:var(--muted);';
-        lbl.textContent = typeof t === 'function' ? t('gcNotes') : 'Notes';
-
-        var ta = document.createElement('textarea');
-        ta.style.cssText = 'width:100%;border:1.5px solid #dde1e7;border-radius:5px;padding:7px 10px;font-family:inherit;font-size:0.88rem;resize:vertical;min-height:60px;';
-        ta.placeholder = typeof t === 'function' ? t('gcNotesPlaceholder') : 'Personal notes or reminders…';
-        ta.value = cfg.notes || '';
-        ta.addEventListener('input', function () {
-          var c = getCardConfig(app.id);
-          c.notes = ta.value;
-          saveCardConfig(app.id, c);
-        });
-
-        inner.appendChild(lbl);
-        inner.appendChild(ta);
-        body.appendChild(inner);
-
-        trigger.addEventListener('click', function () {
-          var isOpen = body.classList.toggle('open');
-          trigger.classList.toggle('open', isOpen);
-        });
-
-        item.appendChild(trigger);
-        item.appendChild(body);
-        container.appendChild(item);
-      });
-    }
-
     /* ── init ──────────────────────────────────────────── */
     function setSelectValue(sel, val) {
       var opt = sel.querySelector('option[value="' + val + '"]');
@@ -3415,7 +3393,8 @@
 
       /* title */
       titleInput.value = cfg.appTitle || '';
-      document.title = (titleInput.value.trim() || 'Class Management Tools') + ' — General Config';
+      var appTitle = titleInput.value.trim();
+      document.title = appTitle ? (appTitle + ': General Config') : 'General Config';
 
       /* teacher name */
       if (teacherNameInput) {
@@ -3465,7 +3444,6 @@
       refreshFtpConfig();
       refreshDriveConfig();
       refreshWebdavConfig();
-      buildAccordion();
       refreshRemoteServerConfig();
     }
 
@@ -3547,7 +3525,8 @@
       // Attach click handlers to section headers (h2)
       document.querySelectorAll('.config-section h2').forEach(function (h2) {
         h2.addEventListener('click', function () {
-          h2.parentElement.classList.toggle('collapsed');
+          var sec = h2.closest('.config-section');
+          if (sec) sec.classList.toggle('collapsed');
         });
       });
     }
@@ -3779,8 +3758,9 @@
       var paramTab = urlParams.get('tab');
       var paramSec = urlParams.get('section');
 
-      var activeTab = targetTab || paramTab || (hash === 'sync' || hash === 'storage' ? 'storage' : (hash === 'remote' ? 'remote' : (hash === 'notes' ? 'notes' : null)));
       var activeSec = targetSec || paramSec || (hash === 'sync' ? 'sync' : null);
+      var activeTab = (activeSec === 'sync') ? 'sync' : (targetTab || paramTab || (hash === 'storage' ? 'storage' : (hash === 'startup' ? 'startup' : (hash === 'ai' ? 'ai' : (hash === 'remote' ? 'remote' : null)))));
+      if (activeTab === 'notes') activeTab = 'general';
 
       if (activeTab && typeof gcSetTab === 'function') {
         gcSetTab(activeTab);
@@ -3843,9 +3823,34 @@
     function startGcTutorial() {
       if (typeof Tutorial === 'undefined') return;
       var steps = [
-        { selector: '#appTitleInput', title: t('tutGc1Title'), text: t('tutGc1Text') },
-        { selector: '#layoutGrid', title: t('tutGc2Title'), text: t('tutGc2Text') },
-        { selector: '.gc-sidebar', title: t('tutGc3Title'), text: t('tutGc3Text') }
+        {
+          selector: '#appTitleInput',
+          title: t('tutGc1Title'),
+          text: t('tutGc1Text'),
+          onShow: function () {
+            if (typeof gcSetTab === 'function') gcSetTab('general');
+            var sec = document.getElementById('gcSecIdentitySection');
+            if (sec) sec.classList.remove('collapsed');
+          }
+        },
+        {
+          selector: '#layoutGrid',
+          title: t('tutGc2Title'),
+          text: t('tutGc2Text'),
+          onShow: function () {
+            if (typeof gcSetTab === 'function') gcSetTab('startup');
+            var sec = document.getElementById('gcSecStartupSection');
+            if (sec) sec.classList.remove('collapsed');
+          }
+        },
+        {
+          selector: '.gc-sidebar',
+          title: t('tutGc3Title'),
+          text: t('tutGc3Text'),
+          onShow: function () {
+            if (typeof gcSetTab === 'function') gcSetTab('general');
+          }
+        }
       ].filter(function (s) { return s && s.selector && document.querySelector(s.selector); });
       if (!steps.length) return;
       Tutorial.start(steps, {
@@ -3891,6 +3896,75 @@
         });
       }
       on('openArchivingWizardBtn', function () { if (typeof gcOpenArchivingWizard === 'function') gcOpenArchivingWizard(); });
+      on('gcSyncWizardBtn', function () {
+        if (!window.CmtWizard) return;
+        var tr = function (k, fb) {
+          try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+          return fb;
+        };
+        CmtWizard.open({
+          id: 'gc-sync-wizard',
+          title: tr('gcSyncWizTitle', 'Guided Sync Setup'),
+          icon: 'refresh.svg',
+          width: '680px',
+          initialState: { target: 'local' },
+          steps: [
+            {
+              id: 'where',
+              label: tr('gcSyncWizStep1', '1. Location'),
+              render: function (container, st, ctx) {
+                container.innerHTML =
+                  '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('gcSyncWizHeading', 'Where do you want to sync or back up your data?')) + '</h3>' +
+                  '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('gcSyncWizSub', 'Pick the option you use at school or home.')) + '</p>';
+                ctx.renderCards(container, [
+                  { id: 'local', icon: 'folder.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('gcSyncOptLocal', 'USB Drive or Local / Network Folder'), desc: tr('gcSyncOptLocalDesc', 'Easiest & no account needed. Syncs to a USB stick, OneDrive, or Dropbox folder on your PC.') },
+                  { id: 'gdrive', icon: 'globe.svg', badge: 'Cloud', title: tr('gcSyncOptGdrive', 'Google Drive'), desc: tr('gcSyncOptGdriveDesc', 'Sync directly to your Google Drive account.') },
+                  { id: 'webdav', icon: 'globe.svg', badge: 'WebDAV', title: tr('gcSyncOptWebdav', 'Nextcloud / kDrive'), desc: tr('gcSyncOptWebdavDesc', 'Connect to a school or personal Nextcloud/kDrive server.') },
+                  { id: 'ftp', icon: 'globe.svg', badge: 'FTP', title: tr('gcSyncOptFtp', 'School FTP Server'), desc: tr('gcSyncOptFtpDesc', 'Connect to a traditional FTP/FTPS server.') }
+                ], st.target, function (item) { st.target = item.id; });
+              }
+            },
+            {
+              id: 'guide',
+              label: tr('gcSyncWizStep2', '2. Connect'),
+              render: function (container, st, ctx) {
+                var guideMap = {
+                  local: { title: tr('gcSyncGuideLocalTitle', 'Choose your sync folder'), body: tr('gcSyncGuideLocalBody', 'Click Finish below to pick your USB drive or OneDrive/Dropbox folder. Your data stays safe in a user/ subfolder.') },
+                  gdrive: { title: tr('gcSyncGuideGdriveTitle', 'Google Drive Setup'), body: tr('gcSyncGuideGdriveBody', 'We will scroll you to the Google Drive section where you can enter your credentials and test the connection.') },
+                  webdav: { title: tr('gcSyncGuideWebdavTitle', 'Nextcloud / kDrive Setup'), body: tr('gcSyncGuideWebdavBody', 'We will scroll you to the WebDAV section where you can paste your server URL and app password.') },
+                  ftp: { title: tr('gcSyncGuideFtpTitle', 'FTP Server Setup'), body: tr('gcSyncGuideFtpBody', 'We will scroll you to the FTP section where you can enter your host, port, and login.') }
+                };
+                var g = guideMap[st.target] || guideMap.local;
+                container.innerHTML =
+                  '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(g.title) + '</h3>' +
+                  '<div class="cmt-wiz-summary-box">' + ctx.escHtml(g.body) + '</div>';
+              }
+            }
+          ],
+          finishLabel: tr('wizContinue', 'Continue'),
+          finishIcon: 'arrow-right.svg',
+          onFinish: function (st) {
+            if (typeof gcSetTab === 'function') gcSetTab('sync');
+            if (st.target === 'local') {
+              var localSec = document.getElementById('localSyncSection');
+              if (localSec) {
+                localSec.classList.remove('collapsed');
+                if (typeof localSec.scrollIntoView === 'function') localSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+              var pickBtn = document.getElementById('pickSyncBtn');
+              if (pickBtn) pickBtn.click();
+            } else {
+              var idMap = { gdrive: 'gdriveSyncSection', webdav: 'webdavSyncSection', ftp: 'ftpSyncSection' };
+              var sec = document.getElementById(idMap[st.target]) || document.getElementById('localSyncSection');
+              if (sec) {
+                sec.style.display = '';
+                sec.classList.remove('collapsed');
+                if (typeof sec.scrollIntoView === 'function') sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }
+          }
+        });
+      });
       on('gcCloseCreditsBtn', function () { if (typeof closeCreditsModal === 'function') closeCreditsModal(); });
       var creditsOverlay = document.getElementById('credits-overlay');
       if (creditsOverlay) {

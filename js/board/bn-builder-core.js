@@ -2987,6 +2987,26 @@
               card.appendChild(antRow);
             }
 
+            const etyStr = Array.isArray(e.etymology) ? e.etymology.filter(Boolean).join(' ') : String(e.etymology || '').trim();
+            if (etyStr) {
+              const etyRow = document.createElement('div');
+              etyRow.className = 'con-ncp-entry-row';
+              const etyLabel = document.createElement('span');
+              etyLabel.className = 'con-ncp-entry-label';
+              etyLabel.textContent = 'ETY';
+              const etyVal = document.createElement('span');
+              etyVal.className = 'con-ncp-copyable';
+              etyVal.title = 'Click to copy';
+              etyVal.textContent = etyStr;
+              etyVal.onclick = (ev) => {
+                ev.stopPropagation();
+                conSafeClipboardCopy(etyStr, 'Copied etymology');
+              };
+              etyRow.appendChild(etyLabel);
+              etyRow.appendChild(etyVal);
+              card.appendChild(etyRow);
+            }
+
             entriesContainer.appendChild(card);
           });
         }
@@ -3009,9 +3029,10 @@
         bindLegacy('con-ncp-ant', d0.antonyms);
         bindLegacy('con-ncp-forms', d0.otherForms || d0.otherTerms);
         bindLegacy('con-ncp-ex', d0.exampleSentence || d0.example);
+        bindLegacy('con-ncp-ety', d0.etymology);
 
         // Hide legacy rows since rich cards are rendered above
-        ['ipa', 'fr', 'def', 'syn', 'ant', 'forms', 'ex'].forEach(k => {
+        ['ipa', 'fr', 'def', 'syn', 'ant', 'forms', 'ex', 'ety'].forEach(k => {
           const row = document.getElementById(`con-ncp-${k}-row`);
           if (row) row.style.display = 'none';
         });
@@ -3108,6 +3129,9 @@
           if (e.antonyms && e.antonyms.length) {
             blocks.push(`Antonyms: ${Array.isArray(e.antonyms) ? e.antonyms.join(', ') : e.antonyms}`);
           }
+          if (e.etymology && String(e.etymology).trim()) {
+            blocks.push(`Etymology: ${Array.isArray(e.etymology) ? e.etymology.join(' ') : String(e.etymology).trim()}`);
+          }
         });
 
         const fullText = blocks.join('\n');
@@ -3199,6 +3223,8 @@
         document.getElementById('cwdb-theme').value = themes;
         document.getElementById('cwdb-definition').value = Array.isArray(fill.definition) ? fill.definition.join('\n') : fill.definition || '';
         document.getElementById('cwdb-example').value = fill.exampleSentence || '';
+        const cwdbEtyEl = document.getElementById('cwdb-etymology');
+        if (cwdbEtyEl) cwdbEtyEl.value = Array.isArray(fill.etymology) ? fill.etymology.join(' ') : (fill.etymology || '');
         document.getElementById('cwdb-synonyms').value = (fill.synonyms || []).join(', ');
         document.getElementById('cwdb-antonyms').value = (fill.antonyms || []).join(', ');
 
@@ -3530,6 +3556,7 @@
           definition: (function () { const v = document.getElementById('cwdb-definition').value.trim(); const lines = v.split('\n').map(s => s.trim()).filter(Boolean); return lines.length > 1 ? lines : (lines[0] || ''); })(),
           french: document.getElementById('cwdb-french').value.trim(),
           exampleSentence: document.getElementById('cwdb-example').value.trim(),
+          etymology: (document.getElementById('cwdb-etymology')?.value || '').trim(),
           synonyms: document.getElementById('cwdb-synonyms').value.split(',').map(s => s.trim()).filter(Boolean),
           antonyms: document.getElementById('cwdb-antonyms').value.split(',').map(s => s.trim()).filter(Boolean),
           otherForms: (existing && existing.otherForms) || [],

@@ -141,5 +141,22 @@
   "smPinnedSuccess": "An Seitenleiste angeheftet",
   "smUnpinnedSuccess": "Von Seitenleiste gelöst",
   "smDefaultDocName": "Zeitplan",
-  "smUnknownError": "unbekannter Fehler"
+  "smUnknownError": "unbekannter Fehler",
+  "smExpWizTitle": "Mündlichen Prüfungsplan exportieren",
+  "smExpWizStep1": "1. Format",
+  "smExpWizFmtHeading": "Wie möchten Sie diesen Zeitplan teilen?",
+  "smExpWizFmtSub": "PDF zum Aushängen/Drucken, Word zum Bearbeiten oder Tabelle.",
+  "smExpFmtPdf": "Druckbares PDF",
+  "smExpFmtPdfDesc": "Bereit zum Drucken oder Aushängen an der Klassentür.",
+  "smExpFmtDocx": "Word-Dokument (.docx)",
+  "smExpFmtDocxDesc": "Schülernotizen oder Kopfzeilen in Word bearbeiten.",
+  "smExpFmtHtml": "Webseite (.html)",
+  "smExpFmtHtmlDesc": "Öffnet im Dokumenteditor oder Browser.",
+  "smExpFmtXlsx": "Excel-Tabelle (.xlsx)",
+  "smExpFmtXlsxDesc": "Zeiten in Excel oder LibreOffice Calc öffnen.",
+  "smExpWizStep2": "2. Details",
+  "smExpWizDetHeading": "Was soll sichtbar sein?",
+  "smExpWizDetSub": "Nachteilsausgleichs-Hinweise (SEN) für öffentliche Aushänge ausblenden.",
+  "smWizShowPrep": "Vorbereitungszeiten anzeigen",
+  "smWizShowSen": "SEN-Hinweise anzeigen (für öffentliche Aushänge deaktivieren)"
 });

@@ -455,6 +455,11 @@
       convertAllBtn.addEventListener('click', convertAll);
     }
 
+    var mcWizBtn = document.getElementById('mcGoalWizardBtn');
+    if (mcWizBtn) {
+      mcWizBtn.addEventListener('click', openMediaGoalWizard);
+    }
+
     var clearQueueBtn = document.getElementById('clearQueueBtn');
     if (clearQueueBtn) {
       clearQueueBtn.addEventListener('click', function () {
@@ -462,6 +467,69 @@
         renderQueue();
       });
     }
+  }
+
+  function openMediaGoalWizard() {
+    if (!window.CmtWizard) return;
+    var tr = function (k, fb) {
+      try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+      return fb;
+    };
+    CmtWizard.open({
+      id: 'mc-goal-wizard',
+      title: tr('mcWizTitle', 'Guided Media Conversion'),
+      icon: 'media-converter.svg',
+      width: '680px',
+      initialState: {
+        goal: 'shrink_video',
+        quality: 'medium'
+      },
+      steps: [
+        {
+          id: 'goal',
+          label: tr('mcWizStep1', '1. Goal'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('mcWizGoalHeading', 'What do you want to do with your files?')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('mcWizGoalSub', 'We will pick the right format and settings automatically.')) + '</p>';
+            ctx.renderCards(container, [
+              { id: 'shrink_video', icon: 'media.svg', badge: 'MP4', title: tr('mcWizOptShrink', 'Shrink Video for LMS / Email'), desc: tr('mcWizOptShrinkDesc', 'Universal MP4 video that plays everywhere with smaller file size.') },
+              { id: 'extract_mp3', icon: 'volume.svg', badge: 'MP3', title: tr('mcWizOptMp3', 'Extract Audio (MP3)'), desc: tr('mcWizOptMp3Desc', 'Turn a video or voice memo into a lightweight MP3 listening track.') },
+              { id: 'clean_wav', icon: 'mic.svg', badge: 'WAV', title: tr('mcWizOptWav', 'Uncompressed Audio (WAV)'), desc: tr('mcWizOptWavDesc', 'Best for audio editing or speech transcription.') },
+              { id: 'web_video', icon: 'globe.svg', badge: 'WebM', title: tr('mcWizOptWebm', 'Web-Ready Video (WebM)'), desc: tr('mcWizOptWebmDesc', 'Compact open format for embedding in web pages.') }
+            ], st.goal, function (item) { st.goal = item.id; });
+          }
+        },
+        {
+          id: 'quality',
+          label: tr('mcWizStep2', '2. Size & Quality'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('mcWizQualHeading', 'Choose size vs. quality')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('mcWizQualSub', 'Balanced is recommended for most classroom videos and listening exercises.')) + '</p>';
+            ctx.renderCards(container, [
+              { id: 'low', icon: 'compact.svg', badge: 'Small', title: tr('mcWizQualSmall', 'Smallest File (480p)'), desc: tr('mcWizQualSmallDesc', 'Fastest upload and smallest email attachment.') },
+              { id: 'medium', icon: 'check-circle.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('mcWizQualBal', 'Balanced (720p HD)'), desc: tr('mcWizQualBalDesc', 'Clear classroom quality with reasonable file size.') },
+              { id: 'high', icon: 'sparkles.svg', badge: 'HD', title: tr('mcWizQualHigh', 'High Quality (1080p)'), desc: tr('mcWizQualHighDesc', 'Maximum clarity for big screens and projectors.') }
+            ], st.quality, function (item) { st.quality = item.id; });
+          }
+        }
+      ],
+      finishLabel: _queue.length ? tr('mcWizConvertNow', 'Apply & Convert') : tr('mcWizApplyBtn', 'Apply Settings'),
+      finishIcon: 'check.svg',
+      onFinish: function (st) {
+        var fmtMap = { shrink_video: 'mp4', extract_mp3: 'mp3', clean_wav: 'wav', web_video: 'webm' };
+        var resMap = { low: '480p', medium: '720p', high: '1080p' };
+        var fmtEl = document.getElementById('targetFormat');
+        var resEl = document.getElementById('videoResolution');
+        var qualEl = document.getElementById('videoQuality');
+        if (fmtEl) { fmtEl.value = fmtMap[st.goal] || 'mp4'; fmtEl.dispatchEvent(new Event('change')); }
+        if (resEl) { resEl.value = resMap[st.quality] || '720p'; }
+        if (qualEl) { qualEl.value = st.quality; }
+        syncFormatOptions();
+        if (_queue.length) convertAll();
+      }
+    });
   }
 
   function applyPreset(preset) {

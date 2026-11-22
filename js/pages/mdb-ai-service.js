@@ -37,7 +37,7 @@
       title: 'Vocabulary Word Banks',
       badge: 'Lexicon & Definitions',
       badgeColor: '#5b8fcc',
-      guide: 'Generates rich vocabulary entries with IPA phonetic transcription, CEFR level (A1-C2), pedagogical definitions, illustrative in-context sentences, translations (FR/DE/IT), synonyms, antonyms, and hypernyms.',
+      guide: 'Generates rich vocabulary entries with IPA phonetic transcription, CEFR level (A1-C2), pedagogical definitions, illustrative in-context sentences, etymology, translations (FR/DE/IT), synonyms, antonyms, and hypernyms.',
       topicLabel: 'Vocabulary Topic, Theme, or Seed Words',
       topicPlaceholder: 'e.g., Airport Travel & Security, Climate Change, Renewable Energy...',
       textLabel: 'Source Reading Passage or Transcript',
@@ -53,7 +53,7 @@
         { label: 'Debate & Opinion', val: 'Persuasion, Rhetoric & Debate Vocab' }
       ],
       schemaInstructions: [
-        'Each record MUST include: "word", "ipa", "partOfSpeech", "level", "theme", "french", "english", "german", "italian", "definition", "exampleSentence", "synonyms", "antonyms", "otherForms", "hypernym", "hyponym".',
+        'Each record MUST include: "word", "ipa", "partOfSpeech", "level", "theme", "french", "english", "german", "italian", "definition", "exampleSentence", "etymology", "synonyms", "antonyms", "otherForms", "hypernym", "hyponym".',
         '"exampleSentence" must be a natural sentence illustrating the word without using the word itself.'
       ]
     },
@@ -745,6 +745,9 @@
       } else if (key === 'exampleSentence') {
         fieldInstructions.push('"' + key + '": Write one natural illustrative sentence using "' + (primaryVal || 'the term') + '"');
         keySpecs.push('"' + key + '" (' + (typeDesc === 'array' ? 'array of strings' : 'string') + ')');
+      } else if (key === 'etymology') {
+        fieldInstructions.push('"' + key + '": Write a concise 1-sentence etymology (word origin)' + (primaryVal ? (' of "' + primaryVal + '"') : ''));
+        keySpecs.push('"' + key + '" (string)');
       } else if (typeDesc === 'array') {
         fieldInstructions.push('"' + key + '": List of strings' + extra);
         keySpecs.push('"' + key + '" (array of strings)');
@@ -815,6 +818,8 @@
       userPrompt = contextBlock + 'Write a concise 1-sentence pedagogical definition of ' + itemLabel + '.';
     } else if (fieldKey === 'exampleSentence') {
       userPrompt = contextBlock + 'Write one natural illustrative sentence using ' + itemLabel + '.';
+    } else if (fieldKey === 'etymology') {
+      userPrompt = contextBlock + 'Write a concise 1-sentence etymology (word origin) of ' + itemLabel + '.';
     } else if (fieldKey === 'level' || fieldKey === 'cefr') {
       systemPrompt = 'Reply with ONLY one CEFR level code: A1, A2, B1, B2, C1, or C2.';
       userPrompt = contextBlock + 'What is the CEFR level of ' + itemLabel + '?';
@@ -838,8 +843,8 @@
   function _cleanPlainFieldOutput(rawText, fieldKey) {
     if (!rawText) return '';
     var escapedKey = fieldKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    var labelOnlyRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|level|cefr|part\\s*of\\s*speech)\\s*:?$', 'i');
-    var labelPrefixRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|level|cefr|part\\s*of\\s*speech)\\s*:\\s*', 'i');
+    var labelOnlyRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|etymology|level|cefr|part\\s*of\\s*speech)\\s*:?$', 'i');
+    var labelPrefixRe = new RegExp('^(?:' + escapedKey + '|ipa|french|german|italian|definition|sentence|etymology|level|cefr|part\\s*of\\s*speech)\\s*:\\s*', 'i');
 
     var lines = String(rawText).split(/\r?\n/).map(function (l) { return l.trim(); }).filter(function (l) {
       return l && !labelOnlyRe.test(l);
@@ -1665,6 +1670,7 @@
         '    "theme": "' + (promptText || 'Topic') + '",',
         '    "definition": "A gentle feeling of fondness or liking.",',
         '    "exampleSentence": "They showed great tenderness and warmth toward each other.",',
+        '    "etymology": "From Latin affectio (disposition, state of mind), from afficere.",',
         '    "french": "affection",',
         '    "english": "affection",',
         '    "german": "Zuneigung",',

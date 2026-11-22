@@ -819,6 +819,67 @@
       };
     }
 
+    function quizOpenHostWizard() {
+      if (!window.CmtWizard) return;
+      var tr = function (k, fb) {
+        try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+        return fb;
+      };
+      var srvSel = document.getElementById('quiz-mp-server');
+      var sortSel = document.getElementById('quiz-sort-mode');
+      CmtWizard.open({
+        id: 'lt-host-wizard',
+        title: tr('ltHostWizTitle', 'Host Live Quiz'),
+        icon: 'play.svg',
+        width: '680px',
+        initialState: {
+          server: (srvSel && srvSel.value) || 'local',
+          sort: (sortSel && sortSel.value) || 'random'
+        },
+        steps: [
+          {
+            id: 'network',
+            label: tr('ltHostWizStep1', '1. Connection'),
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ltHostWizNetHeading', 'How will students join?')) + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ltHostWizNetSub', 'Use Classroom Wi-Fi when everyone is in the same room.')) + '</p>';
+              ctx.renderCards(container, [
+                { id: 'local', icon: 'wifi.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('ltHostOptLocal', 'Classroom Wi-Fi (Local)'), desc: tr('ltHostOptLocalDesc', 'Students scan a QR code on the same Wi-Fi network.') },
+                { id: 'external', icon: 'globe.svg', badge: 'Web', title: tr('ltHostOptExt', 'External Web Server'), desc: tr('ltHostOptExtDesc', 'For remote classes or restricted school Wi-Fi.') }
+              ], st.server, function (item) { st.server = item.id; });
+            }
+          },
+          {
+            id: 'order',
+            label: tr('ltHostWizStep2', '2. Questions'),
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ltHostWizOrderHeading', 'Question order')) + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ltHostWizOrderSub', 'Choose whether questions are shuffled or shown in order.')) + '</p>';
+              ctx.renderCards(container, [
+                { id: 'random', icon: 'dice.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('ltHostOptRandom', 'Shuffled Order'), desc: tr('ltHostOptRandomDesc', 'Picks questions in a random order.') },
+                { id: 'sequential', icon: 'arrow-right.svg', badge: '1, 2, 3', title: tr('ltHostOptSeq', 'In Order'), desc: tr('ltHostOptSeqDesc', 'Follows the list from top to bottom.') }
+              ], st.sort, function (item) { st.sort = item.id; });
+            }
+          }
+        ],
+        finishLabel: tr('ltHostWizStartBtn', 'Start Lobby & Connect'),
+        finishIcon: 'play.svg',
+        onFinish: function (st) {
+          if (srvSel) { srvSel.value = st.server; srvSel.dispatchEvent(new Event('change')); }
+          if (sortSel) { sortSel.value = st.sort; sortSel.dispatchEvent(new Event('change')); }
+          var connBtn = document.getElementById('quiz-mp-connect-btn');
+          if (connBtn) connBtn.click();
+        }
+      });
+    }
+
+    (function () {
+      var wb = document.getElementById('quiz-mp-wizard-btn');
+      if (wb) wb.addEventListener('click', quizOpenHostWizard);
+    })();
+
     function quizApplyModeUi() {
       quizApplyDevFeatureVisibility();
       const hostPanel = document.getElementById('quiz-mp-host-panel');

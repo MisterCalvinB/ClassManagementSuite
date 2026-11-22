@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
+  <link rel="stylesheet" href="../css/wizard.css">
   <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="../css/tag-link-modal.css">
   <link rel="stylesheet" href="../css/universal-importer.css">
@@ -16,6 +17,7 @@
   <link rel="stylesheet" href="../css/board.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/wizard.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dom-sync.js"></script>
@@ -71,6 +73,7 @@
   <script src="../js/board/board-learning-tabs.js"></script>
   <script src="../js/board/board-db-tools.js"></script>
   <script src="../js/board/board-ai.js"></script>
+  <script src="../js/board/board-wizards.js"></script>
 </head>
 <body data-neo-hover-all="1">
   <nav id="app-nav">
@@ -681,6 +684,7 @@
           <label class="pdf-field-check"><input type="checkbox" id="cpf-definition" checked> Definition</label>
           <label class="pdf-field-check"><input type="checkbox" id="cpf-synonyms"> Synonyms</label>
           <label class="pdf-field-check"><input type="checkbox" id="cpf-antonyms"> Antonyms</label>
+          <label class="pdf-field-check"><input type="checkbox" id="cpf-etymology"> Etymology</label>
         </div>
       </div>
       <div class="pdf-picker-footer">
@@ -1094,6 +1098,8 @@
           data-hover-help="Add Antonyms"><img src="../assets/icons/ant.svg" class="btn-icon" alt="" /></button>
         <button class="con-ctx-icon-btn" id="con-fmt-def" data-bev-165="1"
           data-hover-help="Add definition node">DEF</button>
+        <button class="con-ctx-icon-btn" id="con-fmt-ety"
+          data-hover-help="Add etymology node(s)" data-i18n-help="conCtxAddEtymologyHelp">ETY</button>
         <button class="con-ctx-icon-btn" id="con-fmt-trans" data-bev-166="1"
           data-hover-help="Add French translation node(s)">FR</button>
         <button class="con-ctx-icon-btn" id="con-fmt-ipa" data-bev-167="1"
@@ -1517,6 +1523,10 @@
       <div class="wn-sp-wordmeta-row" id="con-ncp-ex-row" style="display:none;">
         <span class="wn-sp-wordmeta-k">EX</span>
         <span id="con-ncp-ex" class="wn-sp-copyable" data-hover-help="Click to copy example"></span>
+      </div>
+      <div class="wn-sp-wordmeta-row" id="con-ncp-ety-row" style="display:none;">
+        <span class="wn-sp-wordmeta-k">ETY</span>
+        <span id="con-ncp-ety" class="wn-sp-copyable" data-hover-help="Click to copy etymology"></span>
       </div>
     </div>
     <div class="con-ncp-footer">
@@ -2633,6 +2643,18 @@
         <div class="det-edit-group">
           <div class="det-field-label">⚡ Antonyms (comma-separated)</div>
           <input id="det-edit-ant" class="det-edit-input" type="text" placeholder="e.g. cowardly, timid">
+        </div>
+
+        <!-- Etymology (view + edit) -->
+        <div id="det-ety-row" style="display:none;width:100%;margin-top:10px;text-align:left;">
+          <div class="det-view"
+            style="font-size:0.65rem;font-weight:900;text-transform:uppercase;letter-spacing:1.5px;color:rgba(255,255,255,0.45);margin-bottom:4px;">
+            Etymology</div>
+          <div id="det-ety" class="det-view det-hoverable" style="font-size:0.86rem;line-height:1.45;color:rgba(255,255,255,0.85);"></div>
+        </div>
+        <div class="det-edit-group">
+          <div class="det-field-label">Etymology</div>
+          <textarea id="det-edit-ety" class="det-edit-input" placeholder="e.g. From Latin..."></textarea>
         </div>
       </div>
 
@@ -5175,6 +5197,11 @@
           <label data-i18n="conAddWordExample">Example Sentence</label>
           <textarea id="cwdb-example" placeholder="e.g. The beauty of cherry blossoms is ephemeral."
             data-i18n-placeholder="conAddWordExamplePlaceholder"></textarea>
+        </div>
+        <div class="cwdb-field">
+          <label data-i18n="conAddWordEtymology">Etymology</label>
+          <textarea id="cwdb-etymology" placeholder="e.g. From Greek ephemeros (lasting only a day)."
+            data-i18n-placeholder="conAddWordEtymologyPlaceholder"></textarea>
         </div>
         <div class="cwdb-grid-2">
           <div class="cwdb-field">

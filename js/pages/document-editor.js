@@ -127,6 +127,194 @@ function mpInsertTagAtCursor(tag) {
   mdEditor.focus();
 }
 
+async function mpOpenMailmergeWizard(startStep) {
+  await mpInit();
+  const tr = (k, fb) => {
+    try { if (window.i18n && i18n.t) { const v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+    return fb;
+  };
+  const classIds = Object.keys(mpState.classesMeta || {});
+  const initialClass = mpState.connectedClassId || classIds[0] || '';
+
+  CmtWizard.open({
+    id: 'de-mailmerge-wizard',
+    title: tr('deMpWizTitle', 'Personalized Class Handouts (Mail-Merge)'),
+    icon: 'users.svg',
+    width: '740px',
+    initialStep: startStep || 0,
+    initialState: {
+      classId: initialClass,
+      previewIdx: 0,
+      format: currentDocType === 'typ' ? 'pdf' : 'pdf',
+      mode: 'combined'
+    },
+    quickModeToggle: {
+      label: tr('wizQuickAdvanced', 'Quick / Advanced Modals'),
+      icon: 'settings.svg',
+      onClick: function (w) {
+        w.close();
+        mpOpenExportModal();
+      }
+    },
+    steps: [
+      {
+        id: 'class',
+        label: tr('deMpWizStep1', '1. Pick Class'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('deMpWizClassHeading', 'Which class is this document for?')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizClassSub', 'Each student in the selected class can receive their own personalized copy.')) + '</p>';
+          const sec = document.createElement('div');
+          sec.className = 'cmt-wiz-section';
+          sec.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(tr('deMpClassLabel', 'Class Roster')) + '</label>';
+          const sel = document.createElement('select');
+          sel.className = 'cmt-wiz-select';
+          classIds.forEach(cid => {
+            const c = mpState.classesMeta[cid];
+            const opt = document.createElement('option');
+            opt.value = cid;
+            const count = Array.isArray(c.students) ? c.students.length : 0;
+            opt.textContent = (c.name || cid) + ' (' + count + ' students)';
+            if (cid === st.classId) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          const previewList = document.createElement('div');
+          previewList.style.cssText = 'margin-top:10px;max-height:130px;overflow-y:auto;font-size:0.82rem;color:#475569;';
+          function renderStudents() {
+            const c = mpState.classesMeta[st.classId];
+            const raw = c && Array.isArray(c.students) ? c.students : [];
+            if (!raw.length) { previewList.textContent = tr('deMpNoStudents', 'No students in this class.'); return; }
+            const norm = raw.slice(0, 8).map((s, i) => MailpostingService.normalizeStudent(s, i, mpState.studentRoster));
+            previewList.innerHTML = norm.map((s, i) => '<div>' + (i + 1) + '. <strong>' + ctx.escHtml(s.fullName) + '</strong></div>').join('') +
+              (raw.length > 8 ? '<div style="margin-top:4px;font-style:italic;">+ ' + (raw.length - 8) + ' more...</div>' : '');
+          }
+          sel.addEventListener('change', () => {
+            st.classId = sel.value;
+            mpConnectClass(st.classId);
+            renderStudents();
+          });
+          if (st.classId) mpConnectClass(st.classId);
+          sec.appendChild(sel);
+          sec.appendChild(previewList);
+          container.appendChild(sec);
+          renderStudents();
+        },
+        validate: function (st) {
+          const c = mpState.classesMeta[st.classId];
+          if (!c || !Array.isArray(c.students) || !c.students.length) {
+            return tr('deMpErrNoClass', 'Please choose a class with at least one student.');
+          }
+          return true;
+        }
+      },
+      {
+        id: 'fields',
+        label: tr('deMpWizStep2', '2. Insert Fields'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('deMpWizFieldsHeading', 'Insert Student Placeholders')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizFieldsSub', 'Click any field below to insert it at your cursor in the document, or click Next if your template is already ready.')) + '</p>';
+          const wrap = document.createElement('div');
+          wrap.className = 'cmt-wiz-section';
+          wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
+          (MailpostingService.AVAILABLE_TAGS || []).forEach(tagObj => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'cmt-wiz-btn cmt-wiz-btn-subtle';
+            btn.innerHTML = ctx.iconHtml('plus.svg') + ' <span>' + ctx.escHtml(tagObj.label) + '</span>';
+            btn.addEventListener('click', () => {
+              mpInsertTagAtCursor(tagObj.tag);
+              if (typeof showToast === 'function') showToast('Inserted ' + tagObj.label);
+            });
+            wrap.appendChild(btn);
+          });
+          container.appendChild(wrap);
+        }
+      },
+      {
+        id: 'preview',
+        label: tr('deMpWizStep3', '3. Preview'),
+        render: function (container, st, ctx) {
+          const c = mpState.classesMeta[st.classId];
+          const raw = (c && Array.isArray(c.students)) ? c.students : [];
+          const students = raw.map((s, i) => MailpostingService.normalizeStudent(s, i, mpState.studentRoster));
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('deMpWizPreviewHeading', 'Preview Personalized Output')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizPreviewSub', 'Check how placeholders look when filled in for a real student.')) + '</p>';
+          const sec = document.createElement('div');
+          sec.className = 'cmt-wiz-section';
+          const sel = document.createElement('select');
+          sel.className = 'cmt-wiz-select';
+          students.forEach((s, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = s.fullName;
+            if (idx === st.previewIdx) opt.selected = true;
+            sel.appendChild(opt);
+          });
+          const outBox = document.createElement('pre');
+          outBox.style.cssText = 'margin:10px 0 0;padding:10px;background:#fff;border:1.5px solid #333;border-radius:6px;max-height:180px;overflow:auto;white-space:pre-wrap;font-family:inherit;font-size:0.82rem;';
+          function updatePreview() {
+            const stu = students[st.previewIdx] || students[0];
+            const tpl = mdEditor ? mdEditor.getValue() : '';
+            const merged = (window.MailpostingService && typeof MailpostingService.mergeTemplate === 'function')
+              ? MailpostingService.mergeTemplate(tpl, stu)
+              : tpl;
+            outBox.textContent = merged.slice(0, 1200) + (merged.length > 1200 ? '\n...' : '');
+          }
+          sel.addEventListener('change', () => {
+            st.previewIdx = parseInt(sel.value, 10) || 0;
+            updatePreview();
+          });
+          sec.appendChild(sel);
+          sec.appendChild(outBox);
+          container.appendChild(sec);
+          updatePreview();
+        }
+      },
+      {
+        id: 'export',
+        label: tr('deMpWizStep4', '4. Export'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('deMpWizExportHeading', 'Export Personalized Copies')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizExportSub', 'Choose the file format and whether to combine all students into one file or separate files.')) + '</p>';
+          const sec = document.createElement('div');
+          sec.className = 'cmt-wiz-section';
+          sec.innerHTML =
+            '<label class="cmt-wiz-label">' + ctx.escHtml(tr('deMpFormatLabel', 'File Format')) + '</label>' +
+            '<select class="cmt-wiz-select" id="de-wiz-mp-fmt" style="margin-bottom:12px;">' +
+              '<option value="pdf">PDF (Print Ready)</option>' +
+              '<option value="docx">Word Document (.docx)</option>' +
+              '<option value="html">Webpage (.html)</option>' +
+              '<option value="md">Markdown (.md)</option>' +
+            '</select>' +
+            '<label class="cmt-wiz-label">' + ctx.escHtml(tr('deMpModeLabel', 'Output Mode')) + '</label>';
+          const fmtSel = sec.querySelector('#de-wiz-mp-fmt');
+          fmtSel.value = st.format;
+          fmtSel.addEventListener('change', () => { st.format = fmtSel.value; });
+          container.appendChild(sec);
+          ctx.renderCards(container, [
+            { id: 'combined', icon: 'file-text.svg', badge: '1 File', title: tr('deMpModeCombined', 'One Combined Document'), desc: tr('deMpModeCombinedDesc', 'All students in one file with page breaks, ideal for fast printing.') },
+            { id: 'separate', icon: 'folder.svg', badge: 'Per Student', title: tr('deMpModeSeparate', 'Separate File per Student'), desc: tr('deMpModeSeparateDesc', 'Creates one named file per student, ideal for emailing or LMS.') }
+          ], st.mode, function (item) { st.mode = item.id; });
+        }
+      }
+    ],
+    finishLabel: tr('btnExport', 'Export'),
+    finishIcon: 'export.svg',
+    onFinish: function (st) {
+      const classSel = document.getElementById('mp-export-class-select');
+      const fmtSel = document.getElementById('mp-export-format');
+      const modeRadio = document.querySelector('input[name="mp-export-mode"][value="' + st.mode + '"]');
+      if (classSel) classSel.value = st.classId;
+      if (fmtSel) fmtSel.value = st.format;
+      if (modeRadio) modeRadio.checked = true;
+      mpExecuteBatchExport();
+    }
+  });
+}
+
 async function mpOpenConnectModal() {
   await mpInit();
   showModal('mp-connect-modal');
@@ -660,15 +848,15 @@ window.addEventListener('DOMContentLoaded', function () {
 
   // Mailposting event listeners
   const mpConnectBtn = document.getElementById('btn-mp-connect');
-  if (mpConnectBtn) mpConnectBtn.addEventListener('click', mpOpenConnectModal);
+  if (mpConnectBtn) mpConnectBtn.addEventListener('click', (e) => (window.CmtWizard && !e.shiftKey) ? mpOpenMailmergeWizard(0) : mpOpenConnectModal());
   const mpInsertFieldBtn = document.getElementById('btn-mp-insert-field');
   if (mpInsertFieldBtn) mpInsertFieldBtn.addEventListener('click', mpOpenFieldPickerModal);
   const mpTogglePrevBtn = document.getElementById('btn-mp-toggle-preview');
   if (mpTogglePrevBtn) mpTogglePrevBtn.addEventListener('click', () => mpTogglePreview());
   const mpBatchExpBtn = document.getElementById('btn-mp-batch-export');
-  if (mpBatchExpBtn) mpBatchExpBtn.addEventListener('click', mpOpenExportModal);
+  if (mpBatchExpBtn) mpBatchExpBtn.addEventListener('click', (e) => (window.CmtWizard && !e.shiftKey) ? mpOpenMailmergeWizard(3) : mpOpenExportModal());
   const expBatchMpBtn = document.getElementById('btn-export-batch-mp');
-  if (expBatchMpBtn) expBatchMpBtn.addEventListener('click', mpOpenExportModal);
+  if (expBatchMpBtn) expBatchMpBtn.addEventListener('click', (e) => (window.CmtWizard && !e.shiftKey) ? mpOpenMailmergeWizard(0) : mpOpenExportModal());
   document.getElementById('mp-connect-close').addEventListener('click', () => hideModal('mp-connect-modal'));
   document.getElementById('btn-mp-connect-cancel').addEventListener('click', () => hideModal('mp-connect-modal'));
   document.getElementById('btn-mp-connect-confirm').addEventListener('click', function () {

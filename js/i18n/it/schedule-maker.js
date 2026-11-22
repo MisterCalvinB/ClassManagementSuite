@@ -141,5 +141,22 @@
   "smPinnedSuccess": "Fissato nella barra laterale",
   "smUnpinnedSuccess": "Rimosso dalla barra laterale",
   "smDefaultDocName": "Orario",
-  "smUnknownError": "errore sconosciuto"
+  "smUnknownError": "errore sconosciuto",
+  "smExpWizTitle": "Esporta calendario esami orali",
+  "smExpWizStep1": "1. Formato",
+  "smExpWizFmtHeading": "Come vuoi condividere questo calendario?",
+  "smExpWizFmtSub": "PDF per stampare/affiggere, Word per modificare o Foglio di calcolo.",
+  "smExpFmtPdf": "PDF stampabile",
+  "smExpFmtPdfDesc": "Pronto per la stampa o per essere affisso fuori dall'aula.",
+  "smExpFmtDocx": "Documento Word (.docx)",
+  "smExpFmtDocxDesc": "Modifica note o intestazioni in Word.",
+  "smExpFmtHtml": "Pagina web (.html)",
+  "smExpFmtHtmlDesc": "Si apre nell'Editor Documenti o nel browser.",
+  "smExpFmtXlsx": "Foglio Excel (.xlsx)",
+  "smExpFmtXlsxDesc": "Apri gli orari in Excel o LibreOffice Calc.",
+  "smExpWizStep2": "2. Dettagli",
+  "smExpWizDetHeading": "Cosa deve essere visibile?",
+  "smExpWizDetSub": "Nascondi gli indicatori BES/DSA (SEN) se esponi il foglio in pubblico.",
+  "smWizShowPrep": "Mostra orari di inizio preparazione",
+  "smWizShowSen": "Mostra badge adattamenti (disattiva per fogli pubblici)"
 });

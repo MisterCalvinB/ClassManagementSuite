@@ -1234,17 +1234,37 @@
         var linkId = entryId ? entryId : plannerBoardLinkId({ classId: classId, date: date, time: time }, null);
         if (!linkId || !changedLinkIds.has(linkId)) return;
 
-        var existingBadge = cell.querySelector('.board-session-badge');
+        var badgeHost = cell.querySelector('.at-badges-row') || cell;
+        var existingBadge = badgeHost.querySelector('.board-session-badge');
         var sessions = boardSessionsByEntryId[linkId];
         if (sessions && sessions.length) {
           var newBadge = _plannerCreateBoardBadge(linkId, sessions);
           if (existingBadge) {
-            cell.replaceChild(newBadge, existingBadge);
+            badgeHost.replaceChild(newBadge, existingBadge);
           } else {
-            cell.appendChild(newBadge);
+            badgeHost.appendChild(newBadge);
           }
         } else if (existingBadge) {
           existingBadge.remove();
+        }
+        var cuesEl = cell.querySelector('.at-cues');
+        if (cuesEl) {
+          var existingCue = cuesEl.querySelector('.at-cue-board');
+          if (sessions && sessions.length) {
+            if (!existingCue) {
+              existingCue = document.createElement('span');
+              existingCue.className = 'at-cue at-cue-board';
+              existingCue.setAttribute('data-pl-action', 'open-board');
+              existingCue.setAttribute('data-pl-linkid', linkId);
+              var tagCue = cuesEl.querySelector('.at-cue-tag');
+              if (tagCue) cuesEl.insertBefore(existingCue, tagCue);
+              else cuesEl.appendChild(existingCue);
+            }
+            existingCue.title = t('pl_boardLinked');
+            existingCue.textContent = 'B' + (sessions.length > 1 ? sessions.length : '');
+          } else if (existingCue) {
+            existingCue.remove();
+          }
         }
       });
     }
@@ -1299,20 +1319,44 @@
         var affectsThis = (entryId && planSet.has(entryId)) || slotSet.has(slotKey) || (entry && entry.lessonPlanId && planSet.has(entry.lessonPlanId));
         if (!affectsThis && !planSet.has('__all__')) return;
 
-        var existingBadge = cell.querySelector('.lesson-plan-badge');
+        var badgeHost = cell.querySelector('.at-badges-row') || cell;
+        var existingBadge = badgeHost.querySelector('.lesson-plan-badge');
         var lpLink = plannerLessonPlanForSlot({ classId: classId, date: date, time: time }, entry);
         if (lpLink && lpLink.plan) {
           var topic = entry && entry.topic ? entry.topic : '';
           var newBadge = _plannerCreateLessonPlanBadge(lpLink.linkId, lpLink.plan, classId, date, entryId, topic);
           if (existingBadge) {
-            cell.replaceChild(newBadge, existingBadge);
+            badgeHost.replaceChild(newBadge, existingBadge);
           } else {
-            var boardBadge = cell.querySelector('.board-session-badge');
-            if (boardBadge) cell.insertBefore(newBadge, boardBadge);
-            else cell.appendChild(newBadge);
+            var boardBadge = badgeHost.querySelector('.board-session-badge');
+            if (boardBadge) badgeHost.insertBefore(newBadge, boardBadge);
+            else badgeHost.appendChild(newBadge);
           }
         } else if (existingBadge) {
           existingBadge.remove();
+        }
+        var cuesEl = cell.querySelector('.at-cues');
+        if (cuesEl) {
+          var existingCue = cuesEl.querySelector('.at-cue-lp');
+          if (lpLink && lpLink.plan) {
+            if (!existingCue) {
+              existingCue = document.createElement('span');
+              existingCue.className = 'at-cue at-cue-lp';
+              existingCue.setAttribute('data-pl-action', 'open-lp');
+              existingCue.textContent = 'LP';
+              var refCue = cuesEl.querySelector('.at-cue-board, .at-cue-tag');
+              if (refCue) cuesEl.insertBefore(existingCue, refCue);
+              else cuesEl.appendChild(existingCue);
+            }
+            existingCue.setAttribute('data-pl-plan', lpLink.plan.id || '');
+            existingCue.setAttribute('data-pl-class', classId || '');
+            existingCue.setAttribute('data-pl-date', date || '');
+            existingCue.setAttribute('data-pl-entry', entryId || '');
+            existingCue.setAttribute('data-pl-topic', (entry && entry.topic) || '');
+            existingCue.title = t('pl_lessonPlanLinked') + ': ' + (lpLink.plan.title || 'Untitled');
+          } else if (existingCue) {
+            existingCue.remove();
+          }
         }
       });
     }
@@ -1392,7 +1436,8 @@
         var entryId = cell.getAttribute('data-entry-id');
         if (!entryId || (!idSet.has('__all__') && idSet.size && !idSet.has(entryId))) return;
         var entry = entries.find(function (e) { return e && e.id === entryId; });
-        var existingBadge = cell.querySelector('.gs-badge');
+        var badgeHost = cell.querySelector('.at-badges-row') || cell;
+        var existingBadge = badgeHost.querySelector('.gs-badge');
         var linked = isGradeSheetLinked(entry);
         if (linked) {
           if (!existingBadge) {
@@ -1401,14 +1446,33 @@
             badge.title = t('pl_gsLinked');
             badge.textContent = 'GS';
             badge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
-            var refEl = cell.querySelector('.lesson-plan-badge, .board-session-badge');
-            if (refEl) cell.insertBefore(badge, refEl);
-            else cell.appendChild(badge);
+            var refEl = badgeHost.querySelector('.lesson-plan-badge, .board-session-badge');
+            if (refEl) badgeHost.insertBefore(badge, refEl);
+            else badgeHost.appendChild(badge);
           } else {
             existingBadge.onclick = function (e) { e.stopPropagation(); openLinkedGradeSheet(entryId); };
           }
         } else if (existingBadge) {
           existingBadge.remove();
+        }
+        var cuesEl = cell.querySelector('.at-cues');
+        if (cuesEl) {
+          var existingCue = cuesEl.querySelector('.at-cue-gs');
+          if (linked) {
+            if (!existingCue) {
+              existingCue = document.createElement('span');
+              existingCue.className = 'at-cue at-cue-gs';
+              existingCue.setAttribute('data-pl-action', 'open-gs');
+              existingCue.setAttribute('data-pl-entry', entryId);
+              existingCue.title = t('pl_gsLinked');
+              existingCue.textContent = 'GS';
+              var refCue = cuesEl.querySelector('.at-cue-lp, .at-cue-board, .at-cue-tag');
+              if (refCue) cuesEl.insertBefore(existingCue, refCue);
+              else cuesEl.appendChild(existingCue);
+            }
+          } else if (existingCue) {
+            existingCue.remove();
+          }
         }
       });
     }
@@ -2050,16 +2114,35 @@
         var entry = entries.find(function (e) { return e && e.id === entryId; });
         if (!entry) return;
 
-        var existingWrap = cell.querySelector('.planner-badges-wrap');
+        var badgeHost = cell.querySelector('.at-badges-row') || cell;
+        var existingWrap = badgeHost.querySelector('.planner-badges-wrap');
         var newHtml = buildPlannerEntryLinkBadgesHtml(entry);
         if (newHtml) {
           if (existingWrap) {
             existingWrap.outerHTML = newHtml;
           } else {
-            cell.insertAdjacentHTML('beforeend', newHtml);
+            badgeHost.insertAdjacentHTML('beforeend', newHtml);
           }
         } else if (existingWrap) {
           existingWrap.remove();
+        }
+        var cuesEl = cell.querySelector('.at-cues');
+        if (cuesEl) {
+          var entryTags = LinksService.getTagsForSync('cmt:planner:' + entryId) || [];
+          var existingCue = cuesEl.querySelector('.at-cue-tag');
+          if (entryTags.length) {
+            if (!existingCue) {
+              existingCue = document.createElement('span');
+              existingCue.className = 'at-cue at-cue-tag';
+              existingCue.setAttribute('data-pl-action', 'open-entry-links');
+              existingCue.setAttribute('data-pl-entry', entryId);
+              cuesEl.appendChild(existingCue);
+            }
+            existingCue.title = entryTags.join(', ');
+            existingCue.textContent = '#' + entryTags.length;
+          } else if (existingCue) {
+            existingCue.remove();
+          }
         }
       });
     }
@@ -2444,6 +2527,8 @@
     }
 
     function updateCalNavBar(activeSem) {
+      var mainEl = document.getElementById('main');
+      if (mainEl) mainEl.classList.toggle('cal-fit-view', viewMode !== 'list');
       var bar = document.getElementById('cal-nav-bar');
       if (!bar) return;
       if (viewMode === 'list') {
@@ -2511,6 +2596,19 @@
             timeEnd: target.getAttribute('data-timeend') || ''
           });
         });
+      }
+
+      if (!el._calFitResizeObserver && typeof ResizeObserver === 'function') {
+        var _calFitRaf = 0;
+        el._calFitResizeObserver = new ResizeObserver(function () {
+          if (viewMode !== 'day' && viewMode !== 'week') return;
+          if (_calFitRaf) cancelAnimationFrame(_calFitRaf);
+          _calFitRaf = requestAnimationFrame(function () {
+            _calFitRaf = 0;
+            fitTimeGridToViewport(el);
+          });
+        });
+        el._calFitResizeObserver.observe(el);
       }
 
       var activeSem = getActiveSem();
@@ -8028,9 +8126,73 @@
     }
 
     // ── Day View ────────────────────────────────────────────────────────────────
+    function computeInitialTimeGridRowHeight(el, rowCount) {
+      var avail = el && el.clientHeight > 0 ? el.clientHeight : Math.max(320, (window.innerHeight || 768) - 220);
+      var estGridAvail = Math.max(120, avail - 48);
+      return Math.max(22, Math.min(84, Math.floor(estGridAvail / Math.max(1, rowCount))));
+    }
+
+    function fitTimeGridToViewport(el) {
+      if (!el || (viewMode !== 'day' && viewMode !== 'week')) return;
+      var scaleEl = el.querySelector('.at-time-scale[data-row-count]');
+      if (!scaleEl) return;
+      var availTotal = el.clientHeight;
+      if (!(availTotal > 0)) return;
+      var rowCount = parseInt(scaleEl.getAttribute('data-row-count'), 10) || 1;
+      var gridStart = parseInt(scaleEl.getAttribute('data-grid-start'), 10) || 0;
+      var stepMin = parseInt(scaleEl.getAttribute('data-step-min'), 10) || 60;
+
+      var nonGrid = 4;
+      var allday = el.querySelector('.allday-strip');
+      if (allday) nonGrid += allday.offsetHeight + 6;
+      var thead = el.querySelector('.agenda-table thead');
+      if (thead) nonGrid += thead.offsetHeight;
+      var weekAllday = el.querySelector('.week-allday-row');
+      if (weekAllday) nonGrid += weekAllday.offsetHeight;
+
+      var availGridH = Math.max(120, availTotal - nonGrid);
+      var newRowH = Math.max(22, Math.min(84, Math.floor(availGridH / rowCount)));
+      var curRowH = parseFloat(scaleEl.getAttribute('data-row-h')) || 0;
+      if (Math.abs(newRowH - curRowH) < 1) return;
+
+      var newGridH = rowCount * newRowH;
+      var containers = el.querySelectorAll('.at-time-scale, .at-day-lane');
+      for (var i = 0; i < containers.length; i++) {
+        containers[i].style.height = newGridH + 'px';
+        containers[i].style.setProperty('--row-h', newRowH + 'px');
+        containers[i].setAttribute('data-row-h', String(newRowH));
+      }
+
+      var ticks = scaleEl.querySelectorAll('.at-time-tick[data-tick-min]');
+      for (var j = 0; j < ticks.length; j++) {
+        var m = parseFloat(ticks[j].getAttribute('data-tick-min'));
+        if (!isNaN(m)) {
+          ticks[j].style.top = (((m - gridStart) / stepMin) * newRowH) + 'px';
+        }
+      }
+
+      var cells = el.querySelectorAll('.at-day-lane .at-cell[data-start-min], .at-day-lane .at-cell-empty[data-start-min]');
+      for (var k = 0; k < cells.length; k++) {
+        var cell = cells[k];
+        var st = parseFloat(cell.getAttribute('data-start-min'));
+        var en = parseFloat(cell.getAttribute('data-end-min'));
+        if (isNaN(st) || isNaN(en)) continue;
+        var top = ((st - gridStart) / stepMin) * newRowH;
+        var h = ((en - st) / stepMin) * newRowH;
+        if (!(h > 0)) h = newRowH;
+        h = Math.max(22, h - 4);
+        cell.style.top = top + 'px';
+        cell.style.height = h + 'px';
+        if (cell.classList.contains('at-cell')) {
+          cell.classList.toggle('at-cell-micro', h < 38);
+          cell.classList.toggle('at-cell-compact', h >= 38 && h < 56);
+          cell.classList.toggle('at-cell-tall', h >= 92);
+        }
+      }
+    }
+
     function renderDayView(el, activeSem) {
       var ABS_STEP_MIN = 60;
-      var ABS_ROW_HEIGHT = 64;
       var dateStr = viewAnchorDate;
       var todayStr = new Date().toISOString().slice(0, 10);
       var allSlots = activeSem ? getFilteredViewSlots(activeSem, true) : [];
@@ -8069,6 +8231,7 @@
       var gridEnd = Math.ceil(maxEnd / ABS_STEP_MIN) * ABS_STEP_MIN;
       if (gridEnd <= gridStart) gridEnd = gridStart + ABS_STEP_MIN;
       var rowCount = Math.max(1, Math.ceil((gridEnd - gridStart) / ABS_STEP_MIN));
+      var ABS_ROW_HEIGHT = computeInitialTimeGridRowHeight(el, rowCount);
       var gridHeight = rowCount * ABS_ROW_HEIGHT;
 
       var html = '<div class="day-view-wrap">';
@@ -8101,14 +8264,14 @@
       html += '<th class="at-time-cell">' + esc(_timeHdr) + '</th>';
       html += '<th class="' + (isPast ? 'at-day-hdr-past' : '') + '">' + esc(t(DAY_KEYS[dow])) + ' · ' + esc(dateStr) + '</th>';
       html += '</tr></thead><tbody><tr>';
-      html += '<td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      html += '<td class="at-time-col"><div class="at-time-scale" data-grid-start="' + gridStart + '" data-step-min="' + ABS_STEP_MIN + '" data-row-count="' + rowCount + '" data-row-h="' + ABS_ROW_HEIGHT + '" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
       for (var m = gridStart; m <= gridEnd; m += ABS_STEP_MIN) {
         var top = ((m - gridStart) / ABS_STEP_MIN) * ABS_ROW_HEIGHT;
-        html += '<div class="at-time-tick" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
+        html += '<div class="at-time-tick" data-tick-min="' + m + '" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
       }
       html += '</div></td>';
 
-      html += '<td class="at-day-col' + (isPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      html += '<td class="at-day-col' + (isPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" data-row-h="' + ABS_ROW_HEIGHT + '" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
       timedItems.forEach(function (it) {
         html += renderTableMatrixEntry(it.slot, {
           gridStart: gridStart,
@@ -8123,6 +8286,7 @@
       html += '</div></td></tr></tbody></table></div>';
 
       el.innerHTML = html;
+      fitTimeGridToViewport(el);
       _applyNavHighlight(false);
       updateWeekNav();
     }
@@ -8132,7 +8296,6 @@
 
     function renderWeekView(el, activeSem) {
       var ABS_STEP_MIN = 60;
-      var ABS_ROW_HEIGHT = 64;
       var anchor = new Date(viewAnchorDate + 'T12:00:00');
       if (isNaN(anchor.getTime())) anchor = new Date();
       var fromMon = (anchor.getDay() + 6) % 7;
@@ -8189,6 +8352,7 @@
       var gridEnd = Math.ceil(maxEnd / ABS_STEP_MIN) * ABS_STEP_MIN;
       if (gridEnd <= gridStart) gridEnd = gridStart + ABS_STEP_MIN;
       var rowCount = Math.max(1, Math.ceil((gridEnd - gridStart) / ABS_STEP_MIN));
+      var ABS_ROW_HEIGHT = computeInitialTimeGridRowHeight(el, rowCount);
       var gridHeight = rowCount * ABS_ROW_HEIGHT;
       var todayStr = new Date().toISOString().slice(0, 10);
 
@@ -8231,10 +8395,10 @@
         html += '</tr>';
       }
 
-      html += '<tr><td class="at-time-col"><div class="at-time-scale" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+      html += '<tr><td class="at-time-col"><div class="at-time-scale" data-grid-start="' + gridStart + '" data-step-min="' + ABS_STEP_MIN + '" data-row-count="' + rowCount + '" data-row-h="' + ABS_ROW_HEIGHT + '" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
       for (var m = gridStart; m <= gridEnd; m += ABS_STEP_MIN) {
         var top = ((m - gridStart) / ABS_STEP_MIN) * ABS_ROW_HEIGHT;
-        html += '<div class="at-time-tick" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
+        html += '<div class="at-time-tick" data-tick-min="' + m + '" style="top:' + top + 'px">' + esc(plMinToHm(m)) + '</div>';
       }
       html += '</div></td>';
 
@@ -8242,7 +8406,7 @@
         var dow = dateToDow[ds];
         var isDowPast = ds < todayStr;
         var dayItems = byDay[dow] || [];
-        html += '<td class="at-day-col' + (isDowPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
+        html += '<td class="at-day-col' + (isDowPast ? ' at-day-col-past' : '') + '"><div class="at-day-lane" data-row-h="' + ABS_ROW_HEIGHT + '" style="height:' + gridHeight + 'px;--row-h:' + ABS_ROW_HEIGHT + 'px">';
         dayItems.forEach(function (it) {
           html += renderTableMatrixEntry(it.slot, {
             gridStart: gridStart,
@@ -8259,6 +8423,7 @@
 
       html += '</tr></tbody></table></div></div>';
       el.innerHTML = html;
+      fitTimeGridToViewport(el);
       _applyNavHighlight(false);
       updateWeekNav();
     }
@@ -8288,6 +8453,10 @@
       var todayStr = new Date().toISOString().slice(0, 10);
       var dayOrder = viewOpts.weekends ? [1, 2, 3, 4, 5, 6, 0] : [1, 2, 3, 4, 5];
       var noWkClass = viewOpts.weekends ? '' : ' no-weekends';
+      var weekRows = Math.max(4, Math.round((Math.round((gridEnd - gridStart) / 86400000) + 1) / 7));
+      var availMonthH = el && el.clientHeight > 0 ? el.clientHeight - 36 : Math.max(300, (window.innerHeight || 768) - 250);
+      var estCellH = Math.floor(availMonthH / weekRows);
+      var maxMonthItems = Math.max(1, Math.min(4, Math.floor((estCellH - 30) / 22)));
 
       var html = '<div class="month-grid-wrap">';
       html += '<div class="month-dow-row' + noWkClass + '">';
@@ -8315,7 +8484,7 @@
           html += '</div>';
 
           html += '<div class="month-cell-items">';
-          var maxItems = 4;
+          var maxItems = maxMonthItems;
           var shown = 0;
           for (var i = 0; i < daySlots.length && shown < maxItems; i++) {
             var s = daySlots[i];
@@ -8442,7 +8611,7 @@
       if (!entry) {
         var emptyInfo = '';
         if (viewOpts.details || viewOpts.custom) emptyInfo = '<span class="at-cell-detail">' + esc(dateLabel) + '</span>';
-        return '<div class="at-cell-empty" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-empty">' +
+        return '<div class="at-cell-empty" data-start-min="' + layout.start + '" data-end-min="' + layout.end + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '" style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-empty">' +
           '<span class="at-class-title">' + esc(classLabel) + '</span>' +
           emptyInfo +
           '<span class="at-add">+</span>' +
@@ -8468,7 +8637,42 @@
       var timeLabel = (s.time || '') + (s.timeEnd ? '–' + s.timeEnd : '');
       var isSubscribed = !!(entry && (entry._isSubscribed || String(entry.id || '').startsWith('sub_')));
       var isSelected = selectedEntryIds.has(entry.id);
-      var r = '<div class="at-cell' + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-click">';
+      var sizeCls = '';
+      if (h < 38) sizeCls = ' at-cell-micro';
+      else if (h < 56) sizeCls = ' at-cell-compact';
+      else if (h >= 92) sizeCls = ' at-cell-tall';
+
+      var gsLinked = viewOpts.linkedBadges && isGradeSheetLinked(entry);
+      var _lpMatrixLink = viewOpts.linkedBadges ? plannerLessonPlanForSlot(s, entry) : null;
+      var _lpM = (_lpMatrixLink && _lpMatrixLink.plan) ? _lpMatrixLink.plan : null;
+      var _lpMTitle = _lpM ? (t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)') : '';
+      var _entryTags = (viewOpts.linkedBadges && window.LinksService && entry && entry.id)
+        ? (LinksService.getTagsForSync('cmt:planner:' + entry.id) || [])
+        : [];
+
+      var cuesHtml = '<span class="at-cues">';
+      if (isSubscribed) {
+        cuesHtml += '<span class="at-cue at-cue-sub" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="at-cue-icon" alt="" /></span>';
+      }
+      if (viewOpts.badges && badgeText) {
+        cuesHtml += '<span class="at-cue at-cue-type ' + typeBadgeCls(type) + '" title="' + esc(badgeText) + '">' + esc(badgeText.charAt(0).toUpperCase()) + '</span>';
+      }
+      if (gsLinked) {
+        cuesHtml += '<span class="at-cue at-cue-gs" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+      }
+      if (_lpM) {
+        cuesHtml += '<span class="at-cue at-cue-lp" data-pl-action="open-lp" data-pl-plan="' + esc(_lpM.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="' + esc(entry ? entry.id : '') + '" data-pl-topic="' + esc(entry && entry.topic ? entry.topic : '') + '" title="' + esc(_lpMTitle) + '">LP</span>';
+      }
+      if (viewOpts.linkedBadges && _atBSess && _atBSess.length) {
+        cuesHtml += '<span class="at-cue at-cue-board" data-pl-action="open-board" data-pl-linkid="' + esc(_boardLink.linkId) + '" title="' + esc(t('pl_boardLinked')) + '">B' + (_atBSess.length > 1 ? _atBSess.length : '') + '</span>';
+      }
+      if (_entryTags.length) {
+        cuesHtml += '<span class="at-cue at-cue-tag" data-pl-action="open-entry-links" data-pl-entry="' + esc(entry.id) + '" title="' + esc(_entryTags.join(', ')) + '">#' + _entryTags.length + '</span>';
+      }
+      cuesHtml += '</span>';
+
+      var r = '<div class="at-cell' + sizeCls + (isSubscribed ? ' at-cell-subscribed' : '') + (isSelected ? ' selected' : '') + '" data-start-min="' + layout.start + '" data-end-min="' + layout.end + '" data-entry-id="' + esc(entry.id) + '" data-classid="' + esc(s.classId || '') + '" data-date="' + esc(s.date) + '" data-time="' + esc(s.time || '') + '" data-timeend="' + esc(s.timeEnd || '') + '"' + (isSubscribed ? '' : ' draggable="true"') + ' style="--col:' + color + ';' + blockPos + '" data-pl-action="at-cell-click">';
+      r += '<div class="at-cell-head">';
       if (multiSelectMode) {
         r += '<input type="checkbox" class="entry-select-cb" ' + (isSelected ? 'checked' : '') + ' data-pl-action="toggle-select" data-pl-entry="' + esc(entry.id) + '">';
       }
@@ -8478,8 +8682,13 @@
       if (viewOpts.classPill) {
         r += '<span class="at-class-title">' + esc(classLabel) + '</span>';
       }
+      r += cuesHtml;
+      r += '</div>';
+      if (viewOpts.topic && entry.topic) r += '<span class="at-topic" title="' + esc(entry.topic) + '">' + esc(entry.topic) + '</span>';
+      if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
+      r += '<div class="at-badges-row">';
       if (isSubscribed) {
-        r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:12px; height:12px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
+        r += '<span class="sub-feed-badge" title="' + esc(entry.subName || t('pl_subEventBadge')) + '"><img src="../assets/icons/feed.svg" class="sub-badge-icon" style="width:11px; height:11px;" alt="" />' + esc(entry.subName || t('pl_subEventBadge')) + '</span>';
       }
       if (viewOpts.badges && badgeText) {
         var typeDragAttr = (entry && !isSubscribed)
@@ -8487,14 +8696,9 @@
           : '';
         r += '<span class="' + badgeCls + '"' + typeDragAttr + '>' + esc(badgeText) + '</span>';
       }
-      if (viewOpts.topic && entry.topic) r += '<span class="at-topic">' + esc(entry.topic) + '</span>';
-      if (detailParts.length) r += '<span class="at-cell-detail">' + esc(detailParts.join(' · ')) + '</span>';
       if (viewOpts.linkedBadges) {
-        if (isGradeSheetLinked(entry)) r += '<span class="gs-badge" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
-        var _lpMatrixLink = plannerLessonPlanForSlot(s, entry);
-        if (_lpMatrixLink && _lpMatrixLink.plan) {
-          var _lpM = _lpMatrixLink.plan;
-          var _lpMTitle = t('pl_lessonPlanLinked') + ': ' + (_lpM.title || 'Untitled') + ' (Click to open · Drag to duplicate)';
+        if (gsLinked) r += '<span class="gs-badge" data-pl-action="open-gs" data-pl-entry="' + esc(entry.id) + '" title="' + esc(t('pl_gsLinked')) + '">GS</span>';
+        if (_lpM) {
           var _lpMDragAttr = ' draggable="true" data-drag-type="lesson-plan" data-plan-id="' + esc(_lpM.id) + '" data-entry-id="' + esc(entry ? entry.id : '') + '"';
           r += '<span class="lesson-plan-badge"' + _lpMDragAttr + ' data-pl-action="open-lp" data-pl-plan="' + esc(_lpM.id) + '" data-pl-class="' + esc(s.classId || '') + '" data-pl-date="' + esc(s.date || '') + '" data-pl-entry="' + esc(entry ? entry.id : '') + '" data-pl-topic="' + esc(entry && entry.topic ? entry.topic : '') + '" title="' + esc(_lpMTitle) + '">' + esc(t('pl_lessonPlanBadge')) + '</span>';
         }
@@ -8505,6 +8709,7 @@
         }
         r += buildPlannerEntryLinkBadgesHtml(entry);
       }
+      r += '</div>';
       r += '</div>';
       return r;
     }
@@ -9269,7 +9474,105 @@
       }
     }
 
-    function openSubscriptionsModal() {
+    function openSubscriptionsModal(triggerEvent) {
+      if (window.CmtWizard && !(triggerEvent && triggerEvent.shiftKey)) {
+        openSubscriptionsWizard();
+        return;
+      }
+      openLegacySubscriptionsModal();
+    }
+
+    function openSubscriptionsWizard() {
+      var tr = function (k, fb) {
+        try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+        return fb;
+      };
+      CmtWizard.open({
+        id: 'pl-sub-wizard',
+        title: tr('plSubWizTitle', 'Connect External Calendar'),
+        icon: 'calendar-sync.svg',
+        width: '700px',
+        initialState: {
+          provider: 'google',
+          name: '',
+          url: '',
+          entryType: 'lesson',
+          autoSync: true
+        },
+        quickModeToggle: {
+          label: tr('wizQuickAdvanced', 'Manage Existing Feeds'),
+          icon: 'settings.svg',
+          onClick: function (w) {
+            w.close();
+            openLegacySubscriptionsModal();
+          }
+        },
+        steps: [
+          {
+            id: 'provider',
+            label: tr('plSubWizStep1', '1. Calendar'),
+            render: function (container, st, ctx) {
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('plSubWizProvHeading', 'Which calendar do you want to connect?')) + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('plSubWizProvSub', 'Pick your calendar service to see where to find your share link.')) + '</p>';
+              ctx.renderCards(container, [
+                { id: 'google', icon: 'calendar.svg', badge: 'Google', title: tr('plSubOptGoogle', 'Google Calendar'), desc: tr('plSubOptGoogleDesc', 'Settings → Integrate calendar → Secret address in iCal format.') },
+                { id: 'outlook', icon: 'calendar.svg', badge: 'Outlook', title: tr('plSubOptOutlook', 'Microsoft Outlook / 365'), desc: tr('plSubOptOutlookDesc', 'Settings → Shared calendars → Publish a calendar → ICS link.') },
+                { id: 'apple', icon: 'calendar.svg', badge: 'iCloud', title: tr('plSubOptApple', 'Apple iCloud Calendar'), desc: tr('plSubOptAppleDesc', 'Share icon next to calendar → Public Calendar → Copy Link.') },
+                { id: 'other', icon: 'globe.svg', badge: '.ICS', title: tr('plSubOptOther', 'Other School / Web Calendar'), desc: tr('plSubOptOtherDesc', 'Any .ics or webcal:// calendar feed URL.') }
+              ], st.provider, function (item) { st.provider = item.id; });
+            }
+          },
+          {
+            id: 'details',
+            label: tr('plSubWizStep2', '2. Link & Options'),
+            render: function (container, st, ctx) {
+              var hintMap = {
+                google: tr('plSubHintGoogle', 'In Google Calendar: open Settings (gear) → select your calendar → scroll to "Secret address in iCal format" and copy it.'),
+                outlook: tr('plSubHintOutlook', 'In Outlook Web: Settings → Calendar → Shared calendars → Publish a calendar → copy the ICS link.'),
+                apple: tr('plSubHintApple', 'In iCloud Calendar: click the share icon next to your calendar, enable Public Calendar, and copy the link.'),
+                other: tr('plSubHintOther', 'Paste the .ics or webcal:// link provided by your school or timetable tool.')
+              };
+              container.innerHTML =
+                '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('plSubWizLinkHeading', 'Paste your calendar link')) + '</h3>' +
+                '<p class="cmt-wiz-step-sub">' + ctx.escHtml(hintMap[st.provider] || hintMap.other) + '</p>' +
+                '<div class="cmt-wiz-section">' +
+                  '<label class="cmt-wiz-label">' + ctx.escHtml(tr('plSubNameLabel', 'Calendar Name')) + '</label>' +
+                  '<input type="text" class="cmt-wiz-input" id="pl-wiz-sub-name" placeholder="e.g. School Timetable" value="' + ctx.escHtml(st.name) + '" style="margin-bottom:10px;">' +
+                  '<label class="cmt-wiz-label">' + ctx.escHtml(tr('plSubUrlLabel', 'Calendar Link (.ics or webcal://)')) + '</label>' +
+                  '<input type="text" class="cmt-wiz-input" id="pl-wiz-sub-url" placeholder="https://... or webcal://..." value="' + ctx.escHtml(st.url) + '" style="margin-bottom:10px;">' +
+                  '<label style="display:flex;align-items:center;gap:8px;font-size:0.84rem;font-weight:600;cursor:pointer;">' +
+                    '<input type="checkbox" id="pl-wiz-sub-auto" ' + (st.autoSync ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;">' +
+                    '<span>' + ctx.escHtml(tr('plSubAutoSyncLabel', 'Automatically refresh events when opening Planner')) + '</span>' +
+                  '</label>' +
+                '</div>';
+              container.querySelector('#pl-wiz-sub-name').addEventListener('input', function () { st.name = this.value; });
+              container.querySelector('#pl-wiz-sub-url').addEventListener('input', function () { st.url = this.value.trim(); });
+              container.querySelector('#pl-wiz-sub-auto').addEventListener('change', function () { st.autoSync = this.checked; });
+            },
+            validate: function (st) {
+              if (!st.url) return tr('plSubErrUrl', 'Please paste a calendar link (.ics or webcal://).');
+              return true;
+            }
+          }
+        ],
+        finishLabel: tr('plSubWizFinish', 'Add & Sync Calendar'),
+        finishIcon: 'check.svg',
+        onFinish: function (st) {
+          openLegacySubscriptionsModal();
+          var urlEl = document.getElementById('sub-url-input');
+          var nameEl = document.getElementById('sub-name-input');
+          var autoEl = document.getElementById('sub-autosync-cb');
+          var saveBtn = document.getElementById('sub-save-btn');
+          if (urlEl) urlEl.value = st.url;
+          if (nameEl) nameEl.value = st.name || 'Calendar';
+          if (autoEl) autoEl.checked = !!st.autoSync;
+          if (saveBtn) saveBtn.click();
+        }
+      });
+    }
+
+    function openLegacySubscriptionsModal() {
       // Populate class assignment dropdown
       var sel = document.getElementById('sub-assign-select');
       if (sel) {

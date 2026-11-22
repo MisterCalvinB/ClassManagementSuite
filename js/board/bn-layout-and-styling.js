@@ -718,6 +718,7 @@
         { key: 'french', label: 'FR', color: '#7c3aed', edgeLabel: '[fr]', singleValue: true },
         { key: 'german', label: 'DE', color: '#059669', edgeLabel: '[de]', singleValue: true },
         { key: 'italian', label: 'IT', color: '#db2777', edgeLabel: '[it]', singleValue: true },
+        { key: 'etymology', label: 'Etymology', color: '#b45309', edgeLabel: '[ety]', singleValue: true },
       ];
 
       window.conCtxOpenNetworkModal = function () {
@@ -999,6 +1000,23 @@
         return choices;
       }
 
+      function conGetEtymologyChoices(dbEntries) {
+        const choices = [];
+        const seen = new Set();
+        dbEntries.forEach(e => {
+          const raw = e.etymology;
+          if (!raw) return;
+          const items = Array.isArray(raw) ? raw : [raw];
+          items.forEach(item => {
+            const val = String(item || '').trim();
+            if (!val || seen.has(val.toLowerCase())) return;
+            seen.add(val.toLowerCase());
+            choices.push({ text: val, label: 'ETY' });
+          });
+        });
+        return choices;
+      }
+
       function conAddLinkedChildNodesFromText(node, selectedTexts, relation) {
         const selected = Array.isArray(selectedTexts)
           ? selectedTexts.map(v => String(v || '').trim()).filter(Boolean)
@@ -1011,7 +1029,7 @@
         const originX = node.x + (node.el.offsetWidth || 80) / 2;
         const originY = node.y + (node.el.offsetHeight || 36) / 2;
         const radius = Math.max(110, 96 + selected.length * 6);
-        const stroke = relation === 'ipa' ? '#7c3aed' : '#059669';
+        const stroke = relation === 'ipa' ? '#7c3aed' : (relation === 'etymology' ? '#b45309' : '#059669');
         let created = 0;
 
         selected.forEach((text, i) => {
@@ -1062,7 +1080,7 @@
       function conTransPickerOpen(node, word, choices, mode) {
         _conTransPickerNode = node;
         _conTransPickerChoices = Array.isArray(choices) ? choices : [];
-        _conTransPickerMode = mode === 'ipa' ? 'ipa' : 'translation';
+        _conTransPickerMode = (mode === 'ipa' || mode === 'etymology') ? mode : 'translation';
 
         const overlay = document.getElementById('con-trans-picker-overlay');
         const titleEl = document.querySelector('#con-trans-picker-header h3');
@@ -1074,14 +1092,17 @@
         if (!overlay || !list) return;
 
         const isIpa = _conTransPickerMode === 'ipa';
-        if (titleEl) titleEl.textContent = isIpa ? '[ ] Add IPA' : '( ) Add Translation';
+        const isEty = _conTransPickerMode === 'etymology';
+        if (titleEl) titleEl.textContent = isIpa ? '[ ] Add IPA' : (isEty ? 'Add Etymology' : '( ) Add Translation');
 
         if (badge) badge.textContent = word || 'Word';
         if (hint) hint.textContent = _conTransPickerChoices.length
           ? (isIpa
             ? 'Choose which IPA value(s) to add as connected node(s).'
-            : 'Choose which translation(s) to add as connected node(s).')
-          : (isIpa ? 'No IPA is saved for this word.' : 'No translation is saved for this word.');
+            : (isEty
+              ? 'Choose which etymology value(s) to add as connected node(s).'
+              : 'Choose which translation(s) to add as connected node(s).'))
+          : (isIpa ? 'No IPA is saved for this word.' : (isEty ? 'No etymology is saved for this word.' : 'No translation is saved for this word.'));
         if (confirmBtn) confirmBtn.textContent = _conTransPickerChoices.length ? 'Add Selected' : 'Cancel';
 
         list.innerHTML = '';
@@ -1090,7 +1111,7 @@
           empty.className = 'con-def-picker-empty';
           empty.textContent = isIpa
             ? 'No IPA is saved for this word yet.'
-            : 'No translation is saved for this word yet.';
+            : (isEty ? 'No etymology is saved for this word yet.' : 'No translation is saved for this word yet.');
           list.appendChild(empty);
         } else {
           _conTransPickerChoices.forEach((choice, idx) => {
@@ -1155,15 +1176,17 @@
         if (selected.length === 0) {
           if (typeof mdbToast === 'function') {
             mdbToast(mode === 'ipa'
-              ? 'ℹ Select at least one IPA value to add.'
-              : 'ℹ Select at least one translation to add.');
+              ? 'Select at least one IPA value to add.'
+              : (mode === 'etymology'
+                ? 'Select at least one etymology to add.'
+                : 'Select at least one translation to add.'));
           }
           return;
         }
 
         window.conTransPickerClose();
         conPushUndo();
-        const relation = mode === 'ipa' ? 'ipa' : 'translation';
+        const relation = mode === 'ipa' ? 'ipa' : (mode === 'etymology' ? 'etymology' : 'translation');
         const created = conAddLinkedChildNodesFromText(node, selected, relation);
         if (!created && typeof mdbToast === 'function') {
           mdbToast('ℹ Selected value(s) are already on the board.');
@@ -6184,6 +6207,7 @@
       window.conToggleNodeStarDirect = global.conToggleNodeStarDirect = conToggleNodeStarDirect;
       window.conGetTranslationChoices = global.conGetTranslationChoices = conGetTranslationChoices;
       window.conGetIpaChoices = global.conGetIpaChoices = conGetIpaChoices;
+      window.conGetEtymologyChoices = global.conGetEtymologyChoices = conGetEtymologyChoices;
       window.conTransPickerOpen = global.conTransPickerOpen = conTransPickerOpen;
       window.conApplyEntityBadge = global.conApplyEntityBadge = conApplyEntityBadge;
       window.conHandleEntityClickForNumbering = global.conHandleEntityClickForNumbering = conHandleEntityClickForNumbering;

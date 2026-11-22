@@ -17,7 +17,7 @@
     (function () {
       var el = document.querySelector('[data-ptev-3]');
       if (!el) return;
-      var handler = function (event) { openRulesModal() };
+      var handler = function (event) { if (typeof openRulesWizard === 'function' && !event.shiftKey) openRulesWizard(); else openRulesModal(); };
       el.addEventListener('click', handler);
     })();
     (function () {

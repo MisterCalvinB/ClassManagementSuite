@@ -8,11 +8,13 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
+  <link rel="stylesheet" href="../css/wizard.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/student-name-utils.js"></script>
   <script src="../js/shared/pins.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/wizard.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/shortcuts-modal.js"></script>
   <script src="../js/shared/menus.js"></script>
@@ -2545,7 +2547,82 @@
 
   let smActiveExportFormat = 'pdf';
 
-  function openExportModal(format) {
+  function openExportModal(format, triggerEvent) {
+    if (!window.CmtWizard || (triggerEvent && triggerEvent.shiftKey)) {
+      openLegacyExportModal(format);
+      return;
+    }
+    var tr = function (k, fb) {
+      try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+      return fb;
+    };
+    CmtWizard.open({
+      id: 'sm-export-wizard',
+      title: tr('smExpWizTitle', 'Export Oral Exam Schedule'),
+      icon: 'export.svg',
+      width: '680px',
+      initialState: {
+        format: format || 'pdf',
+        includePrep: true,
+        includeSen: true
+      },
+      quickModeToggle: {
+        label: tr('wizQuickAdvanced', 'Quick / Advanced Options'),
+        icon: 'settings.svg',
+        onClick: function (w) {
+          w.close();
+          openLegacyExportModal(w.state.format);
+        }
+      },
+      steps: [
+        {
+          id: 'format',
+          label: tr('smExpWizStep1', '1. Format'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('smExpWizFmtHeading', 'How do you want to share this schedule?')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('smExpWizFmtSub', 'Choose PDF for posting/printing, Word to edit, or Spreadsheet for records.')) + '</p>';
+            ctx.renderCards(container, [
+              { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('smExpFmtPdf', 'Printable PDF'), desc: tr('smExpFmtPdfDesc', 'Ready to print or post on the classroom door.') },
+              { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('smExpFmtDocx', 'Word Document (.docx)'), desc: tr('smExpFmtDocxDesc', 'Edit student notes or headers in Word.') },
+              { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('smExpFmtHtml', 'Webpage (.html)'), desc: tr('smExpFmtHtmlDesc', 'Opens in Document Editor or browser.') },
+              { id: 'xlsx', icon: 'table.svg', badge: 'XLSX', title: tr('smExpFmtXlsx', 'Excel Spreadsheet (.xlsx)'), desc: tr('smExpFmtXlsxDesc', 'Open timings in Excel or LibreOffice Calc.') }
+            ], st.format, function (item) { st.format = item.id; });
+          }
+        },
+        {
+          id: 'details',
+          label: tr('smExpWizStep2', '2. Details'),
+          render: function (container, st, ctx) {
+            container.innerHTML =
+              '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('smExpWizDetHeading', 'What should be visible?')) + '</h3>' +
+              '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('smExpWizDetSub', 'Hide SEN indicators if posting a public copy for students.')) + '</p>' +
+              '<div class="cmt-wiz-section" style="display:flex;flex-direction:column;gap:10px;">' +
+                '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-prep" ' + (st.includePrep ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowPrep', 'Show preparation start times')) + '</span></label>' +
+                '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-sen" ' + (st.includeSen ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowSen', 'Show SEN accommodation badges (turn off for public door sheets)')) + '</span></label>' +
+              '</div>';
+            container.querySelector('#sm-wiz-prep').addEventListener('change', function () { st.includePrep = this.checked; });
+            container.querySelector('#sm-wiz-sen').addEventListener('change', function () { st.includeSen = this.checked; });
+          }
+        }
+      ],
+      finishLabel: tr('btnExport', 'Export'),
+      finishIcon: 'export.svg',
+      onFinish: function (st) {
+        smActiveExportFormat = st.format;
+        var prepEl = document.getElementById('sm-exp-opt-prep');
+        var senEl = document.getElementById('sm-exp-opt-sen');
+        if (prepEl) prepEl.checked = !!st.includePrep;
+        if (senEl) senEl.checked = !!st.includeSen;
+        smExportConfig.showPrep = !!st.includePrep;
+        smExportConfig.showSen = !!st.includeSen;
+        var confirmBtn = document.getElementById('sm-export-confirm-btn');
+        if (confirmBtn) confirmBtn.click();
+      }
+    });
+  }
+
+  function openLegacyExportModal(format) {
     smActiveExportFormat = format || 'pdf';
     const modal = document.getElementById('sm-export-modal');
     if (!modal) return;

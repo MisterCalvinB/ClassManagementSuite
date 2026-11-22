@@ -95,23 +95,26 @@
 
     function conWordExportFields(word) {
       const dbEntries = window.conLookupDbEntries ? window.conLookupDbEntries(word, null) : [];
-      if (!dbEntries.length) return [{ trans: '', ipa: '', def: '', synonyms: '', antonyms: '' }];
+      if (!dbEntries.length) return [{ trans: '', ipa: '', def: '', synonyms: '', antonyms: '', etymology: '' }];
       return dbEntries.map(e => {
         const defRaw = e.definition;
         const def = Array.isArray(defRaw) ? defRaw[0] : (defRaw || '');
+        const etyRaw = e.etymology;
+        const etymology = Array.isArray(etyRaw) ? etyRaw.join(' ') : (etyRaw || '');
         return {
           trans: e.french || e.translation || '',
           ipa: e.ipa || '',
           def,
           synonyms: Array.isArray(e.synonyms) ? e.synonyms.join(', ') : (e.synonyms || ''),
           antonyms: Array.isArray(e.antonyms) ? e.antonyms.join(', ') : (e.antonyms || ''),
+          etymology,
         };
       });
     }
 
     function conShouldSkipWordExportNode(node) {
       const relation = String((node && node.relation) || '').toLowerCase();
-      return relation === 'translation' || relation === 'ipa';
+      return relation === 'translation' || relation === 'ipa' || relation === 'etymology';
     }
 
     function conExportCSV() {
@@ -165,13 +168,24 @@
 
 
     // Offer CSV or PDF export. PDF exports only the words/definitions table (printable HTML -> print/save as PDF).
-    function conExport() {
+    function conExport(triggerEvent) {
+      if (window.CmtWizard && typeof window.conOpenExportWizard === 'function' && !(triggerEvent && triggerEvent.shiftKey)) {
+        const existing = document.getElementById('con-export-chooser');
+        if (existing) existing.remove();
+        window.conOpenExportWizard(triggerEvent);
+        return;
+      }
+      conOpenLegacyExportChooser(triggerEvent);
+    }
+
+    function conOpenLegacyExportChooser(triggerEvent) {
       // Inline chooser shown next to the Export button
       const existing = document.getElementById('con-export-chooser');
       if (existing) { existing.remove(); return; }
 
-      const btn = event && event.currentTarget ? event.currentTarget : document.querySelector('[onclick="conExport()"]');
-      const rect = btn ? btn.getBoundingClientRect() : { left: 100, top: 100, height: 28 };
+      const evObj = triggerEvent || (typeof event !== 'undefined' ? event : null);
+      const btn = evObj && evObj.currentTarget ? evObj.currentTarget : document.querySelector('[data-bev-481]');
+      const rect = btn ? btn.getBoundingClientRect() : { left: 100, top: 100, bottom: 132, height: 28 };
 
       const chooser = document.createElement('div');
       chooser.id = 'con-export-chooser';
@@ -380,6 +394,7 @@
         definition: chk('cpf-definition'),
         synonyms: chk('cpf-synonyms'),
         antonyms: chk('cpf-antonyms'),
+        etymology: chk('cpf-etymology'),
       };
 
       const nodes = conGetAllPagesNodeData();
@@ -393,6 +408,7 @@
       if (fields.definition) cols.push({ label: 'Definition' });
       if (fields.synonyms) cols.push({ label: 'Synonyms' });
       if (fields.antonyms) cols.push({ label: 'Antonyms' });
+      if (fields.etymology) cols.push({ label: 'Etymology' });
 
       const dataRows = [];
       nodes.forEach(n => {
@@ -403,7 +419,7 @@
         const parts = rawText.split(/[,/;\n]+/).map(s => s.trim()).filter(Boolean);
         parts.forEach(word => {
           const entries = conWordExportFields(word);
-          entries.forEach(({ trans, ipa, def, synonyms, antonyms }) => {
+          entries.forEach(({ trans, ipa, def, synonyms, antonyms, etymology }) => {
             const row = [word];
             if (fields.page) row.push(page);
             if (fields.translation) row.push(trans);
@@ -411,6 +427,7 @@
             if (fields.definition) row.push(def);
             if (fields.synonyms) row.push(synonyms);
             if (fields.antonyms) row.push(antonyms);
+            if (fields.etymology) row.push(etymology);
             dataRows.push(row);
           });
         });
@@ -2936,6 +2953,7 @@
     // Captures visual fidelity canvas and updates in-memory snapshot cache and DOM preview.
   // Cross-module exports
   window.conExport = global.conExport = conExport;
+  window.conOpenLegacyExportChooser = global.conOpenLegacyExportChooser = conOpenLegacyExportChooser;
   window.conExportJS = global.conExportJS = conExportJS;
   window.conPdfPickerClose = global.conPdfPickerClose = conPdfPickerClose;
   window._doConExportPDF = global._doConExportPDF = _doConExportPDF;

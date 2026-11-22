@@ -1000,6 +1000,12 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('con-fmt-ety');
+      if (!el) return;
+      var handler = function (event) { conCtxToggleAnnotation('etymology') };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
       var el = document.querySelector('[data-bev-166]');
       if (!el) return;
       var handler = function (event) { conCtxToggleAnnotation('translation') };
@@ -2880,7 +2886,7 @@
     (function () {
       var el = document.querySelector('[data-bev-481]');
       if (!el) return;
-      var handler = function (event) { conExport() };
+      var handler = function (event) { conExport(event) };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -2970,7 +2976,7 @@
     (function () {
       var el = document.querySelector('[data-bev-496]');
       if (!el) return;
-      var handler = function (event) { conOpenUniversalImportModal() };
+      var handler = function (event) { if (typeof conOpenImportWizard === 'function' && !event.shiftKey) conOpenImportWizard(); else conOpenUniversalImportModal(); };
       el.addEventListener('click', handler);
     })();
     (function () {

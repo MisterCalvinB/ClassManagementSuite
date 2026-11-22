@@ -227,6 +227,51 @@
     }
   }
 
+  async function _analyzeSpikeWithAi(spike, btn, resultEl) {
+    if (!window.SlmService || typeof window.SlmService.generateText !== 'function') {
+      resultEl.hidden = false;
+      resultEl.textContent = _t('auditAiUnavailable', 'Local AI (SLM) is not available or no model is downloaded. Configure one in General Config → Storage & Sync.');
+      return;
+    }
+    btn.disabled = true;
+    const origText = btn.querySelector('span');
+    if (origText) origText.textContent = _t('auditAiAnalyzing', 'Analyzing...');
+    resultEl.hidden = false;
+    resultEl.textContent = '';
+
+    const eventsText = (spike.correlatedEvents || [])
+      .map((e) => `- [${e.level}] ${e.source}: ${e.message}`)
+      .join('\n') || 'None';
+    const prompt = [
+      `Spike: ${spike.summary}`,
+      `Metrics: CPU ${spike.metrics?.cpuPct ?? 0}%, RAM ${spike.metrics?.workingSetMB ?? 0}MB, Lag ${spike.metrics?.eventLoopLagMs ?? 0}ms, Process ${spike.metrics?.topProcess || 'main'}`,
+      `Correlated events:\n${eventsText}`,
+      `Give a 2-3 sentence root-cause diagnosis and concrete code/runtime fix for this Electron app.`
+    ].join('\n\n');
+
+    try {
+      const res = await window.SlmService.generateText({
+        systemPrompt: 'You are a concise Electron performance diagnostic assistant.',
+        prompt,
+        maxNewTokens: 180,
+        promptDownloadIfMissing: false,
+        onToken: (_tok, full) => {
+          if (full) resultEl.textContent = full;
+        }
+      });
+      if (!res || !res.ok) {
+        resultEl.textContent = (res && res.error) || _t('auditAiUnavailable', 'Local AI (SLM) is not available or no model is downloaded. Configure one in General Config → Storage & Sync.');
+      } else if (res.text) {
+        resultEl.textContent = res.text.trim();
+      }
+    } catch (err) {
+      resultEl.textContent = err && err.message ? err.message : _t('auditAiUnavailable', 'Local AI (SLM) is not available or no model is downloaded.');
+    } finally {
+      btn.disabled = false;
+      if (origText) origText.textContent = _t('auditAiAnalyze', 'AI Analyze');
+    }
+  }
+
   function _createSpikeCardEl(spike) {
     const card = document.createElement('div');
     card.className = `spike-card sev-${spike.severity || 'warn'}`;
@@ -246,9 +291,26 @@
     sumEl.className = 'spike-summary';
     sumEl.textContent = spike.summary || '';
 
+    const aiBtn = document.createElement('button');
+    aiBtn.type = 'button';
+    aiBtn.className = 'spike-ai-btn';
+    const aiIcon = document.createElement('img');
+    aiIcon.src = '../assets/icons/brain.svg';
+    aiIcon.alt = '';
+    const aiSpan = document.createElement('span');
+    aiSpan.textContent = _t('auditAiAnalyze', 'AI Analyze');
+    aiBtn.appendChild(aiIcon);
+    aiBtn.appendChild(aiSpan);
+
+    const aiResult = document.createElement('div');
+    aiResult.className = 'spike-ai-result';
+    aiResult.hidden = true;
+    aiBtn.addEventListener('click', () => _analyzeSpikeWithAi(spike, aiBtn, aiResult));
+
     head.appendChild(tsEl);
     head.appendChild(kindEl);
     head.appendChild(sumEl);
+    head.appendChild(aiBtn);
     card.appendChild(head);
 
     if (spike.remedyHint) {
@@ -281,6 +343,7 @@
       card.appendChild(corrRow);
     }
 
+    card.appendChild(aiResult);
     return card;
   }
 
@@ -571,6 +634,7 @@
     els.statMemory = document.getElementById('statMemory');
     els.statLag = document.getElementById('statLag');
     els.statServer = document.getElementById('statServer');
+    els.statAi = document.getElementById('statAi');
     els.statSpikesBtn = document.getElementById('statSpikesBtn');
     els.statSpikes = document.getElementById('statSpikes');
     els.statBuffer = document.getElementById('statBuffer');
@@ -624,9 +688,28 @@
     }
 
     _statsTimer = setInterval(_refreshStats, 2500);
+    _refreshAiStatus();
     window.addEventListener('beforeunload', () => {
       if (_statsTimer) clearInterval(_statsTimer);
     });
+  }
+
+  async function _refreshAiStatus() {
+    if (!els.statAi || !window.electronApi) return;
+    const parts = [];
+    try {
+      if (typeof window.electronApi.slmGetConfig === 'function') {
+        const slm = await window.electronApi.slmGetConfig();
+        if (slm && slm.activeModelId) parts.push(`SLM:${slm.activeModelId}`);
+      }
+    } catch (_) {}
+    try {
+      if (typeof window.electronApi.whisperGetConfig === 'function') {
+        const wh = await window.electronApi.whisperGetConfig();
+        if (wh && wh.activeModelId) parts.push(`Whisper:${wh.activeModelId}`);
+      }
+    } catch (_) {}
+    els.statAi.textContent = parts.length ? parts.join(' | ') : _t('auditAiIdle', 'Idle');
   }
 
   if (document.readyState === 'loading') {

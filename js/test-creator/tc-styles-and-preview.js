@@ -1896,7 +1896,7 @@ window.tcOnQuickExportToggleChange = function () {
   tcSaveCurrentTest(false);
 };
 
-window.tcOpenExportModal = function () {
+window.tcOpenLegacyExportModal = function () {
   document.getElementById('exportModal').classList.add('open');
   tcSyncQuickExportTogglesFromTest();
   var expThm = document.getElementById('exportThemeSelect');
@@ -1925,6 +1925,91 @@ window.tcOpenExportModal = function () {
       }
     });
   }
+};
+
+window.tcOpenExportModal = function (triggerEvent) {
+  if (!window.CmtWizard || (triggerEvent && triggerEvent.shiftKey)) {
+    window.tcOpenLegacyExportModal();
+    return;
+  }
+  var tr = function (k, fb) {
+    try { if (window.i18n && i18n.t) { var v = i18n.t(k); if (v && v !== k) return v; } } catch (_) {}
+    return fb;
+  };
+  CmtWizard.open({
+    id: 'tc-export-wizard',
+    title: tr('tcExpWizTitle', 'Print / Export Exam'),
+    icon: 'export.svg',
+    width: '700px',
+    initialState: {
+      audience: 'student',
+      format: 'pdf'
+    },
+    quickModeToggle: {
+      label: tr('wizQuickAdvanced', 'Quick / Advanced Options'),
+      icon: 'settings.svg',
+      onClick: function (w) {
+        w.close();
+        window.tcOpenLegacyExportModal();
+      }
+    },
+    steps: [
+      {
+        id: 'audience',
+        label: tr('tcExpWizStep1', '1. Audience'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('tcExpWizAudHeading', 'Who is this copy for?')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('tcExpWizAudSub', 'Choose whether to hide or show answers and grading rubrics.')) + '</p>';
+          ctx.renderCards(container, [
+            { id: 'student', icon: 'users.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('tcExpAudStudent', 'Student Exam Paper'), desc: tr('tcExpAudStudentDesc', 'Clean test paper with answers hidden.') },
+            { id: 'teacher', icon: 'check-circle.svg', badge: 'Key', title: tr('tcExpAudTeacher', 'Teacher Answer Key'), desc: tr('tcExpAudTeacherDesc', 'Includes correct answers, points, and grading notes.') },
+            { id: 'both', icon: 'copy.svg', badge: 'Both', title: tr('tcExpAudBoth', 'Student Paper + Answer Key'), desc: tr('tcExpAudBothDesc', 'Exports both versions together for convenience.') }
+          ], st.audience, function (item) { st.audience = item.id; });
+        }
+      },
+      {
+        id: 'format',
+        label: tr('tcExpWizStep2', '2. Format'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('tcExpWizFmtHeading', 'Choose file format')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('tcExpWizFmtSub', 'Pick PDF to print right away, or Word/HTML to customize further.')) + '</p>';
+          ctx.renderCards(container, [
+            { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('tcExpFmtPdf', 'Printable PDF'), desc: tr('tcExpFmtPdfDesc', 'Ready for classroom printing with clean page breaks.') },
+            { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('tcExpFmtDocx', 'Word Document (.docx)'), desc: tr('tcExpFmtDocxDesc', 'Edit questions or layout in Microsoft Word or LibreOffice.') },
+            { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('tcExpFmtHtml', 'Webpage (.html)'), desc: tr('tcExpFmtHtmlDesc', 'Opens in Document Editor or any web browser.') },
+            { id: 'odt', icon: 'file-text.svg', badge: 'ODT', title: tr('tcExpFmtOdt', 'LibreOffice Writer (.odt)'), desc: tr('tcExpFmtOdtDesc', 'Native open-source document format.') }
+          ], st.format, function (item) { st.format = item.id; });
+        }
+      },
+      {
+        id: 'confirm',
+        label: tr('tcExpWizStep3', '3. Export'),
+        render: function (container, st, ctx) {
+          container.innerHTML =
+            '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('tcExpWizConfirmHeading', 'Ready to export exam')) + '</h3>' +
+            '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('tcExpWizConfirmSub', 'Click Export to generate your file.')) + '</p>' +
+            '<div class="cmt-wiz-summary-box">' +
+              '<div><strong>' + ctx.escHtml(tr('tcExpSummaryAud', 'Version:')) + '</strong> ' + ctx.escHtml(st.audience.toUpperCase()) + '</div>' +
+              '<div><strong>' + ctx.escHtml(tr('tcExpSummaryFmt', 'Format:')) + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
+            '</div>';
+        }
+      }
+    ],
+    finishLabel: tr('btnExport', 'Export'),
+    finishIcon: 'export.svg',
+    onFinish: function (st) {
+      tcSyncQuickExportTogglesFromTest();
+      if (typeof window.tcSetExportAudience === 'function') window.tcSetExportAudience(st.audience);
+      else {
+        var audSel = document.getElementById('exportAudience');
+        if (audSel) audSel.value = st.audience;
+      }
+      if (typeof window.tcSetExportFormat === 'function') window.tcSetExportFormat(st.format);
+      if (typeof window.tcExecuteExport === 'function') window.tcExecuteExport();
+    }
+  });
 };
 
 window.tcOnExportThemeChange = function (val) {
