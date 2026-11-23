@@ -536,6 +536,9 @@
           return;
         }
         if (typeof window.conCtxClose === 'function') window.conCtxClose();
+        if (typeof window.conCloseAxisPicker === 'function') window.conCloseAxisPicker();
+        if (typeof window.conEmojiPickerClose === 'function') window.conEmojiPickerClose();
+        if (typeof window.conPresetPickerClose === 'function') window.conPresetPickerClose();
         if (typeof window.conCloseNodeWordCard === 'function') window.conCloseNodeWordCard();
         if (typeof window.conBoardCtxClose === 'function') window.conBoardCtxClose();
         if (typeof window.conEdgeCtxClose === 'function') window.conEdgeCtxClose();

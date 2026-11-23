@@ -936,12 +936,18 @@
     async function _saveCorrectionTimelineFile(filename, data, format) {
       if (window.Desktop && Desktop.isElectron()) {
         try {
+          let targetName = filename;
+          if (window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: targetName, target: 'toPrint' });
+            if (!conflictRes || conflictRes.canceled) return;
+            targetName = conflictRes.filename || targetName;
+          }
           const res = (format === 'svg')
-            ? await Desktop.saveText('toPrint', filename, data)
-            : await Desktop.saveBlob('toPrint', filename, data);
+            ? await Desktop.saveText('toPrint', targetName, data)
+            : await Desktop.saveBlob('toPrint', targetName, data);
           if (res && res.ok && res.path) {
             if (window.showExportSuccessPopup) {
-              showExportSuccessPopup(res.path, res.name || filename);
+              showExportSuccessPopup(res.path, res.name || targetName);
             } else if (typeof showToast === 'function') {
               showToast(t('gsToastExportSuccess') || 'Exported successfully');
             }

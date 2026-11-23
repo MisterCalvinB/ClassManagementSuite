@@ -310,5 +310,22 @@
   "ptWizConfirmHeading": "Bereit zum Speichern der Regeln",
   "ptWizConfirmSub": "Klicken Sie auf Regeln speichern, um die vorläufigen Noten zu berechnen.",
   "ptWizStyleLabel": "Bewertungsstil:",
-  "ptWizSaveBtn": "Regeln speichern"
+  "ptWizSaveBtn": "Regeln speichern",
+  "ptDangerZoneTitle": "Gefahrenbereich",
+  "ptDangerZoneDesc": "Alle aufgezeichneten Teilnahmesitzungen für die ausgewählte Gruppe dauerhaft löschen.",
+  "ptEditFullRow": "Vollständiger Editor",
+  "ptBtnSave": "Speichern",
+  "ptBoolYes": "Ja",
+  "ptBoolNo": "Nein",
+  "ptNoBadges": "Keine Abzeichen",
+  "ptAddBadgeOption": "+ Abzeichen...",
+  "ptCustomBadgeOption": "Benutzerdefiniert...",
+  "ptNoTeamRoleEvents": "Keine Team-/Rollenereignisse in dieser Sitzung.",
+  "ptCurrentSessionControls": "Steuerung der aktuellen Sitzung",
+  "ptPlusesLabel": "Pluspunkte (+)",
+  "ptMinusesLabel": "Minuspunkte (-)",
+  "ptTeamPlusLabel": "Team +",
+  "ptTeamMinusLabel": "Team -",
+  "ptLogNewInteraction": "Neuen Sitzungseintrag erfassen",
+  "ptAddEntry": "Hinzufügen"
 });

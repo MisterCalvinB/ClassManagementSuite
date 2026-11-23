@@ -1965,7 +1965,7 @@
 
 
     function switchRefTab(tabName) {
-      const tabs = ["summary-settings", "criteria", "scales", "chips"];
+      const tabs = ["summary-settings", "grading-defaults", "criteria", "scales", "chips"];
       tabs.forEach(t => {
         const btn = document.getElementById(`tab-btn-${t}`);
         const sec = document.getElementById(`ref-section-${t}`);
@@ -1977,6 +1977,11 @@
       }
       if (tabName === "summary-settings") {
         renderSummarySettingsTab();
+      } else if (tabName === "grading-defaults") {
+        if (!_summarySettingsDraft) initSummarySettingsDraft();
+        if (typeof window.renderExtendedGradeSheetSettings === "function") {
+          window.renderExtendedGradeSheetSettings(_summarySettingsDraft);
+        }
       }
     }
 
@@ -2818,16 +2823,18 @@
 
         // Save summary display settings
         if (_summarySettingsDraft) {
+          const mergedDraft = {
+            ...DEFAULT_SUMMARY_DISPLAY_SETTINGS,
+            ..._summarySettingsDraft,
+            anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+            gradeColors: { ..._summarySettingsDraft.gradeColors }
+          };
           if (_summarySettingsScope === 'class') {
             const actClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
             if (actClass) {
               actClass.summarySettings = {
-                custom: true,
-                compactMode: !!_summarySettingsDraft.compactMode,
-                zebraStriping: !!_summarySettingsDraft.zebraStriping,
-                cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
-                anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
-                gradeColors: { ..._summarySettingsDraft.gradeColors }
+                ...mergedDraft,
+                custom: true
               };
               if (typeof saveGradesStructured === 'function') {
                 savePromises.push(saveGradesStructured().catch(err => console.error("Could not save class summary settings:", err)));
@@ -2835,12 +2842,8 @@
             }
           } else {
             window.SUMMARY_DISPLAY_SETTINGS = {
-              version: 1,
-              compactMode: !!_summarySettingsDraft.compactMode,
-              zebraStriping: !!_summarySettingsDraft.zebraStriping,
-              cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
-              anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
-              gradeColors: { ..._summarySettingsDraft.gradeColors }
+              ...mergedDraft,
+              version: 2
             };
             try {
               localStorage.setItem('cmt-summary-display-settings', JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS));
@@ -2855,22 +2858,29 @@
               } catch (_) {}
             }
           }
+          if (mergedDraft.defaultNameFormat && typeof setGsNameDisplayMode === 'function') {
+            localStorage.setItem('cmt-gs-name-display', mergedDraft.defaultNameFormat);
+            const nameSel = document.getElementById('gs-name-display-select');
+            if (nameSel) nameSel.value = mergedDraft.defaultNameFormat;
+          }
         }
 
         await Promise.all(savePromises);
       } else {
         // Browser fallback mode for summary settings
         if (_summarySettingsDraft) {
+          const mergedDraft = {
+            ...DEFAULT_SUMMARY_DISPLAY_SETTINGS,
+            ..._summarySettingsDraft,
+            anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
+            gradeColors: { ..._summarySettingsDraft.gradeColors }
+          };
           if (_summarySettingsScope === 'class') {
             const actClass = typeof getActiveClass === 'function' ? getActiveClass() : null;
             if (actClass) {
               actClass.summarySettings = {
-                custom: true,
-                compactMode: !!_summarySettingsDraft.compactMode,
-                zebraStriping: !!_summarySettingsDraft.zebraStriping,
-                cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
-                anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
-                gradeColors: { ..._summarySettingsDraft.gradeColors }
+                ...mergedDraft,
+                custom: true
               };
               if (typeof saveGradesStructured === 'function') {
                 saveGradesStructured().catch(err => console.error("Could not save class summary settings:", err));
@@ -2878,12 +2888,8 @@
             }
           } else {
             window.SUMMARY_DISPLAY_SETTINGS = {
-              version: 1,
-              compactMode: !!_summarySettingsDraft.compactMode,
-              zebraStriping: !!_summarySettingsDraft.zebraStriping,
-              cellStyleMode: _summarySettingsDraft.cellStyleMode || 'cell',
-              anchors: [...(_summarySettingsDraft.anchors || ["6", "4", "1"])],
-              gradeColors: { ..._summarySettingsDraft.gradeColors }
+              ...mergedDraft,
+              version: 2
             };
             try {
               localStorage.setItem('cmt-summary-display-settings', JSON.stringify(window.SUMMARY_DISPLAY_SETTINGS));
@@ -2893,6 +2899,11 @@
                 new BroadcastChannel('cmt-summary-settings').postMessage({ updated: true });
               } catch (_) {}
             }
+          }
+          if (mergedDraft.defaultNameFormat && typeof setGsNameDisplayMode === 'function') {
+            localStorage.setItem('cmt-gs-name-display', mergedDraft.defaultNameFormat);
+            const nameSel = document.getElementById('gs-name-display-select');
+            if (nameSel) nameSel.value = mergedDraft.defaultNameFormat;
           }
         }
       }
@@ -3049,10 +3060,13 @@
       }
 
       // Grid of grades
+      const activeSteps = (Array.isArray(_summarySettingsDraft.gradeSteps) && _summarySettingsDraft.gradeSteps.length >= 2)
+        ? _summarySettingsDraft.gradeSteps
+        : SUMMARY_GRADE_STEPS;
       const grid = document.getElementById("gs-grade-colors-grid");
       if (grid) {
         grid.innerHTML = "";
-        SUMMARY_GRADE_STEPS.forEach(step => {
+        activeSteps.forEach(step => {
           const color = _summarySettingsDraft.gradeColors[step] || DEFAULT_GRADE_COLORS[step] || "#d97706";
           const isAnchor = (_summarySettingsDraft.anchors || []).includes(step);
 
@@ -3129,6 +3143,9 @@
         });
       }
 
+      if (typeof window.renderExtendedGradeSheetSettings === "function") {
+        window.renderExtendedGradeSheetSettings(_summarySettingsDraft);
+      }
       renderSummaryPreview();
     }
 
@@ -3137,7 +3154,10 @@
       if (!prevBox || !_summarySettingsDraft) return;
       prevBox.innerHTML = "";
       const isBadge = _summarySettingsDraft.cellStyleMode === "badge";
-      SUMMARY_GRADE_STEPS.forEach(step => {
+      const activeSteps = (Array.isArray(_summarySettingsDraft.gradeSteps) && _summarySettingsDraft.gradeSteps.length >= 2)
+        ? _summarySettingsDraft.gradeSteps
+        : SUMMARY_GRADE_STEPS;
+      activeSteps.forEach(step => {
         const color = _summarySettingsDraft.gradeColors[step] || DEFAULT_GRADE_COLORS[step] || "#d97706";
         const contrast = getNotchContrastTextColor(color);
         const item = document.createElement("div");
@@ -3170,7 +3190,10 @@
         const botColor = _summarySettingsDraft.gradeColors[bot.step] || DEFAULT_GRADE_COLORS[bot.step] || "#7f1d1d";
         const span = top.val - bot.val;
 
-        SUMMARY_GRADE_STEPS.forEach(stepStr => {
+        const activeSteps = (Array.isArray(_summarySettingsDraft.gradeSteps) && _summarySettingsDraft.gradeSteps.length >= 2)
+          ? _summarySettingsDraft.gradeSteps
+          : SUMMARY_GRADE_STEPS;
+        activeSteps.forEach(stepStr => {
           const stepVal = Number(stepStr);
           if (stepVal < top.val && stepVal > bot.val && span > 0) {
             const t = (top.val - stepVal) / span;

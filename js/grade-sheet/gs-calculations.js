@@ -18,14 +18,21 @@
       const interval = 0.5;
       const manualThresholds = defaultManualThresholdPercentMap(minGrade, maxGrade, interval);
       const steps = computeScaleGradeSteps(maxGrade, minGrade, interval);
-      return {
-        coefficient: 1,
+      const ext = (typeof getActiveSummaryDisplaySettings === "function") ? getActiveSummaryDisplaySettings() : null;
+      const defWeight = (ext && Number.isFinite(Number(ext.defaultTestWeight))) ? Number(ext.defaultTestWeight) : 1;
+      const defMode = (ext && ext.defaultGradingMode === "equation") ? "equation" : "manual";
+      const defRound = (ext && ext.defaultPointsRounding) ? String(ext.defaultPointsRounding) : "0.5";
+      const defCritBank = (ext && ext.defaultCriteriaBank) ? String(ext.defaultCriteriaBank) : "correction-criteria.js";
+      const defScaleBank = (ext && ext.defaultScaleBank) ? String(ext.defaultScaleBank) : "grade-scale-models.js";
+      const defModelKey = (ext && ext.defaultScaleModelKey) ? String(ext.defaultScaleModelKey) : "custom";
+      const cfg = {
+        coefficient: defWeight,
         fixedWeight: null,
         testName: "",
         testDate: "",
         scope: "",
         type: "",
-        chipBank: "correction-criteria.js",
+        chipBank: defCritBank,
         nextGradeHighlightPoints: 0,
         criteria: [],
         observationSections: [],
@@ -42,21 +49,26 @@
         absentStudentIds: [],
         markingCompleted: false,
         grading: {
-          mode: "manual",
+          mode: defMode,
           manualInputMode: "percent",
           passPercentGrade4: 66.67,
           minGrade,
           maxGrade,
           interval,
-          modelKey: "custom",
-          pendingModelKey: "custom",
+          modelKey: defModelKey || "custom",
+          pendingModelKey: defModelKey || "custom",
+          scaleBank: defScaleBank,
           manualThresholds,
           manualPoints: buildManualPointsFromPercents(manualThresholds, 0, steps),
           equationFormula: "minGrade + 2 * (passGrade - minGrade) * pts / totalPts",
-          equationRounding: "0.5",
-          pointsRounding: "0.5"
+          equationRounding: defRound,
+          pointsRounding: defRound
         }
       };
+      if (defModelKey && defModelKey !== "custom" && typeof applyScaleModelToConfig === "function") {
+        try { applyScaleModelToConfig(cfg, defModelKey, defScaleBank); } catch (_) {}
+      }
+      return cfg;
     }
 
     function detectTestCount(classObj, sem) {
@@ -804,7 +816,10 @@
       const totals = calcCriteriaTotals(config, criteriaMap);
       if (totals.totalPossible <= 0) return;
       const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
-      const ratio = totals.totalPossible > 0 ? Math.max(0, Math.min(1, scored / totals.totalPossible)) : 0;
+      const extSettings = typeof getActiveSummaryDisplaySettings === "function" ? getActiveSummaryDisplaySettings() : null;
+      const capAtMax = !extSettings || extSettings.capGradeAtMax !== false;
+      const rawRatio = totals.totalPossible > 0 ? scored / totals.totalPossible : 0;
+      const ratio = totals.totalPossible > 0 ? Math.max(0, capAtMax ? Math.min(1, rawRatio) : rawRatio) : 0;
 
       let grade;
       if (config.grading && config.grading.mode === "equation") {
@@ -936,6 +951,18 @@
         }
       }
 
+      const settings = typeof getActiveSummaryDisplaySettings === "function" ? getActiveSummaryDisplaySettings(classObj) : null;
+      const missingPolicy = (settings && settings.missingPolicy) || "exclude";
+      const avgRounding = (settings && settings.avgRounding) || "0.1";
+
+      function roundAvgByPolicy(val) {
+        if (val == null || Number.isNaN(val)) return null;
+        if (avgRounding === "exact") return val;
+        if (avgRounding === "0.25") return Math.round(val * 4) / 4;
+        if (avgRounding === "0.5") return Math.round(val * 2) / 2;
+        return roundToOneDecimal(val);
+      }
+
       function calcSemAvg(tests, sem) {
         if (!Array.isArray(tests)) return null;
         let fixedSum = 0, fixedPct = 0;
@@ -945,8 +972,12 @@
           : tests.length;
         for (let i = 0; i < maxCount; i++) {
           const grade = tests[i];
-          const displayGrade = classObj ? getTestDisplayGrade(student, classObj, sem, i) : grade;
-          if (displayGrade == null) continue;
+          let displayGrade = classObj ? getTestDisplayGrade(student, classObj, sem, i) : grade;
+          if (displayGrade == null) {
+            if (missingPolicy === "zero") displayGrade = 0;
+            else if (missingPolicy === "min-grade") displayGrade = 1;
+            else continue;
+          }
           const cfg = classObj ? classObj.testConfigs[sem][i] : null;
           const fw = cfg && typeof cfg.fixedWeight === "number" ? cfg.fixedWeight : null;
           if (fw != null) {
@@ -966,11 +997,17 @@
 
       const rawSem1Avg = calcSemAvg(student.sem1Tests, "sem1");
       const rawSem2Avg = calcSemAvg(student.sem2Tests, "sem2");
-      const sem1Avg = rawSem1Avg == null ? null : roundToOneDecimal(rawSem1Avg);
-      const sem2Avg = rawSem2Avg == null ? null : roundToOneDecimal(rawSem2Avg);
-      const yearCore = [sem1Avg, sem2Avg].filter(v => v != null);
-      const rawYearAvg = yearCore.length ? yearCore.reduce((a, b) => a + b, 0) / yearCore.length : null;
-      const yearAvg = rawYearAvg == null ? null : roundToOneDecimal(rawYearAvg);
+      const sem1Avg = rawSem1Avg == null ? null : roundAvgByPolicy(rawSem1Avg);
+      const sem2Avg = rawSem2Avg == null ? null : roundAvgByPolicy(rawSem2Avg);
+      let rawYearAvg = null;
+      if (sem1Avg != null && sem2Avg != null) {
+        const w1 = settings && Number.isFinite(Number(settings.term1Weight)) ? Math.max(0, Number(settings.term1Weight)) : 50;
+        const w2 = settings && Number.isFinite(Number(settings.term2Weight)) ? Math.max(0, Number(settings.term2Weight)) : 50;
+        rawYearAvg = (w1 + w2 > 0) ? ((sem1Avg * w1 + sem2Avg * w2) / (w1 + w2)) : ((sem1Avg + sem2Avg) / 2);
+      } else {
+        rawYearAvg = sem1Avg != null ? sem1Avg : sem2Avg;
+      }
+      const yearAvg = rawYearAvg == null ? null : roundAvgByPolicy(rawYearAvg);
       const roundedFinal = yearAvg;
       return { sem1Avg, sem2Avg, yearAvg, roundedFinal };
     }

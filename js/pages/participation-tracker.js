@@ -332,6 +332,10 @@ document.getElementById('ptExportModal')?.addEventListener('click', function(e) 
     if (e.target === this) closePtExportModal();
 });
 
+document.getElementById('columnsConfigModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeColumnsConfigModal();
+});
+
 
 
 // Show message helper

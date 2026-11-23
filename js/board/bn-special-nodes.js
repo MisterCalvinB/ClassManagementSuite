@@ -4387,7 +4387,7 @@
         if (typeof window.wnStyleRefreshPosition === 'function') window.wnStyleRefreshPosition();
       };
 
-      function conSpreadNodeSet(ids) {
+      function conSpreadNodeSet(ids, axis = 'both') {
         const selectedNodes = ids.map(id => conNodes.find(n => n.id === id)).filter(node => {
           if (!node || conIsNodeLocked(node)) return false;
           const pg = conGroupOfNode(node.id);
@@ -4418,8 +4418,14 @@
               const oy = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
               if (ox > 0 && oy > 0) {
                 let px = 0, py = 0;
-                if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
-                else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                if (axis === 'horizontal') {
+                  px = (ox / 2 + 0.5) * Math.sign(dx);
+                } else if (axis === 'vertical') {
+                  py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                } else {
+                  if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                  else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                }
                 forces[i].fx -= px; forces[i].fy -= py;
                 forces[j].fx += px; forces[j].fy += py;
               }
@@ -4446,11 +4452,11 @@
         }, 450);
       }
 
-      // Spread multi-selected words using force-based physics (same as conSpreadGroup)
-      window.conCtxSpreadSelected = function () {
+      // Spread multi-selected words using force-based physics (axis: 'vertical' | 'horizontal' | 'both')
+      window.conCtxSpreadSelected = function (axis = 'both') {
         if (conMultiSelected.size < 2) return;
         conPushUndo();
-        conSpreadNodeSet([...conMultiSelected]);
+        conSpreadNodeSet([...conMultiSelected], axis);
         conCtxClose();
       };
 
@@ -4616,7 +4622,7 @@
       // ---- Compact helpers ----
       // Each node/unit greedily moves as far as possible toward the centroid
       // without overlapping any neighbour. Processed innermost-first, 3 passes.
-      function _conCompactRunUnits(units, centX, centY, PADDING) {
+      function _conCompactRunUnits(units, centX, centY, PADDING, axis = 'both') {
         let totalMoved = 0;
         for (let pass = 0; pass < 8; pass++) {
           // Recompute centroid from current (moved) positions each pass
@@ -4630,7 +4636,8 @@
           order.forEach(i => {
             const u = units[i];
             if (u.locked) return;
-            const dxD = cx - u.cx, dyD = cy - u.cy;
+            const dxD = (axis === 'vertical') ? 0 : (cx - u.cx);
+            const dyD = (axis === 'horizontal') ? 0 : (cy - u.cy);
             if (Math.hypot(dxD, dyD) < 0.5) return;
             // Binary-search: max fraction t ∈ [0,1] we can move without overlapping
             let lo = 0, hi = 1;
@@ -4653,7 +4660,7 @@
         return totalMoved;
       }
 
-      function conCompactNodeSet(ids) {
+      function conCompactNodeSet(ids, axis = 'both') {
         const selectedNodes = ids.map(id => conNodes.find(n => n.id === id)).filter(n => n && !conIsNodeLocked(n));
         if (selectedNodes.length < 2) return;
         const units = selectedNodes.map(n => ({
@@ -4663,7 +4670,7 @@
         }));
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
-        const totalMoved = _conCompactRunUnits(units, centX, centY, 4);
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 4, axis);
         if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         units.forEach(u => {
           u.n.x = u.cx - u.w / 2; u.n.y = u.cy - u.h / 2;
@@ -4674,14 +4681,112 @@
         setTimeout(() => { units.forEach(u => { u.n.el.style.transition = ''; }); conRedrawEdges(); conGroupRefitAll(); }, 450);
       }
 
-      window.conCtxCompactSelected = function () {
+      window.conCtxCompactSelected = function (axis = 'both') {
         if (conMultiSelected.size < 2) return;
         conPushUndo();
-        conCompactNodeSet([...conMultiSelected]);
+        conCompactNodeSet([...conMultiSelected], axis);
         conCtxClose();
       };
 
-      window.conCompactNodes = function conCompactNodes() {
+      // ---- Axis choice popover for Spread / Compact (multiselected node context & Board tab) ----
+      let _axisPickerMode = null;
+      let _axisPickerScope = null;
+      let _axisPickerOutsideBound = false;
+
+      function conCloseAxisPicker() {
+        const picker = document.getElementById('con-axis-picker');
+        if (picker) picker.classList.remove('active');
+        _axisPickerMode = null;
+        _axisPickerScope = null;
+      }
+      window.conCloseAxisPicker = global.conCloseAxisPicker = conCloseAxisPicker;
+
+      function conOpenAxisPicker(mode, event, scope = 'selection') {
+        if (event) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        const picker = document.getElementById('con-axis-picker');
+        if (!picker) return;
+
+        if (picker.classList.contains('active') && _axisPickerMode === mode && _axisPickerScope === scope) {
+          conCloseAxisPicker();
+          return;
+        }
+
+        if (!_axisPickerOutsideBound) {
+          _axisPickerOutsideBound = true;
+          document.addEventListener('mousedown', ev => {
+            const p = document.getElementById('con-axis-picker');
+            if (!p || !p.classList.contains('active')) return;
+            if (!p.contains(ev.target) && !ev.target.closest('[data-bev-224], [data-bev-225], [data-bev-499], [data-bev-500]')) {
+              conCloseAxisPicker();
+            }
+          }, true);
+        }
+
+        _axisPickerMode = mode;
+        _axisPickerScope = scope;
+        picker.innerHTML = '';
+
+        const tr = (key, fallback) => (window.i18n && typeof window.i18n.t === 'function') ? window.i18n.t(key) : fallback;
+        const isSpread = mode === 'spread';
+        const iconSrc = isSpread ? '../assets/icons/spread.svg' : '../assets/icons/compact.svg';
+        const options = isSpread ? [
+          { axis: 'vertical', label: tr('conSpreadVertically', 'Spread vertically') },
+          { axis: 'horizontal', label: tr('conSpreadHorizontally', 'Spread horizontally') },
+          { axis: 'both', label: tr('conSpreadBoth', 'Spread vertically and horizontally') }
+        ] : [
+          { axis: 'vertical', label: tr('conCompactVertically', 'Compact vertically') },
+          { axis: 'horizontal', label: tr('conCompactHorizontally', 'Compact horizontally') },
+          { axis: 'both', label: tr('conCompactBoth', 'Compact vertically and horizontally') }
+        ];
+
+        options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'con-axis-picker-btn';
+          const img = document.createElement('img');
+          img.src = iconSrc;
+          img.className = 'btn-icon';
+          img.alt = '';
+          const span = document.createElement('span');
+          span.textContent = opt.label;
+          btn.appendChild(img);
+          btn.appendChild(span);
+          btn.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+          btn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            const activeScope = _axisPickerScope;
+            conCloseAxisPicker();
+            if (activeScope === 'board') {
+              if (isSpread && typeof window.conSpreadNodes === 'function') window.conSpreadNodes(opt.axis);
+              else if (!isSpread && typeof window.conCompactNodes === 'function') window.conCompactNodes(opt.axis);
+            } else {
+              if (isSpread) window.conCtxSpreadSelected(opt.axis);
+              else window.conCtxCompactSelected(opt.axis);
+            }
+          });
+          picker.appendChild(btn);
+        });
+
+        picker.classList.add('active');
+        const anchor = event && (event.currentTarget || event.target);
+        if (anchor && typeof anchor.getBoundingClientRect === 'function') {
+          const rect = anchor.getBoundingClientRect();
+          const pw = picker.offsetWidth || 210;
+          const ph = picker.offsetHeight || 105;
+          let x = rect.left;
+          let y = rect.bottom + 6;
+          if (x + pw > window.innerWidth - 6) x = window.innerWidth - pw - 6;
+          if (y + ph > window.innerHeight - 6) y = rect.top - ph - 6;
+          picker.style.left = Math.max(6, x) + 'px';
+          picker.style.top = Math.max(6, y) + 'px';
+        }
+      }
+      window.conOpenAxisPicker = global.conOpenAxisPicker = conOpenAxisPicker;
+
+      window.conCompactNodes = function conCompactNodes(axis = 'both') {
         const nodes = conNodes;
         if (nodes.length < 2) return;
         const brd = board();
@@ -4717,7 +4822,7 @@
         if (units.length < 2) return;
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
-        const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 6, axis);
         if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         conPushUndo();
         const bcx = bw / 2, bcy = bh / 2;
@@ -4788,7 +4893,7 @@
         if (units.length < 2) { if (typeof mdbToast === 'function') mdbToast('ℹ No nearby words to compact here.'); return; }
         const centX = units.reduce((s, u) => s + u.cx, 0) / units.length;
         const centY = units.reduce((s, u) => s + u.cy, 0) / units.length;
-        const totalMoved = _conCompactRunUnits(units, centX, centY, 6);
+        const totalMoved = _conCompactRunUnits(units, centX, centY, 6, axis);
         if (totalMoved < 1) { if (typeof mdbToast === 'function') mdbToast('ℹ Already as compact as possible.'); return; }
         conPushUndo();
         const boardCenterX = brd.clientWidth / 2, boardCenterY = brd.clientHeight / 2;
@@ -4908,12 +5013,14 @@
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedPresetBtn = node.el.querySelector('.con-node-preset-btn');
           const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = randomHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedPresetBtn) node.el.appendChild(_savedPresetBtn);
           if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
           if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
@@ -4951,12 +5058,14 @@
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedPresetBtn = node.el.querySelector('.con-node-preset-btn');
           const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = timerHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedPresetBtn) node.el.appendChild(_savedPresetBtn);
           if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
           if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
@@ -4999,12 +5108,14 @@
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedPresetBtn = node.el.querySelector('.con-node-preset-btn');
           const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = soundHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedPresetBtn) node.el.appendChild(_savedPresetBtn);
           if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
           if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
@@ -5058,12 +5169,14 @@
 
           const _savedResizer = node.el.querySelector('.con-node-resizer');
           const _savedEmojiDot = node.el.querySelector('.con-emoji-dot');
+          const _savedPresetBtn = node.el.querySelector('.con-node-preset-btn');
           const _savedNoteBtn = node.el.querySelector('.con-node-note-btn');
           const _savedStarBtn = node.el.querySelector('.con-node-star-btn');
           const _savedCompBadge = node.el.querySelector('.con-node-comp-badge');
           node.el.innerHTML = linkHtml;
           if (_savedResizer) node.el.appendChild(_savedResizer);
           if (_savedEmojiDot) node.el.appendChild(_savedEmojiDot);
+          if (_savedPresetBtn) node.el.appendChild(_savedPresetBtn);
           if (_savedNoteBtn) node.el.appendChild(_savedNoteBtn);
           if (_savedStarBtn) node.el.appendChild(_savedStarBtn);
           if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
@@ -5173,9 +5286,10 @@
         } else {
           el.style.fontVariant = 'normal';
         }
-        // Preserve resize handle, emoji dot, note button, star button, competence badge, and links bar across innerHTML rebuilds
+        // Preserve resize handle, emoji dot, preset button, note button, star button, competence badge, and links bar across innerHTML rebuilds
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedPresetBtn = el.querySelector('.con-node-preset-btn');
         const _savedNoteBtn = el.querySelector('.con-node-note-btn');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
         const _savedCompBadge = el.querySelector('.con-node-comp-badge');
@@ -5183,6 +5297,7 @@
         node.el.innerHTML = wordRow + annLines;
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedPresetBtn) el.appendChild(_savedPresetBtn);
         if (_savedNoteBtn) el.appendChild(_savedNoteBtn);
         if (_savedStarBtn) el.appendChild(_savedStarBtn);
         if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(node);
@@ -5414,6 +5529,16 @@
         btn.classList.toggle('active', !!dbEntry.starred);
         btn.title = dbEntry.starred ? 'Unstar' : 'Star in DB';
       }
+
+      function conRefreshAllNodeStarBtns() {
+        const list = (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) ? conNodes : (window.conNodes || []);
+        list.forEach(n => {
+          if (!n || !n.el) return;
+          conAddNodeStarBtn(n);
+          conSyncNodeStarState(n);
+        });
+      }
+      window.conRefreshAllNodeStarBtns = global.conRefreshAllNodeStarBtns = conRefreshAllNodeStarBtns;
 
       // Cross-module exports
       window.conFormatDurationSec = global.conFormatDurationSec = conFormatDurationSec;

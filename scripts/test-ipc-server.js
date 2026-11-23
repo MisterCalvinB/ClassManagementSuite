@@ -88,9 +88,21 @@ test('IPC integration: js/main/ipc-file-ops.js against isolated temp user/ direc
   const gradesDir = path.join(userDir, 'grades');
   const plannerDir = path.join(userDir, 'planner');
   const constellationsDir = path.join(userDir, 'constellations');
+  const docEditorDocsDir = path.join(userDir, 'document-editor', 'docs');
+  const toPrintDir = path.join(userDir, 'to-print');
   fs.mkdirSync(gradesDir, { recursive: true });
   fs.mkdirSync(plannerDir, { recursive: true });
   fs.mkdirSync(constellationsDir, { recursive: true });
+  fs.mkdirSync(path.join(docEditorDocsDir, '2nde'), { recursive: true });
+  fs.mkdirSync(path.join(docEditorDocsDir, 'history', 'doc-01'), { recursive: true });
+  fs.mkdirSync(path.join(toPrintDir, 'sub'), { recursive: true });
+  for (let i = 1; i <= 35; i++) {
+    fs.writeFileSync(path.join(docEditorDocsDir, `doc-${String(i).padStart(2, '0')}.md`), `# Doc ${i}`, 'utf8');
+  }
+  fs.writeFileSync(path.join(docEditorDocsDir, '2nde', 'unit3-grammar.md'), '# Grammar', 'utf8');
+  fs.writeFileSync(path.join(docEditorDocsDir, 'history', 'doc-01', '2026-11-23T09-00-00.md'), '# Old', 'utf8');
+  fs.writeFileSync(path.join(toPrintDir, 'worksheet.pdf'), '%PDF-1.4', 'utf8');
+  fs.writeFileSync(path.join(toPrintDir, 'sub', 'handout.md'), '# Handout', 'utf8');
 
   // Seed legacy name-keyed class-groups.js, students.js, planner-config.js, and planner/3A.js
   fs.writeFileSync(
@@ -140,7 +152,9 @@ test('IPC integration: js/main/ipc-file-ops.js against isolated temp user/ direc
     user: userDir,
     grades: gradesDir,
     planner: plannerDir,
-    constellations: constellationsDir
+    constellations: constellationsDir,
+    docEditorDocs: docEditorDocsDir,
+    toPrint: toPrintDir
   };
 
   const resolveDir = (t) => {
@@ -241,6 +255,12 @@ test('IPC integration: js/main/ipc-file-ops.js against isolated temp user/ direc
     assert.equal(qsRes.classes.length, 1);
     assert.equal(qsRes.classes[0].name, '3A');
     assert.equal(qsRes.classes[0].students.length, 2);
+    assert.equal(qsRes.documents.length, 36);
+    assert.ok(qsRes.documents.includes('doc-35.md'));
+    assert.ok(qsRes.documents.includes('2nde/unit3-grammar.md'));
+    assert.equal(qsRes.documents.some((d) => d.includes('history/')), false);
+    assert.ok(qsRes.toPrint.includes('worksheet.pdf'));
+    assert.ok(qsRes.toPrint.includes('sub/handout.md'));
 
     // 3. Directory & file ops by path
     await handlers.get('app:create-directory-by-path')({}, { target: 'user', relativePath: 'notes' });

@@ -304,6 +304,15 @@
         if (typeof window.conUpdatePageBar === "function") window.conUpdatePageBar();
         if (typeof window.initClassGroupSelector === "function") window.initClassGroupSelector();
         if (typeof window.renderQuickActionsToolbar === "function") window.renderQuickActionsToolbar();
+        if (typeof window.ensureWordDbLoaded === "function") {
+          Promise.resolve(window.ensureWordDbLoaded())
+            .then(function () {
+              if (typeof window.conRefreshAllNodeStarBtns === "function") {
+                window.conRefreshAllNodeStarBtns();
+              }
+            })
+            .catch(function () { });
+        }
       });
   });
 

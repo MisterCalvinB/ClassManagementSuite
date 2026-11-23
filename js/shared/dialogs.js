@@ -826,8 +826,9 @@
   var _destinationEscUnreg = null;
   var _currentExportDefaultExt = '';
   var _currentExportDefaultName = '';
+  var _currentExportOpts = null;
 
-  function _closeDestinationOverlay(res) {
+  function _closeDestinationOverlay(res, explicitFilename) {
     if (_destinationEscUnreg) {
       _destinationEscUnreg();
       _destinationEscUnreg = null;
@@ -842,10 +843,259 @@
         fn(null);
       } else {
         var filenameInput = destinationOverlay ? destinationOverlay.querySelector('#cmt-dest-filename-input') : null;
-        var cleanName = _sanitizeExportFilename(filenameInput ? filenameInput.value : '', _currentExportDefaultExt, _currentExportDefaultName);
+        var rawName = explicitFilename || (filenameInput ? filenameInput.value : '');
+        var cleanName = _sanitizeExportFilename(rawName, _currentExportDefaultExt, _currentExportDefaultName);
         fn({ destination: res, filename: cleanName });
       }
     }
+  }
+
+  function _appendTimestampToFilename(filename) {
+    var now = new Date();
+    var pad = function (n) { return n < 10 ? '0' + n : String(n); };
+    var ts = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate()) + '_' +
+      pad(now.getHours()) + '-' + pad(now.getMinutes()) + '-' + pad(now.getSeconds());
+    var dot = filename.lastIndexOf('.');
+    if (dot > 0) {
+      return filename.slice(0, dot) + '_' + ts + filename.slice(dot);
+    }
+    return filename + '_' + ts;
+  }
+
+  async function _checkExportFileExists(dest, filename, opts) {
+    if (!window.Desktop || !Desktop.isElectron() || !filename) return false;
+    try {
+      if (opts && opts.customTarget) {
+        if (typeof Desktop.statByPath === 'function') {
+          var sub = opts.customSubdir ? String(opts.customSubdir).replace(/^[\\/]+|[\\/]+$/g, '') : '';
+          var rel = sub ? (sub + '/' + filename) : filename;
+          var stCustom = await Desktop.statByPath(opts.customTarget, rel);
+          return !!(stCustom && stCustom.ok && stCustom.exists);
+        }
+      } else if (dest === 'doc-editor' || dest === 'doceditor') {
+        if (typeof Desktop.statByPath === 'function') {
+          var stDoc = await Desktop.statByPath('docEditorDocs', filename);
+          return !!(stDoc && stDoc.ok && stDoc.exists);
+        }
+      } else if (dest === 'to-print') {
+        if (typeof Desktop.statByPath === 'function') {
+          var stPrint = await Desktop.statByPath('toPrint', filename);
+          return !!(stPrint && stPrint.ok && stPrint.exists);
+        }
+      } else if (dest === 'same-folder' && opts && opts.sameFolderPath) {
+        if (typeof Desktop.statDiskFile === 'function') {
+          var sep = opts.sameFolderPath.indexOf('\\') !== -1 ? '\\' : '/';
+          var base = opts.sameFolderPath.replace(/[\\/]+$/, '');
+          var stDisk = await Desktop.statDiskFile(base + sep + filename);
+          return !!(stDisk && stDisk.ok && stDisk.exists);
+        }
+      }
+    } catch (_) {
+      return false;
+    }
+    return false;
+  }
+
+  async function _resolveExportFilenameConflict(options) {
+    if (!options || !options.filename || !window.Desktop || !Desktop.isElectron()) {
+      return { canceled: false, filename: options && options.filename };
+    }
+    var filename = options.filename;
+    var target = options.target || '';
+    var subdir = options.subdir ? String(options.subdir).replace(/^[\\/]+|[\\/]+$/g, '') : '';
+    var absPath = options.absolutePath || '';
+    var dot = String(filename).lastIndexOf('.');
+    _currentExportDefaultExt = dot > 0 ? String(filename).slice(dot + 1).toLowerCase() : '';
+    _currentExportDefaultName = filename;
+
+    var checkOpts = null;
+    if (absPath) {
+      var norm = absPath.replace(/\\/g, '/');
+      var idx = norm.lastIndexOf('/');
+      var dir = idx > 0 ? absPath.slice(0, idx) : '';
+      checkOpts = { sameFolderPath: dir };
+    } else if (target) {
+      checkOpts = { customTarget: target, customSubdir: subdir };
+    }
+
+    var destKey = absPath ? 'same-folder' : (target === 'docEditorDocs' ? 'doc-editor' : (target === 'toPrint' ? 'to-print' : target));
+    var exists = await _checkExportFileExists(destKey, filename, checkOpts);
+    if (!exists) {
+      return { canceled: false, filename: filename };
+    }
+
+    var conflictRes = await _promptExportConflict(filename, destKey, checkOpts);
+    if (!conflictRes || !conflictRes.filename) {
+      return { canceled: true };
+    }
+    return { canceled: false, filename: conflictRes.filename, action: conflictRes.action };
+  }
+
+  var exportConflictOverlay = null;
+  var _conflictResolver = null;
+  var _conflictEscUnreg = null;
+
+  function _closeConflictOverlay(res) {
+    if (_conflictEscUnreg) {
+      _conflictEscUnreg();
+      _conflictEscUnreg = null;
+    }
+    if (exportConflictOverlay) {
+      exportConflictOverlay.classList.remove('open');
+    }
+    if (_conflictResolver) {
+      var fn = _conflictResolver;
+      _conflictResolver = null;
+      fn(res || null);
+    }
+  }
+
+  function ensureExportConflictOverlay() {
+    if (exportConflictOverlay) return;
+    exportConflictOverlay = document.createElement('div');
+    exportConflictOverlay.className = 'cmt-overlay';
+    exportConflictOverlay.setAttribute('role', 'dialog');
+    exportConflictOverlay.setAttribute('aria-modal', 'true');
+    exportConflictOverlay.style.zIndex = '100020';
+    exportConflictOverlay.innerHTML =
+      '<div class="cmt-dialog-box" style="text-align: left; max-width: min(440px, calc(100vw - 24px)); padding: 22px 22px 18px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
+        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
+          '<div style="display:flex;align-items:center;gap:10px;">' +
+            '<div style="width:32px;height:32px;border-radius:var(--neo-radius-sm,4px);border:2px solid var(--neo-border-color,#333333);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+              '<img src="' + _dlgIconPrefix + 'error.svg" style="width:18px;height:18px;" alt="" />' +
+            '</div>' +
+            '<h3 class="cmt-conflict-title" style="margin:0;font-size:1.06rem;font-weight:800;font-family:inherit;color:var(--neo-dark,#222222);">File Already Exists</h3>' +
+          '</div>' +
+          '<button type="button" class="cmt-conflict-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
+        '</div>' +
+        '<p class="cmt-conflict-msg" style="margin:0 0 16px;font-size:.88rem;line-height:1.5;color:var(--neo-gray-dark,#475569);word-break:break-word;font-family:inherit;"></p>' +
+        '<div class="cmt-conflict-rename-wrap" style="display:none;margin-bottom:14px;">' +
+          '<label class="cmt-conflict-rename-label neo-label" for="cmt-conflict-rename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
+          '<div style="display:flex;gap:8px;align-items:center;">' +
+            '<input type="text" id="cmt-conflict-rename-input" class="cmt-conflict-rename-input neo-input" style="flex:1;font-weight:700;" />' +
+            '<button type="button" class="cmt-btn-conflict-rename-confirm neo-btn neo-btn-dark" style="white-space:nowrap;">Save</button>' +
+          '</div>' +
+        '</div>' +
+        '<div class="cmt-conflict-actions" style="display:flex;flex-direction:column;gap:8px;">' +
+          '<button type="button" class="cmt-btn-conflict-overwrite neo-btn" style="width:100%;justify-content:center;background:#fee2e2;color:#991b1b;border-color:#333333;">Overwrite Existing File</button>' +
+          '<button type="button" class="cmt-btn-conflict-rename neo-btn neo-btn-primary" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'edit.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-rename-text">Choose New Name</span></button>' +
+          '<button type="button" class="cmt-btn-conflict-timestamp neo-btn" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'clock.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-timestamp-text">Add Timestamp</span></button>' +
+          '<button type="button" class="cmt-btn-conflict-cancel neo-btn neo-btn-ghost" style="width:100%;justify-content:center;margin-top:2px;">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(exportConflictOverlay);
+
+    exportConflictOverlay.querySelector('.cmt-conflict-close-x').addEventListener('click', function () { _closeConflictOverlay(null); });
+    exportConflictOverlay.querySelector('.cmt-btn-conflict-cancel').addEventListener('click', function () { _closeConflictOverlay(null); });
+    exportConflictOverlay.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        _closeConflictOverlay(null);
+      }
+    });
+  }
+
+  function _promptExportConflict(initialFilename, dest, opts) {
+    ensureExportConflictOverlay();
+    var currentName = initialFilename;
+    var msgEl = exportConflictOverlay.querySelector('.cmt-conflict-msg');
+    var titleEl = exportConflictOverlay.querySelector('.cmt-conflict-title');
+    var renameWrap = exportConflictOverlay.querySelector('.cmt-conflict-rename-wrap');
+    var renameInput = exportConflictOverlay.querySelector('#cmt-conflict-rename-input');
+    var renameLabel = exportConflictOverlay.querySelector('.cmt-conflict-rename-label');
+    var btnOverwrite = exportConflictOverlay.querySelector('.cmt-btn-conflict-overwrite');
+    var btnRename = exportConflictOverlay.querySelector('.cmt-btn-conflict-rename');
+    var btnTimestamp = exportConflictOverlay.querySelector('.cmt-btn-conflict-timestamp');
+    var btnRenameConfirm = exportConflictOverlay.querySelector('.cmt-btn-conflict-rename-confirm');
+    var btnCancel = exportConflictOverlay.querySelector('.cmt-btn-conflict-cancel');
+
+    titleEl.textContent = _getExportText('exportFileExistsTitle', 'File Already Exists');
+    renameLabel.textContent = _getExportText('exportFileNameLabel', 'File Name:');
+    btnOverwrite.textContent = _getExportText('exportConflictOverwrite', 'Overwrite Existing File');
+    exportConflictOverlay.querySelector('.cmt-conflict-rename-text').textContent = _getExportText('exportConflictRename', 'Choose New Name');
+    exportConflictOverlay.querySelector('.cmt-conflict-timestamp-text').textContent = _getExportText('exportConflictTimestamp', 'Add Timestamp');
+    btnRenameConfirm.textContent = _getExportText('exportConflictSaveNewName', 'Save with New Name');
+    btnCancel.textContent = _getExportText('btnCancel', 'Cancel');
+
+    function updateMessage(name) {
+      currentName = name;
+      msgEl.textContent = _getExportText(
+        'exportFileExistsMsg',
+        'A file named "{name}" already exists in this location. What would you like to do?'
+      ).replace('{name}', name);
+    }
+
+    updateMessage(currentName);
+    renameWrap.style.display = 'none';
+    renameInput.value = currentName;
+
+    btnOverwrite.onclick = function () {
+      _closeConflictOverlay({ action: 'overwrite', filename: currentName });
+    };
+
+    btnTimestamp.onclick = async function () {
+      var tsName = _appendTimestampToFilename(currentName);
+      if (await _checkExportFileExists(dest, tsName, opts)) {
+        var dot = tsName.lastIndexOf('.');
+        var stem = dot > 0 ? tsName.slice(0, dot) : tsName;
+        var ext = dot > 0 ? tsName.slice(dot) : '';
+        tsName = stem + '_' + Math.floor(Math.random() * 900 + 100) + ext;
+      }
+      _closeConflictOverlay({ action: 'timestamp', filename: tsName });
+    };
+
+    btnRename.onclick = function () {
+      renameWrap.style.display = 'block';
+      renameInput.value = currentName;
+      setTimeout(function () {
+        renameInput.focus();
+        var dot = currentName.lastIndexOf('.');
+        if (dot > 0) {
+          try { renameInput.setSelectionRange(0, dot); } catch (_) {}
+        } else {
+          renameInput.select();
+        }
+      }, 30);
+    };
+
+    async function submitNewName() {
+      var newName = _sanitizeExportFilename(renameInput.value, _currentExportDefaultExt, currentName);
+      if (await _checkExportFileExists(dest, newName, opts)) {
+        updateMessage(newName);
+        renameWrap.style.display = 'none';
+        return;
+      }
+      _closeConflictOverlay({ action: 'rename', filename: newName });
+    }
+
+    btnRenameConfirm.onclick = submitNewName;
+    renameInput.onkeydown = function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        submitNewName();
+      }
+    };
+
+    return new Promise(function (resolve) {
+      if (_conflictResolver) {
+        var old = _conflictResolver;
+        _conflictResolver = null;
+        if (_conflictEscUnreg) { _conflictEscUnreg(); _conflictEscUnreg = null; }
+        old(null);
+      }
+      _conflictResolver = resolve;
+      exportConflictOverlay.classList.add('open');
+      if (window.cmtPushEscapeHandler) {
+        _conflictEscUnreg = window.cmtPushEscapeHandler({
+          el: exportConflictOverlay,
+          close: function () { _closeConflictOverlay(null); }
+        });
+      }
+      setTimeout(function () { btnRename.focus(); }, 40);
+    });
   }
 
   function _sanitizeExportFilename(inputVal, defaultExt, defaultName) {
@@ -934,16 +1184,45 @@
     var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
 
     var closeWith = _closeDestinationOverlay;
+    var _destChecking = false;
+
+    async function handleSelect(dest) {
+      if (_destChecking) return;
+      if (!dest || dest === 'custom' || !window.Desktop || !Desktop.isElectron()) {
+        closeWith(dest);
+        return;
+      }
+      var cleanName = _sanitizeExportFilename(
+        filenameInput ? filenameInput.value : '',
+        _currentExportDefaultExt,
+        _currentExportDefaultName
+      );
+      _destChecking = true;
+      try {
+        var exists = await _checkExportFileExists(dest, cleanName, _currentExportOpts);
+        if (!exists) {
+          closeWith(dest, cleanName);
+          return;
+        }
+        var conflictRes = await _promptExportConflict(cleanName, dest, _currentExportOpts);
+        if (conflictRes && conflictRes.filename) {
+          if (filenameInput) filenameInput.value = conflictRes.filename;
+          closeWith(dest, conflictRes.filename);
+        }
+      } finally {
+        _destChecking = false;
+      }
+    }
 
     if (btnSameFolder) {
-      btnSameFolder.addEventListener('click', function () { closeWith('same-folder'); });
+      btnSameFolder.addEventListener('click', function () { handleSelect('same-folder'); });
       btnSameFolder.addEventListener('mouseenter', function () { btnSameFolder.style.background = '#f0fdf4'; });
       btnSameFolder.addEventListener('mouseleave', function () { btnSameFolder.style.background = '#fff'; });
       btnSameFolder.addEventListener('mousedown', function () { btnSameFolder.style.transform = 'translate(1px, 1px)'; btnSameFolder.style.boxShadow = '2px 2px 0 #000'; });
       btnSameFolder.addEventListener('mouseup', function () { btnSameFolder.style.transform = 'none'; btnSameFolder.style.boxShadow = '3px 3px 0 #000'; });
     }
-    btnDocEditor.addEventListener('click', function () { closeWith('doc-editor'); });
-    btnPrint.addEventListener('click', function () { closeWith('to-print'); });
+    btnDocEditor.addEventListener('click', function () { handleSelect('doc-editor'); });
+    btnPrint.addEventListener('click', function () { handleSelect('to-print'); });
     btnCustom.addEventListener('click', function () { closeWith('custom'); });
     btnCancel.addEventListener('click', function () { closeWith(null); });
     btnCloseX.addEventListener('click', function () { closeWith(null); });
@@ -964,7 +1243,7 @@
       filenameInput.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') {
           e.preventDefault();
-          closeWith(btnDocEditor.style.display !== 'none' ? 'doc-editor' : 'to-print');
+          handleSelect(btnDocEditor.style.display !== 'none' ? 'doc-editor' : 'to-print');
         }
       });
     }
@@ -980,6 +1259,7 @@
     }
     ensureDestinationOverlay();
     var opts = options || {};
+    _currentExportOpts = opts;
     var rawFilename = opts.filename || 'export';
     _currentExportDefaultName = rawFilename;
     var ext = String(rawFilename).split('?')[0].split('.').pop().toLowerCase();
@@ -1701,6 +1981,7 @@
   window.promptExportDestination = _promptExportDestination;
   window.saveExportWithDestination = _saveExportWithDestination;
   window.sendToDocumentEditor = _sendToDocumentEditor;
+  window.resolveExportFilenameConflict = _resolveExportFilenameConflict;
 
   // ── Light Neobrutalist Hover Helper Card ──────────────────────────────────
   (function initHoverHelperCard() {

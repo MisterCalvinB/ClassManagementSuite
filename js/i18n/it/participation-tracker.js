@@ -310,5 +310,22 @@
   "ptWizConfirmHeading": "Pronto per salvare le regole",
   "ptWizConfirmSub": "Fai clic su Salva regole per applicare questa impostazione e calcolare i voti provvisori.",
   "ptWizStyleLabel": "Stile:",
-  "ptWizSaveBtn": "Salva regole"
+  "ptWizSaveBtn": "Salva regole",
+  "ptDangerZoneTitle": "Zona pericolosa",
+  "ptDangerZoneDesc": "Elimina definitivamente tutte le sessioni di partecipazione registrate per il gruppo selezionato.",
+  "ptEditFullRow": "Editor completo",
+  "ptBtnSave": "Salva",
+  "ptBoolYes": "Sì",
+  "ptBoolNo": "No",
+  "ptNoBadges": "Nessun badge",
+  "ptAddBadgeOption": "+ Aggiungi badge...",
+  "ptCustomBadgeOption": "Personalizzato...",
+  "ptNoTeamRoleEvents": "Nessun evento squadra/ruolo in questa sessione.",
+  "ptCurrentSessionControls": "Controlli sessione attiva",
+  "ptPlusesLabel": "Punti (+)",
+  "ptMinusesLabel": "Penalità (-)",
+  "ptTeamPlusLabel": "Squadra +",
+  "ptTeamMinusLabel": "Squadra -",
+  "ptLogNewInteraction": "Registra nuova interazione",
+  "ptAddEntry": "Aggiungi"
 });

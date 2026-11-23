@@ -763,21 +763,21 @@
     // ================================================================
     (function () {
       const CON_EMOJIS = [
-        { e: '❤', label: 'Heart' },
-        { e: '', label: 'Happy' },
-        { e: '', label: 'Sad' },
-        { e: '', label: 'Surprised' },
-        { e: '', label: 'Puzzled' },
-        { e: '', label: 'Angry' },
-        { e: '', label: 'Disgust' },
-        { e: '', label: 'Shocked' },
-        { e: '', label: 'Scared' },
-        { e: '', label: 'Sad / Down' },
-        { e: '', label: 'Relieved' },
-        { e: '', label: 'In love' },
-        { e: '', label: 'Frustrated' },
-        { e: '', label: 'Nervous' },
-        { e: '', label: 'Excited' }
+        { e: '❤️', label: 'Heart' },
+        { e: '😊', label: 'Happy' },
+        { e: '😢', label: 'Sad' },
+        { e: '😮', label: 'Surprised' },
+        { e: '🤔', label: 'Puzzled' },
+        { e: '😠', label: 'Angry' },
+        { e: '🤢', label: 'Disgust' },
+        { e: '😱', label: 'Shocked' },
+        { e: '😨', label: 'Scared' },
+        { e: '😔', label: 'Sad / Down' },
+        { e: '😌', label: 'Relieved' },
+        { e: '😍', label: 'In love' },
+        { e: '😤', label: 'Frustrated' },
+        { e: '😰', label: 'Nervous' },
+        { e: '🤩', label: 'Excited' }
       ];
 
       let _emojiTarget = null; // { type: 'node'|'note', id }
@@ -787,9 +787,11 @@
         if (picker) picker.classList.remove('active');
         _emojiTarget = null;
       }
+      window.conEmojiPickerClose = _pickerClose;
 
       function _pickerOpen(e, type, id) {
         e.preventDefault(); e.stopPropagation();
+        if (typeof window.conPresetPickerClose === 'function') window.conPresetPickerClose();
         const picker = document.getElementById('con-emoji-picker');
         if (!picker) return;
         _emojiTarget = { type, id };
@@ -934,6 +936,116 @@
     })();
     // ================================================================
     // END EMOJI REACTION SYSTEM
+    // ================================================================
+
+    // ================================================================
+    // QUICK NODE PRESET PICKER (hover button left of emoji dot)
+    // ================================================================
+    (function () {
+      let _presetTargetNodeId = null;
+      let _outsideBound = false;
+
+      function _presetPickerClose() {
+        const picker = document.getElementById('con-node-preset-picker');
+        if (picker) picker.classList.remove('active');
+        _presetTargetNodeId = null;
+      }
+      window.conPresetPickerClose = _presetPickerClose;
+
+      function _ensureOutsideListener() {
+        if (_outsideBound) return;
+        _outsideBound = true;
+        document.addEventListener('mousedown', ev => {
+          const picker = document.getElementById('con-node-preset-picker');
+          if (!picker || !picker.classList.contains('active')) return;
+          if (!picker.contains(ev.target)) _presetPickerClose();
+        }, true);
+      }
+
+      function _populatePresetPicker(picker, nodeId) {
+        picker.innerHTML = '';
+        const presets = (typeof window.conGetNodePresets === 'function') ? window.conGetNodePresets() : [];
+        const nodes = (typeof window.conGetNodes === 'function') ? window.conGetNodes() : [];
+        const node = nodes.find(n => n && n.id === nodeId);
+        const activePreset = node ? (node.preset || null) : null;
+
+        presets.forEach(p => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'con-preset-btn' + (p.key === activePreset ? ' active' : '');
+          btn.dataset.presetKey = p.key;
+          btn.title = p.label || p.key;
+          btn.textContent = p.key;
+          btn.style.background = p.bg;
+          btn.style.color = p.color;
+          btn.style.borderColor = p.borderColor;
+          btn.style.borderWidth = (p.borderWidth || 2) + 'px';
+          btn.style.borderStyle = p.borderStyle || 'solid';
+          if (p.highlight) btn.style.boxShadow = `0 0 0 2px ${p.highlight}`;
+          if (typeof window.conApplyTextStrokeStyle === 'function') {
+            window.conApplyTextStrokeStyle(btn, p.textStrokeWidth, p.textStrokeColor);
+          }
+          if (p.fmt) {
+            btn.style.fontWeight = p.fmt.bold ? 'bold' : '';
+            btn.style.fontStyle = p.fmt.italic ? 'italic' : '';
+            btn.style.textDecoration = [
+              p.fmt.underline ? 'underline' : '',
+              p.fmt.strike ? 'line-through' : ''
+            ].filter(Boolean).join(' ') || '';
+          }
+          btn.addEventListener('mousedown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+          btn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (!_presetTargetNodeId) return;
+            const multi = window.conMultiSelected;
+            const targetIds = (multi && multi.size > 1 && multi.has(_presetTargetNodeId))
+              ? [...multi]
+              : [_presetTargetNodeId];
+            if (typeof window.conApplyNodePreset === 'function') {
+              window.conApplyNodePreset(p.key, targetIds);
+            }
+            if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+            _presetPickerClose();
+          });
+          picker.appendChild(btn);
+        });
+      }
+
+      function _presetPickerOpen(e, nodeId) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.conEmojiPickerClose === 'function') window.conEmojiPickerClose();
+        const picker = document.getElementById('con-node-preset-picker');
+        if (!picker) return;
+        _ensureOutsideListener();
+        _presetTargetNodeId = nodeId;
+        _populatePresetPicker(picker, nodeId);
+        picker.classList.add('active');
+        const rect = e.currentTarget.getBoundingClientRect();
+        const pw = picker.offsetWidth || 160;
+        const ph = picker.offsetHeight || 48;
+        let x = rect.right + 6;
+        let y = rect.top;
+        if (x + pw > window.innerWidth - 4) x = rect.left - pw - 6;
+        if (y + ph > window.innerHeight - 4) y = window.innerHeight - ph - 4;
+        picker.style.left = Math.max(4, x) + 'px';
+        picker.style.top = Math.max(4, y) + 'px';
+      }
+
+      window.conPresetAttachNodeBtn = function (id, el) {
+        if (!el || el.querySelector('.con-node-preset-btn')) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'con-node-preset-btn';
+        btn.title = (window.i18n && window.i18n.t('conQuickPresetTooltip')) || 'Quick style preset';
+        btn.innerHTML = '<img src="../assets/icons/palette.svg" class="btn-icon" alt="" />';
+        btn.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); });
+        btn.addEventListener('click', e => _presetPickerOpen(e, id));
+        el.appendChild(btn);
+      };
+    })();
+    // ================================================================
+    // END QUICK NODE PRESET PICKER
     // ================================================================
 
     // ================================================================

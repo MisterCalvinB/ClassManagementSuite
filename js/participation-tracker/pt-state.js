@@ -506,15 +506,18 @@ function refreshTableBody(tableId) {
 // ─── Columns Configuration Modal UI ──────────────────────────────────
 function openColumnsConfigModal(tableId) {
     currentColumnsModalTableId = tableId || 'classOverviewTable';
+    if (!ptTableColState[currentColumnsModalTableId] || !ptTableColState[currentColumnsModalTableId].order?.length) {
+        _initPtColumnsState();
+    }
     const modal = document.getElementById('columnsConfigModal');
     if (!modal) return;
 
     const titleEl = document.getElementById('columnsModalTitle');
     if (titleEl) {
-        let name = t('ptColToggleOverview');
-        if (currentColumnsModalTableId === 'historyTable') name = t('ptColToggleHistory');
-        else if (currentColumnsModalTableId === 'studentTable') name = t('ptColToggleStudent');
-        titleEl.textContent = `${t('ptConfigureColumns')} — ${name}`;
+        let name = t('ptColToggleOverview') || 'Class Overview';
+        if (currentColumnsModalTableId === 'historyTable') name = t('ptColToggleHistory') || 'Session History';
+        else if (currentColumnsModalTableId === 'studentTable') name = t('ptColToggleStudent') || 'Student Details';
+        titleEl.textContent = `${t('ptConfigureColumns') || 'Configure Columns'} — ${name}`;
     }
 
     renderColumnsModalList();
@@ -551,15 +554,15 @@ function renderColumnsModalList() {
         card.draggable = true;
 
         card.innerHTML = `
-            <span class="card-drag-handle" title="${t('ptDragToReorder')}">⋮⋮</span>
+            <span class="card-drag-handle" title="${t('ptDragToReorder')}">::</span>
             <label class="card-checkbox-label">
                 <input type="checkbox" ${isVisible ? 'checked' : ''} ${isFixed ? 'disabled' : ''} data-col="${colId}">
                 <span>${escapeHtml(label)}</span>
             </label>
             <span class="card-width-badge">${widthVal}px</span>
             <div class="card-btn-group">
-                <button type="button" class="card-action-btn btn-move-up" title="${t('ptMoveUp')}" ${index === 0 ? 'disabled' : ''}>▲</button>
-                <button type="button" class="card-action-btn btn-move-down" title="${t('ptMoveDown')}" ${index === order.length - 1 ? 'disabled' : ''}>▼</button>
+                <button type="button" class="card-action-btn btn-move-up" title="${t('ptMoveUp')}" aria-label="${t('ptMoveUp')}" ${index === 0 ? 'disabled' : ''}><svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8l4-4 4 4"/></svg></button>
+                <button type="button" class="card-action-btn btn-move-down" title="${t('ptMoveDown')}" aria-label="${t('ptMoveDown')}" ${index === order.length - 1 ? 'disabled' : ''}><svg viewBox="0 0 12 12" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4l4 4 4-4"/></svg></button>
             </div>
         `;
 
@@ -1716,16 +1719,27 @@ function setupEventListeners() {
         });
     }
 
-    // Context menu event delegation for student rows
+    // Context menu event delegation for student rows & cells
     document.addEventListener('contextmenu', function(e) {
         const tr = e.target.closest('tr');
         if (!tr) return;
         const table = tr.closest('table');
         if (!table) return;
+        if (tr.parentNode && (tr.parentNode.tagName === 'THEAD' || tr.parentNode.tagName === 'TFOOT')) return;
 
-        if (table.id === 'classOverviewTable' || table.id === 'studentTable' || table.classList.contains('class-overview-table')) {
-            if (tr.parentNode && (tr.parentNode.tagName === 'THEAD' || tr.parentNode.tagName === 'TFOOT')) return;
+        if (table.id === 'studentTable') {
+            const td = e.target.closest('td[data-col]');
+            const sessionId = tr.dataset.sessionId;
+            const studentName = tr.dataset.studentName || currentStudentName;
+            if (td && sessionId && studentName && typeof openStudentCellPopover === 'function') {
+                e.preventDefault();
+                e.stopPropagation();
+                openStudentCellPopover(td, sessionId, studentName, td.dataset.col, e.clientX, e.clientY);
+            }
+            return;
+        }
 
+        if (table.id === 'classOverviewTable' || table.classList.contains('class-overview-table')) {
             const studentName = tr.dataset.studentName || (tr.cells && tr.cells[0] ? tr.cells[0].textContent.trim() : null);
             if (studentName && !['Total', 'Class Total', 'Class Avg', 'TOTAL', 'AVERAGE'].includes(studentName)) {
                 e.preventDefault();

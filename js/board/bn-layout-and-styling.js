@@ -3629,6 +3629,7 @@
         const tContinue = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceContinue') : 'Continue number';
         const tKeep = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceKeepOld') : 'Keep old and start new';
         const tClear = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceClearOld') : 'Clear old and start new';
+        const tClearAll = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conCtxClearAllNumbers') : 'Clear All Numbers';
         const tCustom = (typeof i18n !== 'undefined' && i18n.t) ? i18n.t('conNumberChoiceCustom') : 'Use custom number';
 
         const toast = document.createElement('div');
@@ -3700,6 +3701,17 @@
           if (typeof opts.onChoice === 'function') opts.onChoice('clear');
         });
         actions.appendChild(clearBtn);
+
+        const clearAllBtn = document.createElement('button');
+        clearAllBtn.type = 'button';
+        clearAllBtn.className = 'action-btn btn-grey con-numbering-choice-btn con-btn-clear-all';
+        clearAllBtn.textContent = tClearAll;
+        clearAllBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          conCloseNumberingChoiceToast();
+          if (typeof opts.onChoice === 'function') opts.onChoice('clearAll');
+        });
+        actions.appendChild(clearAllBtn);
 
         const customWrap = document.createElement('div');
         customWrap.className = 'con-numbering-custom-wrap';
@@ -3850,6 +3862,9 @@
               } else if (choice === 'clear') {
                 conClearEntityNumbers('all');
                 conNumberSelectedEntities(preferredFormat, 1);
+              } else if (choice === 'clearAll') {
+                conClearEntityNumbers('all');
+                if (window.conNumberingMode) conToggleNumberingMode(false);
               } else if (choice === 'custom') {
                 conNumberSelectedEntities(preferredFormat, customStartNum);
               }
@@ -3879,6 +3894,9 @@
                 conClearEntityNumbers('all');
                 window._conNumberingSeq = 1;
                 conToggleNumberingMode(true, preferredFormat);
+              } else if (choice === 'clearAll') {
+                conClearEntityNumbers('all');
+                if (window.conNumberingMode) conToggleNumberingMode(false);
               } else if (choice === 'custom') {
                 window._conNumberingSeq = (typeof customStartNum === 'number' && customStartNum > 0) ? customStartNum : 1;
                 conToggleNumberingMode(true, preferredFormat);
@@ -5923,7 +5941,7 @@
       });
 
       // ---- Spread / equalise ----
-      window.conSpreadNodes = function conSpreadNodes() {
+      window.conSpreadNodes = function conSpreadNodes(axis = 'both') {
         const nodes = conNodes;
         if (nodes.length < 2) return;
         const brd = board();
@@ -5987,8 +6005,14 @@
                 const oy = (a.h / 2 + b.h / 2 + INTRA_PAD) - Math.abs(dy);
                 if (ox > 0 && oy > 0) {
                   let px = 0, py = 0;
-                  if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
-                  else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  if (axis === 'horizontal') {
+                    px = (ox / 2 + 0.5) * Math.sign(dx);
+                  } else if (axis === 'vertical') {
+                    py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  } else {
+                    if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                    else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  }
                   forces[i].fx -= px; forces[i].fy -= py;
                   forces[j].fx += px; forces[j].fy += py;
                 }
@@ -6022,8 +6046,14 @@
                 const oy = (a.h / 2 + b.h / 2 + PADDING) - Math.abs(dy);
                 if (ox > 0 && oy > 0) {
                   let px = 0, py = 0;
-                  if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
-                  else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  if (axis === 'horizontal') {
+                    px = (ox / 2 + 0.5) * Math.sign(dx);
+                  } else if (axis === 'vertical') {
+                    py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  } else {
+                    if (ox < oy) px = (ox / 2 + 0.5) * Math.sign(dx);
+                    else py = (oy / 2 + 0.5) * Math.sign(dy || 1);
+                  }
                   forces[i].fx -= px; forces[i].fy -= py;
                   forces[j].fx += px; forces[j].fy += py;
                 }

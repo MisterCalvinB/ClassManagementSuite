@@ -248,7 +248,6 @@
             <h2 data-i18n="ptHistoryTitle">Session History</h2>
             <div style="display:flex;gap:8px;align-items:center;">
                 <button class="btn-secondary btn-icon" id="historyColsBtn" type="button" data-ptev-6="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="ptColumns">Columns <span class="neo-caret" aria-hidden="true"></span></span></button>
-                <button class="btn-danger btn-icon" id="resetGroupBtn" style="font-size:12px; padding:6px 12px; cursor:pointer;" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
             </div>
         </div>
         <div class="section-header-actions-line"></div>
@@ -497,6 +496,18 @@
                     </table>
                 </div>
             </div>
+        </div>
+
+        <!-- Danger Zone (separated from daily actions to prevent accidental resets) -->
+        <div class="pt-danger-zone">
+            <div class="pt-danger-zone-info">
+                <div class="pt-danger-zone-title">
+                    <img src="../assets/icons/error.svg" class="btn-icon" alt="" />
+                    <span data-i18n="ptDangerZoneTitle">Danger Zone</span>
+                </div>
+                <p class="pt-danger-zone-desc" data-i18n="ptDangerZoneDesc">Permanently delete all recorded participation sessions for the currently selected group.</p>
+            </div>
+            <button class="btn-danger btn-icon" id="resetGroupBtn" type="button" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
         </div>
     </div>
 
@@ -753,12 +764,14 @@
     <!-- Detail Modal for Notes & Student Data Editing -->
     <div id="detailModal" class="modal">
         <div class="modal-content student-edit-modal-content">
-            <div class="modal-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <h3 id="detailModalTitle" style="margin:0;"></h3>
-                    <button type="button" class="btn btn-xs" id="pt-btn-student-timeline" data-ptev-82="1" style="background:#6abf8e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;" data-hover-help="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" style="width:12px;height:12px;vertical-align:-1px;" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
-                    <button type="button" class="btn btn-xs" id="pt-btn-student-dossier" style="background:#e2c96e;border:1.5px solid #333;box-shadow:1.5px 1.5px 0 #333;font-size:0.75rem;font-weight:800;padding:2px 8px;cursor:pointer;"><img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" />[360° DOSSIER]</button>
-                    <button type="button" class="tut-trigger-btn" data-ptev-83="1" style="font-size:0.75rem;padding:2px 8px;" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+            <div class="modal-header pt-student-modal-header">
+                <div class="pt-student-modal-title-group">
+                    <h3 id="detailModalTitle"></h3>
+                    <div class="pt-student-modal-actions">
+                        <button type="button" class="pt-modal-pill-btn pt-modal-pill-btn--timeline" id="pt-btn-student-timeline" data-ptev-82="1" data-hover-help="View timeline for this student and session"><img src="../assets/icons/clock.svg" class="btn-icon" alt="" /> <span data-i18n="ptTimelineBtn">Timeline</span></button>
+                        <button type="button" class="pt-modal-pill-btn pt-modal-pill-btn--dossier" id="pt-btn-student-dossier"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span>360° Dossier</span></button>
+                        <button type="button" class="tut-trigger-btn pt-modal-pill-btn" data-ptev-83="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
+                    </div>
                 </div>
                 <button class="modal-close neo-icon-btn neo-close-btn" data-ptev-84="1" aria-label="Close"><img src="../assets/icons/close.svg" class="neo-icon" alt="" /></button>
             </div>
@@ -766,12 +779,12 @@
             <div id="detailModalBody">
             </div>
 
-            <div class="notes-editor" style="margin-top:14px;">
-                <label data-i18n="ptNotesLabel">Notes / Comments</label>
+            <div class="notes-editor pt-student-notes-editor">
+                <label for="notesTextarea" data-i18n="ptNotesLabel">Notes / Comments</label>
                 <textarea id="notesTextarea" data-i18n-placeholder="ptNotesPlaceholder" placeholder="Add notes about this student's participation..."></textarea>
             </div>
 
-            <div class="button-group">
+            <div class="button-group pt-student-modal-footer">
                 <button class="btn-secondary" data-ptev-85="1" data-i18n="ptBtnCancel">Cancel</button>
                 <button class="btn-primary" data-ptev-86="1" data-i18n="ptBtnSaveNotes">Save Student Data</button>
             </div>
@@ -889,7 +902,7 @@
                     <h3 id="columnsModalTitle" data-i18n="ptConfigureColumns">Configure Columns</h3>
                     <p style="margin: 4px 0 0; font-size: 12px; color: #555;" data-i18n="ptColumnsModalSub">Toggle visibility, change order, or adjust width for each column.</p>
                 </div>
-                <button class="modal-close neo-icon-btn neo-close-btn" data-ptev-104="1" aria-label="Close" aria-label="Close"><img src="../assets/icons/close.svg" class="neo-icon" alt="" /></button>
+                <button class="modal-close neo-icon-btn neo-close-btn" data-ptev-104="1" aria-label="Close"><img src="../assets/icons/close.svg" class="neo-icon" alt="" /></button>
             </div>
 
             <div class="columns-modal-toolbar">
@@ -1081,6 +1094,18 @@
                 </div>
             </div>
         </div>
+
+        <!-- Danger Zone (separated from daily actions to prevent accidental resets) -->
+        <div class="pt-danger-zone">
+            <div class="pt-danger-zone-info">
+                <div class="pt-danger-zone-title">
+                    <img src="../assets/icons/error.svg" class="btn-icon" alt="" />
+                    <span data-i18n="ptDangerZoneTitle">Danger Zone</span>
+                </div>
+                <p class="pt-danger-zone-desc" data-i18n="ptDangerZoneDesc">Permanently delete all recorded participation sessions for the currently selected group.</p>
+            </div>
+            <button class="btn-danger btn-icon" id="resetGroupBtn" type="button" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
+        </div>
     </div>
 
     <!-- ════ FULL-SCREEN SESSION TIMELINE MODAL ════ -->
@@ -1202,6 +1227,18 @@
                     <span class="pt-kpi-value" id="modalKpiUncalled">0</span>
                 </div>
             </div>
+        </div>
+
+        <!-- Danger Zone (separated from daily actions to prevent accidental resets) -->
+        <div class="pt-danger-zone">
+            <div class="pt-danger-zone-info">
+                <div class="pt-danger-zone-title">
+                    <img src="../assets/icons/error.svg" class="btn-icon" alt="" />
+                    <span data-i18n="ptDangerZoneTitle">Danger Zone</span>
+                </div>
+                <p class="pt-danger-zone-desc" data-i18n="ptDangerZoneDesc">Permanently delete all recorded participation sessions for the currently selected group.</p>
+            </div>
+            <button class="btn-danger btn-icon" id="resetGroupBtn" type="button" data-i18n="ptBtnResetGroup"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Reset Group</button>
         </div>
     </div>
 

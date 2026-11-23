@@ -56,6 +56,8 @@
       Object.values(screens).forEach(el => el && el.classList.add("hidden"));
       if (screens[name]) screens[name].classList.remove("hidden");
       updateNavTabs(name);
+      const navActions = document.getElementById("gs-nav-actions");
+      if (navActions) navActions.classList.toggle("hidden", name !== "classes");
       if (name === "classes" && typeof renderAllTestsStats === "function") {
         renderAllTestsStats();
       }
@@ -833,6 +835,21 @@
       const sem2AvgColIdx = showSem2 ? sem2TestStart + n2 : -1;
       const roundedFinalColIdx = sem2TestStart + n2 + (showSem2 ? 1 : 0) + (showSem1 && showSem2 ? 1 : 0);
 
+      const summarySettings = typeof getActiveSummaryDisplaySettings === "function"
+        ? getActiveSummaryDisplaySettings(classObj)
+        : null;
+      const showRankCol = !summarySettings || summarySettings.showRankCol !== false;
+      const showCommentsCol = !summarySettings || summarySettings.showCommentsCol !== false;
+      const showStatsFooter = !summarySettings || summarySettings.showStatsFooter !== false;
+      const missingDisp = (summarySettings && summarySettings.missingDisplay) || "-";
+      const passThresh = (summarySettings && Number.isFinite(Number(summarySettings.passThreshold)))
+        ? Number(summarySettings.passThreshold)
+        : 4;
+      const borderMargin = (summarySettings && Number.isFinite(Number(summarySettings.borderlineMargin)))
+        ? Math.max(0, Number(summarySettings.borderlineMargin))
+        : 0.25;
+      const highlightFailing = !summarySettings || summarySettings.highlightFailing !== false;
+
       const headerRow = document.createElement("tr");
       const headers = [
         t('gsColIndex'), t('gsEditStudentFirstName'), t('gsEditStudentLastName'),
@@ -842,8 +859,8 @@
         ...(showSem2 ? [t('gsColSem2Avg')] : []),
         ...(showSem1 && showSem2 ? [t('gsColYearAvg')] : []),
         t('gsColRoundedFinal'),
-        t('gsColRank'),
-        t('gsColComments')
+        ...(showRankCol ? [t('gsColRank')] : []),
+        ...(showCommentsCol ? [t('gsColComments')] : [])
       ];
 
       headers.forEach((h, idx) => {
@@ -902,20 +919,24 @@
         } else if (nameMode === 'last') {
           fnDisplay = student.lastName || "";
           lnDisplay = "";
+        } else if (nameMode === 'anonymous') {
+          fnDisplay = `Student #${student.index}`;
+          lnDisplay = "";
         }
 
+        const fmtTestOrMissing = (val) => val == null ? missingDisp : fmtN(val);
         const row = [
           student.index,
           fnDisplay,
           lnDisplay,
-          ...Array.from({ length: n1 }, (_, i) => fmtN(getTestDisplayGrade(student, classObj, "sem1", i))),
+          ...Array.from({ length: n1 }, (_, i) => fmtTestOrMissing(getTestDisplayGrade(student, classObj, "sem1", i))),
           ...(showSem1 ? [fmtAvg(c.sem1Avg)] : []),
-          ...Array.from({ length: n2 }, (_, i) => fmtN(getTestDisplayGrade(student, classObj, "sem2", i))),
+          ...Array.from({ length: n2 }, (_, i) => fmtTestOrMissing(getTestDisplayGrade(student, classObj, "sem2", i))),
           ...(showSem2 ? [fmtAvg(c.sem2Avg)] : []),
           ...(showSem1 && showSem2 ? [fmtAvg(c.yearAvg)] : []),
           fmtAvg(c.roundedFinal),
-          rankMap.get(student.id) ?? "-",
-          student.comments || ""
+          ...(showRankCol ? [rankMap.get(student.id) ?? "-"] : []),
+          ...(showCommentsCol ? [student.comments || ""] : [])
         ];
         const rowNums = [
           null, null, null,
@@ -925,11 +946,47 @@
           ...(showSem2 ? [c.sem2Avg] : []),
           ...(showSem1 && showSem2 ? [c.yearAvg] : []),
           c.roundedFinal,
-          null, null
+          ...(showRankCol ? [null] : []),
+          ...(showCommentsCol ? [null] : [])
         ];
+
+        const yearAvgColIdx = (showSem1 && showSem2) ? roundedFinalColIdx - 1 : -1;
+
+        const commentsColIdx = showCommentsCol ? (row.length - 1) : -1;
 
         row.forEach((value, idx) => {
           const td = document.createElement("td");
+          if (idx === commentsColIdx) {
+            td.classList.add("gs-summary-comment-cell");
+            const commentInp = document.createElement("input");
+            commentInp.type = "text";
+            commentInp.className = "gs-summary-comment-input";
+            commentInp.value = student.comments || "";
+            commentInp.placeholder = "—";
+            let saveTimer = null;
+            const persistComment = () => {
+              const nextVal = commentInp.value;
+              if ((student.comments || "") !== nextVal) {
+                student.comments = nextVal;
+                saveState();
+              }
+            };
+            commentInp.addEventListener("input", () => {
+              clearTimeout(saveTimer);
+              saveTimer = setTimeout(persistComment, 350);
+            });
+            commentInp.addEventListener("change", () => {
+              clearTimeout(saveTimer);
+              persistComment();
+            });
+            commentInp.addEventListener("blur", () => {
+              clearTimeout(saveTimer);
+              persistComment();
+            });
+            td.appendChild(commentInp);
+            tr.appendChild(td);
+            return;
+          }
           td.textContent = String(value);
           if (idx <= 2) td.classList.add("col-shrink");
           if (idx >= 3 && idx <= roundedFinalColIdx) td.classList.add("num");
@@ -940,13 +997,23 @@
             } else if (idx >= sem2TestStart && idx < sem2TestStart + n2) {
               testCfg = getTestConfig(classObj, "sem2", idx - sem2TestStart);
             }
-            applyGradeColor(td, rowNums[idx], testCfg, { classObj, isSummary: true });
+            const isAvgCol = idx === sem1AvgColIdx || idx === sem2AvgColIdx || idx === yearAvgColIdx || idx === roundedFinalColIdx;
+            applyGradeColor(td, rowNums[idx], testCfg, { classObj, isSummary: true, isAverage: isAvgCol });
           }
-          if (idx === roundedFinalColIdx + 1) td.style.textAlign = "center";
+          if (showRankCol && idx === roundedFinalColIdx + 1) td.style.textAlign = "center";
           if (idx === sem1AvgColIdx || idx === sem2AvgColIdx) td.style.fontWeight = "700";
-          if (idx === roundedFinalColIdx) {
-            td.classList.toggle("good", c.roundedFinal != null && c.roundedFinal >= 4);
-            td.classList.toggle("bad", c.roundedFinal != null && c.roundedFinal < 4);
+          if (idx === roundedFinalColIdx || idx === sem1AvgColIdx || idx === sem2AvgColIdx || idx === yearAvgColIdx) {
+            const avgVal = rowNums[idx];
+            if (highlightFailing && avgVal != null) {
+              const isFail = avgVal < passThresh;
+              const isBorderline = !isFail && borderMargin > 0 && avgVal < passThresh + borderMargin;
+              td.classList.toggle("good", !isFail && !isBorderline);
+              td.classList.toggle("bad", isFail);
+              td.classList.toggle("gs-borderline", isBorderline);
+            } else if (idx === roundedFinalColIdx) {
+              td.classList.toggle("good", c.roundedFinal != null && c.roundedFinal >= passThresh);
+              td.classList.toggle("bad", c.roundedFinal != null && c.roundedFinal < passThresh);
+            }
           }
           // Sem1 test grade cells
           if (idx >= 3 && idx < 3 + n1) {
@@ -999,11 +1066,11 @@
         classObj.students.map(s => computeStudent(s, classObj).roundedFinal).filter(v => v != null)
       ];
       // statCols maps to columns starting at index 3, ending before Rank and Comments
-      const hasStats = statCols.some(arr => arr.length > 0);
+      const hasStats = showStatsFooter && statCols.some(arr => arr.length > 0);
       if (hasStats) {
         const sepTr = document.createElement("tr");
         const sepTd = document.createElement("td");
-        sepTd.colSpan = roundedFinalColIdx + 3;
+        sepTd.colSpan = roundedFinalColIdx + 1 + (showRankCol ? 1 : 0) + (showCommentsCol ? 1 : 0);
         sepTd.style.cssText = "padding:0;background:var(--line);height:2px;";
         sepTr.appendChild(sepTd);
         tbody.appendChild(sepTr);
@@ -1358,7 +1425,7 @@
         tdGrade.style.cursor = "pointer";
         tdGrade.title = t('gsClickEditGrade');
         tdGrade.addEventListener("click", () => openStudentModal(student, classObj, sem, testIndex, tr, config));
-        applyGradeColor(tdGrade, displayGrade, config);
+        applyGradeColor(tdGrade, displayGrade, config, { classObj });
 
         const tdNote = document.createElement("td");
         const noteArray = student.testNotes[sem];
@@ -1476,7 +1543,7 @@
           gradeTd.className = "td-grade-display";
           const gv = gradeStats ? gradeStats[key] : null;
           gradeTd.textContent = gv != null ? fmt(gv) : "—";
-          if (gv != null) applyGradeColor(gradeTd, gv, config);
+          if (gv != null) applyGradeColor(gradeTd, gv, config, { classObj });
           str.appendChild(gradeTd);
 
           const nextDeltaStatTd = document.createElement("td");
@@ -4747,7 +4814,7 @@
 
       // Grade cell = td index 3
       tr.cells[3].textContent = sourceArray[testIndex] == null ? "\u2014" : String(sourceArray[testIndex]);
-      applyGradeColor(tr.cells[3], sourceArray[testIndex], config);
+      applyGradeColor(tr.cells[3], sourceArray[testIndex], config, { classObj });
 
       // Next-grade proximity cell = index 4
       updateNextGradeDeltaCell(tr.cells[4], config, totals, sourceArray[testIndex]);

@@ -1350,13 +1350,13 @@
     (function () {
       var el = document.querySelector('[data-bev-224]');
       if (!el) return;
-      var handler = function (event) { conCtxSpreadSelected() };
+      var handler = function (event) { if (typeof window.conOpenAxisPicker === 'function') window.conOpenAxisPicker('spread', event); else conCtxSpreadSelected(); };
       el.addEventListener('click', handler);
     })();
     (function () {
       var el = document.querySelector('[data-bev-225]');
       if (!el) return;
-      var handler = function (event) { conCtxCompactSelected() };
+      var handler = function (event) { if (typeof window.conOpenAxisPicker === 'function') window.conOpenAxisPicker('compact', event); else conCtxCompactSelected(); };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -2994,13 +2994,13 @@
     (function () {
       var el = document.querySelector('[data-bev-499]');
       if (!el) return;
-      var handler = function (event) { conCtxSpreadSelected() };
+      var handler = function (event) { if (typeof window.conOpenAxisPicker === 'function') window.conOpenAxisPicker('spread', event, 'board'); else if (typeof window.conSpreadNodes === 'function') window.conSpreadNodes(); };
       el.addEventListener('click', handler);
     })();
     (function () {
       var el = document.querySelector('[data-bev-500]');
       if (!el) return;
-      var handler = function (event) { conCompactNodes() };
+      var handler = function (event) { if (typeof window.conOpenAxisPicker === 'function') window.conOpenAxisPicker('compact', event, 'board'); else if (typeof window.conCompactNodes === 'function') window.conCompactNodes(); };
       el.addEventListener('click', handler);
     })();
     (function () {

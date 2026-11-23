@@ -310,5 +310,22 @@
   "ptWizConfirmHeading": "Prêt à enregistrer les règles",
   "ptWizConfirmSub": "Cliquez sur Enregistrer pour appliquer ce barème et calculer les notes provisoires.",
   "ptWizStyleLabel": "Barème :",
-  "ptWizSaveBtn": "Enregistrer les règles"
+  "ptWizSaveBtn": "Enregistrer les règles",
+  "ptDangerZoneTitle": "Zone de danger",
+  "ptDangerZoneDesc": "Supprimer définitivement toutes les sessions de participation enregistrées pour le groupe sélectionné.",
+  "ptEditFullRow": "Éditeur complet",
+  "ptBtnSave": "Enregistrer",
+  "ptBoolYes": "Oui",
+  "ptBoolNo": "Non",
+  "ptNoBadges": "Aucun badge",
+  "ptAddBadgeOption": "+ Ajouter un badge...",
+  "ptCustomBadgeOption": "Personnalisé...",
+  "ptNoTeamRoleEvents": "Aucun événement d'équipe/rôle dans cette session.",
+  "ptCurrentSessionControls": "Contrôles de la session active",
+  "ptPlusesLabel": "Bonus (+)",
+  "ptMinusesLabel": "Malus (-)",
+  "ptTeamPlusLabel": "Équipe +",
+  "ptTeamMinusLabel": "Équipe -",
+  "ptLogNewInteraction": "Ajouter une interaction passée",
+  "ptAddEntry": "Ajouter"
 });

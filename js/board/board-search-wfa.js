@@ -1100,7 +1100,7 @@
             acceptNode: function (node) {
               if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT;
               if (node.parentElement && node.parentElement.closest &&
-                  node.parentElement.closest('.con-node-resizer, .con-node-star-btn, .con-node-note-btn, .wn-emoji-sticker, .wn-note-resizer, .con-node-rel-badge, .con-node-page, .con-emoji-dot, .con-node-comp-badge')) {
+                  node.parentElement.closest('.con-node-resizer, .con-node-star-btn, .con-node-note-btn, .con-node-preset-btn, .wn-emoji-sticker, .wn-note-resizer, .con-node-rel-badge, .con-node-page, .con-emoji-dot, .con-node-comp-badge')) {
                 return NodeFilter.FILTER_REJECT;
               }
               return NodeFilter.FILTER_ACCEPT;

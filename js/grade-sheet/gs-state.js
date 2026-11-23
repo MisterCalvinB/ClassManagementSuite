@@ -9,7 +9,7 @@
     // Name display mode helpers
     function getGsNameDisplayMode() {
       const saved = localStorage.getItem('cmt-gs-name-display');
-      if (saved && ['full', 'first', 'last', 'custom'].includes(saved)) return saved;
+      if (saved && ['full', 'first', 'last', 'custom', 'anonymous'].includes(saved)) return saved;
       try {
         if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG?.nameDisplayMode) {
           return CLASS_MANAGEMENT_CONFIG.nameDisplayMode;
@@ -19,7 +19,7 @@
     }
 
     function setGsNameDisplayMode(mode) {
-      if (!['full', 'first', 'last', 'custom'].includes(mode)) mode = 'full';
+      if (!['full', 'first', 'last', 'custom', 'anonymous'].includes(mode)) mode = 'full';
       localStorage.setItem('cmt-gs-name-display', mode);
       const sel = document.getElementById('gs-name-display-select');
       if (sel && sel.value !== mode) sel.value = mode;
@@ -95,8 +95,22 @@
       if (num == null) return;
 
       const isSummary = !!(opts && opts.isSummary);
+      const isAverageCell = !!(opts && opts.isAverage);
       const classObj = (opts && opts.classObj) || (typeof getActiveClass === "function" ? getActiveClass() : null);
-      const summarySettings = isSummary ? getActiveSummaryDisplaySettings(classObj) : null;
+      const summarySettings = getActiveSummaryDisplaySettings(classObj);
+
+      if (isSummary && summarySettings) {
+        if (summarySettings.colorMode === "off") {
+          el.style.backgroundColor = "";
+          el.style.color = "";
+          return;
+        }
+        if (summarySettings.colorMode === "averages-only" && !isAverageCell) {
+          el.style.backgroundColor = "";
+          el.style.color = "";
+          return;
+        }
+      }
 
       let color = null;
       if (isSummary) {
@@ -112,7 +126,7 @@
 
       if (color) {
         const textColor = getNotchContrastTextColor(color);
-        if (isSummary && summarySettings && summarySettings.cellStyleMode === "badge") {
+        if (summarySettings && summarySettings.cellStyleMode === "badge") {
           el.style.backgroundColor = "";
           el.style.color = "";
           const textVal = el.textContent || (typeof fmt === "function" ? fmt(num) : String(num));
@@ -137,10 +151,13 @@
       return String(parseFloat(Number(value).toFixed(2)));
     }
 
-    // Formats averages rounded to 1 decimal place (e.g. 4.7, 5.0)
+    // Formats averages according to configured decimal precision (default 1 decimal place: 4.7, 5.0)
     function fmtAvg(value) {
       if (value == null || Number.isNaN(Number(value))) return "-";
-      return Number(value).toFixed(1);
+      const settings = typeof getActiveSummaryDisplaySettings === "function" ? getActiveSummaryDisplaySettings() : null;
+      const prec = settings && settings.avgPrecision != null ? Number(settings.avgPrecision) : 1;
+      const decimals = Number.isFinite(prec) && prec >= 0 && prec <= 2 ? prec : 1;
+      return Number(value).toFixed(decimals);
     }
 
     function formatCorrectionTime(value) {
@@ -378,10 +395,40 @@
     const SUMMARY_GRADE_STEPS = ["6", "5.5", "5", "4.5", "4", "3.5", "3", "2.5", "2", "1.5", "1"];
 
     const DEFAULT_SUMMARY_DISPLAY_SETTINGS = {
-      version: 1,
+      version: 2,
       compactMode: false,
       zebraStriping: false,
       cellStyleMode: "cell",
+      colorMode: "all",
+      colorPaletteMode: "standard",
+      gradeSteps: null,
+      passThreshold: 4,
+      borderlineMargin: 0.25,
+      highlightFailing: true,
+      avgPrecision: "1",
+      avgRounding: "0.1",
+      showStatsFooter: true,
+      showRankCol: true,
+      showCommentsCol: true,
+      missingPolicy: "exclude",
+      missingDisplay: "—",
+      stickyHeader: true,
+      stickyFirstCol: false,
+      tableZoom: "normal",
+      defaultTestWeight: 1,
+      defaultGradingMode: "manual",
+      defaultPointsRounding: "0.5",
+      defaultScaleBank: "grade-scale-models.js",
+      defaultScaleModelKey: "",
+      defaultCriteriaBank: "correction-criteria.js",
+      term1Weight: 50,
+      term2Weight: 50,
+      capGradeAtMax: true,
+      defaultNameFormat: "full",
+      reportTeacherName: "",
+      reportSchoolName: "",
+      reportSubjectName: "",
+      confirmBeforeDelete: true,
       anchors: ["6", "4", "1"],
       gradeColors: { ...DEFAULT_GRADE_COLORS }
     };
@@ -397,6 +444,15 @@
       }
       if (!window.SUMMARY_DISPLAY_SETTINGS) {
         window.SUMMARY_DISPLAY_SETTINGS = JSON.parse(JSON.stringify(DEFAULT_SUMMARY_DISPLAY_SETTINGS));
+      } else {
+        Object.keys(DEFAULT_SUMMARY_DISPLAY_SETTINGS).forEach(k => {
+          if (window.SUMMARY_DISPLAY_SETTINGS[k] === undefined) {
+            const defVal = DEFAULT_SUMMARY_DISPLAY_SETTINGS[k];
+            window.SUMMARY_DISPLAY_SETTINGS[k] = (defVal && typeof defVal === "object")
+              ? JSON.parse(JSON.stringify(defVal))
+              : defVal;
+          }
+        });
       }
       if (!window.SUMMARY_DISPLAY_SETTINGS.gradeColors) {
         window.SUMMARY_DISPLAY_SETTINGS.gradeColors = { ...DEFAULT_GRADE_COLORS };
@@ -429,14 +485,19 @@
       const sNum = String(num);
       if (colors[sNum]) return colors[sNum];
 
-      for (let i = 0; i < SUMMARY_GRADE_STEPS.length; i++) {
-        const stepVal = Number(SUMMARY_GRADE_STEPS[i]);
+      const steps = (settings && Array.isArray(settings.gradeSteps) && settings.gradeSteps.length >= 2)
+        ? settings.gradeSteps
+        : SUMMARY_GRADE_STEPS;
+
+      for (let i = 0; i < steps.length; i++) {
+        const stepVal = Number(steps[i]);
         if (num >= stepVal - 1e-4) {
-          const stepKey = SUMMARY_GRADE_STEPS[i];
+          const stepKey = steps[i];
           if (colors[stepKey]) return colors[stepKey];
         }
       }
-      return colors["1"] || "#7f1d1d";
+      const lowestKey = steps[steps.length - 1];
+      return colors[lowestKey] || colors["1"] || "#7f1d1d";
     }
 
     function hexToRgb(hex) {
@@ -478,6 +539,11 @@
       if (table) {
         table.classList.toggle("gs-compact", !!settings.compactMode);
         table.classList.toggle("gs-zebra", !!settings.zebraStriping);
+        table.classList.toggle("gs-sticky-header", settings.stickyHeader !== false);
+        table.classList.toggle("gs-sticky-first-col", !!settings.stickyFirstCol);
+        table.classList.remove("gs-zoom-small", "gs-zoom-large");
+        if (settings.tableZoom === "small") table.classList.add("gs-zoom-small");
+        else if (settings.tableZoom === "large") table.classList.add("gs-zoom-large");
       }
     }
 

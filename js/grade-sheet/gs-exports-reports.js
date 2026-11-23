@@ -460,7 +460,12 @@
       }
       if (window.Desktop && Desktop.isElectron()) {
         try {
-          const defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+          let defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
+          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+            if (!conflictRes || conflictRes.canceled) return;
+            defaultName = conflictRes.filename || defaultName;
+          }
           const pdfReq = {
             html: htmlDoc,
             landscape: isLandscape,
@@ -4086,6 +4091,12 @@
             finalHtml = await ExportStylesService.injectStyleIntoHtml(finalHtml, sId);
           }
 
+          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: fname, target: 'toPrint' });
+            if (!conflictRes || conflictRes.canceled) return;
+            fname = conflictRes.filename || fname;
+          }
+
           const pdfReq = {
             html: finalHtml,
             landscape: isLandscape != null ? isLandscape : pdfSettings.isLandscape,
@@ -5314,12 +5325,17 @@ ${blocks}
         html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
       }
       const slug = slugifyForPath(classObj.name || "class");
-      const defaultName = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
+      let defaultName = `${slug}-${semester}-t${testIndex + 1}-criteria-reference-${new Date().toISOString().slice(0, 10)}.pdf`;
 
       if (window.Desktop && Desktop.isElectron()) {
         try {
           const destination = await openGsPdfExportModal();
           if (!destination) return;
+          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+            if (!conflictRes || conflictRes.canceled) return;
+            defaultName = conflictRes.filename || defaultName;
+          }
 
           const pdfSettings = getPdfExportSettings();
           const pdfReq = {
@@ -5430,7 +5446,12 @@ ${blocks}
 
           const pdfSettings = getPdfExportSettings();
           const slug = slugifyForPath(classObj.name || "class");
-          const defaultName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.pdf`;
+          let defaultName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.pdf`;
+          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+            if (!conflictRes || conflictRes.canceled) return;
+            defaultName = conflictRes.filename || defaultName;
+          }
           const pdfReq = {
             html,
             landscape: pdfSettings.isLandscape,

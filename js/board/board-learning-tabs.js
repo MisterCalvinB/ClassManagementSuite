@@ -2155,8 +2155,8 @@
               } catch (_) {}
             }
 
-            // Web / fallback candidates
-            if (!content) {
+            // Web / fallback candidates (skip in Electron to avoid file:// ERR_FILE_NOT_FOUND console errors)
+            if (!content && !isEl) {
               const webCandidates = [
                 `user/custom-data/${cfg.subFolder}/${filename}`,
                 `data/${filename}`,
@@ -2215,6 +2215,10 @@
 
           window._boardLearningBanks[cfg.key] = loadedFileSets;
           window[cfg.globalVar] = combinedRecords;
+        }
+
+        if (typeof window.conRefreshAllNodeStarBtns === 'function') {
+          window.conRefreshAllNodeStarBtns();
         }
 
         console.log('[BoardBankLoader] Learning & Quiz banks successfully loaded:', {

@@ -310,5 +310,22 @@
   "ptWizConfirmHeading": "Ready to save grading rules",
   "ptWizConfirmSub": "Click Save Rules to apply this setup and calculate provisional grades.",
   "ptWizStyleLabel": "Grading Style:",
-  "ptWizSaveBtn": "Save Rules"
+  "ptWizSaveBtn": "Save Rules",
+  "ptDangerZoneTitle": "Danger Zone",
+  "ptDangerZoneDesc": "Permanently delete all recorded participation sessions for the currently selected group.",
+  "ptEditFullRow": "Full Editor",
+  "ptBtnSave": "Save",
+  "ptBoolYes": "Yes",
+  "ptBoolNo": "No",
+  "ptNoBadges": "No badges",
+  "ptAddBadgeOption": "+ Add Badge...",
+  "ptCustomBadgeOption": "Custom...",
+  "ptNoTeamRoleEvents": "No team/role events in this session.",
+  "ptCurrentSessionControls": "Current / Active Session Controls",
+  "ptPlusesLabel": "Pluses (+)",
+  "ptMinusesLabel": "Minuses (-)",
+  "ptTeamPlusLabel": "Team +",
+  "ptTeamMinusLabel": "Team -",
+  "ptLogNewInteraction": "Log New Session Interaction Entry",
+  "ptAddEntry": "Add Entry"
 });

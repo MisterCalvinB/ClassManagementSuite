@@ -160,6 +160,8 @@
 
         // Emoji reaction dot (top-right corner)
         if (window.conEmojiAttachNodeDot) window.conEmojiAttachNodeDot(id, el);
+        // Quick preset style button (left of emoji dot)
+        if (window.conPresetAttachNodeBtn) window.conPresetAttachNodeBtn(id, el);
 
         // All click logic lives here in mousedown/onUp so modifier keys are available
         let dragging = false, ox = 0, oy = 0, startX = 0, startY = 0;
@@ -168,6 +170,7 @@
           if (e.button !== 0) return; // left button only
           if (e.target.closest('.con-node-resizer')) return; // let resizer handle it
           if (e.target.closest('.con-emoji-dot')) return; // let emoji dot handle it
+          if (e.target.closest('.con-node-preset-btn')) return; // let preset btn handle it
           if (e.target.closest('.con-node-note-btn')) return; // let note toggle btn handle it
           if (e.target.closest('.con-node-star-btn')) return; // let star btn handle it
 
@@ -3286,6 +3289,7 @@
         const multiRow = document.getElementById('con-ctx-multi-edit-row');
         const multiCount = document.getElementById('con-ctx-multi-count');
         conCtxCloseArrangeMenus();
+        if (typeof window.conCloseAxisPicker === 'function') window.conCloseAxisPicker();
         // Count all selected types
         const shapeSelCount = typeof window.conGetShapeSelected === 'function' ? window.conGetShapeSelected().size : (typeof _conShapeSelected !== 'undefined' && _conShapeSelected ? _conShapeSelected.size : 0);
         const mediaSelCount = typeof window.conGetMediaSelected === 'function' ? window.conGetMediaSelected().size : (typeof conMediaSelected !== 'undefined' && conMediaSelected ? conMediaSelected.size : 0);
@@ -3928,6 +3932,7 @@
         // Replace node content with an input
         const _savedResizer = el.querySelector('.con-node-resizer');
         const _savedEmojiDot = el.querySelector('.con-emoji-dot');
+        const _savedPresetBtn = el.querySelector('.con-node-preset-btn');
         const _savedStarBtn = el.querySelector('.con-node-star-btn');
         el.innerHTML = '';
         if (actualWidth > 0) {
@@ -3940,6 +3945,7 @@
         el.appendChild(inp);
         if (_savedResizer) el.appendChild(_savedResizer);
         if (_savedEmojiDot) el.appendChild(_savedEmojiDot);
+        if (_savedPresetBtn) el.appendChild(_savedPresetBtn);
         if (_savedStarBtn) el.appendChild(_savedStarBtn);
         inp.focus();
         inp.select();
@@ -4125,6 +4131,7 @@
         if (!menu || !toggle) return;
         const willOpen = !menu.classList.contains('visible');
         conCtxCloseArrangeMenus();
+        if (typeof window.conCloseAxisPicker === 'function') window.conCloseAxisPicker();
         if (willOpen) {
           menu.classList.add('visible');
           toggle.classList.add('active');
@@ -4136,6 +4143,7 @@
         window.conCtxNodeId = global.conCtxNodeId = null;
         _conApplySizeUndoPushed = false;
         conCtxCloseArrangeMenus();
+        if (typeof window.conCloseAxisPicker === 'function') window.conCloseAxisPicker();
         const caseDd = document.getElementById('con-ctx-case-dropdown');
         if (caseDd) caseDd.style.display = 'none';
         const splitDd = document.getElementById('con-ctx-split-dropdown');

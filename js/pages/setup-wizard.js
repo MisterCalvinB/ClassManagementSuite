@@ -54,16 +54,48 @@
     }
   }
 
+  // ── Helpers: Safe JS-Data Evaluators (handle const/let/var & window.*) ──
+  function parseJsGlobals(raw, varNames) {
+    if (!raw || typeof raw !== 'string') return null;
+    try {
+      var retParts = varNames.map(function (name) {
+        return JSON.stringify(name) + ': (typeof ' + name + ' !== "undefined" ? ' + name + ' : (window[' + JSON.stringify(name) + '] !== undefined ? window[' + JSON.stringify(name) + '] : null))';
+      });
+      var sandbox = {};
+      var fn = new Function('window', raw + '\nreturn {\n' + retParts.join(',\n') + '\n};');
+      return fn(sandbox);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parseClassGroupsContent(raw) {
+    return parseJsGlobals(raw, ['CLASS_GROUPS', 'CLASS_GROUPS_META', 'CLASS_GROUPS_DATA']);
+  }
+
+  function parsePlannerConfigContent(raw) {
+    var parsed = parseJsGlobals(raw, ['PLANNER_CONFIG']);
+    return parsed ? parsed.PLANNER_CONFIG : null;
+  }
+
+  async function confirmOverwriteIfNeeded(shouldWarn, i18nKey, fallbackMsg) {
+    if (!shouldWarn) return true;
+    var msg = (window.i18n && i18n.t(i18nKey)) || fallbackMsg;
+    if (window.showConfirm) {
+      return await showConfirm(msg);
+    }
+    return window.confirm(msg);
+  }
+
   // ── Step 1 Auto-Detection: Language & Data Folder ──────────
   async function checkStep1() {
-    var lang = localStorage.getItem('cmt-lang') || (window.i18n && i18n.currentLanguage);
+    var lang = (window.i18n && typeof i18n.getLang === 'function') ? i18n.getLang() : localStorage.getItem('cmt-lang');
     var hasLang = !!(lang && ['en', 'fr', 'de', 'it'].indexOf(lang) >= 0);
     return hasLang;
   }
 
   // ── Step 2 Auto-Detection: Class Groups & Rosters ──────────
   async function checkStep2() {
-    // Check window.CLASS_GROUPS or read user/class-groups.js
     if (typeof CLASS_GROUPS !== 'undefined' && CLASS_GROUPS && Object.keys(CLASS_GROUPS).length > 0) {
       var keys = Object.keys(CLASS_GROUPS);
       for (var i = 0; i < keys.length; i++) {
@@ -71,91 +103,229 @@
       }
     }
     var raw = await readUserText('class-groups.js');
-    if (!raw) return false;
+    var parsed = parseClassGroupsContent(raw);
+    if (!parsed) return false;
+    var groups = parsed.CLASS_GROUPS || (parsed.CLASS_GROUPS_DATA && parsed.CLASS_GROUPS_DATA.classGroups);
+    if (groups && typeof groups === 'object') {
+      var gKeys = Object.keys(groups);
+      for (var j = 0; j < gKeys.length; j++) {
+        if (Array.isArray(groups[gKeys[j]]) && groups[gKeys[j]].length > 0) return true;
+      }
+    }
+    var meta = parsed.CLASS_GROUPS_META || (parsed.CLASS_GROUPS_DATA && parsed.CLASS_GROUPS_DATA.classGroupsMeta);
+    if (meta && typeof meta === 'object') {
+      var mKeys = Object.keys(meta);
+      for (var m = 0; m < mKeys.length; m++) {
+        var entry = meta[mKeys[m]];
+        if (entry && !entry.archived && (entry.name || (Array.isArray(entry.students) && entry.students.length > 0))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  // ── Step 3 Auto-Detection & Hydration: Semester Dates ──────
+  async function checkStep3() {
+    var raw = await readUserText('planner-config.js');
+    var cfg = parsePlannerConfigContent(raw);
+    if (cfg && Array.isArray(cfg.semesters) && cfg.semesters.length > 0) {
+      hydrateStep3FromConfig(cfg);
+      return cfg.semesters.some(function (s) {
+        return s && s.semesterStart && s.semesterEnd;
+      });
+    }
+    // Fallback: check CLASS_GROUPS_DATA active semester info from class-groups.js
+    var cgRaw = await readUserText('class-groups.js');
+    var cgParsed = parseClassGroupsContent(cgRaw);
+    var cgData = cgParsed && cgParsed.CLASS_GROUPS_DATA;
+    if (cgData && (cgData.activeYear || cgData.activeSemesterStart || cgData.activeSemesterEnd)) {
+      hydrateStep3FromClassGroupsData(cgData);
+      return !!(cgData.activeSemesterStart && cgData.activeSemesterEnd);
+    }
+    return false;
+  }
+
+  function hydrateStep3FromClassGroupsData(cgData) {
+    if (!cgData) return;
+    var yearEl = document.getElementById('swAcademicYear');
+    var s1StartEl = document.getElementById('swS1Start');
+    var s1EndEl = document.getElementById('swS1End');
+    var s2StartEl = document.getElementById('swS2Start');
+    var s2EndEl = document.getElementById('swS2End');
+    if (yearEl && cgData.activeYear) yearEl.value = cgData.activeYear;
+    var isSem2 = cgData.activeSemester === 2 || cgData.activeSemester === '2';
+    if (isSem2) {
+      if (s2StartEl && cgData.activeSemesterStart) s2StartEl.value = cgData.activeSemesterStart;
+      if (s2EndEl && cgData.activeSemesterEnd) s2EndEl.value = cgData.activeSemesterEnd;
+    } else {
+      if (s1StartEl && cgData.activeSemesterStart) s1StartEl.value = cgData.activeSemesterStart;
+      if (s1EndEl && cgData.activeSemesterEnd) s1EndEl.value = cgData.activeSemesterEnd;
+    }
+  }
+
+  function hydrateStep3FromConfig(cfg) {
+    if (!cfg || !Array.isArray(cfg.semesters) || !cfg.semesters.length) return;
+    var activeSem = null;
+    if (cfg.activeSemesterId) {
+      activeSem = cfg.semesters.find(function (s) { return s && s.id === cfg.activeSemesterId; }) || null;
+    }
+    if (!activeSem) activeSem = cfg.semesters[0];
+
+    var targetYear = activeSem && activeSem.year ? activeSem.year : '';
+    var yearSemesters = targetYear
+      ? cfg.semesters.filter(function (s) { return s && s.year === targetYear; })
+      : cfg.semesters.slice();
+
+    if (!yearSemesters.length) yearSemesters = [activeSem];
+
+    var s1 = yearSemesters.find(function (s) { return s && (/s1|sem(ester)?\s*1/i.test(String(s.id || '') + ' ' + String(s.label || ''))); }) || yearSemesters[0];
+    var s2 = yearSemesters.find(function (s) { return s && s !== s1 && (/s2|sem(ester)?\s*2/i.test(String(s.id || '') + ' ' + String(s.label || ''))); }) || yearSemesters[1] || null;
+
+    var yearEl = document.getElementById('swAcademicYear');
+    var s1StartEl = document.getElementById('swS1Start');
+    var s1EndEl = document.getElementById('swS1End');
+    var s2StartEl = document.getElementById('swS2Start');
+    var s2EndEl = document.getElementById('swS2End');
+
+    if (yearEl && targetYear) yearEl.value = targetYear;
+    if (s1) {
+      if (s1StartEl && s1.semesterStart) s1StartEl.value = s1.semesterStart;
+      if (s1EndEl && s1.semesterEnd) s1EndEl.value = s1.semesterEnd;
+    }
+    if (s2) {
+      if (s2StartEl && s2.semesterStart) s2StartEl.value = s2.semesterStart;
+      if (s2EndEl && s2.semesterEnd) s2EndEl.value = s2.semesterEnd;
+    }
+  }
+
+  // ── Step 4 Auto-Detection & Hydration: Timetable Periods ───
+  async function checkStep4() {
+    var raw = await readUserText('planner-config.js');
+    var cfg = parsePlannerConfigContent(raw);
+    if (!cfg) return false;
+    if (Array.isArray(cfg.periods) && cfg.periods.length > 0) {
+      hydrateStep4FromPeriods(cfg.periods);
+      return true;
+    }
+    if (cfg.classes && typeof cfg.classes === 'object') {
+      var hasSched = Object.keys(cfg.classes).some(function (cid) {
+        var c = cfg.classes[cid];
+        return c && Array.isArray(c.schedule) && c.schedule.length > 0;
+      });
+      if (hasSched) return true;
+    }
+    return false;
+  }
+
+  function hydrateStep4FromPeriods(periods) {
+    if (!Array.isArray(periods) || !periods.length) return;
+    var p = periods[0];
+    if (!p || !p.start || !p.end) return;
+    var sm = String(p.start).split(':');
+    var em = String(p.end).split(':');
+    if (sm.length < 2 || em.length < 2) return;
+    var mins = (parseInt(em[0], 10) * 60 + parseInt(em[1], 10)) - (parseInt(sm[0], 10) * 60 + parseInt(sm[1], 10));
+    var preset = '45';
+    if (mins >= 55) preset = '60';
+    else if (mins >= 48) preset = '50';
+    var radio = document.querySelector('input[name="swPeriodPreset"][value="' + preset + '"]');
+    if (radio) radio.checked = true;
+  }
+
+  // ── Step 5 Auto-Detection & Hydration: Grading Scales ──────
+  async function checkStep5() {
+    var rawScales = await readUserText('grade-scale-models.js');
+    var rawCriteria = await readUserText('correction-criteria.js');
+    var parsedScales = parseJsGlobals(rawScales, ['XLSM_SCALE_MODELS']);
+    if (parsedScales && Array.isArray(parsedScales.XLSM_SCALE_MODELS) && parsedScales.XLSM_SCALE_MODELS.length > 0) {
+      hydrateStep5FromScales(parsedScales.XLSM_SCALE_MODELS);
+      return true;
+    }
+    if (rawScales && rawScales.includes('XLSM_SCALE_MODELS')) return true;
+    if (rawCriteria && rawCriteria.includes('XLSM_CRITERIA')) return true;
+    return false;
+  }
+
+  function hydrateStep5FromScales(models) {
+    if (!Array.isArray(models) || !models.length) return;
+    var m = models[0] || {};
+    var key = 'swiss';
+    if (m.id === 'french-standard' || m.maxGrade === 20) key = 'french';
+    else if (m.id === 'us-letter' || m.maxGrade === 'A' || m.thresholds) key = 'us';
+    else if (m.id === 'percent-scale' || m.maxGrade === 100) key = 'percent';
+    var radio = document.querySelector('input[name="swScale"][value="' + key + '"]');
+    if (radio) radio.checked = true;
+  }
+
+  // ── Step 6 Auto-Detection & Hydration: Observation Chips ───
+  async function checkStep6() {
+    var raw = await readUserText('correction-criteria.js');
+    var parsed = parseJsGlobals(raw, ['OBSERVATION_CHECKLIST_GROUPS']);
+    if (parsed && Array.isArray(parsed.OBSERVATION_CHECKLIST_GROUPS) && parsed.OBSERVATION_CHECKLIST_GROUPS.length > 0) {
+      hydrateStep6Chips(parsed.OBSERVATION_CHECKLIST_GROUPS);
+      return true;
+    }
     try {
-      var sandbox = {};
-      new Function('window', raw)(sandbox);
-      var groups = sandbox.CLASS_GROUPS || sandbox.CLASS_GROUPS_DATA?.classGroups;
-      if (groups && typeof groups === 'object') {
-        var gKeys = Object.keys(groups);
-        for (var j = 0; j < gKeys.length; j++) {
-          if (Array.isArray(groups[gKeys[j]]) && groups[gKeys[j]].length > 0) return true;
+      var ls = localStorage.getItem('gradeSheetPersonalisedChips.v1');
+      if (ls) {
+        var arr = JSON.parse(ls);
+        if (Array.isArray(arr) && arr.length > 0) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function hydrateStep6Chips(groups) {
+    var container = document.getElementById('swChipsPreviewList');
+    if (!container || !Array.isArray(groups) || !groups.length) return;
+    var chips = [];
+    groups.forEach(function (g) {
+      if (g && Array.isArray(g.chips)) {
+        g.chips.forEach(function (c) {
+          if (c && c.text) chips.push(c);
+        });
+      }
+    });
+    if (!chips.length) return;
+    container.innerHTML = '';
+    chips.slice(0, 8).forEach(function (c) {
+      var span = document.createElement('span');
+      var cls = 'sw-tag-item ' + (c.type === 'negative' || (typeof c.multiplier === 'number' && c.multiplier < 0) ? 'sw-tag-neg' : (c.type === 'bonus' ? 'sw-tag-warn' : 'sw-tag-pos'));
+      span.className = cls;
+      span.textContent = c.text;
+      container.appendChild(span);
+    });
+  }
+
+  // ── Step 7 Auto-Detection & Hydration: Seating Plans ───────
+  async function checkStep7() {
+    if (!window.Desktop || typeof Desktop.readByPath !== 'function') return false;
+    try {
+      var res = await Desktop.readByPath('user', 'class-plans/plans.js');
+      if (res && res.ok && res.content) {
+        var parsed = parseJsGlobals(res.content, ['SAVED_CLASS_PLANS']);
+        var plans = parsed ? parsed.SAVED_CLASS_PLANS : null;
+        if (plans && Object.keys(plans).length > 0) {
+          hydrateStep7FromPlans(plans);
+          return true;
         }
       }
     } catch (_) {}
     return false;
   }
 
-  // ── Step 3 Auto-Detection: Semester Dates & Holidays ───────
-  async function checkStep3() {
-    var raw = await readUserText('planner-config.js');
-    if (!raw) return false;
-    try {
-      var sandbox = {};
-      new Function('window', raw)(sandbox);
-      var cfg = sandbox.PLANNER_CONFIG;
-      if (cfg && Array.isArray(cfg.semesters) && cfg.semesters.length > 0) {
-        return cfg.semesters.some(function (s) {
-          return s && s.semesterStart && s.semesterEnd;
-        });
+  function hydrateStep7FromPlans(plans) {
+    if (!plans || typeof plans !== 'object') return;
+    var keys = Object.keys(plans);
+    for (var i = 0; i < keys.length; i++) {
+      var list = plans[keys[i]];
+      if (Array.isArray(list) && list.length > 0 && list[0] && list[0].layoutType) {
+        var radio = document.querySelector('input[name="swLayout"][value="' + list[0].layoutType + '"]');
+        if (radio) radio.checked = true;
+        return;
       }
-    } catch (_) {}
-    return false;
-  }
-
-  // ── Step 4 Auto-Detection: Weekly Timetable & Period Hours ──
-  async function checkStep4() {
-    var raw = await readUserText('planner-config.js');
-    if (!raw) return false;
-    try {
-      var sandbox = {};
-      new Function('window', raw)(sandbox);
-      var cfg = sandbox.PLANNER_CONFIG;
-      if (cfg && cfg.classes && typeof cfg.classes === 'object') {
-        var hasSched = Object.keys(cfg.classes).some(function (cid) {
-          var c = cfg.classes[cid];
-          return c && Array.isArray(c.schedule) && c.schedule.length > 0;
-        });
-        if (hasSched) return true;
-      }
-      if (cfg && Array.isArray(cfg.periods) && cfg.periods.length > 0) return true;
-    } catch (_) {}
-    return false;
-  }
-
-  // ── Step 5 Auto-Detection: Grading Scales & Rubrics ─────────
-  async function checkStep5() {
-    var rawScales = await readUserText('grade-scale-models.js');
-    var rawCriteria = await readUserText('correction-criteria.js');
-    if (rawScales && rawScales.includes('XLSM_SCALE_MODELS')) return true;
-    if (rawCriteria && rawCriteria.includes('XLSM_CRITERIA')) return true;
-    return false;
-  }
-
-  // ── Step 6 Auto-Detection: Observation Chips & Roles ───────
-  async function checkStep6() {
-    var raw = await readUserText('correction-criteria.js');
-    if (raw && raw.includes('OBSERVATION_CHECKLIST_GROUPS')) return true;
-    try {
-      var ls = localStorage.getItem('gradeSheetPersonalisedChips.v1');
-      if (ls && JSON.parse(ls).length > 0) return true;
-    } catch (_) {}
-    return false;
-  }
-
-  // ── Step 7 Auto-Detection: Classroom Seating Plans ──────────
-  async function checkStep7() {
-    if (!window.Desktop || typeof Desktop.readByPath !== 'function') return false;
-    try {
-      var res = await Desktop.readByPath('user', 'class-plans/plans.js');
-      if (res && res.ok && res.content) {
-        var sandbox = {};
-        new Function('window', res.content)(sandbox);
-        var plans = sandbox.SAVED_CLASS_PLANS;
-        if (plans && Object.keys(plans).length > 0) return true;
-      }
-    } catch (_) {}
-    return false;
+    }
   }
 
   // ── Run Auto-Detection Across All Steps ─────────────────────
@@ -274,10 +444,20 @@
     var selectedRadio = document.querySelector('input[name="swLang"]:checked');
     if (selectedRadio && selectedRadio.value) {
       var lang = selectedRadio.value;
-      if (window.i18n && typeof i18n.setLanguage === 'function') {
-        i18n.setLanguage(lang);
-      } else {
-        localStorage.setItem('cmt-lang', lang);
+      try {
+        var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
+        cfg.language = lang;
+        localStorage.setItem('cmt-general-config', JSON.stringify(cfg));
+        localStorage.removeItem('cmt-lang-setup-wizard');
+        localStorage.setItem('cmt-lang-launcher', lang);
+      } catch (_) {}
+      if (window.i18n && typeof i18n.ensureLangLoaded === 'function') {
+        i18n.ensureLangLoaded(lang, function () {
+          if (typeof i18n.applyTranslations === 'function') i18n.applyTranslations();
+          renderProgress();
+          renderStepStatuses();
+          loadExistingClassesDisplay();
+        });
       }
       if (window.parent && window.parent !== window) {
         window.parent.postMessage({ type: 'cmt-lang-changed', lang: lang }, '*');
@@ -298,18 +478,28 @@
     container.innerHTML = '';
 
     var classNames = [];
+    var seenKeys = {};
     var raw = await readUserText('class-groups.js');
-    if (raw) {
-      try {
-        var sandbox = {};
-        new Function('window', raw)(sandbox);
-        var groups = sandbox.CLASS_GROUPS || sandbox.CLASS_GROUPS_DATA?.classGroups;
-        if (groups) classNames = Object.keys(groups);
-      } catch (_) {}
+    var parsed = parseClassGroupsContent(raw);
+    if (parsed) {
+      var groups = parsed.CLASS_GROUPS || (parsed.CLASS_GROUPS_DATA && parsed.CLASS_GROUPS_DATA.classGroups) || {};
+      var meta = parsed.CLASS_GROUPS_META || (parsed.CLASS_GROUPS_DATA && parsed.CLASS_GROUPS_DATA.classGroupsMeta) || {};
+      Object.keys(groups).forEach(function (k) {
+        seenKeys[k] = true;
+        var m = meta[k];
+        if (m && m.archived) return;
+        classNames.push((m && m.name) ? m.name : k);
+      });
+      Object.keys(meta).forEach(function (k) {
+        if (seenKeys[k]) return;
+        var m = meta[k];
+        if (!m || m.archived) return;
+        classNames.push(m.name || k);
+      });
     }
 
     if (!classNames.length) {
-      container.innerHTML = '<span style="font-size:0.75rem;color:#888;">' + (i18n.t('swStep2NoClasses') || 'No classes added yet.') + '</span>';
+      container.innerHTML = '<span class="sw-hint">' + (i18n.t('swStep2NoClasses') || 'No classes added yet.') + '</span>';
       return;
     }
 
@@ -326,7 +516,7 @@
     var studInp = document.getElementById('swStudentsInput');
     var clsName = nameInp ? nameInp.value.trim() : '';
     if (!clsName) {
-      showToast('Please enter a class name.', true);
+      showToast(i18n.t('swStep2EnterClassName') || 'Please enter a class name.', true);
       if (nameInp) nameInp.focus();
       return;
     }
@@ -340,25 +530,61 @@
     // Read current class-groups.js
     var groups = {};
     var meta = {};
+    var cgData = null;
     var raw = await readUserText('class-groups.js');
-    if (raw) {
-      try {
-        var sandbox = {};
-        new Function('window', raw)(sandbox);
-        if (sandbox.CLASS_GROUPS) groups = sandbox.CLASS_GROUPS;
-        if (sandbox.CLASS_GROUPS_META) meta = sandbox.CLASS_GROUPS_META;
-      } catch (_) {}
+    var parsed = parseClassGroupsContent(raw);
+    if (parsed) {
+      if (parsed.CLASS_GROUPS) groups = parsed.CLASS_GROUPS;
+      if (parsed.CLASS_GROUPS_META) meta = parsed.CLASS_GROUPS_META;
+      if (parsed.CLASS_GROUPS_DATA) cgData = parsed.CLASS_GROUPS_DATA;
     }
 
-    groups[clsName] = students;
-    meta[clsName] = {
-      year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
-      semester: 1,
-      level: ''
-    };
-
-    var content = 'const CLASS_GROUPS = ' + JSON.stringify(groups, null, 2) + ';\n\n' +
-      'const CLASS_GROUPS_META = ' + JSON.stringify(meta, null, 2) + ';\n';
+    var content;
+    if (cgData && cgData.classGroupsMeta) {
+      var existingMetaKey = Object.keys(cgData.classGroupsMeta).find(function (k) {
+        var entry = cgData.classGroupsMeta[k];
+        return entry && !entry.archived && String(entry.name || k).trim().toLowerCase() === clsName.toLowerCase();
+      });
+      if (existingMetaKey) {
+        var okOverwriteCls = await confirmOverwriteIfNeeded(
+          true,
+          'swConfirmOverwriteClass',
+          'A class with this name already exists in user/class-groups.js. Overwrite its roster?'
+        );
+        if (!okOverwriteCls) return;
+        cgData.classGroupsMeta[existingMetaKey].students = students;
+      } else {
+        var uuid = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : ('cls-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+        cgData.classGroupsMeta[uuid] = {
+          year: cgData.activeYear || (new Date().getFullYear() + '-' + (new Date().getFullYear() + 1)),
+          semester: cgData.activeSemester || 1,
+          level: '',
+          name: clsName,
+          students: students
+        };
+      }
+      content = 'const CLASS_GROUPS_DATA = ' + JSON.stringify(cgData, null, 2) + ';\n\n' +
+        'var CLASS_GROUPS_META = CLASS_GROUPS_DATA.classGroupsMeta || {};\n';
+    } else {
+      if (groups[clsName]) {
+        var okOverwriteLegacy = await confirmOverwriteIfNeeded(
+          true,
+          'swConfirmOverwriteClass',
+          'A class with this name already exists in user/class-groups.js. Overwrite its roster?'
+        );
+        if (!okOverwriteLegacy) return;
+      }
+      groups[clsName] = students;
+      meta[clsName] = {
+        year: new Date().getFullYear() + '-' + (new Date().getFullYear() + 1),
+        semester: 1,
+        level: ''
+      };
+      content = 'const CLASS_GROUPS = ' + JSON.stringify(groups, null, 2) + ';\n\n' +
+        'const CLASS_GROUPS_META = ' + JSON.stringify(meta, null, 2) + ';\n';
+    }
 
     await saveUserText('class-groups.js', content);
 
@@ -384,19 +610,35 @@
 
     var cfg = { semesters: [], classes: {}, customFields: [], customTypes: [], subscriptions: [] };
     var raw = await readUserText('planner-config.js');
-    if (raw) {
-      try {
-        var sandbox = {};
-        new Function('window', raw)(sandbox);
-        if (sandbox.PLANNER_CONFIG) cfg = sandbox.PLANNER_CONFIG;
-      } catch (_) {}
-    }
+    var existingCfg = parsePlannerConfigContent(raw);
+    if (existingCfg) cfg = existingCfg;
 
-    cfg.semesters = [
-      { id: 'sem-s1-' + Date.now(), label: 'Semester 1', year: year, semesterStart: s1Start, semesterEnd: s1End, holidays: [] },
-      { id: 'sem-s2-' + Date.now(), label: 'Semester 2', year: year, semesterStart: s2Start, semesterEnd: s2End, holidays: [] }
-    ];
-    cfg.activeSemesterId = cfg.semesters[0].id;
+    var existingSemesters = Array.isArray(cfg.semesters) ? cfg.semesters : [];
+    var otherSemesters = existingSemesters.filter(function (s) { return s && s.year !== year; });
+    var prevS1 = existingSemesters.find(function (s) { return s && s.year === year && (/s1|sem(ester)?\s*1/i.test(String(s.id || '') + ' ' + String(s.label || ''))); });
+    var prevS2 = existingSemesters.find(function (s) { return s && s.year === year && (/s2|sem(ester)?\s*2/i.test(String(s.id || '') + ' ' + String(s.label || ''))); });
+
+    var newS1 = {
+      id: (prevS1 && prevS1.id) || ('sem-s1-' + Date.now()),
+      label: (prevS1 && prevS1.label) || 'Semester 1',
+      year: year,
+      semesterStart: s1Start,
+      semesterEnd: s1End,
+      holidays: (prevS1 && Array.isArray(prevS1.holidays)) ? prevS1.holidays : []
+    };
+    var newS2 = {
+      id: (prevS2 && prevS2.id) || ('sem-s2-' + Date.now()),
+      label: (prevS2 && prevS2.label) || 'Semester 2',
+      year: year,
+      semesterStart: s2Start,
+      semesterEnd: s2End,
+      holidays: (prevS2 && Array.isArray(prevS2.holidays)) ? prevS2.holidays : []
+    };
+
+    cfg.semesters = otherSemesters.concat([newS1, newS2]);
+    if (!cfg.activeSemesterId || !cfg.semesters.some(function (s) { return s.id === cfg.activeSemesterId; })) {
+      cfg.activeSemesterId = newS1.id;
+    }
 
     var content = 'window.PLANNER_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
     await saveUserText('planner-config.js', content);
@@ -445,12 +687,16 @@
 
     var cfg = { semesters: [], classes: {}, periods: [] };
     var raw = await readUserText('planner-config.js');
-    if (raw) {
-      try {
-        var sandbox = {};
-        new Function('window', raw)(sandbox);
-        if (sandbox.PLANNER_CONFIG) cfg = sandbox.PLANNER_CONFIG;
-      } catch (_) {}
+    var existingCfg = parsePlannerConfigContent(raw);
+    if (existingCfg) cfg = existingCfg;
+
+    if (Array.isArray(cfg.periods) && cfg.periods.length > 0) {
+      var okOverwritePeriods = await confirmOverwriteIfNeeded(
+        true,
+        'swConfirmOverwritePeriods',
+        'Existing timetable periods were found in user/planner-config.js. Overwrite them with this preset?'
+      );
+      if (!okOverwritePeriods) return;
     }
 
     cfg.periods = periods;
@@ -467,6 +713,19 @@
 
   // ── Step 5: Save Grading Scales ────────────────────────────
   window.swSaveGradingScale = async function () {
+    var existingRaw = await readUserText('grade-scale-models.js');
+    var parsedExisting = parseJsGlobals(existingRaw, ['XLSM_SCALE_MODELS']);
+    var hasExistingScales = !!(
+      (parsedExisting && Array.isArray(parsedExisting.XLSM_SCALE_MODELS) && parsedExisting.XLSM_SCALE_MODELS.length > 0) ||
+      (existingRaw && existingRaw.trim().length > 0)
+    );
+    var okOverwriteScales = await confirmOverwriteIfNeeded(
+      hasExistingScales,
+      'swConfirmOverwriteScales',
+      'user/grade-scale-models.js already contains grading scale models. Overwriting will replace your existing models. Continue?'
+    );
+    if (!okOverwriteScales) return;
+
     var scaleRadio = document.querySelector('input[name="swScale"]:checked');
     var scaleKey = scaleRadio ? scaleRadio.value : 'swiss';
 
@@ -562,13 +821,18 @@
     var criteria = [];
     var scoringDecisions = [];
     var raw = await readUserText('correction-criteria.js');
-    if (raw) {
-      try {
-        var sandbox = {};
-        new Function('window', raw)(sandbox);
-        if (sandbox.XLSM_CRITERIA) criteria = sandbox.XLSM_CRITERIA;
-        if (sandbox.SCORING_DECISIONS) scoringDecisions = sandbox.SCORING_DECISIONS;
-      } catch (_) {}
+    var parsed = parseJsGlobals(raw, ['XLSM_CRITERIA', 'SCORING_DECISIONS', 'OBSERVATION_CHECKLIST_GROUPS']);
+    if (parsed) {
+      if (parsed.XLSM_CRITERIA) criteria = parsed.XLSM_CRITERIA;
+      if (parsed.SCORING_DECISIONS) scoringDecisions = parsed.SCORING_DECISIONS;
+      if (Array.isArray(parsed.OBSERVATION_CHECKLIST_GROUPS) && parsed.OBSERVATION_CHECKLIST_GROUPS.length > 0) {
+        var okOverwriteChips = await confirmOverwriteIfNeeded(
+          true,
+          'swConfirmOverwriteChips',
+          'Existing observation chips were found in user/correction-criteria.js. Overwrite them with the default preset?'
+        );
+        if (!okOverwriteChips) return;
+      }
     }
 
     if (!criteria.length) {
@@ -603,9 +867,8 @@
       try {
         var res = await Desktop.readByPath('user', 'class-plans/plans.js');
         if (res && res.ok && res.content) {
-          var sandbox = {};
-          new Function('window', res.content)(sandbox);
-          if (sandbox.SAVED_CLASS_PLANS) plans = sandbox.SAVED_CLASS_PLANS;
+          var parsed = parseJsGlobals(res.content, ['SAVED_CLASS_PLANS']);
+          if (parsed && parsed.SAVED_CLASS_PLANS) plans = parsed.SAVED_CLASS_PLANS;
         }
       } catch (_) {}
     }
@@ -618,6 +881,15 @@
       cols: layoutType === 'pods' ? 6 : 5,
       seats: []
     };
+
+    if (Array.isArray(plans['Default Room']) && plans['Default Room'].length > 0) {
+      var okOverwriteRoom = await confirmOverwriteIfNeeded(
+        true,
+        'swConfirmOverwriteRoomLayout',
+        'A "Default Room" seating template already exists in user/class-plans/plans.js. Overwrite it?'
+      );
+      if (!okOverwriteRoom) return;
+    }
 
     plans['Default Room'] = [planObj];
 
@@ -636,8 +908,15 @@
 
   // ── 1-Click "Load Sample School Data" ───────────────────────
   window.swLoadSampleData = async function () {
-    var confirmMsg = i18n.t('swLoadDemoConfirm') ||
-      'This will load sample classes, term dates, timetable periods, and observation chips to help you test the suite. Continue?';
+    var existingFiles = [];
+    var checkList = ['class-groups.js', 'planner-config.js', 'grade-scale-models.js', 'correction-criteria.js'];
+    for (var fIdx = 0; fIdx < checkList.length; fIdx++) {
+      var fRaw = await readUserText(checkList[fIdx]);
+      if (fRaw && fRaw.trim().length > 0) existingFiles.push('user/' + checkList[fIdx]);
+    }
+    var confirmMsg = existingFiles.length > 0
+      ? ((i18n.t('swLoadDemoOverwriteWarning') || 'WARNING: This will OVERWRITE your existing files ({files}) with sample data. Continue?').replace('{files}', existingFiles.join(', ')))
+      : (i18n.t('swLoadDemoConfirm') || 'This will load sample classes, term dates, timetable periods, and observation chips to help you test the suite. Continue?');
     
     var ok = window.showConfirm ? await showConfirm(confirmMsg) : window.confirm(confirmMsg);
     if (!ok) return;
@@ -706,7 +985,7 @@
         color: '#6abf8e',
         chips: [
           { text: 'Active Participation', multiplier: 1, type: 'positive' },
-          { text: 'Bonus Star (★)', multiplier: 2, type: 'bonus' }
+          { text: 'Bonus Star', multiplier: 2, type: 'bonus' }
         ]
       },
       {
@@ -817,7 +1096,7 @@
     }
 
     // Set active language radio
-    var curLang = localStorage.getItem('cmt-lang') || (window.i18n && i18n.currentLanguage) || 'en';
+    var curLang = (window.i18n && typeof i18n.getLang === 'function') ? i18n.getLang() : 'en';
     var radio = document.querySelector('input[name="swLang"][value="' + curLang + '"]');
     if (radio) radio.checked = true;
 

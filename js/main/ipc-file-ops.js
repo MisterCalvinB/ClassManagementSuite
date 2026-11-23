@@ -133,20 +133,37 @@ function registerFileOpsIpc(ctx) {
 
     async function _listDirNames(dirPath, limit) {
       if (!dirPath) return [];
-      try {
-        const entries = await fs.readdir(dirPath, { withFileTypes: true });
-        return entries
-          .filter((e) => e && e.isFile() && !e.name.startsWith('.'))
-          .map((e) => e.name)
-          .slice(0, limit);
-      } catch (_) {
-        return [];
+      const out = [];
+      const ignoredDirs = new Set(['history', 'trash', 'backups', 'node_modules']);
+      async function _walk(curDir, relPrefix) {
+        if (out.length >= limit) return;
+        let entries;
+        try {
+          entries = await fs.readdir(curDir, { withFileTypes: true });
+        } catch (_) {
+          return;
+        }
+        for (const e of entries) {
+          if (out.length >= limit) break;
+          if (!e || !e.name || e.name.startsWith('.')) continue;
+          const relPath = relPrefix ? `${relPrefix}/${e.name}` : e.name;
+          if (e.isDirectory()) {
+            if (ignoredDirs.has(e.name.toLowerCase())) continue;
+            await _walk(path.join(curDir, e.name), relPath);
+          } else if (e.isFile()) {
+            out.push(relPath);
+          }
+        }
       }
+      await _walk(dirPath, '');
+      out.sort((a, b) => a.localeCompare(b));
+      return out;
     }
 
-    const documents = await _listDirNames(targets.docEditorDocs, 30);
-    const constellations = await _listDirNames(targets.constellations || targets.mindmaps, 30);
-    return { ok: true, classes, rosterText, documents, constellations };
+    const documents = await _listDirNames(targets.docEditorDocs, 5000);
+    const constellations = await _listDirNames(targets.constellations || targets.mindmaps, 5000);
+    const toPrint = await _listDirNames(targets.toPrint, 5000);
+    return { ok: true, classes, rosterText, documents, constellations, toPrint };
   });
 
   ipcMain.handle('app:list-by-path', async (event, request = {}) => {
@@ -913,6 +930,28 @@ function registerFileOpsIpc(ctx) {
       return { ok: true, path: fullPath, name: path.basename(fullPath) };
     } catch (err) {
       return { ok: false, error: String(err?.message || err) };
+    }
+  });
+
+  ipcMain.handle('app:stat-disk-file', async (_event, request = {}) => {
+    if (!request.absolutePath) return { ok: false, exists: false, error: 'No path specified.' };
+    try {
+      const fullPath = path.resolve(String(request.absolutePath));
+      const stats = await fs.stat(fullPath);
+      return {
+        ok: true,
+        exists: true,
+        path: fullPath,
+        isFile: stats.isFile(),
+        isDirectory: stats.isDirectory(),
+        size: stats.size,
+        mtimeMs: stats.mtimeMs
+      };
+    } catch (err) {
+      if (err && err.code === 'ENOENT') {
+        return { ok: true, exists: false, path: path.resolve(String(request.absolutePath)) };
+      }
+      return { ok: false, exists: false, error: String(err?.message || err) };
     }
   });
 

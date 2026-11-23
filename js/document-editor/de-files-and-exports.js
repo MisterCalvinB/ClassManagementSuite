@@ -1896,6 +1896,34 @@ async function exportPdf() {
   const destination = await openPdfExportModal(sameFolderInfo);
   if (!destination) return;
 
+  const pdfBaseTitle = getPdfExportBaseName();
+  let resolvedPdfName = (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available)
+    ? (sameFolderInfo.filename || (pdfBaseTitle + '.pdf'))
+    : (pdfBaseTitle + '.pdf');
+  let resolvedAbsPath = (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available)
+    ? (sameFolderInfo.absolutePath || '')
+    : '';
+
+  if (window.resolveExportFilenameConflict && (destination === 'to-print' || (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available))) {
+    const conflictReq = destination === 'to-print'
+      ? { filename: resolvedPdfName, target: 'toPrint' }
+      : (resolvedAbsPath
+        ? { filename: resolvedPdfName, absolutePath: resolvedAbsPath }
+        : { filename: resolvedPdfName, target: sameFolderInfo.target, subdir: sameFolderInfo.subdir });
+    const conflictRes = await window.resolveExportFilenameConflict(conflictReq);
+    if (!conflictRes || conflictRes.canceled) return;
+    if (conflictRes.filename && conflictRes.filename !== resolvedPdfName) {
+      resolvedPdfName = conflictRes.filename;
+      if (resolvedAbsPath) {
+        const sep = resolvedAbsPath.indexOf('\\') !== -1 ? '\\' : '/';
+        const norm = resolvedAbsPath.replace(/\\/g, '/');
+        const idx = norm.lastIndexOf('/');
+        const dir = idx > 0 ? resolvedAbsPath.slice(0, idx) : '';
+        resolvedAbsPath = dir ? (dir + sep + resolvedPdfName) : resolvedPdfName;
+      }
+    }
+  }
+
   showToast(t('deExportPdfPreparing') || 'Preparing PDF…');
 
   if (currentDocType === 'typ') {
@@ -1905,15 +1933,15 @@ async function exportPdf() {
     }
     try {
       const raw = mdEditor ? mdEditor.getValue() : '';
-      const pdfTitle = getPdfExportBaseName();
+      const pdfTitle = resolvedPdfName.replace(/\.pdf$/i, '');
       const pdfBytes = await TypstService.compileToPdf(raw, { title: pdfTitle });
-      const defaultName = pdfTitle + '.pdf';
+      const defaultName = resolvedPdfName;
 
       let result = null;
       if (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available) {
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        result = await Desktop.saveBlob(sameFolderInfo.target, sameFolderInfo.filename, blob, sameFolderInfo.subdir);
-        if (result && !result.name) result.name = sameFolderInfo.filename;
+        result = await Desktop.saveBlob(sameFolderInfo.target, resolvedPdfName, blob, sameFolderInfo.subdir);
+        if (result && !result.name) result.name = resolvedPdfName;
       } else if (destination === 'to-print') {
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         result = await Desktop.saveBlob('toPrint', defaultName, blob);
@@ -1938,7 +1966,7 @@ async function exportPdf() {
       } else if (result && result.ok) {
         showToast(
           destination === 'same-folder'
-            ? ((t('deExportPdfSameFolderSuccess') || 'PDF saved in the same folder: ') + (sameFolderInfo.filename || defaultName))
+            ? ((t('deExportPdfSameFolderSuccess') || 'PDF saved in the same folder: ') + (result.name || resolvedPdfName))
             : destination === 'to-print'
               ? ((t('deExportPdfToPrintSuccess') || 'PDF saved to Print folder: ') + (result.name || defaultName))
               : (t('deExportPdfSuccess') || 'PDF exported')
@@ -1953,18 +1981,18 @@ async function exportPdf() {
     return;
   }
 
-  const pdfBaseName = getPdfExportBaseName();
+  const pdfBaseName = resolvedPdfName.replace(/\.pdf$/i, '');
   const { html, pdfOptions } = await deBuildPrintDocumentHtml(pdfBaseName);
 
-  const defaultName = pdfBaseName + '.pdf';
+  const defaultName = resolvedPdfName;
   const request = { html, defaultName, title: pdfBaseName, pdfOptions };
   if (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available) {
-    if (sameFolderInfo.absolutePath) {
-      request.absolutePath = sameFolderInfo.absolutePath;
+    if (resolvedAbsPath) {
+      request.absolutePath = resolvedAbsPath;
     } else {
       request.target = sameFolderInfo.target;
       request.subdir = sameFolderInfo.subdir;
-      request.filename = sameFolderInfo.filename;
+      request.filename = resolvedPdfName;
     }
   } else if (destination === 'to-print') {
     request.target = 'toPrint';

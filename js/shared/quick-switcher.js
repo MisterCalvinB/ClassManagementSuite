@@ -90,6 +90,7 @@
       '.cmt-qs-badge.cat-student{background:#5b8fcc;color:#ffffff}',
       '.cmt-qs-badge.cat-doc{background:#d4895a;color:#ffffff}',
       '.cmt-qs-badge.cat-board{background:#8b7cc2;color:#ffffff}',
+      '.cmt-qs-badge.cat-print{background:#c96b6b;color:#ffffff}',
       '.cmt-qs-badge.cat-word{background:#5a9a9e;color:#ffffff}',
       '.cmt-qs-empty{padding:24px 12px;text-align:center;color:#555555;font-size:0.86rem;font-weight:600}',
       '.cmt-qs-actions{display:inline-flex;align-items:center;gap:4px;flex-shrink:0}',
@@ -370,13 +371,32 @@
     return '';
   }
 
+  function _normalizeSearchText(str) {
+    var s = String(str || '').toLowerCase();
+    if (typeof s.normalize === 'function') {
+      s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    }
+    return s;
+  }
+
+  function _matchesQuery(haystack, query) {
+    var q = _normalizeSearchText(query).trim();
+    if (!q) return true;
+    var h = _normalizeSearchText(haystack);
+    var tokens = q.split(/\s+/);
+    for (var i = 0; i < tokens.length; i++) {
+      if (tokens[i] && h.indexOf(tokens[i]) === -1) return false;
+    }
+    return true;
+  }
+
   async function _listUserSubdir(subdir) {
     try {
       var res = null;
       if (window.Desktop && typeof window.Desktop.listByPath === 'function') {
-        res = await window.Desktop.listByPath('user', subdir, { recursive: false });
+        res = await window.Desktop.listByPath('user', subdir, { recursive: true });
       } else if (window.electronApi && typeof window.electronApi.listByPath === 'function') {
-        res = await window.electronApi.listByPath({ target: 'user', relativePath: subdir, recursive: false });
+        res = await window.electronApi.listByPath({ target: 'user', relativePath: subdir, recursive: true });
       }
       if (Array.isArray(res)) return res;
       if (res && Array.isArray(res.files)) return res.files;
@@ -385,14 +405,16 @@
     return [];
   }
 
-  async function _collectDynamicItems() {
-    if (_loadedDynamic) return;
+  async function _collectDynamicItems(force) {
+    if (_loadedDynamic && !force) return;
     _loadedDynamic = true;
+    var nextDynamic = [];
 
     // 1. In Electron, use the dedicated cross-page read-only IPC index
     var classes = [];
     var docFiles = [];
     var conFiles = [];
+    var printFiles = [];
 
     if (window.electronApi && typeof window.electronApi.quickSwitcherIndex === 'function') {
       try {
@@ -405,6 +427,7 @@
           }
           if (Array.isArray(idx.documents)) docFiles = idx.documents;
           if (Array.isArray(idx.constellations)) conFiles = idx.constellations;
+          if (Array.isArray(idx.toPrint)) printFiles = idx.toPrint;
         }
       } catch (_) {}
     }
@@ -449,7 +472,7 @@
     var seenStudents = Object.create(null);
     classes.forEach(function (cls) {
       if (!cls || !cls.name) return;
-      _items.push({
+      nextDynamic.push({
         id: 'cls:' + (cls.id || cls.name),
         cat: 'class',
         catLabel: _t('qsCatClass', 'Class'),
@@ -469,7 +492,7 @@
           var stuKey = cls.name + '::' + sName;
           if (seenStudents[stuKey]) return;
           seenStudents[stuKey] = true;
-          _items.push({
+          nextDynamic.push({
             id: 'stu:' + (cls.id || cls.name) + ':' + ((stu && stu.id) || sName),
             cat: 'student',
             catLabel: _t('qsCatStudent', 'Student'),
@@ -487,34 +510,76 @@
     });
 
     if (docFiles.length === 0) docFiles = await _listUserSubdir('document-editor/docs');
-    docFiles.slice(0, 25).forEach(function (f) {
-      var name = typeof f === 'string' ? f : (f && (f.name || f.filename));
-      if (!name) return;
-      _items.push({
-        id: 'doc:' + name,
+    docFiles.forEach(function (f) {
+      var rawPath = typeof f === 'string' ? f : (f && (f.relativePath || f.name || f.filename));
+      if (!rawPath) return;
+      var relPath = String(rawPath).replace(/\\/g, '/');
+      if (/(^|\/)(history|trash|backups|node_modules)(\/|$)/i.test(relPath)) return;
+      var fileName = relPath.split('/').pop();
+      nextDynamic.push({
+        id: 'doc:' + relPath,
         cat: 'doc',
         catLabel: _t('qsCatDoc', 'Document'),
-        title: name,
-        sub: 'user/document-editor/docs/' + name,
+        title: fileName,
+        sub: 'user/document-editor/docs/' + relPath,
         icon: 'document-editor.svg',
-        url: _pageHref('document-editor.html')
+        url: _pageHref('document-editor.html') + '?editTarget=docEditorDocs&editRelPath=' + encodeURIComponent(relPath)
       });
     });
 
     if (conFiles.length === 0) conFiles = await _listUserSubdir('constellations');
-    conFiles.slice(0, 25).forEach(function (f) {
-      var name = typeof f === 'string' ? f : (f && (f.name || f.filename));
-      if (!name) return;
-      _items.push({
-        id: 'con:' + name,
+    conFiles.forEach(function (f) {
+      var rawPath = typeof f === 'string' ? f : (f && (f.relativePath || f.name || f.filename));
+      if (!rawPath) return;
+      var relPath = String(rawPath).replace(/\\/g, '/');
+      if (/(^|\/)(history|trash|backups|node_modules)(\/|$)/i.test(relPath)) return;
+      var fileName = relPath.split('/').pop();
+      nextDynamic.push({
+        id: 'con:' + relPath,
         cat: 'board',
         catLabel: _t('qsCatBoard', 'Constellation'),
-        title: name,
-        sub: 'user/constellations/' + name,
+        title: fileName,
+        sub: 'user/constellations/' + relPath,
         icon: 'board.svg',
-        url: _pageHref('board.html')
+        url: _pageHref('board.html') + '?openSession=1&openTarget=constellations&openFilename=' + encodeURIComponent(fileName) + '&openRelPath=' + encodeURIComponent(relPath)
       });
     });
+
+    if (printFiles.length === 0) printFiles = await _listUserSubdir('to-print');
+    printFiles.forEach(function (f) {
+      var rawPath = typeof f === 'string' ? f : (f && (f.relativePath || f.name || f.filename));
+      if (!rawPath) return;
+      var relPath = String(rawPath).replace(/\\/g, '/');
+      if (/(^|\/)(history|trash|backups|node_modules)(\/|$)/i.test(relPath)) return;
+      var fileName = relPath.split('/').pop();
+      var printItem = {
+        id: 'print:' + relPath,
+        cat: 'print',
+        catLabel: _t('qsCatPrint', 'To-Print'),
+        title: fileName,
+        sub: 'user/to-print/' + relPath,
+        icon: 'printer.svg'
+      };
+      if (/\.pdf$/i.test(fileName)) {
+        printItem.url = _pageHref('pdf-viewer.html') + '?openTarget=toPrint&openRelPath=' + encodeURIComponent(relPath);
+      } else if (/\.(md|markdown|html|htm|txt)$/i.test(fileName)) {
+        printItem.url = _pageHref('document-editor.html') + '?editTarget=toPrint&editRelPath=' + encodeURIComponent(relPath);
+      } else {
+        printItem.onSelect = function () {
+          if (window.Desktop && typeof window.Desktop.openNative === 'function') {
+            window.Desktop.openNative('toPrint', relPath);
+          } else if (window.electronApi && typeof window.electronApi.openNative === 'function') {
+            window.electronApi.openNative({ target: 'toPrint', relativePath: relPath });
+          } else {
+            _openTarget(_pageHref('file-manager.html'));
+          }
+        };
+      }
+      nextDynamic.push(printItem);
+    });
+
+    _seedTools();
+    _items = _items.concat(nextDynamic);
 
     if (_backdrop && _backdrop.classList.contains('open')) {
       _renderList(_input ? _input.value : '');
@@ -572,7 +637,7 @@
     if (_actionTarget) {
       var allActs = _getTargetActions(_actionTarget);
       _filtered = !q ? allActs : allActs.filter(function (a) {
-        return (a.title + ' ' + a.sub).toLowerCase().indexOf(q) !== -1;
+        return _matchesQuery(a.title + ' ' + a.sub, q);
       });
       if (_activeIdx >= _filtered.length) _activeIdx = 0;
       _listEl.innerHTML = '';
@@ -636,11 +701,11 @@
       var tools = _items.filter(function (it) { return it.cat === 'tool'; }).slice(0, 10);
       var classes = _items.filter(function (it) { return it.cat === 'class'; });
       var students = _items.filter(function (it) { return it.cat === 'student'; }).slice(0, 15);
-      var files = _items.filter(function (it) { return it.cat === 'doc' || it.cat === 'board'; }).slice(0, 10);
+      var files = _items.filter(function (it) { return it.cat === 'doc' || it.cat === 'board' || it.cat === 'print'; }).slice(0, 10);
       _filtered = tools.concat(classes, students, files);
     } else {
       var localMatches = _items.filter(function (it) {
-        return (it.title + ' ' + it.sub + ' ' + it.catLabel).toLowerCase().indexOf(q) !== -1;
+        return _matchesQuery(it.title + ' ' + it.sub + ' ' + it.catLabel, q);
       }).slice(0, 50);
       var dictMatches = (q.length >= 2 && _dictQuery === q) ? _dictItems : [];
       _filtered = localMatches.concat(dictMatches);
@@ -870,7 +935,7 @@
       setTimeout(function () { if (_input) _input.focus(); }, 20);
     }
     _renderList('');
-    _collectDynamicItems();
+    _collectDynamicItems(true);
   }
 
   function _close() {
@@ -907,7 +972,7 @@
       if (!q) return [];
       return _items.filter(function (it) {
         if (it.cat === 'tool') return false;
-        return (it.title + ' ' + it.sub + ' ' + it.catLabel).toLowerCase().indexOf(q) !== -1;
+        return _matchesQuery(it.title + ' ' + it.sub + ' ' + it.catLabel, q);
       }).slice(0, limit || 16);
     },
     openForTarget: function (item) {

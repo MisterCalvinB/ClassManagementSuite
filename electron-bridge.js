@@ -519,6 +519,15 @@
     return getDesktopApi().writeDiskFile({ absolutePath, content, encoding });
   }
 
+  async function statDiskFile(absolutePath) {
+    if (!isElectron() || !absolutePath) return null;
+    var api = getDesktopApi();
+    if (!api || typeof api.statDiskFile !== 'function') {
+      return { ok: false, exists: false, error: 'statDiskFile API unavailable' };
+    }
+    return api.statDiskFile({ absolutePath });
+  }
+
   async function saveToDisk(request) {
     if (!isElectron()) return null;
     return getDesktopApi().saveToDisk(request || {});
@@ -1532,6 +1541,7 @@
     pickAndReadFile,
     readDiskFile,
     writeDiskFile,
+    statDiskFile,
     pickAndCopyFiles,
     zipAndDeleteArchived,
     fetchUrl,

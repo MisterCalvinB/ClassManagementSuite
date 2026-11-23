@@ -584,6 +584,10 @@ function updateStudentDetails() {
 
         const row = document.createElement('tr');
         row.className = 'expandable-row';
+        row.dataset.sessionId = session.id;
+        row.dataset.studentName = currentStudentName;
+        row.dataset.sessionId = session.id;
+        row.dataset.studentName = currentStudentName;
         const notesText = getStudentNotesText(student);
         const notesPreview = notesText ? notesText.substring(0, 50) : '';
         const teamRoleEvents = getSessionTeamRoleEvents(session, currentGroupId, currentStudentName);
@@ -835,33 +839,36 @@ function renderStudentDetailBodyContent() {
     let currentSessionFormHtml = '';
     if (targetStudent) {
         currentSessionFormHtml = `
-            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:16px;">
-                <div style="font-size:0.82rem; font-weight:800; color:#0f172a; margin-bottom:8px;"><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> Current / Active Session Controls</div>
-                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px;">
-                    <div>
-                        <label style="font-size:0.72rem; font-weight:700; color:#2ca02c;">Pluses (+)</label>
-                        <input type="number" id="editDetailPluses" class="past-input-num" value="${targetStudent.pluses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)">
+            <div class="student-edit-current-panel">
+                <div class="student-edit-panel-heading">
+                    <img src="../assets/icons/zap.svg" class="btn-icon" alt="" />
+                    <span>${escapeHtml(t('ptCurrentSessionControls') || 'Current / Active Session Controls')}</span>
+                </div>
+                <div class="student-edit-controls-grid">
+                    <div class="student-edit-field-card is-pos">
+                        <label for="editDetailPluses">${escapeHtml(t('ptPlusesLabel') || 'Pluses (+)')}</label>
+                        <input type="number" id="editDetailPluses" class="past-input-num" value="${targetStudent.pluses || 0}" min="0" onchange="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'pluses', parseInt(this.value)||0)">
                     </div>
-                    <div>
-                        <label style="font-size:0.72rem; font-weight:700; color:#d62728;">Minuses (-)</label>
-                        <input type="number" id="editDetailMinuses" class="past-input-num" value="${targetStudent.minuses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)">
+                    <div class="student-edit-field-card is-neg">
+                        <label for="editDetailMinuses">${escapeHtml(t('ptMinusesLabel') || 'Minuses (-)')}</label>
+                        <input type="number" id="editDetailMinuses" class="past-input-num" value="${targetStudent.minuses || 0}" min="0" onchange="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'minuses', parseInt(this.value)||0)">
                     </div>
-                    <div>
-                        <label style="font-size:0.72rem; font-weight:700; color:#1f5a2b;">Team +</label>
-                        <input type="number" id="editDetailTeamPluses" class="past-input-num" value="${targetStudent.teamPluses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)">
+                    <div class="student-edit-field-card is-team-pos">
+                        <label for="editDetailTeamPluses">${escapeHtml(t('ptTeamPlusLabel') || 'Team +')}</label>
+                        <input type="number" id="editDetailTeamPluses" class="past-input-num" value="${targetStudent.teamPluses || 0}" min="0" onchange="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamPluses', parseInt(this.value)||0)">
                     </div>
-                    <div>
-                        <label style="font-size:0.72rem; font-weight:700; color:#8a1e1e;">Team -</label>
-                        <input type="number" id="editDetailTeamMinuses" class="past-input-num" value="${targetStudent.teamMinuses || 0}" min="0" style="width:100%;" onchange="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)">
+                    <div class="student-edit-field-card is-team-neg">
+                        <label for="editDetailTeamMinuses">${escapeHtml(t('ptTeamMinusLabel') || 'Team -')}</label>
+                        <input type="number" id="editDetailTeamMinuses" class="past-input-num" value="${targetStudent.teamMinuses || 0}" min="0" onchange="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)" oninput="updateStudentEditField('${currentSessionId}', 'teamMinuses', parseInt(this.value)||0)">
                     </div>
-                    <div style="text-align:center;">
-                        <label style="font-size:0.72rem; font-weight:700; color:#475569;">Picked</label>
-                        <input type="checkbox" id="editDetailPicked" ${targetStudent.isPicked ? 'checked' : ''} style="display:block; margin:6px auto 0;" onchange="updateStudentEditField('${currentSessionId}', 'isPicked', this.checked)">
-                    </div>
-                    <div style="text-align:center;">
-                        <label style="font-size:0.72rem; font-weight:700; color:#475569;">Absent</label>
-                        <input type="checkbox" id="editDetailAbsent" ${targetStudent.isAbsent ? 'checked' : ''} style="display:block; margin:6px auto 0;" onchange="updateStudentEditField('${currentSessionId}', 'isAbsent', this.checked)">
-                    </div>
+                    <label class="student-edit-toggle-pill" for="editDetailPicked">
+                        <span>${escapeHtml(t('ptColPicked') || 'Picked')}</span>
+                        <input type="checkbox" id="editDetailPicked" ${targetStudent.isPicked ? 'checked' : ''} onchange="updateStudentEditField('${currentSessionId}', 'isPicked', this.checked)">
+                    </label>
+                    <label class="student-edit-toggle-pill" for="editDetailAbsent">
+                        <span>${escapeHtml(t('ptColAbsent') || 'Absent')}</span>
+                        <input type="checkbox" id="editDetailAbsent" ${targetStudent.isAbsent ? 'checked' : ''} onchange="updateStudentEditField('${currentSessionId}', 'isAbsent', this.checked)">
+                    </label>
                 </div>
             </div>
         `;
@@ -871,81 +878,81 @@ function renderStudentDetailBodyContent() {
     body.innerHTML = `
         ${currentSessionFormHtml}
 
-        <div class="student-edit-stats-summary" style="margin-bottom:16px;">
+        <div class="student-edit-stats-summary">
             <div class="student-edit-stat-card">
                 <div class="label">${t('ptStatsSessionsRecorded')}</div>
                 <div class="val">${studentSessions.length}</div>
             </div>
-            <div class="student-edit-stat-card">
-                <div class="label" style="color:#2ca02c;">${t('ptStatPluses')}</div>
-                <div class="val" style="color:#2ca02c;">${totalPluses}</div>
+            <div class="student-edit-stat-card is-pos">
+                <div class="label">${t('ptStatPluses')}</div>
+                <div class="val">${totalPluses}</div>
             </div>
-            <div class="student-edit-stat-card">
-                <div class="label" style="color:#d62728;">${t('ptStatMinuses')}</div>
-                <div class="val" style="color:#d62728;">${totalMinuses}</div>
+            <div class="student-edit-stat-card is-neg">
+                <div class="label">${t('ptStatMinuses')}</div>
+                <div class="val">${totalMinuses}</div>
             </div>
-            <div class="student-edit-stat-card">
-                <div class="label" style="color:#1f5a2b;">T+ / T-</div>
-                <div class="val" style="color:#1f5a2b;">${totalTeamPluses} / ${totalTeamMinuses}</div>
+            <div class="student-edit-stat-card is-team">
+                <div class="label">T+ / T-</div>
+                <div class="val">${totalTeamPluses} / ${totalTeamMinuses}</div>
             </div>
             <div class="student-edit-stat-card">
                 <div class="label">${t('ptStatPicks')} / ${t('ptColAbs')}</div>
                 <div class="val">${totalPicks} / ${totalAbsences}</div>
             </div>
-            <div class="student-edit-stat-card">
+            <div class="student-edit-stat-card ${net >= 0 ? 'is-pos' : 'is-neg'}">
                 <div class="label">${t('ptStatNet')}</div>
-                <div class="val" style="color:${net >= 0 ? '#2ca02c' : '#d62728'};">${net >= 0 ? '+' : ''}${net}</div>
+                <div class="val">${net >= 0 ? '+' : ''}${net}</div>
             </div>
         </div>
 
         <div class="student-edit-section-title">
             <span data-i18n="ptModalPastInteractions">Past Session Interactions</span>
-            <button type="button" class="btn-primary" style="font-size:11px; padding:4px 10px;" onclick="toggleAddPastInteractionForm()" data-i18n="ptModalAddInteraction">+ Add Past Interaction</button>
+            <button type="button" class="btn-primary student-edit-add-btn" onclick="toggleAddPastInteractionForm()" data-i18n="ptModalAddInteraction">+ Add Past Interaction</button>
         </div>
 
         <div id="addPastInteractionBox" class="add-past-interaction-box hidden">
-            <strong style="font-size: 0.82rem; color: #0f172a;">Log New Session Interaction Entry</strong>
+            <div class="add-past-interaction-heading">${escapeHtml(t('ptLogNewInteraction') || 'Log New Session Interaction Entry')}</div>
             <div class="add-past-interaction-grid">
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Date</label>
+                    <label class="past-form-label" for="newInteractionDate">${escapeHtml(t('ptColDate') || 'Date')}</label>
                     <input type="date" id="newInteractionDate" class="past-input-text" value="${new Date().toISOString().split('T')[0]}">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Time</label>
+                    <label class="past-form-label" for="newInteractionTime">${escapeHtml(t('ptColTime') || 'Time')}</label>
                     <input type="time" id="newInteractionTime" class="past-input-text" value="10:00">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#2ca02c;">Pluses (+)</label>
+                    <label class="past-form-label is-pos" for="newInteractionPluses">${escapeHtml(t('ptPlusesLabel') || 'Pluses (+)')}</label>
                     <input type="number" id="newInteractionPluses" class="past-input-num" value="0" min="0">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#d62728;">Minuses (-)</label>
+                    <label class="past-form-label is-neg" for="newInteractionMinuses">${escapeHtml(t('ptMinusesLabel') || 'Minuses (-)')}</label>
                     <input type="number" id="newInteractionMinuses" class="past-input-num" value="0" min="0">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#1f5a2b;">Team +</label>
+                    <label class="past-form-label is-team-pos" for="newInteractionTeamPluses">${escapeHtml(t('ptTeamPlusLabel') || 'Team +')}</label>
                     <input type="number" id="newInteractionTeamPluses" class="past-input-num" value="0" min="0">
                 </div>
                 <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#8a1e1e;">Team -</label>
+                    <label class="past-form-label is-team-neg" for="newInteractionTeamMinuses">${escapeHtml(t('ptTeamMinusLabel') || 'Team -')}</label>
                     <input type="number" id="newInteractionTeamMinuses" class="past-input-num" value="0" min="0">
                 </div>
-                <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Picked?</label>
-                    <input type="checkbox" id="newInteractionPicked" style="display:block; margin-top:6px;">
-                </div>
-                <div>
-                    <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Absent?</label>
-                    <input type="checkbox" id="newInteractionAbsent" style="display:block; margin-top:6px;">
-                </div>
+                <label class="student-edit-toggle-pill student-edit-toggle-pill--compact" for="newInteractionPicked">
+                    <span>${escapeHtml(t('ptColPicked') || 'Picked')}</span>
+                    <input type="checkbox" id="newInteractionPicked">
+                </label>
+                <label class="student-edit-toggle-pill student-edit-toggle-pill--compact" for="newInteractionAbsent">
+                    <span>${escapeHtml(t('ptColAbsent') || 'Absent')}</span>
+                    <input type="checkbox" id="newInteractionAbsent">
+                </label>
             </div>
-            <div style="margin-top: 8px;">
-                <label style="font-size: 0.7rem; font-weight:700; color:#475569;">Notes / Comment</label>
-                <input type="text" id="newInteractionNotes" class="past-input-text" placeholder="e.g. Active participation, good answer">
+            <div class="add-past-interaction-notes-row">
+                <label class="past-form-label" for="newInteractionNotes">${escapeHtml(t('ptColNotes') || 'Notes')}</label>
+                <input type="text" id="newInteractionNotes" class="past-input-text" placeholder="${escapeHtml(t('ptNotesPlaceholder') || 'Add notes...')}">
             </div>
-            <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap:8px;">
-                <button type="button" class="btn-secondary" style="font-size:11px; padding:4px 10px;" onclick="toggleAddPastInteractionForm()" data-i18n="ptBtnCancel">Cancel</button>
-                <button type="button" class="btn-success" style="font-size:11px; padding:4px 10px;" onclick="submitNewPastInteraction()">Add Entry</button>
+            <div class="add-past-interaction-actions">
+                <button type="button" class="btn-secondary student-edit-add-btn" onclick="toggleAddPastInteractionForm()" data-i18n="ptBtnCancel">${escapeHtml(t('ptBtnCancel') || 'Cancel')}</button>
+                <button type="button" class="btn-success student-edit-add-btn" onclick="submitNewPastInteraction()">${escapeHtml(t('ptAddEntry') || 'Add Entry')}</button>
             </div>
         </div>
 
@@ -955,10 +962,10 @@ function renderStudentDetailBodyContent() {
                     <tr>
                         <th data-i18n="ptColDate">Date</th>
                         <th data-i18n="ptColTime">Time</th>
-                        <th style="color:#2ca02c;">+</th>
-                        <th style="color:#d62728;">-</th>
-                        <th style="color:#86efac;">T+</th>
-                        <th style="color:#fca5a5;">T-</th>
+                        <th class="th-pos">+</th>
+                        <th class="th-neg">-</th>
+                        <th class="th-pos">T+</th>
+                        <th class="th-neg">T-</th>
                         <th data-i18n="ptColPick">Pick</th>
                         <th data-i18n="ptColAbs">Abs</th>
                         <th data-i18n="ptColBadges">Badges</th>
@@ -1075,7 +1082,7 @@ function formatBadgesEditable(sessionId, badges) {
             <select class="badge-add-select" onchange="handleAddBadgeSelect('${sessionId}', this)">
                 <option value="">+ Badge...</option>
                 ${optionsHtml}
-                <option value="__custom__">✏️ Custom...</option>
+                <option value="__custom__">Custom...</option>
             </select>
         </div>
     `;
@@ -1213,25 +1220,25 @@ function updateModalSummaryTotals() {
             <div class="label">${t('ptStatsSessionsRecorded')}</div>
             <div class="val">${editingStudentModalData.studentSessions.length}</div>
         </div>
-        <div class="student-edit-stat-card">
-            <div class="label" style="color:#2ca02c;">${t('ptStatPluses')}</div>
-            <div class="val" style="color:#2ca02c;">${totalPluses}</div>
+        <div class="student-edit-stat-card is-pos">
+            <div class="label">${t('ptStatPluses')}</div>
+            <div class="val">${totalPluses}</div>
         </div>
-        <div class="student-edit-stat-card">
-            <div class="label" style="color:#d62728;">${t('ptStatMinuses')}</div>
-            <div class="val" style="color:#d62728;">${totalMinuses}</div>
+        <div class="student-edit-stat-card is-neg">
+            <div class="label">${t('ptStatMinuses')}</div>
+            <div class="val">${totalMinuses}</div>
         </div>
-        <div class="student-edit-stat-card">
-            <div class="label" style="color:#1f5a2b;">T+ / T-</div>
-            <div class="val" style="color:#1f5a2b;">${totalTeamPluses} / ${totalTeamMinuses}</div>
+        <div class="student-edit-stat-card is-team">
+            <div class="label">T+ / T-</div>
+            <div class="val">${totalTeamPluses} / ${totalTeamMinuses}</div>
         </div>
         <div class="student-edit-stat-card">
             <div class="label">${t('ptStatPicks')} / ${t('ptColAbs')}</div>
             <div class="val">${totalPicks} / ${totalAbsences}</div>
         </div>
-        <div class="student-edit-stat-card">
+        <div class="student-edit-stat-card ${net >= 0 ? 'is-pos' : 'is-neg'}">
             <div class="label">${t('ptStatNet')}</div>
-            <div class="val" style="color:${net >= 0 ? '#2ca02c' : '#d62728'};">${net >= 0 ? '+' : ''}${net}</div>
+            <div class="val">${net >= 0 ? '+' : ''}${net}</div>
         </div>
     `;
 }
@@ -1713,5 +1720,278 @@ function sortTable(header, tableId) {
     } else if (tableId === 'studentTable') {
         sortStudentTable(column);
     }
+}
+
+// ─── Quick-Edit Cell Popover for #studentTableBody ───────────────────
+let _activeCellPopoverCleanup = null;
+
+function closeStudentCellPopover() {
+    const existing = document.getElementById('ptStudentCellPopover');
+    if (existing) existing.remove();
+    if (typeof _activeCellPopoverCleanup === 'function') {
+        _activeCellPopoverCleanup();
+        _activeCellPopoverCleanup = null;
+    }
+}
+
+function openStudentCellPopover(td, sessionId, studentName, colId, clientX, clientY) {
+    closeStudentCellPopover();
+    if (!currentGroupId || !sessionId || !studentName) return;
+
+    const session = DB_EXPORT.find(s => s && s.id === sessionId);
+    if (!session || !session.groups || !Array.isArray(session.groups[currentGroupId])) return;
+    const student = session.groups[currentGroupId].find(s => s && s.name === studentName);
+    if (!student) return;
+
+    const colDef = (typeof getColDef === 'function') ? getColDef('studentTable', colId) : null;
+    const colLabel = (colDef && colDef.i18nKey ? t(colDef.i18nKey) : '') || (colDef && colDef.label) || colId;
+    const dateShort = formatIsoDate(session.id);
+
+    const popover = document.createElement('div');
+    popover.id = 'ptStudentCellPopover';
+    popover.className = 'pt-cell-popover';
+    popover.setAttribute('role', 'dialog');
+    popover.setAttribute('aria-label', colLabel);
+
+    let bodyHtml = '';
+    const isNumeric = ['pluses', 'minuses', 'teamPluses', 'teamMinuses'].includes(colId);
+    const isBool = ['picked', 'absent'].includes(colId);
+
+    if (isNumeric) {
+        const curVal = Number(student[colId]) || 0;
+        bodyHtml = `
+            <div class="pt-cell-popover-stepper">
+                <button type="button" class="pt-step-btn" data-step="-1" aria-label="Decrease">-</button>
+                <input type="number" id="ptCellPopNumInput" class="past-input-num" value="${curVal}" min="0">
+                <button type="button" class="pt-step-btn" data-step="1" aria-label="Increase">+</button>
+            </div>
+        `;
+    } else if (isBool) {
+        const field = colId === 'picked' ? 'isPicked' : 'isAbsent';
+        const checked = !!student[field];
+        bodyHtml = `
+            <div class="pt-cell-popover-toggle-group" data-bool-val="${checked ? '1' : '0'}">
+                <button type="button" class="pt-toggle-opt ${checked ? 'active' : ''}" data-val="1">${escapeHtml(t('ptBoolYes') || 'Yes')}</button>
+                <button type="button" class="pt-toggle-opt ${!checked ? 'active' : ''}" data-val="0">${escapeHtml(t('ptBoolNo') || 'No')}</button>
+            </div>
+        `;
+    } else if (colId === 'date') {
+        bodyHtml = `<input type="date" id="ptCellPopDateInput" class="past-input-text" value="${escapeHtml(dateShort)}">`;
+    } else if (colId === 'time') {
+        const curTime = session.time || (session.id && session.id.includes('T') ? session.id.split('T')[1].substring(0, 5) : '10:00');
+        bodyHtml = `<input type="time" id="ptCellPopTimeInput" class="past-input-text" value="${escapeHtml(curTime)}">`;
+    } else if (colId === 'notes') {
+        const curNotes = getStudentNotesText(student) || '';
+        bodyHtml = `<textarea id="ptCellPopNotesInput" class="pt-cell-popover-textarea" rows="3" placeholder="${escapeHtml(t('ptNotesPlaceholder') || 'Notes...')}">${escapeHtml(curNotes)}</textarea>`;
+    } else if (colId === 'badges') {
+        const configuredDefs = (typeof getConfiguredBadgeDefinitions === 'function') ? getConfiguredBadgeDefinitions() : [];
+        const filteredDefs = configuredDefs.filter(d => !d.isBuiltin || (d.icon !== '+' && d.icon !== '-'));
+        const optionsHtml = filteredDefs.map((def, idx) => {
+            const lbl = def.label || def.icon || 'Badge';
+            const sym = def.tone === 'positive' ? ' (+)' : (def.tone === 'negative' ? ' (-)' : '');
+            return `<option value="${idx}">${escapeHtml(lbl + sym)}</option>`;
+        }).join('');
+        bodyHtml = `
+            <div id="ptCellPopBadgesList" class="badge-edit-container" style="margin-bottom:8px;"></div>
+            <select id="ptCellPopBadgeSelect" class="badge-add-select" style="width:100%;">
+                <option value="">${escapeHtml(t('ptAddBadgeOption') || '+ Add Badge...')}</option>
+                ${optionsHtml}
+                <option value="__custom__">${escapeHtml(t('ptCustomBadgeOption') || 'Custom...')}</option>
+            </select>
+        `;
+    } else {
+        const events = getSessionTeamRoleEvents(session, currentGroupId, studentName);
+        bodyHtml = `
+            <div class="pt-cell-popover-readonly">
+                <span>${events.length ? escapeHtml(formatTeamRoleEventsPreview(events, 120)) : escapeHtml(t('ptNoTeamRoleEvents') || 'No team/role events in this session.')}</span>
+            </div>
+        `;
+    }
+
+    const showSaveBtn = colId !== 'teamRoleEvents';
+    popover.innerHTML = `
+        <div class="pt-cell-popover-header">
+            <span class="pt-cell-popover-title">${escapeHtml(colLabel)} <span class="pt-cell-popover-date">${escapeHtml(dateShort)}</span></span>
+            <button type="button" class="pt-cell-popover-close" aria-label="Close">x</button>
+        </div>
+        <div class="pt-cell-popover-body">${bodyHtml}</div>
+        <div class="pt-cell-popover-footer">
+            <button type="button" class="pt-cell-popover-full-btn">${escapeHtml(t('ptEditFullRow') || 'Full Editor')}</button>
+            <div class="pt-cell-popover-actions">
+                <button type="button" class="btn-secondary pt-cell-popover-btn" data-pop-cancel="1">${escapeHtml(t('ptBtnCancel') || 'Cancel')}</button>
+                ${showSaveBtn ? `<button type="button" class="btn-primary pt-cell-popover-btn" data-pop-save="1">${escapeHtml(t('ptBtnSave') || 'Save')}</button>` : ''}
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(popover);
+
+    // Position near click / cell, clamped inside viewport
+    const pad = 10;
+    const popRect = popover.getBoundingClientRect();
+    let left = clientX + 6;
+    let top = clientY + 6;
+    if (left + popRect.width > window.innerWidth - pad) {
+        left = Math.max(pad, window.innerWidth - popRect.width - pad);
+    }
+    if (top + popRect.height > window.innerHeight - pad) {
+        top = Math.max(pad, clientY - popRect.height - 6);
+    }
+    popover.style.left = `${left}px`;
+    popover.style.top = `${top}px`;
+
+    // Local draft badges state when editing badges
+    const draftBadges = Array.isArray(student.badges) ? JSON.parse(JSON.stringify(student.badges)) : [];
+    const renderPopBadges = () => {
+        const listEl = popover.querySelector('#ptCellPopBadgesList');
+        if (!listEl) return;
+        if (!draftBadges.length) {
+            listEl.innerHTML = `<span style="font-size:0.75rem;color:#64748b;">${escapeHtml(t('ptNoBadges') || 'No badges')}</span>`;
+            return;
+        }
+        listEl.innerHTML = draftBadges.map((b, idx) => {
+            const data = (typeof resolveBadgeData === 'function') ? resolveBadgeData(b) : {};
+            const label = data.label || (typeof b === 'string' ? b : (b.label || b.icon || 'Badge'));
+            const icon = data.icon || (typeof b === 'object' && b.icon ? b.icon : '');
+            const disp = (icon && !label.includes(icon)) ? `${icon} ${label}` : label;
+            return `<span class="badge-edit-chip"><span>${escapeHtml(disp)}</span><button type="button" class="badge-chip-remove" data-rm-badge="${idx}">&times;</button></span>`;
+        }).join('');
+        listEl.querySelectorAll('[data-rm-badge]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                draftBadges.splice(parseInt(btn.dataset.rmBadge, 10), 1);
+                renderPopBadges();
+            });
+        });
+    };
+
+    if (colId === 'badges') {
+        renderPopBadges();
+        const sel = popover.querySelector('#ptCellPopBadgeSelect');
+        if (sel) {
+            sel.addEventListener('change', async () => {
+                const v = sel.value;
+                sel.value = '';
+                if (!v) return;
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const ts = `${dateShort}T${timeStr}.000Z`;
+                if (v === '__custom__') {
+                    const input = (typeof showPrompt === 'function') ? await showPrompt('Enter custom badge name or label:', '') : null;
+                    if (!input || !input.trim()) return;
+                    draftBadges.push({ icon: '', label: input.trim(), tone: 'positive', time: timeStr, timestamp: ts });
+                } else {
+                    const configuredDefs = (typeof getConfiguredBadgeDefinitions === 'function') ? getConfiguredBadgeDefinitions() : [];
+                    const filteredDefs = configuredDefs.filter(d => !d.isBuiltin || (d.icon !== '+' && d.icon !== '-'));
+                    const def = filteredDefs[parseInt(v, 10)];
+                    if (def) draftBadges.push({ icon: def.icon, label: def.label, tone: def.tone, time: timeStr, timestamp: ts });
+                }
+                renderPopBadges();
+            });
+        }
+    }
+
+    // Stepper & bool controls
+    if (isNumeric) {
+        const numIn = popover.querySelector('#ptCellPopNumInput');
+        popover.querySelectorAll('.pt-step-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const step = parseInt(btn.dataset.step, 10) || 0;
+                numIn.value = Math.max(0, (parseInt(numIn.value, 10) || 0) + step);
+            });
+        });
+        if (numIn) {
+            numIn.focus();
+            numIn.select();
+        }
+    } else if (isBool) {
+        const grp = popover.querySelector('.pt-cell-popover-toggle-group');
+        popover.querySelectorAll('.pt-toggle-opt').forEach(btn => {
+            btn.addEventListener('click', () => {
+                grp.dataset.boolVal = btn.dataset.val;
+                popover.querySelectorAll('.pt-toggle-opt').forEach(b => b.classList.toggle('active', b === btn));
+            });
+        });
+    } else if (colId === 'notes') {
+        const ta = popover.querySelector('#ptCellPopNotesInput');
+        if (ta) ta.focus();
+    }
+
+    const commitSave = async () => {
+        if (isNumeric) {
+            const val = Math.max(0, parseInt(popover.querySelector('#ptCellPopNumInput')?.value, 10) || 0);
+            student[colId] = val;
+        } else if (isBool) {
+            const field = colId === 'picked' ? 'isPicked' : 'isAbsent';
+            const grp = popover.querySelector('.pt-cell-popover-toggle-group');
+            student[field] = grp?.dataset.boolVal === '1';
+        } else if (colId === 'date') {
+            const newDate = popover.querySelector('#ptCellPopDateInput')?.value;
+            if (newDate) {
+                const curTime = session.time || (session.id && session.id.includes('T') ? session.id.split('T')[1].substring(0, 5) : '10:00');
+                const parts = String(curTime).split(':');
+                const hh = (parts[0] || '10').padStart(2, '0');
+                const mm = (parts[1] || '00').padStart(2, '0');
+                session.id = `${newDate}T${hh}:${mm}:00`;
+            }
+        } else if (colId === 'time') {
+            const newTime = popover.querySelector('#ptCellPopTimeInput')?.value;
+            if (newTime) session.time = newTime;
+        } else if (colId === 'notes') {
+            student.notes = popover.querySelector('#ptCellPopNotesInput')?.value || '';
+        } else if (colId === 'badges') {
+            student.badges = draftBadges;
+        }
+
+        closeStudentCellPopover();
+        syncGlobalDbExport();
+        await persistEditedGroupSessionsToDisk(currentGroupId);
+
+        const dateRange = getDateRange();
+        const sessions = filterSessionsByDateAndGroup(currentGroupId, dateRange.from, dateRange.to);
+        updateDashboard();
+        updateClassOverviewTable(sessions);
+        if (currentStudentName === studentName) {
+            updateStudentDetails();
+        }
+        showMessage(t('ptMsgStudentSaved'), 'success');
+    };
+
+    popover.querySelector('.pt-cell-popover-close')?.addEventListener('click', closeStudentCellPopover);
+    popover.querySelector('[data-pop-cancel]')?.addEventListener('click', closeStudentCellPopover);
+    popover.querySelector('[data-pop-save]')?.addEventListener('click', commitSave);
+    popover.querySelector('.pt-cell-popover-full-btn')?.addEventListener('click', () => {
+        closeStudentCellPopover();
+        showStudentDetailModal(student, session);
+    });
+
+    popover.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeStudentCellPopover();
+        } else if (e.key === 'Enter' && (colId !== 'notes' || e.ctrlKey || e.metaKey)) {
+            if (showSaveBtn) {
+                e.preventDefault();
+                commitSave();
+            }
+        }
+    });
+
+    const onOutsideMouseDown = (e) => {
+        if (!popover.contains(e.target)) {
+            closeStudentCellPopover();
+        }
+    };
+    const onEsc = (e) => {
+        if (e.key === 'Escape') closeStudentCellPopover();
+    };
+    setTimeout(() => {
+        document.addEventListener('mousedown', onOutsideMouseDown);
+        document.addEventListener('keydown', onEsc);
+    }, 0);
+
+    _activeCellPopoverCleanup = () => {
+        document.removeEventListener('mousedown', onOutsideMouseDown);
+        document.removeEventListener('keydown', onEsc);
+    };
 }
 

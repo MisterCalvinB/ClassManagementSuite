@@ -266,6 +266,9 @@ const exposedApi = {
   writeDiskFile(request) {
     return invoke('app:write-disk-file', request);
   },
+  statDiskFile(request) {
+    return invoke('app:stat-disk-file', request);
+  },
   pickAndCopyFiles(request) {
     return invoke('app:pick-and-copy-files', request);
   },
