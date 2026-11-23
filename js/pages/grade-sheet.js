@@ -956,25 +956,10 @@
       });
     });
 
-    document.getElementById("ref-criteria-add").addEventListener("click", () => {
-      if (!_referenceDataEditorDraft) return;
-      const newIdx = _referenceDataEditorDraft.criteria.length;
-      _referenceDataEditorDraft.criteria.push(makeBlankCriterion(newIdx));
-      renderReferenceDataEditor({ expandCriterionIndex: newIdx });
-    });
-
-    document.getElementById("ref-scale-add").addEventListener("click", () => {
-      if (!_referenceDataEditorDraft) return;
-      const newIdx = _referenceDataEditorDraft.scaleModels.length;
-      _referenceDataEditorDraft.scaleModels.push(makeBlankScaleModel(newIdx));
-      renderReferenceDataEditor({ expandScaleIndex: newIdx });
-    });
-
-    document.getElementById("ref-chips-add").addEventListener("click", () => {
-      if (!_referenceDataEditorDraft) return;
-      const newIdx = _referenceDataEditorDraft.personalisedChips.length;
-      _referenceDataEditorDraft.personalisedChips.push(makeBlankPersonalisedChipsGroup(newIdx));
-      renderReferenceDataEditor({ expandChipsIndex: newIdx });
+    document.getElementById("gs-mdb-modal-overlay")?.addEventListener("click", evt => {
+      if (evt.target === document.getElementById("gs-mdb-modal-overlay") && typeof closeManageDatabaseModal === "function") {
+        closeManageDatabaseModal();
+      }
     });
 
 

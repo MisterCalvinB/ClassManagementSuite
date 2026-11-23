@@ -2309,517 +2309,88 @@
         };
       }
 
-      criteriaList.innerHTML = draft.criteria.map((criterion, index) => {
-        const isExpanded = expandedCriteria.has(index);
-        const gradeList = normalizeCriterionGrades(criterion.grades);
-        const heading = getReferenceCriterionHeading(criterion, index);
-        const commentFields = gradeList.map((grade, gIdx) => {
-          const value = escapeHtml(criterion.comments[grade] || "");
-          const color = (criterion.colors && criterion.colors[grade]) || getDefaultGradeColor(grade, gIdx, gradeList.length);
-          const textColor = getHighContrastTextColor(color);
-          return `
-            <label class="ref-field">
-              <div class="ref-field-header">
-                <span class="ref-grade-badge" style="background:${color}18; color:${textColor}; border-color:${color};">${escapeHtml(grade)}</span>
-                <button type="button" class="ref-color-btn" data-action="pick-grade-color" data-index="${index}" data-grade="${escapeHtml(grade)}" style="background-color:${color};" title="Choose color (50 colors)"></button>
-              </div>
-              <textarea data-kind="criterion" data-index="${index}" data-field="comment-${escapeHtml(grade)}">${value}</textarea>
-            </label>`;
-        }).join("");
-        return `
-          <div class="ref-item-card criteria-card ${isExpanded ? '' : 'collapsed'}" data-kind="criterion" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
-              <div>
-                <div class="ref-item-index">${escapeHtml(heading)}</div>
-                <div class="ref-inline-note">${escapeHtml(tFmt('gsRefCritBlankName', { n: index + 1 }))}</div>
-              </div>
-              <div class="ref-actions">
-                <button type="button" class="btn" data-action="criterion-duplicate" data-index="${index}">${t('gsBtnDuplicateItem')}</button>
-                <button type="button" class="btn" data-action="criterion-delete" data-index="${index}" style="color:var(--warn);">${t('gsBtnDelete')}</button>
-              </div>
-            </div>
-            <div class="ref-item-body ref-item-grid ref-criteria-grid">
-              <label class="ref-field" style="grid-column:1/-1;">
-                <span>${t('gsCritName')}</span>
-                <input class="input" type="text" data-kind="criterion" data-index="${index}" data-field="name" value="${escapeHtml(criterion.name)}" />
-              </label>
-              <label class="ref-field">
-                <span>${t('gsRefCritLabelMinPts')}</span>
-                <input class="input" type="number" step="0.1" data-kind="criterion" data-index="${index}" data-field="minPoints" value="${criterion.minPoints != null ? escapeHtml(fmtN(criterion.minPoints)) : ''}" placeholder="optional" />
-              </label>
-              <label class="ref-field">
-                <span>${t('gsRefCritLabelMaxPts')}</span>
-                <input class="input" type="number" step="0.1" data-kind="criterion" data-index="${index}" data-field="maxPoints" value="${criterion.maxPoints != null ? escapeHtml(fmtN(criterion.maxPoints)) : ''}" placeholder="optional" />
-              </label>
-              <label class="ref-field">
-                <span>${t('gsRefCritLabelInterval')}</span>
-                <input class="input" type="number" step="0.05" min="0.01" data-kind="criterion" data-index="${index}" data-field="interval" value="${criterion.interval != null ? escapeHtml(fmtN(criterion.interval)) : ''}" placeholder="0.5" />
-              </label>
-              <label class="ref-field" style="grid-column:span 2;">
-                <span>${t('gsRefGradesShown')}</span>
-                <input class="input" type="text" data-kind="criterion" data-index="${index}" data-field="grades" value="${escapeHtml(gradeList.join(", "))}" placeholder="e.g. 6, 5, 4, 3" />
-              </label>
-              ${commentFields}
-            </div>
-          </div>`;
-      }).join("");
+      criteriaList.innerHTML = draft.criteria.length
+        ? draft.criteria.map((criterion, index) => {
+            const gradeList = normalizeCriterionGrades(criterion.grades);
+            const heading = getReferenceCriterionHeading(criterion, index);
+            const ptsStr = (criterion.minPoints != null || criterion.maxPoints != null)
+              ? `${criterion.minPoints != null ? fmtN(criterion.minPoints) : '0'}–${criterion.maxPoints != null ? fmtN(criterion.maxPoints) : '?'} pts`
+              : '';
+            return `
+              <div class="gs-ref-preview-card">
+                <div>
+                  <div class="ref-item-index">${escapeHtml(heading)}</div>
+                  <div class="gs-ref-preview-meta">
+                    ${ptsStr ? `<span class="gs-ref-preview-pill">${escapeHtml(ptsStr)}</span>` : ''}
+                    <span class="gs-ref-preview-pill">${escapeHtml(gradeList.join(", "))}</span>
+                  </div>
+                </div>
+                <button type="button" class="btn btn-sm" data-mdb-edit="criteria" data-mdb-record="${escapeHtml(criterion.name || String(index))}">${t('gsBtnEditItem', 'Edit')}</button>
+              </div>`;
+          }).join("")
+        : `<div class="ref-inline-note">${t('gsRefNoItems', 'No items in this bank yet. Click "Edit in Manage Database" to add one.')}</div>`;
 
-      scaleList.innerHTML = draft.scaleModels.map((model, index) => {
-        const isExpanded = expandedScales.has(index);
-        const heading = getReferenceScaleHeading(model, index);
-        const note = getReferenceScaleNote(model, index);
-        const steps = getScaleModelGradeSteps(model);
-        const thresholdFields = steps.map((grade, gIdx) => {
-          const gradeKey = String(grade);
-          const value = model.thresholds[gradeKey] ?? 0;
-          const color = (model.colors && model.colors[gradeKey]) || getDefaultGradeColor(gradeKey, gIdx, steps.length);
-          const textColor = getHighContrastTextColor(color);
-          return `
-            <label class="ref-field">
-              <div class="ref-field-header">
-                <span class="ref-grade-badge" style="background:${color}18; color:${textColor}; border-color:${color};">${grade}</span>
-                <button type="button" class="ref-color-btn" data-action="pick-scale-color" data-index="${index}" data-grade="${gradeKey}" style="background-color:${color};" title="Choose color for grade ${gradeKey} (50 colors)"></button>
-              </div>
-              <input class="input" type="number" min="0" max="100" step="0.1" data-kind="scale" data-index="${index}" data-field="threshold-${gradeKey}" value="${escapeHtml(fmtN(value))}" />
-            </label>`;
-        }).join("");
-        return `
-          <div class="ref-item-card scale-card ${isExpanded ? '' : 'collapsed'}" data-kind="scale" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
-              <div>
-                <div class="ref-item-index">${escapeHtml(heading)}</div>
-                <div class="ref-inline-note">${escapeHtml(note)}</div>
-              </div>
-              <div class="ref-actions">
-                <button type="button" class="btn" data-action="scale-duplicate" data-index="${index}">${t('gsBtnDuplicateItem')}</button>
-                <button type="button" class="btn" data-action="scale-delete" data-index="${index}" style="color:var(--warn);">${t('gsBtnDelete')}</button>
-              </div>
-            </div>
-            <div class="ref-item-body ref-item-grid ref-scale-grid">
-              <label class="ref-field">
-                <span>${t('gsRefScaleKey')}</span>
-                <input class="input" type="text" data-kind="scale" data-index="${index}" data-field="key" value="${escapeHtml(model.key)}" />
-              </label>
-              <label class="ref-field" style="grid-column:span 2;">
-                <span>${t('gsRefScaleLabel')}</span>
-                <input class="input" type="text" data-kind="scale" data-index="${index}" data-field="label" value="${escapeHtml(model.label)}" />
-              </label>
-              <label class="ref-field">
-                <span>Min Grade</span>
-                <input class="input" type="number" step="0.1" data-kind="scale" data-index="${index}" data-field="minGrade" value="${escapeHtml(fmtN(model.minGrade != null ? model.minGrade : 1))}" />
-              </label>
-              <label class="ref-field">
-                <span>Max Grade</span>
-                <input class="input" type="number" step="0.1" data-kind="scale" data-index="${index}" data-field="maxGrade" value="${escapeHtml(fmtN(model.maxGrade != null ? model.maxGrade : 6))}" />
-              </label>
-              <label class="ref-field">
-                <span>Interval</span>
-                <input class="input" type="number" step="0.05" min="0.01" data-kind="scale" data-index="${index}" data-field="interval" value="${escapeHtml(fmtN(model.interval != null ? model.interval : 0.5))}" />
-              </label>
-              ${thresholdFields}
-            </div>
-          </div>`;
-      }).join("");
+      scaleList.innerHTML = draft.scaleModels.length
+        ? draft.scaleModels.map((model, index) => {
+            const heading = getReferenceScaleHeading(model, index);
+            const note = getReferenceScaleNote(model, index);
+            return `
+              <div class="gs-ref-preview-card">
+                <div>
+                  <div class="ref-item-index">${escapeHtml(heading)}</div>
+                  <div class="ref-inline-note">${escapeHtml(note)}</div>
+                </div>
+                <button type="button" class="btn btn-sm" data-mdb-edit="scales" data-mdb-record="${escapeHtml(model.key || model.label || String(index))}">${t('gsBtnEditItem', 'Edit')}</button>
+              </div>`;
+          }).join("")
+        : `<div class="ref-inline-note">${t('gsRefNoItems', 'No items in this bank yet. Click "Edit in Manage Database" to add one.')}</div>`;
 
-      criteriaList.querySelectorAll("[data-field]").forEach(field => {
-        const handleCriteriaInputOrChange = (evt, isChange) => {
-          const index = Number(evt.target.getAttribute("data-index"));
-          const item = draft.criteria[index];
-          if (!item) return;
-          const fieldName = evt.target.getAttribute("data-field");
-          if (fieldName === "name") {
-            item.name = evt.target.value;
-            updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "criterion", item, index);
-            return;
-          }
-          if (fieldName === "minPoints") {
-            const v = toNumber(evt.target.value);
-            item.minPoints = v != null ? v : null;
-            return;
-          }
-          if (fieldName === "maxPoints") {
-            const v = toNumber(evt.target.value);
-            item.maxPoints = v != null && v >= 0 ? v : null;
-            return;
-          }
-          if (fieldName === "interval") {
-            const v = toNumber(evt.target.value);
-            item.interval = v != null && v > 0 ? v : null;
-            return;
-          }
-          if (fieldName === "grades") {
-            if (isChange) {
-              const grades = normalizeCriterionGrades(evt.target.value);
-              const nextComments = {};
-              const nextColors = {};
-              grades.forEach((grade, gIdx) => {
-                nextComments[grade] = item.comments && typeof item.comments[grade] === "string" ? item.comments[grade] : "";
-                nextColors[grade] = item.colors && item.colors[grade] ? item.colors[grade] : getDefaultGradeColor(grade, gIdx, grades.length);
-              });
-              item.grades = grades;
-              item.comments = nextComments;
-              item.colors = nextColors;
-              renderReferenceDataEditor();
-            }
-            return;
-          }
-          const grade = fieldName.replace("comment-", "");
-          if (!item.comments) item.comments = {};
-          item.comments[grade] = evt.target.value;
-        };
+      chipsList.innerHTML = draft.personalisedChips.length
+        ? draft.personalisedChips.map((group, index) => {
+            const heading = group.type || `Category ${index + 1}`;
+            const items = Array.isArray(group.items) ? group.items : [];
+            const pills = items.slice(0, 8).map(item => `<span class="gs-ref-preview-pill">${escapeHtml(item)}</span>`).join("");
+            const more = items.length > 8 ? `<span class="gs-ref-preview-pill">+${items.length - 8}</span>` : "";
+            return `
+              <div class="gs-ref-preview-card">
+                <div>
+                  <div class="ref-item-index">${escapeHtml(heading)}</div>
+                  <div class="gs-ref-preview-meta">${pills}${more}</div>
+                </div>
+                <button type="button" class="btn btn-sm" data-mdb-edit="chips" data-mdb-record="${escapeHtml(group.type || String(index))}">${t('gsBtnEditItem', 'Edit')}</button>
+              </div>`;
+          }).join("")
+        : `<div class="ref-inline-note">${t('gsRefNoItems', 'No items in this bank yet. Click "Edit in Manage Database" to add one.')}</div>`;
 
-        field.addEventListener("input", evt => handleCriteriaInputOrChange(evt, false));
-        field.addEventListener("change", evt => handleCriteriaInputOrChange(evt, true));
-      });
-
-      criteriaList.querySelectorAll("[data-action='pick-grade-color']").forEach(btn => {
-        btn.addEventListener("click", evt => {
-          evt.stopPropagation();
-          const index = Number(btn.getAttribute("data-index"));
-          const grade = btn.getAttribute("data-grade");
-          const item = draft.criteria[index];
-          if (!item) return;
-          const currentColor = (item.colors && item.colors[grade]) || getDefaultGradeColor(grade);
-          openRefColorPicker(btn, currentColor, (newColor) => {
-            if (!item.colors) item.colors = {};
-            item.colors[grade] = newColor;
-            btn.style.backgroundColor = newColor;
-            const fieldEl = btn.closest(".ref-field");
-            if (fieldEl) {
-              const badge = fieldEl.querySelector(".ref-grade-badge");
-              if (badge) {
-                const textCol = getHighContrastTextColor(newColor);
-                badge.style.color = textCol;
-                badge.style.borderColor = newColor;
-                badge.style.backgroundColor = `${newColor}18`;
-              }
-            }
+      [criteriaList, scaleList, chipsList].forEach(listEl => {
+        listEl.querySelectorAll("[data-mdb-edit]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const typeKey = btn.getAttribute("data-mdb-edit");
+            const recId = btn.getAttribute("data-mdb-record");
+            const bankFn = typeKey === "criteria"
+              ? (_refEditorActiveCriteriaBank || "correction-criteria.js")
+              : (typeKey === "scales" ? (_refEditorActiveScaleBank || "grade-scale-models.js") : (_refEditorActiveChipBank || "correction-criteria.js"));
+            openManageDatabaseForRef(typeKey, bankFn, true, recId);
           });
         });
       });
 
-      attachReferenceCardCollapseHandlers(criteriaList, ".criteria-card .ref-item-head");
-
-      scaleList.querySelectorAll("[data-field]").forEach(field => {
-        const handleScaleInputOrChange = (evt, isChange) => {
-          const index = Number(evt.target.getAttribute("data-index"));
-          const item = draft.scaleModels[index];
-          if (!item) return;
-          const fieldName = evt.target.getAttribute("data-field");
-          if (fieldName === "key") {
-            item.key = evt.target.value;
-            updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "scale", item, index);
-            return;
-          }
-          if (fieldName === "label") {
-            item.label = evt.target.value;
-            updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "scale", item, index);
-            return;
-          }
-          if (fieldName === "minGrade" || fieldName === "maxGrade" || fieldName === "interval") {
-            const rawVal = toNumber(evt.target.value);
-            if (rawVal != null) {
-              item[fieldName] = rawVal;
-              if (isChange) {
-                const steps = computeScaleGradeSteps(item.maxGrade, item.minGrade, item.interval);
-                const nextThresholds = {};
-                const nextColors = {};
-                const stepCount = steps.length;
-                steps.forEach((g, gIdx) => {
-                  const k = String(g);
-                  const fallbackPct = stepCount > 1 ? Number((((stepCount - 1 - gIdx) / (stepCount - 1)) * 100).toFixed(2)) : 0;
-                  nextThresholds[k] = item.thresholds && item.thresholds[k] != null ? item.thresholds[k] : fallbackPct;
-                  nextColors[k] = item.colors && item.colors[k] ? item.colors[k] : getDefaultGradeColor(k, gIdx, stepCount);
-                });
-                item.thresholds = nextThresholds;
-                item.colors = nextColors;
-                renderReferenceDataEditor();
-              }
-            }
-            return;
-          }
-          const grade = fieldName.replace("threshold-", "");
-          if (!item.thresholds) item.thresholds = {};
-          item.thresholds[grade] = toNumber(evt.target.value) ?? 0;
-        };
-
-        field.addEventListener("input", evt => handleScaleInputOrChange(evt, false));
-        field.addEventListener("change", evt => handleScaleInputOrChange(evt, true));
-      });
-
-      scaleList.querySelectorAll("[data-action='pick-scale-color']").forEach(btn => {
-        btn.addEventListener("click", evt => {
-          evt.stopPropagation();
-          const index = Number(btn.getAttribute("data-index"));
-          const grade = btn.getAttribute("data-grade");
-          const item = draft.scaleModels[index];
-          if (!item) return;
-          const currentColor = (item.colors && item.colors[grade]) || getDefaultGradeColor(grade);
-          openRefColorPicker(btn, currentColor, (newColor) => {
-            if (!item.colors) item.colors = {};
-            item.colors[grade] = newColor;
-            btn.style.backgroundColor = newColor;
-            const fieldEl = btn.closest(".ref-field");
-            if (fieldEl) {
-              const badge = fieldEl.querySelector(".ref-grade-badge");
-              if (badge) {
-                const textCol = getHighContrastTextColor(newColor);
-                badge.style.color = textCol;
-                badge.style.borderColor = newColor;
-                badge.style.backgroundColor = `${newColor}18`;
-              }
-            }
-          });
-        });
-      });
-
-      attachReferenceCardCollapseHandlers(scaleList, ".scale-card .ref-item-head");
-
-      criteriaList.querySelectorAll("[data-action]").forEach(btn => {
-        btn.addEventListener("click", async evt => {
-          evt.stopPropagation();
-          const index = Number(evt.target.getAttribute("data-index"));
-          const action = evt.target.getAttribute("data-action");
-          if (action === "criterion-duplicate") {
-            draft.criteria.splice(index + 1, 0, duplicateCriterion(draft.criteria[index], index + 1));
-            renderReferenceDataEditor({ expandCriterionIndex: index + 1 });
-          } else if (action === "criterion-delete") {
-            if (await showConfirm(t('gsConfirmDeleteCriterion'))) {
-              draft.criteria.splice(index, 1);
-              renderReferenceDataEditor();
-            }
-          }
-        });
-      });
-
-      scaleList.querySelectorAll("[data-action]").forEach(btn => {
-        btn.addEventListener("click", async evt => {
-          const index = Number(evt.target.getAttribute("data-index"));
-          const action = evt.target.getAttribute("data-action");
-          if (action === "scale-duplicate") {
-            draft.scaleModels.splice(index + 1, 0, duplicateScaleModel(draft.scaleModels[index], index + 1));
-            renderReferenceDataEditor({ expandScaleIndex: index + 1 });
-          } else if (action === "scale-delete") {
-            if (await showConfirm(t('gsConfirmDeleteScale'))) {
-              draft.scaleModels.splice(index, 1);
-              renderReferenceDataEditor();
-            }
-          }
-        });
-      });
-
-      chipsList.innerHTML = draft.personalisedChips.map((group, index) => {
-        const isExpanded = expandedChips.has(index);
-        const heading = group.type || `Category ${index + 1}`;
-        const itemsVal = Array.isArray(group.items) ? group.items.join(", ") : "";
-        return `
-          <div class="ref-item-card chips-card ${isExpanded ? '' : 'collapsed'}" data-kind="chips" data-index="${index}">
-            <div class="ref-item-head" role="button" tabindex="0" aria-expanded="${isExpanded ? 'true' : 'false'}" data-label-expand="${t('gsRefClickToExpand')}" data-label-collapse="${t('gsRefClickToCollapse')}">
-              <div>
-                <div class="ref-item-index">${escapeHtml(heading)}</div>
-                <div class="ref-inline-note">${escapeHtml(tFmt('gsRefChipsBlankName', { n: index + 1 }))}</div>
-              </div>
-              <div class="ref-actions">
-                <button type="button" class="btn" data-action="chips-duplicate" data-index="${index}">${t('gsBtnDuplicateItem')}</button>
-                <button type="button" class="btn" data-action="chips-delete" data-index="${index}" style="color:var(--warn);">${t('gsBtnDelete')}</button>
-              </div>
-            </div>
-            <div class="ref-item-body ref-item-grid ref-chips-grid">
-              <label class="ref-field" style="grid-column: 1 / -1;">
-                <span>${t('gsRefCategoryName')}</span>
-                <input class="input" type="text" data-kind="chips" data-index="${index}" data-field="type" value="${escapeHtml(group.type)}" />
-              </label>
-              <label class="ref-field" style="grid-column: 1 / -1;">
-                <span>${t('gsRefChipsListLabel')}</span>
-                <textarea class="input" data-kind="chips" data-index="${index}" data-field="items" placeholder="e.g. Speaks clearly, Needs support, Clear explanation">${escapeHtml(itemsVal)}</textarea>
-              </label>
-            </div>
-          </div>`;
-      }).join("");
-
-      chipsList.querySelectorAll("[data-field]").forEach(field => {
-        field.addEventListener("input", evt => {
-          const index = Number(evt.target.getAttribute("data-index"));
-          const item = draft.personalisedChips[index];
-          if (!item) return;
-          const fieldName = evt.target.getAttribute("data-field");
-          if (fieldName === "type") {
-            item.type = evt.target.value;
-            updateReferenceCardHeading(evt.target.closest(".ref-item-card"), "chips", item, index);
-            return;
-          }
-          if (fieldName === "items") {
-            item.items = evt.target.value
-              .split(/[,\n]/)
-              .map(v => v.trim())
-              .filter(Boolean);
-          }
-        });
-      });
-
-      attachReferenceCardCollapseHandlers(chipsList, ".chips-card .ref-item-head");
-
-      chipsList.querySelectorAll("[data-action]").forEach(btn => {
-        btn.addEventListener("click", async evt => {
-          evt.stopPropagation();
-          const index = Number(evt.target.getAttribute("data-index"));
-          const action = evt.target.getAttribute("data-action");
-          if (action === "chips-duplicate") {
-            draft.personalisedChips.splice(index + 1, 0, duplicatePersonalisedChipsGroup(draft.personalisedChips[index], index + 1));
-            renderReferenceDataEditor({ expandChipsIndex: index + 1 });
-          } else if (action === "chips-delete") {
-            if (await showConfirm(t('gsConfirmDeleteChipCategory'))) {
-              draft.personalisedChips.splice(index, 1);
-              renderReferenceDataEditor();
-            }
-          }
-        });
-      });
-
-      // Restore focus & text selection if a field was previously focused
-      if (focusInfo) {
-        const container = focusInfo.kind === "criterion" ? criteriaList :
-                          (focusInfo.kind === "scale" ? scaleList : chipsList);
-        const targetInput = container.querySelector(
-          `[data-kind="${focusInfo.kind}"][data-index="${focusInfo.index}"][data-field="${focusInfo.field}"]`
-        );
-        if (targetInput) {
-          targetInput.focus();
-          if (focusInfo.selectionStart != null && focusInfo.selectionEnd != null && typeof targetInput.setSelectionRange === "function") {
-            try {
-              targetInput.setSelectionRange(focusInfo.selectionStart, focusInfo.selectionEnd);
-            } catch (e) {}
-          }
-        }
-      }
+      const bindMdbHeaderBtns = (typeKey, editId, openId, getBankFn) => {
+        const editBtn = document.getElementById(editId);
+        if (editBtn) editBtn.onclick = () => openManageDatabaseForRef(typeKey, getBankFn(), true);
+        const openBtn = document.getElementById(openId);
+        if (openBtn) openBtn.onclick = () => openManageDatabaseForRef(typeKey, getBankFn(), false);
+      };
+      bindMdbHeaderBtns("criteria", "ref-criteria-edit-mdb", "ref-criteria-open-mdb", () => _refEditorActiveCriteriaBank || "correction-criteria.js");
+      bindMdbHeaderBtns("scales", "ref-scale-edit-mdb", "ref-scale-open-mdb", () => _refEditorActiveScaleBank || "grade-scale-models.js");
+      bindMdbHeaderBtns("chips", "ref-chips-edit-mdb", "ref-chips-open-mdb", () => _refEditorActiveChipBank || "correction-criteria.js");
     }
 
     async function saveReferenceDataEditor() {
-      if (!_referenceDataEditorDraft) return;
-
-      const existingKeys = new Set();
-      const criteria = _referenceDataEditorDraft.criteria.map((criterion, index) => {
-        const normalized = normalizeReferenceCriterion(criterion, index);
-        normalized.name = normalized.name.trim() || `Criterion ${index + 1}`;
-        normalized.grades = normalizeCriterionGrades(normalized.grades);
-        return normalized;
-      });
-
-      const scaleModels = _referenceDataEditorDraft.scaleModels.map((model, index) => {
-        const normalized = normalizeReferenceScaleModel(model, index, existingKeys);
-        normalized.label = normalized.label.trim() || `Custom ${index + 1}`;
-        return normalized;
-      });
-
-      const personalisedChips = _referenceDataEditorDraft.personalisedChips.map((group, index) => {
-        const type = group.type.trim() || `Category ${index + 1}`;
-        const items = Array.isArray(group.items)
-          ? group.items.map(v => String(v || "").trim()).filter(Boolean)
-          : [];
-        return { type, items };
-      });
-
-      // 1. Save criteria (to active criteria bank)
-      const activeCriteriaFn = _refEditorActiveCriteriaBank || 'correction-criteria.js';
-      const criteriaBankEntry = (_availableCriteriaBanks || []).find(b => b.filename === activeCriteriaFn);
-      if (criteriaBankEntry) criteriaBankEntry.criteria = criteria;
-
-      if (activeCriteriaFn === 'correction-criteria.js') {
-        XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...criteria);
-        localStorage.setItem(REFERENCE_CRITERIA_STORAGE_KEY, JSON.stringify(criteria));
-      } else {
-        try {
-          const lsKey = 'cmt-criteria-' + activeCriteriaFn.replace(/\.(js|json)$/i, '');
-          localStorage.setItem(lsKey, JSON.stringify(criteria));
-        } catch (_) {}
-      }
-
-      // 2. Save scale models (to active scale bank)
-      const activeScaleFn = _refEditorActiveScaleBank || 'grade-scale-models.js';
-      const scaleBankEntry = (_availableScaleBanks || []).find(b => b.filename === activeScaleFn);
-      if (scaleBankEntry) scaleBankEntry.scales = scaleModels;
-
-      if (activeScaleFn === 'grade-scale-models.js') {
-        XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...scaleModels);
-        localStorage.setItem(REFERENCE_SCALE_MODELS_STORAGE_KEY, JSON.stringify(scaleModels));
-      } else {
-        try {
-          const lsKey = 'cmt-scales-' + activeScaleFn.replace(/\.(js|json)$/i, '');
-          localStorage.setItem(lsKey, JSON.stringify(scaleModels));
-        } catch (_) {}
-      }
-
-      // 3. Save observation chips (to active chip bank)
-      const activeChipFn = _refEditorActiveChipBank || 'correction-criteria.js';
-      const chipBankEntry = (_availableChipBanks || []).find(b => b.filename === activeChipFn);
-      if (chipBankEntry) chipBankEntry.chips = personalisedChips;
-
-      if (activeChipFn === 'correction-criteria.js') {
-        window.OBSERVATION_CHECKLIST_GROUPS = personalisedChips;
-        localStorage.setItem(REFERENCE_PERSONALISED_CHIPS_STORAGE_KEY, JSON.stringify(personalisedChips));
-      } else {
-        try {
-          const lsKey = 'cmt-chips-' + activeChipFn.replace(/\.(js|json)$/i, '');
-          localStorage.setItem(lsKey, JSON.stringify(personalisedChips));
-        } catch (_) {}
-      }
-
-      // File I/O for Electron
+      // Criteria, Scale Models, and Personalised Chips are edited directly in Manage Database.
+      // Save only Summary Display & Grading/Export Defaults here.
       if (window.Desktop && Desktop.isElectron()) {
         const savePromises = [];
-
-        // Save correction-criteria.js (default criteria + default chips if default, or only chips if editing a different criteria bank)
-        const decToSave = (typeof window.SCORING_DECISIONS !== 'undefined' && Array.isArray(window.SCORING_DECISIONS)) ? window.SCORING_DECISIONS : [];
-        syncCriteriaRecordScoringDecisions(criteria, decToSave);
-        if (activeCriteriaFn === 'correction-criteria.js') {
-          const chipsToSaveInCriteriaFile = (activeChipFn === 'correction-criteria.js')
-            ? personalisedChips
-            : (typeof OBSERVATION_CHECKLIST_GROUPS !== 'undefined' ? OBSERVATION_CHECKLIST_GROUPS : []);
-          const criteriaText = `const XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-            `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(chipsToSaveInCriteriaFile, null, 2)};\n` +
-            `const SCORING_DECISIONS = ${JSON.stringify(decToSave, null, 2)};\n`;
-          savePromises.push(Desktop.saveText("user", "correction-criteria.js", criteriaText));
-        } else {
-          // Save to custom criteria file
-          const customDecToSave = criteriaBankEntry?.scoringDecisions || [];
-          syncCriteriaRecordScoringDecisions(criteria, customDecToSave);
-          const isJson = activeCriteriaFn.endsWith('.json');
-          const customCriteriaText = isJson
-            ? JSON.stringify({ criteria, scoringDecisions: customDecToSave }, null, 2)
-            : `// XLSM_CRITERIA\nconst XLSM_CRITERIA = ${JSON.stringify(criteria, null, 2)};\n` +
-              `const SCORING_DECISIONS = ${JSON.stringify(customDecToSave, null, 2)};\n`;
-          savePromises.push(Desktop.saveText("customCriteria", activeCriteriaFn, customCriteriaText));
-          // Also make sure correction-criteria.js is preserved (chips may still live there)
-          if (activeChipFn === 'correction-criteria.js') {
-            const existingCriteria = (typeof XLSM_CRITERIA !== 'undefined' && Array.isArray(XLSM_CRITERIA)) ? XLSM_CRITERIA : [];
-            syncCriteriaRecordScoringDecisions(existingCriteria, decToSave);
-            const defaultCriteriaText = `const XLSM_CRITERIA = ${JSON.stringify(existingCriteria, null, 2)};\n` +
-              `const OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n` +
-              `const SCORING_DECISIONS = ${JSON.stringify(decToSave, null, 2)};\n`;
-            savePromises.push(Desktop.saveText("user", "correction-criteria.js", defaultCriteriaText));
-          }
-        }
-
-        // Save scale models
-        if (activeScaleFn === 'grade-scale-models.js') {
-          const scaleModelsText = `const XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
-          savePromises.push(Desktop.saveText("user", "grade-scale-models.js", scaleModelsText));
-        } else {
-          const isJson = activeScaleFn.endsWith('.json');
-          const customScalesText = isJson
-            ? JSON.stringify(scaleModels, null, 2)
-            : `// XLSM_SCALE_MODELS\nconst XLSM_SCALE_MODELS = ${JSON.stringify(scaleModels, null, 2)};\n`;
-          savePromises.push(Desktop.saveText("customScales", activeScaleFn, customScalesText));
-        }
-
-        // Save custom chips if custom
-        if (activeChipFn !== 'correction-criteria.js') {
-          const isJson = activeChipFn.endsWith('.json');
-          const customChipsText = isJson
-            ? JSON.stringify(personalisedChips, null, 2)
-            : `// OBSERVATION_CHECKLIST_GROUPS\nconst OBSERVATION_CHECKLIST_GROUPS = ${JSON.stringify(personalisedChips, null, 2)};\n`;
-          savePromises.push(Desktop.saveText("customChips", activeChipFn, customChipsText));
-        }
 
         // Save summary display settings
         if (_summarySettingsDraft) {
@@ -2906,14 +2477,6 @@
             if (nameSel) nameSel.value = mergedDraft.defaultNameFormat;
           }
         }
-      }
-
-      // Broadcast changes across windows
-      if (typeof BroadcastChannel !== 'undefined') {
-        try {
-          new BroadcastChannel('cmt-scales').postMessage({ filename: activeScaleFn });
-          new BroadcastChannel('cmt-chips').postMessage({ filename: activeChipFn });
-        } catch (_) {}
       }
 
       applySummaryDisplaySettingsToDOM();
@@ -3364,11 +2927,103 @@
       switchRefTab(targetTab);
     }
 
+    let _activeMdbModalContext = null;
+
+    function openManageDatabaseForRef(typeKey, bankFilename, openAsModal = true, recordId = null) {
+      const cleanFile = bankFilename || (typeKey === 'scales' ? 'grade-scale-models.js' : 'correction-criteria.js');
+      const queryObj = { type: typeKey, file: cleanFile };
+      if (recordId) queryObj.record = recordId;
+
+      if (!openAsModal) {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.openTool === 'function') {
+          Desktop.openTool('manage-database.html', { query: queryObj });
+          return;
+        }
+        const qs = new URLSearchParams(queryObj).toString();
+        window.open('manage-database.html?' + qs, '_blank');
+        return;
+      }
+
+      _activeMdbModalContext = { typeKey, bankFilename: cleanFile, recordId };
+      const overlay = document.getElementById('gs-mdb-modal-overlay');
+      const iframe = document.getElementById('gs-mdb-iframe');
+      const titleEl = document.getElementById('gs-mdb-modal-title');
+      if (titleEl) {
+        const typeLabel = typeKey === 'criteria'
+          ? t('gsRefCriteriaTitle', 'Correction criteria')
+          : (typeKey === 'scales' ? t('gsRefScaleTitle', 'Grading scale models') : t('gsRefChipsTitle', 'Personalised observation chips'));
+        titleEl.textContent = `${t('gsMdbModalTitle', 'Manage Database')} — ${typeLabel}`;
+      }
+      const embedQuery = new URLSearchParams({ ...queryObj, embed: '1' }).toString();
+      if (iframe) iframe.src = 'manage-database.html?' + embedQuery;
+      if (overlay) overlay.classList.remove('hidden');
+
+      const closeBtn = document.getElementById('gs-mdb-close-btn');
+      if (closeBtn) closeBtn.onclick = closeManageDatabaseModal;
+      const openWinBtn = document.getElementById('gs-mdb-open-window-btn');
+      if (openWinBtn) {
+        openWinBtn.onclick = () => {
+          openManageDatabaseForRef(typeKey, cleanFile, false, recordId);
+        };
+      }
+    }
+
+    async function closeManageDatabaseModal() {
+      const overlay = document.getElementById('gs-mdb-modal-overlay');
+      const iframe = document.getElementById('gs-mdb-iframe');
+      if (overlay) overlay.classList.add('hidden');
+      if (iframe) iframe.src = 'about:blank';
+      await reloadGradeSheetReferenceBanks(_activeMdbModalContext ? _activeMdbModalContext.typeKey : null);
+      _activeMdbModalContext = null;
+    }
+
+    async function reloadGradeSheetReferenceBanks(changedType = null) {
+      await Promise.all([
+        loadAvailableCriteriaBanks(),
+        loadAvailableScaleBanks(),
+        loadAvailableChipBanks()
+      ]).catch(() => {});
+
+      const critBank = (_availableCriteriaBanks || []).find(b => b.filename === (_refEditorActiveCriteriaBank || 'correction-criteria.js'));
+      if (critBank && Array.isArray(critBank.criteria) && _refEditorActiveCriteriaBank === 'correction-criteria.js') {
+        XLSM_CRITERIA.splice(0, XLSM_CRITERIA.length, ...critBank.criteria);
+      }
+      const scaleBank = (_availableScaleBanks || []).find(b => b.filename === (_refEditorActiveScaleBank || 'grade-scale-models.js'));
+      if (scaleBank && Array.isArray(scaleBank.scales) && _refEditorActiveScaleBank === 'grade-scale-models.js') {
+        XLSM_SCALE_MODELS.splice(0, XLSM_SCALE_MODELS.length, ...scaleBank.scales);
+      }
+      const chipBank = (_availableChipBanks || []).find(b => b.filename === (_refEditorActiveChipBank || 'correction-criteria.js'));
+      if (chipBank && Array.isArray(chipBank.chips) && _refEditorActiveChipBank === 'correction-criteria.js') {
+        window.OBSERVATION_CHECKLIST_GROUPS = chipBank.chips;
+      }
+
+      if (_referenceDataEditorDraft) {
+        _referenceDataEditorDraft = cloneReferenceDrafts();
+        renderReferenceDataEditor();
+      }
+      refreshCriteriaPresetDropdown();
+      populateScaleBankDropdowns();
+      populateChipBankDropdowns();
+      if (typeof renderTestSheet === 'function') renderTestSheet();
+      if (typeof renderSummary === 'function') renderSummary();
+    }
+
     async function initializeReferenceData() {
       await Promise.resolve(window.__gsUserBootstrapPromise).catch(function () {});
       loadReferenceDataOverrides();
       loadSummaryDisplaySettings();
       refreshCriteriaPresetDropdown();
       applySummaryDisplaySettingsToDOM();
+
+      if (typeof BroadcastChannel !== 'undefined') {
+        ['cmt-criteria', 'cmt-scales', 'cmt-chips'].forEach(chName => {
+          try {
+            const ch = new BroadcastChannel(chName);
+            ch.onmessage = () => {
+              reloadGradeSheetReferenceBanks(chName.replace('cmt-', ''));
+            };
+          } catch (_) {}
+        });
+      }
     }
 
