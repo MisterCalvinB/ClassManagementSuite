@@ -104,6 +104,9 @@
           if (source) {
             const loaded = (new Function(source + '\n; return (typeof vocabBank !== "undefined" ? vocabBank : []);'))();
             window.vocabBank = Array.isArray(loaded) ? loaded : [];
+            if (typeof WordbankSchema !== 'undefined') {
+              WordbankSchema.normalizeWordbankArray(window.vocabBank, { inPlace: true });
+            }
           } else if (!Array.isArray(window.vocabBank)) {
             window.vocabBank = [];
           }
@@ -639,9 +642,13 @@
           }
         } catch (e3) { }
         try {
-          const ci2 = entries.findIndex(w => w.word.toLowerCase() === newWord.toLowerCase());
+          if (typeof WordbankSchema !== 'undefined') {
+            WordbankSchema.normalizeWordbankArray(entries, { inPlace: true });
+          }
+          const ci2 = entries.findIndex(w => w && w.word && w.word.toLowerCase() === newWord.toLowerCase());
           if (ci2 !== -1) { entries[ci2] = entryForCustom; } else { entries.push(entryForCustom); }
-          const lines = entries.map(w => ' ' + JSON.stringify(w));
+          const outEntries = (typeof WordbankSchema !== 'undefined') ? WordbankSchema.compactWordbankArray(entries) : entries;
+          const lines = outEntries.map(w => ' ' + JSON.stringify(w));
           const content = `// ${filename}\nconst customVocabBank = [\n${lines.join(',\n')}\n];\n`;
           await Desktop.saveText('customData', filename, content);
           fb.textContent = ` Saved to ${filename}!`;
@@ -3046,6 +3053,9 @@
               }
             }
             if (!Array.isArray(words) || !words.length) continue;
+            if (typeof WordbankSchema !== 'undefined') {
+              WordbankSchema.normalizeWordbankArray(words, { inPlace: true });
+            }
             const CHUNK_SIZE = 250;
             for (let i = 0; i < words.length; i++) {
               const w = words[i];

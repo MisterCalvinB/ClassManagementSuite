@@ -13,7 +13,9 @@
  */
 const { parentPort } = require('worker_threads');
 const fs = require('fs');
+const path = require('path');
 const vm = require('vm');
+const WordbankSchema = require(path.join(__dirname, '..', 'shared', 'wordbank-schema.js'));
 
 /** name -> { entries: SlimEntry[] } */
 const banks = new Map();
@@ -66,21 +68,22 @@ function parseBankText(text) {
 
 function slimEntry(raw, bankName) {
   if (!raw || typeof raw !== 'object') return null;
-  const word = String(raw.word || raw.term || raw.title || '').trim();
+  const norm = WordbankSchema.normalizeWordbankRecord(raw);
+  const word = String(norm.word || norm.title || '').trim();
   if (!word) return null;
-  const rawDefinition = raw.definition != null ? raw.definition : raw.meaning;
+  const rawDefinition = norm.definition;
   return {
     bank: bankName,
     word,
-    ipa: String(raw.ipa || ''),
-    pos: String(raw.partOfSpeech || raw.pos || ''),
-    level: String(raw.level || ''),
-    theme: String(raw.theme || ''),
+    ipa: String(norm.ipa || ''),
+    pos: String(norm.partOfSpeech || ''),
+    level: String(norm.level || ''),
+    theme: String(norm.theme || ''),
     definition: Array.isArray(rawDefinition) ? rawDefinition.join('; ') : String(rawDefinition || ''),
-    examples: toStringArray(raw.exampleSentence != null ? raw.exampleSentence : raw.examples),
-    synonyms: toStringArray(raw.synonyms),
-    antonyms: toStringArray(raw.antonyms),
-    forms: toStringArray(raw.otherForms),
+    examples: toStringArray(norm.exampleSentence),
+    synonyms: toStringArray(norm.synonyms),
+    antonyms: toStringArray(norm.antonyms),
+    forms: toStringArray(norm.otherForms),
     _w: fold(word),
     _f: null, // lazily folded other forms
     _s: null, // lazily folded synonyms + antonyms

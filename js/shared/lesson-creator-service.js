@@ -1833,7 +1833,7 @@
       if (Array.isArray(unitSeq && unitSeq.vocabulary)) {
         unitSeq.vocabulary.forEach(function (v) {
           if (typeof v === 'string') addVocabEntry(v, '', 'Unit');
-          else if (v && typeof v === 'object') addVocabEntry(v.word || v.term || v.title, v.definition || v.translation || v.desc || '', 'Unit');
+          else if (v && typeof v === 'object') addVocabEntry(v.word || v.w || v.term || v.title, v.definition || v.def || v.translation || v.desc || '', 'Unit');
         });
       }
 
@@ -1842,7 +1842,7 @@
         if (Array.isArray(plan.vocabulary)) {
           plan.vocabulary.forEach(function (v) {
             if (typeof v === 'string') addVocabEntry(v, '', lSrc);
-            else if (v && typeof v === 'object') addVocabEntry(v.word || v.term, v.definition || v.translation || '', lSrc);
+            else if (v && typeof v === 'object') addVocabEntry(v.word || v.w || v.term, v.definition || v.def || v.translation || '', lSrc);
           });
         }
         (plan.sections || []).forEach(function (sec) {

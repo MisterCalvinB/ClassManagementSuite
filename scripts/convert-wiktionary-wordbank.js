@@ -24,6 +24,7 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
+const WordbankSchema = require(path.join(__dirname, '..', 'js', 'shared', 'wordbank-schema.js'));
 
 // Standard Part-of-Speech mappings
 const POS_MAP = {
@@ -69,7 +70,8 @@ function parseArgs() {
     mode: 'lemmas',
     includeInflections: false,
     format: 'js',
-    minExamples: 0
+    minExamples: 0,
+    compact: false
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -82,6 +84,8 @@ function parseArgs() {
       options.mode = args[++i].toLowerCase();
     } else if (arg === '--include-inflections') {
       options.includeInflections = true;
+    } else if (arg === '--compact') {
+      options.compact = true;
     } else if (arg === '--format' && i + 1 < args.length) {
       options.format = args[++i].toLowerCase();
     } else if (arg === '--min-examples' && i + 1 < args.length) {
@@ -452,6 +456,10 @@ async function run() {
   // Sort alphabetically
   finalRecords.sort((a, b) => a.word.localeCompare(b.word, 'en', { sensitivity: 'base' }));
 
+  const outputRecords = options.compact
+    ? finalRecords.map(r => WordbankSchema.compactWordbankRecord(r))
+    : finalRecords;
+
   // Determine output path(s)
   const defaultOutputDir = path.resolve(process.cwd(), 'user/custom-data/wordbanks');
   if (!fs.existsSync(defaultOutputDir)) {
@@ -460,9 +468,9 @@ async function run() {
 
   // Save according to mode
   if (options.mode === 'split-pos') {
-    await writeSplitPos(finalRecords, options.output || defaultOutputDir, options.format);
+    await writeSplitPos(outputRecords, options.output || defaultOutputDir, options.format);
   } else if (options.mode === 'split-theme') {
-    await writeSplitTheme(finalRecords, options.output || defaultOutputDir, options.format);
+    await writeSplitTheme(outputRecords, options.output || defaultOutputDir, options.format);
   } else {
     let defaultFilename;
     if (options.mode === 'core') defaultFilename = 'simple-wiktionary-core';
@@ -471,7 +479,7 @@ async function run() {
 
     const ext = options.format === 'json' ? '.json' : (options.format === 'csv' ? '.csv' : '.js');
     const outputPath = options.output || path.join(defaultOutputDir, defaultFilename + ext);
-    await writeSingleFile(finalRecords, outputPath, options.format);
+    await writeSingleFile(outputRecords, outputPath, options.format);
   }
 
   const durationSec = ((Date.now() - startTime) / 1000).toFixed(2);

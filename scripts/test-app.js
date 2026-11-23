@@ -356,5 +356,108 @@ test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve D
   assert.equal(midWin.bottomHeight, (200 - 65) * 40);
 });
 
+test('WordbankSchema: abbreviation expansion, compaction, round-trip, and safeguards', () => {
+  const WS = require(path.join(ROOT, 'js', 'shared', 'wordbank-schema.js'));
+
+  // 1. Expansion from abbreviated keys
+  const expanded = WS.normalizeWordbankRecord({
+    w: '  resilient ',
+    lang: 'en',
+    en: 'resilient',
+    fr: 'résilient',
+    de: 'belastbar',
+    it: 'resiliente',
+    ipa: '/rɪˈzɪliənt/',
+    pos: 'adjective',
+    lvl: 'B2',
+    thm: 'character',
+    def: 'Able to recover quickly.',
+    ex: 'She is very resilient.',
+    ety: 'From Latin resilire.',
+    syn: 'tough, adaptable',
+    ant: ['fragile'],
+    frm: ['resilience'],
+    hyper: ['trait'],
+    hypo: ['hardy'],
+    kw: ['mindset'],
+    pic: 'resilient.png',
+    customCol: 'keep-me'
+  });
+  assert.equal(expanded.word, 'resilient');
+  assert.equal(expanded.sourceLanguage, 'en');
+  assert.equal(expanded.english, 'resilient');
+  assert.equal(expanded.french, 'résilient');
+  assert.equal(expanded.german, 'belastbar');
+  assert.equal(expanded.italian, 'resiliente');
+  assert.equal(expanded.partOfSpeech, 'adjective');
+  assert.equal(expanded.level, 'B2');
+  assert.equal(expanded.theme, 'character');
+  assert.equal(expanded.definition, 'Able to recover quickly.');
+  assert.equal(expanded.exampleSentence, 'She is very resilient.');
+  assert.equal(expanded.etymology, 'From Latin resilire.');
+  assert.deepEqual(expanded.synonyms, ['tough', 'adaptable']);
+  assert.deepEqual(expanded.antonyms, ['fragile']);
+  assert.deepEqual(expanded.otherForms, ['resilience']);
+  assert.deepEqual(expanded.hypernym, ['trait']);
+  assert.deepEqual(expanded.hyponym, ['hardy']);
+  assert.deepEqual(expanded.keywords, ['mindset']);
+  assert.equal(expanded.picture, 'resilient.png');
+  assert.equal(expanded.customCol, 'keep-me');
+  assert.equal('def' in expanded, false);
+  assert.equal('ant' in expanded, false);
+
+  // 2. Safeguard: canonical key wins when non-empty, alias fills when canonical is empty
+  const conflict = WS.normalizeWordbankRecord({
+    word: 'fast',
+    definition: 'Moving quickly',
+    def: 'Stale alias',
+    antonyms: [],
+    ant: ['slow']
+  });
+  assert.equal(conflict.definition, 'Moving quickly');
+  assert.deepEqual(conflict.antonyms, ['slow']);
+  assert.equal('def' in conflict, false);
+  assert.equal('ant' in conflict, false);
+
+  // 3. Safeguard: compaction omits empty fields and transient UI keys, preserves _custom and unknown fields
+  const compacted = WS.compactWordbankRecord({
+    word: 'fast',
+    definition: 'Moving quickly',
+    synonyms: ['quick', ''],
+    antonyms: [],
+    etymology: '',
+    _fi: 0,
+    _ri: 2,
+    _fKey: 'fast',
+    _custom: true,
+    customCol: 'keep-me'
+  });
+  assert.equal(compacted.w, 'fast');
+  assert.equal(compacted.def, 'Moving quickly');
+  assert.deepEqual(compacted.syn, ['quick']);
+  assert.equal('ant' in compacted, false);
+  assert.equal('ety' in compacted, false);
+  assert.equal('_fi' in compacted, false);
+  assert.equal('_fKey' in compacted, false);
+  assert.equal(compacted._custom, true);
+  assert.equal(compacted.customCol, 'keep-me');
+
+  // 4. Lossless round-trip
+  const roundTripped = WS.normalizeWordbankRecord(compacted);
+  assert.equal(roundTripped.word, 'fast');
+  assert.equal(roundTripped.definition, 'Moving quickly');
+  assert.deepEqual(roundTripped.synonyms, ['quick']);
+  assert.equal(roundTripped._custom, true);
+  assert.equal(roundTripped.customCol, 'keep-me');
+
+  // 5. Safeguard: malformed inputs & prototype pollution keys
+  assert.equal(WS.normalizeWordbankRecord(null), null);
+  assert.equal(WS.compactWordbankRecord('bad'), 'bad');
+  const protoRaw = JSON.parse('{"w":"safe","__proto__":{"polluted":true}}');
+  const protoClean = WS.normalizeWordbankRecord(protoRaw);
+  assert.equal(protoClean.word, 'safe');
+  assert.equal(({}).polluted, undefined);
+});
+
 require('./test-data-integrity.js');
 require('./test-ipc-server.js');

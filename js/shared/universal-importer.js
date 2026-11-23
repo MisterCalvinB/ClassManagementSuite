@@ -253,11 +253,12 @@
     // Database-specific field handlers
     switch (subType) {
       case 'wordbanks': {
-        const word = raw.word || raw.text || item.title || '';
-        const trans = raw.translation || raw.definition || item.subtitle || '';
-        const ipa = raw.ipa ? `[${raw.ipa}]` : '';
-        const def = raw.definition || trans;
-        const ex = raw.example || raw.sentence || (Array.isArray(raw.examples) ? raw.examples[0] : '');
+        const norm = (typeof WordbankSchema !== 'undefined') ? WordbankSchema.normalizeWordbankRecord(raw) : raw;
+        const word = norm.word || norm.text || item.title || '';
+        const trans = norm.translation || norm.definition || item.subtitle || '';
+        const ipa = norm.ipa ? `[${norm.ipa}]` : '';
+        const def = norm.definition || trans;
+        const ex = norm.exampleSentence || norm.example || norm.sentence || (Array.isArray(norm.examples) ? norm.examples[0] : '');
 
         switch (fieldChoice) {
           case 'word_only': return word;
@@ -787,12 +788,15 @@
       return fallbackItem;
     }
 
+    if (subTypeId === 'wordbanks' && typeof WordbankSchema !== 'undefined') {
+      raw = WordbankSchema.normalizeWordbankRecord(raw);
+    }
     const id = raw.id || raw.uuid || raw.code || raw.word || raw.question || `${subTypeId}_${fileSetName}_${idx}`;
     let title = '';
     let subtitle = '';
     let level = raw.level || raw.cefr || raw.tier || '';
     let theme = raw.theme || raw.category || raw.domain || raw.group || '';
-    let badge = raw.pos || raw.type || raw.weight || '';
+    let badge = raw.pos || raw.partOfSpeech || raw.type || raw.weight || '';
     let starred = !!raw.starred || !!raw.pinned;
 
     switch (subTypeId) {

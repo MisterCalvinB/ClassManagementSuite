@@ -17,7 +17,7 @@ window.IMPORT_MODULE_WORDBANK = {
       key: 'sourceLanguage',
       i18nKey: 'importWbFieldSourceLang',
       required: false,
-      autoMatch: ['source language', 'source lang', 'langue source', 'originalsprache', 'lingua originale', 'sourcelanguage', 'lang', 'language']
+      autoMatch: ['source language', 'source lang', 'langue source', 'originalsprache', 'lingua originale', 'sourcelanguage', 'lang', 'language', 'src']
     },
     {
       key: 'english',
@@ -59,37 +59,37 @@ window.IMPORT_MODULE_WORDBANK = {
       key: 'level',
       i18nKey: 'importWbFieldLevel',
       required: false,
-      autoMatch: ['level', 'niveau', 'stufe', 'livello', 'cefr', 'cefr level']
+      autoMatch: ['level', 'niveau', 'stufe', 'livello', 'cefr', 'cefr level', 'lvl']
     },
     {
       key: 'theme',
       i18nKey: 'importWbFieldTheme',
       required: false,
-      autoMatch: ['theme', 'thème', 'thema', 'tema', 'topic', 'category', 'catégorie', 'kategorie', 'categoria', 'subject']
+      autoMatch: ['theme', 'thème', 'thema', 'tema', 'topic', 'category', 'catégorie', 'kategorie', 'categoria', 'subject', 'thm']
     },
     {
       key: 'definition',
       i18nKey: 'importWbFieldDefinition',
       required: false,
-      autoMatch: ['definition', 'définition', 'definizione', 'meaning', 'signification', 'bedeutung']
+      autoMatch: ['definition', 'définition', 'definizione', 'meaning', 'signification', 'bedeutung', 'def']
     },
     {
       key: 'exampleSentence',
       i18nKey: 'importWbFieldExample',
       required: false,
-      autoMatch: ['example', 'exemple', 'beispiel', 'esempio', 'sentence', 'phrase', 'example sentence', 'exemples']
+      autoMatch: ['example', 'exemple', 'beispiel', 'esempio', 'sentence', 'phrase', 'example sentence', 'exemples', 'ex']
     },
     {
       key: 'synonyms',
       i18nKey: 'importWbFieldSynonyms',
       required: false,
-      autoMatch: ['synonyms', 'synonymes', 'synonyme', 'sinonimi', 'synonym']
+      autoMatch: ['synonyms', 'synonymes', 'synonyme', 'sinonimi', 'synonym', 'syn']
     },
     {
       key: 'antonyms',
       i18nKey: 'importWbFieldAntonyms',
       required: false,
-      autoMatch: ['antonyms', 'antonymes', 'antonyme', 'antonimi', 'antonym', 'opposite', 'contraire']
+      autoMatch: ['antonyms', 'antonymes', 'antonyme', 'antonimi', 'antonym', 'opposite', 'contraire', 'ant']
     }
   ],
   conflictKey: function (row) {
@@ -99,6 +99,9 @@ window.IMPORT_MODULE_WORDBANK = {
   // options: { targetFile, existingWords }
   write: async function (mappedRows, conflictDecisions, options) {
     var existing = Array.isArray(options.existingWords) ? options.existingWords.slice() : [];
+    if (typeof WordbankSchema !== 'undefined') {
+      existing = WordbankSchema.normalizeWordbankArray(existing);
+    }
     var existingByKey = {};
     existing.forEach(function (w, i) {
       var k = (w.word || '').trim().toLowerCase();
@@ -135,7 +138,8 @@ window.IMPORT_MODULE_WORDBANK = {
       }
     });
 
-    var content = 'const customVocabBank = ' + JSON.stringify(existing, null, 2) + ';\n';
+    var outputRecords = (typeof WordbankSchema !== 'undefined') ? WordbankSchema.compactWordbankArray(existing) : existing;
+    var content = 'const customVocabBank = ' + JSON.stringify(outputRecords, null, 2) + ';\n';
     var saveResult = await Desktop.saveText(options.target || 'customWordbanks', options.targetFile, content);
     if (!saveResult || !saveResult.ok) {
       return { ok: false, error: 'Save failed' };

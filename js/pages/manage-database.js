@@ -401,8 +401,12 @@
         return value;
       }, 2);
     }
-    function buildJsContent(varName, data) {
-      return `// ${varName}\nconst ${varName} = ${serializeDatabaseRecords(data)};\n`;
+    function buildJsContent(varName, data, typeKey = S.typeKey) {
+      let outData = data;
+      if (typeKey === 'wordbanks' && typeof WordbankSchema !== 'undefined' && Array.isArray(data)) {
+        outData = WordbankSchema.compactWordbankArray(data);
+      }
+      return `// ${varName}\nconst ${varName} = ${serializeDatabaseRecords(outData)};\n`;
     }
     function foldString(val) {
       return String(val == null ? '' : val)
@@ -1482,7 +1486,11 @@
 
     function normalizeRecords(records, typeKey) {
       if (!records || !Array.isArray(records)) return records;
-      if (typeKey === 'competences' || typeKey === 'descriptors') {
+      if (typeKey === 'wordbanks') {
+        if (typeof WordbankSchema !== 'undefined') {
+          WordbankSchema.normalizeWordbankArray(records, { inPlace: true });
+        }
+      } else if (typeKey === 'competences' || typeKey === 'descriptors') {
         for (const rec of records) {
           if (rec && typeof rec === 'object') {
             if (typeof rec.tags === 'string') {
@@ -6428,7 +6436,7 @@
         }
       }
 
-      const result = await Desktop.saveText(def.target, name, buildJsContent(varName, initialRecords));
+      const result = await Desktop.saveText(def.target, name, buildJsContent(varName, initialRecords, S.typeKey));
       if (!result?.ok) { $('nf-err').textContent = result?.error || t('mdbErrFailedCreate'); return; }
       S.files.push({ name, varName, records: initialRecords, status: 'loaded', size: 0 });
       if (_gsc[S.typeKey]) _gsc[S.typeKey][name] = { records: initialRecords, varName };
@@ -6624,7 +6632,7 @@
     // ─────────────────────────────────────────────────────────────────────
     async function downloadFile(fi) {
       const file = S.files[fi];
-      const content = buildJsContent(file.varName, file.records);
+      const content = buildJsContent(file.varName, file.records, S.typeKey);
       if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
         try {
           const res = await Desktop.saveToDisk({
@@ -6812,7 +6820,7 @@
       }
 
       if (typeof Desktop !== 'undefined' && Desktop.isElectron()) {
-        const saveResult = await Desktop.saveText(def.target, targetName, buildJsContent(targetVarName, combined));
+        const saveResult = await Desktop.saveText(def.target, targetName, buildJsContent(targetVarName, combined, S.typeKey));
         if (!saveResult?.ok) { err.textContent = t('mdbErrMergeSaveFailed') + (saveResult?.error || ''); return; }
 
         const toDelete = isNew ? loaded : loaded.filter(f => S.files.indexOf(f) !== targetFi);
@@ -6942,7 +6950,7 @@
           localStorage.setItem('gradeSheetReferenceScoringDecisions.v1', serializeDatabaseRecords(scoringDecisions));
         } catch (_) {}
       } else {
-        result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records));
+        result = await Desktop.saveText(def.target, file.name, buildJsContent(file.varName, file.records, S.typeKey));
       }
 
       if (!result?.ok) { showToast(t('mdbErrSaveFailed') + (result?.error || ''), true); return false; }

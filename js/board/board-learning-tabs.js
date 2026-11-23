@@ -1926,6 +1926,9 @@
 
     function _boardNormalizeVocabItem(raw, sourceFile = '') {
       if (!raw || typeof raw !== 'object') return null;
+      if (typeof WordbankSchema !== 'undefined') {
+        raw = WordbankSchema.normalizeWordbankRecord(raw);
+      }
       const word = String(raw.word || raw.term || raw.lemma || '').trim();
       if (!word) return null;
 
