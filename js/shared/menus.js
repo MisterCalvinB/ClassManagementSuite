@@ -81,19 +81,25 @@
   // ── Nav brand ─────────────────────────────────────────────────────────────
   // Async: loads user/config.js if needed, then sets .nav-brand to appTitle.
   // Also prefixes document.title. Safe to call from any page with 'user' permission.
+  var _navBrandConfigPromise = null;
   window._cmtApplyNavBrand = async function () {
     if (typeof CLASS_MANAGEMENT_CONFIG === 'undefined') {
-      try {
-        if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
-          var r = await Desktop.readText('user', 'config.js');
-          if (r && r.ok && r.content) {
-            var s = document.createElement('script');
-            s.text = r.content;
-            document.head.appendChild(s);
-            if (s.parentNode) s.parentNode.removeChild(s);
-          }
-        }
-      } catch (e) {}
+      if (!_navBrandConfigPromise) {
+        _navBrandConfigPromise = (async function () {
+          try {
+            if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+              var r = await Desktop.readText('user', 'config.js');
+              if (r && r.ok && r.content && typeof CLASS_MANAGEMENT_CONFIG === 'undefined') {
+                var s = document.createElement('script');
+                s.text = r.content;
+                document.head.appendChild(s);
+                if (s.parentNode) s.parentNode.removeChild(s);
+              }
+            }
+          } catch (e) {}
+        })();
+      }
+      await _navBrandConfigPromise;
     }
     var appTitle = '';
     try {

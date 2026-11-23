@@ -166,7 +166,10 @@
     pop.appendChild(list);
     document.body.appendChild(pop);
 
-    const rect = anchor.getBoundingClientRect();
+    const anchorEl = (anchor && typeof anchor.getBoundingClientRect === 'function')
+      ? anchor
+      : (anchor && anchor.parentElement && typeof anchor.parentElement.getBoundingClientRect === 'function' ? anchor.parentElement : null);
+    const rect = anchorEl ? anchorEl.getBoundingClientRect() : { left: 16, top: 16, right: 16, bottom: 16 };
     const w = pop.offsetWidth;
     const h = pop.offsetHeight;
     let left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));

@@ -2036,7 +2036,7 @@
     function wnStyleBlink() {
       if (!_wnActiveNote) return;
       const cur = _wnActiveNote.anim || (_wnActiveNote.blink ? 'pulse' : '');
-      const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+      const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim('note') : 'pulse';
       wnStyleSetAnimation(cur ? '' : defAnim);
     }
     function wnStyleDeleteNote() {
@@ -6064,7 +6064,7 @@
         e.preventDefault();
         e.stopPropagation();
         const cur = noteData.anim || (noteData.blink ? 'pulse' : '');
-        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim('note') : 'pulse';
         const next = cur ? '' : defAnim;
         wnApplyAnimationToNote(noteData, next);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();

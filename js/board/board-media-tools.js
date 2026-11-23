@@ -450,7 +450,15 @@
           imgEl.style.filter = '';
         }
       }
-      wrap.classList.toggle('con-media-blink', !!item.blink);
+      if (typeof window.conApplyEntityAnimClass === 'function') {
+        wrap.classList.remove('con-media-blink');
+        var mediaAnim = item.blink
+          ? (item.anim || (typeof window.conGetDefaultAnim === 'function' ? window.conGetDefaultAnim('media') : 'pulse'))
+          : (item.anim || '');
+        window.conApplyEntityAnimClass(wrap, mediaAnim, false);
+      } else {
+        wrap.classList.toggle('con-media-blink', !!item.blink);
+      }
       wrap.classList.toggle('con-media-locked', !!item.locked);
       wrap.classList.toggle('con-media-hidden', !!item.hidden);
       if (item.hidden) {

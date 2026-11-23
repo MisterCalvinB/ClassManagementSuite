@@ -5004,7 +5004,7 @@
     (function () {
       var el = document.querySelector('[data-bev-835]');
       if (!el) return;
-      var handler = function (event) { bcUpdateAnimPreview() };
+      var handler = function (event) { window._bcAnimPreviewKey = null; bcUpdateAnimPreview() };
       el.addEventListener('change', handler);
     })();
     (function () {

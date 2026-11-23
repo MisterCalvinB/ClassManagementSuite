@@ -1347,7 +1347,7 @@
         const group = conGroups.find(g => g.id === _conGroupCtxId);
         if (!group) return;
         const cur = group.anim || (group.blink ? 'pulse' : '');
-        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
+        const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim('group') : 'pulse';
         const next = cur ? '' : defAnim;
         window.conGroupCtxSetAnimation(next);
       };

@@ -1223,6 +1223,7 @@
                 animKey: d.animKey,
                 durationMs: d.durationMs,
                 borderColor: d.borderColor,
+                useAnimClass: !!d.useAnimClass,
                 fromMirror: true
               });
             }

@@ -3689,8 +3689,11 @@
       || ((competenceDisplayConfig.hiddenDetailLines || {})[d.id])
       || [];
     var hidden = base.slice();
+    var anchor = (ev && ev.currentTarget && typeof ev.currentTarget.getBoundingClientRect === 'function')
+      ? ev.currentTarget
+      : (ev && ev.target && ev.target.closest ? (ev.target.closest('[data-lc-action="open-detail"]') || ev.target) : null);
     window.CompetenceAggregatorService.openDetailPopover(
-      ev.currentTarget,
+      anchor,
       (d.code || d.id) + ' - ' + i18n.t('lcDetailPopoverTitle'),
       lines,
       hidden,

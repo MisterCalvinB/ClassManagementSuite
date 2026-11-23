@@ -590,8 +590,7 @@
       // Animations
       { id: 'anim_toggle_default', name: 'Toggle Default Animation', desc: 'Toggle the configured default animation on selected node, note, or group', category: 'animations', categoryName: 'Animations', icon: '../assets/icons/blink.svg', defaultShortcut: null, fn: () => {
         if (typeof window.conSetSelectedAnimation === 'function') {
-          const defAnim = (typeof window.conGetDefaultAnim === 'function') ? window.conGetDefaultAnim() : 'pulse';
-          window.conSetSelectedAnimation(defAnim, true);
+          window.conSetSelectedAnimation('__default__', true);
         }
       } },
       { id: 'anim_clear_selected', name: 'Clear Animation', desc: 'Remove animation from selected node, note, or group', category: 'animations', categoryName: 'Animations', icon: '../assets/icons/clear-format.svg', defaultShortcut: null, fn: () => {
@@ -2112,6 +2111,9 @@
       set('bc-anim-reveal-effect', animCfg.revealEffect !== undefined ? String(animCfg.revealEffect) : 'blink');
       set('bc-anim-reveal-sec', animCfg.revealDurationSec !== undefined ? Number(animCfg.revealDurationSec) : (animCfg.doubleClickDurationSec !== undefined ? Number(animCfg.doubleClickDurationSec) : 3.0));
       set('bc-anim-dblclick-sec', animCfg.doubleClickDurationSec !== undefined ? Number(animCfg.doubleClickDurationSec) : 3.0);
+      if (typeof window._bcPopulatePerTypeAnimSelects === 'function') {
+        window._bcPopulatePerTypeAnimSelects(animCfg.perType || {});
+      }
 
       const activeCfg = (animCfg.activeEffect && typeof animCfg.activeEffect === 'object') ? animCfg.activeEffect : {};
       set('bc-active-scope', activeCfg.scope || 'mirror');
@@ -3447,6 +3449,16 @@
           revealEffect: getVal('bc-anim-reveal-effect', 'blink'),
           revealDurationSec: Math.max(0.5, Math.min(15, parseFloat(document.getElementById('bc-anim-reveal-sec')?.value || '3.0') || 3.0)),
           doubleClickDurationSec: Math.max(0.5, Math.min(15, parseFloat(document.getElementById('bc-anim-dblclick-sec')?.value || '3.0') || 3.0)),
+          perType: (() => {
+            const out = {};
+            ['node', 'note', 'group', 'media'].forEach(type => {
+              out[type] = {
+                defaultEffect: getVal('bc-anim-type-' + type + '-default', ''),
+                revealEffect: getVal('bc-anim-type-' + type + '-reveal', '')
+              };
+            });
+            return out;
+          })(),
           activeEffect: {
             scope: getVal('bc-active-scope', 'mirror'),
             style: getVal('bc-active-style', 'solid'),
@@ -3723,6 +3735,62 @@
       }
     }
 
+    window._bcPopulatePerTypeAnimSelects = function (perTypeCfg) {
+      const cfg = (perTypeCfg && typeof perTypeCfg === 'object') ? perTypeCfg : {};
+      const t = (typeof i18n !== 'undefined' && typeof i18n.t === 'function') ? i18n.t.bind(i18n) : (k, fb) => fb || k;
+      const anims = Array.isArray(window.CON_ANIMATIONS) ? window.CON_ANIMATIONS : [];
+      const globalLabel = t('bcAnimUseGlobal', 'Use Global Default');
+      const noneLabel = t('conAnimNone', 'No Animation');
+
+      ['node', 'note', 'group', 'media'].forEach(type => {
+        const typeCfg = (cfg[type] && typeof cfg[type] === 'object') ? cfg[type] : {};
+        const defSel = document.getElementById('bc-anim-type-' + type + '-default');
+        if (defSel) {
+          defSel.innerHTML = '';
+          const gOpt = document.createElement('option');
+          gOpt.value = '';
+          gOpt.textContent = globalLabel;
+          defSel.appendChild(gOpt);
+          anims.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.key;
+            const tr = t(a.i18nKey);
+            opt.textContent = (tr && tr !== a.i18nKey) ? tr : a.label;
+            defSel.appendChild(opt);
+          });
+          defSel.value = typeCfg.defaultEffect ? String(typeCfg.defaultEffect) : '';
+          if (!defSel.dataset.bcBound) {
+            defSel.dataset.bcBound = '1';
+            defSel.addEventListener('change', () => {
+              window._bcAnimPreviewKey = null;
+              window.bcUpdateAnimPreview();
+            });
+          }
+        }
+
+        const revSel = document.getElementById('bc-anim-type-' + type + '-reveal');
+        if (revSel) {
+          revSel.innerHTML = '';
+          const gOpt = document.createElement('option');
+          gOpt.value = '';
+          gOpt.textContent = globalLabel;
+          revSel.appendChild(gOpt);
+          const nOpt = document.createElement('option');
+          nOpt.value = 'none';
+          nOpt.textContent = noneLabel;
+          revSel.appendChild(nOpt);
+          anims.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.key;
+            const tr = t(a.i18nKey);
+            opt.textContent = (tr && tr !== a.i18nKey) ? tr : a.label;
+            revSel.appendChild(opt);
+          });
+          revSel.value = (typeCfg.revealEffect !== undefined && typeCfg.revealEffect !== null) ? String(typeCfg.revealEffect) : '';
+        }
+      });
+    };
+
     window._bcAnimPreviewKey = null;
     window._bcBuildAnimPreviewChips = function () {
       const wrap = document.getElementById('bc-anim-preview-chips');
@@ -3753,7 +3821,7 @@
       const dur = parseFloat(document.getElementById('bc-anim-duration')?.value || '2.4') || 2.4;
       const intensity = parseFloat(document.getElementById('bc-anim-intensity')?.value || '1.0') || 1.0;
       const paused = !!document.getElementById('bc-anim-paused')?.checked;
-      const animKey = window._bcAnimPreviewKey || document.getElementById('bc-anim-default')?.value || 'pulse';
+      const globalAnimKey = document.getElementById('bc-anim-default')?.value || 'pulse';
 
       const m = String(color).trim().match(/^#?([0-9a-fA-F]{6})$/);
       const rgb = m ? [parseInt(m[1].slice(0, 2), 16), parseInt(m[1].slice(2, 4), 16), parseInt(m[1].slice(4, 6), 16)].join(', ') : '239, 68, 68';
@@ -3762,9 +3830,16 @@
       stage.style.setProperty('--con-anim-duration', dur + 's');
       stage.style.setProperty('--con-anim-intensity', String(intensity));
 
-      ['bc-anim-preview-node', 'bc-anim-preview-note', 'bc-anim-preview-group'].forEach(id => {
+      [
+        ['bc-anim-preview-node', 'node'],
+        ['bc-anim-preview-note', 'note'],
+        ['bc-anim-preview-group', 'group'],
+        ['bc-anim-preview-media', 'media']
+      ].forEach(([id, type]) => {
         const el = document.getElementById(id);
         if (!el) return;
+        const typeOverride = document.getElementById('bc-anim-type-' + type + '-default')?.value || '';
+        const animKey = window._bcAnimPreviewKey || typeOverride || globalAnimKey;
         if (typeof window.conApplyEntityAnimClass === 'function') {
           window.conApplyEntityAnimClass(el, paused ? '' : animKey, false);
         }

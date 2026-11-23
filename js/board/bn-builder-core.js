@@ -3755,14 +3755,24 @@
         return (bc && bc.animation && typeof bc.animation === 'object') ? bc.animation : null;
       }
 
-      function conGetDefaultAnim() {
+      function conGetDefaultAnim(entityType) {
         const cfg = _conGetBoardAnimCfg();
+        if (entityType && cfg && cfg.perType && typeof cfg.perType === 'object') {
+          const entry = cfg.perType[String(entityType)];
+          if (entry && entry.defaultEffect) return String(entry.defaultEffect);
+        }
         return (cfg && cfg.defaultEffect) ? String(cfg.defaultEffect) : 'pulse';
       }
       window.conGetDefaultAnim = global.conGetDefaultAnim = conGetDefaultAnim;
 
-      function conGetDefaultRevealAnim() {
+      function conGetDefaultRevealAnim(entityType) {
         const cfg = _conGetBoardAnimCfg();
+        if (entityType && cfg && cfg.perType && typeof cfg.perType === 'object') {
+          const entry = cfg.perType[String(entityType)];
+          if (entry && entry.revealEffect !== undefined && entry.revealEffect !== null && String(entry.revealEffect) !== '') {
+            return String(entry.revealEffect);
+          }
+        }
         if (cfg && cfg.revealEffect !== undefined && cfg.revealEffect !== null && String(cfg.revealEffect) !== '') {
           return String(cfg.revealEffect);
         }
@@ -3807,7 +3817,7 @@
         const options = opts && typeof opts === 'object' ? opts : {};
         const rawOverride = options.animKey !== undefined ? String(options.animKey || '')
           : ((entity && entity.revealAnim) ? String(entity.revealAnim) : '');
-        const resolved = rawOverride || conGetDefaultRevealAnim();
+        const resolved = rawOverride || conGetDefaultRevealAnim(entityType);
         if (!resolved || resolved === 'none') return;
 
         const totalMs = Math.max(250, Number(options.durationMs) || conGetDefaultRevealDurationMs());
@@ -3821,6 +3831,8 @@
           clearTimeout(el._conBlinkTimeout);
           el._conBlinkTimeout = null;
         }
+        el.classList.remove('con-attention-blink');
+        el.style.removeProperty('--con-blink-delay');
 
         const persistentAnim = (entity && entity.anim) ? String(entity.anim) : ((entity && entity.blink) ? 'pulse' : '');
         const baseBorderColor = (options.borderColor)
@@ -3835,11 +3847,12 @@
             id: entityId,
             animKey: resolved,
             durationMs: totalMs,
-            borderColor: baseBorderColor
+            borderColor: baseBorderColor,
+            useAnimClass: !!options.useAnimClass
           });
         }
 
-        if (resolved === 'blink') {
+        if (resolved === 'blink' && !options.useAnimClass) {
           el.style.setProperty('--con-node-border', baseBorderColor);
           el.style.setProperty('--con-blink-delay', '-' + (Math.floor(performance.now()) % 360) + 'ms');
           el.classList.add('con-attention-blink');
@@ -3976,13 +3989,14 @@
       function conCtxToggleAnim() {
         const primaryId = (typeof conCtxNodeId !== 'undefined' && conCtxNodeId) ? String(conCtxNodeId) : (typeof conSelected !== 'undefined' && conSelected ? String(conSelected) : null);
         const primary = primaryId ? conNodes.find(x => x && String(x.id) === primaryId) : null;
-        const next = (primary && primary.anim) ? '' : conGetDefaultAnim();
+        const next = (primary && primary.anim) ? '' : conGetDefaultAnim('node');
         conCtxSetAnimation(next);
       }
       window.conCtxToggleAnim = global.conCtxToggleAnim = conCtxToggleAnim;
 
       function conSetSelectedAnimation(animKey, toggleIfSame) {
         const requested = String(animKey || '');
+        const usePerTypeDefault = requested === '__default__';
         let applied = false;
 
         // 1. Selected nodes
@@ -3993,10 +4007,11 @@
           selNodeIds.push(String(conSelected));
         }
         if (selNodeIds.length > 0) {
+          const nodeTarget = usePerTypeDefault ? conGetDefaultAnim('node') : requested;
           selNodeIds.forEach(nid => {
             const n = conNodes.find(x => x && String(x.id) === nid);
             if (!n) return;
-            const next = (toggleIfSame && n.anim === requested) ? '' : requested;
+            const next = (toggleIfSame && n.anim === nodeTarget) ? '' : nodeTarget;
             n.anim = next;
             conApplyEntityAnimClass(n.el, n.anim, false);
             if (window._conMirrorSend) window._conMirrorSend({ type: 'node-anim', nodeId: String(n.id), anim: n.anim });
@@ -4012,9 +4027,10 @@
           return (nel && nel.classList.contains('wn-selected')) || (window._wnActiveNote && String(window._wnActiveNote.id) === String(nd.id));
         });
         if (targetNotes.length > 0 && typeof window.wnApplyAnimationToNote === 'function') {
+          const noteTarget = usePerTypeDefault ? conGetDefaultAnim('note') : requested;
           targetNotes.forEach(nd => {
             const cur = nd.anim || (nd.blink ? 'pulse' : '');
-            const next = (toggleIfSame && cur === requested) ? '' : requested;
+            const next = (toggleIfSame && cur === noteTarget) ? '' : noteTarget;
             window.wnApplyAnimationToNote(nd, next);
             applied = true;
           });
@@ -4023,8 +4039,9 @@
         // 3. Focused group
         const grp = (typeof window.conGetGroupFocused === 'function') ? window.conGetGroupFocused() : null;
         if (grp && typeof window.conGroupApplyAnimation === 'function') {
+          const groupTarget = usePerTypeDefault ? conGetDefaultAnim('group') : requested;
           const cur = grp.anim || (grp.blink ? 'pulse' : '');
-          const next = (toggleIfSame && cur === requested) ? '' : requested;
+          const next = (toggleIfSame && cur === groupTarget) ? '' : groupTarget;
           window.conGroupApplyAnimation(grp, next);
           applied = true;
         }
@@ -4036,28 +4053,20 @@
 
       function conBlinkNodeAttention(el, durationMs) {
         if (!el) return;
-        const cfgDur = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && BOARD_CONFIG.animation && Number(BOARD_CONFIG.animation.doubleClickDurationSec))
-          ? BOARD_CONFIG.animation.doubleClickDurationSec * 1000
+        const animCfg = _conGetBoardAnimCfg();
+        const cfgDur = (animCfg && Number(animCfg.doubleClickDurationSec))
+          ? animCfg.doubleClickDurationSec * 1000
           : 3000;
         const totalMs = Math.max(250, Number(durationMs) || cfgDur);
-        const node = conNodes.find(n => n.id === el.id);
-        const baseBorderColor = (node && (node.border || (node.el && node.el.style && node.el.style.borderColor))) || '#111111';
+        const node = conNodes.find(n => n.id === el.id) || null;
+        const animKey = conGetDefaultAnim('node');
+        const resolved = CON_ANIMATIONS.some(a => a.key === animKey) ? animKey : 'pulse';
 
-        if (el._conBlinkTimeout) {
-          clearTimeout(el._conBlinkTimeout);
-          el._conBlinkTimeout = null;
-        }
-
-        el.style.setProperty('--con-node-border', baseBorderColor);
-        el.style.setProperty('--con-blink-delay', '-' + (Math.floor(performance.now()) % 360) + 'ms');
-        el.classList.add('con-attention-blink');
-        if (window._conMirrorSend) window._conMirrorSend({ type: 'node-blink', nodeId: el.id, durationMs: totalMs, borderColor: baseBorderColor });
-
-        el._conBlinkTimeout = setTimeout(() => {
-          el.classList.remove('con-attention-blink');
-          el.style.removeProperty('--con-blink-delay');
-          if (el._conBlinkTimeout) el._conBlinkTimeout = null;
-        }, totalMs);
+        conPlayRevealAnimation('node', node, el, {
+          animKey: resolved,
+          durationMs: totalMs,
+          useAnimClass: true
+        });
       }
 
       // Cross-module exports
