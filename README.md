@@ -584,7 +584,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
   - **Audit Console (`audit-console.html`)**: Separate live diagnostic window (also accessible via **View → Open Audit Console** or **Quick Switcher `Ctrl+K`**) that streams verbose Main process logs, Renderer `console.*` & uncaught errors, IPC invocations/timings, `BroadcastChannel` sync events, file I/O operations, and Classroom Server logs in real time with level/source/regex filtering, payload inspection, pause/pin controls, `.txt`/`.json` export, and a **Resource & Spike Tracer** tracking live/peak CPU %, RAM, and event-loop lag with automatic spike-to-event correlation and remediation hints.
   - **Migrate Files Wizard**: Automatically copies existing user files when switching data locations.
 - **Local Backup**: Select target directory and backup format (*Folder*, *ZIP Archive (.zip)*, or *TAR.GZ Archive (.tar.gz)*), then click **Backup Now**.
-- **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), monitor real-time accessibility status (`Accessible` / `Not accessible`), enable **Keep target up to date automatically**, configure **Check location and offer to sync on startup** (with interactive confirmation banner or automatic background sync upon app launch), reset baseline, or trigger manual **Sync Now**.
+- **Local Sync**: Configure target sync directory (cloud folder, USB, network drive), monitor real-time accessibility status (`Accessible` / `Not accessible`), enable **Keep target up to date automatically**, configure **Check location and offer to sync on startup** (with interactive confirmation banner or automatic background sync upon app launch), reset baseline, trigger manual **Sync Now**, or inspect/clear the **Sync Log** (`sync-log.json`, recording saved, deleted, archived, and errored files per sync run).
 - **Cloud & Server Sync (Dev)**:
   - **WebDAV Sync**: Compatible with kDrive, Nextcloud, ownCloud. Server URL, username, app password, remote path, and interval sync.
   - **FTP / FTPS Sync (beta)**: Configure Host, Port, Credentials, Remote Path, FTPS security toggle, and auto-sync intervals (5 to 60 minutes).
@@ -961,6 +961,9 @@ Interactive desk layout designer for classroom seating charts.
 Oral exam scheduler with timing optimization and SEN accommodations.
 
 #### Features
+- **Flexible Student Sorting**: Sort candidates initially or re-sort on the fly by **First name**, **Last name**, **Custom name**, or **Random** order, alongside manual drag-and-drop reordering.
+- **Create Several Schedules (Multi-Date Splitting)**: Toggle **Create several schedules** in Session Configuration to split a class seamlessly across two or more exam dates, start times, and rooms. Filter by date tab, click **Split Evenly**, or use the inline date-assignment pills on each student row to move candidates between dates, with independent timetable calculation and multi-schedule export across PDF, HTML, DOCX, CSV, XLSX, and ODS.
+- **Cross-Tool Linking (Planner, Grade Sheet & Oral Marking)**: Link a schedule directly to **Planner** test entries (creating/syncing per-session entries or attaching to existing ones), link to a **Grade Sheet** test slot (which **Oral Marking** automatically inherits when grading), or launch **Oral Marking** in one click with the active schedule/session pre-loaded.
 - **Timing Model**: Calculates prep and exam overlap so one student prepares while another presents.
 - **SEN Accommodations**: Applies custom preparation durations for SEN-flagged students automatically.
 - **Breaks**: Auto-places breaks across exam blocks.

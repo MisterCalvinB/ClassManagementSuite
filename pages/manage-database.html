@@ -40,9 +40,68 @@
     style="display:flex;align-items:center;gap:10px;background:#111;padding:8px 16px;flex-wrap:wrap;box-sizing:border-box;flex-shrink:0;">
     <span class="nav-brand"
       style="color:#fff;font-weight:900;font-size:1rem;letter-spacing:1px;margin-right:10px;text-transform:uppercase;"></span>
-    <button data-mdbev-1="1"
-      data-i18n="importShortcutBtn"
-      style="margin-left:auto;background:#222;border:1.5px solid #444;color:#ddd;padding:5px 13px;border-radius:5px;font-size:0.82rem;font-weight:600;cursor:pointer;font-family:inherit;"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
+
+    <!-- File menu -->
+    <div class="nav-group" id="mdb-file-menu">
+      <button type="button" class="nav-btn" data-i18n="menuFile">File</button>
+      <div class="nav-group-popup">
+        <button type="button" class="nav-pop-item mdb-type-only" id="new-file-btn" data-mdbev-6="1"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnNewFile">New File</span></button>
+        <button type="button" class="nav-pop-item" data-mdbev-1="1"><img src="../assets/icons/import.svg" class="btn-icon" alt="" /> <span data-i18n="importShortcutBtn">Import</span></button>
+        <hr class="nav-pop-sep mdb-type-only">
+        <button type="button" class="nav-pop-item mdb-type-only" id="merge-btn" data-mdbev-12="1" style="display:none" data-i18n-help="hhMdbMerge" data-hover-help="Merge records from another database file into this one."><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnMergeFiles">Merge Files</span></button>
+        <button type="button" class="nav-pop-item mdb-type-only" id="file-links-btn" data-mdbev-13="1" style="display:none" data-i18n-help="hhMdbLinks" data-hover-help="Attach external links, tags, or curriculum units to this database file."><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span id="file-links-btn-text">[LINKS &amp; TAGS]</span></button>
+      </div>
+    </div>
+
+    <div id="actions-row" class="hidden">
+      <button type="button" class="btn btn-primary btn-sm" data-mdbev-5="1" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
+
+      <!-- Tools menu -->
+      <div class="nav-group" id="mdb-tools-menu">
+        <button type="button" class="nav-btn" data-i18n="menuTools">Tools</button>
+        <div class="nav-group-popup">
+          <button type="button" class="nav-pop-item" id="add-col-btn" data-mdbev-7="1" data-i18n-help="hhMdbAddCol" data-hover-help="Add a custom metadata or translation column to this database."><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAddColumn">Add Column</span></button>
+          <button type="button" class="nav-pop-item" id="view-toggle-btn" data-mdbev-10="1" style="display:none" data-i18n-help="hhMdbViewToggle" data-hover-help="Switch between table view and card view."></button>
+          <hr class="nav-pop-sep">
+          <button type="button" class="nav-pop-item" id="dedup-btn" data-mdbev-11="1" style="display:none" data-i18n-help="hhMdbDedup" data-hover-help="Find and remove duplicate entries in the active database."><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnRemoveDupes">Remove Dupes</span></button>
+          <button type="button" class="nav-pop-item mdb-pop-ai" id="ai-studio-btn" data-mdbev-8="1" style="display:none" data-hover-help="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAiStudio">AI Studio</span></button>
+          <button type="button" class="nav-pop-item" id="ai-prompt-btn" data-mdbev-9="1" style="display:none" data-i18n-help="hhMdbAiPrompt" data-hover-help="Copy a ready-to-paste AI prompt formatted for this database's columns."><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnAiPrompt">AI Prompt</span></button>
+        </div>
+      </div>
+
+      <!-- Batch menu -->
+      <div class="nav-group" id="batch-menu-group">
+        <button type="button" class="nav-btn" data-i18n="mdbMenuBatch">Batch</button>
+        <div class="nav-group-popup">
+          <button type="button" class="nav-pop-item" id="batch-select-all-btn" data-mdbev-23="1" style="display:none"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnSelectAll">Select All</span></button>
+          <button type="button" class="nav-pop-item" id="batch-clear-btn" data-mdbev-24="1" style="display:none"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnClear">Clear</span></button>
+          <hr class="nav-pop-sep">
+          <button type="button" class="nav-pop-item" id="batch-edit-btn" data-mdbev-25="1" style="display:none" disabled><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnBatchEdit">Batch Edit</span></button>
+          <button type="button" class="nav-pop-item" id="batch-autofill-btn" data-mdbev-26="1" style="display:none" disabled><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnBatchAutofill">Batch Autofill</span></button>
+          <button type="button" class="nav-pop-item" id="batch-copy-btn" data-mdbev-27="1" style="display:none" disabled><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnCopyToFile">Copy to file…</span></button>
+          <hr class="nav-pop-sep">
+          <button type="button" class="nav-pop-item mdb-pop-danger" id="batch-del-btn" data-mdbev-28="1" style="display:none" disabled><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnDelSelected">Del Selected</span></button>
+        </div>
+      </div>
+
+      <!-- Export menu -->
+      <div class="nav-group" id="export-dropdown" style="display:none">
+        <button type="button" class="nav-btn" id="export-btn" data-mdbev-14="1">
+          <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="menuExport">Export</span>
+        </button>
+        <div class="nav-group-popup" id="export-menu">
+          <button type="button" class="nav-pop-item" data-mdbev-15="1"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportCsv">CSV</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-16="1"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnPrintPdf">Print PDF</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-17="1"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportHtml">Export HTML (Editable)</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-18="1"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportFilterHtml">Export HTML (Interactive &amp; Filterable)</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-19="1"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportMd">Export Markdown</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-20="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportXlsx">Export XLSX</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-21="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
+          <button type="button" class="nav-pop-item" data-mdbev-22="1"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExportDocx">Export DOCX</span></button>
+        </div>
+      </div>
+    </div>
+
     <div id="app-hamburger" class="hm-wrap">
       <button id="skm-trigger" class="tut-trigger-btn" data-mdbev-2="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
       <button id="tut-trigger" class="tut-trigger-btn" data-mdbev-3="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel" data-icon="../assets/icons/play.svg"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Tour</button>
@@ -75,53 +134,8 @@
         <div id="top-bar">
           <div id="top-row">
             <h1 id="type-title"></h1>
-            <div id="actions-row">
-              <button class="btn btn-primary btn-sm" data-mdbev-5="1" data-i18n="mdbBtnAddRecord"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Record</button>
-              <button class="btn btn-secondary btn-sm" data-mdbev-6="1" data-i18n="mdbBtnNewFile"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> New File</button>
-              <button class="btn btn-secondary btn-sm" id="add-col-btn" data-mdbev-7="1" data-i18n="mdbBtnAddColumn" data-i18n-help="hhMdbAddCol" data-hover-help="Add a custom metadata or translation column to this database."><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Column</button>
-              <button class="btn btn-secondary btn-sm" id="ai-studio-btn" data-mdbev-8="1"
-                style="display:none;background:#e2c96e;font-weight:800;" data-i18n="mdbBtnAiStudio" data-hover-help="Open AI Generation Studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> AI Studio</button>
-              <button class="btn btn-secondary btn-sm" id="ai-prompt-btn" data-mdbev-9="1"
-                style="display:none" data-i18n="mdbBtnAiPrompt" data-i18n-help="hhMdbAiPrompt" data-hover-help="Copy a ready-to-paste AI prompt formatted for this database's columns."><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> AI Prompt</button>
-              <button class="btn btn-secondary btn-sm" id="view-toggle-btn" data-mdbev-10="1"
-                style="display:none" data-i18n-help="hhMdbViewToggle" data-hover-help="Switch between table view and card view."></button>
-              <button class="btn btn-secondary btn-sm" id="dedup-btn" data-mdbev-11="1"
-                style="display:none" data-i18n="mdbBtnRemoveDupes" data-i18n-help="hhMdbDedup" data-hover-help="Find and remove duplicate entries in the active database."><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Remove Dupes</button>
-              <button class="btn btn-secondary btn-sm" id="merge-btn" data-mdbev-12="1" style="display:none"
-                data-i18n="mdbBtnMergeFiles" data-i18n-help="hhMdbMerge" data-hover-help="Merge records from another database file into this one."><img src="../assets/icons/merge.svg" class="btn-icon" alt="" /> Merge Files</button>
-              <button class="btn btn-secondary btn-sm" id="file-links-btn" data-mdbev-13="1" style="display:none" data-i18n-help="hhMdbLinks" data-hover-help="Attach external links, tags, or curriculum units to this database file.">
-                <img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span id="file-links-btn-text">[LINKS &amp; TAGS]</span>
-              </button>
-              <div class="dropdown" id="export-dropdown" style="display:none">
-                <button class="btn btn-secondary btn-sm" id="export-btn" data-mdbev-14="1">
-                  <img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="mdbBtnExport">Export</span>
-                </button>
-                <div class="dropdown-menu hidden" id="export-menu">
-                  <button class="dropdown-item" data-mdbev-15="1" data-i18n="mdbBtnExportCsv"><img src="../assets/icons/download.svg" class="btn-icon" alt="" /> CSV</button>
-                  <button class="dropdown-item" data-mdbev-16="1" data-i18n="mdbBtnPrintPdf"><img src="../assets/icons/printer.svg" class="btn-icon" alt="" /> Print PDF</button>
-                  <button class="dropdown-item" data-mdbev-17="1" data-i18n="mdbBtnExportHtml"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Export HTML (Editable)</button>
-                  <button class="dropdown-item" data-mdbev-18="1" data-i18n="mdbBtnExportFilterHtml"><img src="../assets/icons/search.svg" class="btn-icon" alt="" /> Export HTML (Interactive &amp; Filterable)</button>
-                  <button class="dropdown-item" data-mdbev-19="1" data-i18n="mdbBtnExportMd"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export Markdown</button>
-                  <button class="dropdown-item" data-mdbev-20="1" data-i18n="mdbBtnExportXlsx"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> Export XLSX</button>
-                  <button class="dropdown-item" data-mdbev-21="1"><img src="../assets/icons/table.svg" class="btn-icon" alt="" /> <span data-i18n="exportFormatOds">LibreOffice Calc (.ods)</span></button>
-                  <button class="dropdown-item" data-mdbev-22="1" data-i18n="mdbBtnExportDocx"><img src="../assets/icons/document-editor.svg" class="btn-icon" alt="" /> Export DOCX</button>
-                </div>
-              </div>
-              <button class="btn btn-secondary btn-sm" id="batch-select-all-btn" data-mdbev-23="1"
-                style="display:none" data-i18n="mdbBtnSelectAll"><img src="../assets/icons/check.svg" class="btn-icon" alt="" /> Select All</button>
-              <button class="btn btn-secondary btn-sm" id="batch-clear-btn" data-mdbev-24="1"
-                style="display:none" data-i18n="mdbBtnClear"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> Clear</button>
-              <button class="btn btn-secondary btn-sm" id="batch-edit-btn" data-mdbev-25="1"
-                style="display:none" disabled data-i18n="mdbBtnBatchEdit"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> Batch Edit</button>
-              <button class="btn btn-secondary btn-sm" id="batch-autofill-btn" data-mdbev-26="1"
-                style="display:none" disabled data-i18n="mdbBtnBatchAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> Batch Autofill</button>
-              <button class="btn btn-secondary btn-sm" id="batch-copy-btn" data-mdbev-27="1"
-                style="display:none" disabled data-i18n="mdbBtnCopyToFile"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> Copy to file…</button>
-              <button class="btn btn-danger btn-sm" id="batch-del-btn" data-mdbev-28="1"
-                style="display:none" disabled data-i18n="mdbBtnDelSelected"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" /> Del Selected</button>
-              <span id="batch-count" class="rec-count" style="display:none"></span>
-              <span id="rec-count" class="rec-count"></span>
-            </div>
+            <span id="batch-count" class="rec-count" style="display:none"></span>
+            <span id="rec-count" class="rec-count"></span>
           </div>
           <div id="pills-row"></div>
         </div>

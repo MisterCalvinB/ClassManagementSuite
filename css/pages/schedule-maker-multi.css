@@ -1,0 +1,683 @@
+/* Light Neobrutalist Multi-Schedule & Sorting Controls for Schedule Maker */
+
+.sm-config-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.sm-multi-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.sm-multi-toggle-label:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #555555;
+}
+
+.sm-multi-toggle-label.active {
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.sm-multi-toggle-label input {
+  width: 15px;
+  height: 15px;
+  accent-color: #222222;
+  cursor: pointer;
+}
+
+/* ── Sessions / Dates Panel inside Config ── */
+.sm-sessions-panel {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+}
+
+.sm-sessions-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.sm-sessions-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+}
+
+.sm-session-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+}
+
+.sm-session-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sm-session-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  background: var(--neo-yellow, #e2c96e);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.sm-session-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1.5px solid #cccccc;
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sm-session-label-input:focus {
+  border-color: #222222;
+  outline: none;
+}
+
+.sm-session-count {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--neo-gray-dark, #475569);
+  white-space: nowrap;
+}
+
+.sm-session-remove-btn {
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.sm-session-remove-btn:hover {
+  background: var(--neo-red, #c96b6b);
+}
+
+.sm-session-fields {
+  display: grid;
+  grid-template-columns: 1fr 100px 95px;
+  gap: 8px;
+}
+
+.sm-add-session-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.sm-add-session-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #555555;
+  background: var(--neo-yellow, #e2c96e);
+}
+
+/* ── Quick Sort in Order Header ── */
+.sm-order-header {
+  flex-wrap: wrap;
+}
+
+.sm-quick-sort-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-quick-sort-select {
+  padding: 4px 8px;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  background: #ffffff;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+}
+
+.sm-custom-name-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid #999999;
+  border-radius: var(--neo-radius-sm, 4px);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+}
+
+/* ── Session Filter Tabs & Student Assignment Pills ── */
+.sm-session-tabs-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+}
+
+.sm-session-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sm-session-tab {
+  padding: 5px 11px;
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.sm-session-tab:hover {
+  transform: translate(-1px, -1px);
+}
+
+.sm-session-tab.active {
+  background: var(--neo-yellow, #e2c96e);
+  box-shadow: 2px 2px 0 #555555;
+}
+
+.sm-split-even-btn {
+  padding: 5px 11px;
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  box-shadow: 2px 2px 0 #888888;
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sm-split-even-btn:hover {
+  background: var(--neo-green, #6abf8e);
+}
+
+.sm-assign-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  background: var(--neo-gray-light, #f8fafc);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+}
+
+.sm-assign-pill {
+  padding: 2px 7px;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--neo-gray-dark, #475569);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sm-assign-pill:hover {
+  background: var(--neo-gray-mid, #e2e8f0);
+  color: var(--neo-dark, #222222);
+}
+
+.sm-assign-pill.active {
+  background: var(--neo-blue, #5b8fcc);
+  color: #ffffff;
+}
+
+/* ── Multi-Schedule Output Blocks ── */
+.sm-multi-schedule-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sm-multi-schedule-block {
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-lg, 10px);
+  box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+  overflow: hidden;
+}
+
+.sm-multi-schedule-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border-bottom: 2px solid var(--neo-border-color, #333333);
+}
+
+.sm-multi-schedule-title {
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-multi-schedule-meta {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+}
+
+/* ── Integrations & Links Bar ── */
+.sm-links-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--neo-card-bg, #ffffff);
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-lg, 10px);
+  box-shadow: var(--neo-shadow-md, 3px 3px 0 #555555);
+}
+
+.sm-links-bar-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--neo-dark, #222222);
+  margin-right: 4px;
+}
+
+.sm-link-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sm-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.sm-link-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 #555555;
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.sm-link-btn-primary {
+  background: var(--neo-green, #6abf8e);
+}
+
+.sm-link-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--neo-blue, #5b8fcc);
+  cursor: pointer;
+}
+
+.sm-link-badge:hover {
+  background: var(--neo-yellow, #e2c96e);
+  color: var(--neo-dark, #222222);
+}
+
+/* ── Link Picker Modal ── */
+.sm-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sm-link-summary-list {
+  margin: 0 0 6px 18px;
+  font-size: 0.82rem;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-link-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.sm-link-pick-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 11px;
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sm-link-pick-item:hover {
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.sm-link-pick-title {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.sm-link-pick-meta {
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+}
+
+/* ── Clear Subgroup Separation in #sm-order-list ── */
+.sm-order-list.sm-order-list-grouped {
+  border: none;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: visible;
+}
+
+.sm-order-subgroup {
+  background: #ffffff;
+  border: 2px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-md, 6px);
+  box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);
+  overflow: hidden;
+}
+
+.sm-order-subgroup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border-bottom: 2px solid var(--neo-border-color, #333333);
+  transition: background 0.12s ease;
+}
+
+.sm-order-subgroup-header.drag-over {
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.sm-order-subgroup-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sm-order-subgroup-title {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-order-subgroup-meta {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+}
+
+.sm-order-subgroup-count {
+  padding: 2px 8px;
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-order-subgroup-empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+  background: #ffffff;
+}
+
+.sm-row.sm-group-row {
+  background: #f8f7fc;
+  border-left: 5px solid var(--neo-purple, #8b7cc2);
+}
+
+/* ── Per-break manual time & duration controls ── */
+.sm-row.sm-break-row {
+  grid-template-columns: 28px 1fr auto auto 28px;
+}
+
+/* ── Inline Schedule Timing Badges in #sm-order-list ── */
+.sm-row-timing {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.sm-time-num {
+  padding: 2px 6px;
+  background: var(--neo-dark, #222222);
+  color: #ffffff;
+  border-radius: var(--neo-radius-sm, 4px);
+  font-weight: 800;
+}
+
+.sm-time-prep {
+  padding: 2px 6px;
+  background: var(--neo-card-bg-subtle, #fafaf7);
+  border: 1.5px solid #999999;
+  border-radius: var(--neo-radius-sm, 4px);
+  font-weight: 600;
+  color: var(--neo-gray-dark, #475569);
+}
+
+.sm-time-exam {
+  padding: 2px 7px;
+  background: #edf7f1;
+  border: 1.5px solid var(--neo-green, #6abf8e);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-weight: 800;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-time-break {
+  padding: 2px 7px;
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+}
+
+.sm-gap-pill {
+  padding: 2px 6px;
+  background: #fff4e5;
+  border: 1.5px solid var(--neo-orange, #d4895a);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-weight: 800;
+  color: #9a4a12;
+}
+
+.sm-time-excluded {
+  color: #999999;
+  font-weight: 700;
+}
+
+/* ── Collapsible Print Table Preview ── */
+.sm-schedule-panel.collapsed .sm-schedule-tables-wrap {
+  display: none;
+}
+
+@media print {
+  .sm-schedule-panel.collapsed .sm-schedule-tables-wrap {
+    display: block !important;
+  }
+}
+
+.sm-table-toggle-btn {
+  padding: 4px 10px;
+  background: #ffffff;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+}
+
+.sm-table-toggle-btn:hover {
+  background: var(--neo-yellow, #e2c96e);
+}
+
+.sm-break-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sm-break-ctrl-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--neo-gray-dark, #475569);
+}
+
+.sm-break-start-input {
+  padding: 2px 6px;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+.sm-break-dur-input {
+  width: 56px;
+  padding: 2px 6px;
+  border: 1.5px solid var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-align: center;
+  background: #ffffff;
+}
+
+.sm-subgroup-add-break-btn {
+  padding: 2px 8px;
+  background: #ffffff;
+  border: 1.5px dashed var(--neo-border-color, #333333);
+  border-radius: var(--neo-radius-sm, 4px);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--neo-dark, #222222);
+  cursor: pointer;
+}
+
+.sm-subgroup-add-break-btn:hover {
+  background: var(--neo-yellow, #e2c96e);
+  border-style: solid;
+}
+
+
+

@@ -443,6 +443,66 @@ function registerBackupSyncIpc(ctx) {
   // conflicts are resolved (or immediately if there are none).
   let _pendingBaselineEntries = [];
 
+  const MAX_SYNC_LOG_ENTRIES = 200;
+
+  function getSyncLogPath() {
+    return path.join(app.getPath('userData'), 'sync-log.json');
+  }
+
+  async function loadSyncLog() {
+    try {
+      const raw = await fs.readFile(getSyncLogPath(), 'utf8');
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async function writeSyncLog(entries) {
+    try {
+      const logPath = getSyncLogPath();
+      await fs.mkdir(path.dirname(logPath), { recursive: true });
+      const tmp = logPath + '.tmp';
+      await fs.writeFile(tmp, JSON.stringify(entries, null, 2), 'utf8');
+      try { await fs.unlink(logPath); } catch { }
+      await fs.rename(tmp, logPath);
+    } catch (err) {
+      console.error('Failed to save sync log:', err);
+    }
+  }
+
+  async function appendSyncLog(entry) {
+    try {
+      const entries = await loadSyncLog();
+      const record = {
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8),
+        timestamp: new Date().toISOString(),
+        type: entry.type || 'local',
+        mode: entry.mode || 'both',
+        target: entry.target || '',
+        saved: Array.isArray(entry.saved) ? entry.saved : [],
+        deleted: Array.isArray(entry.deleted) ? entry.deleted : [],
+        archived: Array.isArray(entry.archived) ? entry.archived : [],
+        errors: Array.isArray(entry.errors) ? entry.errors : []
+      };
+      entries.unshift(record);
+      if (entries.length > MAX_SYNC_LOG_ENTRIES) {
+        entries.length = MAX_SYNC_LOG_ENTRIES;
+      }
+      await writeSyncLog(entries);
+      return record;
+    } catch (err) {
+      console.error('Failed to append sync log:', err);
+      return null;
+    }
+  }
+
+  async function clearSyncLog() {
+    await writeSyncLog([]);
+    return { ok: true };
+  }
+
   function stopAutoSyncWatcher() {
     if (_autoSyncTimer) {
       clearTimeout(_autoSyncTimer);
@@ -470,6 +530,8 @@ function registerBackupSyncIpc(ctx) {
       const srcDir = path.join(writableRoot, 'user');
       const destDir = resolveSyncDestDir(syncLocation);
       const result = await syncTrees(srcDir, destDir, 'to-target');
+      const savedFiles = [...(result.savedFiles || [])];
+      const autoErrors = [...(result.errors || [])];
       // Auto-resolve conflicts: source always wins
       for (const c of result.conflicts) {
         const relPath = c.relativePath.replace(/\\/g, '/');
@@ -481,7 +543,21 @@ function registerBackupSyncIpc(ctx) {
           await fs.copyFile(srcPath, destPath);
           const stat = await fs.stat(srcPath);
           await fs.utimes(destPath, stat.atime, stat.mtime).catch(() => { });
-        } catch { }
+          savedFiles.push({ path: relPath, direction: 'to-target', action: 'copied', size: stat.size });
+        } catch (err) {
+          autoErrors.push({ path: relPath, error: String(err?.message || err) });
+        }
+      }
+      if (savedFiles.length > 0 || autoErrors.length > 0) {
+        await appendSyncLog({
+          type: 'local',
+          mode: 'auto',
+          target: syncLocation,
+          saved: savedFiles,
+          deleted: [],
+          archived: [],
+          errors: autoErrors
+        });
       }
       _broadcastDataChanged(null, 'general-config.html', {
         action: 'sync-complete',
@@ -1137,6 +1213,7 @@ function registerBackupSyncIpc(ctx) {
     const added = [];
     const newFiles = [];
     const synced = []; // files auto-resolved via baseline; entries: { relativePath, mtimeMs, size }
+    const savedFiles = []; // files actually copied/updated during this sync run
 
     function sameFile(a, b) {
       const diff = Math.abs(a.mtimeMs - b.mtimeMs);
@@ -1234,6 +1311,7 @@ function registerBackupSyncIpc(ctx) {
             const stat = await fs.stat(path.join(destDir, rel));
             copied++;
             synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
+            savedFiles.push({ path: rel, direction: 'to-target', action: 'copied', size: stat.size });
           } catch (err) {
             errors.push({ path: rel, error: String(err?.message || err) });
           }
@@ -1262,6 +1340,7 @@ function registerBackupSyncIpc(ctx) {
             const stat = await fs.stat(path.join(srcDir, rel));
             copied++;
             synced.push({ relativePath: rel, mtimeMs: stat.mtimeMs, size: stat.size });
+            savedFiles.push({ path: rel, direction: 'to-source', action: 'copied', size: stat.size });
           } catch (err) {
             errors.push({ path: rel, error: String(err?.message || err) });
           }
@@ -1285,8 +1364,8 @@ function registerBackupSyncIpc(ctx) {
         const destEntry = destFiles.get(rel);
         if (!destEntry) {
           if (autoNew) {
-            // new file on source side → copy to dest automatically
-            try { await copyOne(srcEntry.fullPath, path.join(destDir, rel)); copied++; added.push(rel); }
+            // new file on source side -> copy to dest automatically
+            try { await copyOne(srcEntry.fullPath, path.join(destDir, rel)); copied++; added.push(rel); savedFiles.push({ path: rel, direction: 'to-target', action: 'copied', size: srcEntry.size }); }
             catch (err) { errors.push({ path: rel, error: String(err?.message || err) }); }
           } else {
             newFiles.push({ relativePath: rel, kind: 'new', side: 'src-only', changeType: 'new', srcSize: srcEntry.size, srcMtimeMs: srcEntry.mtimeMs, destSize: null, destMtimeMs: null });
@@ -1307,8 +1386,8 @@ function registerBackupSyncIpc(ctx) {
         const srcEntry = srcFiles.get(rel);
         if (!srcEntry) {
           if (autoNew) {
-            // new file in sync folder → copy to source automatically
-            try { await copyOne(destEntry.fullPath, path.join(srcDir, rel)); copied++; added.push(rel); }
+            // new file in sync folder -> copy to source automatically
+            try { await copyOne(destEntry.fullPath, path.join(srcDir, rel)); copied++; added.push(rel); savedFiles.push({ path: rel, direction: 'to-source', action: 'copied', size: destEntry.size }); }
             catch (err) { errors.push({ path: rel, error: String(err?.message || err) }); }
           } else {
             newFiles.push({ relativePath: rel, kind: 'new', side: 'dest-only', changeType: 'new', srcSize: null, srcMtimeMs: null, destSize: destEntry.size, destMtimeMs: destEntry.mtimeMs });
@@ -1348,6 +1427,7 @@ function registerBackupSyncIpc(ctx) {
           if (srcEntry && !destEntry) {
             if (autoNew) {
               await copyOne(srcEntry.fullPath, path.join(destDir, rel)); copied++; added.push(rel);
+              savedFiles.push({ path: rel, direction: 'to-target', action: 'copied', size: srcEntry.size });
             } else {
               if (base) {
                 const srcChanged = changedVsBase(srcEntry, base);
@@ -1396,6 +1476,7 @@ function registerBackupSyncIpc(ctx) {
           } else if (!srcEntry && destEntry) {
             if (autoNew) {
               await copyOne(destEntry.fullPath, path.join(srcDir, rel)); copied++; added.push(rel);
+              savedFiles.push({ path: rel, direction: 'to-source', action: 'copied', size: destEntry.size });
             } else {
               if (base) {
                 const destChanged = changedVsBase(destEntry, base);
@@ -1483,7 +1564,7 @@ function registerBackupSyncIpc(ctx) {
         }
       }
     }
-    return { copied, errors, conflicts, added, newFiles, synced, deleted };
+    return { copied, errors, conflicts, added, newFiles, synced, deleted, savedFiles };
   }
 
   async function copyTreeForBackup(sourceDir, destDir) {
@@ -1719,6 +1800,15 @@ function registerBackupSyncIpc(ctx) {
     return resetSyncBaseline();
   });
 
+  ipcMain.handle('app:get-sync-log', async () => {
+    const entries = await loadSyncLog();
+    return { ok: true, entries, logPath: getSyncLogPath() };
+  });
+
+  ipcMain.handle('app:clear-sync-log', async () => {
+    return clearSyncLog();
+  });
+
   ipcMain.handle('app:run-sync', async (_event, { mode, mtimeTolMs = 0 } = {}) => {
     const syncLocation = await loadSavedSyncLocation();
     if (!syncLocation) {
@@ -1770,6 +1860,17 @@ function registerBackupSyncIpc(ctx) {
       await saveSyncBaseline(baselineMap);
       _pendingBaselineEntries = [];
 
+      const deletedSide = syncMode === 'mirror-to-target' ? 'target' : 'source';
+      await appendSyncLog({
+        type: 'local',
+        mode: syncMode,
+        target: syncLocation,
+        saved: result.savedFiles || [],
+        deleted: allDeleted.map(p => ({ path: p, side: deletedSide })),
+        archived: [],
+        errors: allErrors
+      });
+
 
       _broadcastDataChanged(_event, 'general-config.html', {
         action: 'sync-complete',
@@ -1798,6 +1899,15 @@ function registerBackupSyncIpc(ctx) {
     _pendingBaselineEntries = result.synced.map(s => ({ relativePath: s.relativePath, mtimeMs: s.mtimeMs, size: s.size }));
 
     if (allConflicts.length === 0 && allNewFiles.length === 0) {
+      await appendSyncLog({
+        type: 'local',
+        mode: syncMode,
+        target: syncLocation,
+        saved: result.savedFiles || [],
+        deleted: [],
+        archived: [],
+        errors: allErrors
+      });
       _broadcastDataChanged(_event, 'general-config.html', {
         action: 'sync-complete',
         target: 'user',
@@ -1860,6 +1970,9 @@ function registerBackupSyncIpc(ctx) {
     let applied = 0;
     const errors = [];
     const archivedAllPaths = []; // paths where files were deleted/archived on both sides — removed from baseline
+    const savedFiles = [];
+    const deletedFiles = [];
+    const archivedFiles = [];
 
     for (const decision of decisions) {
       if (decision.action === 'skip') continue;
@@ -1893,10 +2006,14 @@ function registerBackupSyncIpc(ctx) {
             try {
               const stat = await fs.stat(destPath);
               _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-            } catch { }
+              savedFiles.push({ path: relPath, direction: 'to-target', action: 'copied', size: stat.size });
+            } catch {
+              savedFiles.push({ path: relPath, direction: 'to-target', action: 'copied' });
+            }
           } else {
             await deleteAndPrune(destDir, relPath);
             archivedAllPaths.push(relPath);
+            deletedFiles.push({ path: relPath, side: 'target' });
             applied++;
           }
         } else if (decision.action === 'keep-target') {
@@ -1907,19 +2024,25 @@ function registerBackupSyncIpc(ctx) {
             try {
               const stat = await fs.stat(srcPath);
               _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
-            } catch { }
+              savedFiles.push({ path: relPath, direction: 'to-source', action: 'copied', size: stat.size });
+            } catch {
+              savedFiles.push({ path: relPath, direction: 'to-source', action: 'copied' });
+            }
           } else {
             await deleteAndPrune(srcDir, relPath);
             archivedAllPaths.push(relPath);
+            deletedFiles.push({ path: relPath, side: 'source' });
             applied++;
           }
         } else if (decision.action === 'delete-source') {
           await deleteAndPrune(srcDir, relPath);
           archivedAllPaths.push(relPath);
+          deletedFiles.push({ path: relPath, side: 'source' });
           applied++;
         } else if (decision.action === 'delete-target') {
           await deleteAndPrune(destDir, relPath);
           archivedAllPaths.push(relPath);
+          deletedFiles.push({ path: relPath, side: 'target' });
           applied++;
         } else if (decision.action === 'archive-older') {
           const [srcStat, destStat] = await Promise.all([
@@ -1928,56 +2051,68 @@ function registerBackupSyncIpc(ctx) {
           ]);
           if (srcStat && destStat) {
             if (srcStat.mtimeMs < destStat.mtimeMs) {
-              // src is strictly older — archive it, copy dest → src
+              // src is strictly older — archive it, copy dest -> src
               await bakIfExists(srcPath);
               await copyOne(destPath, srcPath);
               const s = await fs.stat(srcPath);
               _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: s.mtimeMs, size: s.size });
+              archivedFiles.push({ path: relPath, side: 'source' });
+              savedFiles.push({ path: relPath, direction: 'to-source', action: 'copied', size: s.size });
             } else if (destStat.mtimeMs < srcStat.mtimeMs) {
-              // dest is strictly older — archive it, copy src → dest
+              // dest is strictly older — archive it, copy src -> dest
               await bakIfExists(destPath);
               await copyOne(srcPath, destPath);
               const s = await fs.stat(destPath);
               _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: s.mtimeMs, size: s.size });
+              archivedFiles.push({ path: relPath, side: 'target' });
+              savedFiles.push({ path: relPath, direction: 'to-target', action: 'copied', size: s.size });
             } else {
               // identical timestamps — archive both, neither wins
               await bakIfExists(srcPath);
               await bakIfExists(destPath);
               archivedAllPaths.push(relPath);
+              archivedFiles.push({ path: relPath, side: 'both' });
             }
           } else if (srcStat) {
             await bakIfExists(srcPath);
             archivedAllPaths.push(relPath);
+            archivedFiles.push({ path: relPath, side: 'source' });
           } else if (destStat) {
             await bakIfExists(destPath);
             archivedAllPaths.push(relPath);
+            archivedFiles.push({ path: relPath, side: 'target' });
           }
           applied++;
         } else if (decision.action === 'archive-all') {
           await bakIfExists(srcPath);
           await bakIfExists(destPath);
           archivedAllPaths.push(relPath);
+          archivedFiles.push({ path: relPath, side: 'both' });
           applied++;
         } else if (decision.action === 'bak-source') {
-          // Rename app (source) file to .bak, then copy sync → app if sync file exists
+          // Rename app (source) file to .bak, then copy sync -> app if sync file exists
           await bakIfExists(srcPath);
+          archivedFiles.push({ path: relPath, side: 'source' });
           const destExists = await fs.access(destPath).then(() => true).catch(() => false);
           if (destExists) {
             await copyOne(destPath, srcPath);
             const stat = await fs.stat(srcPath);
             _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+            savedFiles.push({ path: relPath, direction: 'to-source', action: 'copied', size: stat.size });
           } else {
             archivedAllPaths.push(relPath);
           }
           applied++;
         } else if (decision.action === 'bak-target') {
-          // Rename sync (target) file to .bak, then copy app → sync if app file exists
+          // Rename sync (target) file to .bak, then copy app -> sync if app file exists
           await bakIfExists(destPath);
+          archivedFiles.push({ path: relPath, side: 'target' });
           const srcExists = await fs.access(srcPath).then(() => true).catch(() => false);
           if (srcExists) {
             await copyOne(srcPath, destPath);
             const stat = await fs.stat(destPath);
             _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+            savedFiles.push({ path: relPath, direction: 'to-target', action: 'copied', size: stat.size });
           } else {
             archivedAllPaths.push(relPath);
           }
@@ -2000,6 +2135,18 @@ function registerBackupSyncIpc(ctx) {
       console.error('Failed to update sync baseline after apply:', err);
     } finally {
       _pendingBaselineEntries = [];
+    }
+
+    if (savedFiles.length > 0 || deletedFiles.length > 0 || archivedFiles.length > 0 || errors.length > 0) {
+      await appendSyncLog({
+        type: 'local',
+        mode: 'conflicts-resolved',
+        target: syncLocation,
+        saved: savedFiles,
+        deleted: deletedFiles,
+        archived: archivedFiles,
+        errors
+      });
     }
 
     _broadcastDataChanged(_event, 'general-config.html', {

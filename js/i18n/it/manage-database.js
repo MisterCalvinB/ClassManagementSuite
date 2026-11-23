@@ -331,6 +331,7 @@
   "mdbBtnSelectAll": "Seleziona tutto",
   "mdbBtnClear": "Deseleziona",
   "mdbBtnBatchEdit": "Modifica multipla",
+  "mdbMenuBatch": "Lotto",
   "mdbBtnDelSelected": "Elimina selezionati",
   "mdbBatchHint": "Temi e parole chiave vengono aggiunti; categoria grammaticale e livello vengono sostituiti (lascia vuoto per mantenere i valori esistenti).",
   "mdbBatchTheme": "Tema/i",

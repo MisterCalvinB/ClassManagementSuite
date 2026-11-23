@@ -698,6 +698,9 @@
       if (typeof window.applyTranslations === 'function') {
         window.applyTranslations();
       }
+      if (typeof initHamburger === 'function') {
+        initHamburger('app-hamburger');
+      }
       setupDragDrop();
     });
 
@@ -866,6 +869,7 @@
       if (files && files.length) {
         processUploadedFile(files[0]);
       }
+      if (e && e.target) e.target.value = '';
     }
 
     // ── File Parsing Pipeline ────────────────────────────────────────────────
@@ -952,14 +956,24 @@
       var trimmed = text.trim();
       var rawRows = [];
 
-      // 1. Sniff JSON
+      // 1. Sniff JSON / JSONL
       if (trimmed.startsWith('[') || trimmed.startsWith('{')) {
         try {
           var parsed = JSON.parse(trimmed);
           rawRows = jsonToAoA(parsed);
           state.detectedFormat = 'JSON';
         } catch (e) {
-          // fallback to CSV
+          // Try JSONL / NDJSON (one JSON object per line)
+          var lines = trimmed.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+          if (lines.length > 0 && lines.every(function (l) { return l.startsWith('{') || l.startsWith('['); })) {
+            try {
+              var ndItems = lines.map(function (l) { return JSON.parse(l); });
+              rawRows = jsonToAoA(ndItems);
+              if (rawRows.length) state.detectedFormat = 'JSONL';
+            } catch (e2) {
+              rawRows = [];
+            }
+          }
         }
       }
 
@@ -1145,6 +1159,40 @@
     }
 
     // ── Format Helper: SQL Insert Parser ─────────────────────────────────────
+    function splitSqlValues(tupleStr) {
+      var vals = [];
+      var cur = '';
+      var inQuote = null;
+      for (var i = 0; i < tupleStr.length; i++) {
+        var ch = tupleStr[i];
+        var next = tupleStr[i + 1];
+        if (inQuote) {
+          if (ch === inQuote && next === inQuote) {
+            cur += ch;
+            i++;
+          } else if (ch === '\\' && next) {
+            cur += next;
+            i++;
+          } else if (ch === inQuote) {
+            inQuote = null;
+          } else {
+            cur += ch;
+          }
+        } else {
+          if (ch === "'" || ch === '"') {
+            inQuote = ch;
+          } else if (ch === ',') {
+            vals.push(cur.trim());
+            cur = '';
+          } else {
+            cur += ch;
+          }
+        }
+      }
+      if (cur !== '' || vals.length > 0) vals.push(cur.trim());
+      return vals.map(function (v) { return /^null$/i.test(v) ? '' : v; });
+    }
+
     function parseSqlInserts(text) {
       var rows = [];
       var headerSet = null;
@@ -1155,14 +1203,7 @@
           headerSet = match[1].split(',').map(function (c) { return c.trim().replace(/[`"']/g, ''); });
           rows.push(headerSet);
         }
-        var vals = match[2].split(',').map(function (v) {
-          var clean = v.trim();
-          if ((clean.startsWith("'") && clean.endsWith("'")) || (clean.startsWith('"') && clean.endsWith('"'))) {
-            clean = clean.substring(1, clean.length - 1);
-          }
-          return clean;
-        });
-        rows.push(vals);
+        rows.push(splitSqlValues(match[2]));
       }
       return rows;
     }
@@ -1209,15 +1250,25 @@
 
     function handleHeaderRowChange() {
       var val = document.getElementById('headerRowSelect').value;
-      var hIdx = val === 'auto' ? 0 : parseInt(val, 10);
-      state.headerRowIdx = hIdx;
-
       var maxCols = 0;
       state.rawRows.forEach(function (r) {
         if (r && r.length > maxCols) maxCols = r.length;
       });
 
+      var hIdx = 0;
+      if (val === 'auto') {
+        if (state.rawRows.length > 1 && maxCols > 1) {
+          var r0 = state.rawRows[0].filter(function (c) { return c !== '' && c !== null; }).length;
+          var r1 = state.rawRows[1].filter(function (c) { return c !== '' && c !== null; }).length;
+          if (r0 === 1 && r1 > 1) hIdx = 1;
+        }
+      } else {
+        hIdx = parseInt(val, 10);
+      }
+      state.headerRowIdx = hIdx;
+
       applyHeaderRow(hIdx, maxCols);
+      updateStatsBadges();
       renderSchemaEditor();
       applyFiltersAndPagination();
       updateOutput();
@@ -1716,7 +1767,7 @@
       if (state.layoutMode === 'split') {
         state.layoutMode = 'stacked';
         grid.classList.add('layout-stacked');
-        if (icon) icon.textContent = '◫';
+        if (icon) icon.innerHTML = '<img src="../assets/icons/layout.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />';
         if (text) text.textContent = 'Split View';
       } else {
         state.layoutMode = 'split';
@@ -1811,7 +1862,7 @@
 
       // Show relevant option blocks
       document.getElementById('optsCsv').style.display = (fmt === 'csv' || fmt === 'tsv') ? 'block' : 'none';
-      document.getElementById('optsJson').style.display = (fmt === 'json' || fmt === 'jsonl') ? 'block' : 'none';
+      document.getElementById('optsJson').style.display = (fmt === 'json') ? 'block' : 'none';
       document.getElementById('optsSql').style.display = fmt === 'sql' ? 'block' : 'none';
       document.getElementById('optsXml').style.display = fmt === 'xml' ? 'block' : 'none';
       document.getElementById('optsHtml').style.display = fmt === 'html' ? 'block' : 'none';
@@ -2167,10 +2218,13 @@
             var obj = {};
             activeCols.forEach(function (c, i) { obj[c.col.name] = r[i]; });
             var opts = [obj.optionA, obj.optionB, obj.optionC, obj.optionD].filter(Boolean);
+            var rawAns = String(obj.answer || '').trim().toUpperCase();
+            var letterMap = { A: 0, B: 1, C: 2, D: 3 };
+            var ansIdx = (rawAns in letterMap) ? letterMap[rawAns] : (!isNaN(Number(rawAns)) && rawAns !== '' ? Number(rawAns) : 0);
             return {
               question: String(obj.question || 'Sample Question?'),
               options: opts.length ? opts : ['Option 1', 'Option 2', 'Option 3', 'Option 4'],
-              answer: !isNaN(Number(obj.answer)) ? Number(obj.answer) : 0,
+              answer: ansIdx,
               explanation: String(obj.explanation || '')
             };
           });
@@ -2361,29 +2415,53 @@
 
     function startConverterTour() {
       if (typeof Tutorial !== 'undefined' && Tutorial.start) {
-        var steps = document.getElementById('taskChooser').style.display !== 'none'
-          ? [
-              { element: '#taskChooser', title: 'Choose Your Task', content: 'Pick whether you want to convert file formats, prepare data for Class Management Tools, or inspect and clean a table.' }
-            ]
-          : [
-              { element: '.stepper-bar', title: '3-Step Workflow', content: 'Move cleanly through Source Data, Configuration, and Preview & Export without clutter.' },
-              { element: '#stepPane1', title: '1. Source Data', content: 'Drop any Excel, CSV, JSON, SQL, or Markdown file here, paste raw content, or load the sample table.' },
-              { element: '#stepPane2', title: '2. Configure & Map', content: 'Choose your target format or map columns to Class Management Tools fields.' },
-              { element: '#stepPane3', title: '3. Preview & Export', content: 'Inspect the paginated table or generated code, then copy or export with one click.' }
-            ];
-        Tutorial.start(steps);
+        var chooserVisible = document.getElementById('taskChooser').style.display !== 'none';
+        var importVisible = document.getElementById('importWizardPane') && document.getElementById('importWizardPane').style.display !== 'none';
+        var steps;
+        if (chooserVisible) {
+          steps = [
+            { selector: '#taskChooser', title: 'Choose Your Task', text: 'Pick whether you want to convert file formats, prepare data for Class Management Tools, inspect and clean a table, or import directly into the app.' }
+          ];
+        } else if (importVisible) {
+          steps = [
+            { selector: '#importWizardPane', title: 'Direct Import Wizard', text: 'Use the embedded wizard to import students, groups, wordbanks, quizzes, criteria, and competences directly into your database.' }
+          ];
+        } else {
+          steps = [
+            { selector: '.stepper-bar', title: '3-Step Workflow', text: 'Move cleanly through Source Data, Configuration, and Preview & Export without clutter.' },
+            { selector: '#stepPane1', title: '1. Source Data', text: 'Drop any Excel, CSV, JSON, SQL, or Markdown file here, paste raw content, or load the sample table.' },
+            { selector: '#stepPane2', title: '2. Configure & Map', text: 'Choose your target format or map columns to Class Management Tools fields.' },
+            { selector: '#stepPane3', title: '3. Preview & Export', text: 'Inspect the paginated table or generated code, then copy or export with one click.' }
+          ];
+        }
+        var ttFn = typeof t === 'function' ? t : function (k, d) { return d || k; };
+        Tutorial.start(steps, {
+          next: ttFn('tutNext', 'Next'),
+          prev: ttFn('tutPrev', 'Prev'),
+          skip: ttFn('tutSkip', 'Skip'),
+          done: ttFn('tutDone', 'Done')
+        });
       }
     }
 
     // Keydown listener
     window.addEventListener('keydown', function (e) {
+      var ws = document.getElementById('workspaceView');
+      if (!ws || ws.style.display === 'none') return;
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
         exportConvertedFile();
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
         e.preventDefault();
-        document.getElementById('fileInput').click();
+        var fi = document.getElementById('fileInput');
+        if (fi) fi.click();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        if (state.currentStep === 3 && state.previewTab === 'table') {
+          e.preventDefault();
+          var filterInput = document.getElementById('tableFilterInput');
+          if (filterInput) filterInput.focus();
+        }
       }
     });
 

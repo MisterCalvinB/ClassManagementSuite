@@ -956,7 +956,7 @@
     exportConflictOverlay.className = 'cmt-overlay';
     exportConflictOverlay.setAttribute('role', 'dialog');
     exportConflictOverlay.setAttribute('aria-modal', 'true');
-    exportConflictOverlay.style.zIndex = '100020';
+    exportConflictOverlay.style.zIndex = '10000010';
     exportConflictOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: left; max-width: min(440px, calc(100vw - 24px)); padding: 22px 22px 18px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
         '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +

@@ -797,7 +797,10 @@
       });
       zone.addEventListener('click', function () { input.click(); });
       input.addEventListener('change', function () {
-        if (input.files.length) handleFile(input.files[0]);
+        if (input.files.length) {
+          handleFile(input.files[0]);
+          input.value = '';
+        }
       });
     }
 
@@ -856,7 +859,7 @@
         var opt = document.createElement('option');
         opt.value = String(i);
         var isH = (i === parsedFile.headerRowIdx);
-        opt.textContent = (isH ? '★ ' : '') + 'Row ' + (i + 1) + (isH ? ' (' + tt('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
+        opt.textContent = 'Row ' + (i + 1) + (isH ? ' (' + tt('importRowHeaderTag', 'Header Row') + ')' : '') + ': ' + previewStr;
         if (isH) opt.selected = true;
         select.appendChild(opt);
       }
@@ -1128,7 +1131,9 @@
         var isExcluded = excludedRows.has(rawIdx);
         var rowClass = isExcluded ? ' class="excluded-row"' : '';
         var delTitle = esc(tt(isExcluded ? 'importRowRestore' : 'importRowDelete', isExcluded ? 'Restore' : 'Exclude'));
-        var delIcon = isExcluded ? '↩' : '';
+        var delIcon = isExcluded
+          ? '<img src="../assets/icons/undo.svg" class="btn-icon" alt="" style="width:12px;height:12px;">'
+          : '<img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;">';
         return '<tr' + rowClass + '>' +
           fields.map(function (f) { return '<td>' + esc(String(obj[f.key] === undefined ? '' : obj[f.key])) + '</td>'; }).join('') +
           '<td><button class="row-del-btn" data-raw-idx="' + rawIdx + '" title="' + delTitle + '">' + delIcon + '</button></td>' +
@@ -1370,6 +1375,7 @@
 
       // Build list of UUIDs for the group (only relevant for classGroups module)
       var newGroupUuids = [];
+      var rowUuidByIdx = {};
 
       mappedRows.forEach(function (row, i) {
         var k = selectedModule.conflictKey(row);
@@ -1398,6 +1404,7 @@
             if (row.sen !== undefined) s.sen = row.sen;
           }
           newGroupUuids.push(existing.uuid);
+          rowUuidByIdx[i] = existing.uuid;
           updated++;
         } else {
           // 'new'
@@ -1416,6 +1423,7 @@
           roster.push(newStudent);
           rosterByUuid[uuid] = newStudent;
           newGroupUuids.push(uuid);
+          rowUuidByIdx[i] = uuid;
           added++;
         }
       });
@@ -1509,30 +1517,27 @@
           var adminGroupName = (adminGroupId && cg.classGroupsMeta[adminGroupId] && cg.classGroupsMeta[adminGroupId].name) || '';
 
           mappedRows.forEach(function (row, i) {
-            var k = selectedModule.conflictKey(row);
-            var existing = existingByKey[k];
-            var uuid = existing ? existing.uuid : (rosterByUuid && roster.find(function (s) { return s.firstName === (row.firstName||'').trim().toUpperCase() && s.lastName === (row.lastName||'').trim().toUpperCase(); })?.uuid);
-            if (uuid) {
-              var sObj = adminData.students[uuid] || {};
-              adminData.students[uuid] = Object.assign(sObj, {
-                firstName: (row.firstName || sObj.firstName || '').trim().toUpperCase(),
-                lastName: (row.lastName || sObj.lastName || '').trim().toUpperCase(),
-                dob: row.dob || sObj.dob || '',
-                adminClass: row.adminClass || sObj.adminClass || adminGroupName,
-                gender: row.gender || sObj.gender || '',
-                sen: row.sen !== undefined ? (row.sen === true) : (sObj.sen === true),
-                studentNumber: row.studentNumber || sObj.studentNumber || '',
-                regime: row.regime || sObj.regime || '',
-                guardian1Name: row.guardian1Name || sObj.guardian1Name || '',
-                guardian1Phone: row.guardian1Phone || sObj.guardian1Phone || '',
-                guardian1Email: row.guardian1Email || sObj.guardian1Email || '',
-                address: row.address || sObj.address || '',
-                medicalNotes: row.medicalNotes || sObj.medicalNotes || '',
-                updatedAt: new Date().toISOString()
-              });
-              if (Array.isArray(adminData.excludedStudentIds)) {
-                adminData.excludedStudentIds = adminData.excludedStudentIds.filter(function (id) { return id !== uuid; });
-              }
+            var uuid = rowUuidByIdx[i];
+            if (!uuid) return;
+            var sObj = adminData.students[uuid] || {};
+            adminData.students[uuid] = Object.assign(sObj, {
+              firstName: (row.firstName || sObj.firstName || '').trim().toUpperCase(),
+              lastName: (row.lastName || sObj.lastName || '').trim().toUpperCase(),
+              dob: row.dob || sObj.dob || '',
+              adminClass: row.adminClass || sObj.adminClass || adminGroupName,
+              gender: row.gender || sObj.gender || '',
+              sen: row.sen !== undefined ? (row.sen === true) : (sObj.sen === true),
+              studentNumber: row.studentNumber || sObj.studentNumber || '',
+              regime: row.regime || sObj.regime || '',
+              guardian1Name: row.guardian1Name || sObj.guardian1Name || '',
+              guardian1Phone: row.guardian1Phone || sObj.guardian1Phone || '',
+              guardian1Email: row.guardian1Email || sObj.guardian1Email || '',
+              address: row.address || sObj.address || '',
+              medicalNotes: row.medicalNotes || sObj.medicalNotes || '',
+              updatedAt: new Date().toISOString()
+            });
+            if (Array.isArray(adminData.excludedStudentIds)) {
+              adminData.excludedStudentIds = adminData.excludedStudentIds.filter(function (id) { return id !== uuid; });
             }
           });
           if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
@@ -1824,7 +1829,7 @@
           }
         } else if (e.altKey && e.key === 'ArrowLeft') {
           e.preventDefault();
-          var btnPrev = document.getElementById('btn-prev');
+          var btnPrev = document.getElementById('btn-back');
           if (btnPrev && !btnPrev.disabled && btnPrev.offsetParent !== null) {
             btnPrev.click();
           }
@@ -1989,7 +1994,13 @@
     (function () {
       var el = document.querySelector('[data-ev-18]');
       if (!el) return;
-      var handler = function (event) { if(window.Desktop && Desktop.isElectron()) window.close() };
+      var handler = function (event) {
+        if (window.parent && window.parent !== window && typeof window.parent.resetToTaskChooser === 'function') {
+          window.parent.resetToTaskChooser();
+        } else if (window.Desktop && Desktop.isElectron()) {
+          window.close();
+        }
+      };
       el.addEventListener('click', handler);
     })();
     (function () {

@@ -73,6 +73,7 @@
   "mdbBtnSelectAll": "Tout sélectionner",
   "mdbBtnClear": "Effacer",
   "mdbBtnBatchEdit": "Édition groupée",
+  "mdbMenuBatch": "Lot",
   "mdbBtnDelSelected": "Suppr. sél.",
   "mdbBatchHint": "Les thèmes et mots-clés sont ajoutés ; la partie du discours et le niveau sont remplacés (laisser vide pour conserver).",
   "mdbBatchTheme": "Thème(s)",

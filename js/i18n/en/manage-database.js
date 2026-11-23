@@ -73,6 +73,7 @@
   "mdbBtnSelectAll": "Select All",
   "mdbBtnClear": "Clear",
   "mdbBtnBatchEdit": "Batch Edit",
+  "mdbMenuBatch": "Batch",
   "mdbBtnDelSelected": "Del Selected",
   "mdbBatchHint": "Themes & keywords are added; part of speech & level are replaced (leave blank to keep existing).",
   "mdbBatchTheme": "Theme(s)",

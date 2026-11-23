@@ -1064,6 +1064,8 @@
       setSidebarActive(key);
       $('empty-state').classList.add('hidden');
       $('type-content').classList.remove('hidden');
+      if ($('actions-row')) $('actions-row').classList.remove('hidden');
+      if ($('app-nav')) $('app-nav').classList.add('mdb-has-type');
       $('type-title').textContent = t(getTypeDef(key).labelKey);
       $('pills-row').innerHTML = `<span class="ld-inline"><span class="ld"></span>${t('mdbLoading')}</span>`;
       $('t-head').innerHTML = '';
@@ -10933,6 +10935,8 @@ Rules:
     function updateBatchUI() {
       const count = S.batchSel.size;
       const show = isBatchSupported();
+      const batchGroup = $('batch-menu-group');
+      if (batchGroup) batchGroup.style.display = show ? '' : 'none';
       const allRows = (typeof getDisplayRecords === 'function') ? getDisplayRecords() : [];
       ['batch-select-all-btn', 'batch-clear-btn', 'batch-count'].forEach(id => {
         const el = $(id);

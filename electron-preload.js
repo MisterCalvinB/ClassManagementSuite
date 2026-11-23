@@ -233,6 +233,12 @@ const exposedApi = {
   resetSyncBaseline() {
     return invoke('app:reset-sync-baseline');
   },
+  getSyncLog() {
+    return invoke('app:get-sync-log');
+  },
+  clearSyncLog() {
+    return invoke('app:clear-sync-log');
+  },
   getAutoSync() {
     return invoke('app:get-auto-sync');
   },

@@ -445,7 +445,7 @@
   "ht_cp2_q5": "Does Class Plan connect to Class Management and Test Creator?",
   "ht_cp2_a5": "<p>Yes. Your saved seating layout can be viewed in <button class='xlink' onclick=\"navTo('class-management')\">Class Management</button> and used by <button class='xlink' onclick=\"navTo('test-creator')\">Test Creator</button> for Group A/B desk assignment.</p>",
   "ht_sm_q3": "How do I reorder or shuffle the student exam order?",
-  "ht_sm_a3": "<p>Drag and drop students in the list to adjust order manually, or click <img src='../assets/icons/dice.svg' class='ht-inline-icon' alt='' /> <strong>Shuffle</strong> to randomize the passing order.</p>",
+  "ht_sm_a3": "<p>Choose <strong>First name</strong>, <strong>Last name</strong>, <strong>Custom name</strong>, or <strong>Random</strong> in the initial order or quick-sort menu, or drag and drop rows manually. Toggle <strong>Create several schedules</strong> to split a class across multiple dates and assign each student to their exam date.</p>",
   "ht_sm_q4": "How do parallel prep and exam slots work?",
   "ht_sm_a4": "<p>Enable <strong>Overlapping Prep</strong> in the timing model so Student B starts preparing while Student A is taking the oral exam—saving hours of exam time.</p>",
   "ht_sm_q5": "How do I print or export the final schedule?",

@@ -278,6 +278,7 @@
   "mdbBtnSelectAll": "Alle auswählen",
   "mdbBtnClear": "Leeren",
   "mdbBtnBatchEdit": "Stapelbearbeitung",
+  "mdbMenuBatch": "Stapel",
   "mdbBtnDelSelected": "Auswahl löschen",
   "mdbBatchHint": "Themen & Schlagwörter werden hinzugefügt; Wortart & Niveau werden ersetzt (leer lassen, um Bestehendes beizubehalten).",
   "mdbBatchTheme": "Thema / Themen",

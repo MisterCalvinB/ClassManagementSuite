@@ -9,8 +9,12 @@
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
   <link rel="stylesheet" href="../css/wizard.css">
+  <link rel="stylesheet" href="../css/pages/schedule-maker-multi.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/student-name-utils.js"></script>
+  <script src="../js/schedule-maker/sort-utils.js"></script>
+  <script src="../js/schedule-maker/multi-schedule.js"></script>
+  <script src="../js/schedule-maker/links.js"></script>
   <script src="../js/shared/pins.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
@@ -232,7 +236,7 @@
     /* ── Order rows ──────────────────────────────────── */
     .sm-row {
       display: grid;
-      grid-template-columns: 28px 1fr auto 28px;
+      grid-template-columns: 28px 1fr auto auto 28px;
       align-items: center;
       gap: 8px;
       padding: 6px 10px;
@@ -247,7 +251,7 @@
 
     .sm-row.sm-break-row {
       background: #f5f5f5;
-      grid-template-columns: 28px 1fr 28px;
+      grid-template-columns: 28px 1fr auto auto 28px;
     }
     .sm-handle {
       cursor: grab;
@@ -1103,17 +1107,23 @@
 
   <!-- ── Configuration ── -->
   <div class="sm-config">
-    <div class="sm-section-title" data-i18n="smSectionConfig">Session Configuration</div>
+    <div class="sm-config-header-row">
+      <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionConfig">Session Configuration</div>
+      <label id="sm-multi-toggle-label" class="sm-multi-toggle-label">
+        <input type="checkbox" id="sm-multi-toggle" data-smev-multi-toggle="1">
+        <span data-i18n="smMultiToggle">Create several schedules</span>
+      </label>
+    </div>
     <div class="sm-config-grid">
       <div class="sm-field">
         <label class="sm-label" data-i18n="smLabelTitle">Exam title</label>
         <input id="sm-exam-title" class="sm-input" type="text" data-i18n-placeholder="smTitlePlaceholder">
       </div>
-      <div class="sm-field">
+      <div class="sm-field" id="sm-single-date-field">
         <label class="sm-label" data-i18n="smLabelDate">Date</label>
         <input id="sm-date" class="sm-input" type="date">
       </div>
-      <div class="sm-field">
+      <div class="sm-field" id="sm-single-start-field">
         <label class="sm-label" data-i18n="smLabelStartTime">Start time</label>
         <input id="sm-start" class="sm-input" type="time" value="08:00">
       </div>
@@ -1140,6 +1150,16 @@
         </select>
       </div>
     </div>
+    <div id="sm-sessions-panel" class="sm-sessions-panel" style="display:none;">
+      <div class="sm-sessions-panel-head">
+        <span class="sm-label" data-i18n="smMultiSessionsTitle">Schedule Dates &amp; Start Times</span>
+        <button type="button" id="sm-add-session-btn" class="sm-add-session-btn" data-smev-add-session="1">
+          <img src="../assets/icons/plus.svg" class="btn-icon" alt="" />
+          <span data-i18n="smMultiAddDate">+ Add Date</span>
+        </button>
+      </div>
+      <div id="sm-sessions-list" class="sm-sessions-list"></div>
+    </div>
     <div class="sm-config-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr; margin-bottom: 12px;">
       <div class="sm-field">
         <label class="sm-label" data-i18n="smLabelSubject">Subject</label>
@@ -1149,7 +1169,7 @@
         <label class="sm-label" data-i18n="smLabelTeacher">Teacher</label>
         <input id="sm-teacher" class="sm-input" type="text" data-i18n-placeholder="smTeacherPlaceholder">
       </div>
-      <div class="sm-field">
+      <div class="sm-field" id="sm-single-room-field">
         <label class="sm-label" data-i18n="smLabelRoom">Room</label>
         <input id="sm-room" class="sm-input" type="text" data-i18n-placeholder="smRoomPlaceholder">
       </div>
@@ -1184,8 +1204,16 @@
           <span data-i18n="smOrderRandom">Random</span>
         </label>
         <label class="sm-radio-label">
-          <input type="radio" name="sm-order" value="alpha">
-          <span data-i18n="smOrderAlpha">Alphabetical</span>
+          <input type="radio" name="sm-order" value="firstName">
+          <span data-i18n="smOrderFirstName">First name</span>
+        </label>
+        <label class="sm-radio-label">
+          <input type="radio" name="sm-order" value="lastName">
+          <span data-i18n="smOrderLastName">Last name</span>
+        </label>
+        <label class="sm-radio-label">
+          <input type="radio" name="sm-order" value="customName">
+          <span data-i18n="smOrderCustomName">Custom name</span>
         </label>
         <label class="sm-radio-label">
           <input type="radio" name="sm-order" value="manual">
@@ -1201,42 +1229,95 @@
     <div class="sm-order-header">
       <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionOrder">Student Order</div>
       <span class="sm-hint" data-i18n="smOrderHint">Drag rows to reorder students and breaks.</span>
+      <div class="sm-quick-sort-wrap">
+        <select id="sm-quick-sort" class="sm-quick-sort-select" data-smev-quick-sort="1" disabled>
+          <option value="" data-i18n="smQuickSortLabel">Sort</option>
+          <option value="firstName" data-i18n="smOrderFirstName">First name</option>
+          <option value="lastName" data-i18n="smOrderLastName">Last name</option>
+          <option value="customName" data-i18n="smOrderCustomName">Custom name</option>
+          <option value="random" data-i18n="smOrderRandom">Random</option>
+        </select>
+        <button type="button" id="sm-reshuffle-btn" class="sm-add-break-btn" data-smev-reshuffle="1" disabled data-i18n-help="smReshuffleHint">
+          <img src="../assets/icons/dice.svg" class="btn-icon" alt="" />
+          <span data-i18n="smReshuffleBtn">Reshuffle</span>
+        </button>
+      </div>
       <button id="sm-add-break-btn" class="sm-add-break-btn" data-smev-6="1" disabled data-i18n="smAddBreak">+ Add Break</button>
       <button id="sm-add-group-btn" class="sm-add-group-btn" data-smev-7="1" disabled data-i18n="smAddGroup">+ Add Group</button>
       <button id="sm-auto-group-btn" class="sm-add-group-btn sm-auto-group-toolbar-btn" data-smev-8="1" disabled><img src="../assets/icons/zap.svg" class="btn-icon" alt="" /> <span data-i18n="smAutoGroup">Auto-Group</span></button>
+    </div>
+    <div id="sm-session-tabs-bar" class="sm-session-tabs-bar" style="display:none;">
+      <div id="sm-session-tabs" class="sm-session-tabs"></div>
+      <button type="button" id="sm-split-even-btn" class="sm-split-even-btn" data-smev-split-even="1" data-i18n="smMultiSplitEvenly">Split Evenly</button>
     </div>
     <div id="sm-order-list" class="sm-order-list">
       <div class="sm-order-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</div>
     </div>
   </div>
 
-  <!-- ── Schedule output ── -->
-  <div class="sm-schedule-panel">
+  <!-- ── Schedule output (collapsible table preview) ── -->
+  <div class="sm-schedule-panel collapsed">
     <div class="sm-schedule-header">
       <div class="sm-section-title" style="margin-bottom:0;" data-i18n="smSectionSchedule">Schedule</div>
       <div id="sm-schedule-meta" class="sm-schedule-meta"></div>
+      <button type="button" id="sm-toggle-table-btn" class="sm-table-toggle-btn" data-smev-toggle-table="1" data-i18n="smToggleTableView">Table View</button>
     </div>
     <div id="sm-print-header" class="sm-print-header">
       <h2 id="sm-print-title"></h2>
       <div class="sm-print-meta" id="sm-print-meta-row"></div>
     </div>
-    <div class="sm-table-wrap">
-      <table class="sm-table">
-        <thead id="sm-table-head">
-          <tr>
-            <th class="sm-col-num" data-i18n="smColNum">#</th>
-            <th data-i18n="smColName">Student</th>
-            <th class="sm-col-sen" data-i18n="smColSen">SEN</th>
-            <th class="sm-col-time" data-i18n="smColPrepStart">Prep starts</th>
-            <th class="sm-col-time" data-i18n="smColExamStart">Exam starts</th>
-            <th class="sm-col-time" data-i18n="smColExamEnd">Exam ends</th>
-          </tr>
-        </thead>
-        <tbody id="sm-table-body">
-          <tr><td colspan="6" class="sm-table-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</td></tr>
-        </tbody>
-      </table>
+    <div class="sm-schedule-tables-wrap">
+      <div id="sm-single-table-wrap" class="sm-table-wrap">
+        <table class="sm-table">
+          <thead id="sm-table-head">
+            <tr>
+              <th class="sm-col-num" data-i18n="smColNum">#</th>
+              <th data-i18n="smColName">Student</th>
+              <th class="sm-col-sen" data-i18n="smColSen">SEN</th>
+              <th class="sm-col-time" data-i18n="smColPrepStart">Prep starts</th>
+              <th class="sm-col-time" data-i18n="smColExamStart">Exam starts</th>
+              <th class="sm-col-time" data-i18n="smColExamEnd">Exam ends</th>
+            </tr>
+          </thead>
+          <tbody id="sm-table-body">
+            <tr><td colspan="6" class="sm-table-empty" data-i18n="smNoGroup">Select a group and click Apply to generate the schedule.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="sm-multi-schedule-container" class="sm-multi-schedule-container" style="display:none;"></div>
     </div>
+  </div>
+
+  <!-- ── Integrations & Links Bar ── -->
+  <div id="sm-links-bar" class="sm-links-bar">
+    <span class="sm-links-bar-title" data-i18n="smLinksTitle">Integrations &amp; Links</span>
+    <div class="sm-link-action-group">
+      <button type="button" id="sm-link-planner-btn" class="sm-link-btn" data-smev-link-planner="1">
+        <img src="../assets/icons/planner.svg" class="btn-icon" alt="" />
+        <span data-i18n="smLinkPlannerBtn">Link to Planner</span>
+      </button>
+      <button type="button" id="sm-planner-link-badge" class="sm-link-badge" data-smev-open-planner="1" style="display:none;"></button>
+    </div>
+    <div class="sm-link-action-group">
+      <button type="button" id="sm-link-gs-btn" class="sm-link-btn" data-smev-link-gs="1">
+        <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
+        <span data-i18n="smLinkGsBtn">Link to Grade Sheet</span>
+      </button>
+      <button type="button" id="sm-gs-link-badge" class="sm-link-badge" data-smev-open-gs="1" style="display:none;"></button>
+    </div>
+    <button type="button" id="sm-open-om-btn" class="sm-link-btn sm-link-btn-primary" style="margin-left:auto;" data-smev-open-om="1">
+      <img src="../assets/icons/oral-marking.svg" class="btn-icon" alt="" />
+      <span data-i18n="smOpenOmBtn">Open in Oral Marking</span>
+    </button>
+  </div>
+</div>
+
+<!-- ── Link Modal (Planner / Grade Sheet) ── -->
+<div id="sm-link-modal" class="sm-modal-overlay" data-smev-link-overlay="1">
+  <div class="sm-modal-box" data-smev-link-box="1">
+    <div id="sm-link-modal-title" class="sm-modal-title"></div>
+    <div id="sm-link-modal-body"></div>
+    <button type="button" class="sm-modal-close-btn" style="margin-top:12px;" data-smev-link-close="1" data-i18n="btnCancel">Cancel</button>
   </div>
 </div>
 
@@ -1307,14 +1388,22 @@
         <div class="sm-auto-row" style="justify-content:space-between;">
           <div>
             <div class="sm-label" data-i18n="smAutoAssignment">Assignment</div>
-            <div style="display:flex; gap:12px; margin-top:4px;">
+            <div style="display:flex; gap:10px; margin-top:4px; flex-wrap:wrap;">
               <label class="sm-auto-radio-label">
                 <input type="radio" name="sm-auto-order" value="random" checked data-smev-33="1">
                 <span data-i18n="smAutoOrderRandom">Random</span>
               </label>
               <label class="sm-auto-radio-label">
-                <input type="radio" name="sm-auto-order" value="alpha" data-smev-34="1">
-                <span data-i18n="smAutoOrderAlpha">Alphabetical</span>
+                <input type="radio" name="sm-auto-order" value="firstName" data-smev-34="1">
+                <span data-i18n="smOrderFirstName">First name</span>
+              </label>
+              <label class="sm-auto-radio-label">
+                <input type="radio" name="sm-auto-order" value="lastName" data-smev-auto-last="1">
+                <span data-i18n="smOrderLastName">Last name</span>
+              </label>
+              <label class="sm-auto-radio-label">
+                <input type="radio" name="sm-auto-order" value="customName" data-smev-auto-custom="1">
+                <span data-i18n="smOrderCustomName">Custom name</span>
               </label>
             </div>
           </div>
@@ -1492,10 +1581,389 @@
   let classGroupsMeta = {};
   let smActiveYear = '';
   let smActiveSemester = null;
-  let orderItems = []; // [{type:'student', name, sen}, {type:'break'}, {type:'group', label, members, sen, excluded}]
+  let orderItems = []; // [{type:'student', name, firstName, lastName, customName, sen}, {type:'break'}, {type:'group', label, members, sen, excluded}]
   let smGroupCounter = 0;
   let _dragSrcIdx = null;
+  let _dragSrcSessionId = null;
   let smCurrentFilename = null;
+  let smMultiMode = false;
+  let smSessions = []; // [{ id, label, date, startTime, room, items }]
+  let smActiveSessionId = 'all';
+  let smLinkedPlannerEntries = [];
+  let smLinkedGradeTest = null;
+  window.smLinkedPlannerEntries = smLinkedPlannerEntries;
+  window.smLinkedGradeTest = smLinkedGradeTest;
+
+  function smUpdateLinkBadges() {
+    const pBadge = document.getElementById('sm-planner-link-badge');
+    if (pBadge) {
+      if (Array.isArray(smLinkedPlannerEntries) && smLinkedPlannerEntries.length > 0) {
+        pBadge.style.display = '';
+        pBadge.textContent = smLinkedPlannerEntries.map(e => e.date || e.label).filter(Boolean).join(', ');
+      } else {
+        pBadge.style.display = 'none';
+      }
+    }
+    const gBadge = document.getElementById('sm-gs-link-badge');
+    if (gBadge) {
+      if (smLinkedGradeTest && smLinkedGradeTest.classId) {
+        gBadge.style.display = '';
+        const semLbl = (smLinkedGradeTest.semester || 'sem1').toUpperCase();
+        gBadge.textContent = semLbl + ' · ' + (smLinkedGradeTest.testName || ('Test ' + ((smLinkedGradeTest.testIndex || 0) + 1)));
+      } else {
+        gBadge.style.display = 'none';
+      }
+    }
+  }
+
+  window.smSetLinkedPlannerEntries = function (list) {
+    smLinkedPlannerEntries = Array.isArray(list) ? list : [];
+    window.smLinkedPlannerEntries = smLinkedPlannerEntries;
+    smUpdateLinkBadges();
+  };
+
+  window.smSetLinkedGradeTest = function (obj) {
+    smLinkedGradeTest = obj || null;
+    window.smLinkedGradeTest = smLinkedGradeTest;
+    smUpdateLinkBadges();
+  };
+
+  window.smGetLinkContext = function () {
+    return {
+      title: document.getElementById('sm-exam-title').value.trim(),
+      group: document.getElementById('sm-group').value,
+      semester: document.getElementById('sm-semester').value || '',
+      date: document.getElementById('sm-date').value,
+      startTime: document.getElementById('sm-start').value || '08:00',
+      room: document.getElementById('sm-room').value.trim(),
+      multiMode: smMultiMode,
+      sessions: smSessions,
+      activeSessionId: smActiveSessionId,
+      currentFilename: smCurrentFilename,
+      hasItems: smHasAnyItems(),
+      classGroupsMeta: classGroupsMeta,
+      linkedPlannerEntries: smLinkedPlannerEntries,
+      linkedGradeTest: smLinkedGradeTest
+    };
+  };
+
+  window.smSaveForLinking = async function () {
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Requires the Electron desktop app.', true);
+      return false;
+    }
+    if (!smCurrentFilename) {
+      await saveScheduleAs();
+    } else {
+      await saveSchedule();
+    }
+    return !!smCurrentFilename;
+  };
+
+  function smHasAnyItems() {
+    if (smMultiMode) {
+      return smSessions.some(s => Array.isArray(s.items) && s.items.length > 0);
+    }
+    return orderItems.length > 0;
+  }
+
+  function smHasExportableItems() {
+    const hasActive = arr => Array.isArray(arr) && arr.some(i => (i.type === 'student' || i.type === 'group') && !i.excluded);
+    if (smMultiMode) return smSessions.some(s => hasActive(s.items));
+    return hasActive(orderItems);
+  }
+
+  function smGetTargetItemsArray(sessionId) {
+    if (!smMultiMode) return orderItems;
+    const targetId = (sessionId && sessionId !== 'all') ? sessionId : (smActiveSessionId !== 'all' ? smActiveSessionId : (smSessions[0] && smSessions[0].id));
+    const sess = smSessions.find(s => s.id === targetId) || smSessions[0];
+    return sess ? sess.items : orderItems;
+  }
+
+  function smSyncToolbarButtons() {
+    const empty = !smHasAnyItems();
+    const breakBtn = document.getElementById('sm-add-break-btn');
+    const addGroupBtn = document.getElementById('sm-add-group-btn');
+    const autoGroupBtn = document.getElementById('sm-auto-group-btn');
+    const quickSortSel = document.getElementById('sm-quick-sort');
+    const reshuffleBtn = document.getElementById('sm-reshuffle-btn');
+    if (breakBtn) breakBtn.disabled = empty;
+    if (addGroupBtn) addGroupBtn.disabled = empty;
+    if (autoGroupBtn) autoGroupBtn.disabled = empty;
+    if (quickSortSel) quickSortSel.disabled = empty;
+    if (reshuffleBtn) reshuffleBtn.disabled = empty;
+  }
+
+  function reshuffleWithinGroups() {
+    quickSortOrder('random');
+  }
+
+  function toggleMultiMode(forceVal) {
+    const cb = document.getElementById('sm-multi-toggle');
+    const next = typeof forceVal === 'boolean' ? forceVal : !!(cb && cb.checked);
+    if (cb) cb.checked = next;
+    const toggleLbl = document.getElementById('sm-multi-toggle-label');
+    if (toggleLbl) toggleLbl.classList.toggle('active', next);
+
+    const singleDateField = document.getElementById('sm-single-date-field');
+    const singleStartField = document.getElementById('sm-single-start-field');
+    const singleRoomField = document.getElementById('sm-single-room-field');
+    const sessionsPanel = document.getElementById('sm-sessions-panel');
+    const tabsBar = document.getElementById('sm-session-tabs-bar');
+    const singleTableWrap = document.getElementById('sm-single-table-wrap');
+    const multiContainer = document.getElementById('sm-multi-schedule-container');
+
+    if (next === smMultiMode && (!next || smSessions.length > 0)) {
+      if (singleDateField) singleDateField.style.display = next ? 'none' : '';
+      if (singleStartField) singleStartField.style.display = next ? 'none' : '';
+      if (singleRoomField) singleRoomField.style.display = next ? 'none' : '';
+      if (sessionsPanel) sessionsPanel.style.display = next ? '' : 'none';
+      if (tabsBar) tabsBar.style.display = next ? 'flex' : 'none';
+      if (singleTableWrap) singleTableWrap.style.display = next ? 'none' : '';
+      if (multiContainer) multiContainer.style.display = next ? '' : 'none';
+      return;
+    }
+
+    smMultiMode = next;
+    const prefix = typeof t === 'function' ? t('smMultiSchedulePrefix') : 'Schedule';
+    const baseDate = document.getElementById('sm-date').value;
+    const baseStart = document.getElementById('sm-start').value || '08:00';
+    const baseRoom = document.getElementById('sm-room').value.trim();
+    const numBreaks = Math.max(0, parseInt(document.getElementById('sm-num-breaks').value, 10) || 0);
+
+    if (smMultiMode) {
+      if (smSessions.length < 2) {
+        smSessions = ScheduleMakerMulti.initSessionsFromSingle(orderItems, baseDate, baseStart, prefix, orderItems.length ? numBreaks : undefined, baseRoom);
+      }
+      smActiveSessionId = 'all';
+    } else {
+      orderItems = ScheduleMakerMulti.mergeSessionsToSingle(smSessions);
+      if (smSessions[0]) {
+        if (smSessions[0].date) document.getElementById('sm-date').value = smSessions[0].date;
+        if (smSessions[0].startTime) document.getElementById('sm-start').value = smSessions[0].startTime;
+        if (smSessions[0].room !== undefined) document.getElementById('sm-room').value = smSessions[0].room;
+      }
+    }
+
+    if (singleDateField) singleDateField.style.display = smMultiMode ? 'none' : '';
+    if (singleStartField) singleStartField.style.display = smMultiMode ? 'none' : '';
+    if (singleRoomField) singleRoomField.style.display = smMultiMode ? 'none' : '';
+    if (sessionsPanel) sessionsPanel.style.display = smMultiMode ? '' : 'none';
+    if (tabsBar) tabsBar.style.display = smMultiMode ? 'flex' : 'none';
+    if (singleTableWrap) singleTableWrap.style.display = smMultiMode ? 'none' : '';
+    if (multiContainer) multiContainer.style.display = smMultiMode ? '' : 'none';
+
+    renderSessionsPanel();
+    renderSessionTabs();
+    smSyncToolbarButtons();
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  function addMultiSession() {
+    const prefix = typeof t === 'function' ? t('smMultiSchedulePrefix') : 'Schedule';
+    const last = smSessions[smSessions.length - 1];
+    const baseDate = (last && last.date) ? ScheduleMakerMulti.addDaysToDateStr(last.date, 1) : document.getElementById('sm-date').value;
+    const baseStart = (last && last.startTime) ? last.startTime : (document.getElementById('sm-start').value || '08:00');
+    const baseRoom = (last && last.room !== undefined) ? last.room : document.getElementById('sm-room').value.trim();
+    const sess = ScheduleMakerMulti.createSession(smSessions.length, '', baseStart, prefix, baseRoom);
+    sess.date = baseDate || '';
+    smSessions.push(sess);
+    renderSessionsPanel();
+    renderSessionTabs();
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  function removeMultiSession(idx) {
+    if (smSessions.length <= 2) return;
+    const removed = smSessions.splice(idx, 1)[0];
+    if (removed && Array.isArray(removed.items) && removed.items.length > 0) {
+      smSessions[0].items = smSessions[0].items.concat(removed.items);
+    }
+    if (smActiveSessionId === (removed && removed.id)) {
+      smActiveSessionId = 'all';
+    }
+    renderSessionsPanel();
+    renderSessionTabs();
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  function splitAllEvenly() {
+    if (!smMultiMode || smSessions.length < 2) return;
+    const allItems = ScheduleMakerMulti.mergeSessionsToSingle(smSessions);
+    const numBreaks = Math.max(0, parseInt(document.getElementById('sm-num-breaks').value, 10) || 0);
+    ScheduleMakerMulti.splitItemsEvenly(allItems, smSessions, numBreaks);
+    renderSessionsPanel();
+    renderSessionTabs();
+    renderOrderList();
+    renderScheduleTable();
+  }
+
+  function renderSessionsPanel() {
+    const listEl = document.getElementById('sm-sessions-list');
+    if (!listEl || !smMultiMode) return;
+    listEl.innerHTML = '';
+    const dateLabel = typeof t === 'function' ? t('smLabelDate') : 'Date';
+    const startLabel = typeof t === 'function' ? t('smLabelStartTime') : 'Start time';
+    const roomLabel = typeof t === 'function' ? t('smLabelRoom') : 'Room';
+    const roomPh = typeof t === 'function' ? t('smRoomPlaceholder') : 'e.g. B204';
+    const studWord = typeof t === 'function' ? t('smTotalStudents') : 'students';
+
+    smSessions.forEach((sess, idx) => {
+      const card = document.createElement('div');
+      card.className = 'sm-session-card';
+
+      const head = document.createElement('div');
+      head.className = 'sm-session-card-head';
+
+      const badge = document.createElement('span');
+      badge.className = 'sm-session-badge';
+      badge.textContent = String(idx + 1);
+
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.className = 'sm-session-label-input';
+      labelInput.value = sess.label || '';
+      labelInput.addEventListener('input', () => {
+        sess.label = labelInput.value;
+        renderSessionTabs();
+        renderScheduleTable();
+      });
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'sm-session-count';
+      countSpan.textContent = ScheduleMakerMulti.countActiveCandidates(sess.items) + ' ' + studWord;
+
+      head.appendChild(badge);
+      head.appendChild(labelInput);
+      head.appendChild(countSpan);
+
+      if (smSessions.length > 2) {
+        const rmBtn = document.createElement('button');
+        rmBtn.type = 'button';
+        rmBtn.className = 'sm-session-remove-btn';
+        rmBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="Remove" />';
+        rmBtn.addEventListener('click', () => removeMultiSession(idx));
+        head.appendChild(rmBtn);
+      }
+
+      const fields = document.createElement('div');
+      fields.className = 'sm-session-fields';
+
+      const dateField = document.createElement('div');
+      dateField.className = 'sm-field';
+      const dLbl = document.createElement('label');
+      dLbl.className = 'sm-label';
+      dLbl.textContent = dateLabel;
+      const dInp = document.createElement('input');
+      dInp.type = 'date';
+      dInp.className = 'sm-input';
+      dInp.value = sess.date || '';
+      dInp.addEventListener('change', () => {
+        sess.date = dInp.value;
+        renderSessionTabs();
+        renderOrderList();
+        renderScheduleTable();
+      });
+      dateField.appendChild(dLbl);
+      dateField.appendChild(dInp);
+
+      const startField = document.createElement('div');
+      startField.className = 'sm-field';
+      const sLbl = document.createElement('label');
+      sLbl.className = 'sm-label';
+      sLbl.textContent = startLabel;
+      const sInp = document.createElement('input');
+      sInp.type = 'time';
+      sInp.className = 'sm-input';
+      sInp.value = sess.startTime || '08:00';
+      sInp.addEventListener('change', () => {
+        sess.startTime = sInp.value || '08:00';
+        renderScheduleTable();
+      });
+      startField.appendChild(sLbl);
+      startField.appendChild(sInp);
+
+      const roomField = document.createElement('div');
+      roomField.className = 'sm-field';
+      const rLbl = document.createElement('label');
+      rLbl.className = 'sm-label';
+      rLbl.textContent = roomLabel;
+      const rInp = document.createElement('input');
+      rInp.type = 'text';
+      rInp.className = 'sm-input';
+      rInp.placeholder = roomPh;
+      rInp.value = sess.room || '';
+      rInp.addEventListener('input', () => {
+        sess.room = rInp.value;
+        renderScheduleTable();
+      });
+      roomField.appendChild(rLbl);
+      roomField.appendChild(rInp);
+
+      fields.appendChild(dateField);
+      fields.appendChild(startField);
+      fields.appendChild(roomField);
+      card.appendChild(head);
+      card.appendChild(fields);
+      listEl.appendChild(card);
+    });
+  }
+
+  function renderSessionTabs() {
+    const tabsEl = document.getElementById('sm-session-tabs');
+    if (!tabsEl || !smMultiMode) return;
+    tabsEl.innerHTML = '';
+
+    const totalCount = smSessions.reduce((acc, s) => acc + ScheduleMakerMulti.countActiveCandidates(s.items), 0);
+    const allTab = document.createElement('button');
+    allTab.type = 'button';
+    allTab.className = 'sm-session-tab' + (smActiveSessionId === 'all' ? ' active' : '');
+    allTab.textContent = (typeof t === 'function' ? t('smMultiAllTab') : 'All') + ' (' + totalCount + ')';
+    allTab.addEventListener('click', () => {
+      smActiveSessionId = 'all';
+      renderSessionTabs();
+      renderOrderList();
+    });
+    tabsEl.appendChild(allTab);
+
+    smSessions.forEach((sess, idx) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sm-session-tab' + (smActiveSessionId === sess.id ? ' active' : '');
+      const count = ScheduleMakerMulti.countActiveCandidates(sess.items);
+      const dateBit = sess.date ? ' · ' + sess.date : '';
+      btn.textContent = (sess.label || ('Schedule ' + (idx + 1))) + dateBit + ' (' + count + ')';
+      btn.addEventListener('click', () => {
+        smActiveSessionId = sess.id;
+        renderSessionTabs();
+        renderOrderList();
+      });
+      tabsEl.appendChild(btn);
+    });
+  }
+
+  function quickSortOrder(mode) {
+    if (!mode) return;
+    if (smMultiMode) {
+      if (smActiveSessionId === 'all') {
+        smSessions.forEach(s => {
+          s.items = ScheduleMakerSortUtils.sortScheduleItems(s.items, mode);
+        });
+      } else {
+        const sess = smSessions.find(s => s.id === smActiveSessionId);
+        if (sess) sess.items = ScheduleMakerSortUtils.sortScheduleItems(sess.items, mode);
+      }
+    } else {
+      orderItems = ScheduleMakerSortUtils.sortScheduleItems(orderItems, mode);
+    }
+    const sel = document.getElementById('sm-quick-sort');
+    if (sel) sel.value = '';
+    renderOrderList();
+    renderScheduleTable();
+  }
 
   function escHtml(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1708,59 +2176,70 @@
     const order = document.querySelector('input[name="sm-order"]:checked')?.value || 'random';
     let newItems = students.map(s => ({
       type: 'student',
+      firstName: s.firstName || '',
+      lastName: s.lastName || '',
       name: ([s.firstName, s.lastName].filter(Boolean).join(' ').trim() || String(s)).toUpperCase(),
       customName: s.customName || '',
       sen: s.sen === true
     }));
 
-    if (order === 'random') {
-      shuffle(newItems);
-    } else if (order === 'alpha') {
-      newItems.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (order === 'manual' && orderItems.length > 0) {
-      // Preserve current manual order: re-use positions of existing students, append new ones
-      const currentNames = orderItems.filter(i => i.type === 'student').map(i => i.name);
-      const newNames = new Set(newItems.map(i => i.name));
-      // Keep breaks from current order; replace students with updated info
+    if (order === 'manual' && smHasAnyItems()) {
+      const existingFlat = smMultiMode ? ScheduleMakerMulti.mergeSessionsToSingle(smSessions) : orderItems;
       const studentMap = Object.fromEntries(newItems.map(i => [i.name, i]));
-      const kept = orderItems.map(i => {
+      const kept = existingFlat.map(i => {
         if (i.type === 'break') return i;
         return studentMap[i.name] || null;
       }).filter(Boolean);
-      // Append students not in current order
       const keptNames = new Set(kept.filter(i => i.type === 'student').map(i => i.name));
       const added = newItems.filter(i => !keptNames.has(i.name));
       newItems = [...kept, ...added];
+    } else {
+      newItems = ScheduleMakerSortUtils.sortScheduleItems(newItems, order === 'manual' ? 'random' : order);
     }
 
-    // Place breaks evenly
     const numBreaks = Math.max(0, parseInt(document.getElementById('sm-num-breaks').value) || 0);
-    const studentCount = newItems.filter(i => i.type === 'student').length;
-    if (numBreaks > 0 && studentCount > 0) {
-      const step = Math.floor(studentCount / (numBreaks + 1));
-      let inserted = 0;
-      for (let b = 1; b <= numBreaks; b++) {
-        let pos = b * step + inserted;
-        if (pos >= newItems.length) pos = newItems.length;
-        newItems.splice(pos, 0, { type: 'break' });
-        inserted++;
+
+    if (smMultiMode) {
+      if (order === 'manual' && smSessions.some(s => s.items.length > 0)) {
+        const studentMap = Object.fromEntries(newItems.map(i => [i.name, i]));
+        const assignedNames = new Set();
+        smSessions.forEach(sess => {
+          sess.items = sess.items.map(i => {
+            if (i.type === 'break') return i;
+            if (i.type === 'group') return i;
+            const updated = studentMap[i.name];
+            if (updated) assignedNames.add(i.name);
+            return updated || null;
+          }).filter(Boolean);
+        });
+        const remaining = newItems.filter(i => !assignedNames.has(i.name));
+        if (remaining.length > 0) smSessions[0].items.push(...remaining);
+      } else {
+        ScheduleMakerMulti.splitItemsEvenly(newItems, smSessions, numBreaks);
       }
+      renderSessionsPanel();
+      renderSessionTabs();
+    } else {
+      newItems = ScheduleMakerMulti.insertEvenBreaks(newItems, numBreaks);
+      orderItems = newItems;
     }
 
-    orderItems = newItems;
     smGroupCounter = 0;
-    document.getElementById('sm-add-break-btn').disabled = false;
-    const addGroupBtn = document.getElementById('sm-add-group-btn');
-    if (addGroupBtn) addGroupBtn.disabled = false;
-    const autoGroupBtn = document.getElementById('sm-auto-group-btn');
-    if (autoGroupBtn) autoGroupBtn.disabled = false;
+    smSyncToolbarButtons();
     renderOrderList();
     renderScheduleTable();
   }
 
   // ── Add break ────────────────────────────────────────────
-  function addBreak() {
-    orderItems.push({ type: 'break' });
+  function addBreak(sessionId) {
+    const target = smGetTargetItemsArray(sessionId);
+    const defaultDur = Math.max(1, parseInt(document.getElementById('sm-break-dur').value, 10) || 15);
+    target.push({ type: 'break', duration: defaultDur, startTime: '' });
+    if (smMultiMode) {
+      renderSessionsPanel();
+      renderSessionTabs();
+    }
+    smSyncToolbarButtons();
     renderOrderList();
     renderScheduleTable();
   }
@@ -1802,8 +2281,9 @@
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    // Show individual students currently in orderItems (not already inside a group)
-    const individuals = orderItems.filter(i => i.type === 'student' && !i.excluded);
+    const targetItems = smGetTargetItemsArray();
+    // Show individual students currently in targetItems (not already inside a group)
+    const individuals = targetItems.filter(i => i.type === 'student' && !i.excluded);
     if (individuals.length === 0) {
       listEl.innerHTML = '<div style="padding:16px;text-align:center;color:#888;font-size:0.85rem;">'
         + (typeof t === 'function' ? t('smGroupNoStudents') : 'No individual students available to group.') + '</div>';
@@ -1821,7 +2301,7 @@
     }
 
     // Auto-name Group A, B, C…
-    const existingGroupCount = orderItems.filter(i => i.type === 'group').length;
+    const existingGroupCount = targetItems.filter(i => i.type === 'group').length;
     smGroupCounter = Math.max(smGroupCounter, existingGroupCount) + 1;
     const alpha = String.fromCharCode(65 + ((smGroupCounter - 1) % 26));
     const nameInput = document.getElementById('sm-group-modal-name');
@@ -1852,26 +2332,34 @@
       return;
     }
 
+    const targetItems = smGetTargetItemsArray();
     // Collect SEN flag (group is SEN if any member is SEN)
-    const memberItems = orderItems.filter(i => i.type === 'student' && selectedNames.has(i.name));
+    const memberItems = targetItems.filter(i => i.type === 'student' && selectedNames.has(i.name));
     const groupSen = memberItems.some(i => i.sen);
 
     // Remove individual items and insert group at earliest position
-    const firstIdx = orderItems.findIndex(i => i.type === 'student' && selectedNames.has(i.name));
+    const firstIdx = targetItems.findIndex(i => i.type === 'student' && selectedNames.has(i.name));
     const members = memberItems.map(i => i.name);
-    orderItems = orderItems.filter(i => !(i.type === 'student' && selectedNames.has(i.name)));
-    orderItems.splice(firstIdx, 0, { type: 'group', label, members, sen: groupSen, excluded: false });
+    const filtered = targetItems.filter(i => !(i.type === 'student' && selectedNames.has(i.name)));
+    filtered.splice(firstIdx, 0, { type: 'group', label, members, memberDetails: memberItems, sen: groupSen, excluded: false });
+    targetItems.length = 0;
+    targetItems.push(...filtered);
 
     closeGroupModal();
+    if (smMultiMode) { renderSessionsPanel(); renderSessionTabs(); }
     renderOrderList();
     renderScheduleTable();
   }
 
-  function ungroupItem(idx) {
-    const item = orderItems[idx];
+  function ungroupItem(idx, sessionId) {
+    const targetItems = sessionId ? smGetTargetItemsArray(sessionId) : orderItems;
+    const item = targetItems[idx];
     if (!item || item.type !== 'group') return;
-    const expanded = (item.members || []).map(name => ({ type: 'student', name, sen: item.sen, excluded: item.excluded }));
-    orderItems.splice(idx, 1, ...expanded);
+    const expanded = Array.isArray(item.memberDetails) && item.memberDetails.length === (item.members || []).length
+      ? item.memberDetails.map(m => Object.assign({}, m, { excluded: item.excluded }))
+      : (item.members || []).map(name => ({ type: 'student', name, sen: item.sen, excluded: item.excluded }));
+    targetItems.splice(idx, 1, ...expanded);
+    if (smMultiMode) { renderSessionsPanel(); renderSessionTabs(); }
     renderOrderList();
     renderScheduleTable();
   }
@@ -1889,14 +2377,19 @@
 
   function smGetAutoEligibleStudents() {
     const resetExisting = !!document.getElementById('sm-auto-reset-existing')?.checked;
+    const targetItems = smGetTargetItemsArray();
     const students = [];
-    orderItems.forEach(item => {
+    targetItems.forEach(item => {
       if (item.type === 'student' && !item.excluded) {
-        students.push({ name: item.name, sen: !!item.sen });
+        students.push(item);
       } else if (item.type === 'group' && !item.excluded && resetExisting) {
-        (item.members || []).forEach(mName => {
-          students.push({ name: mName, sen: !!item.sen });
-        });
+        if (Array.isArray(item.memberDetails) && item.memberDetails.length) {
+          item.memberDetails.forEach(m => students.push(m));
+        } else {
+          (item.members || []).forEach(mName => {
+            students.push({ type: 'student', name: mName, sen: !!item.sen });
+          });
+        }
       }
     });
     return students;
@@ -1987,47 +2480,46 @@
     const prefix = (prefixInput && prefixInput.value.trim()) || (typeof t === 'function' ? t('smGroupDefaultName') : 'Group');
     const resetExisting = !!document.getElementById('sm-auto-reset-existing')?.checked;
 
+    const targetItems = smGetTargetItemsArray();
+
     // If resetExisting is requested, explode all existing groups first
     if (resetExisting) {
       const newItems = [];
-      orderItems.forEach(item => {
+      targetItems.forEach(item => {
         if (item.type === 'group') {
-          (item.members || []).forEach(mName => {
-            newItems.push({ type: 'student', name: mName, sen: !!item.sen, excluded: !!item.excluded });
-          });
+          if (Array.isArray(item.memberDetails) && item.memberDetails.length) {
+            item.memberDetails.forEach(m => newItems.push(Object.assign({}, m, { excluded: !!item.excluded })));
+          } else {
+            (item.members || []).forEach(mName => {
+              newItems.push({ type: 'student', name: mName, sen: !!item.sen, excluded: !!item.excluded });
+            });
+          }
         } else {
           newItems.push(item);
         }
       });
-      orderItems = newItems;
+      targetItems.length = 0;
+      targetItems.push(...newItems);
     }
 
     // Gather student items to be grouped
-    const studentItems = orderItems.filter(i => i.type === 'student' && !i.excluded);
+    const studentItems = targetItems.filter(i => i.type === 'student' && !i.excluded);
     if (studentItems.length < 2) {
       showNotice(typeof t === 'function' ? t('smAutoNoStudents') : 'Not enough students to form groups.', true);
       return;
     }
 
     // Order students according to chosen assignment mode
-    let pool = [...studentItems];
-    if (orderType === 'random') {
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-    } else if (orderType === 'alpha') {
-      pool.sort((a, b) => a.name.localeCompare(b.name));
-    }
+    let pool = ScheduleMakerSortUtils.sortScheduleItems(studentItems, orderType);
 
     const { sizes } = smCalculateAutoDistribution(pool.length, mode, val);
     const pooledNames = new Set(pool.map(p => p.name));
 
     // Earliest position among grouped students
-    const firstIdx = orderItems.findIndex(i => i.type === 'student' && pooledNames.has(i.name));
+    const firstIdx = targetItems.findIndex(i => i.type === 'student' && pooledNames.has(i.name));
 
-    // Remove pooled students from orderItems
-    orderItems = orderItems.filter(i => !(i.type === 'student' && pooledNames.has(i.name)));
+    // Remove pooled students from targetItems
+    const remaining = targetItems.filter(i => !(i.type === 'student' && pooledNames.has(i.name)));
 
     // Create group objects chunk by chunk
     let poolIdx = 0;
@@ -2043,58 +2535,72 @@
         type: 'group',
         label,
         members,
+        memberDetails: chunk,
         sen: groupSen,
         excluded: false
       });
     });
 
     // Splice new groups at the earliest student index
-    const insertIdx = firstIdx >= 0 ? firstIdx : orderItems.length;
-    orderItems.splice(insertIdx, 0, ...newGroups);
+    const insertIdx = firstIdx >= 0 ? firstIdx : remaining.length;
+    remaining.splice(insertIdx, 0, ...newGroups);
+    targetItems.length = 0;
+    targetItems.push(...remaining);
 
     closeGroupModal();
+    if (smMultiMode) { renderSessionsPanel(); renderSessionTabs(); }
     renderOrderList();
     renderScheduleTable();
   }
 
   // ── Toggle SEN ───────────────────────────────────────────
-  function toggleSen(idx) {
-    if (orderItems[idx] && (orderItems[idx].type === 'student' || orderItems[idx].type === 'group')) {
-      orderItems[idx].sen = !orderItems[idx].sen;
+  function toggleSen(idx, sessionId) {
+    const arr = sessionId ? smGetTargetItemsArray(sessionId) : orderItems;
+    if (arr[idx] && (arr[idx].type === 'student' || arr[idx].type === 'group')) {
+      arr[idx].sen = !arr[idx].sen;
       renderOrderList();
       renderScheduleTable();
     }
   }
 
   // ── Toggle inclusion ─────────────────────────────────────
-  function toggleIncluded(idx) {
-    if (orderItems[idx] && (orderItems[idx].type === 'student' || orderItems[idx].type === 'group')) {
-      orderItems[idx].excluded = !orderItems[idx].excluded;
+  function toggleIncluded(idx, sessionId) {
+    const arr = sessionId ? smGetTargetItemsArray(sessionId) : orderItems;
+    if (arr[idx] && (arr[idx].type === 'student' || arr[idx].type === 'group')) {
+      arr[idx].excluded = !arr[idx].excluded;
+      if (smMultiMode) { renderSessionsPanel(); renderSessionTabs(); }
       renderOrderList();
       renderScheduleTable();
     }
   }
 
   // ── Delete item from order ───────────────────────────────
-  function deleteItem(idx) {
-    orderItems.splice(idx, 1);
-    if (orderItems.length === 0) {
-      document.getElementById('sm-add-break-btn').disabled = true;
-      const addGroupBtn = document.getElementById('sm-add-group-btn');
-      if (addGroupBtn) addGroupBtn.disabled = true;
-      const autoGroupBtn = document.getElementById('sm-auto-group-btn');
-      if (autoGroupBtn) autoGroupBtn.disabled = true;
-    }
+  function deleteItem(idx, sessionId) {
+    const arr = sessionId ? smGetTargetItemsArray(sessionId) : orderItems;
+    arr.splice(idx, 1);
+    smSyncToolbarButtons();
+    if (smMultiMode) { renderSessionsPanel(); renderSessionTabs(); }
     renderOrderList();
     renderScheduleTable();
+  }
+
+  function assignItemToSession(fromSessionId, idx, toSessionId) {
+    if (!smMultiMode || fromSessionId === toSessionId) return;
+    if (ScheduleMakerMulti.moveItemBetweenSessions(smSessions, fromSessionId, idx, toSessionId)) {
+      renderSessionsPanel();
+      renderSessionTabs();
+      renderOrderList();
+      renderScheduleTable();
+    }
   }
 
   // ── Render order list ────────────────────────────────────
   function renderOrderList() {
     const listEl = document.getElementById('sm-order-list');
     listEl.innerHTML = '';
+    listEl.classList.remove('sm-order-list-grouped');
 
-    if (orderItems.length === 0) {
+    if (!smHasAnyItems()) {
       const empty = document.createElement('div');
       empty.className = 'sm-order-empty';
       empty.textContent = typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply.';
@@ -2103,27 +2609,95 @@
     }
 
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
+    const studWord = typeof t === 'function' ? t('smTotalStudents') : 'students';
+    const roomLabel = typeof t === 'function' ? t('smLabelRoom') : 'Room';
 
-    orderItems.forEach((item, idx) => {
+    const buildAssignPills = (currentSessionId, idx) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'sm-assign-pills';
+      smSessions.forEach((sess, sIdx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'sm-assign-pill' + (sess.id === currentSessionId ? ' active' : '');
+        btn.textContent = sess.date ? sess.date.slice(5) : String(sIdx + 1);
+        btn.title = (sess.label || ('Schedule ' + (sIdx + 1))) + (sess.date ? ' (' + sess.date + ')' : '');
+        btn.onclick = () => assignItemToSession(currentSessionId, idx, sess.id);
+        wrap.appendChild(btn);
+      });
+      return wrap;
+    };
+
+    const buildOrderRow = ({ item, idx, sessionId }, containerEl) => {
       const row = document.createElement('div');
       row.className = 'sm-row' + (item.type === 'break' ? ' sm-break-row' : '');
       row.draggable = true;
       row.dataset.index = idx;
+      row.dataset.sessionId = sessionId || '';
 
-      // Drag handle
       const handle = document.createElement('div');
       handle.className = 'sm-handle';
       handle.textContent = '⠿';
 
+      const timingEl = document.createElement('div');
+      timingEl.className = 'sm-row-timing';
+
       if (item.type === 'break') {
-        const breakDur = parseInt(document.getElementById('sm-break-dur').value) || 15;
+        const globalBreakDur = Math.max(1, parseInt(document.getElementById('sm-break-dur').value, 10) || 15);
+        const itemDur = Math.max(1, parseInt(item.duration, 10) || globalBreakDur);
         const label = document.createElement('div');
         label.className = 'sm-break-label';
-        const brFmt = typeof tFmt === 'function' ? tFmt('smBreakRow', {duration: breakDur}) : 'Break – ' + breakDur + ' min';
-        label.textContent = brFmt;
-        const del = makeDelBtn(idx);
+        const updateBreakRowLabel = (durVal) => {
+          const brFmt = typeof tFmt === 'function' ? tFmt('smBreakRow', { duration: durVal }) : 'Break – ' + durVal + ' min';
+          label.textContent = brFmt;
+        };
+        updateBreakRowLabel(itemDur);
+
+        const breakControls = document.createElement('div');
+        breakControls.className = 'sm-break-controls';
+
+        const startWrap = document.createElement('label');
+        startWrap.className = 'sm-break-ctrl-label';
+        const startLblSpan = document.createElement('span');
+        startLblSpan.textContent = typeof t === 'function' ? t('smBreakStartLabel') : 'Start';
+        const startInput = document.createElement('input');
+        startInput.type = 'time';
+        startInput.className = 'sm-break-start-input';
+        startInput.value = item.startTime || '';
+        startInput.addEventListener('change', () => {
+          item.startTime = startInput.value || '';
+          renderScheduleTable();
+        });
+        startWrap.appendChild(startLblSpan);
+        startWrap.appendChild(startInput);
+
+        const durWrap = document.createElement('label');
+        durWrap.className = 'sm-break-ctrl-label';
+        const durInput = document.createElement('input');
+        durInput.type = 'number';
+        durInput.min = '1';
+        durInput.max = '240';
+        durInput.className = 'sm-break-dur-input';
+        durInput.value = String(itemDur);
+        durInput.addEventListener('change', () => {
+          const val = Math.max(1, parseInt(durInput.value, 10) || globalBreakDur);
+          durInput.value = String(val);
+          item.duration = val;
+          updateBreakRowLabel(val);
+          renderScheduleTable();
+        });
+        const minSpan = document.createElement('span');
+        minSpan.textContent = 'min';
+        durWrap.appendChild(durInput);
+        durWrap.appendChild(minSpan);
+
+        breakControls.appendChild(startWrap);
+        breakControls.appendChild(durWrap);
+
+        const del = makeDelBtn(idx, sessionId);
         row.appendChild(handle);
         row.appendChild(label);
+        row.appendChild(timingEl);
+        row.appendChild(breakControls);
         row.appendChild(del);
       } else if (item.type === 'group') {
         row.className = 'sm-row sm-group-row' + (item.excluded ? ' excluded' : '');
@@ -2141,41 +2715,40 @@
 
         const controls = document.createElement('div');
         controls.className = 'sm-row-controls';
+        if (smMultiMode) controls.appendChild(buildAssignPills(sessionId, idx));
 
-        // Include toggle
         const includeToggle = document.createElement('label');
         includeToggle.className = 'sm-include-toggle';
         const includeCb = document.createElement('input');
         includeCb.type = 'checkbox';
         includeCb.checked = !item.excluded;
-        includeCb.onchange = () => toggleIncluded(idx);
+        includeCb.onchange = () => toggleIncluded(idx, sessionId);
         includeToggle.appendChild(includeCb);
         includeToggle.appendChild(document.createTextNode(typeof t === 'function' ? t('smInclude') : 'Include'));
 
-        // SEN toggle
         const senToggle = document.createElement('label');
         senToggle.className = 'sm-sen-toggle' + (item.sen ? ' sen-active' : '');
         const senCb = document.createElement('input');
         senCb.type = 'checkbox';
         senCb.checked = item.sen;
-        senCb.onchange = () => toggleSen(idx);
+        senCb.onchange = () => toggleSen(idx, sessionId);
         senToggle.appendChild(senCb);
         senToggle.appendChild(document.createTextNode(senLabel));
 
-        // Ungroup button
         const ungroupBtn = document.createElement('button');
         ungroupBtn.type = 'button';
         ungroupBtn.className = 'sm-ungroup-btn';
         ungroupBtn.textContent = typeof t === 'function' ? t('smUngroupBtn') : 'Ungroup';
-        ungroupBtn.onclick = () => ungroupItem(idx);
+        ungroupBtn.onclick = () => ungroupItem(idx, sessionId);
 
         controls.appendChild(includeToggle);
         controls.appendChild(senToggle);
         controls.appendChild(ungroupBtn);
 
-        const del = makeDelBtn(idx);
+        const del = makeDelBtn(idx, sessionId);
         row.appendChild(handle);
         row.appendChild(header);
+        row.appendChild(timingEl);
         row.appendChild(controls);
         row.appendChild(del);
       } else {
@@ -2184,16 +2757,23 @@
         const nameEl = document.createElement('div');
         nameEl.className = 'sm-row-name';
         nameEl.textContent = item.name;
+        if (item.customName && item.customName.toUpperCase() !== item.name.toUpperCase()) {
+          const customTag = document.createElement('span');
+          customTag.className = 'sm-custom-name-tag';
+          customTag.textContent = item.customName;
+          nameEl.appendChild(customTag);
+        }
 
         const controls = document.createElement('div');
         controls.className = 'sm-row-controls';
+        if (smMultiMode) controls.appendChild(buildAssignPills(sessionId, idx));
 
         const includeToggle = document.createElement('label');
         includeToggle.className = 'sm-include-toggle';
         const includeCb = document.createElement('input');
         includeCb.type = 'checkbox';
         includeCb.checked = !item.excluded;
-        includeCb.onchange = () => toggleIncluded(idx);
+        includeCb.onchange = () => toggleIncluded(idx, sessionId);
         includeToggle.appendChild(includeCb);
         includeToggle.appendChild(document.createTextNode(typeof t === 'function' ? t('smInclude') : 'Include'));
 
@@ -2202,65 +2782,250 @@
         const senCb = document.createElement('input');
         senCb.type = 'checkbox';
         senCb.checked = item.sen;
-        senCb.onchange = () => toggleSen(idx);
+        senCb.onchange = () => toggleSen(idx, sessionId);
         senToggle.appendChild(senCb);
         senToggle.appendChild(document.createTextNode(senLabel));
 
         controls.appendChild(includeToggle);
         controls.appendChild(senToggle);
 
-        const del = makeDelBtn(idx);
+        const del = makeDelBtn(idx, sessionId);
         row.appendChild(handle);
         row.appendChild(nameEl);
+        row.appendChild(timingEl);
         row.appendChild(controls);
         row.appendChild(del);
       }
 
-      // Drag events
       row.addEventListener('dragstart', e => {
         _dragSrcIdx = idx;
+        _dragSrcSessionId = sessionId;
         row.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
       });
       row.addEventListener('dragend', () => {
         row.classList.remove('dragging');
-        listEl.querySelectorAll('.sm-row').forEach(r => r.classList.remove('drag-over'));
+        listEl.querySelectorAll('.sm-row, .sm-order-subgroup-header').forEach(r => r.classList.remove('drag-over'));
       });
       row.addEventListener('dragover', e => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        listEl.querySelectorAll('.sm-row').forEach(r => r.classList.remove('drag-over'));
+        listEl.querySelectorAll('.sm-row, .sm-order-subgroup-header').forEach(r => r.classList.remove('drag-over'));
         row.classList.add('drag-over');
       });
       row.addEventListener('dragleave', () => row.classList.remove('drag-over'));
       row.addEventListener('drop', e => {
         e.preventDefault();
         row.classList.remove('drag-over');
-        if (_dragSrcIdx === null || _dragSrcIdx === idx) return;
-        const moved = orderItems.splice(_dragSrcIdx, 1)[0];
-        const targetIdx = idx > _dragSrcIdx ? idx - 1 : idx;
-        orderItems.splice(targetIdx, 0, moved);
+        if (_dragSrcIdx === null) return;
+        if (smMultiMode) {
+          if (_dragSrcSessionId === sessionId) {
+            if (_dragSrcIdx === idx) return;
+            const arr = smGetTargetItemsArray(sessionId);
+            const moved = arr.splice(_dragSrcIdx, 1)[0];
+            const targetIdx = idx > _dragSrcIdx ? idx - 1 : idx;
+            arr.splice(targetIdx, 0, moved);
+          } else {
+            const fromArr = smGetTargetItemsArray(_dragSrcSessionId);
+            const toArr = smGetTargetItemsArray(sessionId);
+            const moved = fromArr.splice(_dragSrcIdx, 1)[0];
+            toArr.splice(idx, 0, moved);
+            renderSessionsPanel();
+            renderSessionTabs();
+          }
+        } else {
+          if (_dragSrcIdx === idx) return;
+          const moved = orderItems.splice(_dragSrcIdx, 1)[0];
+          const targetIdx = idx > _dragSrcIdx ? idx - 1 : idx;
+          orderItems.splice(targetIdx, 0, moved);
+        }
         _dragSrcIdx = null;
+        _dragSrcSessionId = null;
         renderOrderList();
         renderScheduleTable();
       });
 
-      listEl.appendChild(row);
-    });
+      containerEl.appendChild(row);
+    };
+
+    if (smMultiMode && smActiveSessionId === 'all') {
+      listEl.classList.add('sm-order-list-grouped');
+      smSessions.forEach((sess, sIdx) => {
+        const subgroup = document.createElement('div');
+        subgroup.className = 'sm-order-subgroup';
+
+        const subHead = document.createElement('div');
+        subHead.className = 'sm-order-subgroup-header';
+
+        const left = document.createElement('div');
+        left.className = 'sm-order-subgroup-left';
+
+        const badge = document.createElement('span');
+        badge.className = 'sm-session-badge';
+        badge.textContent = String(sIdx + 1);
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'sm-order-subgroup-title';
+        titleEl.textContent = sess.label || ('Schedule ' + (sIdx + 1));
+
+        const metaParts = [];
+        if (sess.date) metaParts.push(sess.date);
+        if (sess.startTime) metaParts.push(sess.startTime);
+        if (sess.room) metaParts.push(roomLabel + ': ' + sess.room);
+
+        const metaEl = document.createElement('span');
+        metaEl.className = 'sm-order-subgroup-meta';
+        metaEl.textContent = metaParts.join(' · ');
+
+        left.appendChild(badge);
+        left.appendChild(titleEl);
+        if (metaParts.length) left.appendChild(metaEl);
+
+        const countEl = document.createElement('span');
+        countEl.className = 'sm-order-subgroup-count';
+        countEl.textContent = ScheduleMakerMulti.countActiveCandidates(sess.items) + ' ' + studWord;
+
+        const addBrBtn = document.createElement('button');
+        addBrBtn.type = 'button';
+        addBrBtn.className = 'sm-subgroup-add-break-btn';
+        addBrBtn.textContent = typeof t === 'function' ? t('smAddBreak') : '+ Add Break';
+        addBrBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          addBreak(sess.id);
+        });
+
+        const rightWrap = document.createElement('div');
+        rightWrap.style.display = 'inline-flex';
+        rightWrap.style.alignItems = 'center';
+        rightWrap.style.gap = '8px';
+        rightWrap.appendChild(addBrBtn);
+        rightWrap.appendChild(countEl);
+
+        subHead.appendChild(left);
+        subHead.appendChild(rightWrap);
+
+        subHead.addEventListener('dragover', e => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          subHead.classList.add('drag-over');
+        });
+        subHead.addEventListener('dragleave', () => subHead.classList.remove('drag-over'));
+        subHead.addEventListener('drop', e => {
+          e.preventDefault();
+          subHead.classList.remove('drag-over');
+          if (_dragSrcIdx === null || _dragSrcSessionId === sess.id) return;
+          assignItemToSession(_dragSrcSessionId, _dragSrcIdx, sess.id);
+          _dragSrcIdx = null;
+          _dragSrcSessionId = null;
+        });
+
+        subgroup.appendChild(subHead);
+
+        const items = sess.items || [];
+        if (items.length === 0) {
+          const emptySub = document.createElement('div');
+          emptySub.className = 'sm-order-subgroup-empty';
+          emptySub.textContent = typeof t === 'function' ? t('smMultiEmptySession') : 'No students assigned to this date yet.';
+          subgroup.appendChild(emptySub);
+        } else {
+          items.forEach((item, idx) => buildOrderRow({ item, idx, sessionId: sess.id }, subgroup));
+        }
+
+        listEl.appendChild(subgroup);
+      });
+      return;
+    }
+
+    let entries = [];
+    if (smMultiMode) {
+      const sess = smSessions.find(s => s.id === smActiveSessionId);
+      if (sess) {
+        (sess.items || []).forEach((item, idx) => {
+          entries.push({ item, idx, sessionId: sess.id });
+        });
+      }
+      if (entries.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'sm-order-empty';
+        empty.textContent = typeof t === 'function' ? t('smMultiEmptySession') : 'No students assigned to this date yet.';
+        listEl.appendChild(empty);
+        return;
+      }
+    } else {
+      entries = orderItems.map((item, idx) => ({ item, idx, sessionId: null }));
+    }
+
+    entries.forEach(entry => buildOrderRow(entry, listEl));
+    smUpdateOrderTimingBadges();
   }
 
-  function makeDelBtn(idx) {
+  function smUpdateOrderTimingBadges() {
+    const listEl = document.getElementById('sm-order-list');
+    if (!listEl) return;
+    const prepLbl = typeof t === 'function' ? t('smPrepShort') : 'Prep';
+    const examLbl = typeof t === 'function' ? t('smExamShort') : 'Exam';
+    const gapLbl = typeof t === 'function' ? t('smGapWarning') : 'Gap';
+
+    const applyForSession = (items, startTime, sessId) => {
+      const computed = computeScheduleForItems(items, startTime);
+      const byIndex = new Map();
+      let pendingGap = null;
+      computed.forEach(r => {
+        if (r.type === 'gap') {
+          pendingGap = r.duration;
+          return;
+        }
+        if (typeof r.sourceIndex === 'number') {
+          byIndex.set(r.sourceIndex, { row: r, gap: pendingGap });
+        }
+        pendingGap = null;
+      });
+
+      listEl.querySelectorAll('.sm-row').forEach(rowEl => {
+        if ((rowEl.dataset.sessionId || '') !== (sessId || '')) return;
+        const idx = parseInt(rowEl.dataset.index, 10);
+        const timingEl = rowEl.querySelector('.sm-row-timing');
+        if (!timingEl) return;
+        const entry = byIndex.get(idx);
+        if (!entry) {
+          timingEl.innerHTML = '<span class="sm-time-excluded">—</span>';
+          return;
+        }
+        const r = entry.row;
+        if (r.type === 'break') {
+          timingEl.innerHTML = '<span class="sm-time-break">' + minutesToTime(r.start) + ' → ' + minutesToTime(r.start + r.duration) + '</span>';
+          return;
+        }
+        let html = '';
+        if (entry.gap) {
+          html += '<span class="sm-gap-pill" title="' + escHtml(gapLbl) + '">+' + entry.gap + 'm</span>';
+        }
+        html += '<span class="sm-time-num">#' + r.num + '</span>'
+          + '<span class="sm-time-prep">' + escHtml(prepLbl) + ' ' + minutesToTime(r.prepStart) + '</span>'
+          + '<span class="sm-time-exam">' + escHtml(examLbl) + ' ' + minutesToTime(r.examStart) + '–' + minutesToTime(r.examEnd) + '</span>';
+        timingEl.innerHTML = html;
+      });
+    };
+
+    if (smMultiMode) {
+      smSessions.forEach(sess => applyForSession(sess.items, sess.startTime || '08:00', sess.id));
+    } else {
+      applyForSession(orderItems, document.getElementById('sm-start').value || '08:00', '');
+    }
+  }
+
+  function makeDelBtn(idx, sessionId) {
     const btn = document.createElement('button');
     btn.className = 'sm-row-del';
     btn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="Remove" style="width:12px;height:12px;" />';
     btn.title = typeof t === 'function' ? (t('smBtnRemove') || t('btnDelete') || 'Remove') : 'Remove';
-    btn.onclick = () => deleteItem(idx);
+    btn.onclick = () => deleteItem(idx, sessionId);
     return btn;
   }
 
   // ── Compute schedule ─────────────────────────────────────
-  function computeSchedule() {
-    const startTime = document.getElementById('sm-start').value || '08:00';
+  function computeScheduleForItems(items, startTimeOverride) {
+    const startTime = startTimeOverride || document.getElementById('sm-start').value || '08:00';
     const prepNormal = Math.max(1, parseInt(document.getElementById('sm-prep-normal').value) || 10);
     const prepSen    = Math.max(1, parseInt(document.getElementById('sm-prep-sen').value) || 20);
     const examTime   = Math.max(1, parseInt(document.getElementById('sm-exam-time').value) || 15);
@@ -2272,10 +3037,16 @@
     const results = [];
     let studentNum = 0;
 
-    for (const item of orderItems) {
+    const list = items || [];
+    for (let sourceIndex = 0; sourceIndex < list.length; sourceIndex++) {
+      const item = list[sourceIndex];
       if (item.type === 'break') {
-        results.push({ type: 'break', start: currentMinutes, duration: breakDur });
-        currentMinutes += breakDur;
+        const thisBreakDur = Math.max(1, parseInt(item.duration, 10) || breakDur);
+        const breakStartMin = (item.startTime && /^\d{2}:\d{2}$/.test(item.startTime))
+          ? timeToMinutes(item.startTime)
+          : currentMinutes;
+        results.push({ type: 'break', sourceIndex, start: breakStartMin, duration: thisBreakDur });
+        currentMinutes = breakStartMin + thisBreakDur;
         isFirstInSegment = true;
         prevExamStart = null;
         continue;
@@ -2301,7 +3072,7 @@
         }
 
         const examEnd = examStart + examTime;
-        results.push({ type: 'group', num: studentNum, label: item.label, members: item.members, sen: item.sen, prepStart, examStart, examEnd });
+        results.push({ type: 'group', sourceIndex, num: studentNum, label: item.label, members: item.members, sen: item.sen, prepStart, examStart, examEnd });
 
         prevExamStart = examStart;
         currentMinutes = examEnd;
@@ -2320,14 +3091,13 @@
         prepStart = prevExamStart;
         const slotTime = Math.max(examTime, prepTime);
         examStart = prevExamStart + slotTime;
-        // Flag if a gap occurs (examiner has to wait)
         if (prepTime > examTime) {
           results.push({ type: 'gap', duration: prepTime - examTime });
         }
       }
 
       const examEnd = examStart + examTime;
-      results.push({ type: 'student', num: studentNum, name: item.name, sen: item.sen, prepStart, examStart, examEnd });
+      results.push({ type: 'student', sourceIndex, num: studentNum, name: item.name, sen: item.sen, prepStart, examStart, examEnd });
 
       prevExamStart = examStart;
       currentMinutes = examEnd;
@@ -2337,13 +3107,19 @@
     return results;
   }
 
+  function computeSchedule() {
+    return computeScheduleForItems(orderItems);
+  }
+
   // ── Update print header ──────────────────────────────────
   function updatePrintHeader() {
     const title   = document.getElementById('sm-exam-title').value.trim();
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim();
-    const room    = document.getElementById('sm-room').value.trim();
-    const date    = document.getElementById('sm-date').value;
+    const room    = smMultiMode
+      ? [...new Set(smSessions.map(s => (s.room || '').trim()).filter(Boolean))].join(' / ')
+      : document.getElementById('sm-room').value.trim();
+    const date    = smMultiMode ? smSessions.map(s => s.date).filter(Boolean).join(' / ') : document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
 
     document.getElementById('sm-print-title').textContent = title || (typeof t === 'function' ? t('smTitle') : 'Schedule');
@@ -2363,26 +3139,7 @@
     add(typeof t === 'function' ? t('smLabelGroup') : 'Group', group);
   }
 
-  // ── Render schedule table ────────────────────────────────
-  function renderScheduleTable() {
-    const tbody = document.getElementById('sm-table-body');
-    const meta = document.getElementById('sm-schedule-meta');
-    tbody.innerHTML = '';
-    updatePrintHeader();
-
-    if (orderItems.length === 0) {
-      const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 6;
-      td.className = 'sm-table-empty';
-      td.textContent = typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply.';
-      tr.appendChild(td);
-      tbody.appendChild(tr);
-      meta.textContent = '';
-      return;
-    }
-
-    const rows = computeSchedule();
+  function smPopulateTableBody(tbody, rows) {
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
     const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
     const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
@@ -2459,7 +3216,6 @@
         return;
       }
 
-      // Student row
       studentCount++;
       lastExamEnd = row.examEnd;
 
@@ -2500,12 +3256,101 @@
       tbody.appendChild(tr);
     });
 
-    // Schedule metadata line
+    return { studentCount, lastExamEnd };
+  }
+
+  // ── Render schedule table ────────────────────────────────
+  function renderScheduleTable() {
+    const tbody = document.getElementById('sm-table-body');
+    const meta = document.getElementById('sm-schedule-meta');
+    const multiContainer = document.getElementById('sm-multi-schedule-container');
+    tbody.innerHTML = '';
+    if (multiContainer) multiContainer.innerHTML = '';
+    updatePrintHeader();
+    smUpdateOrderTimingBadges();
+
+    const durLabel = typeof t === 'function' ? t('smTotalDuration') : 'Total duration:';
+    const studLabel = typeof t === 'function' ? t('smTotalStudents') : 'students';
+
+    if (smMultiMode) {
+      let totalStudentsAll = 0;
+      smSessions.forEach((sess, idx) => {
+        const block = document.createElement('div');
+        block.className = 'sm-multi-schedule-block';
+
+        const head = document.createElement('div');
+        head.className = 'sm-multi-schedule-head';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'sm-multi-schedule-title';
+        const roomLabel = typeof t === 'function' ? t('smLabelRoom') : 'Room';
+        titleEl.textContent = (sess.label || ('Schedule ' + (idx + 1)))
+          + (sess.date ? ' — ' + sess.date : '')
+          + (sess.room ? ' · ' + roomLabel + ': ' + sess.room : '');
+
+        const rows = computeScheduleForItems(sess.items, sess.startTime || '08:00');
+        const statsWrap = document.createElement('div');
+        statsWrap.className = 'sm-multi-schedule-meta';
+
+        const tableWrap = document.createElement('div');
+        tableWrap.className = 'sm-table-wrap';
+        tableWrap.style.border = 'none';
+        tableWrap.style.borderRadius = '0';
+        const tbl = document.createElement('table');
+        tbl.className = 'sm-table';
+        const thead = document.getElementById('sm-table-head').cloneNode(true);
+        thead.removeAttribute('id');
+        const sBody = document.createElement('tbody');
+
+        if (rows.length === 0) {
+          const tr = document.createElement('tr');
+          const td = document.createElement('td');
+          td.colSpan = 6;
+          td.className = 'sm-table-empty';
+          td.textContent = typeof t === 'function' ? t('smMultiEmptySession') : 'No students assigned to this date yet.';
+          tr.appendChild(td);
+          sBody.appendChild(tr);
+        } else {
+          const { studentCount, lastExamEnd } = smPopulateTableBody(sBody, rows);
+          totalStudentsAll += studentCount;
+          if (studentCount > 0 && lastExamEnd > 0) {
+            const startMin = timeToMinutes(sess.startTime || '08:00');
+            const totalMin = lastExamEnd - startMin;
+            statsWrap.textContent = studentCount + ' ' + studLabel + ' · ' + durLabel + ' ' + totalMin + ' min (' + minutesToTime(startMin) + ' – ' + minutesToTime(lastExamEnd) + ')';
+          }
+        }
+
+        head.appendChild(titleEl);
+        head.appendChild(statsWrap);
+        tbl.appendChild(thead);
+        tbl.appendChild(sBody);
+        tableWrap.appendChild(tbl);
+        block.appendChild(head);
+        block.appendChild(tableWrap);
+        if (multiContainer) multiContainer.appendChild(block);
+      });
+      meta.textContent = totalStudentsAll > 0 ? (totalStudentsAll + ' ' + studLabel + ' · ' + smSessions.length + ' ' + (typeof t === 'function' ? t('smMultiSchedulePrefix') : 'Schedule')) : '';
+      return;
+    }
+
+    if (orderItems.length === 0) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 6;
+      td.className = 'sm-table-empty';
+      td.textContent = typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      meta.textContent = '';
+      return;
+    }
+
+    const rows = computeSchedule();
+    const { studentCount, lastExamEnd } = smPopulateTableBody(tbody, rows);
+
     if (studentCount > 0 && lastExamEnd > 0) {
       const startMin = timeToMinutes(document.getElementById('sm-start').value || '08:00');
       const totalMin = lastExamEnd - startMin;
-      const durLabel = typeof t === 'function' ? t('smTotalDuration') : 'Total duration:';
-      const studLabel = typeof t === 'function' ? t('smTotalStudents') : 'students';
       meta.textContent = studentCount + ' ' + studLabel + ' · ' + durLabel + ' ' + totalMin + ' min (' + minutesToTime(startMin) + ' – ' + minutesToTime(lastExamEnd) + ')';
     } else {
       meta.textContent = '';
@@ -2600,9 +3445,24 @@
               '<div class="cmt-wiz-section" style="display:flex;flex-direction:column;gap:10px;">' +
                 '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-prep" ' + (st.includePrep ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowPrep', 'Show preparation start times')) + '</span></label>' +
                 '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-sen" ' + (st.includeSen ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowSen', 'Show SEN accommodation badges (turn off for public door sheets)')) + '</span></label>' +
+              '</div>' +
+              '<div style="margin-top:14px;">' +
+                '<button type="button" id="sm-wiz-preview-btn" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 14px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">' +
+                  '<img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> ' +
+                  '<span>' + ctx.escHtml(tr('exportPreviewBtn', 'Live Preview')) + '</span>' +
+                '</button>' +
               '</div>';
             container.querySelector('#sm-wiz-prep').addEventListener('change', function () { st.includePrep = this.checked; });
             container.querySelector('#sm-wiz-sen').addEventListener('change', function () { st.includeSen = this.checked; });
+            container.querySelector('#sm-wiz-preview-btn').addEventListener('click', function () {
+              smActiveExportFormat = st.format || 'pdf';
+              smExportConfig.showPrep = !!st.includePrep;
+              smExportConfig.showSen = !!st.includeSen;
+              saveSmExportConfig();
+              var closeBtn = document.querySelector('#sm-export-wizard .cmt-wiz-close');
+              if (closeBtn) closeBtn.click();
+              openSmPreviewModal();
+            });
           }
         }
       ],
@@ -2899,8 +3759,10 @@
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim() || (typeof window.getAppTeacherName === 'function' ? window.getAppTeacherName() : '');
-    const room    = document.getElementById('sm-room').value.trim();
-    const date    = document.getElementById('sm-date').value;
+    const room    = smMultiMode
+      ? [...new Set(smSessions.map(s => (s.room || '').trim()).filter(Boolean))].join(' / ')
+      : document.getElementById('sm-room').value.trim();
+    const date    = smMultiMode ? smSessions.map(s => s.date).filter(Boolean).join(' / ') : document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
     const metaText = document.getElementById('sm-schedule-meta').textContent;
 
@@ -2918,77 +3780,116 @@
     if (opts.showExamEnd) columns.push({ name: typeof t === 'function' ? t('smColExamEnd') : 'Exam ends', width: '110px', class: 'sm-col-time' });
 
     const totalCols = columns.length || 1;
-    let rowsHtml = '';
-    const rows = computeSchedule();
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
     const breakLabel = typeof t === 'function' ? t('smBreakLabel') : 'Break';
     const gapLabel = typeof t === 'function' ? t('smGapWarning') : 'Gap (examiner waits)';
 
-    rows.forEach(row => {
-      if (row.type === 'gap') {
-        if (opts.showGaps) {
-          rowsHtml += `<tr class="sm-gap-tr"><td colspan="${totalCols}">[${esc(gapLabel)}] (${row.duration} min)</td></tr>`;
+    const buildRowsHtml = (rows) => {
+      let html = '';
+      rows.forEach(row => {
+        if (row.type === 'gap') {
+          if (opts.showGaps) {
+            html += `<tr class="sm-gap-tr"><td colspan="${totalCols}">[${esc(gapLabel)}] (${row.duration} min)</td></tr>`;
+          }
+          return;
         }
-        return;
-      }
-      if (row.type === 'break') {
-        if (opts.showBreaks) {
-          rowsHtml += `<tr class="sm-break-tr"><td colspan="${totalCols}">— ${esc(breakLabel)} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+        if (row.type === 'break') {
+          if (opts.showBreaks) {
+            html += `<tr class="sm-break-tr"><td colspan="${totalCols}">— ${esc(breakLabel)} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —</td></tr>`;
+          }
+          return;
         }
-        return;
-      }
-      if (row.type === 'group') {
+        if (row.type === 'group') {
+          let cells = '';
+          if (opts.showNum) cells += `<td class="sm-col-num">${row.num}</td>`;
+          cells += `
+            <td class="sm-col-student sm-group-names-cell">
+              <strong>${esc(row.label)}</strong><br>
+              <span style="font-weight:600;font-size:0.82rem;">${(row.members || []).map(esc).join(', ')}</span>
+            </td>
+          `;
+          if (opts.showSen) cells += `<td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>`;
+          if (opts.showPrep) cells += `<td class="sm-col-time">${minutesToTime(row.prepStart)}</td>`;
+          cells += `<td class="sm-col-time">${minutesToTime(row.examStart)}</td>`;
+          if (opts.showExamEnd) cells += `<td class="sm-col-time">${minutesToTime(row.examEnd)}</td>`;
+          html += `<tr class="sm-group-tr">${cells}</tr>`;
+          return;
+        }
         let cells = '';
         if (opts.showNum) cells += `<td class="sm-col-num">${row.num}</td>`;
-        cells += `
-          <td class="sm-col-student sm-group-names-cell">
-            <strong>${esc(row.label)}</strong><br>
-            <span style="font-weight:600;font-size:0.82rem;">${(row.members || []).map(esc).join(', ')}</span>
-          </td>
-        `;
+        cells += `<td class="sm-col-student">${esc(row.name)}</td>`;
         if (opts.showSen) cells += `<td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>`;
         if (opts.showPrep) cells += `<td class="sm-col-time">${minutesToTime(row.prepStart)}</td>`;
         cells += `<td class="sm-col-time">${minutesToTime(row.examStart)}</td>`;
         if (opts.showExamEnd) cells += `<td class="sm-col-time">${minutesToTime(row.examEnd)}</td>`;
-
-        rowsHtml += `<tr class="sm-group-tr">${cells}</tr>`;
-        return;
+        html += `<tr>${cells}</tr>`;
+      });
+      if (rows.length === 0) {
+        const noScheduleText = typeof t === 'function' ? t('smNoScheduleGenerated') : 'No schedule generated.';
+        html = `<tr><td colspan="${totalCols}" style="text-align:center;color:#64748b;padding:24px;">${esc(noScheduleText)}</td></tr>`;
       }
-      let cells = '';
-      if (opts.showNum) cells += `<td class="sm-col-num">${row.num}</td>`;
-      cells += `<td class="sm-col-student">${esc(row.name)}</td>`;
-      if (opts.showSen) cells += `<td class="sm-col-sen">${row.sen ? `<span class="sm-sen-badge">${esc(senLabel)}</span>` : ''}</td>`;
-      if (opts.showPrep) cells += `<td class="sm-col-time">${minutesToTime(row.prepStart)}</td>`;
-      cells += `<td class="sm-col-time">${minutesToTime(row.examStart)}</td>`;
-      if (opts.showExamEnd) cells += `<td class="sm-col-time">${minutesToTime(row.examEnd)}</td>`;
+      return html;
+    };
 
-      rowsHtml += `<tr>${cells}</tr>`;
-    });
+    const buildMetaBox = (sessDate, sessRoom) => {
+      if (!opts.showMetadata) return '';
+      const items = [];
+      if (subject) items.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</span> <span class="meta-val">${esc(subject)}</span></div>`);
+      if (teacher) items.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</span> <span class="meta-val">${esc(teacher)}</span></div>`);
+      if (sessRoom) items.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</span> <span class="meta-val">${esc(sessRoom)}</span></div>`);
+      if (sessDate) items.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</span> <span class="meta-val">${esc(sessDate)}</span></div>`);
+      if (group)   items.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</span> <span class="meta-val">${esc(group)}</span></div>`);
+      return items.length ? `<div class="meta-box">${items.join('')}</div>` : '';
+    };
 
-    if (rows.length === 0) {
-      const noScheduleText = typeof t === 'function' ? t('smNoScheduleGenerated') : 'No schedule generated.';
-      rowsHtml = `<tr><td colspan="${totalCols}" style="text-align:center;color:#64748b;padding:24px;">${esc(noScheduleText)}</td></tr>`;
-    }
-
-    const metaItems = [];
-    if (opts.showMetadata) {
-      if (subject) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelSubject') : 'Subject'}:</span> <span class="meta-val">${esc(subject)}</span></div>`);
-      if (teacher) metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelTeacher') : 'Teacher'}:</span> <span class="meta-val">${esc(teacher)}</span></div>`);
-      if (room)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelRoom') : 'Room'}:</span> <span class="meta-val">${esc(room)}</span></div>`);
-      if (date)    metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelDate') : 'Date'}:</span> <span class="meta-val">${esc(date)}</span></div>`);
-      if (group)   metaItems.push(`<div class="meta-item"><span class="meta-label">${typeof t === 'function' ? t('smLabelGroup') : 'Group'}:</span> <span class="meta-val">${esc(group)}</span></div>`);
-    }
-
-    const metaHtml = metaItems.length ? `<div class="meta-box">${metaItems.join('')}</div>` : '';
+    const metaHtml = buildMetaBox(date, room);
     const footerHtml = (opts.showFooter && metaText) ? `<div class="schedule-footer exp-footer"><span class="exp-footer-left">${esc(metaText)}</span>${teacher ? `<span class="exp-footer-right">${esc(teacher)}</span>` : ''}</div>` : '';
 
     const colGroup = columns.map((col, i) => `<col data-col="${i}"${col.width ? ` style="width:${col.width}"` : ''}>`).join('');
     const headerCells = columns.map((col, i) => `<th class="${col.class}"><span class="th-wrap">${esc(col.name)}<span class="col-resizer" data-col="${i}"></span></span></th>`).join('');
 
+    let bodyContentHtml = '';
+    if (smMultiMode) {
+      const roomLbl = typeof t === 'function' ? t('smLabelRoom') : 'Room';
+      smSessions.forEach((sess, idx) => {
+        const sRows = computeScheduleForItems(sess.items, sess.startTime || '08:00');
+        const heading = (sess.label || ('Schedule ' + (idx + 1)))
+          + (sess.date ? ' — ' + sess.date : '')
+          + (sess.startTime ? ' (' + sess.startTime + ')' : '')
+          + (sess.room ? ' · ' + roomLbl + ': ' + sess.room : '');
+        const sessMetaHtml = buildMetaBox(sess.date || '', sess.room || '');
+        bodyContentHtml += `<div class="sm-session-page">
+          <h1>${esc(title)}</h1>
+          ${sessMetaHtml}
+          <h2 class="sm-session-heading">${esc(heading)}</h2>
+          <table${idx === 0 ? ' id="schedule-export-table"' : ''}>
+            <colgroup>${colGroup}</colgroup>
+            <thead><tr>${headerCells}</tr></thead>
+            <tbody>${buildRowsHtml(sRows)}</tbody>
+          </table>
+          ${footerHtml}
+        </div>`;
+      });
+    } else {
+      bodyContentHtml = `<h1>${esc(title)}</h1>
+        ${metaHtml}
+        <table id="schedule-export-table">
+          <colgroup>${colGroup}</colgroup>
+          <thead><tr>${headerCells}</tr></thead>
+          <tbody>${buildRowsHtml(computeSchedule())}</tbody>
+        </table>
+        ${footerHtml}`;
+    }
+
     const css = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
       body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #222222; background: #ffffff; margin: 0; padding: 0; line-height: 1.4; }
       h1 { font-size: 20px; font-weight: 800; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+      .sm-session-heading { font-size: 14px; font-weight: 800; color: #222222; margin: 12px 0 8px; padding: 4px 8px; background: #fafaf7; border-left: 4px solid #333333; }
+      .sm-session-page + .sm-session-page { margin-top: 28px; page-break-before: always; break-before: page; }
+      @media print {
+        .sm-session-page + .sm-session-page { margin-top: 0; page-break-before: always; break-before: page; }
+      }
       .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #555555; }
       .meta-item { display: flex; gap: 6px; align-items: center; }
       .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
@@ -3063,18 +3964,7 @@
   <style>${css}</style>
 </head>
 <body${editableAttr}>
-  <h1>${esc(title)}</h1>
-  ${metaHtml}
-  <table id="schedule-export-table">
-    <colgroup>${colGroup}</colgroup>
-    <thead>
-      <tr>${headerCells}</tr>
-    </thead>
-    <tbody>
-      ${rowsHtml}
-    </tbody>
-  </table>
-  ${footerHtml}
+  ${bodyContentHtml}
   ${'<script>' + resizeScript + '; ' + editableScript + '</' + 'script>'}
 </body>
 </html>`;
@@ -3082,7 +3972,7 @@
 
   async function exportPdf(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
-    if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
+    if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
@@ -3100,7 +3990,39 @@
 
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
       try {
-        const result = await Desktop.printPdf({ html, defaultName, landscape: pdfSettings.isLandscape, pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape } });
+        const pdfMargins = { top: 0.63, bottom: 0.63, left: 0.55, right: 0.55 };
+        const pdfOpts = {
+          pageSize: pdfSettings.pageSize,
+          landscape: pdfSettings.isLandscape,
+          margins: pdfMargins
+        };
+        if (window.saveExportWithDestination) {
+          const genRes = await Desktop.printPdf({
+            html,
+            defaultName,
+            landscape: pdfSettings.isLandscape,
+            previewOnly: true,
+            pdfOptions: pdfOpts
+          });
+          if (!genRes || !genRes.ok || !genRes.base64) {
+            const errPrefix = typeof t === 'function' ? t('smPdfSaveError') : 'Could not save PDF:';
+            const unknownErr = typeof t === 'function' ? t('smUnknownError') : 'unknown error';
+            showNotice(errPrefix + ' ' + ((genRes && genRes.error) || unknownErr), true);
+            return;
+          }
+          const binStr = atob(genRes.base64);
+          const bytes = new Uint8Array(binStr.length);
+          for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+          const pdfBlob = new Blob([bytes], { type: 'application/pdf' });
+          return await window.saveExportWithDestination({
+            filename: defaultName,
+            content: pdfBlob,
+            mimeType: 'application/pdf',
+            filters: [{ name: 'PDF Document', extensions: ['pdf'] }, { name: 'All Files', extensions: ['*'] }],
+            title: typeof t === 'function' ? (t('deSaveFileTitle') || 'Save File') : 'Save File'
+          });
+        }
+        const result = await Desktop.printPdf({ html, defaultName, landscape: pdfSettings.isLandscape, pdfOptions: pdfOpts });
         if (result && result.ok) {
           if (window.showExportSuccessPopup && result.path) {
             showExportSuccessPopup(result.path, result.name || defaultName);
@@ -3123,7 +4045,7 @@
 
   function exportCsv(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
-    if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
+    if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
@@ -3131,7 +4053,9 @@
     const title   = document.getElementById('sm-exam-title').value.trim();
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim();
-    const room    = document.getElementById('sm-room').value.trim();
+    const room    = smMultiMode
+      ? [...new Set(smSessions.map(s => (s.room || '').trim()).filter(Boolean))].join(' / ')
+      : document.getElementById('sm-room').value.trim();
     const date    = document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
@@ -3181,41 +4105,56 @@
     rows.push(colHeaders.map(esc).join(','));
 
     // Data rows
-    const schedule = computeSchedule();
-    schedule.forEach(row => {
-      if (row.type === 'gap') return;
-      if (row.type === 'break') {
-        if (!opts.showBreaks) return;
-        const breakCells = [];
-        if (opts.showNum) breakCells.push('');
-        breakCells.push(`— ${breakLabel} —`);
-        if (opts.showSen) breakCells.push('');
-        if (opts.showPrep) breakCells.push(minutesToTime(row.start));
-        breakCells.push(minutesToTime(row.start + row.duration));
-        if (opts.showExamEnd) breakCells.push('(' + row.duration + ' min)');
-        rows.push(breakCells.map(esc).join(','));
-        return;
-      }
-      if (row.type === 'group') {
-        const groupCells = [];
-        if (opts.showNum) groupCells.push(row.num);
-        groupCells.push(`[${row.label}] ${(row.members || []).join('; ')}`);
-        if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
-        if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
-        groupCells.push(minutesToTime(row.examStart));
-        if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
-        rows.push(groupCells.map(esc).join(','));
-        return;
-      }
-      const studentCells = [];
-      if (opts.showNum) studentCells.push(row.num);
-      studentCells.push(row.name);
-      if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
-      if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
-      studentCells.push(minutesToTime(row.examStart));
-      if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
-      rows.push(studentCells.map(esc).join(','));
-    });
+    const appendCsvScheduleRows = (schedule) => {
+      schedule.forEach(row => {
+        if (row.type === 'gap') return;
+        if (row.type === 'break') {
+          if (!opts.showBreaks) return;
+          const breakCells = [];
+          if (opts.showNum) breakCells.push('');
+          breakCells.push(`— ${breakLabel} —`);
+          if (opts.showSen) breakCells.push('');
+          if (opts.showPrep) breakCells.push(minutesToTime(row.start));
+          breakCells.push(minutesToTime(row.start + row.duration));
+          if (opts.showExamEnd) breakCells.push('(' + row.duration + ' min)');
+          rows.push(breakCells.map(esc).join(','));
+          return;
+        }
+        if (row.type === 'group') {
+          const groupCells = [];
+          if (opts.showNum) groupCells.push(row.num);
+          groupCells.push(`[${row.label}] ${(row.members || []).join('; ')}`);
+          if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
+          if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
+          groupCells.push(minutesToTime(row.examStart));
+          if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
+          rows.push(groupCells.map(esc).join(','));
+          return;
+        }
+        const studentCells = [];
+        if (opts.showNum) studentCells.push(row.num);
+        studentCells.push(row.name);
+        if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
+        if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
+        studentCells.push(minutesToTime(row.examStart));
+        if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
+        rows.push(studentCells.map(esc).join(','));
+      });
+    };
+
+    if (smMultiMode) {
+      smSessions.forEach((sess, idx) => {
+        if (idx > 0) rows.push('');
+        const heading = (sess.label || ('Schedule ' + (idx + 1)))
+          + (sess.date ? ' - ' + sess.date : '')
+          + (sess.startTime ? ' (' + sess.startTime + ')' : '')
+          + (sess.room ? ' - ' + labelRoom + ': ' + sess.room : '');
+        rows.push(esc(heading));
+        appendCsvScheduleRows(computeScheduleForItems(sess.items, sess.startTime || '08:00'));
+      });
+    } else {
+      appendCsvScheduleRows(computeSchedule());
+    }
 
     const stamp = date || new Date().toISOString().slice(0, 10);
     const content = rows.join('\r\n');
@@ -3224,7 +4163,7 @@
 
   function exportXlsx(opts, format = 'xlsx') {
     opts = Object.assign({}, smExportConfig, opts || {});
-    if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
+    if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
@@ -3232,7 +4171,9 @@
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim();
-    const room    = document.getElementById('sm-room').value.trim();
+    const room    = smMultiMode
+      ? [...new Set(smSessions.map(s => (s.room || '').trim()).filter(Boolean))].join(' / ')
+      : document.getElementById('sm-room').value.trim();
     const date    = document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
     const senLabel = typeof t === 'function' ? t('smColSen') : 'SEN';
@@ -3272,60 +4213,83 @@
     if (opts.showExamEnd) colHeaders.push(colExamEnd);
     aoa.push(colHeaders);
 
-    // Table Rows
-    const schedule = computeSchedule();
-    schedule.forEach(row => {
-      if (row.type === 'gap') {
-        if (!opts.showGaps) return;
-        const gapCells = [];
-        if (opts.showNum) gapCells.push('');
-        gapCells.push(`[${gapLabel}] (${row.duration} min)`);
-        while (gapCells.length < colHeaders.length) gapCells.push('');
-        aoa.push(gapCells);
-        return;
+    const buildXlsxSheetAoa = (schedule, includeMeta) => {
+      const sheetAoa = [];
+      if (includeMeta && opts.showMetadata) {
+        if (title)   sheetAoa.push([labelTitle, title]);
+        if (subject) sheetAoa.push([labelSubject, subject]);
+        if (teacher) sheetAoa.push([labelTeacher, teacher]);
+        if (room)    sheetAoa.push([labelRoom, room]);
+        if (date)    sheetAoa.push([labelDate, date]);
+        if (group)   sheetAoa.push([labelGroup, group]);
+        if (sheetAoa.length) sheetAoa.push([]);
       }
-      if (row.type === 'break') {
-        if (!opts.showBreaks) return;
-        const breakCells = [];
-        if (opts.showNum) breakCells.push('');
-        breakCells.push(`— ${breakLabel} (${row.duration} min) —`);
-        if (opts.showSen) breakCells.push('');
-        if (opts.showPrep) breakCells.push(minutesToTime(row.start));
-        breakCells.push(minutesToTime(row.start + row.duration));
-        if (opts.showExamEnd) breakCells.push('');
-        aoa.push(breakCells);
-        return;
-      }
-      if (row.type === 'group') {
-        const groupCells = [];
-        if (opts.showNum) groupCells.push(row.num);
-        groupCells.push(`[${row.label}] ${(row.members || []).join(', ')}`);
-        if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
-        if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
-        groupCells.push(minutesToTime(row.examStart));
-        if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
-        aoa.push(groupCells);
-        return;
-      }
-      const studentCells = [];
-      if (opts.showNum) studentCells.push(row.num);
-      studentCells.push(row.name);
-      if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
-      if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
-      studentCells.push(minutesToTime(row.examStart));
-      if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
-      aoa.push(studentCells);
-    });
+      sheetAoa.push(colHeaders);
+      schedule.forEach(row => {
+        if (row.type === 'gap') {
+          if (!opts.showGaps) return;
+          const gapCells = [];
+          if (opts.showNum) gapCells.push('');
+          gapCells.push(`[${gapLabel}] (${row.duration} min)`);
+          while (gapCells.length < colHeaders.length) gapCells.push('');
+          sheetAoa.push(gapCells);
+          return;
+        }
+        if (row.type === 'break') {
+          if (!opts.showBreaks) return;
+          const breakCells = [];
+          if (opts.showNum) breakCells.push('');
+          breakCells.push(`— ${breakLabel} (${row.duration} min) —`);
+          if (opts.showSen) breakCells.push('');
+          if (opts.showPrep) breakCells.push(minutesToTime(row.start));
+          breakCells.push(minutesToTime(row.start + row.duration));
+          if (opts.showExamEnd) breakCells.push('');
+          sheetAoa.push(breakCells);
+          return;
+        }
+        if (row.type === 'group') {
+          const groupCells = [];
+          if (opts.showNum) groupCells.push(row.num);
+          groupCells.push(`[${row.label}] ${(row.members || []).join(', ')}`);
+          if (opts.showSen) groupCells.push(row.sen ? senLabel : '');
+          if (opts.showPrep) groupCells.push(minutesToTime(row.prepStart));
+          groupCells.push(minutesToTime(row.examStart));
+          if (opts.showExamEnd) groupCells.push(minutesToTime(row.examEnd));
+          sheetAoa.push(groupCells);
+          return;
+        }
+        const studentCells = [];
+        if (opts.showNum) studentCells.push(row.num);
+        studentCells.push(row.name);
+        if (opts.showSen) studentCells.push(row.sen ? senLabel : '');
+        if (opts.showPrep) studentCells.push(minutesToTime(row.prepStart));
+        studentCells.push(minutesToTime(row.examStart));
+        if (opts.showExamEnd) studentCells.push(minutesToTime(row.examEnd));
+        sheetAoa.push(studentCells);
+      });
+      return sheetAoa;
+    };
 
     if (typeof XLSX === 'undefined') {
       showNotice(typeof t === 'function' ? t('smXlsxNotLoaded') : 'XLSX library not loaded', true);
       return;
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
-    const sheetName = (typeof t === 'function' ? t('smSectionSchedule') : 'Schedule') || 'Schedule';
-    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const baseSheetName = (typeof t === 'function' ? t('smSectionSchedule') : 'Schedule') || 'Schedule';
+    if (smMultiMode) {
+      smSessions.forEach((sess, idx) => {
+        const sAoa = buildXlsxSheetAoa(computeScheduleForItems(sess.items, sess.startTime || '08:00'), idx === 0);
+        const ws = XLSX.utils.aoa_to_sheet(sAoa);
+        const rawName = (sess.label || (baseSheetName + ' ' + (idx + 1))) + (sess.date ? ' ' + sess.date : '');
+        const safeSheet = rawName.replace(/[\\/?*[\]:]/g, '-').slice(0, 31) || (baseSheetName + ' ' + (idx + 1));
+        XLSX.utils.book_append_sheet(wb, ws, safeSheet);
+      });
+    } else {
+      const sAoa = buildXlsxSheetAoa(computeSchedule(), true);
+      const ws = XLSX.utils.aoa_to_sheet(sAoa);
+      XLSX.utils.book_append_sheet(wb, ws, baseSheetName);
+    }
 
     try {
       const isOds = format === 'ods';
@@ -3342,7 +4306,7 @@
 
   async function exportDocx(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
-    if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
+    if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
@@ -3350,7 +4314,9 @@
     const title   = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
     const subject = document.getElementById('sm-subject').value.trim();
     const teacher = document.getElementById('sm-teacher').value.trim();
-    const room    = document.getElementById('sm-room').value.trim();
+    const room    = smMultiMode
+      ? [...new Set(smSessions.map(s => (s.room || '').trim()).filter(Boolean))].join(' / ')
+      : document.getElementById('sm-room').value.trim();
     const date    = document.getElementById('sm-date').value;
     const group   = document.getElementById('sm-group').value;
     const metaText = document.getElementById('sm-schedule-meta').textContent;
@@ -3393,52 +4359,67 @@
       mdHeaders.push(colExamStart); mdSeparators.push('-------------');
       if (opts.showExamEnd) { mdHeaders.push(colExamEnd); mdSeparators.push('-----------'); }
 
-      md += `| ${mdHeaders.join(' | ')} |\n`;
-      md += `| ${mdSeparators.join(' | ')} |\n`;
+      const appendMdTable = (schedule) => {
+        md += `| ${mdHeaders.join(' | ')} |\n`;
+        md += `| ${mdSeparators.join(' | ')} |\n`;
+        schedule.forEach(row => {
+          if (row.type === 'gap') {
+            if (!opts.showGaps) return;
+            const gapRow = [];
+            if (opts.showNum) gapRow.push('');
+            gapRow.push(`*[${gapLabel}] (${row.duration} min)*`);
+            while (gapRow.length < mdHeaders.length) gapRow.push('');
+            md += `| ${gapRow.join(' | ')} |\n`;
+            return;
+          }
+          if (row.type === 'break') {
+            if (!opts.showBreaks) return;
+            const breakRow = [];
+            if (opts.showNum) breakRow.push('');
+            breakRow.push(`*— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —*`);
+            if (opts.showSen) breakRow.push('');
+            if (opts.showPrep) breakRow.push('');
+            breakRow.push('');
+            if (opts.showExamEnd) breakRow.push('');
+            md += `| ${breakRow.join(' | ')} |\n`;
+            return;
+          }
+          if (row.type === 'group') {
+            const groupRow = [];
+            if (opts.showNum) groupRow.push(row.num);
+            groupRow.push(`**${row.label}** – ${(row.members || []).join(', ')}`);
+            if (opts.showSen) groupRow.push(row.sen ? senLabel : '');
+            if (opts.showPrep) groupRow.push(minutesToTime(row.prepStart));
+            groupRow.push(minutesToTime(row.examStart));
+            if (opts.showExamEnd) groupRow.push(minutesToTime(row.examEnd));
+            md += `| ${groupRow.join(' | ')} |\n`;
+            return;
+          }
+          const studentRow = [];
+          if (opts.showNum) studentRow.push(row.num);
+          studentRow.push(row.name);
+          if (opts.showSen) studentRow.push(row.sen ? senLabel : '');
+          if (opts.showPrep) studentRow.push(minutesToTime(row.prepStart));
+          studentRow.push(minutesToTime(row.examStart));
+          if (opts.showExamEnd) studentRow.push(minutesToTime(row.examEnd));
+          md += `| ${studentRow.join(' | ')} |\n`;
+        });
+      };
 
-      const schedule = computeSchedule();
-      schedule.forEach(row => {
-        if (row.type === 'gap') {
-          if (!opts.showGaps) return;
-          const gapRow = [];
-          if (opts.showNum) gapRow.push('');
-          gapRow.push(`*[${gapLabel}] (${row.duration} min)*`);
-          while (gapRow.length < mdHeaders.length) gapRow.push('');
-          md += `| ${gapRow.join(' | ')} |\n`;
-          return;
-        }
-        if (row.type === 'break') {
-          if (!opts.showBreaks) return;
-          const breakRow = [];
-          if (opts.showNum) breakRow.push('');
-          breakRow.push(`*— ${breakLabel} ${minutesToTime(row.start)} &rarr; ${minutesToTime(row.start + row.duration)} (${row.duration} min) —*`);
-          if (opts.showSen) breakRow.push('');
-          if (opts.showPrep) breakRow.push('');
-          breakRow.push('');
-          if (opts.showExamEnd) breakRow.push('');
-          md += `| ${breakRow.join(' | ')} |\n`;
-          return;
-        }
-        if (row.type === 'group') {
-          const groupRow = [];
-          if (opts.showNum) groupRow.push(row.num);
-          groupRow.push(`**${row.label}** – ${(row.members || []).join(', ')}`);
-          if (opts.showSen) groupRow.push(row.sen ? senLabel : '');
-          if (opts.showPrep) groupRow.push(minutesToTime(row.prepStart));
-          groupRow.push(minutesToTime(row.examStart));
-          if (opts.showExamEnd) groupRow.push(minutesToTime(row.examEnd));
-          md += `| ${groupRow.join(' | ')} |\n`;
-          return;
-        }
-        const studentRow = [];
-        if (opts.showNum) studentRow.push(row.num);
-        studentRow.push(row.name);
-        if (opts.showSen) studentRow.push(row.sen ? senLabel : '');
-        if (opts.showPrep) studentRow.push(minutesToTime(row.prepStart));
-        studentRow.push(minutesToTime(row.examStart));
-        if (opts.showExamEnd) studentRow.push(minutesToTime(row.examEnd));
-        md += `| ${studentRow.join(' | ')} |\n`;
-      });
+      if (smMultiMode) {
+        smSessions.forEach((sess, idx) => {
+          if (idx > 0) md += `\n---\n\n`;
+          const heading = (sess.label || ('Schedule ' + (idx + 1)))
+            + (sess.date ? ' — ' + sess.date : '')
+            + (sess.startTime ? ' (' + sess.startTime + ')' : '')
+            + (sess.room ? ' · ' + labelRoom + ': ' + sess.room : '');
+          md += `## ${heading}\n\n`;
+          appendMdTable(computeScheduleForItems(sess.items, sess.startTime || '08:00'));
+          md += `\n`;
+        });
+      } else {
+        appendMdTable(computeSchedule());
+      }
 
       if (opts.showFooter && metaText) md += `\n*${metaText}*\n`;
 
@@ -3490,7 +4471,7 @@
 
   async function exportHtml(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
-    if (orderItems.filter(i => (i.type === 'student' || i.type === 'group') && !i.excluded).length === 0) {
+    if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
@@ -3511,73 +4492,117 @@
     }
   });
 
-  // ── Build schedule object for save/load ──────────────────
-  function buildScheduleObject() {
-    return {
-      title: document.getElementById('sm-exam-title').value.trim(),
-      subject: document.getElementById('sm-subject').value.trim(),
-      teacher: document.getElementById('sm-teacher').value.trim(),
-      room: document.getElementById('sm-room').value.trim(),
-      date: document.getElementById('sm-date').value,
-      startTime: document.getElementById('sm-start').value,
-      group: document.getElementById('sm-group').value,
-      semester: document.getElementById('sm-semester').value || null,
-      prepNormal: parseInt(document.getElementById('sm-prep-normal').value) || 10,
-      prepSen: parseInt(document.getElementById('sm-prep-sen').value) || 20,
-      examTime: parseInt(document.getElementById('sm-exam-time').value) || 15,
-      numBreaks: parseInt(document.getElementById('sm-num-breaks').value) || 0,
-      breakDuration: parseInt(document.getElementById('sm-break-dur').value) || 15,
-      items: orderItems.map(i => {
-        if (i.type === 'break') return { type: 'break' };
-        if (i.type === 'group') return { type: 'group', label: i.label || '', members: Array.isArray(i.members) ? i.members : [], sen: !!i.sen, excluded: !!i.excluded };
-        return { type: 'student', name: i.name, sen: !!i.sen, excluded: !!i.excluded };
-      })
-    };
-  }
-
-  function applyScheduleObject(obj) {
-    if (!obj) return;
-    document.getElementById('sm-exam-title').value = obj.title || '';
-    document.getElementById('sm-subject').value = obj.subject || '';
-    document.getElementById('sm-teacher').value = obj.teacher || '';
-    document.getElementById('sm-room').value = obj.room || '';
-    document.getElementById('sm-date').value = obj.date || '';
-    document.getElementById('sm-start').value = obj.startTime || '08:00';
-    document.getElementById('sm-prep-normal').value = obj.prepNormal || 10;
-    document.getElementById('sm-prep-sen').value = obj.prepSen || 20;
-    document.getElementById('sm-exam-time').value = obj.examTime || 15;
-    document.getElementById('sm-num-breaks').value = obj.numBreaks || 0;
-    document.getElementById('sm-break-dur').value = obj.breakDuration || 15;
-    if (obj.group) {
-      const sel = document.getElementById('sm-group');
-      for (let i = 0; i < sel.options.length; i++) {
-        if (sel.options[i].value === obj.group) { sel.selectedIndex = i; break; }
+    const serializeItem = i => {
+      if (i.type === 'break') {
+        const b = { type: 'break' };
+        if (i.duration) b.duration = parseInt(i.duration, 10);
+        if (i.startTime) b.startTime = i.startTime;
+        return b;
       }
-      smOnGroupChange(obj.group);
+      if (i.type === 'group') return { type: 'group', label: i.label || '', members: Array.isArray(i.members) ? i.members : [], memberDetails: Array.isArray(i.memberDetails) ? i.memberDetails : undefined, sen: !!i.sen, excluded: !!i.excluded };
+      return { type: 'student', name: i.name, firstName: i.firstName || '', lastName: i.lastName || '', customName: i.customName || '', sen: !!i.sen, excluded: !!i.excluded };
+    };
+
+    const deserializeItem = i => {
+      if (i.type === 'break') return { type: 'break', duration: i.duration || undefined, startTime: i.startTime || '' };
+      if (i.type === 'group') return { type: 'group', label: i.label || '', members: Array.isArray(i.members) ? i.members : [], memberDetails: Array.isArray(i.memberDetails) ? i.memberDetails : undefined, sen: !!i.sen, excluded: !!i.excluded };
+      return { type: 'student', name: i.name, firstName: i.firstName || '', lastName: i.lastName || '', customName: i.customName || '', sen: !!i.sen, excluded: !!i.excluded };
+    };
+
+    // ── Build schedule object for save/load ──────────────────
+    function buildScheduleObject() {
+      const firstSess = smMultiMode && smSessions[0] ? smSessions[0] : null;
+      return {
+        title: document.getElementById('sm-exam-title').value.trim(),
+        subject: document.getElementById('sm-subject').value.trim(),
+        teacher: document.getElementById('sm-teacher').value.trim(),
+        room: firstSess ? (firstSess.room || '') : document.getElementById('sm-room').value.trim(),
+        date: firstSess ? (firstSess.date || '') : document.getElementById('sm-date').value,
+        startTime: firstSess ? (firstSess.startTime || '08:00') : document.getElementById('sm-start').value,
+        group: document.getElementById('sm-group').value,
+        semester: document.getElementById('sm-semester').value || null,
+        prepNormal: parseInt(document.getElementById('sm-prep-normal').value) || 10,
+        prepSen: parseInt(document.getElementById('sm-prep-sen').value) || 20,
+        examTime: parseInt(document.getElementById('sm-exam-time').value) || 15,
+        numBreaks: parseInt(document.getElementById('sm-num-breaks').value) || 0,
+        breakDuration: parseInt(document.getElementById('sm-break-dur').value) || 15,
+        multiMode: smMultiMode,
+        linkedPlannerEntries: smLinkedPlannerEntries.length ? smLinkedPlannerEntries : undefined,
+        linkedGradeTest: smLinkedGradeTest || undefined,
+        sessions: smMultiMode ? smSessions.map(s => ({
+          id: s.id,
+          label: s.label || '',
+          date: s.date || '',
+          startTime: s.startTime || '08:00',
+          room: s.room || '',
+          items: (s.items || []).map(serializeItem)
+        })) : undefined,
+        items: (firstSess ? firstSess.items : orderItems).map(serializeItem)
+      };
     }
-    const semSel = document.getElementById('sm-semester');
-    if (semSel) semSel.value = obj.semester ? String(obj.semester) : '';
-    orderItems = (obj.items || []).map(i => {
-      if (i.type === 'break') return { type: 'break' };
-      if (i.type === 'group') return { type: 'group', label: i.label || '', members: Array.isArray(i.members) ? i.members : [], sen: !!i.sen, excluded: !!i.excluded };
-      return { type: 'student', name: i.name, sen: !!i.sen, excluded: !!i.excluded };
-    });
-    document.getElementById('sm-add-break-btn').disabled = orderItems.length === 0;
-    const addGroupBtn = document.getElementById('sm-add-group-btn');
-    if (addGroupBtn) addGroupBtn.disabled = orderItems.length === 0;
-    const autoGroupBtn = document.getElementById('sm-auto-group-btn');
-    if (autoGroupBtn) autoGroupBtn.disabled = orderItems.length === 0;
-    renderOrderList();
-    renderScheduleTable();
-  }
+
+    function applyScheduleObject(obj) {
+      if (!obj) return;
+      document.getElementById('sm-exam-title').value = obj.title || '';
+      document.getElementById('sm-subject').value = obj.subject || '';
+      document.getElementById('sm-teacher').value = obj.teacher || '';
+      document.getElementById('sm-room').value = obj.room || '';
+      document.getElementById('sm-date').value = obj.date || '';
+      document.getElementById('sm-start').value = obj.startTime || '08:00';
+      document.getElementById('sm-prep-normal').value = obj.prepNormal || 10;
+      document.getElementById('sm-prep-sen').value = obj.prepSen || 20;
+      document.getElementById('sm-exam-time').value = obj.examTime || 15;
+      document.getElementById('sm-num-breaks').value = obj.numBreaks || 0;
+      document.getElementById('sm-break-dur').value = obj.breakDuration || 15;
+      if (obj.group) {
+        const sel = document.getElementById('sm-group');
+        for (let i = 0; i < sel.options.length; i++) {
+          if (sel.options[i].value === obj.group) { sel.selectedIndex = i; break; }
+        }
+        smOnGroupChange(obj.group);
+      }
+      const semSel = document.getElementById('sm-semester');
+      if (semSel) semSel.value = obj.semester ? String(obj.semester) : '';
+
+      if (obj.multiMode && Array.isArray(obj.sessions) && obj.sessions.length > 0) {
+        smSessions = obj.sessions.map(s => ({
+          id: s.id || ScheduleMakerMulti.makeSessionId(),
+          label: s.label || '',
+          date: s.date || '',
+          startTime: s.startTime || '08:00',
+          room: s.room !== undefined ? s.room : (obj.room || ''),
+          items: (s.items || []).map(deserializeItem)
+        }));
+        smActiveSessionId = 'all';
+        toggleMultiMode(true);
+      } else {
+        smMultiMode = false;
+        smSessions = [];
+        orderItems = (obj.items || []).map(deserializeItem);
+        toggleMultiMode(false);
+      }
+
+      window.smSetLinkedPlannerEntries(Array.isArray(obj.linkedPlannerEntries) ? obj.linkedPlannerEntries : []);
+      window.smSetLinkedGradeTest(obj.linkedGradeTest || null);
+
+      smSyncToolbarButtons();
+      renderOrderList();
+      renderScheduleTable();
+    }
 
   // ── New / Save / Save As / Duplicate ─────────────────────
   function newSchedule() {
     smCurrentFilename = null;
     orderItems = [];
+    smSessions = [];
+    smActiveSessionId = 'all';
+    window.smSetLinkedPlannerEntries([]);
+    window.smSetLinkedGradeTest(null);
+    if (smMultiMode) toggleMultiMode(false);
     document.getElementById('sm-exam-title').value = '';
     const list = document.getElementById('sm-order-list');
     if (list) list.innerHTML = '<div class="sm-order-empty">' + (typeof t === 'function' ? t('smNoGroup') : 'Select a group and click Apply to generate the schedule.') + '</div>';
+    smSyncToolbarButtons();
     renderScheduleTable();
     if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
   }
@@ -3587,7 +4612,7 @@
       showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Save requires the Electron app.', true);
       return;
     }
-    if (orderItems.length === 0) {
+    if (!smHasAnyItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToSave') : 'Nothing to save.', true);
       return;
     }
@@ -3614,7 +4639,7 @@
       showNotice(typeof t === 'function' ? t('smElectronOnly') : 'Save requires the Electron app.', true);
       return;
     }
-    if (orderItems.length === 0) {
+    if (!smHasAnyItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToSave') : 'Nothing to save.', true);
       return;
     }
@@ -3655,7 +4680,7 @@
   }
 
   function duplicateSchedule() {
-    if (orderItems.length === 0) {
+    if (!smHasAnyItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToSave') : 'Nothing to save.', true);
       return;
     }
@@ -3903,7 +4928,7 @@
     // Live update on config changes (except group selector, which requires Apply)
     ['sm-start', 'sm-prep-normal', 'sm-prep-sen', 'sm-exam-time', 'sm-break-dur'].forEach(id => {
       document.getElementById(id).addEventListener('change', () => {
-        if (orderItems.length > 0) renderScheduleTable();
+        if (smHasAnyItems()) renderScheduleTable();
       });
     });
 

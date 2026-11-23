@@ -1251,13 +1251,20 @@
   }
 
   // ── MARKING APP SIDE ─────────────────────────────────────
-  function initMarkingApp() {
+  async function initMarkingApp() {
     document.getElementById('om-app').classList.remove('hidden');
     initResize();
-    loadCoreData();
+    await loadCoreData();
     if (typeof initHamburger === 'function') initHamburger('app-hamburger');
     if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
     initKeyboardShortcuts();
+    const params = new URLSearchParams(window.location.search);
+    const openSched = params.get('openSchedule');
+    const sessId = params.get('sessionId') || '';
+    if (openSched) {
+      await loadScheduleFile(openSched, sessId);
+      return;
+    }
     const saved = tryRestoreSession();
     if (!saved) {
       showSetup();
@@ -1542,7 +1549,7 @@
     document.getElementById('om-schedule-modal').classList.add('hidden');
   }
 
-  async function loadScheduleFile(fname) {
+  async function loadScheduleFile(fname, sessionId) {
     closeScheduleModal();
     try {
       const res = await Desktop.readByPath(SCHEDULE_TARGET, SCHEDULE_DIR + fname);
@@ -1550,21 +1557,34 @@
       const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
       const obj = fn();
       if (!obj) throw new Error('Invalid schedule file');
-      applySchedule(obj);
+      applySchedule(obj, sessionId);
     } catch (e) {
       showNotice(t('omLoadFailed') + ' ' + e.message, true);
     }
   }
 
-  function applySchedule(obj) {
-    schedule    = obj;
+  function applySchedule(obj, sessionId) {
+    let effectiveObj = obj;
+    if (obj && obj.multiMode && Array.isArray(obj.sessions) && obj.sessions.length > 0) {
+      const picked = (sessionId ? obj.sessions.find(s => s.id === sessionId) : null) || obj.sessions[0];
+      effectiveObj = Object.assign({}, obj, {
+        date: picked.date || obj.date || '',
+        startTime: picked.startTime || obj.startTime || '08:00',
+        room: picked.room !== undefined ? picked.room : (obj.room || ''),
+        items: Array.isArray(picked.items) ? picked.items : (obj.items || [])
+      });
+    }
+    schedule    = effectiveObj;
     sessionStarted = false;
     phase       = 'idle';
     currentIdx  = -1;
     oralSessionId = generateUuid();
-    linkedGradeTest = null;
+    linkedGradeTest = (effectiveObj && effectiveObj.linkedGradeTest && typeof effectiveObj.linkedGradeTest === 'object')
+      ? effectiveObj.linkedGradeTest
+      : null;
+    if (typeof updateOpenGsButton === 'function') updateOpenGsButton();
 
-    const nonBreaks = (obj.items || []).filter(i => i.type === 'student' && !i.excluded);
+    const nonBreaks = (effectiveObj.items || []).filter(i => i.type === 'student' && !i.excluded);
     students = nonBreaks.map(item => {
       let studentId = item.studentId || item.id || null;
       if (!studentId && obj.group && classGroups[obj.group]) {

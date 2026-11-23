@@ -434,6 +434,18 @@
               </ul>
             </details>
 
+            <details id="syncLogDetails" class="sync-log-details">
+              <summary id="syncLogSummary" class="sync-log-summary">Sync Log (0)</summary>
+              <div class="sync-log-toolbar">
+                <span id="syncLogPathEl" class="sync-log-path"></span>
+                <div class="sync-log-actions">
+                  <button class="btn btn-outline btn-sm" id="refreshSyncLogBtn" type="button" data-i18n="gcSyncLogRefresh">Refresh</button>
+                  <button class="btn btn-outline btn-sm" id="clearSyncLogBtn" type="button" data-i18n="gcSyncLogClear">Clear Log</button>
+                </div>
+              </div>
+              <div id="syncLogList" class="sync-log-list"></div>
+            </details>
+
             <details class="info-callout">
               <summary>
                 <svg class="info-callout-icon" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:6px;"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M21 19c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>
@@ -2454,7 +2466,7 @@
       _syncCatVal = ''; setChipActive(syncChipsCat, '');
       syncConflictDiffSize.checked = false;
       syncConflictDateTol.value = String(_syncTolS);
-      syncConflictSinceLastSync.checked = _lastSyncTime > 0;
+      syncConflictSinceLastSync.checked = false;
       if (_lastSyncTime > 0) {
         syncConflictSinceLastSyncLbl.style.display = 'inline-flex';
         syncConflictSinceLastSyncLbl.title = 'Show only files changed since last sync (' + new Date(_lastSyncTime).toLocaleString() + ')';
@@ -2804,6 +2816,7 @@
           _saveLastSyncTime();
           notifySyncCompleted({ mode: 'conflicts-resolved', applied: res.applied });
         }
+        refreshSyncLog();
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally { syncConflictApply.disabled = false; document.getElementById('runSyncBtn').disabled = false; }
     });
@@ -2834,6 +2847,7 @@
           _saveLastSyncTime();
           notifySyncCompleted({ mode: 'both', copied: res.copied });
         }
+        refreshSyncLog();
       } catch (err) { setSyncStatus(String(err && err.message ? err.message : err), 'err'); }
       finally {
         if (!syncConflictOverlay.classList.contains('open')) document.getElementById('runSyncBtn').disabled = false;
@@ -2870,6 +2884,7 @@
           _saveLastSyncTime();
           notifySyncCompleted({ mode: 'mirror-to-target', copied: res.copied });
         }
+        refreshSyncLog();
       } catch (err) {
         setSyncStatus(String(err && err.message ? err.message : err), 'err');
       } finally {
@@ -2878,6 +2893,115 @@
         if (btnSync) btnSync.disabled = false;
       }
     }
+
+    async function refreshSyncLog() {
+      var summaryEl = document.getElementById('syncLogSummary');
+      var listEl = document.getElementById('syncLogList');
+      var pathEl = document.getElementById('syncLogPathEl');
+      if (!summaryEl || !listEl) return;
+
+      try {
+        var res = (window.electronApi && typeof window.electronApi.getSyncLog === 'function')
+          ? await window.electronApi.getSyncLog()
+          : { ok: true, entries: [], logPath: '' };
+        var entries = (res && Array.isArray(res.entries)) ? res.entries : [];
+        summaryEl.textContent = tFmt('gcSyncLogTitle', { n: entries.length });
+        if (pathEl) {
+          pathEl.textContent = (res && res.logPath) ? (t('gcSyncLogPathLabel') + res.logPath) : '';
+        }
+
+        listEl.textContent = '';
+        if (entries.length === 0) {
+          var emptyDiv = document.createElement('div');
+          emptyDiv.className = 'sync-log-empty';
+          emptyDiv.textContent = t('gcSyncLogEmpty');
+          listEl.appendChild(emptyDiv);
+          return;
+        }
+
+        entries.forEach(function (entry) {
+          var card = document.createElement('div');
+          card.className = 'sync-log-entry';
+
+          var head = document.createElement('div');
+          head.className = 'sync-log-entry-head';
+          var timeSpan = document.createElement('span');
+          timeSpan.textContent = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+          var modeSpan = document.createElement('span');
+          modeSpan.className = 'sync-log-mode';
+          modeSpan.textContent = entry.mode || 'sync';
+          head.appendChild(timeSpan);
+          head.appendChild(modeSpan);
+          card.appendChild(head);
+
+          var savedArr = Array.isArray(entry.saved) ? entry.saved : [];
+          var deletedArr = Array.isArray(entry.deleted) ? entry.deleted : [];
+          var archivedArr = Array.isArray(entry.archived) ? entry.archived : [];
+          var errArr = Array.isArray(entry.errors) ? entry.errors : [];
+
+          var parts = [];
+          if (savedArr.length > 0) parts.push(tFmt('gcSyncLogSavedCount', { n: savedArr.length }));
+          if (deletedArr.length > 0) parts.push(tFmt('gcSyncLogDeletedCount', { n: deletedArr.length }));
+          if (archivedArr.length > 0) parts.push(tFmt('gcSyncLogArchivedCount', { n: archivedArr.length }));
+          if (errArr.length > 0) parts.push(tFmt('gcSyncLogErrorsCount', { n: errArr.length }));
+
+          var countsEl = document.createElement('div');
+          countsEl.className = 'sync-log-counts';
+          countsEl.textContent = parts.length > 0 ? parts.join(' | ') : t('gcSyncLogNoChanges');
+          card.appendChild(countsEl);
+
+          if (savedArr.length > 0 || deletedArr.length > 0 || archivedArr.length > 0 || errArr.length > 0) {
+            var ul = document.createElement('ul');
+            ul.className = 'sync-log-files';
+            savedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              var dirLabel = f.direction === 'to-source' ? '<- ' : '-> ';
+              li.textContent = dirLabel + (f.path || '');
+              ul.appendChild(li);
+            });
+            deletedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              li.textContent = '[deleted:' + (f.side || '') + '] ' + (f.path || '');
+              ul.appendChild(li);
+            });
+            archivedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              li.textContent = '[bak:' + (f.side || '') + '] ' + (f.path || '');
+              ul.appendChild(li);
+            });
+            errArr.forEach(function (e) {
+              var li = document.createElement('li');
+              li.className = 'sync-log-file-err';
+              li.textContent = '[error] ' + (e.path || e.relativePath || '') + ': ' + (e.error || '');
+              ul.appendChild(li);
+            });
+            card.appendChild(ul);
+          }
+
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Failed to load sync log:', err);
+      }
+    }
+
+    var _refreshSyncLogBtn = document.getElementById('refreshSyncLogBtn');
+    if (_refreshSyncLogBtn) {
+      _refreshSyncLogBtn.addEventListener('click', refreshSyncLog);
+    }
+    var _clearSyncLogBtn = document.getElementById('clearSyncLogBtn');
+    if (_clearSyncLogBtn) {
+      _clearSyncLogBtn.addEventListener('click', async function () {
+        var msg = t('gcSyncLogClearConfirm');
+        var ok = (typeof showConfirm === 'function') ? await showConfirm(msg) : window.confirm(msg);
+        if (!ok) return;
+        if (window.electronApi && typeof window.electronApi.clearSyncLog === 'function') {
+          await window.electronApi.clearSyncLog();
+        }
+        refreshSyncLog();
+      });
+    }
+    refreshSyncLog();
 
     async function doMirrorSyncToApp() {
       var confirmMsg = typeof t === 'function' ? t('gcMirrorSyncToAppConfirm') : 'Mirror Sync to App?';
@@ -2909,6 +3033,7 @@
           _saveLastSyncTime();
           notifySyncCompleted({ mode: 'mirror-to-source', copied: res.copied });
         }
+        refreshSyncLog();
       } catch (err) {
         setSyncStatus(String(err && err.message ? err.message : err), 'err');
       } finally {
@@ -2917,6 +3042,115 @@
         if (btnSync) btnSync.disabled = false;
       }
     }
+
+    async function refreshSyncLog() {
+      var summaryEl = document.getElementById('syncLogSummary');
+      var listEl = document.getElementById('syncLogList');
+      var pathEl = document.getElementById('syncLogPathEl');
+      if (!summaryEl || !listEl) return;
+
+      try {
+        var res = (window.electronApi && typeof window.electronApi.getSyncLog === 'function')
+          ? await window.electronApi.getSyncLog()
+          : { ok: true, entries: [], logPath: '' };
+        var entries = (res && Array.isArray(res.entries)) ? res.entries : [];
+        summaryEl.textContent = tFmt('gcSyncLogTitle', { n: entries.length });
+        if (pathEl) {
+          pathEl.textContent = (res && res.logPath) ? (t('gcSyncLogPathLabel') + res.logPath) : '';
+        }
+
+        listEl.textContent = '';
+        if (entries.length === 0) {
+          var emptyDiv = document.createElement('div');
+          emptyDiv.className = 'sync-log-empty';
+          emptyDiv.textContent = t('gcSyncLogEmpty');
+          listEl.appendChild(emptyDiv);
+          return;
+        }
+
+        entries.forEach(function (entry) {
+          var card = document.createElement('div');
+          card.className = 'sync-log-entry';
+
+          var head = document.createElement('div');
+          head.className = 'sync-log-entry-head';
+          var timeSpan = document.createElement('span');
+          timeSpan.textContent = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+          var modeSpan = document.createElement('span');
+          modeSpan.className = 'sync-log-mode';
+          modeSpan.textContent = entry.mode || 'sync';
+          head.appendChild(timeSpan);
+          head.appendChild(modeSpan);
+          card.appendChild(head);
+
+          var savedArr = Array.isArray(entry.saved) ? entry.saved : [];
+          var deletedArr = Array.isArray(entry.deleted) ? entry.deleted : [];
+          var archivedArr = Array.isArray(entry.archived) ? entry.archived : [];
+          var errArr = Array.isArray(entry.errors) ? entry.errors : [];
+
+          var parts = [];
+          if (savedArr.length > 0) parts.push(tFmt('gcSyncLogSavedCount', { n: savedArr.length }));
+          if (deletedArr.length > 0) parts.push(tFmt('gcSyncLogDeletedCount', { n: deletedArr.length }));
+          if (archivedArr.length > 0) parts.push(tFmt('gcSyncLogArchivedCount', { n: archivedArr.length }));
+          if (errArr.length > 0) parts.push(tFmt('gcSyncLogErrorsCount', { n: errArr.length }));
+
+          var countsEl = document.createElement('div');
+          countsEl.className = 'sync-log-counts';
+          countsEl.textContent = parts.length > 0 ? parts.join(' | ') : t('gcSyncLogNoChanges');
+          card.appendChild(countsEl);
+
+          if (savedArr.length > 0 || deletedArr.length > 0 || archivedArr.length > 0 || errArr.length > 0) {
+            var ul = document.createElement('ul');
+            ul.className = 'sync-log-files';
+            savedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              var dirLabel = f.direction === 'to-source' ? '<- ' : '-> ';
+              li.textContent = dirLabel + (f.path || '');
+              ul.appendChild(li);
+            });
+            deletedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              li.textContent = '[deleted:' + (f.side || '') + '] ' + (f.path || '');
+              ul.appendChild(li);
+            });
+            archivedArr.forEach(function (f) {
+              var li = document.createElement('li');
+              li.textContent = '[bak:' + (f.side || '') + '] ' + (f.path || '');
+              ul.appendChild(li);
+            });
+            errArr.forEach(function (e) {
+              var li = document.createElement('li');
+              li.className = 'sync-log-file-err';
+              li.textContent = '[error] ' + (e.path || e.relativePath || '') + ': ' + (e.error || '');
+              ul.appendChild(li);
+            });
+            card.appendChild(ul);
+          }
+
+          listEl.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Failed to load sync log:', err);
+      }
+    }
+
+    var _refreshSyncLogBtn = document.getElementById('refreshSyncLogBtn');
+    if (_refreshSyncLogBtn) {
+      _refreshSyncLogBtn.addEventListener('click', refreshSyncLog);
+    }
+    var _clearSyncLogBtn = document.getElementById('clearSyncLogBtn');
+    if (_clearSyncLogBtn) {
+      _clearSyncLogBtn.addEventListener('click', async function () {
+        var msg = t('gcSyncLogClearConfirm');
+        var ok = (typeof showConfirm === 'function') ? await showConfirm(msg) : window.confirm(msg);
+        if (!ok) return;
+        if (window.electronApi && typeof window.electronApi.clearSyncLog === 'function') {
+          await window.electronApi.clearSyncLog();
+        }
+        refreshSyncLog();
+      });
+    }
+    refreshSyncLog();
 
     // ── Shared subfolder definitions ────────────────────────────────────────────
     var REMOTE_FOLDERS = [

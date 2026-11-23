@@ -378,6 +378,24 @@
     return getDesktopApi().runSync(request);
   }
 
+  async function getSyncLog() {
+    if (!isElectron()) return { ok: true, entries: [], logPath: null };
+    var api = getDesktopApi();
+    if (!api || typeof api.getSyncLog !== 'function') {
+      return { ok: false, entries: [], error: 'getSyncLog API unavailable' };
+    }
+    return api.getSyncLog();
+  }
+
+  async function clearSyncLog() {
+    if (!isElectron()) return { ok: true };
+    var api = getDesktopApi();
+    if (!api || typeof api.clearSyncLog !== 'function') {
+      return { ok: false, error: 'clearSyncLog API unavailable' };
+    }
+    return api.clearSyncLog();
+  }
+
   async function renameFile(target, oldFilename, newFilename) {
     if (!isElectron()) {
       return null;
@@ -1472,6 +1490,8 @@
     checkSyncAccessibility,
     setStartupSync,
     runSync,
+    getSyncLog,
+    clearSyncLog,
     statByPath,
     copyByPath,
     moveByPath,
