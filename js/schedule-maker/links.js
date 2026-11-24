@@ -540,12 +540,113 @@
     }
   }
 
+  var _syncTimers = {};
+
+  async function syncLinkedPlannerDates(opts) {
+    var options = opts || {};
+    var newDate = String(options.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) return { ok: false, updated: 0 };
+    if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) {
+      return { ok: false, updated: 0 };
+    }
+
+    var ctx = getContext();
+    var linked = Array.isArray(ctx.linkedPlannerEntries) ? ctx.linkedPlannerEntries : [];
+    if (linked.length === 0) return { ok: true, updated: 0 };
+
+    var targetIds = new Set();
+    var allLinkedIds = new Set();
+    linked.forEach(function (pe) {
+      if (pe && pe.entryId) allLinkedIds.add(pe.entryId);
+    });
+
+    if (ctx.multiMode && options.sessionId) {
+      linked.forEach(function (pe) {
+        if (pe && pe.entryId && pe.sessionId === options.sessionId) {
+          targetIds.add(pe.entryId);
+        }
+      });
+      if (targetIds.size === 0 && options.isFirstSession) {
+        linked.forEach(function (pe) {
+          if (pe && pe.entryId && !pe.sessionId) targetIds.add(pe.entryId);
+        });
+      }
+    } else {
+      var hasUntagged = linked.some(function (pe) { return pe && pe.entryId && !pe.sessionId; });
+      linked.forEach(function (pe) {
+        if (pe && pe.entryId && (!hasUntagged || !pe.sessionId)) {
+          targetIds.add(pe.entryId);
+        }
+      });
+    }
+
+    var loaded = await readAllPlannerEntries();
+    var byClass = loaded.byClass || {};
+    var dirtyClassIds = {};
+    var matchedIds = new Set();
+    var updatedCount = 0;
+
+    Object.keys(byClass).forEach(function (cid) {
+      var arr = byClass[cid];
+      if (!Array.isArray(arr)) return;
+      arr.forEach(function (entry) {
+        if (!entry || !entry.id) return;
+        var isMatch = targetIds.has(entry.id) ||
+          (ctx.multiMode && options.sessionId && allLinkedIds.has(entry.id) &&
+            entry.scheduleLink && entry.scheduleLink.sessionId === options.sessionId);
+        if (!isMatch) return;
+        matchedIds.add(entry.id);
+        if (entry.date !== newDate) {
+          entry.date = newDate;
+          dirtyClassIds[cid] = true;
+          updatedCount++;
+        }
+      });
+    });
+
+    var dirtyCids = Object.keys(dirtyClassIds);
+    for (var i = 0; i < dirtyCids.length; i++) {
+      var cid = dirtyCids[i];
+      await savePlannerClassEntries(cid, byClass[cid]);
+    }
+
+    if (matchedIds.size > 0) {
+      var nextLinked = linked.map(function (pe) {
+        if (pe && matchedIds.has(pe.entryId)) {
+          return Object.assign({}, pe, { date: newDate });
+        }
+        return pe;
+      });
+      if (typeof window.smSetLinkedPlannerEntries === 'function') {
+        window.smSetLinkedPlannerEntries(nextLinked);
+      }
+    }
+
+    if (updatedCount > 0 && typeof window.showNotice === 'function') {
+      window.showNotice(tr('smPlannerDateUpdated', 'Planner date updated!'));
+    }
+
+    return { ok: true, updated: updatedCount };
+  }
+
+  function scheduleSyncLinkedPlannerDates(opts) {
+    var options = opts || {};
+    var key = options.sessionId ? String(options.sessionId) : '__single';
+    if (_syncTimers[key]) clearTimeout(_syncTimers[key]);
+    _syncTimers[key] = setTimeout(function () {
+      delete _syncTimers[key];
+      syncLinkedPlannerDates(options);
+    }, 250);
+  }
+
   var api = {
     openPlannerLinkModal: openPlannerLinkModal,
     openGradeSheetLinkModal: openGradeSheetLinkModal,
     openInGradeSheet: openInGradeSheet,
     openInPlanner: openInPlanner,
     openInOralMarking: openInOralMarking,
+    syncLinkedPlannerDates: syncLinkedPlannerDates,
+    scheduleSyncLinkedPlannerDates: scheduleSyncLinkedPlannerDates,
     closeModal: closeModal
   };
 

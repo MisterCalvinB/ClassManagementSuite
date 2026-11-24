@@ -1968,6 +1968,13 @@
         renderSessionTabs();
         renderOrderList();
         renderScheduleTable();
+        if (window.ScheduleMakerLinks && typeof ScheduleMakerLinks.scheduleSyncLinkedPlannerDates === 'function') {
+          ScheduleMakerLinks.scheduleSyncLinkedPlannerDates({
+            sessionId: sess.id,
+            date: sess.date,
+            isFirstSession: idx === 0
+          });
+        }
       });
       dateField.appendChild(dLbl);
       dateField.appendChild(dInp);
@@ -5102,6 +5109,15 @@
         if (smHasAnyItems()) renderScheduleTable();
       });
     });
+    const dateInput = document.getElementById('sm-date');
+    if (dateInput) {
+      dateInput.addEventListener('change', () => {
+        if (smHasAnyItems()) updatePrintHeader();
+        if (!smMultiMode && window.ScheduleMakerLinks && typeof ScheduleMakerLinks.scheduleSyncLinkedPlannerDates === 'function') {
+          ScheduleMakerLinks.scheduleSyncLinkedPlannerDates({ date: dateInput.value });
+        }
+      });
+    }
 
     // Parse query parameters
     const params = new URLSearchParams(window.location.search);

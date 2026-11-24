@@ -182,6 +182,7 @@
   "smLinkPickExistingPlanner": "Ou lier à une entrée existante du Planificateur",
   "smLinkNoPlannerEntries": "Aucune entrée correspondante dans le Planificateur.",
   "smLinkPlannerSaved": "Lié au Planificateur !",
+  "smPlannerDateUpdated": "Date du planificateur mise à jour !",
   "smLinkGsNoClass": "Aucun dossier Notes trouvé pour cette classe.",
   "smLinkGsNoTests": "Aucune épreuve créée pour cette période.",
   "smLinkCreateGsTitle": "Créer une nouvelle épreuve orale",

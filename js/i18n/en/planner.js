@@ -372,5 +372,8 @@
   "plSubUrlLabel": "Calendar Link (.ics or webcal://)",
   "plSubAutoSyncLabel": "Automatically refresh events when opening Planner",
   "plSubErrUrl": "Please paste a calendar link (.ics or webcal://).",
-  "plSubWizFinish": "Add & Sync Calendar"
+  "plSubWizFinish": "Add & Sync Calendar",
+  "pl_exportDateRange": "Date range (optional)",
+  "pl_exportDateFrom": "From",
+  "pl_exportDateTo": "To"
 });

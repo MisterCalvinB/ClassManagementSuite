@@ -182,6 +182,7 @@
   "smLinkPickExistingPlanner": "Oder mit bestehendem Planer-Eintrag verknüpfen",
   "smLinkNoPlannerEntries": "Keine passenden Planer-Einträge gefunden.",
   "smLinkPlannerSaved": "Mit Planer verknüpft!",
+  "smPlannerDateUpdated": "Planer-Datum aktualisiert!",
   "smLinkGsNoClass": "Noch kein Notenlisten-Ordner für diese Klasse gefunden.",
   "smLinkGsNoTests": "Noch keine Prüfungen in diesem Halbjahr.",
   "smLinkCreateGsTitle": "Neuen mündlichen Prüfungsslot erstellen",

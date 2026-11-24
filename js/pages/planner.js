@@ -6015,6 +6015,13 @@
 
     function getExportFilters() {
       function chk(id) { var el = document.getElementById(id); return !el || el.checked; }
+      var fromEl = document.getElementById('exp-date-from');
+      var toEl = document.getElementById('exp-date-to');
+      var dateFrom = fromEl && fromEl.value ? fromEl.value : '';
+      var dateTo = toEl && toEl.value ? toEl.value : '';
+      if (dateFrom && dateTo && dateFrom > dateTo) {
+        var tmp = dateFrom; dateFrom = dateTo; dateTo = tmp;
+      }
       var types = {
         lesson: chk('exp-t-lesson'), test: chk('exp-t-test'),
         assignment: chk('exp-t-assignment'), holiday: chk('exp-t-holiday'),
@@ -6024,6 +6031,8 @@
         types[cb.dataset.customType] = cb.checked;
       });
       return {
+        dateFrom: dateFrom,
+        dateTo: dateTo,
         types: types,
         includeLessonSlots: chk('exp-include-slots'),
         pdfFitOnePage: chk('exp-pdf-fit-page'),
@@ -6050,7 +6059,10 @@
       return cids.indexOf(clsFilter) >= 0;
     }
 
-    function getExportSlotRows(clsFilter, typeFilter) {
+    function getExportSlotRows(clsFilter, typeFilter, options) {
+      options = options || {};
+      var dateFrom = options.dateFrom || '';
+      var dateTo = options.dateTo || '';
       var sem = getActiveSem();
       if (!sem || !sem.semesterStart || !sem.semesterEnd) return [];
       if (typeFilter && !typeFilter.lesson) return [];
@@ -6072,6 +6084,8 @@
         return (buildSlots(sem) || []).filter(function (s) {
           if (s.isGlobalHoliday) return false;
           if (s.entry) return false;
+          if (dateFrom && s.date < dateFrom) return false;
+          if (dateTo && s.date > dateTo) return false;
           if (!clsFilter) return true;
           if (isUnassignedExportClassFilter(clsFilter)) return !s.classId;
           return s.classId === clsFilter;
@@ -6097,17 +6111,21 @@
     // ── Shared export data builder ─────────────────────────────────────────────
     function getExportData(clsFilter, typeFilter, options) {
       options = options || {};
+      var dateFrom = options.dateFrom || '';
+      var dateTo = options.dateTo || '';
       var sem = getActiveSem();
       var semStart = sem && sem.semesterStart || '';
       var semEnd = sem && sem.semesterEnd || '';
       var rows = [];
 
-      // Entries in active semester
+      // Entries in active semester (and optional date range)
       entries.filter(function (e) {
         if (!entryMatchesExportClassFilter(e, clsFilter)) return false;
         if ((classGroupsMeta[e.classId] || {}).archived) return false;
         if (semStart && e.date < semStart) return false;
         if (semEnd && e.date > semEnd) return false;
+        if (dateFrom && (e.dateTo || e.date) < dateFrom) return false;
+        if (dateTo && e.date > dateTo) return false;
         if (typeFilter && !typeFilter[e.type || 'lesson']) return false;
         return true;
       }).forEach(function (e) { rows.push({ date: e.date, kind: 'entry', entry: e }); });
@@ -6118,12 +6136,14 @@
           if (!h.date) return;
           if (semStart && h.date < semStart && (!h.dateTo || h.dateTo < semStart)) return;
           if (semEnd && h.date > semEnd) return;
+          if (dateFrom && (h.dateTo || h.date) < dateFrom) return;
+          if (dateTo && h.date > dateTo) return;
           rows.push({ date: h.date, dateTo: (h.dateTo && h.dateTo !== h.date) ? h.dateTo : null, kind: 'holiday', label: h.label });
         });
       }
 
       if (options.includeLessonSlots) {
-        rows = rows.concat(getExportSlotRows(clsFilter, typeFilter));
+        rows = rows.concat(getExportSlotRows(clsFilter, typeFilter, { dateFrom: dateFrom, dateTo: dateTo }));
       }
 
       rows.sort(function (a, b) {
@@ -6152,14 +6172,24 @@
         lines = lines.concat(ev);
       }
 
+      var icsFilters = getExportFilters();
+      var icsDateFrom = icsFilters.dateFrom || '';
+      var icsDateTo = icsFilters.dateTo || '';
+      function inIcsRange(startDate, endDate) {
+        if (icsDateFrom && (endDate || startDate) < icsDateFrom) return false;
+        if (icsDateTo && startDate > icsDateTo) return false;
+        return true;
+      }
+
       cfg.semesters.forEach(function (s) {
-        if (s.semesterStart)
+        if (s.semesterStart && inIcsRange(s.semesterStart, s.semesterStart))
           vevent('sem-start-' + s.id, ';VALUE=DATE:' + s.semesterStart.replace(/-/g, ''),
             ';VALUE=DATE:' + datePlus1(s.semesterStart), esc(s.label) + ' – ' + t('pl_icsSemStart'), '');
-        if (s.semesterEnd)
+        if (s.semesterEnd && inIcsRange(s.semesterEnd, s.semesterEnd))
           vevent('sem-end-' + s.id, ';VALUE=DATE:' + s.semesterEnd.replace(/-/g, ''),
             ';VALUE=DATE:' + datePlus1(s.semesterEnd), esc(s.label) + ' – ' + t('pl_icsSemEnd'), '');
         (s.holidays || []).forEach(function (h) {
+          if (!inIcsRange(h.date, h.dateTo || h.date)) return;
           var holDtend = h.dateTo && h.dateTo !== h.date
             ? ';VALUE=DATE:' + datePlus1(h.dateTo)
             : ';VALUE=DATE:' + datePlus1(h.date);
@@ -6168,11 +6198,11 @@
         });
       });
 
-      var icsFilters = getExportFilters();
       entries.forEach(function (e) {
         if (e.type === 'no-class') return;
         if (!entryMatchesExportClassFilter(e, clsFilter)) return;
         if (!icsFilters.types[e.type || 'lesson']) return;
+        if (!inIcsRange(e.date, e.dateTo || e.date)) return;
         var prefix = e.type === 'test' ? 'TEST: ' : e.type === 'assignment' ? 'DUE: ' : '';
         var clsLabel = entryClassIds(e).map(plannerClassDisplayName).join(', ') || e.classId || t('pl_noClass');
         var summary = prefix + clsLabel + (e.topic ? ' – ' + e.topic : '');
@@ -6205,7 +6235,7 @@
       });
 
       if (icsFilters.includeLessonSlots) {
-        getExportSlotRows(clsFilter, icsFilters.types).forEach(function (row) {
+        getExportSlotRows(clsFilter, icsFilters.types, { dateFrom: icsDateFrom, dateTo: icsDateTo }).forEach(function (row) {
           var s = row.slot;
           var clsLabel = s.classId ? plannerClassDisplayName(s.classId) : t('pl_noClass');
           var summary = clsLabel + ' – ' + t('pl_exportLessonSlotLabel');
@@ -6713,7 +6743,7 @@
       var sectionsHtml = '';
 
       classList.forEach(function (cf, cIdx) {
-        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots, dateFrom: filters.dateFrom, dateTo: filters.dateTo });
         var cSem = data.sem;
         var classTitle = getExportTitle(cf, cSem);
         var totalWeeks = cSem && cSem.semesterStart && cSem.semesterEnd ? getTotalWeeks(cSem) : 0;
@@ -6830,7 +6860,7 @@
           for (var c = 0; c < classes.length; c++) {
             var cf = classes[c];
             var fileBase = getExportFilenameBase(cf);
-            var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+            var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots, dateFrom: filters.dateFrom, dateTo: filters.dateTo });
             var sem = data.sem;
             var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
             var groups = getPreparedExportRows(data, sem, totalWeeks, fi, customNames, cf);
@@ -6866,7 +6896,7 @@
       var rows = [];
 
       classList.forEach(function (cf, cIdx) {
-        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots });
+        var data = getExportData(cf, filters.types, { includeLessonSlots: filters.includeLessonSlots, dateFrom: filters.dateFrom, dateTo: filters.dateTo });
         var sem = data.sem;
         var classTitle = getExportTitle(cf, sem);
         var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
@@ -7138,7 +7168,7 @@
       var detailsColHeader = t('pl_exportActivitiesCol') || 'Details';
 
       classList.forEach(function (cf, cIdx) {
-        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
+        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots, dateFrom: filters.dateFrom, dateTo: filters.dateTo });
         var sem = data.sem;
         var classTitle = getExportTitle(cf, sem);
         var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;
@@ -7248,7 +7278,7 @@
       var tablesHtml = '';
 
       classList.forEach(function (cf, cIdx) {
-        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots });
+        var data = getExportData(cf, filters.types, { includeLessonSlots: !!filters.includeLessonSlots, dateFrom: filters.dateFrom, dateTo: filters.dateTo });
         var sem = data.sem;
         var classTitle = getExportTitle(cf, sem);
         var totalWeeks = sem && sem.semesterStart && sem.semesterEnd ? getTotalWeeks(sem) : 0;

@@ -182,6 +182,7 @@
   "smLinkPickExistingPlanner": "Oppure collega a una voce esistente del Planner",
   "smLinkNoPlannerEntries": "Nessuna voce corrispondente trovata nel Planner.",
   "smLinkPlannerSaved": "Collegato al Planner!",
+  "smPlannerDateUpdated": "Data del Planner aggiornata!",
   "smLinkGsNoClass": "Nessuna cartella Registro Voti trovata per questa classe.",
   "smLinkGsNoTests": "Nessuna verifica creata in questo periodo.",
   "smLinkCreateGsTitle": "Crea nuovo slot verifica orale",

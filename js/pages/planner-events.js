@@ -855,6 +855,16 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('exp-date-clear');
+      if (!el) return;
+      el.addEventListener('click', function () {
+        var fromEl = document.getElementById('exp-date-from');
+        var toEl = document.getElementById('exp-date-to');
+        if (fromEl) fromEl.value = '';
+        if (toEl) toEl.value = '';
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-plev-143]');
       if (!el) return;
       var handler = function (event) { doExportIcs() };

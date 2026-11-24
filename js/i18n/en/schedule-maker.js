@@ -182,6 +182,7 @@
   "smLinkPickExistingPlanner": "Or link to an existing Planner entry",
   "smLinkNoPlannerEntries": "No matching Planner entries found.",
   "smLinkPlannerSaved": "Linked to Planner!",
+  "smPlannerDateUpdated": "Planner date updated!",
   "smLinkGsNoClass": "No Grade Sheet folder found for this class yet.",
   "smLinkGsNoTests": "No tests created in this term yet.",
   "smLinkCreateGsTitle": "Create New Oral Test Slot",

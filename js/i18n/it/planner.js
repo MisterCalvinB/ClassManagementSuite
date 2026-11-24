@@ -372,5 +372,8 @@
   "plSubUrlLabel": "Link calendario (.ics o webcal://)",
   "plSubAutoSyncLabel": "Aggiorna automaticamente all'apertura del Planner",
   "plSubErrUrl": "Incolla un link calendario (.ics o webcal://).",
-  "plSubWizFinish": "Aggiungi e sincronizza"
+  "plSubWizFinish": "Aggiungi e sincronizza",
+  "pl_exportDateRange": "Intervallo di date (opzionale)",
+  "pl_exportDateFrom": "Dal",
+  "pl_exportDateTo": "Al"
 });
