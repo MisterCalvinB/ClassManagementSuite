@@ -317,5 +317,11 @@
   "deMpModeCombined": "Ein kombiniertes Dokument",
   "deMpModeCombinedDesc": "Alle Schüler in einer Datei mit Seitenumbrüchen, ideal zum Drucken.",
   "deMpModeSeparate": "Separate Datei pro Schüler",
-  "deMpModeSeparateDesc": "Erstellt eine benannte Datei pro Schüler, ideal für E-Mail oder LMS."
+  "deMpModeSeparateDesc": "Erstellt eine benannte Datei pro Schüler, ideal für E-Mail oder LMS.",
+  "menuClassroom": "Klasse",
+  "dePageLayoutNav": "Seitenlayout",
+  "deFileTabDocs": "Dokumente",
+  "deFileTabTemplates": "Vorlagen",
+  "deFileTabBrowseDisk": "Auf Festplatte suchen…",
+  "deFileTabSaveToDisk": "Auf Festplatte speichern…"
 });

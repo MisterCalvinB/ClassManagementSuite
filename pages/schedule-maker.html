@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="../css/pages/schedule-maker-multi.css">
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/student-name-utils.js"></script>
+  <script src="../js/shared/links-service.js"></script>
   <script src="../js/schedule-maker/sort-utils.js"></script>
   <script src="../js/schedule-maker/multi-schedule.js"></script>
   <script src="../js/schedule-maker/links.js"></script>
@@ -856,6 +857,29 @@
       border-top: 1px solid #333333;
       margin: 4px 0;
     }
+    .nav-pop-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sm-nav-links-popup {
+      min-width: 230px;
+    }
+    #app-nav .sm-nav-link-badge {
+      color: #8cc0ff;
+      font-size: 0.76rem;
+      padding-left: 34px;
+    }
+    #app-nav .sm-nav-om-btn {
+      background: #2f6b4a;
+      border-color: var(--neo-green, #6abf8e);
+      color: #ffffff;
+    }
+    #app-nav .sm-nav-om-btn:hover {
+      background: #3a825a;
+      border-color: #8fd4ab;
+      color: #ffffff;
+    }
 
     /* ── Print ───────────────────────────────────────── */
     @media print {
@@ -1091,6 +1115,36 @@
       </div>
     </div>
 
+    <!-- Integrations & Links menu -->
+    <div class="nav-group" id="sm-nav-links-group">
+      <button class="nav-btn" type="button">
+        <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+        <span data-i18n="smLinksTitle">Integrations &amp; Links</span>
+      </button>
+      <div class="nav-group-popup sm-nav-links-popup">
+        <button type="button" class="nav-pop-item" id="sm-link-planner-btn" data-smev-link-planner="1">
+          <span class="nav-pop-label">
+            <img src="../assets/icons/planner.svg" class="btn-icon" alt="" />
+            <span data-i18n="smLinkPlannerBtn">Link to Planner</span>
+          </span>
+        </button>
+        <button type="button" class="nav-pop-item sm-nav-link-badge" id="sm-planner-link-badge" data-smev-open-planner="1" style="display:none;"></button>
+        <hr class="nav-pop-sep">
+        <button type="button" class="nav-pop-item" id="sm-link-gs-btn" data-smev-link-gs="1">
+          <span class="nav-pop-label">
+            <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
+            <span data-i18n="smLinkGsBtn">Link to Grade Sheet</span>
+          </span>
+        </button>
+        <button type="button" class="nav-pop-item sm-nav-link-badge" id="sm-gs-link-badge" data-smev-open-gs="1" style="display:none;"></button>
+      </div>
+    </div>
+
+    <button type="button" id="sm-open-om-btn" class="nav-btn sm-nav-om-btn" data-smev-open-om="1">
+      <img src="../assets/icons/oral-marking.svg" class="btn-icon" alt="" />
+      <span data-i18n="smOpenOmBtn">Open in Oral Marking</span>
+    </button>
+
     <div id="app-hamburger" class="hm-wrap">
       <button id="skm-trigger" class="tut-trigger-btn" data-smev-1="1" data-i18n-help="skmTitle" data-hover-help="Keyboard Shortcuts">?</button>
       <button id="tut-trigger" class="tut-trigger-btn" data-smev-2="1" data-i18n="tourBtnLabel" data-i18n-help="tourBtnLabel">Tour</button>
@@ -1286,29 +1340,6 @@
       </div>
       <div id="sm-multi-schedule-container" class="sm-multi-schedule-container" style="display:none;"></div>
     </div>
-  </div>
-
-  <!-- ── Integrations & Links Bar ── -->
-  <div id="sm-links-bar" class="sm-links-bar">
-    <span class="sm-links-bar-title" data-i18n="smLinksTitle">Integrations &amp; Links</span>
-    <div class="sm-link-action-group">
-      <button type="button" id="sm-link-planner-btn" class="sm-link-btn" data-smev-link-planner="1">
-        <img src="../assets/icons/planner.svg" class="btn-icon" alt="" />
-        <span data-i18n="smLinkPlannerBtn">Link to Planner</span>
-      </button>
-      <button type="button" id="sm-planner-link-badge" class="sm-link-badge" data-smev-open-planner="1" style="display:none;"></button>
-    </div>
-    <div class="sm-link-action-group">
-      <button type="button" id="sm-link-gs-btn" class="sm-link-btn" data-smev-link-gs="1">
-        <img src="../assets/icons/grade-sheet.svg" class="btn-icon" alt="" />
-        <span data-i18n="smLinkGsBtn">Link to Grade Sheet</span>
-      </button>
-      <button type="button" id="sm-gs-link-badge" class="sm-link-badge" data-smev-open-gs="1" style="display:none;"></button>
-    </div>
-    <button type="button" id="sm-open-om-btn" class="sm-link-btn sm-link-btn-primary" style="margin-left:auto;" data-smev-open-om="1">
-      <img src="../assets/icons/oral-marking.svg" class="btn-icon" alt="" />
-      <span data-i18n="smOpenOmBtn">Open in Oral Marking</span>
-    </button>
   </div>
 </div>
 
@@ -1616,28 +1647,99 @@
     }
   }
 
-  window.smSetLinkedPlannerEntries = function (list) {
+  async function smSyncLinksService() {
+    if (!window.LinksService || typeof LinksService.addLink !== 'function') return;
+    if (!smCurrentFilename) return;
+    const schedUrn = 'cmt:schedule:' + smCurrentFilename;
+    const schedTitle = (document.getElementById('sm-exam-title').value || '').trim()
+      || smCurrentFilename.replace(SCHEDULE_PREFIX, '').replace(/\.js$/i, '');
+    const groupTitle = document.getElementById('sm-group').value;
+    const classId = groupTitle ? smResolveGroupUuid(groupTitle) : null;
+
+    try {
+      if (classId) {
+        await LinksService.addLink(schedUrn, 'cmt:class:' + classId, {
+          relation: 'class',
+          sourceMeta: { title: schedTitle },
+          targetMeta: { title: groupTitle }
+        });
+      }
+      if (Array.isArray(smLinkedPlannerEntries)) {
+        for (const pe of smLinkedPlannerEntries) {
+          if (pe && pe.entryId) {
+            await LinksService.addLink(schedUrn, 'cmt:planner:' + pe.entryId, {
+              relation: 'planner',
+              sourceMeta: { title: schedTitle },
+              targetMeta: { title: pe.label || pe.date || pe.entryId }
+            });
+          }
+        }
+      }
+      if (smLinkedGradeTest && smLinkedGradeTest.classId) {
+        const gsUrn = 'cmt:gradesheet:' + smLinkedGradeTest.classId + ':' + (smLinkedGradeTest.semester || 'sem1') + ':' + smLinkedGradeTest.testIndex;
+        await LinksService.addLink(schedUrn, gsUrn, {
+          relation: 'assessment',
+          sourceMeta: { title: schedTitle },
+          targetMeta: { title: smLinkedGradeTest.testName || 'Oral Exam' }
+        });
+      }
+    } catch (_) {}
+  }
+
+  async function smPersistCurrentScheduleSilent() {
+    if (!smCurrentFilename || !window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) return;
+    if (!smHasAnyItems()) return;
+    try {
+      const obj = buildScheduleObject();
+      const content = '/* Schedule Maker – Class Management Tools */\nvar SCHEDULE_DATA = ' + JSON.stringify(obj, null, 2) + ';\n';
+      await Desktop.saveText(SCHEDULE_TARGET, smCurrentFilename, content, 'schedules');
+    } catch (_) {}
+  }
+
+  window.smSetLinkedPlannerEntries = function (list, skipSave) {
     smLinkedPlannerEntries = Array.isArray(list) ? list : [];
     window.smLinkedPlannerEntries = smLinkedPlannerEntries;
     smUpdateLinkBadges();
+    smSyncLinksService();
+    if (!skipSave) smPersistCurrentScheduleSilent();
   };
 
-  window.smSetLinkedGradeTest = function (obj) {
+  window.smSetLinkedGradeTest = function (obj, skipSave) {
     smLinkedGradeTest = obj || null;
     window.smLinkedGradeTest = smLinkedGradeTest;
     smUpdateLinkBadges();
+    smSyncLinksService();
+    if (!skipSave) smPersistCurrentScheduleSilent();
   };
 
+  function smComputeEndTimeStr(items, startTime) {
+    const rows = computeScheduleForItems(items, startTime || '08:00');
+    let lastEnd = 0;
+    rows.forEach(r => {
+      if (r.type === 'student' || r.type === 'group') {
+        if (r.examEnd > lastEnd) lastEnd = r.examEnd;
+      } else if (r.type === 'break') {
+        const bEnd = (r.start || 0) + (r.duration || 0);
+        if (bEnd > lastEnd) lastEnd = bEnd;
+      }
+    });
+    return lastEnd > 0 ? minutesToTime(lastEnd) : '';
+  }
+
   window.smGetLinkContext = function () {
+    const baseStart = document.getElementById('sm-start').value || '08:00';
     return {
       title: document.getElementById('sm-exam-title').value.trim(),
       group: document.getElementById('sm-group').value,
       semester: document.getElementById('sm-semester').value || '',
       date: document.getElementById('sm-date').value,
-      startTime: document.getElementById('sm-start').value || '08:00',
+      startTime: baseStart,
+      endTime: smMultiMode ? '' : smComputeEndTimeStr(orderItems, baseStart),
       room: document.getElementById('sm-room').value.trim(),
       multiMode: smMultiMode,
-      sessions: smSessions,
+      sessions: smMultiMode ? smSessions.map(s => Object.assign({}, s, {
+        endTime: smComputeEndTimeStr(s.items, s.startTime || '08:00')
+      })) : smSessions,
       activeSessionId: smActiveSessionId,
       currentFilename: smCurrentFilename,
       hasItems: smHasAnyItems(),
@@ -3428,7 +3530,7 @@
               '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('smExpWizFmtHeading', 'How do you want to share this schedule?')) + '</h3>' +
               '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('smExpWizFmtSub', 'Choose PDF for posting/printing, Word to edit, or Spreadsheet for records.')) + '</p>';
             ctx.renderCards(container, [
-              { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('smExpFmtPdf', 'Printable PDF'), desc: tr('smExpFmtPdfDesc', 'Ready to print or post on the classroom door.') },
+              { id: 'pdf', icon: 'printer.svg', badge: 'PDF', title: tr('smExpFmtPdf', 'Printable PDF'), desc: tr('smExpFmtPdfDesc', 'Ready to print or post on the classroom door.') },
               { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('smExpFmtDocx', 'Word Document (.docx)'), desc: tr('smExpFmtDocxDesc', 'Edit student notes or headers in Word.') },
               { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('smExpFmtHtml', 'Webpage (.html)'), desc: tr('smExpFmtHtmlDesc', 'Opens in Document Editor or browser.') },
               { id: 'xlsx', icon: 'table.svg', badge: 'XLSX', title: tr('smExpFmtXlsx', 'Excel Spreadsheet (.xlsx)'), desc: tr('smExpFmtXlsxDesc', 'Open timings in Excel or LibreOffice Calc.') }
@@ -3446,12 +3548,21 @@
                 '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-prep" ' + (st.includePrep ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowPrep', 'Show preparation start times')) + '</span></label>' +
                 '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-sen" ' + (st.includeSen ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowSen', 'Show SEN accommodation badges (turn off for public door sheets)')) + '</span></label>' +
               '</div>' +
-              '<div style="margin-top:14px;">' +
+              '<div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">' +
+                '<div style="display:inline-flex;align-items:center;gap:8px;">' +
+                  '<span style="font-size:0.78rem;font-weight:800;text-transform:uppercase;">' + ctx.escHtml(tr('exportStyleLabel', 'Export Style:')) + '</span>' +
+                  '<span id="sm-wiz-style-selector-wrap" style="display:inline-flex;align-items:center;"></span>' +
+                '</div>' +
                 '<button type="button" id="sm-wiz-preview-btn" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 14px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">' +
                   '<img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> ' +
                   '<span>' + ctx.escHtml(tr('exportPreviewBtn', 'Live Preview')) + '</span>' +
                 '</button>' +
               '</div>';
+            if (window.ExportStylesService) {
+              ExportStylesService.renderStyleSelector(container.querySelector('#sm-wiz-style-selector-wrap'), {
+                toolKey: 'scheduleMaker'
+              });
+            }
             container.querySelector('#sm-wiz-prep').addEventListener('change', function () { st.includePrep = this.checked; });
             container.querySelector('#sm-wiz-sen').addEventListener('change', function () { st.includeSen = this.checked; });
             container.querySelector('#sm-wiz-preview-btn').addEventListener('click', function () {
@@ -3851,6 +3962,8 @@
     let bodyContentHtml = '';
     if (smMultiMode) {
       const roomLbl = typeof t === 'function' ? t('smLabelRoom') : 'Room';
+      const durLabel = typeof t === 'function' ? t('smTotalDuration') : 'Total duration:';
+      const studLabel = typeof t === 'function' ? t('smTotalStudents') : 'students';
       smSessions.forEach((sess, idx) => {
         const sRows = computeScheduleForItems(sess.items, sess.startTime || '08:00');
         const heading = (sess.label || ('Schedule ' + (idx + 1)))
@@ -3858,22 +3971,37 @@
           + (sess.startTime ? ' (' + sess.startTime + ')' : '')
           + (sess.room ? ' · ' + roomLbl + ': ' + sess.room : '');
         const sessMetaHtml = buildMetaBox(sess.date || '', sess.room || '');
+        let sessStudentCount = 0;
+        let sessLastEnd = 0;
+        sRows.forEach(r => {
+          if (r.type === 'student' || r.type === 'group') {
+            sessStudentCount++;
+            sessLastEnd = r.examEnd;
+          }
+        });
+        let sessFooterHtml = '';
+        if (opts.showFooter && sessStudentCount > 0 && sessLastEnd > 0) {
+          const sStartMin = timeToMinutes(sess.startTime || '08:00');
+          const sTotalMin = sessLastEnd - sStartMin;
+          const sessMetaText = sessStudentCount + ' ' + studLabel + ' · ' + durLabel + ' ' + sTotalMin + ' min (' + minutesToTime(sStartMin) + ' – ' + minutesToTime(sessLastEnd) + ')';
+          sessFooterHtml = `<div class="schedule-footer exp-footer"><span class="exp-footer-left">${esc(sessMetaText)}</span>${teacher ? `<span class="exp-footer-right">${esc(teacher)}</span>` : ''}</div>`;
+        }
         bodyContentHtml += `<div class="sm-session-page">
           <h1>${esc(title)}</h1>
           ${sessMetaHtml}
           <h2 class="sm-session-heading">${esc(heading)}</h2>
-          <table${idx === 0 ? ' id="schedule-export-table"' : ''}>
+          <table${idx === 0 ? ' id="schedule-export-table"' : ''} class="exp-table">
             <colgroup>${colGroup}</colgroup>
             <thead><tr>${headerCells}</tr></thead>
             <tbody>${buildRowsHtml(sRows)}</tbody>
           </table>
-          ${footerHtml}
+          ${sessFooterHtml}
         </div>`;
       });
     } else {
       bodyContentHtml = `<h1>${esc(title)}</h1>
         ${metaHtml}
-        <table id="schedule-export-table">
+        <table id="schedule-export-table" class="exp-table">
           <colgroup>${colGroup}</colgroup>
           <thead><tr>${headerCells}</tr></thead>
           <tbody>${buildRowsHtml(computeSchedule())}</tbody>
@@ -3883,44 +4011,42 @@
 
     const css = `
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #222222; background: #ffffff; margin: 0; padding: 0; line-height: 1.4; }
-      h1 { font-size: 20px; font-weight: 800; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
-      .sm-session-heading { font-size: 14px; font-weight: 800; color: #222222; margin: 12px 0 8px; padding: 4px 8px; background: #fafaf7; border-left: 4px solid #333333; }
+      :where(body) { font-family: 'Lexend', system-ui, -apple-system, sans-serif; font-size: 13px; color: #222222; background: #ffffff; margin: 0; padding: 0; line-height: 1.4; }
+      :where(h1) { font-size: 20px; font-weight: 800; color: #222222; border-bottom: 2px solid #333333; padding-bottom: 6px; margin-bottom: 12px; text-transform: uppercase; letter-spacing: -0.01em; }
+      :where(.sm-session-heading) { font-size: 14px; font-weight: 700; margin: 12px 0 8px; }
       .sm-session-page + .sm-session-page { margin-top: 28px; page-break-before: always; break-before: page; }
       @media print {
         .sm-session-page + .sm-session-page { margin-top: 0; page-break-before: always; break-before: page; }
       }
-      .meta-box { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 3px 3px 0 #555555; }
-      .meta-item { display: flex; gap: 6px; align-items: center; }
-      .meta-label { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
-      .meta-val { font-weight: 600; color: #222222; }
-      table { width: 100%; border-collapse: collapse; table-layout: fixed; border: 2px solid #333333; margin-top: 4px; background: #ffffff; border-radius: 6px; box-shadow: 3px 3px 0 #555555; }
-      th, td { border: 1.5px solid #333333; padding: 8px 10px; font-size: 11px; color: #222222; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
-      th { background: #fafaf7; font-weight: 800; color: #222222; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; border-bottom: 2px solid #333333; }
-      tr:nth-child(even) td:not(.sm-break-tr td):not(.sm-gap-tr td):not(.sm-group-tr td) { background: #f8fafc; }
-      .sm-col-num { width: 50px; text-align: center; font-weight: 800; background: #fafaf7; }
-      .sm-col-student { text-align: left; font-weight: 600; }
-      .sm-col-sen { width: 60px; text-align: center; }
-      .sm-col-time { width: 110px; text-align: center; font-weight: 700; white-space: nowrap; }
-      th.sm-col-num, th.sm-col-sen, th.sm-col-time { text-align: center; }
-      .sm-sen-badge { display: inline-block; background: #e2c96e; color: #111111; border: 1.5px solid #333333; border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 800; box-shadow: 2px 2px 0 #888888; text-transform: uppercase; }
-      tr.sm-break-tr td { background: #fafaf7; color: #222222; font-weight: 800; text-align: center; border: 1.5px solid #333333; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
-      tr.sm-group-tr td { background: #fafaf7; color: #222222; font-weight: 700; border: 1.5px solid #333333; vertical-align: top; }
-      tr.sm-group-tr td.sm-group-names-cell { font-weight: 600; text-align: left; }
-      tr.sm-gap-tr td { background: #fff1f2; color: #991b1b; font-weight: 800; text-align: center; border: 1.5px solid #333333; font-size: 11px; }
+      :where(.meta-box) { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: 12px; color: #222222; background: #fafaf7; border: 2px solid #333333; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+      :where(.meta-item) { display: flex; gap: 6px; align-items: center; }
+      :where(.meta-label) { font-weight: 800; color: #222222; text-transform: uppercase; font-size: 11px; letter-spacing: 0.03em; }
+      :where(.meta-val) { font-weight: 600; color: #222222; }
+      :where(table) { width: 100%; max-width: 100%; border-collapse: collapse; table-layout: auto; margin-top: 4px; page-break-inside: auto; }
+      :where(th, td) { border: 1px solid #cbd5e1; padding: 7px 10px; font-size: 11px; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+      :where(th) { font-weight: 800; text-align: left; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+      :where(.sm-col-num) { width: 50px; text-align: center; font-weight: 800; }
+      :where(.sm-col-student) { text-align: left; font-weight: 600; }
+      :where(.sm-col-sen) { width: 60px; text-align: center; }
+      :where(.sm-col-time) { width: 110px; text-align: center; font-weight: 700; white-space: nowrap; }
+      :where(th.sm-col-num, th.sm-col-sen, th.sm-col-time) { text-align: center; }
+      :where(.sm-sen-badge) { display: inline-block; border: 1px solid currentColor; border-radius: 4px; padding: 1px 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+      :where(tr.sm-break-tr td) { font-weight: 700; font-style: italic; text-align: center; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
+      :where(tr.sm-group-tr td) { font-weight: 700; vertical-align: top; }
+      :where(tr.sm-group-tr td.sm-group-names-cell) { font-weight: 600; text-align: left; }
+      :where(tr.sm-gap-tr td) { font-weight: 700; text-align: center; font-size: 11px; }
       .th-wrap { position: relative; display: block; padding-right: 8px; }
       .col-resizer { position: absolute; top: 0; right: -4px; width: 8px; height: 100%; cursor: col-resize; user-select: none; }
       .col-resizer::after { content: ''; position: absolute; right: 3px; top: 18%; bottom: 18%; width: 1.5px; background: #333333; }
-      .schedule-footer { font-size: 11px; font-weight: 600; color: #475569; margin-top: 14px; text-align: right; border-top: 2px solid #333333; padding-top: 6px; }
+      :where(.schedule-footer) { font-size: 11px; font-weight: 600; color: #475569; margin-top: 14px; text-align: right; border-top: 2px solid #333333; padding-top: 6px; }
       thead { display: table-header-group; }
       tr { page-break-inside: avoid; break-inside: avoid; }
-      table { max-width: 100%; width: 100%; table-layout: auto; page-break-inside: auto; }
       @page { size: ${pdfSettings.pageSize} ${pdfSettings.orientation}; margin: ${pdfSettings.margin}; }
       @media print {
-        body { margin: 0; padding: 0; }
-        table { max-width: 100% !important; width: 100% !important; box-shadow: none !important; }
-        .meta-box { box-shadow: none !important; }
-        .sm-sen-badge { box-shadow: none !important; }
+        :where(body) { margin: 0; padding: 0; }
+        :where(table) { max-width: 100%; width: 100%; box-shadow: none; }
+        :where(.meta-box) { box-shadow: none; }
+        :where(.sm-sen-badge) { box-shadow: none; }
       }
     `;
 
@@ -3970,17 +4096,25 @@
 </html>`;
   }
 
+  function smBuildExportFilename(ext) {
+    const group = (document.getElementById('sm-group').value || '').trim();
+    const title = (document.getElementById('sm-exam-title').value || '').trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
+    const date = (smMultiMode && smSessions[0] && smSessions[0].date) ? smSessions[0].date : document.getElementById('sm-date').value;
+    const stamp = date || new Date().toISOString().slice(0, 10);
+    const clean = s => String(s || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
+    const safeGroup = group ? clean(group) : '';
+    const safeTitle = clean(title);
+    const base = [safeGroup, 'schedule', safeTitle, stamp].filter(Boolean).join('_');
+    return base + '.' + ext;
+  }
+
   async function exportPdf(opts) {
     opts = Object.assign({}, smExportConfig, opts || {});
     if (!smHasExportableItems()) {
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
-    const title = document.getElementById('sm-exam-title').value.trim() || (typeof t === 'function' ? t('smTitle') : 'Schedule');
-    const date = document.getElementById('sm-date').value;
-    const stamp = date || new Date().toISOString().slice(0, 10);
-    const safeTitle = title.toLowerCase().replace(/\s+/g, '_').replace(/[\\/:*?"<>|]/g, '_');
-    const defaultName = `schedule_${safeTitle}_${stamp}.pdf`;
+    const defaultName = smBuildExportFilename('pdf');
 
     let html = generatePrintableHtml(false, opts);
     if (window.ExportStylesService) {
@@ -4156,9 +4290,8 @@
       appendCsvScheduleRows(computeSchedule());
     }
 
-    const stamp = date || new Date().toISOString().slice(0, 10);
     const content = rows.join('\r\n');
-    downloadExportFile('schedule-' + stamp + '.csv', content, 'text/csv');
+    downloadExportFile(smBuildExportFilename('csv'), content, 'text/csv');
   }
 
   function exportXlsx(opts, format = 'xlsx') {
@@ -4294,8 +4427,7 @@
     try {
       const isOds = format === 'ods';
       const wbout = XLSX.write(wb, { bookType: isOds ? 'ods' : 'xlsx', type: 'array' });
-      const stamp = date || new Date().toISOString().slice(0, 10);
-      const filename = 'schedule-' + stamp + (isOds ? '.ods' : '.xlsx');
+      const filename = smBuildExportFilename(isOds ? 'ods' : 'xlsx');
       const mime = isOds ? 'application/vnd.oasis.opendocument.spreadsheet' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       downloadExportFile(filename, wbout, mime);
     } catch (err) {
@@ -4423,12 +4555,15 @@
 
       if (opts.showFooter && metaText) md += `\n*${metaText}*\n`;
 
+      const docxFilename = smBuildExportFilename('docx');
+      const docxBase = docxFilename.replace(/\.docx$/i, '');
+
       if (window.saveExportWithDestination) {
         return await window.saveExportWithDestination({
-          filename: `schedule_${safeTitle}_${stamp}.docx`,
+          filename: docxFilename,
           docxRequest: {
             markdown: md,
-            defaultName: `schedule_${safeTitle}_${stamp}`,
+            defaultName: docxBase,
             fontFamily: 'Segoe UI',
             fontSize: '10pt',
             lineHeight: '1.25',
@@ -4441,7 +4576,7 @@
 
       Desktop.exportDocx({
         markdown: md,
-        defaultName: `schedule_${safeTitle}_${stamp}`,
+        defaultName: docxBase,
         fontFamily: 'Segoe UI',
         fontSize: '10pt',
         lineHeight: '1.25',
@@ -4451,7 +4586,7 @@
       }).then(result => {
         if (result && result.ok) {
           if (window.showExportSuccessPopup && result.path) {
-            showExportSuccessPopup(result.path, result.name || `schedule_${safeTitle}_${stamp}.docx`);
+            showExportSuccessPopup(result.path, result.name || docxFilename);
           }
           showNotice(typeof t === 'function' ? t('smDocxExported') : 'DOCX exported successfully.');
         } else if (result && !result.ok && !result.canceled) {
@@ -4464,8 +4599,11 @@
         showNotice(errPrefix + ' ' + err.message, true);
       });
     } else {
-      const htmlContent = generatePrintableHtml(false, opts);
-      downloadExportFile(`schedule_${safeTitle}_${stamp}.doc`, htmlContent, 'application/msword');
+      let htmlContent = generatePrintableHtml(false, opts);
+      if (window.ExportStylesService) {
+        htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('scheduleMaker'));
+      }
+      downloadExportFile(smBuildExportFilename('doc'), htmlContent, 'application/msword');
     }
   }
 
@@ -4475,13 +4613,11 @@
       showNotice(typeof t === 'function' ? t('smNothingToExport') : 'Nothing to export.', true);
       return;
     }
-    const date = document.getElementById('sm-date').value;
-    const stamp = date || new Date().toISOString().slice(0, 10);
     let htmlContent = generatePrintableHtml(true, opts);
     if (window.ExportStylesService) {
       htmlContent = await ExportStylesService.injectStyleIntoHtml(htmlContent, ExportStylesService.getSelectedStyle('scheduleMaker'));
     }
-    downloadExportFile('schedule-' + stamp + '.html', htmlContent, 'text/html');
+    downloadExportFile(smBuildExportFilename('html'), htmlContent, 'text/html');
   }
 
   // Close dropdown on outside clicks
@@ -4582,9 +4718,13 @@
         toggleMultiMode(false);
       }
 
-      window.smSetLinkedPlannerEntries(Array.isArray(obj.linkedPlannerEntries) ? obj.linkedPlannerEntries : []);
-      window.smSetLinkedGradeTest(obj.linkedGradeTest || null);
+      window.smSetLinkedPlannerEntries(Array.isArray(obj.linkedPlannerEntries) ? obj.linkedPlannerEntries : [], true);
+      window.smSetLinkedGradeTest(obj.linkedGradeTest || null, true);
 
+      if (smMultiMode) {
+        renderSessionsPanel();
+        renderSessionTabs();
+      }
       smSyncToolbarButtons();
       renderOrderList();
       renderScheduleTable();
@@ -4625,6 +4765,7 @@
       const res = await Desktop.saveText(SCHEDULE_TARGET, smCurrentFilename, content, 'schedules');
       if (res && res.ok) {
         showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
+        smSyncLinksService();
         if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
       } else {
         showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + (res && res.error || '?'), true);
@@ -4670,6 +4811,7 @@
       if (res && res.ok) {
         showNotice(typeof t === 'function' ? t('smSaved') : 'Schedule saved.');
         smCurrentFilename = filename;
+        smSyncLinksService();
         if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
       } else {
         showNotice((typeof t === 'function' ? t('smSaveFailed') : 'Save failed:') + ' ' + (res && res.error || '?'), true);
@@ -4790,8 +4932,37 @@
       const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
       const obj = fn();
       if (!obj) throw new Error('Invalid schedule file');
-      applyScheduleObject(obj);
       smCurrentFilename = filename;
+      applyScheduleObject(obj);
+      if (window.LinksService && typeof LinksService.getLinksFor === 'function') {
+        try {
+          const links = await LinksService.getLinksFor('cmt:schedule:' + filename);
+          if ((!smLinkedPlannerEntries || smLinkedPlannerEntries.length === 0) && Array.isArray(links)) {
+            const plLinks = links.filter(l => l && l.otherUrn && l.otherUrn.startsWith('cmt:planner:'));
+            if (plLinks.length > 0) {
+              window.smSetLinkedPlannerEntries(plLinks.map(l => ({
+                entryId: l.otherUrn.slice('cmt:planner:'.length),
+                date: '',
+                label: (l.otherMeta && l.otherMeta.title) || 'Planner'
+              })), true);
+            }
+          }
+          if (!smLinkedGradeTest && Array.isArray(links)) {
+            const gsLink = links.find(l => l && l.otherUrn && l.otherUrn.startsWith('cmt:gradesheet:'));
+            if (gsLink) {
+              const parts = gsLink.otherUrn.slice('cmt:gradesheet:'.length).split(':');
+              if (parts[0]) {
+                window.smSetLinkedGradeTest({
+                  classId: parts[0],
+                  semester: parts[1] || 'sem1',
+                  testIndex: parseInt(parts[2], 10) || 0,
+                  testName: (gsLink.otherMeta && gsLink.otherMeta.title) || 'Oral Exam'
+                }, true);
+              }
+            }
+          }
+        } catch (_) {}
+      }
       if (typeof smUpdatePinButtonState === 'function') smUpdatePinButtonState();
     } catch (e) {
       showToast((typeof t === 'function' ? t('smLoadFailed') : 'Load failed:') + ' ' + e.message);

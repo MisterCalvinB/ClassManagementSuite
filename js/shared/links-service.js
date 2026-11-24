@@ -1645,6 +1645,13 @@
         subtitle = 'Board Shape • ' + (sFile ? sFile.replace(/\.(json|js|cstz)$/i, '') + ' • ' : '') + sShape;
         break;
       }
+      case 'schedule': {
+        badge = '[SCHEDULE]';
+        icon = 'schedule-maker.svg';
+        title = (meta && meta.title && !isRawTitle) ? cleanDisplayString(meta.title) : p.id.replace(/^schedule-/, '').replace(/\.js$/i, '');
+        subtitle = 'Schedule Maker';
+        break;
+      }
       case 'planner':
       case 'slot': {
         badge = '[PLANNER]';
@@ -3608,6 +3615,16 @@
         }
         var qsTd = new URLSearchParams(todoQuery).toString();
         window.open(resolvePageUrl('planner.html') + '?' + qsTd, '_blank');
+        return true;
+      }
+
+      case 'schedule': {
+        var schedQuery = p.id ? { openSchedule: p.id } : {};
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('schedule-maker.html', { query: schedQuery });
+        }
+        var qsSc = new URLSearchParams(schedQuery).toString();
+        window.open(resolvePageUrl('schedule-maker.html') + (qsSc ? ('?' + qsSc) : ''), '_blank');
         return true;
       }
 

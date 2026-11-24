@@ -1041,81 +1041,101 @@
       };
 
       window.conAddPage = function () {
-        if (typeof _conCacheCurrentPageDom === 'function') {
-          _conCacheCurrentPageDom();
-        } else {
-          // Capture the current live board into its slot
-          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        }
-        // Create a new empty page and switch to it
-        const emptySnap = conBuildEmptyPageSnapshot();
-        conPageSnapshots.push(emptySnap);
-        if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
-        conCurrentPageIndex = conPageSnapshots.length - 1;
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          if (typeof _conCacheCurrentPageDom === 'function') {
+            _conCacheCurrentPageDom();
+          } else {
+            // Capture the current live board into its slot
+            conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
+          }
+          // Create a new empty page and switch to it
+          const emptySnap = conBuildEmptyPageSnapshot();
+          conPageSnapshots.push(emptySnap);
+          if (Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs.push(null);
+          conCurrentPageIndex = conPageSnapshots.length - 1;
 
-        _conRestorePageToBoard(emptySnap, { scrollToTop: false });
-        if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
-        conUpdatePageBar();
-        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-        if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+          _conRestorePageToBoard(emptySnap, { scrollToTop: false });
+          if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
+          conUpdatePageBar();
+          if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+          if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true });
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
+          }
         }
       };
 
       window.conGoToPage = function (idx) {
         if (idx < 0 || idx >= conPageSnapshots.length || idx === conCurrentPageIndex) return;
-        // Populate thumbnail image cache from live DOM before switching away
-        if (!window._conThumbImgCache) window._conThumbImgCache = new Map();
-        document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(wrap => {
-          const id = wrap.dataset.id;
-          const img = wrap.querySelector('img');
-          if (img && img.complete && img.naturalWidth > 0) {
-            const item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(m => String(m.id) === String(id)) : null;
-            if (item) {
-              window._conThumbImgCache.set(String(item.attachmentId || item.id), img);
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          // Populate thumbnail image cache from live DOM before switching away
+          if (!window._conThumbImgCache) window._conThumbImgCache = new Map();
+          document.querySelectorAll('.con-media-item.con-media-kind-pics').forEach(wrap => {
+            const id = wrap.dataset.id;
+            const img = wrap.querySelector('img');
+            if (img && img.complete && img.naturalWidth > 0) {
+              const item = (typeof conMediaItems !== 'undefined') ? conMediaItems.find(m => String(m.id) === String(id)) : null;
+              if (item) {
+                window._conThumbImgCache.set(String(item.attachmentId || item.id), img);
+              }
+            }
+          });
+
+          const departingIdx = conCurrentPageIndex;
+          // Detach & cache active departing page DOM and live JS state
+          if (typeof _conCacheCurrentPageDom === 'function') {
+            _conCacheCurrentPageDom();
+          } else {
+            // Save current live board into in-memory snapshot
+            conPageSnapshots[departingIdx] = conBuildPageSnapshot();
+          }
+
+          const departingSnap = conPageSnapshots[departingIdx];
+          if (typeof conBuildPageThumbnailDataUrl === 'function' && departingSnap) {
+            setTimeout(function () {
+              const freshThumb = conBuildPageThumbnailDataUrl(departingSnap, 480, 320);
+              if (freshThumb) {
+                if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
+                _conPageSnapshotPngs[departingIdx] = freshThumb;
+              }
+            }, 0);
+          }
+          conCurrentPageIndex = idx;
+
+          // Attempt fast in-memory mount (cache hit)
+          const mountedFromCache = (typeof _conMountCachedPage === 'function') && _conMountCachedPage(idx);
+
+          // Fallback: Cache miss (first visit to this page or cache was cleared)
+          if (!mountedFromCache) {
+            const targetSnap = conPageSnapshots[conCurrentPageIndex];
+            _conRestorePageToBoard(targetSnap, { scrollToTop: false });
+          }
+
+          if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
+          conUpdatePageBar();
+          if (window._isPageWindow) {
+            const textSpan = document.getElementById('con-page-window-badge-text');
+            if (textSpan) {
+              const label = typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window (Saving Disabled)';
+              textSpan.textContent = `Page ${idx + 1} • ${label}`;
             }
           }
-        });
 
-        // Detach & cache active departing page DOM and live JS state
-        if (typeof _conCacheCurrentPageDom === 'function') {
-          _conCacheCurrentPageDom();
-        } else {
-          // Save current live board into in-memory snapshot
-          conPageSnapshots[conCurrentPageIndex] = conBuildPageSnapshot();
-        }
-
-        if (typeof conBuildPageThumbnailDataUrl === 'function' && conPageSnapshots[conCurrentPageIndex]) {
-          const freshThumb = conBuildPageThumbnailDataUrl(conPageSnapshots[conCurrentPageIndex], 480, 320);
-          if (freshThumb) {
-            if (!Array.isArray(_conPageSnapshotPngs)) _conPageSnapshotPngs = [];
-            _conPageSnapshotPngs[conCurrentPageIndex] = freshThumb;
+          // Broadcast target page without forceRender so cached attachments & mirror DOM cache are preserved
+          if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true });
           }
-        }
-        conCurrentPageIndex = idx;
-
-        // Attempt fast in-memory mount (cache hit)
-        const mountedFromCache = (typeof _conMountCachedPage === 'function') && _conMountCachedPage(idx);
-
-        // Fallback: Cache miss (first visit to this page or cache was cleared)
-        if (!mountedFromCache) {
-          const targetSnap = conPageSnapshots[conCurrentPageIndex];
-          _conRestorePageToBoard(targetSnap, { scrollToTop: false });
-        }
-
-        if (!window._conSuppressScrollToTop && typeof window.conScrollToTop === 'function') window.conScrollToTop();
-        conUpdatePageBar();
-        if (window._isPageWindow) {
-          const textSpan = document.getElementById('con-page-window-badge-text');
-          if (textSpan) {
-            const label = typeof t === 'function' ? t('conPageWindowBadge') : 'Secondary Window (Saving Disabled)';
-            textSpan.textContent = `Page ${idx + 1} • ${label}`;
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);
           }
-        }
-
-        // Broadcast target page with full attachment preload and viewport sync so mirror updates immediately
-        if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         }
       };
 

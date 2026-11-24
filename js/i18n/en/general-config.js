@@ -123,6 +123,7 @@
   "gcStartupSyncUpdated": "Startup sync preference updated.",
   "gcStartupSyncFailed": "Could not update startup sync setting.",
   "gcAutoSync": "Keep target up to date automatically",
+  "gcAutoSyncOneWayHint": "One-way background mirror (App -> Sync): local changes overwrite the target folder automatically.",
   "gcSecRemoteServer": "Remote Classroom Server",
   "gcSecRemoteServerDesc": "The URL of your hosted classroom server. Set it here once — Phone Remote, Multiplayer Quiz and Student Notes will use it automatically.",
   "gcRemoteServerUrl": "Server URL",

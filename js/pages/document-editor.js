@@ -735,10 +735,12 @@ window.addEventListener('DOMContentLoaded', function () {
     });
   }
   document.getElementById('btn-open-doc').addEventListener('click', openDocModal);
-  document.getElementById('btn-open-from-disk').addEventListener('click', openFromDisk);
+  const btnOpenDisk = document.getElementById('btn-open-from-disk');
+  if (btnOpenDisk) btnOpenDisk.addEventListener('click', openFromDisk);
   document.getElementById('btn-save-doc').addEventListener('click', saveDoc);
   document.getElementById('btn-save-as-doc').addEventListener('click', saveDocAs);
-  document.getElementById('btn-save-to-folder').addEventListener('click', saveDocToFolder);
+  const btnSaveFolder = document.getElementById('btn-save-to-folder');
+  if (btnSaveFolder) btnSaveFolder.addEventListener('click', saveDocToFolder);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);
   document.getElementById('btn-doc-history').addEventListener('click', openHistoryModal);
   document.getElementById('btn-pin-doc').addEventListener('click', async function () {
@@ -822,15 +824,56 @@ window.addEventListener('DOMContentLoaded', function () {
     if (e.key === 'Enter') addCssRule();
   });
 
-  // Templates (now plain items in Format group)
-  document.getElementById('btn-open-template').addEventListener('click', openTemplateModal);
-  document.getElementById('btn-save-as-template').addEventListener('click', saveAsTemplate);
+  const btnOpenTpl = document.getElementById('btn-open-template');
+  if (btnOpenTpl) btnOpenTpl.addEventListener('click', openTemplateModal);
+  const btnSaveTpl = document.getElementById('btn-save-as-template');
+  if (btnSaveTpl) btnSaveTpl.addEventListener('click', saveAsTemplate);
+
+  // Click-to-open nav dropdowns (replaces hover-only menus)
+  const navGroups = Array.from(document.querySelectorAll('#app-nav .nav-group'));
+  function closeAllNavGroups(exceptGroup) {
+    navGroups.forEach(g => {
+      if (g !== exceptGroup) g.classList.remove('open');
+    });
+  }
+  navGroups.forEach(group => {
+    const trigger = group.querySelector(':scope > .nav-btn');
+    if (trigger) {
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        const willOpen = !group.classList.contains('open');
+        closeAllNavGroups(willOpen ? group : null);
+        group.classList.toggle('open', willOpen);
+        const plPopup = document.getElementById('page-layout-popup');
+        const plBtn = document.getElementById('btn-page-layout');
+        if (plPopup) plPopup.classList.remove('open');
+        if (plBtn) plBtn.classList.remove('active');
+        if (docTypePop) docTypePop.classList.remove('open');
+        const hmWrap = document.getElementById('main-hm-wrap');
+        if (hmWrap) hmWrap.classList.remove('open');
+      });
+    }
+    const popup = group.querySelector(':scope > .nav-group-popup');
+    if (popup) {
+      popup.addEventListener('click', function (e) {
+        const item = e.target.closest('.nav-pop-item');
+        if (!item || item.id === 'btn-insert-table') return;
+        group.classList.remove('open');
+      });
+    }
+  });
 
   // Hamburger
   initHamburger('main-hm-wrap');
   window._cmtApplyNavBrand();
-  document.addEventListener('click', function () {
+  document.addEventListener('click', function (e) {
     document.getElementById('table-insert-wrap').classList.remove('open');
+    if (!e.target.closest('#app-nav .nav-group')) {
+      closeAllNavGroups(null);
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeAllNavGroups(null);
   });
 
   // Save modal

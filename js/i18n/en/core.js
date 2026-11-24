@@ -1337,6 +1337,8 @@
   "pdfToolHighlight": "Highlighter",
   "pdfToolText": "Text",
   "pdfToolEraser": "Eraser",
+  "pdfToolLaser": "Laser",
+  "pdfToolLaserHelp": "Laser Pointer (L)",
   "pdfToolUndo": "Undo",
   "pdfToolRedo": "Redo",
   "pdfClearAnnotations": "Clear Page Annotations",

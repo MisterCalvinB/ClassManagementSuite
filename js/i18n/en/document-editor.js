@@ -317,5 +317,11 @@
   "deMpModeCombined": "One Combined Document",
   "deMpModeCombinedDesc": "All students in one file with page breaks, ideal for fast printing.",
   "deMpModeSeparate": "Separate File per Student",
-  "deMpModeSeparateDesc": "Creates one named file per student, ideal for emailing or LMS."
+  "deMpModeSeparateDesc": "Creates one named file per student, ideal for emailing or LMS.",
+  "menuClassroom": "Classroom",
+  "dePageLayoutNav": "Page Layout",
+  "deFileTabDocs": "Documents",
+  "deFileTabTemplates": "Templates",
+  "deFileTabBrowseDisk": "Browse Disk…",
+  "deFileTabSaveToDisk": "Save to Disk…"
 });

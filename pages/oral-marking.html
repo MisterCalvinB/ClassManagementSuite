@@ -1259,8 +1259,34 @@
     if (window._cmtApplyNavBrand) window._cmtApplyNavBrand();
     initKeyboardShortcuts();
     const params = new URLSearchParams(window.location.search);
-    const openSched = params.get('openSchedule');
-    const sessId = params.get('sessionId') || '';
+    let openSched = params.get('openSchedule');
+    let sessId = params.get('sessionId') || '';
+    if (!openSched) {
+      try {
+        const pendingRaw = localStorage.getItem('cmt-oral-marking-open');
+        if (pendingRaw) {
+          localStorage.removeItem('cmt-oral-marking-open');
+          const pending = JSON.parse(pendingRaw);
+          if (pending && pending.openSchedule) {
+            openSched = pending.openSchedule;
+            sessId = pending.sessionId || '';
+          }
+        }
+      } catch (_) {}
+    } else {
+      try { localStorage.removeItem('cmt-oral-marking-open'); } catch (_) {}
+    }
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const omNavCh = new BroadcastChannel('cmt-oral-marking-nav');
+        omNavCh.onmessage = (ev) => {
+          if (ev && ev.data && ev.data.openSchedule) {
+            try { localStorage.removeItem('cmt-oral-marking-open'); } catch (_) {}
+            loadScheduleFile(ev.data.openSchedule, ev.data.sessionId || '');
+          }
+        };
+      } catch (_) {}
+    }
     if (openSched) {
       await loadScheduleFile(openSched, sessId);
       return;
@@ -1350,10 +1376,48 @@
     updateResetBtn();
   }
 
+  let linkedTestCriteriaNames = [];
+
+  async function loadLinkedGradeCriteria(lgt) {
+    linkedTestCriteriaNames = [];
+    if (!lgt || !lgt.classId || !window.Desktop || !Desktop.isElectron || !Desktop.isElectron()) return;
+    try {
+      const semKey = (lgt.semester && String(lgt.semester).startsWith('sem')) ? lgt.semester : 'sem1';
+      const idxNum = (typeof lgt.testIndex === 'number' ? lgt.testIndex : parseInt(lgt.testIndex, 10)) || 0;
+      const label = semKey + '-test-' + String(idxNum + 1).padStart(2, '0');
+      const res = await Desktop.readByPath('grades', lgt.classId + '/' + label + '.js');
+      if (!res || !res.ok || !res.content) return;
+      const sandbox = {};
+      new Function('window', res.content)(sandbox);
+      const tData = sandbox.GRADE_TEST_DATA || null;
+      const rawCrits = (tData && Array.isArray(tData.criteria) && tData.criteria.length)
+        ? tData.criteria
+        : ((tData && tData.testConfig && Array.isArray(tData.testConfig.criteria)) ? tData.testConfig.criteria : []);
+      rawCrits.forEach(c => {
+        const name = typeof c === 'string' ? c.trim() : (c && (c.name || c.label || c.title) ? String(c.name || c.label || c.title).trim() : '');
+        if (!name) return;
+        linkedTestCriteriaNames.push(name);
+        if (!criteriaByName[name]) {
+          const entry = typeof c === 'object' ? Object.assign({}, c, { name }) : { name };
+          criteria.push(entry);
+          criteriaByName[name] = entry;
+        }
+      });
+    } catch (_) {}
+  }
+
   function buildActiveCriteria() {
     const allNames = criteria
       .map(c => typeof c === 'string' ? c : (c.name || ''))
       .filter(Boolean);
+    if (linkedTestCriteriaNames.length > 0) {
+      const linkedSet = new Set(linkedTestCriteriaNames);
+      const rest = allNames.filter(n => !linkedSet.has(n));
+      return [
+        ...linkedTestCriteriaNames.map(name => ({ name, selected: true })),
+        ...rest.map(name => ({ name, selected: false }))
+      ];
+    }
     if (!templateCriteria.length) {
       return allNames.map(name => ({ name, selected: true }));
     }
@@ -1557,13 +1621,13 @@
       const fn = new Function(res.content + '\nreturn (typeof SCHEDULE_DATA !== "undefined") ? SCHEDULE_DATA : null;');
       const obj = fn();
       if (!obj) throw new Error('Invalid schedule file');
-      applySchedule(obj, sessionId);
+      await applySchedule(obj, sessionId);
     } catch (e) {
       showNotice(t('omLoadFailed') + ' ' + e.message, true);
     }
   }
 
-  function applySchedule(obj, sessionId) {
+  async function applySchedule(obj, sessionId) {
     let effectiveObj = obj;
     if (obj && obj.multiMode && Array.isArray(obj.sessions) && obj.sessions.length > 0) {
       const picked = (sessionId ? obj.sessions.find(s => s.id === sessionId) : null) || obj.sessions[0];
@@ -1583,6 +1647,7 @@
       ? effectiveObj.linkedGradeTest
       : null;
     if (typeof updateOpenGsButton === 'function') updateOpenGsButton();
+    await loadLinkedGradeCriteria(linkedGradeTest);
 
     const nonBreaks = (effectiveObj.items || []).filter(i => i.type === 'student' && !i.excluded);
     students = nonBreaks.map(item => {

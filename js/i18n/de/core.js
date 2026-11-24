@@ -2946,6 +2946,8 @@
   "pdfToolHighlight": "Textmarker",
   "pdfToolText": "Text",
   "pdfToolEraser": "Radierer",
+  "pdfToolLaser": "Laser",
+  "pdfToolLaserHelp": "Laserpointer (L)",
   "pdfToolUndo": "Rückgängig",
   "pdfToolRedo": "Wiederholen",
   "pdfClearAnnotations": "Seitenanmerkungen löschen",

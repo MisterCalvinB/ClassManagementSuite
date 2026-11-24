@@ -167,6 +167,7 @@
   "gcChooseFolder": "Ordner wählen",
   "gcBackupNow": "Jetzt sichern",
   "gcAutoSync": "Ziel automatisch aktuell halten",
+  "gcAutoSyncOneWayHint": "Einweg-Hintergrundspiegelung (App -> Sync): Lokale Änderungen überschreiben den Zielordner automatisch.",
   "gcSecRemoteServer": "Remote-Klassenserver",
   "gcSecRemoteServerDesc": "Die URL Ihres gehosteten Klassenservers. Einmal hier festlegen — Handy-Fernbedienung, Mehrspieler-Quiz und Schülernotizen nutzen sie automatisch.",
   "gcRemoteServerUrl": "Server-URL",

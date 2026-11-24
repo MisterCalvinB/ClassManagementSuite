@@ -218,6 +218,20 @@ async function deRenderFileBrowser() {
 
   body.innerHTML = '';
 
+  if (Array.isArray(state.sourceTabs) && state.sourceTabs.length) {
+    const tabBar = document.createElement('div');
+    tabBar.className = 'file-modal-tabs';
+    state.sourceTabs.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'file-modal-tab' + (tab.active ? ' active' : '') + (tab.isAction ? ' file-modal-tab-action' : '');
+      btn.textContent = tab.label;
+      btn.onclick = tab.onClick;
+      tabBar.appendChild(btn);
+    });
+    body.appendChild(tabBar);
+  }
+
   const nav = document.createElement('div');
   nav.className = 'file-browser-nav';
 
@@ -515,6 +529,21 @@ async function refreshDocList() {
   } catch (e) { return []; }
 }
 
+function deBuildFileModalTabs(activeTab, mode) {
+  if (mode === 'save') {
+    return [
+      { label: t('deFileTabDocs') || 'Documents', active: activeTab === 'docs', onClick: () => { if (activeTab !== 'docs') saveDocAs(); } },
+      { label: t('deFileTabTemplates') || 'Templates', active: activeTab === 'templates', onClick: () => { if (activeTab !== 'templates') saveAsTemplate(); } },
+      { label: t('deFileTabSaveToDisk') || 'Save to Disk…', isAction: true, onClick: () => { hideModal('file-modal'); saveDocToFolder(); } }
+    ];
+  }
+  return [
+    { label: t('deFileTabDocs') || 'Documents', active: activeTab === 'docs', onClick: () => { if (activeTab !== 'docs') openDocModal(); } },
+    { label: t('deFileTabTemplates') || 'Templates', active: activeTab === 'templates', onClick: () => { if (activeTab !== 'templates') openTemplateModal(); } },
+    { label: t('deFileTabBrowseDisk') || 'Browse Disk…', isAction: true, onClick: () => { hideModal('file-modal'); openFromDisk(); } }
+  ];
+}
+
 async function openDocModal() {
   fileModalMode = 'open-doc';
   await deOpenFileBrowser({
@@ -526,6 +555,7 @@ async function openDocModal() {
     displayNameFn: deDocBrowserDisplayName,
     rootLabel: t('deFileBrowserDocumentsRoot') || 'Documents',
     openButtonLabel: t('deFileBrowserOpen') || 'Open',
+    sourceTabs: deBuildFileModalTabs('docs', 'open'),
     emptyText: '<div>' + (t('deFileBrowserNoDocuments') || 'No saved documents yet.') + '<br>' + (t('deFileBrowserUseSaveHint') || 'Use Save to create one.') + '</div>',
     onOpen: async relativePath => {
       await loadDoc(relativePath);
@@ -1127,6 +1157,7 @@ async function saveDocAs() {
     placeholder: 'my-document' + ext,
     suggestedName: currentDocName || '',
     confirmOverwrite: true,
+    sourceTabs: deBuildFileModalTabs('docs', 'save'),
     onSave: async (name, folderPath) => {
       let nextName = name;
       if (/\.(md|html|typ)$/i.test(nextName)) setDocType(/\.typ$/i.test(nextName) ? 'typ' : (/\.html$/i.test(nextName) ? 'html' : 'md'));
@@ -1435,6 +1466,7 @@ async function openTemplateModal() {
     rootLabel: t('deFileBrowserTemplatesRoot') || 'Templates',
     openButtonLabel: t('deFileBrowserUse') || 'Use',
     emptyText: t('deFileBrowserNoTemplates') || 'No templates yet.',
+    sourceTabs: deBuildFileModalTabs('templates', 'open'),
     toolbarButtons: [{
       label: t('deFileBrowserSaveCurrentTemplate') || '+ Save current doc as template',
       onClick: saveAsTemplate
@@ -1502,6 +1534,7 @@ async function saveAsTemplate() {
     placeholder: 'template-name' + currentExt,
     suggestedName: suggested,
     confirmOverwrite: true,
+    sourceTabs: deBuildFileModalTabs('templates', 'save'),
     onSave: async (name, folderPath) => {
       let nextName = String(name || '').trim();
       if (!nextName) {
@@ -3395,15 +3428,18 @@ function initPageLayoutPopup() {
   applyPageLayoutToPreview();
 
   const popup = document.getElementById('page-layout-popup');
-  const navGroupPopup = popup ? popup.closest('.nav-group-popup') : null;
+  const plBtn = document.getElementById('btn-page-layout');
 
-  document.getElementById('btn-page-layout').addEventListener('click', function (e) {
+  function closePageLayoutPopup() {
+    if (popup) popup.classList.remove('open');
+    if (plBtn) plBtn.classList.remove('active');
+  }
+
+  plBtn.addEventListener('click', function (e) {
     e.stopPropagation();
-    popup.classList.toggle('open');
-    const isOpen = popup.classList.contains('open');
-    if (navGroupPopup) {
-      navGroupPopup.classList.toggle('has-open-popup', isOpen);
-    }
+    const isOpen = popup.classList.toggle('open');
+    plBtn.classList.toggle('active', isOpen);
+    document.querySelectorAll('#app-nav .nav-group.open').forEach(g => g.classList.remove('open'));
     if (isOpen) {
       const rect = this.getBoundingClientRect();
       popup.style.left = Math.min(rect.left, window.innerWidth - 300) + 'px';
@@ -3412,8 +3448,17 @@ function initPageLayoutPopup() {
   });
   document.getElementById('pl-close-btn').addEventListener('click', function (e) {
     e.stopPropagation();
-    popup.classList.remove('open');
-    if (navGroupPopup) navGroupPopup.classList.remove('has-open-popup');
+    closePageLayoutPopup();
+  });
+  document.addEventListener('click', function (e) {
+    if (popup && popup.classList.contains('open') && !e.target.closest('#page-layout-wrap')) {
+      closePageLayoutPopup();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && popup && popup.classList.contains('open')) {
+      closePageLayoutPopup();
+    }
   });
 
   // Orientation buttons

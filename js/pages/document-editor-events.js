@@ -33,12 +33,6 @@
       el.addEventListener('click', handler);
     })();
     (function () {
-      var el = document.querySelector('[data-deev-6]');
-      if (!el) return;
-      var handler = function (event) { deToggleCssPanel() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
       var el = document.querySelector('[data-deev-7]');
       if (!el) return;
       var handler = function (event) { deOpenPullLessonModal() };
@@ -96,12 +90,6 @@
       var el = document.querySelector('[data-deev-16]');
       if (!el) return;
       var handler = function (event) { openDeShortcuts() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-deev-17]');
-      if (!el) return;
-      var handler = function (event) { ShortcutsModal.open({title:t('tourBtnLabel'),rows:[],noShortcutsText:t('skmTourSoon')}) };
       el.addEventListener('click', handler);
     })();
     (function () {

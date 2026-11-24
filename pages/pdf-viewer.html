@@ -1054,6 +1054,100 @@
     body.whiteout * {
       visibility: hidden !important;
     }
+
+    /* ── Laser Pointer (matching Board laser) ── */
+    #laser-dot {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffffff 0%, var(--laser-color, #ff2200) 45%, rgba(255, 34, 0, 0) 72%);
+      box-shadow: 0 0 4px 2px var(--laser-color, #ff2200), 0 0 9px 4px var(--laser-glow, rgba(255, 34, 0, 0.45));
+      pointer-events: none;
+      z-index: 999999;
+      will-change: transform;
+      display: none;
+    }
+
+    body.laser-active #laser-dot {
+      display: block;
+    }
+
+    body.laser-active #viewer-viewport,
+    body.laser-active #viewer-viewport * {
+      cursor: crosshair !important;
+    }
+
+    .page-container.mode-laser .pdf-text-box {
+      pointer-events: none !important;
+    }
+
+    .laser-mark {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #ffffff 0%, var(--laser-color, #ff2200) 50%, rgba(255, 34, 0, 0) 76%);
+      box-shadow: 0 0 3px 2px var(--laser-color, #ff2200), 0 0 8px 3px var(--laser-glow, rgba(255, 34, 0, 0.35));
+      pointer-events: none;
+      z-index: 999997;
+      transform: translate(-50%, -50%);
+      animation: laser-mark-pop 0.18s ease-out, laser-mark-fade 2s 10s ease-in forwards;
+    }
+
+    @keyframes laser-mark-pop {
+      0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+      60% { transform: translate(-50%, -50%) scale(1.35); opacity: 1; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    @keyframes laser-mark-fade {
+      0% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .laser-trail-dot {
+      position: fixed;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.7) 0%, var(--laser-color, #ff2200) 50%, rgba(255, 34, 0, 0) 76%);
+      box-shadow: 0 0 3px 1px var(--laser-color, #ff2200), 0 0 6px 2px var(--laser-glow, rgba(255, 34, 0, 0.25));
+      pointer-events: none;
+      z-index: 999996;
+      will-change: opacity;
+      animation: laser-trail-fade 0.9s ease-out forwards;
+    }
+
+    @keyframes laser-trail-fade {
+      0% { opacity: 0.55; }
+      100% { opacity: 0; }
+    }
+
+    .laser-pulse-ring {
+      position: fixed;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 2px solid var(--laser-color, #ff2200);
+      box-shadow: 0 0 5px 2px var(--laser-glow, rgba(255, 34, 0, 0.5));
+      pointer-events: none;
+      z-index: 999998;
+      transform: translate(-50%, -50%);
+      animation: laser-pulse-anim 0.6s ease-out forwards;
+    }
+
+    @keyframes laser-pulse-anim {
+      0% { transform: translate(-50%, -50%) scale(0.4); opacity: 0.9; }
+      100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
+    }
+
+    .tool-btn.laser-btn-active {
+      background: #1a0000 !important;
+      color: var(--laser-color, #ff5533) !important;
+      border-color: var(--laser-color, #ff2200) !important;
+      box-shadow: 0 0 7px 2px var(--laser-glow, rgba(255, 34, 0, 0.55)) !important;
+    }
   </style>
 </head>
 <body data-neo-hover-all="1">
@@ -1186,6 +1280,10 @@
       <img src="../assets/icons/eraser.svg" alt="">
       <span data-i18n="pdfToolEraser">Eraser</span>
     </button>
+    <button type="button" class="tool-btn" id="toolLaser" data-tool="laser" data-i18n-help="pdfToolLaserHelp" data-hover-help="Laser Pointer (L)">
+      <img src="../assets/icons/laser.svg" alt="">
+      <span data-i18n="pdfToolLaser">Laser</span>
+    </button>
 
     <div class="tool-sep"></div>
 
@@ -1300,6 +1398,8 @@
     </div>
   </div>
 
+  <div id="laser-dot"></div>
+
   <!-- Scripts -->
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/i18n.js"></script>
@@ -1323,7 +1423,8 @@
       numPages: 0,
       currentPage: 1,
       scale: 1.35,
-      activeTool: 'pan', // 'pan' | 'pen' | 'highlight' | 'text' | 'eraser'
+      activeTool: 'pan', // 'pan' | 'pen' | 'highlight' | 'text' | 'eraser' | 'laser'
+      prevNonLaserTool: 'pan',
       currentColor: '#333333',
       currentSize: 4,
       isPanning: false,
@@ -1667,6 +1768,7 @@
       // Keyboard Shortcuts
       window.addEventListener('keydown', handleKeyShortcuts);
       setupPdfDictionaryLookup();
+      setupLaserPointer();
 
       // Cancel programmatic jump lock on manual wheel/pointer interaction
       viewport.addEventListener('wheel', () => { _programmaticJumpUntil = 0; }, { passive: true });
@@ -2377,6 +2479,8 @@
       const ctx = annotCanvas.getContext('2d');
 
       annotCanvas.addEventListener('pointerdown', (e) => {
+        if (state.activeTool === 'laser') return;
+
         if (state.activeTool === 'pan') {
           state.isPanning = true;
           state.panStartX = e.clientX;
@@ -3098,11 +3202,204 @@
     }
 
     function setTool(toolName) {
+      if (toolName !== 'laser') {
+        state.prevNonLaserTool = toolName;
+      }
       state.activeTool = toolName;
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-tool') === toolName);
+      });
       document.querySelectorAll('.page-container').forEach(pc => {
-        pc.classList.remove('mode-pan', 'mode-text');
+        pc.classList.remove('mode-pan', 'mode-text', 'mode-laser');
         if (toolName === 'pan') pc.classList.add('mode-pan');
         if (toolName === 'text') pc.classList.add('mode-text');
+        if (toolName === 'laser') pc.classList.add('mode-laser');
+      });
+      _laserSetActive(toolName === 'laser');
+    }
+
+    // ── Laser Pointer Engine (matching Board laser) ──
+    let _laserOn = false;
+    let _laserDotEl = null;
+    let _laserX = 0, _laserY = 0;
+    let _laserDown = false;
+    let _laserDownX = 0, _laserDownY = 0;
+    let _laserDidTrail = false;
+    let _laserTrailTimer = null;
+    let _laserMarkTimer = null;
+    let _laserLastBroadcast = 0;
+
+    function _getLaserDot() {
+      if (!_laserDotEl) _laserDotEl = document.getElementById('laser-dot');
+      return _laserDotEl;
+    }
+
+    function _laserMoveDot(x, y) {
+      _laserX = x;
+      _laserY = y;
+      const d = _getLaserDot();
+      if (d) {
+        d.style.transform = `translate(${x - 5}px, ${y - 5}px)`;
+      }
+    }
+
+    function _laserAddMark(vx, vy) {
+      if (!viewport) return;
+      const el = document.createElement('div');
+      el.className = 'laser-mark';
+      el.style.left = vx + 'px';
+      el.style.top = vy + 'px';
+      viewport.appendChild(el);
+      const cleanup = () => { if (el && el.parentNode) el.remove(); };
+      el.addEventListener('animationend', (e) => {
+        if (e.animationName === 'laser-mark-fade') cleanup();
+      });
+      setTimeout(cleanup, 12500);
+    }
+
+    function _laserAddTrailDot(x, y, sizeOverride) {
+      const size = typeof sizeOverride === 'number' ? sizeOverride : (5 + Math.random() * 5);
+      const el = document.createElement('div');
+      el.className = 'laser-trail-dot';
+      el.style.transform = `translate(${x - size / 2}px, ${y - size / 2}px)`;
+      el.style.width = size + 'px';
+      el.style.height = size + 'px';
+      document.body.appendChild(el);
+      const cleanup = () => { if (el && el.parentNode) el.remove(); };
+      el.addEventListener('animationend', cleanup, { once: true });
+      setTimeout(cleanup, 1200);
+      return size;
+    }
+
+    function _laserAddPulse(x, y) {
+      const el = document.createElement('div');
+      el.className = 'laser-pulse-ring';
+      el.style.left = x + 'px';
+      el.style.top = y + 'px';
+      document.body.appendChild(el);
+      const cleanup = () => { if (el && el.parentNode) el.remove(); };
+      el.addEventListener('animationend', cleanup, { once: true });
+      setTimeout(cleanup, 1500);
+    }
+
+    function _laserNormViewport(cx, cy) {
+      if (!viewport) return { nx: cx / Math.max(1, window.innerWidth), ny: cy / Math.max(1, window.innerHeight) };
+      const r = viewport.getBoundingClientRect();
+      return {
+        nx: (cx - r.left) / Math.max(1, r.width),
+        ny: (cy - r.top) / Math.max(1, r.height)
+      };
+    }
+
+    function _laserSetActive(on) {
+      _laserOn = !!on;
+      document.body.classList.toggle('laser-active', _laserOn);
+      const laserBtn = document.getElementById('toolLaser');
+      if (laserBtn) laserBtn.classList.toggle('laser-btn-active', _laserOn);
+      const d = _getLaserDot();
+      if (d) {
+        d.style.display = _laserOn ? 'block' : 'none';
+        if (!_laserOn) d.style.visibility = 'hidden';
+      }
+      if (!_laserOn) {
+        _laserDown = false;
+        clearInterval(_laserTrailTimer);
+        _laserTrailTimer = null;
+        if (_laserMarkTimer) {
+          clearTimeout(_laserMarkTimer);
+          _laserMarkTimer = null;
+        }
+      }
+      if (!state.isPresentation) {
+        try { syncChannel.postMessage({ action: 'laser-toggle', on: _laserOn }); } catch (_) {}
+      }
+    }
+
+    function setupLaserPointer() {
+      if (state.isPresentation) return;
+
+      document.addEventListener('mousemove', (e) => {
+        if (!_laserOn) return;
+        const d = _getLaserDot();
+        if (!viewport || !viewport.contains(e.target)) {
+          if (d) d.style.visibility = 'hidden';
+          return;
+        }
+        if (d) d.style.visibility = 'visible';
+        _laserMoveDot(e.clientX, e.clientY);
+
+        const now = Date.now();
+        const canSend = (now - _laserLastBroadcast) >= 16;
+        if (canSend) {
+          _laserLastBroadcast = now;
+          const p = _laserNormViewport(e.clientX, e.clientY);
+          syncChannel.postMessage({ action: 'laser-move', nx: p.nx, ny: p.ny });
+        }
+
+        if (_laserDown) {
+          if (!_laserDidTrail) {
+            const dx = e.clientX - _laserDownX;
+            const dy = e.clientY - _laserDownY;
+            if (dx * dx + dy * dy > 36) _laserDidTrail = true;
+          }
+          if (_laserDidTrail) {
+            const size = _laserAddTrailDot(e.clientX, e.clientY);
+            if (canSend) {
+              const pt = _laserNormViewport(e.clientX, e.clientY);
+              syncChannel.postMessage({ action: 'laser-trail', nx: pt.nx, ny: pt.ny, size });
+            }
+          }
+        }
+      }, { passive: true });
+
+      document.addEventListener('mousedown', (e) => {
+        if (!_laserOn || e.button !== 0) return;
+        if (!viewport || !viewport.contains(e.target)) return;
+        e.preventDefault();
+        _laserDown = true;
+        _laserDownX = e.clientX;
+        _laserDownY = e.clientY;
+        _laserDidTrail = false;
+        clearInterval(_laserTrailTimer);
+        _laserTrailTimer = setInterval(() => {
+          if (_laserDown && !_laserDidTrail) {
+            const size = _laserAddTrailDot(_laserX, _laserY);
+            const pt = _laserNormViewport(_laserX, _laserY);
+            syncChannel.postMessage({ action: 'laser-trail', nx: pt.nx, ny: pt.ny, size });
+          }
+        }, 80);
+      });
+
+      document.addEventListener('mouseup', (e) => {
+        if (!_laserOn || !_laserDown) return;
+        _laserDown = false;
+        clearInterval(_laserTrailTimer);
+        _laserTrailTimer = null;
+        if (!_laserDidTrail && viewport) {
+          const r = viewport.getBoundingClientRect();
+          const vx = e.clientX - r.left + viewport.scrollLeft;
+          const vy = e.clientY - r.top + viewport.scrollTop;
+          _laserMarkTimer = setTimeout(() => {
+            _laserMarkTimer = null;
+            _laserAddMark(vx, vy);
+            syncChannel.postMessage({ action: 'laser-mark', vx, vy });
+          }, 260);
+        }
+        _laserDidTrail = false;
+      });
+
+      document.addEventListener('dblclick', (e) => {
+        if (!_laserOn) return;
+        if (!viewport || !viewport.contains(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (_laserMarkTimer) {
+          clearTimeout(_laserMarkTimer);
+          _laserMarkTimer = null;
+        }
+        _laserAddPulse(e.clientX, e.clientY);
+        const p = _laserNormViewport(e.clientX, e.clientY);
+        syncChannel.postMessage({ action: 'laser-pulse', nx: p.nx, ny: p.ny });
       });
     }
 
@@ -3704,6 +4001,9 @@
             syncChannel.postMessage(_buildOpenDocMessage());
           }
           _mirrorSendViewport();
+          if (state.activeTool === 'laser') {
+            syncChannel.postMessage({ action: 'laser-toggle', on: true });
+          }
         } else if (msg.action === 'mirror-closed') {
           projectorBtn.classList.remove('projector-active');
         }
@@ -3880,6 +4180,32 @@
           document.body.classList.toggle('blackout', !!msg.active);
         } else if (msg.action === 'whiteout') {
           document.body.classList.toggle('whiteout', !!msg.active);
+        } else if (msg.action === 'laser-toggle') {
+          document.body.classList.toggle('laser-active', !!msg.on);
+          const d = _getLaserDot();
+          if (d) {
+            d.style.display = msg.on ? 'block' : 'none';
+            d.style.visibility = msg.on ? 'visible' : 'hidden';
+          }
+        } else if (msg.action === 'laser-move') {
+          const d = _getLaserDot();
+          if (d) {
+            d.style.display = 'block';
+            d.style.visibility = 'visible';
+            const mx = _mirrorWrapOx + msg.nx * (_mvpW * _mirrorScale);
+            const my = _mirrorWrapOy + msg.ny * (_mvpH * _mirrorScale);
+            _laserMoveDot(mx, my);
+          }
+        } else if (msg.action === 'laser-trail') {
+          const mx = _mirrorWrapOx + msg.nx * (_mvpW * _mirrorScale);
+          const my = _mirrorWrapOy + msg.ny * (_mvpH * _mirrorScale);
+          _laserAddTrailDot(mx, my, msg.size);
+        } else if (msg.action === 'laser-mark') {
+          _laserAddMark(msg.vx, msg.vy);
+        } else if (msg.action === 'laser-pulse') {
+          const mx = _mirrorWrapOx + msg.nx * (_mvpW * _mirrorScale);
+          const my = _mirrorWrapOy + msg.ny * (_mvpH * _mirrorScale);
+          _laserAddPulse(mx, my);
         }
       };
 
@@ -3942,6 +4268,16 @@
         // Toggle Whiteout on presentation window
         const isWhite = document.body.classList.toggle('whiteout');
         syncChannel.postMessage({ action: 'whiteout', active: isWhite });
+      } else if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.toLowerCase() === 'l') {
+        if (!state.isPresentation && state.pdfDoc) {
+          e.preventDefault();
+          setTool(state.activeTool === 'laser' ? (state.prevNonLaserTool || 'pan') : 'laser');
+        }
+      } else if (e.key === 'Escape' && state.activeTool === 'laser') {
+        if (!state.isPresentation) {
+          e.preventDefault();
+          setTool(state.prevNonLaserTool || 'pan');
+        }
       }
     }
 

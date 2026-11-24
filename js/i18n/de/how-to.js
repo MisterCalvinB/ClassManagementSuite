@@ -257,7 +257,7 @@
   "ht_sec_pdf_title": "PDF-Viewer",
   "ht_sec_pdf_desc": "PDFs direkt in der App öffnen, annotieren und projizieren.",
   "ht_pdf_q1": "Wie schreibe oder markiere ich auf einem PDF?",
-  "ht_pdf_a1": "<p>PDF öffnen, <strong>Stift</strong> oder <strong>Textmarker</strong> wählen und direkt zeichnen. Anmerkungen werden automatisch gespeichert.</p>",
+  "ht_pdf_a1": "<p>PDF öffnen, <strong>Stift</strong> oder <strong>Textmarker</strong> wählen und direkt zeichnen. Anmerkungen werden automatisch gespeichert. Mit dem <strong>Laser</strong>-Werkzeug (<code>L</code>) können Sie zeigen, per Klick eine temporäre Markierung setzen, per Ziehen eine Leuchtspur erzeugen oder per Doppelklick einen Puls auslösen — live im Präsentationsmodus gespiegelt.</p>",
   "ht_pdf_q2": "Wie projiziere ich ein PDF für die Klasse?",
   "ht_pdf_a2": "<p>Mit <strong>Präsentation</strong> öffnen Sie eine saubere Vollbildansicht auf dem Beamer.</p>",
   "ht_sec_ag_title": "Verwaltungsgruppen",

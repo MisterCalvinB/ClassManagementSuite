@@ -259,7 +259,7 @@
   "ht_sec_pdf_title": "Lecteur PDF",
   "ht_sec_pdf_desc": "Ouvrir, annoter et projeter vos PDF directement dans l'application.",
   "ht_pdf_q1": "Comment écrire ou surligner sur un PDF ?",
-  "ht_pdf_a1": "<p>Ouvrez un PDF, sélectionnez le <strong>Stylo</strong> ou le <strong>Surligneur</strong> et annotez la page. Les annotations sont sauvegardées automatiquement.</p>",
+  "ht_pdf_a1": "<p>Ouvrez un PDF, sélectionnez le <strong>Stylo</strong> ou le <strong>Surligneur</strong> et annotez la page. Les annotations sont sauvegardées automatiquement. Utilisez l'outil <strong>Laser</strong> (<code>L</code>) pour pointer, cliquer pour laisser une marque temporaire, glisser pour tracer une traînée ou double-cliquer pour faire pulser — synchronisé en direct avec le mode Présentation.</p>",
   "ht_pdf_q2": "Comment projeter le PDF aux élèves ?",
   "ht_pdf_a2": "<p>Cliquez sur <strong>Présentation</strong> pour afficher le document en plein écran sur le projecteur tout en gardant vos outils sur votre écran.</p>",
   "ht_sec_ag_title": "Groupes administratifs",

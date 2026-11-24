@@ -259,7 +259,7 @@
   "ht_sec_pdf_title": "PDF Viewer",
   "ht_sec_pdf_desc": "Open, annotate, and project any PDF without leaving the app.",
   "ht_pdf_q1": "How do I write or highlight on a PDF?",
-  "ht_pdf_a1": "<p>Open any PDF, pick the <strong>Pen</strong> or <strong>Highlighter</strong>, and draw directly on the page. Annotations save automatically alongside the file.</p>",
+  "ht_pdf_a1": "<p>Open any PDF, pick the <strong>Pen</strong> or <strong>Highlighter</strong>, and draw directly on the page. Annotations save automatically alongside the file. Use the <strong>Laser</strong> tool (<code>L</code>) to point, click to leave a temporary mark, drag for a laser trail, or double-click to pulse — mirrored live to Presentation Mode.</p>",
   "ht_pdf_q2": "How do I project a PDF to students?",
   "ht_pdf_a2": "<p>Click <strong>Presentation</strong> to open a clean student window on your projector while keeping your annotation toolbar on your laptop.</p>",
   "ht_sec_ag_title": "Administrative Groups",

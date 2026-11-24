@@ -2972,6 +2972,8 @@
   "pdfToolHighlight": "Evidenziatore",
   "pdfToolText": "Testo",
   "pdfToolEraser": "Gomma",
+  "pdfToolLaser": "Laser",
+  "pdfToolLaserHelp": "Puntatore laser (L)",
   "pdfToolUndo": "Annulla",
   "pdfToolRedo": "Ripeti",
   "pdfClearAnnotations": "Cancella annotazioni pagina",

@@ -75,8 +75,71 @@
             return true;
           }
         }
+        if (wrapper.querySelector('.con-tb-group.open')) {
+          return true;
+        }
         return false;
       }
+
+      function conCloseToolbarMenus(exceptGroup) {
+        const toolbar = document.getElementById('constellation-toolbar');
+        if (!toolbar) return;
+        toolbar.querySelectorAll('.con-tb-group.open').forEach(function (grp) {
+          if (exceptGroup && grp === exceptGroup) return;
+          grp.classList.remove('open');
+          const lbl = grp.querySelector(':scope > .con-tb-group-label');
+          if (lbl) lbl.setAttribute('aria-expanded', 'false');
+        });
+        conUpdateToolbarDropdownState();
+      }
+      window.conCloseToolbarMenus = global.conCloseToolbarMenus = conCloseToolbarMenus;
+
+      function conInitToolbarMenuListeners() {
+        const toolbar = document.getElementById('constellation-toolbar');
+        if (toolbar && !toolbar._hasClickMenuListeners) {
+          toolbar._hasClickMenuListeners = true;
+          toolbar.querySelectorAll('.con-tb-group').forEach(function (grp) {
+            const lbl = grp.querySelector(':scope > .con-tb-group-label');
+            const body = grp.querySelector(':scope > .con-tb-group-body');
+            if (lbl && body) {
+              lbl.setAttribute('aria-haspopup', 'true');
+              lbl.setAttribute('aria-expanded', grp.classList.contains('open') ? 'true' : 'false');
+            }
+          });
+          toolbar.addEventListener('click', function (e) {
+            const label = e.target.closest('.con-tb-group-label');
+            if (label && toolbar.contains(label)) {
+              const group = label.closest('.con-tb-group');
+              const body = group ? group.querySelector(':scope > .con-tb-group-body') : null;
+              if (group && body) {
+                e.stopPropagation();
+                const willOpen = !group.classList.contains('open');
+                conCloseToolbarMenus(willOpen ? group : null);
+                group.classList.toggle('open', willOpen);
+                label.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+                if (willOpen && typeof window.conCloseAllContextMenus === 'function') {
+                  window.conCloseAllContextMenus('con-tb-group');
+                }
+                conUpdateToolbarDropdownState();
+              }
+              return;
+            }
+            const bodyBtn = e.target.closest('.con-tb-group-body button');
+            if (bodyBtn && !bodyBtn.disabled && !bodyBtn.closest('.con-tb-inline-row')) {
+              conCloseToolbarMenus();
+            }
+          });
+        }
+        if (!window._conToolbarMenuDocListener) {
+          window._conToolbarMenuDocListener = true;
+          document.addEventListener('click', function (e) {
+            if (!e.target.closest('.con-tb-group.open')) {
+              conCloseToolbarMenus();
+            }
+          });
+        }
+      }
+      window.conInitToolbarMenuListeners = global.conInitToolbarMenuListeners = conInitToolbarMenuListeners;
 
       function conUpdateToolbarDropdownState() {
         const wrapper = document.getElementById('con-sticky-wrapper');
@@ -151,6 +214,7 @@
         // Default is pinned as requested by user ("1. default is pinned")
         const isPinned = (saved === null || saved === undefined) ? true : (saved === 'true');
         conSetToolbarPinned(isPinned);
+        conInitToolbarMenuListeners();
 
         const wrapper = document.getElementById('con-sticky-wrapper');
         const drawer = document.getElementById('con-toolbar-drawer');
@@ -2033,6 +2097,8 @@
               'con-linking', 'con-link-mode',
               'draw-mode', 'connect-mode',
               'con-random-rolling',
+              'con-node-highlight-pulse', 'con-link-highlight-pulse', 'con-search-target-pulse',
+              'con-mirror-active',
               'con-node-video', 'con-video-playing', 'con-video-paused',
               'con-anim-pulse', 'con-anim-blink', 'con-anim-float', 'con-anim-heartbeat',
               'con-anim-wiggle', 'con-anim-bounce', 'con-anim-ripple', 'con-anim-spotlight',

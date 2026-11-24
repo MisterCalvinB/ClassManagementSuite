@@ -2955,6 +2955,12 @@
   window.conExport = global.conExport = conExport;
   window.conOpenLegacyExportChooser = global.conOpenLegacyExportChooser = conOpenLegacyExportChooser;
   window.conExportJS = global.conExportJS = conExportJS;
+  window.conExportPagesPDF = global.conExportPagesPDF = conExportPagesPDF;
+  window.conOpenExportSettingsModal = global.conOpenExportSettingsModal = conOpenExportSettingsModal;
+  window.conExportPNG = global.conExportPNG = conExportPNG;
+  window.conCopyPNG = global.conCopyPNG = conCopyPNG;
+  window.conExportPDF = global.conExportPDF = conExportPDF;
+  window.conExportCSV = global.conExportCSV = conExportCSV;
   window.conPdfPickerClose = global.conPdfPickerClose = conPdfPickerClose;
   window._doConExportPDF = global._doConExportPDF = _doConExportPDF;
   window.conBuildSessionArchiveBundle = global.conBuildSessionArchiveBundle = conBuildSessionArchiveBundle;

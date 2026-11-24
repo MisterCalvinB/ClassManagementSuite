@@ -122,6 +122,7 @@
   "gcStartupSyncUpdated": "Préférence de synchronisation au démarrage mise à jour.",
   "gcStartupSyncFailed": "Impossible de mettre à jour le paramètre de synchronisation au démarrage.",
   "gcAutoSync": "Maintenir la cible à jour automatiquement",
+  "gcAutoSyncOneWayHint": "Miroir unidirectionnel en arrière-plan (App -> Synchro) : les modifications locales écrasent automatiquement le dossier cible.",
   "gcSecRemoteServer": "Serveur de classe à distance",
   "gcSecRemoteServerDesc": "L'URL de votre serveur de classe hébergé. Saisissez-la ici une seule fois — Télécommande, Quiz multijoueur et Notes étudiants l'utiliseront automatiquement.",
   "gcRemoteServerUrl": "URL du serveur",

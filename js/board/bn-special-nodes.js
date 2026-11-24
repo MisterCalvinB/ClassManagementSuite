@@ -2060,6 +2060,13 @@
               liveEl.classList.remove('con-link-highlight-pulse', 'con-node-highlight-pulse', 'con-search-target-pulse');
               void liveEl.offsetWidth;
               liveEl.classList.add('con-link-highlight-pulse');
+              if (typeof window._conMirrorSend === 'function') {
+                const pulseId = (liveEl.dataset && liveEl.dataset.id) ? liveEl.dataset.id : liveEl.id;
+                const pulseKind = liveEl.classList.contains('con-word-note') ? 'note' : (liveEl.classList.contains('con-node') ? 'node' : 'element');
+                if (pulseId) {
+                  window._conMirrorSend({ type: 'entity-highlight-pulse', id: String(pulseId), kind: pulseKind, className: 'con-link-highlight-pulse', durationMs: 2500 });
+                }
+              }
               setTimeout(() => {
                 if (liveEl) liveEl.classList.remove('con-link-highlight-pulse');
               }, 2500);
@@ -3737,6 +3744,9 @@
       function conDuplicateNodeById(nodeId, offsetX, offsetY) {
         const src = conNodes.find(n => n.id === nodeId);
         if (!src) return null;
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
         const brd = board();
         const dx = Number.isFinite(offsetX) ? offsetX : 40;
         const dy = Number.isFinite(offsetY) ? offsetY : 28;
@@ -3806,7 +3816,19 @@
         conSyncNodeLockState(dup);
 
         conRenderNodeLabel(dup);
+        if (!_prevSuppress && typeof window._conMirrorSend === 'function' && typeof window.conSerializeNodeForMirror === 'function') {
+          const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+          const serialized = window.conSerializeNodeForMirror(dup);
+          if (serialized) {
+            window._conMirrorSend({ type: 'board-paste', revision: rev, nodes: [serialized] });
+          }
+        }
         return newId;
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       }
 
       // Multi-select bulk format toggle

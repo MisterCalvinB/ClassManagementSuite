@@ -1610,6 +1610,7 @@ Dedicated desktop **PDF Viewer & Annotator** designed for classroom worksheets, 
   - **Highlighter**: Semi-transparent multiply blend highlighting that preserves sharp text legibility underneath.
   - **Text Boxes**: Click anywhere on a page to insert movable, resizable, and editable text boxes.
   - **Eraser & Undo**: Click-to-erase strokes and complete undo/redo stack (`Ctrl+Z`, `Ctrl+Y`).
+  - **Laser Pointer (`L`)**: Interactive Board-style laser pointer with glowing cursor dot, click-to-leave-mark (auto-fading), drag-to-trail, and double-click pulse ring—mirrored live to Presentation Mode at 60fps (`Esc` to exit).
 - **File Manager Integration**:
   - Direct opening from **File Manager** (`pages/file-manager.html`) via "Open in PDF Viewer ↗" buttons and right-click context menu.
   - Double-click on any `.pdf` row in File Manager launches PDF Viewer immediately.

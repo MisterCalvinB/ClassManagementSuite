@@ -1772,11 +1772,86 @@
         conClipboardClearVisualSelection();
       }
 
+      function conSerializeNodeForMirror(n) {
+        if (!n) return null;
+        return {
+          id: n.id,
+          baseWord: n.baseWord || (n.el ? n.el.textContent.trim() : ''),
+          html: n.html || (n.el && (n.el.querySelector('.katex, .wn-katex-inline, .wn-katex-display, i, b, strong, em, br, sub, sup') ? n.el.innerHTML : '')) || null,
+          dbWord: n.dbWord || null,
+          sourceWord: n.sourceWord || null,
+          relation: n.relation || null,
+          aiDef: n.aiDef || null,
+          aiPos: n.aiPos || null,
+          x: n.x, y: n.y,
+          w: n.w || n._cachedW || undefined,
+          h: n.h || n._cachedH || undefined,
+          _cachedW: n._cachedW || n.w || undefined,
+          _cachedH: n._cachedH || n.h || undefined,
+          bg: n.el ? n.el.style.background || '' : (n.bg || ''),
+          color: n.el ? n.el.style.color || '' : (n.color || ''),
+          border: n.el ? n.el.style.borderColor || '' : (n.border || ''),
+          borderWidth: n.borderWidth || null,
+          borderStyle: n.borderStyle || null,
+          highlight: n.highlight || null,
+          preset: n.preset || null,
+          fontFamily: n.fontFamily || null,
+          fontSize: ((window.conGetNodeBaseFontSize ? window.conGetNodeBaseFontSize(n) : parseFloat((n.el && n.el.style && n.el.style.fontSize) || '16')) || 16) + 'px',
+          textStrokeColor: n.textStrokeColor || null,
+          textStrokeWidth: n.textStrokeWidth || null,
+          anim: n.anim || '',
+          revealAnim: n.revealAnim || '',
+          fmt: n.fmt ? { ...n.fmt } : {},
+          masked: !!n.masked,
+          locked: !!n.locked,
+          pageNum: n.pageNum != null ? n.pageNum : null,
+          isNodeAct: !!n.isNodeAct,
+          actNodeId: n.actNodeId || null,
+          actParentId: n.actParentId || null,
+          phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+          emoji: n.emoji || null,
+          isTimer: !!n.isTimer,
+          durationSec: n.durationSec || null,
+          remainingSec: n.remainingSec != null ? n.remainingSec : null,
+          timerState: n.timerState || 'idle',
+          timerTarget: n.timerTarget || null,
+          isRandom: !!n.isRandom,
+          randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : undefined,
+          randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : undefined,
+          randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : n.randomMin) : undefined,
+          isSound: !!n.isSound,
+          soundAttachmentId: n.soundAttachmentId || null,
+          soundName: n.soundName || null,
+          soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+          isVideo: !!n.isVideo,
+          videoAttachmentId: n.videoAttachmentId || null,
+          videoName: n.videoName || null,
+          videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+          isLink: !!(n.isLink || n.isBookmark),
+          linkType: n.linkType || null,
+          linkTarget: n.linkTarget || null,
+          linkTitle: n.linkTitle || null,
+          linkSubTitle: n.linkSubTitle || null,
+          linkUrn: n.linkUrn || null,
+          bookmarkId: n.bookmarkId || null,
+          tags: Array.isArray(n.tags) ? n.tags.slice() : [],
+          shape: n.shape || 'rectangle',
+          rotation: typeof n.rotation === 'number' ? n.rotation : 0,
+          competences: Array.isArray(n.competences) ? n.competences.slice() : [],
+          nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
+          nodeNumberFormat: n.nodeNumberFormat || null
+        };
+      }
+      window.conSerializeNodeForMirror = conSerializeNodeForMirror;
+
       function conClipboardPastePayload(payload) {
         if (!payload || payload.type !== 'constellation-selection') return false;
         const brd = board();
         if (!brd) return false;
 
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
         const sourceBounds = payload.bounds || { minX: 0, minY: 0, maxX: 120, maxY: 60 };
         const anchorX = (_lastBoardPastePoint && _lastBoardPastePoint.x) || Number(window._boardCtxNoteX);
         const anchorY = (_lastBoardPastePoint && _lastBoardPastePoint.y) || Number(window._boardCtxNoteY);
@@ -1788,6 +1863,12 @@
 
         const nodeIdMap = new Map();
         const noteIdMap = new Map();
+        const createdNodes = [];
+        const createdEdges = [];
+        const createdNotes = [];
+        const createdDrawings = [];
+        const createdShapes = [];
+        const createdGroups = [];
 
         (payload.nodes || []).forEach(n => {
           const nx = targetMinX + ((Number(n.x) || 0) - sourceBounds.minX);
@@ -1827,6 +1908,7 @@
           newNode.rotation = (typeof n.rotation === 'number') ? conNormalizeNodeRotation(n.rotation) : 0;
           conApplyNodeRotation(newNode, newNode.rotation);
           nodeIdMap.set(n.id, newId);
+          createdNodes.push(newNode);
         });
 
         (payload.edges || []).forEach(e => {
@@ -1867,6 +1949,7 @@
             if (edge.labelEl) edge.labelEl.textContent = edge.label;
             conApplyEdgeLabelStyle(edge);
             conUpdateEdge(edge);
+            createdEdges.push(edge);
           }
         });
 
@@ -1916,6 +1999,7 @@
               }
             }
             noteIdMap.set(n.id, newId);
+            createdNotes.push(clone);
           });
         }
 
@@ -1931,8 +2015,14 @@
               y: dy,
               points: Array.isArray(d.points) ? d.points.map(p => (p ? { x: p.x, y: p.y } : null)) : []
             });
-            if (newDr && newDr.id && d.id) {
-              drawingIdMap.set(d.id, newDr.id);
+            if (newDr && newDr.id) {
+              if (d.id) drawingIdMap.set(d.id, newDr.id);
+              createdDrawings.push({
+                id: newDr.id, x: newDr.x, y: newDr.y, w: newDr.w, h: newDr.h,
+                points: Array.isArray(newDr.points) ? newDr.points.map(p => (p ? { x: p.x, y: p.y } : null)) : [],
+                color: newDr.color, thickness: newDr.thickness, opacity: newDr.opacity,
+                dashStyle: newDr.dashStyle || 'solid'
+              });
             }
           });
         }
@@ -1955,8 +2045,15 @@
               ly2: s.ly2 != null ? (Number(s.ly2) + shapeOffsetDy) : undefined,
               pts: Array.isArray(s.pts) ? s.pts.map(p => ({ x: Number(p.x) + shapeOffsetDx, y: Number(p.y) + shapeOffsetDy })) : null
             });
-            if (newSh && newSh.id && s.id) {
-              shapeIdMap.set(s.id, newSh.id);
+            if (newSh && newSh.id) {
+              if (s.id) shapeIdMap.set(s.id, newSh.id);
+              createdShapes.push({
+                id: newSh.id, type: newSh.type, x: newSh.x, y: newSh.y, w: newSh.w, h: newSh.h,
+                lx1: newSh.lx1, ly1: newSh.ly1, lx2: newSh.lx2, ly2: newSh.ly2,
+                pts: Array.isArray(newSh.pts) ? newSh.pts.map(p => ({ x: p.x, y: p.y })) : null,
+                color: newSh.color, fillColor: newSh.fillColor, thickness: newSh.thickness,
+                opacity: newSh.opacity, dashStyle: newSh.dashStyle, arrowheadSize: newSh.arrowheadSize
+              });
             }
           });
         }
@@ -2090,6 +2187,24 @@
             });
             requestAnimationFrame(() => conPhraseGroupLayout(newGroup));
           }
+          createdGroups.push({
+            id: newGroup.id,
+            nodeIds: [...(newGroup.nodeIds || [])],
+            noteIds: [...(newGroup.noteIds || [])],
+            drawingIds: [...(newGroup.drawingIds || [])],
+            shapeIds: [...(newGroup.shapeIds || [])],
+            mediaIds: [...(newGroup.mediaIds || [])],
+            title: newGroup.title || '',
+            blink: !!newGroup.blink,
+            paletteIdx: newGroup.paletteIdx || 0,
+            invisible: !!newGroup.invisible,
+            drawingGroup: !!newGroup.drawingGroup,
+            phraseGroup: !!newGroup.phraseGroup,
+            manualW: newGroup._manualW,
+            manualH: newGroup._manualH,
+            x: newGroup._px,
+            y: newGroup._py
+          });
         });
 
         conRedrawEdges();
@@ -2117,10 +2232,44 @@
             if (el) el.classList.add('con-media-selected');
           });
         }
-        if (typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        if (pastedMediaIds.length > 0) {
+          if (typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true });
+          }
+        } else if (typeof window._conMirrorSend === 'function') {
+          const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+          window._conMirrorSend({
+            type: 'board-paste',
+            revision: rev,
+            nodes: createdNodes.map(conSerializeNodeForMirror).filter(Boolean),
+            edges: createdEdges.map(edge => ({
+              id: edge.id, a: edge.a, b: edge.b, type: edge.type || 'none',
+              label: edge.label || '', labelSize: edge.labelSize, labelColor: edge.labelColor,
+              labelWeight: edge.labelWeight, thickness: edge.thickness, dashStyle: edge.dashStyle || null,
+              strokeType: edge.strokeType, routing: edge.routing, curvature: edge.curvature,
+              opacity: edge.opacity, terminator: edge.terminator, animated: !!edge.animated,
+              labelBg: !!edge.labelBgActive, anchorA: edge.anchorA || null, anchorB: edge.anchorB || null,
+              colorMode: edge.colorMode, strokeColor: edge.strokeColor,
+              points: Array.isArray(edge.points) ? edge.points.map(p => ({ x: p.x, y: p.y })) : [],
+              avoidObstacles: !!edge.avoidObstacles
+            })),
+            notes: createdNotes,
+            drawings: createdDrawings,
+            shapes: createdShapes,
+            groups: createdGroups,
+            selection: {
+              selectedNodeId: pastedNodeIds.length === 1 ? pastedNodeIds[0] : null,
+              selectedNodeIds: pastedNodeIds,
+              selectedNoteIds: pastedNoteIds
+            }
+          });
         }
         return true;
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       }
 
       window.conClipboardCopy = function (opts) {
@@ -2399,6 +2548,7 @@
         }
         if (exceptId !== 'con-class-dropdown' && typeof window.conCloseClassDropdown === 'function') window.conCloseClassDropdown();
         if (exceptId !== 'save-sync-menu' && typeof window.closeSaveSyncMenu === 'function') window.closeSaveSyncMenu();
+        if (exceptId !== 'con-tb-group' && typeof window.conCloseToolbarMenus === 'function') window.conCloseToolbarMenus();
         if (!exceptId && window.CmtPopup && typeof window.CmtPopup.closeAll === 'function') window.CmtPopup.closeAll();
       };
 
@@ -2547,7 +2697,7 @@
             return;
           }
 
-          const openCtx = document.querySelector('#con-ctx-menu.visible, #con-board-ctx-menu.visible, #con-group-ctx-menu.visible, #con-edge-ctx-menu[style*="display: flex"], #search-ctx-menu.visible, #wn-ctx-menu.visible, #note-ctx-menu.visible, #con-media-ctx-menu.visible, #con-class-dropdown.open, #save-sync-menu.open');
+          const openCtx = document.querySelector('#con-ctx-menu.visible, #con-board-ctx-menu.visible, #con-group-ctx-menu.visible, #con-edge-ctx-menu[style*="display: flex"], #search-ctx-menu.visible, #wn-ctx-menu.visible, #note-ctx-menu.visible, #con-media-ctx-menu.visible, #con-class-dropdown.open, #save-sync-menu.open, .con-tb-group.open');
           if (openCtx) {
             if (typeof window.conCloseAllContextMenus === 'function') window.conCloseAllContextMenus();
             return;

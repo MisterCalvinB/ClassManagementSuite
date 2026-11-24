@@ -28,31 +28,58 @@
     return typeof window.smGetLinkContext === 'function' ? window.smGetLinkContext() : {};
   }
 
-  async function readPlannerConfig() {
-    if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readText === 'function') {
-      var res = await Desktop.readText('user', 'planner-config.js');
-      if (res && res.ok && res.content) {
-        var fn = new Function('var window = {}; ' + res.content + '; return window.PLANNER_CONFIG || (typeof PLANNER_CONFIG !== "undefined" ? PLANNER_CONFIG : null);');
-        var cfg = fn();
-        if (cfg && typeof cfg === 'object') return cfg;
-      }
+  async function readAllPlannerEntries() {
+    var byClass = {};
+    var all = [];
+    if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.listByPath === 'function') {
+      try {
+        var listRes = await Desktop.listByPath('user', 'planner/', { extensions: ['.js'], recursive: false });
+        var files = (listRes && Array.isArray(listRes.files)) ? listRes.files : [];
+        for (var i = 0; i < files.length; i++) {
+          var f = files[i];
+          if (!f || !f.filename) continue;
+          try {
+            var r = await Desktop.readByPath('user', 'planner/' + f.filename);
+            if (r && r.ok && r.content) {
+              var fn = new Function('var window = {}; ' + r.content + '; return window.PLANNER_ENTRIES_BY_CLASS || {};');
+              var parsed = fn();
+              if (parsed && typeof parsed === 'object') {
+                Object.keys(parsed).forEach(function (cid) {
+                  if (Array.isArray(parsed[cid])) {
+                    byClass[cid] = (byClass[cid] || []).concat(parsed[cid]);
+                    all = all.concat(parsed[cid]);
+                  }
+                });
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    } else if (window.PLANNER_ENTRIES_BY_CLASS && typeof window.PLANNER_ENTRIES_BY_CLASS === 'object') {
+      Object.keys(window.PLANNER_ENTRIES_BY_CLASS).forEach(function (cid) {
+        if (Array.isArray(window.PLANNER_ENTRIES_BY_CLASS[cid])) {
+          byClass[cid] = window.PLANNER_ENTRIES_BY_CLASS[cid].slice();
+          all = all.concat(window.PLANNER_ENTRIES_BY_CLASS[cid]);
+        }
+      });
     }
-    if (window.PLANNER_CONFIG && typeof window.PLANNER_CONFIG === 'object') {
-      return window.PLANNER_CONFIG;
-    }
-    return { entries: [], classes: {} };
+    return { byClass: byClass, entries: all };
   }
 
-  async function savePlannerConfig(cfg) {
+  async function savePlannerClassEntries(classId, classEntries) {
     if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron() || typeof Desktop.saveText !== 'function') {
       return { ok: false, error: tr('smElectronOnly', 'Requires the Electron desktop app.') };
     }
-    var content = 'window.PLANNER_CONFIG = ' + JSON.stringify(cfg, null, 2) + ';\n';
-    var res = await Desktop.saveText('user', 'planner-config.js', content);
+    var cid = classId || '';
+    var filename = (cid || '__unassigned') + '.js';
+    var content = 'window.PLANNER_ENTRIES_BY_CLASS = window.PLANNER_ENTRIES_BY_CLASS || {};\n' +
+      'window.PLANNER_ENTRIES_BY_CLASS[' + JSON.stringify(cid) + '] = ' +
+      JSON.stringify(classEntries || [], null, 2) + ';\n';
+    var res = await Desktop.saveText('user', filename, content, 'planner');
     if (res && res.ok && typeof BroadcastChannel !== 'undefined') {
       try {
         var ch = new BroadcastChannel('cmt-planner-sync');
-        ch.postMessage({ type: 'planner-config-updated', source: 'schedule-maker' });
+        ch.postMessage({ type: 'planner-entries-updated', filename: filename, subdir: 'planner', source: 'schedule-maker' });
         setTimeout(function () { try { ch.close(); } catch (_) {} }, 500);
       } catch (_) {}
     }
@@ -70,6 +97,20 @@
     return groupTitle;
   }
 
+  function parseGradeFile(content) {
+    try {
+      var sandbox = {};
+      new Function('window', content)(sandbox);
+      return sandbox.GRADE_TEST_DATA || sandbox.GRADE_CLASS || sandbox.GRADE_CLASS_META || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function slugifyPathPart(s) {
+    return String(s || 'class').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'class';
+  }
+
   async function findGradeSheetFolder(classId, groupTitle) {
     if (!window.Desktop || !Desktop.isElectron || !Desktop.isElectron() || typeof Desktop.listByPath !== 'function') {
       return null;
@@ -79,19 +120,37 @@
     var metaFiles = files.filter(function (f) { return f.filename === '_class.js'; });
     for (var i = 0; i < metaFiles.length; i++) {
       var mf = metaFiles[i];
-      var slug = mf.relativePath.replace(/\/_class\.js$/, '');
+      var slug = String(mf.relativePath || '').replace(/\\/g, '/').split('/')[0];
       try {
         var r = await Desktop.readByPath('grades', mf.relativePath);
         if (r && r.ok && r.content) {
-          var fn = new Function('var window = {}; ' + r.content + '; return window.GRADE_CLASS_META || (typeof GRADE_CLASS_META !== "undefined" ? GRADE_CLASS_META : null);');
-          var meta = fn();
+          var meta = parseGradeFile(r.content);
           if (meta && (meta.classId === classId || meta.groupId === classId || meta.className === groupTitle || slug === classId)) {
             return { classSlug: slug, meta: meta };
           }
         }
       } catch (_) {}
     }
-    return null;
+
+    // Auto-create Grade Sheet _class.js if not yet present (mirrors Planner's findGradeSheetClass)
+    var cName = groupTitle || classId;
+    if (!cName) return null;
+    var cSlug = slugifyPathPart(cName);
+    var newMeta = {
+      _savedAt: Date.now(),
+      classId: classId || cSlug,
+      groupId: classId || cSlug,
+      className: cName,
+      testCounts: { sem1: 0, sem2: 0 },
+      students: []
+    };
+    try {
+      var metaContent = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_CLASS = ' + JSON.stringify(newMeta, null, 2) + ';\n';
+      await Desktop.saveText('grades', '_class.js', metaContent, cSlug);
+      return { classSlug: cSlug, meta: newMeta };
+    } catch (_) {
+      return null;
+    }
   }
 
   function closeModal() {
@@ -115,12 +174,13 @@
       return;
     }
     var ctx = getContext();
-    var cfg = await readPlannerConfig();
-    var entries = Array.isArray(cfg.entries) ? cfg.entries : [];
+    var loaded = await readAllPlannerEntries();
+    var byClass = loaded.byClass;
+    var entries = loaded.entries;
     var classId = resolvePlannerClassId(ctx.group, ctx.classGroupsMeta);
     var sessions = ctx.multiMode && Array.isArray(ctx.sessions) && ctx.sessions.length
       ? ctx.sessions
-      : [{ id: null, label: ctx.title || tr('smTitle', 'Schedule'), date: ctx.date, startTime: ctx.startTime, room: ctx.room }];
+      : [{ id: null, label: ctx.title || tr('smTitle', 'Schedule'), date: ctx.date, startTime: ctx.startTime, endTime: ctx.endTime || '', room: ctx.room }];
 
     var matching = entries.filter(function (e) {
       if (!e || !e.date) return false;
@@ -131,18 +191,21 @@
     }).slice(0, 20);
 
     var sessionsSummary = sessions.map(function (s, idx) {
+      var timeRange = s.startTime ? (s.endTime ? (s.startTime + '–' + s.endTime) : s.startTime) : '';
       return '<li><strong>' + esc(s.label || ('Schedule ' + (idx + 1))) + '</strong>'
         + (s.date ? ' — ' + esc(s.date) : '')
-        + (s.startTime ? ' (' + esc(s.startTime) + ')' : '')
+        + (timeRange ? ' (' + esc(timeRange) + ')' : '')
         + (s.room ? ' · ' + esc(s.room) : '')
         + '</li>';
     }).join('');
 
+    var linkedEntryIdSet = new Set((ctx.linkedPlannerEntries || []).map(function (l) { return l && l.entryId; }).filter(Boolean));
     var existingListHtml = matching.length
       ? matching.map(function (e) {
-          return '<button type="button" class="sm-link-pick-item" data-entry-id="' + esc(e.id) + '">'
-            + '<span class="sm-link-pick-title">' + esc(e.topic || e.type || 'Entry') + '</span>'
-            + '<span class="sm-link-pick-meta">' + esc(e.date) + (e.timeSlot ? ' · ' + esc(e.timeSlot) : '') + '</span>'
+          var isLinked = linkedEntryIdSet.has(e.id) || (e.scheduleLink && ctx.currentFilename && e.scheduleLink.filename === ctx.currentFilename);
+          return '<button type="button" class="sm-link-pick-item' + (isLinked ? ' active' : '') + '" data-entry-id="' + esc(e.id) + '" data-class-id="' + esc(e.classId || '') + '">'
+            + '<span class="sm-link-pick-title">' + esc(e.topic || e.type || 'Entry') + (isLinked ? ' (Linked)' : '') + '</span>'
+            + '<span class="sm-link-pick-meta">' + esc(e.date) + (e.time ? ' · ' + esc(e.time) + (e.timeEnd ? '–' + e.timeEnd : '') : (e.timeSlot ? ' · ' + esc(e.timeSlot) : '')) + '</span>'
             + '</button>';
         }).join('')
       : '<div class="sm-modal-empty">' + esc(tr('smLinkNoPlannerEntries', 'No matching Planner entries found.')) + '</div>';
@@ -164,20 +227,29 @@
     var syncBtn = document.getElementById('sm-link-sync-planner-btn');
     if (syncBtn) {
       syncBtn.addEventListener('click', async function () {
-        if (!Array.isArray(cfg.entries)) cfg.entries = [];
+        if (!ctx.currentFilename && ctx.hasItems && typeof window.smSaveForLinking === 'function') {
+          await window.smSaveForLinking();
+          ctx = getContext();
+        }
+        var targetCid = classId || '';
+        if (!Array.isArray(byClass[targetCid])) byClass[targetCid] = [];
+        var classEntries = byClass[targetCid];
         var linked = [];
-        sessions.forEach(function (sess, idx) {
+
+        sessions.forEach(function (sess) {
           var targetDate = sess.date || new Date().toISOString().slice(0, 10);
           var topic = (ctx.title || tr('smTitle', 'Oral Exam')) + (ctx.multiMode && sess.label ? ' (' + sess.label + ')' : '');
           var existingEntry = (ctx.linkedPlannerEntries || []).map(function (l) {
-            return cfg.entries.find(function (e) { return e && e.id === l.entryId; });
+            return classEntries.find(function (e) { return e && e.id === l.entryId; });
           }).find(function (e) { return e && (!sess.id || (e.scheduleLink && e.scheduleLink.sessionId === sess.id)); });
 
           if (existingEntry) {
             existingEntry.date = targetDate;
             existingEntry.topic = topic;
             existingEntry.type = 'test';
-            if (classId) existingEntry.classId = classId;
+            if (targetCid) existingEntry.classId = targetCid;
+            if (sess.startTime) existingEntry.time = sess.startTime;
+            if (sess.endTime) existingEntry.timeEnd = sess.endTime;
             if (sess.room) existingEntry.room = sess.room;
             existingEntry.scheduleLink = { filename: ctx.currentFilename || null, sessionId: sess.id || null };
             linked.push({ entryId: existingEntry.id, date: existingEntry.date, label: sess.label || topic, sessionId: sess.id || null });
@@ -186,21 +258,22 @@
             var newEntry = {
               id: newId,
               date: targetDate,
-              classId: classId || '',
+              classId: targetCid,
               topic: topic,
               type: 'test',
               testSubType: 'oral',
-              timeSlot: sess.startTime || '',
+              time: sess.startTime || '',
+              timeEnd: sess.endTime || '',
               room: sess.room || '',
               objective: sess.room ? (tr('smLabelRoom', 'Room') + ': ' + sess.room) : '',
               scheduleLink: { filename: ctx.currentFilename || null, sessionId: sess.id || null }
             };
-            cfg.entries.push(newEntry);
+            classEntries.push(newEntry);
             linked.push({ entryId: newId, date: targetDate, label: sess.label || topic, sessionId: sess.id || null });
           }
         });
 
-        var saveRes = await savePlannerConfig(cfg);
+        var saveRes = await savePlannerClassEntries(targetCid, classEntries);
         if (saveRes && saveRes.ok) {
           if (typeof window.smSetLinkedPlannerEntries === 'function') window.smSetLinkedPlannerEntries(linked);
           closeModal();
@@ -213,11 +286,17 @@
 
     document.querySelectorAll('#sm-link-modal-body .sm-link-pick-item').forEach(function (btn) {
       btn.addEventListener('click', async function () {
+        if (!ctx.currentFilename && ctx.hasItems && typeof window.smSaveForLinking === 'function') {
+          await window.smSaveForLinking();
+          ctx = getContext();
+        }
         var entryId = btn.getAttribute('data-entry-id');
-        var entry = cfg.entries.find(function (e) { return e && e.id === entryId; });
+        var entryCid = btn.getAttribute('data-class-id') || '';
+        var classEntries = byClass[entryCid] || [];
+        var entry = classEntries.find(function (e) { return e && e.id === entryId; });
         if (!entry) return;
         entry.scheduleLink = { filename: ctx.currentFilename || null, sessionId: null };
-        var saveRes = await savePlannerConfig(cfg);
+        var saveRes = await savePlannerClassEntries(entryCid, classEntries);
         if (saveRes && saveRes.ok) {
           if (typeof window.smSetLinkedPlannerEntries === 'function') {
             window.smSetLinkedPlannerEntries([{ entryId: entry.id, date: entry.date, label: entry.topic || entry.date, sessionId: null }]);
@@ -251,33 +330,46 @@
     }
 
     var existingTests = [];
-    for (var i = 0; i < 8; i++) {
-      var label = semKey + '-test-' + String(i + 1).padStart(2, '0');
-      try {
-        var trRes = await Desktop.readByPath('grades', gsFolder.classSlug + '/' + label + '.js');
-        if (trRes && trRes.ok && trRes.content) {
-          var tFn = new Function('var window = {}; ' + trRes.content + '; return window.GRADE_TEST_DATA || (typeof GRADE_TEST_DATA !== "undefined" ? GRADE_TEST_DATA : null);');
-          var tData = tFn();
-          existingTests.push({
-            index: i,
-            testName: (tData && tData.testConfig && tData.testConfig.testName) || ('Test ' + (i + 1)),
-            testDate: (tData && tData.testConfig && tData.testConfig.testDate) || ''
-          });
-        }
-      } catch (_) {}
-    }
+    try {
+      var listRes = await Desktop.listByPath('grades', gsFolder.classSlug, { extensions: ['.js'], recursive: false });
+      var testFiles = (listRes && Array.isArray(listRes.files))
+        ? listRes.files.filter(function (f) { return f && f.filename && /^sem[12]-test-\d+\.js$/i.test(f.filename); })
+        : [];
+      testFiles.sort(function (a, b) { return String(a.filename).localeCompare(String(b.filename)); });
+      for (var fi = 0; fi < testFiles.length; fi++) {
+        var tf = testFiles[fi];
+        var m = tf.filename.match(/^(sem[12])-test-(\d+)\.js$/i);
+        if (!m) continue;
+        var fSem = m[1].toLowerCase();
+        var fIdx = parseInt(m[2], 10) - 1;
+        try {
+          var trRes = await Desktop.readByPath('grades', gsFolder.classSlug + '/' + tf.filename);
+          if (trRes && trRes.ok && trRes.content) {
+            var tData = parseGradeFile(trRes.content);
+            existingTests.push({
+              semester: fSem,
+              index: fIdx,
+              testName: (tData && tData.testConfig && tData.testConfig.testName) || ('Test ' + (fIdx + 1)),
+              testDate: (tData && tData.testConfig && tData.testConfig.testDate) || ''
+            });
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
 
     var nextFreeIdx = -1;
-    var usedSet = new Set(existingTests.map(function (tItem) { return tItem.index; }));
+    var usedSet = new Set(existingTests.filter(function (tItem) { return tItem.semester === semKey; }).map(function (tItem) { return tItem.index; }));
     for (var k = 0; k < 8; k++) {
       if (!usedSet.has(k)) { nextFreeIdx = k; break; }
     }
 
+    var curLinked = ctx.linkedGradeTest;
     var listHtml = existingTests.length
       ? existingTests.map(function (tItem) {
-          return '<button type="button" class="sm-link-pick-item" data-test-idx="' + tItem.index + '" data-test-name="' + esc(tItem.testName) + '">'
-            + '<span class="sm-link-pick-title">' + esc(tItem.testName) + '</span>'
-            + '<span class="sm-link-pick-meta">' + esc(semKey.toUpperCase()) + ' · Test ' + (tItem.index + 1) + (tItem.testDate ? ' · ' + esc(tItem.testDate) : '') + '</span>'
+          var isLinked = !!(curLinked && curLinked.classId === gsFolder.classSlug && curLinked.semester === tItem.semester && curLinked.testIndex === tItem.index);
+          return '<button type="button" class="sm-link-pick-item' + (isLinked ? ' active' : '') + '" data-test-sem="' + esc(tItem.semester) + '" data-test-idx="' + tItem.index + '" data-test-name="' + esc(tItem.testName) + '">'
+            + '<span class="sm-link-pick-title">' + esc(tItem.testName) + (isLinked ? ' (Linked)' : '') + '</span>'
+            + '<span class="sm-link-pick-meta">' + esc(tItem.semester.toUpperCase()) + ' · Test ' + (tItem.index + 1) + (tItem.testDate ? ' · ' + esc(tItem.testDate) : '') + '</span>'
             + '</button>';
         }).join('')
       : '<div class="sm-modal-empty">' + esc(tr('smLinkGsNoTests', 'No tests created in this term yet.')) + '</div>';
@@ -325,7 +417,7 @@
           gsFolder.meta.testCounts = gsFolder.meta.testCounts || { sem1: 0, sem2: 0 };
           gsFolder.meta.testCounts[semKey] = Math.max(gsFolder.meta.testCounts[semKey] || 0, nextFreeIdx + 1);
           gsFolder.meta._savedAt = Date.now();
-          var metaContent = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_CLASS_META = ' + JSON.stringify(gsFolder.meta, null, 2) + ';\n';
+          var metaContent = '// _savedAt: ' + Date.now() + '\nwindow.GRADE_CLASS = ' + JSON.stringify(gsFolder.meta, null, 2) + ';\n';
           await Desktop.saveText('grades', '_class.js', metaContent, gsFolder.classSlug);
         }
 
@@ -345,13 +437,14 @@
 
     document.querySelectorAll('#sm-link-modal-body .sm-link-pick-item').forEach(function (btn) {
       btn.addEventListener('click', function () {
+        var sem = btn.getAttribute('data-test-sem') || semKey;
         var idx = parseInt(btn.getAttribute('data-test-idx'), 10);
         var name = btn.getAttribute('data-test-name') || ('Test ' + (idx + 1));
         if (typeof window.smSetLinkedGradeTest === 'function') {
           window.smSetLinkedGradeTest({
             classId: gsFolder.classSlug,
             className: ctx.group,
-            semester: semKey,
+            semester: sem,
             testIndex: idx,
             testName: name
           });
@@ -364,9 +457,11 @@
 
   function openInGradeSheet(linkedGradeTest) {
     if (!linkedGradeTest || !linkedGradeTest.classId) return;
+    var sem = linkedGradeTest.semester || 'sem1';
     var navParams = {
       classId: linkedGradeTest.classId,
-      semester: linkedGradeTest.semester || 'sem1',
+      semester: sem,
+      sem: sem,
       testIndex: linkedGradeTest.testIndex
     };
     try {
@@ -377,22 +472,39 @@
         setTimeout(function () { try { ch.close(); } catch (_) {} }, 500);
       }
     } catch (_) {}
+    var query = {
+      classId: linkedGradeTest.classId,
+      sem: sem,
+      testIndex: String(linkedGradeTest.testIndex)
+    };
     if (window.Desktop && typeof Desktop.openTool === 'function') {
-      Desktop.openTool('grade-sheet.html');
+      Desktop.openTool('grade-sheet.html', { query: query });
     } else {
-      window.location.href = 'grade-sheet.html';
+      window.location.href = 'grade-sheet.html?' + new URLSearchParams(query).toString();
     }
   }
 
   function openInPlanner(linkedEntries) {
     var first = Array.isArray(linkedEntries) && linkedEntries[0] ? linkedEntries[0] : null;
-    var url = 'planner.html' + (first && first.date ? ('?date=' + encodeURIComponent(first.date)) : '');
-    if (window.Desktop && typeof Desktop.openHtml === 'function') {
-      Desktop.openHtml(url);
-    } else if (window.Desktop && typeof Desktop.openTool === 'function') {
-      Desktop.openTool(url);
+    var query = {};
+    if (first && first.entryId) {
+      query.entryId = first.entryId;
+    } else if (first && first.date) {
+      query.navDate = first.date;
+    }
+    try {
+      if (first && (first.date || first.entryId)) {
+        localStorage.setItem('cmt-planner-nav', JSON.stringify({
+          date: first.date || '',
+          entryId: first.entryId || ''
+        }));
+      }
+    } catch (_) {}
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('planner.html', { query: query });
     } else {
-      window.location.href = url;
+      var qs = new URLSearchParams(query).toString();
+      window.location.href = 'planner.html' + (qs ? ('?' + qs) : '');
     }
   }
 
@@ -407,18 +519,24 @@
       if (!saved) return;
       ctx = getContext();
     }
-    var params = [];
-    if (ctx.currentFilename) params.push('openSchedule=' + encodeURIComponent(ctx.currentFilename));
+    var query = {};
+    if (ctx.currentFilename) query.openSchedule = ctx.currentFilename;
     if (ctx.multiMode && ctx.activeSessionId && ctx.activeSessionId !== 'all') {
-      params.push('sessionId=' + encodeURIComponent(ctx.activeSessionId));
+      query.sessionId = ctx.activeSessionId;
     }
-    var url = 'oral-marking.html' + (params.length ? ('?' + params.join('&')) : '');
-    if (window.Desktop && typeof Desktop.openHtml === 'function') {
-      Desktop.openHtml(url);
-    } else if (window.Desktop && typeof Desktop.openTool === 'function') {
-      Desktop.openTool(url);
+    try {
+      localStorage.setItem('cmt-oral-marking-open', JSON.stringify(query));
+      if (typeof BroadcastChannel !== 'undefined') {
+        var omCh = new BroadcastChannel('cmt-oral-marking-nav');
+        omCh.postMessage(query);
+        setTimeout(function () { try { omCh.close(); } catch (_) {} }, 500);
+      }
+    } catch (_) {}
+    if (window.Desktop && typeof Desktop.openTool === 'function') {
+      Desktop.openTool('oral-marking.html', { query: query });
     } else {
-      window.location.href = url;
+      var qs = new URLSearchParams(query).toString();
+      window.location.href = 'oral-marking.html' + (qs ? ('?' + qs) : '');
     }
   }
 

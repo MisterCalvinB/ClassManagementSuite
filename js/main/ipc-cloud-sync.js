@@ -112,6 +112,7 @@ ipcMain.handle('app:drive-download', async () => runDriveTransfer('download'));
 ipcMain.handle('app:webdav-get-config', async () => {
   const cfg = await loadWebdavConfig();
   const safe = { ...cfg };
+  safe.hasPassword = !!cfg.password;
   delete safe.password;
   return { ok: true, config: safe };
 });

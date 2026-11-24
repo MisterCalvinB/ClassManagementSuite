@@ -1500,6 +1500,12 @@
           liveEl.classList.remove('con-search-target-pulse');
           void liveEl.offsetWidth;
           liveEl.classList.add('con-search-target-pulse');
+          if (typeof window._conMirrorSend === 'function' && item && (item.type === 'node' || item.type === 'note' || item.type === 'table')) {
+            const pulseId = item.id != null ? String(item.id) : (liveEl.dataset && liveEl.dataset.id ? liveEl.dataset.id : liveEl.id);
+            if (pulseId) {
+              window._conMirrorSend({ type: 'entity-highlight-pulse', id: pulseId, kind: item.type, className: 'con-search-target-pulse', durationMs: 2400 });
+            }
+          }
           setTimeout(() => {
             liveEl.classList.remove('con-search-target-pulse');
           }, 2400);

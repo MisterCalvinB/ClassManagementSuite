@@ -317,5 +317,11 @@
   "deMpModeCombined": "Un unico documento combinato",
   "deMpModeCombinedDesc": "Tutti gli studenti in un file con interruzioni di pagina, ideale per stampare.",
   "deMpModeSeparate": "File separato per studente",
-  "deMpModeSeparateDesc": "Crea un file nominativo per studente, ideale per e-mail o registro."
+  "deMpModeSeparateDesc": "Crea un file nominativo per studente, ideale per e-mail o registro.",
+  "menuClassroom": "Classe",
+  "dePageLayoutNav": "Layout pagina",
+  "deFileTabDocs": "Documenti",
+  "deFileTabTemplates": "Modelli",
+  "deFileTabBrowseDisk": "Sfoglia disco…",
+  "deFileTabSaveToDisk": "Salva su disco…"
 });

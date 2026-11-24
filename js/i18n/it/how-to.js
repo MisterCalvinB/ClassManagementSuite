@@ -257,7 +257,7 @@
   "ht_sec_pdf_title": "Lettore PDF",
   "ht_sec_pdf_desc": "Apri, annota e proietta qualsiasi PDF dentro l'app.",
   "ht_pdf_q1": "Come scrivo o evidenzio su un PDF?",
-  "ht_pdf_a1": "<p>Apri un PDF, scegli <strong>Penna</strong> o <strong>Evidenziatore</strong> e disegna. Le annotazioni si salvano da sole.</p>",
+  "ht_pdf_a1": "<p>Apri un PDF, scegli <strong>Penna</strong> o <strong>Evidenziatore</strong> e disegna. Le annotazioni si salvano da sole. Usa lo strumento <strong>Laser</strong> (<code>L</code>) per puntare, cliccare per lasciare un segno temporaneo, trascinare per creare una scia o fare doppio clic per un impulso — sincronizzato dal vivo con la Modalità presentazione.</p>",
   "ht_pdf_q2": "Come proietto un PDF agli studenti?",
   "ht_pdf_a2": "<p>Clicca <strong>Presentazione</strong> per una vista pulita sul proiettore.</p>",
   "ht_sec_ag_title": "Gruppi Amministrativi",

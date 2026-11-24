@@ -1270,6 +1270,8 @@
   "pdfToolHighlight": "Surligneur",
   "pdfToolText": "Texte",
   "pdfToolEraser": "Gomme",
+  "pdfToolLaser": "Laser",
+  "pdfToolLaserHelp": "Pointeur laser (L)",
   "pdfToolUndo": "Annuler",
   "pdfToolRedo": "Rétablir",
   "pdfClearAnnotations": "Effacer les annotations de la page",

@@ -439,6 +439,9 @@
             noteEl.classList.remove('con-link-highlight-pulse', 'con-node-highlight-pulse');
             void noteEl.offsetWidth;
             noteEl.classList.add('con-link-highlight-pulse');
+            if (typeof window._conMirrorSend === 'function') {
+              window._conMirrorSend({ type: 'entity-highlight-pulse', id: String(note.id), kind: 'note', className: 'con-link-highlight-pulse', durationMs: 2500 });
+            }
             setTimeout(() => { if (noteEl) noteEl.classList.remove('con-link-highlight-pulse'); }, 2500);
           }
           return;
@@ -471,6 +474,9 @@
       targetEl.classList.remove('con-node-highlight-pulse', 'con-link-highlight-pulse');
       void targetEl.offsetWidth;
       targetEl.classList.add('con-node-highlight-pulse');
+      if (typeof window._conMirrorSend === 'function') {
+        window._conMirrorSend({ type: 'entity-highlight-pulse', id: String(node.id), kind: 'node', className: 'con-node-highlight-pulse', durationMs: 2500 });
+      }
       setTimeout(() => {
         if (targetEl) targetEl.classList.remove('con-node-highlight-pulse');
       }, 2500);

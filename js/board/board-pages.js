@@ -2142,113 +2142,7 @@
             if (window.conSyncNodeLockState) window.conSyncNodeLockState(existing);
             nextNodes.push(existing);
           } else {
-            const dbMatch = (typeof vocabBank !== 'undefined')
-              ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
-              : null;
-            const el = document.createElement('div');
-            el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
-            el.id = n.id;
-            el.style.left = n.x + 'px';
-            el.style.top = n.y + 'px';
-            if (n.bg) el.style.background = n.bg;
-            if (n.color) el.style.color = n.color;
-            if (n.border) el.style.borderColor = n.border;
-            if (n.fontFamily) el.style.fontFamily = n.fontFamily;
-            conApplyTextStrokeStyle(el, n.textStrokeWidth, n.textStrokeColor);
-            brd.appendChild(el);
-            const nodeObj = {
-              id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
-              w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
-              h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
-              _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
-              _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
-              dbWord: n.dbWord || null,
-              baseWord: n.baseWord || '',
-              sourceWord: n.sourceWord || null,
-              relation: n.relation || null,
-              aiDef: n.aiDef || null,
-              aiPos: n.aiPos || null,
-              fmt: n.fmt || {},
-              locked: !!n.locked,
-              pageNum: n.pageNum != null ? n.pageNum : null,
-              isNodeAct: !!n.isNodeAct,
-              actNodeId: n.actNodeId || null,
-              actParentId: n.actParentId || null,
-              phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
-              emoji: n.emoji || null,
-              isTimer: !!n.isTimer,
-              durationSec: n.durationSec || null,
-              remainingSec: n.remainingSec != null ? n.remainingSec : null,
-              timerState: n.timerState || 'idle',
-              timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
-              isRandom: !!n.isRandom,
-              randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
-              randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
-              randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
-              isSound: !!n.isSound,
-              soundAttachmentId: n.soundAttachmentId || null,
-              soundName: n.soundName || null,
-              soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
-              isVideo: !!n.isVideo,
-              videoAttachmentId: n.videoAttachmentId || null,
-              videoName: n.videoName || null,
-              videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
-              isLink: !!(n.isLink || n.isBookmark),
-              linkType: n.linkType || null,
-              linkTarget: n.linkTarget || null,
-              linkTitle: n.linkTitle || null,
-              linkSubTitle: n.linkSubTitle || null,
-              linkUrn: n.linkUrn || null,
-              bookmarkId: n.bookmarkId || null,
-              tags: Array.isArray(n.tags) ? n.tags.slice() : [],
-              shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
-              borderWidth: n.borderWidth || null,
-              borderStyle: n.borderStyle || null,
-              highlight: n.highlight || null,
-              preset: n.preset || null,
-              fontFamily: n.fontFamily || null,
-              fontSize: n.fontSize || '16px',
-              textStrokeColor: n.textStrokeColor || null,
-              textStrokeWidth: n.textStrokeWidth || null,
-              competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []),
-              nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
-              nodeNumberFormat: n.nodeNumberFormat || null,
-              anim: n.anim || '',
-              revealAnim: n.revealAnim || ''
-            };
-            if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
-              window.conApplyEntityAnimClass(el, nodeObj.anim, false);
-            }
-            if (nodeObj.isTimer && nodeObj.timerState === 'running') {
-              nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
-            }
-            nextNodes.push(nodeObj);
-            if (typeof window.conAttachNode === 'function') {
-              window.conAttachNode(n.id, el);
-            } else if (typeof window.conAttachNodeEvents === 'function') {
-              window.conAttachNodeEvents(n.id, el);
-            }
-            window.conRenderNodeLabel(nodeObj);
-            if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
-              window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
-            }
-            if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
-            conApplyNodeShape(nodeObj, nodeObj.shape);
-            if (el.offsetWidth > 0) {
-              nodeObj._cachedW = el.offsetWidth;
-              nodeObj._cachedH = el.offsetHeight;
-            }
-            nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
-            if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
-            el.dataset.baseWord = n.baseWord || '';
-            if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
-            if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
-            if (n.masked) {
-              nodeObj.masked = true;
-              el.classList.add('con-masked');
-            }
-            if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
-            if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
+            conAppendNodeFromData(n, brd, nextNodes);
           }
         });
 
@@ -2328,38 +2222,7 @@
             if (typeof conNoteRebuildAllStickers === 'function') conNoteRebuildAllStickers(existing, noteEl);
             nextNotes.push(existing);
           } else {
-            const noteData = {
-              fontSize: 14, bold: false, italic: false, underline: false, strike: false,
-              color: '#111111', bg: '#ffffff',
-              hidden: false, locked: false,
-              manualSize: false, width: null, height: null,
-              ...n
-            };
-            const resolvedNoteW = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : (n.w != null ? n.w : n.styleWidth))) || null;
-            const resolvedNoteH = Number(n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : (n.h != null ? n.h : n.styleHeight))) || null;
-            if (resolvedNoteW) {
-              noteData.width = resolvedNoteW;
-              noteData.w = resolvedNoteW;
-              noteData.liveBaseWidth = resolvedNoteW;
-              noteData._cachedW = resolvedNoteW;
-            }
-            if (resolvedNoteH) {
-              noteData.height = resolvedNoteH;
-              noteData.h = resolvedNoteH;
-              noteData.liveBaseHeight = resolvedNoteH;
-              noteData._cachedH = resolvedNoteH;
-            }
-            nextNotes.push(noteData);
-            conNoteBuild(noteData);
-            const num = parseInt(String(n.id).replace(/^cn+/, ''));
-            if (!isNaN(num)) conNoteNextId = Math.max(conNoteNextId, num + 1);
-            if (n.nodeId) {
-              const linkedNode = conGetNodes().find(nd => nd.id === n.nodeId);
-              if (linkedNode) {
-                linkedNode.el.classList.add('has-con-note');
-                if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
-              }
-            }
+            conAppendNoteFromData(n, nextNotes);
           }
         });
 
@@ -2778,14 +2641,18 @@
         // Restore board-level emoji stickers (placed near nodes)
         const _brdHost = document.getElementById('constellation-board');
         if (_brdHost) {
-          _brdHost.querySelectorAll(':scope > .wn-emoji-sticker').forEach(s => s.remove());
-          if (Array.isArray(data.boardStickers) && data.boardStickers.length) {
-            window._conBoardStickers = data.boardStickers.map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 }));
-            window._conBoardStickers.forEach(sd => {
-              if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brdHost);
-            });
-          } else {
-            window._conBoardStickers = [];
+          const hasIncomingStickers = Array.isArray(data.boardStickers) && data.boardStickers.length > 0;
+          const existingStickers = _brdHost.querySelectorAll(':scope > .wn-emoji-sticker');
+          if (existingStickers.length > 0 || hasIncomingStickers) {
+            existingStickers.forEach(s => s.remove());
+            if (hasIncomingStickers) {
+              window._conBoardStickers = data.boardStickers.map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 40 }));
+              window._conBoardStickers.forEach(sd => {
+                if (typeof conNoteBuildSticker === 'function') conNoteBuildSticker(sd, { emojiStickers: window._conBoardStickers }, _brdHost);
+              });
+            } else {
+              window._conBoardStickers = [];
+            }
           }
         }
 
@@ -3362,6 +3229,168 @@
     }
     window._conRestoreEdge = _conRestoreEdge;
 
+    // Helper: append a single node from serialized data without touching existing nodes
+    function conAppendNodeFromData(n, targetBrd, targetNodes) {
+      if (!n || !n.id) return null;
+      const brd = targetBrd || document.getElementById('constellation-board');
+      if (!brd) return null;
+      const nodesArr = targetNodes || (window.conGetNodes ? window.conGetNodes() : []);
+      if (nodesArr.some(x => x && x.id === n.id) || document.getElementById(n.id)) return null;
+      const dbMatch = (typeof vocabBank !== 'undefined')
+        ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
+        : null;
+      const el = document.createElement('div');
+      el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+      el.id = n.id;
+      el.style.left = n.x + 'px';
+      el.style.top = n.y + 'px';
+      if (n.bg) el.style.background = n.bg;
+      if (n.color) el.style.color = n.color;
+      if (n.border) el.style.borderColor = n.border;
+      if (n.fontFamily) el.style.fontFamily = n.fontFamily;
+      conApplyTextStrokeStyle(el, n.textStrokeWidth, n.textStrokeColor);
+      brd.appendChild(el);
+      const nodeObj = {
+        id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
+        w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
+        h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
+        _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
+        _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
+        dbWord: n.dbWord || null,
+        baseWord: n.baseWord || '',
+        sourceWord: n.sourceWord || null,
+        relation: n.relation || null,
+        aiDef: n.aiDef || null,
+        aiPos: n.aiPos || null,
+        fmt: n.fmt || {},
+        locked: !!n.locked,
+        pageNum: n.pageNum != null ? n.pageNum : null,
+        isNodeAct: !!n.isNodeAct,
+        actNodeId: n.actNodeId || null,
+        actParentId: n.actParentId || null,
+        phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+        emoji: n.emoji || null,
+        isTimer: !!n.isTimer,
+        durationSec: n.durationSec || null,
+        remainingSec: n.remainingSec != null ? n.remainingSec : null,
+        timerState: n.timerState || 'idle',
+        timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+        isRandom: !!n.isRandom,
+        randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
+        randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
+        randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
+        isSound: !!n.isSound,
+        soundAttachmentId: n.soundAttachmentId || null,
+        soundName: n.soundName || null,
+        soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+        isVideo: !!n.isVideo,
+        videoAttachmentId: n.videoAttachmentId || null,
+        videoName: n.videoName || null,
+        videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+        isLink: !!(n.isLink || n.isBookmark),
+        linkType: n.linkType || null,
+        linkTarget: n.linkTarget || null,
+        linkTitle: n.linkTitle || null,
+        linkSubTitle: n.linkSubTitle || null,
+        linkUrn: n.linkUrn || null,
+        bookmarkId: n.bookmarkId || null,
+        tags: Array.isArray(n.tags) ? n.tags.slice() : [],
+        shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
+        borderWidth: n.borderWidth || null,
+        borderStyle: n.borderStyle || null,
+        highlight: n.highlight || null,
+        preset: n.preset || null,
+        fontFamily: n.fontFamily || null,
+        fontSize: n.fontSize || '16px',
+        textStrokeColor: n.textStrokeColor || null,
+        textStrokeWidth: n.textStrokeWidth || null,
+        competences: Array.isArray(n.competences) ? n.competences.slice() : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : []),
+        nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
+        nodeNumberFormat: n.nodeNumberFormat || null,
+        anim: n.anim || '',
+        revealAnim: n.revealAnim || ''
+      };
+      if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
+        window.conApplyEntityAnimClass(el, nodeObj.anim, false);
+      }
+      if (nodeObj.isTimer && nodeObj.timerState === 'running') {
+        nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+      }
+      nodesArr.push(nodeObj);
+      if (typeof window.conAttachNode === 'function') {
+        window.conAttachNode(n.id, el);
+      } else if (typeof window.conAttachNodeEvents === 'function') {
+        window.conAttachNodeEvents(n.id, el);
+      }
+      window.conRenderNodeLabel(nodeObj);
+      if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
+        window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
+      }
+      if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
+      conApplyNodeShape(nodeObj, nodeObj.shape);
+      if (el.offsetWidth > 0) {
+        nodeObj._cachedW = el.offsetWidth;
+        nodeObj._cachedH = el.offsetHeight;
+      }
+      nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
+      if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
+      el.dataset.baseWord = n.baseWord || '';
+      if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
+      if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
+      if (n.masked) {
+        nodeObj.masked = true;
+        el.classList.add('con-masked');
+      }
+      if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
+      if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
+      return nodeObj;
+    }
+    window.conAppendNodeFromData = conAppendNodeFromData;
+
+    // Helper: append a single note from serialized data without touching existing notes
+    function conAppendNoteFromData(n, targetNotes) {
+      if (!n || !n.id) return null;
+      const notesArr = targetNotes || (window.conGetNotes ? window.conGetNotes() : []);
+      if (notesArr.some(x => x && String(x.id) === String(n.id))) return null;
+      const noteData = {
+        fontSize: 14, bold: false, italic: false, underline: false, strike: false,
+        color: '#111111', bg: '#ffffff',
+        hidden: false, locked: false,
+        manualSize: false, width: null, height: null,
+        ...n
+      };
+      const resolvedNoteW = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : (n.w != null ? n.w : n.styleWidth))) || null;
+      const resolvedNoteH = Number(n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : (n.h != null ? n.h : n.styleHeight))) || null;
+      if (resolvedNoteW) {
+        noteData.width = resolvedNoteW;
+        noteData.w = resolvedNoteW;
+        noteData.liveBaseWidth = resolvedNoteW;
+        noteData._cachedW = resolvedNoteW;
+      }
+      if (resolvedNoteH) {
+        noteData.height = resolvedNoteH;
+        noteData.h = resolvedNoteH;
+        noteData.liveBaseHeight = resolvedNoteH;
+        noteData._cachedH = resolvedNoteH;
+      }
+      notesArr.push(noteData);
+      if (typeof conNoteBuild === 'function') conNoteBuild(noteData);
+      const num = parseInt(String(n.id).replace(/^cn+/, ''));
+      if (!isNaN(num)) {
+        if (typeof window.conSyncNoteNextId === 'function') window.conSyncNoteNextId(num + 1);
+        else if (typeof conNoteNextId !== 'undefined') conNoteNextId = Math.max(conNoteNextId, num + 1);
+      }
+      if (n.nodeId) {
+        const linkedNode = conGetNodes().find(nd => nd.id === n.nodeId);
+        if (linkedNode && linkedNode.el) {
+          linkedNode.el.classList.add('has-con-note');
+          if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
+        }
+      }
+      return noteData;
+    }
+    window.conAppendNoteFromData = conAppendNoteFromData;
+
     // Helper: restore a group
     function _conRestoreGroup(g, validIds) {
       const brd = conGetBoard();
@@ -3453,6 +3482,7 @@
       if (typeof window.conGroupRefit === 'function') window.conGroupRefit(groupObj);
       else _conGroupRefit(groupObj);
     }
+    window._conRestoreGroup = _conRestoreGroup;
 
     function _conGroupRefit(group) {
       if (typeof window.conGroupRefit === 'function') {

@@ -317,5 +317,11 @@
   "deMpModeCombined": "Un seul document combiné",
   "deMpModeCombinedDesc": "Tous les élèves dans un fichier avec sauts de page, idéal pour imprimer.",
   "deMpModeSeparate": "Un fichier séparé par élève",
-  "deMpModeSeparateDesc": "Crée un fichier nommé par élève, idéal pour l'envoi par e-mail ou ENT."
+  "deMpModeSeparateDesc": "Crée un fichier nommé par élève, idéal pour l'envoi par e-mail ou ENT.",
+  "menuClassroom": "Classe",
+  "dePageLayoutNav": "Mise en page",
+  "deFileTabDocs": "Documents",
+  "deFileTabTemplates": "Modèles",
+  "deFileTabBrowseDisk": "Parcourir le disque…",
+  "deFileTabSaveToDisk": "Enregistrer sur le disque…"
 });
