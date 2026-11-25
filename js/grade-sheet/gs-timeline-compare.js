@@ -1592,12 +1592,30 @@
     }
 
     async function exportCompareHtml() {
+      const filename = `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.html`;
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename,
+          toolKey: 'gradeSheet',
+          mimeType: 'text/html;charset=utf-8',
+          allowDocEditor: true,
+          filters: [{ name: 'HTML Files', extensions: ['html'] }, { name: 'All Files', extensions: ['*'] }],
+          buildContent: async () => {
+            let html = buildCompareClassesReportHtml();
+            if (window.ExportStylesService) {
+              const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+              html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+            }
+            return html;
+          }
+        });
+      }
       let html = buildCompareClassesReportHtml();
       if (window.ExportStylesService) {
         const sId = ExportStylesService.getSelectedStyle('gradeSheet');
         html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
       }
-      downloadTextFile(html, `class-comparison-${_cmpState.scope}-${new Date().toISOString().slice(0, 10)}.html`, "text/html;charset=utf-8");
+      downloadTextFile(html, filename, "text/html;charset=utf-8");
     }
 
     function exportCompareXlsx() {

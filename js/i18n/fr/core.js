@@ -3477,5 +3477,11 @@
   "ltHostOptRandomDesc": "Tire les questions au hasard.",
   "ltHostOptSeq": "Dans l'ordre",
   "ltHostOptSeqDesc": "Suit la liste du début à la fin.",
-  "ltHostWizStartBtn": "Ouvrir le salon & Connecter"
+  "ltHostWizStartBtn": "Ouvrir le salon & Connecter",
+  "exportLangLabel": "Langue d'export :",
+  "exportLangSameAsApp": "Identique à l'app",
+  "langNameEn": "Anglais",
+  "langNameFr": "Français",
+  "langNameDe": "Allemand",
+  "langNameIt": "Italien"
 });

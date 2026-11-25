@@ -1816,6 +1816,129 @@
       }
     }
 
+    function conBuildVocabWordSet() {
+      if (typeof vocabBank === 'undefined' || !Array.isArray(vocabBank)) return null;
+      const set = new Set();
+      for (let i = 0; i < vocabBank.length; i++) {
+        const w = vocabBank[i] && vocabBank[i].word;
+        if (w) set.add(String(w).toLowerCase());
+      }
+      return set;
+    }
+    window.conBuildVocabWordSet = conBuildVocabWordSet;
+
+    /**
+     * Builds a detached node DOM element and its live nodeObj without touching #constellation-board
+     * or forcing synchronous layout, allowing both DocumentFragment batching and idle preloading.
+     */
+    function conBuildNodeElement(n, vocabWordSet) {
+      if (!n) return null;
+      const lookupWord = (n.dbWord || n.baseWord || '').toLowerCase();
+      const dbMatch = vocabWordSet
+        ? (lookupWord ? vocabWordSet.has(lookupWord) : false)
+        : ((typeof vocabBank !== 'undefined' && Array.isArray(vocabBank))
+          ? vocabBank.some(i => i && i.word && i.word.toLowerCase() === lookupWord)
+          : false);
+      const el = document.createElement('div');
+      el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+      el.id = n.id;
+      el.style.left = n.x + 'px';
+      el.style.top = n.y + 'px';
+      if (n.bg) el.style.background = n.bg;
+      if (n.color) el.style.color = n.color;
+      if (n.border) el.style.borderColor = n.border;
+      if (n.fontFamily) el.style.fontFamily = n.fontFamily;
+      conApplyTextStrokeStyle(el, n.textStrokeWidth, n.textStrokeColor);
+
+      const nodeObj = {
+        id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
+        w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
+        h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
+        _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
+        _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
+        dbWord: n.dbWord || null,
+        baseWord: n.baseWord || '',
+        sourceWord: n.sourceWord || null,
+        relation: n.relation || null,
+        aiDef: n.aiDef || null,
+        aiPos: n.aiPos || null,
+        fmt: n.fmt || {},
+        locked: !!n.locked,
+        pageNum: n.pageNum != null ? n.pageNum : null,
+        isNodeAct: !!n.isNodeAct,
+        actNodeId: n.actNodeId || null,
+        actParentId: n.actParentId || null,
+        phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
+        emoji: n.emoji || null,
+        isTimer: !!n.isTimer,
+        durationSec: n.durationSec || null,
+        remainingSec: n.remainingSec != null ? n.remainingSec : null,
+        timerState: n.timerState || 'idle',
+        timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
+        isRandom: !!n.isRandom,
+        randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
+        randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
+        randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
+        isSound: !!n.isSound,
+        soundAttachmentId: n.soundAttachmentId || null,
+        soundName: n.soundName || null,
+        soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
+        isVideo: !!n.isVideo,
+        videoAttachmentId: n.videoAttachmentId || null,
+        videoName: n.videoName || null,
+        videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
+        isLink: !!(n.isLink || n.isBookmark),
+        linkType: n.linkType || null,
+        linkTarget: n.linkTarget || null,
+        linkTitle: n.linkTitle || null,
+        linkSubTitle: n.linkSubTitle || null,
+        linkUrn: n.linkUrn || null,
+        bookmarkId: n.bookmarkId || null,
+        tags: Array.isArray(n.tags) ? n.tags.slice() : [],
+        shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
+        borderWidth: n.borderWidth || null,
+        borderStyle: n.borderStyle || null,
+        highlight: n.highlight || null,
+        preset: n.preset || null,
+        fontFamily: n.fontFamily || null,
+        fontSize: n.fontSize || '16px',
+        textStrokeColor: n.textStrokeColor || null,
+        textStrokeWidth: n.textStrokeWidth || null,
+        competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])),
+        nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
+        nodeNumberFormat: n.nodeNumberFormat || null,
+        anim: n.anim || '',
+        revealAnim: n.revealAnim || ''
+      };
+      if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
+        window.conApplyEntityAnimClass(el, nodeObj.anim, false);
+      }
+      if (nodeObj.isTimer && nodeObj.timerState === 'running') {
+        nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+      }
+      if (typeof window.conRenderNodeLabel === 'function') {
+        window.conRenderNodeLabel(nodeObj);
+      }
+      if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
+        window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
+      }
+      if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
+      conApplyNodeShape(nodeObj, nodeObj.shape);
+      nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
+      if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
+      el.dataset.baseWord = n.baseWord || '';
+      if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
+      if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
+      if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
+      if (n.masked) {
+        nodeObj.masked = true;
+        el.classList.add('con-masked');
+      }
+      if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
+      return { el, nodeObj };
+    }
+    window.conBuildNodeElement = conBuildNodeElement;
+
     function _conRestoreSession(data) {
       _conIsRestoringSession = true;
       if (data && Array.isArray(data.links) && !Array.isArray(data.edges)) {
@@ -2818,121 +2941,69 @@
       const titleInput = document.getElementById('con-title-input');
       if (titleInput) titleInput.value = (window.conGetTitle ? window.conGetTitle() : '');
 
-      // Restore nodes
-      (data.nodes || []).forEach(n => {
-        const dbMatch = (typeof vocabBank !== 'undefined')
-          ? vocabBank.find(i => i.word.toLowerCase() === (n.dbWord || n.baseWord || '').toLowerCase())
-          : null;
-        const el = document.createElement('div');
-        el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
-        el.id = n.id;
-        el.style.left = n.x + 'px';
-        el.style.top = n.y + 'px';
-        if (n.bg) el.style.background = n.bg;
-        if (n.color) el.style.color = n.color;
-        if (n.border) el.style.borderColor = n.border;
-        if (n.fontFamily) el.style.fontFamily = n.fontFamily;
-        conApplyTextStrokeStyle(el, n.textStrokeWidth, n.textStrokeColor);
-        brd.appendChild(el);
-        const nodeObj = {
-          id: n.id, el, x: n.x, y: n.y, baseX: n.x, baseY: n.y,
-          w: (typeof n.w === 'number' && n.w > 0) ? n.w : undefined,
-          h: (typeof n.h === 'number' && n.h > 0) ? n.h : undefined,
-          _cachedW: (typeof n._cachedW === 'number' && n._cachedW > 0) ? n._cachedW : ((typeof n.w === 'number' && n.w > 0) ? n.w : undefined),
-          _cachedH: (typeof n._cachedH === 'number' && n._cachedH > 0) ? n._cachedH : ((typeof n.h === 'number' && n.h > 0) ? n.h : undefined),
-          dbWord: n.dbWord || null,
-          baseWord: n.baseWord || '',
-          sourceWord: n.sourceWord || null,
-          relation: n.relation || null,
-          aiDef: n.aiDef || null,
-          aiPos: n.aiPos || null,
-          fmt: n.fmt || {},
-          locked: !!n.locked,
-          pageNum: n.pageNum != null ? n.pageNum : null,
-          isNodeAct: !!n.isNodeAct,
-          actNodeId: n.actNodeId || null,
-          actParentId: n.actParentId || null,
-          phraseOrder: n.phraseOrder != null ? n.phraseOrder : null,
-          emoji: n.emoji || null,
-          isTimer: !!n.isTimer,
-          durationSec: n.durationSec || null,
-          remainingSec: n.remainingSec != null ? n.remainingSec : null,
-          timerState: n.timerState || 'idle',
-          timerTarget: (n.timerTarget === 'cms' || n.timerTarget === 'board') ? n.timerTarget : null,
-          isRandom: !!n.isRandom,
-          randomMin: n.isRandom ? (n.randomMin != null ? n.randomMin : 1) : null,
-          randomMax: n.isRandom ? (n.randomMax != null ? n.randomMax : 100) : null,
-          randomValue: n.isRandom ? (n.randomValue != null ? n.randomValue : (n.randomMin != null ? n.randomMin : 1)) : null,
-          isSound: !!n.isSound,
-          soundAttachmentId: n.soundAttachmentId || null,
-          soundName: n.soundName || null,
-          soundDuration: (typeof n.soundDuration === 'number') ? n.soundDuration : null,
-          isVideo: !!n.isVideo,
-          videoAttachmentId: n.videoAttachmentId || null,
-          videoName: n.videoName || null,
-          videoDuration: (typeof n.videoDuration === 'number') ? n.videoDuration : null,
-          isLink: !!(n.isLink || n.isBookmark),
-          linkType: n.linkType || null,
-          linkTarget: n.linkTarget || null,
-          linkTitle: n.linkTitle || null,
-          linkSubTitle: n.linkSubTitle || null,
-          linkUrn: n.linkUrn || null,
-          bookmarkId: n.bookmarkId || null,
-          tags: Array.isArray(n.tags) ? n.tags.slice() : [],
-          shape: (window.conNormalizeNodeShape ? window.conNormalizeNodeShape(n.shape || 'rectangle') : conNormalizeNodeShapeSafe(n.shape || 'rectangle')),
-          borderWidth: n.borderWidth || null,
-          borderStyle: n.borderStyle || null,
-          highlight: n.highlight || null,
-          preset: n.preset || null,
-          fontFamily: n.fontFamily || null,
-          fontSize: n.fontSize || '16px',
-          textStrokeColor: n.textStrokeColor || null,
-          textStrokeWidth: n.textStrokeWidth || null,
-          competences: Array.isArray(n.competences) ? n.competences.slice() : (n.competences ? [n.competences] : (Array.isArray(n.competenceTags) ? n.competenceTags.slice() : [])),
-          nodeNumber: n.nodeNumber != null ? n.nodeNumber : null,
-          nodeNumberFormat: n.nodeNumberFormat || null,
-          anim: n.anim || '',
-          revealAnim: n.revealAnim || ''
-        };
-        if (nodeObj.anim && typeof window.conApplyEntityAnimClass === 'function') {
-          window.conApplyEntityAnimClass(el, nodeObj.anim, false);
+      // Restore nodes (use preloaded off-DOM nodes if available, otherwise batch via DocumentFragment)
+      const curPageSnapRef = (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots))
+        ? conPageSnapshots[curPIdx]
+        : null;
+      const preloadedItems = (isPageRestore && typeof window._conTakePreloadedPageNodes === 'function')
+        ? window._conTakePreloadedPageNodes(curPIdx, curPageSnapRef)
+        : null;
+
+      const nodeFrag = document.createDocumentFragment();
+      const restoredNodes = [];
+      if (Array.isArray(preloadedItems) && preloadedItems.length > 0) {
+        for (let i = 0; i < preloadedItems.length; i++) {
+          const item = preloadedItems[i];
+          if (!item || !item.el || !item.nodeObj) continue;
+          const { el, nodeObj } = item;
+          if (nodeObj.isTimer && nodeObj.timerState === 'running') {
+            nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+          }
+          conGetNodes().push(nodeObj);
+          if (typeof window.conAttachNode === 'function') {
+            window.conAttachNode(nodeObj.id, el);
+          } else if (typeof window.conAttachNodeEvents === 'function') {
+            window.conAttachNodeEvents(nodeObj.id, el);
+          }
+          nodeFrag.appendChild(el);
+          restoredNodes.push(nodeObj);
         }
-        if (nodeObj.isTimer && nodeObj.timerState === 'running') {
-          nodeObj.timerEndTime = Date.now() + (nodeObj.remainingSec || nodeObj.durationSec || 60) * 1000;
+      } else {
+        const vocabWordSet = conBuildVocabWordSet();
+        const rawNodes = data.nodes || [];
+        for (let i = 0; i < rawNodes.length; i++) {
+          const built = conBuildNodeElement(rawNodes[i], vocabWordSet);
+          if (!built) continue;
+          const { el, nodeObj } = built;
+          conGetNodes().push(nodeObj);
+          if (typeof window.conAttachNode === 'function') {
+            window.conAttachNode(nodeObj.id, el);
+          } else if (typeof window.conAttachNodeEvents === 'function') {
+            window.conAttachNodeEvents(nodeObj.id, el);
+          }
+          nodeFrag.appendChild(el);
+          restoredNodes.push(nodeObj);
         }
-        conGetNodes().push(nodeObj);
-        if (typeof window.conAttachNode === 'function') {
-          window.conAttachNode(n.id, el);
-        } else if (typeof window.conAttachNodeEvents === 'function') {
-          window.conAttachNodeEvents(n.id, el);
+      }
+      if (nodeFrag.childNodes.length > 0) {
+        brd.appendChild(nodeFrag);
+      }
+
+      // Single batched post-append pass: non-rectangle shape layout + cached dimensions
+      for (let i = 0; i < restoredNodes.length; i++) {
+        const nodeObj = restoredNodes[i];
+        if (nodeObj.shape && nodeObj.shape !== 'rectangle') {
+          conApplyNodeShape(nodeObj, nodeObj.shape);
         }
-        // Rebuild innerHTML with formatting + annotations + page badge
-        window.conRenderNodeLabel(nodeObj);
-        if (nodeObj.nodeNumber != null && typeof window.conApplyEntityBadge === 'function') {
-          window.conApplyEntityBadge(el, nodeObj.nodeNumber, nodeObj.nodeNumberFormat, 'node');
-        }
-        if (window.conSetNodeBaseFontSize) window.conSetNodeBaseFontSize(nodeObj, n.fontSize || '16px');
-        conApplyNodeShape(nodeObj, nodeObj.shape);
-        if (el.offsetWidth > 0) {
+      }
+      for (let i = 0; i < restoredNodes.length; i++) {
+        const nodeObj = restoredNodes[i];
+        const el = nodeObj.el;
+        if (el && el.offsetWidth > 0) {
           nodeObj._cachedW = el.offsetWidth;
           nodeObj._cachedH = el.offsetHeight;
         }
-        nodeObj.rotation = (typeof n.rotation === 'number') ? ((typeof window.conNormalizeNodeRotation === 'function') ? window.conNormalizeNodeRotation(n.rotation) : n.rotation) : 0;
-        if (typeof conApplyNodeRotation === 'function') conApplyNodeRotation(nodeObj, nodeObj.rotation);
-        el.dataset.baseWord = n.baseWord || '';
-        // Restore emoji badge/dot state if emoji was saved
-        if (nodeObj.emoji && window.conEmojiRestoreNodeDotAndBadge) window.conEmojiRestoreNodeDotAndBadge(nodeObj);
-        // Attach star button if node has a db entry
-        if (window.conAddNodeStarBtn) window.conAddNodeStarBtn(nodeObj);
-        // Restore competence badge
-        if (typeof conUpdateNodeCompetenceBadge === 'function') conUpdateNodeCompetenceBadge(nodeObj);
-        // Restore masked state
-        if (n.masked) {
-          nodeObj.masked = true;
-          el.classList.add('con-masked');
-        }
-        if (window.conSyncNodeLockState) window.conSyncNodeLockState(nodeObj);
-      });
+      }
 
       // Restore edges
       (data.edges || []).forEach(e => {
@@ -3095,6 +3166,9 @@
       }
       if (!isMirrorSync && !isPageRestore && !window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
         window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+      }
+      if (!isMirrorSync && !isPageRestore && typeof window.conSchedulePreloadPages === 'function') {
+        window.conSchedulePreloadPages();
       }
     } finally {
       setTimeout(() => {

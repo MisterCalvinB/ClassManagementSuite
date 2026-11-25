@@ -299,8 +299,48 @@
       document.getElementById("student-modal-save").addEventListener("click", commitStudentModal);
       document.getElementById("student-modal-cancel").addEventListener("click", closeStudentModal);
       document.getElementById("student-modal-close").addEventListener("click", closeStudentModal);
+      document.getElementById("student-modal-copy-to")?.addEventListener("click", () => {
+        if (!_studentModalDraft) return;
+        openCopyStudentModal(
+          _studentModalDraft.student,
+          _studentModalDraft.classObj,
+          _studentModalDraft.sem,
+          _studentModalDraft.testIndex,
+          _studentModalDraft.config
+        );
+      });
+      document.getElementById("student-modal-clear")?.addEventListener("click", async () => {
+        if (!_studentModalDraft) return;
+        await confirmAndClearStudentTestEntry(
+          _studentModalDraft.student,
+          _studentModalDraft.classObj,
+          _studentModalDraft.sem,
+          _studentModalDraft.testIndex,
+          _studentModalDraft.config
+        );
+      });
       document.getElementById("student-modal-overlay").addEventListener("click", e => {
         if (e.target === document.getElementById("student-modal-overlay")) closeStudentModal();
+      });
+
+      // Copy / Move student modal buttons
+      document.getElementById("gs-copy-student-close")?.addEventListener("click", closeCopyStudentModal);
+      document.getElementById("gs-copy-student-cancel")?.addEventListener("click", closeCopyStudentModal);
+      document.getElementById("gs-copy-student-confirm")?.addEventListener("click", confirmCopyStudentModal);
+      document.getElementById("gs-copy-student-target")?.addEventListener("change", _updateCopyStudentModalWarningAndBtn);
+      document.getElementById("gs-copy-student-clear-source")?.addEventListener("change", _updateCopyStudentModalWarningAndBtn);
+      document.getElementById("gs-copy-student-overlay")?.addEventListener("click", e => {
+        if (e.target === document.getElementById("gs-copy-student-overlay")) closeCopyStudentModal();
+      });
+      document.addEventListener("keydown", e => {
+        if (e.key === "Escape") {
+          const copyOv = document.getElementById("gs-copy-student-overlay");
+          if (copyOv && !copyOv.classList.contains("hidden")) {
+            e.preventDefault();
+            e.stopPropagation();
+            closeCopyStudentModal();
+          }
+        }
       });
 
       // ── test-row-menu ────────────────────────────────────────────
@@ -310,6 +350,12 @@
         if (!ctx) return;
         openStudentModal(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex,
           document.querySelector(`#test-table tbody tr[data-student-id="${ctx.student.id}"]`), ctx.config);
+      });
+      document.getElementById("test-row-menu-copy-to")?.addEventListener("click", () => {
+        const ctx = _testRowMenuCtx;
+        closeAllContextMenus();
+        if (!ctx) return;
+        openCopyStudentModal(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
       });
       document.getElementById("test-row-menu-absent")?.addEventListener("click", () => {
         const ctx = _testRowMenuCtx;
@@ -328,6 +374,12 @@
         closeAllContextMenus();
         if (!ctx) return;
         await resetStudentTestPoints(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
+      });
+      document.getElementById("test-row-menu-clear")?.addEventListener("click", async () => {
+        const ctx = _testRowMenuCtx;
+        closeAllContextMenus();
+        if (!ctx) return;
+        await confirmAndClearStudentTestEntry(ctx.student, ctx.classObj, ctx.sem, ctx.testIndex, ctx.config);
       });
       document.getElementById("test-row-menu-dossier")?.addEventListener("click", () => {
         const ctx = _testRowMenuCtx;

@@ -5989,6 +5989,16 @@
           }
         });
       }
+      if (window.ExportLangService) {
+        ExportLangService.renderLangSelector(document.getElementById('pl-export-lang-selector-wrap'), {
+          toolKey: 'planner',
+          onChange: function () {
+            if (document.getElementById('pl-preview-modal').style.display === 'flex') {
+              openPlannerPreviewModal();
+            }
+          }
+        });
+      }
 
       openModal('exportModal');
     }
@@ -6157,7 +6167,13 @@
     }
 
     // ── ICS export ─────────────────────────────────────────────────────────────
-    function doExportIcs() {
+    async function doExportIcs() {
+      if (window.ExportLangService) {
+        return await ExportLangService.withExportLang('planner', _doExportIcsInner);
+      }
+      return _doExportIcsInner();
+    }
+    function _doExportIcsInner() {
       var clsFilter = document.getElementById('exp-cls').value;
       var fileBase = getExportFilenameBase(clsFilter);
       var now = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
@@ -6612,7 +6628,7 @@
     }
 
     // ── Live Preview Modal for Planner ─────────────────────────────────────────
-    function openPlannerPreviewModal() {
+    async function openPlannerPreviewModal() {
       var modal = document.getElementById('pl-preview-modal');
       var iframe = document.getElementById('plPreviewIframe');
       if (!modal || !iframe) return;
@@ -6620,7 +6636,9 @@
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
       var previewFilters = Object.assign({}, filters, { separateClassFiles: false });
-      var html = buildExportHtml(clsFilter, previewFilters);
+      var html = window.ExportLangService
+        ? await ExportLangService.withExportLang('planner', function () { return buildExportHtml(clsFilter, previewFilters); })
+        : buildExportHtml(clsFilter, previewFilters);
 
       iframe.srcdoc = html;
       iframe.onload = function () {
@@ -6664,7 +6682,9 @@
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
       var previewFilters = Object.assign({}, filters, { separateClassFiles: false });
-      var html = buildExportHtml(clsFilter, previewFilters);
+      var html = window.ExportLangService
+        ? await ExportLangService.withExportLang('planner', function () { return buildExportHtml(clsFilter, previewFilters); })
+        : buildExportHtml(clsFilter, previewFilters);
       if (window.ExportStylesService) {
         html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
       }
@@ -6698,6 +6718,12 @@
 
     // ── HTML table export ───────────────────────────────────────────────────────
     async function doExportHtml() {
+      if (window.ExportLangService) {
+        return await ExportLangService.withExportLang('planner', _doExportHtmlInner);
+      }
+      return await _doExportHtmlInner();
+    }
+    async function _doExportHtmlInner() {
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
 
@@ -6845,7 +6871,13 @@
     }
 
     // ── CSV export ─────────────────────────────────────────────────────────────
-    function doExportCsv() {
+    async function doExportCsv() {
+      if (window.ExportLangService) {
+        return await ExportLangService.withExportLang('planner', _doExportCsvInner);
+      }
+      return _doExportCsvInner();
+    }
+    function _doExportCsvInner() {
       var clsFilter = document.getElementById('exp-cls').value;
       var filters = getExportFilters();
 
@@ -6957,6 +6989,12 @@
     }
 
     async function doExportPdf() {
+      if (window.ExportLangService) {
+        return await ExportLangService.withExportLang('planner', _doExportPdfInner);
+      }
+      return await _doExportPdfInner();
+    }
+    async function _doExportPdfInner() {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast(t('pl_exportPdfLabel') + ': desktop only'); return;
       }
@@ -7204,6 +7242,12 @@
     }
 
     async function doExportDocx() {
+      if (window.ExportLangService) {
+        return await ExportLangService.withExportLang('planner', _doExportDocxInner);
+      }
+      return await _doExportDocxInner();
+    }
+    async function _doExportDocxInner() {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast(t('pl_exportDocxLabel') + ': desktop only'); return;
       }

@@ -845,7 +845,10 @@
         var filenameInput = destinationOverlay ? destinationOverlay.querySelector('#cmt-dest-filename-input') : null;
         var rawName = explicitFilename || (filenameInput ? filenameInput.value : '');
         var cleanName = _sanitizeExportFilename(rawName, _currentExportDefaultExt, _currentExportDefaultName);
-        fn({ destination: res, filename: cleanName });
+        var langSel = destinationOverlay ? destinationOverlay.querySelector('#cmt-dest-lang-select') : null;
+        var langWrap = destinationOverlay ? destinationOverlay.querySelector('.cmt-dest-lang-wrap') : null;
+        var chosenLang = (langSel && langWrap && langWrap.style.display !== 'none') ? langSel.value : undefined;
+        fn({ destination: res, filename: cleanName, lang: chosenLang });
       }
     }
   }
@@ -1131,6 +1134,10 @@
           '<label class="cmt-dest-filename-label neo-label" for="cmt-dest-filename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
           '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input neo-input" style="font-weight:700;" />' +
         '</div>' +
+        '<div class="cmt-dest-lang-wrap" style="display:none;margin-bottom: 14px;">' +
+          '<label class="cmt-dest-lang-label neo-label" for="cmt-dest-lang-select" style="display:block;margin-bottom:5px;">Export Language:</label>' +
+          '<select id="cmt-dest-lang-select" class="cmt-dest-lang-select neo-input" style="width:100%;font-weight:700;"></select>' +
+        '</div>' +
         '<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">' +
           '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef9c3;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
             '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
@@ -1303,6 +1310,38 @@
       filenameInput.value = rawFilename;
     }
 
+    var langWrap = destinationOverlay.querySelector('.cmt-dest-lang-wrap');
+    var langSel = destinationOverlay.querySelector('#cmt-dest-lang-select');
+    if (langWrap && langSel) {
+      if (opts.showLangSelector) {
+        langWrap.style.display = 'block';
+        destinationOverlay.querySelector('.cmt-dest-lang-label').textContent = _getExportText('exportLangLabel', 'Export Language:');
+        var currentLang = opts.defaultLang || (opts.toolKey && window.ExportLangService ? window.ExportLangService.getSelectedLang(opts.toolKey) : 'app');
+        var uiLang = (window.i18n && typeof window.i18n.getUiLang === 'function') ? window.i18n.getUiLang() : 'fr';
+        var langNames = {
+          en: _getExportText('langNameEn', 'English'),
+          fr: _getExportText('langNameFr', 'French'),
+          de: _getExportText('langNameDe', 'German'),
+          it: _getExportText('langNameIt', 'Italian')
+        };
+        var sameLabel = _getExportText('exportLangSameAsApp', 'Same as app') + ' (' + (langNames[uiLang] || uiLang.toUpperCase()) + ')';
+        langSel.innerHTML =
+          '<option value="app">' + sameLabel + '</option>' +
+          '<option value="en">' + langNames.en + '</option>' +
+          '<option value="fr">' + langNames.fr + '</option>' +
+          '<option value="de">' + langNames.de + '</option>' +
+          '<option value="it">' + langNames.it + '</option>';
+        langSel.value = currentLang || 'app';
+        langSel.onchange = function () {
+          if (opts.toolKey && window.ExportLangService) {
+            window.ExportLangService.setSelectedLang(opts.toolKey, langSel.value);
+          }
+        };
+      } else {
+        langWrap.style.display = 'none';
+      }
+    }
+
     return new Promise(function (resolve) {
       if (_destinationResolver) {
         var old = _destinationResolver;
@@ -1341,13 +1380,18 @@
     var filename = config.filename || 'export';
     var content = config.content;
     var dest = config.destination;
+    var hasDynamicBuilder = typeof config.buildContent === 'function' || typeof config.buildDocxRequest === 'function' || typeof config.buildOdtRequest === 'function';
+    var chosenLang = config.lang || (config.toolKey && window.ExportLangService ? window.ExportLangService.getSelectedLang(config.toolKey) : 'app');
 
     if (!dest) {
       var destRes = await _promptExportDestination({
         title: config.modalTitle,
         prompt: config.modalPrompt,
         filename: filename,
-        allowDocEditor: config.allowDocEditor
+        allowDocEditor: config.allowDocEditor,
+        showLangSelector: config.showLangSelector !== undefined ? config.showLangSelector : hasDynamicBuilder,
+        toolKey: config.toolKey,
+        defaultLang: chosenLang
       });
       if (!destRes || destRes.canceled) return { ok: false, canceled: true };
       if (typeof destRes === 'string') {
@@ -1355,6 +1399,26 @@
       } else {
         dest = destRes.destination;
         if (destRes.filename) filename = destRes.filename;
+        if (destRes.lang) chosenLang = destRes.lang;
+      }
+    }
+
+    if (hasDynamicBuilder) {
+      var runBuilders = async function (resolvedLang) {
+        if (typeof config.buildContent === 'function') {
+          content = await config.buildContent(resolvedLang);
+        }
+        if (typeof config.buildDocxRequest === 'function') {
+          config.docxRequest = await config.buildDocxRequest(resolvedLang);
+        }
+        if (typeof config.buildOdtRequest === 'function') {
+          config.odtRequest = await config.buildOdtRequest(resolvedLang);
+        }
+      };
+      if (window.i18n && typeof window.i18n.withExportLang === 'function') {
+        await window.i18n.withExportLang(chosenLang, runBuilders);
+      } else {
+        await runBuilders(chosenLang);
       }
     }
 

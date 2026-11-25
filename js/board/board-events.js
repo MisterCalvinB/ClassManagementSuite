@@ -6342,6 +6342,12 @@
           if (window.DistantReadingUI) window.DistantReadingUI.handleFileUpload(this);
         });
       }
+      var langSel = document.getElementById('dr-lang-select');
+      if (langSel) {
+        langSel.addEventListener('change', function () {
+          if (window.DistantReadingUI) window.DistantReadingUI.onLangChange(this.value);
+        });
+      }
       var cmpSel = document.getElementById('dr-compare-book-b-select');
       if (cmpSel) {
         cmpSel.addEventListener('change', function () {

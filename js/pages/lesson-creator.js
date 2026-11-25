@@ -5460,6 +5460,11 @@
         }
       });
     }
+    if (window.ExportLangService) {
+      ExportLangService.renderLangSelector(document.getElementById('lc-seq-export-lang-selector-wrap'), {
+        toolKey: 'lessonCreator'
+      });
+    }
   };
 
   window.lcOnSeqExportFormatChange = function () {
@@ -5514,6 +5519,12 @@
   }
 
   window.lcPreviewSequenceExport = async function () {
+    if (window.ExportLangService) {
+      return await ExportLangService.withExportLang('lessonCreator', _lcPreviewSequenceExportInner);
+    }
+    return await _lcPreviewSequenceExportInner();
+  };
+  async function _lcPreviewSequenceExportInner() {
     var seq = currentPlan && currentPlan.unitSequence;
     if (!seq) return;
     var collected = await lcCollectSequenceFullData(seq);
@@ -5538,6 +5549,12 @@
   };
 
   window.lcExecuteSequenceExport = async function () {
+    if (window.ExportLangService) {
+      return await ExportLangService.withExportLang('lessonCreator', _lcExecuteSequenceExportInner);
+    }
+    return await _lcExecuteSequenceExportInner();
+  };
+  async function _lcExecuteSequenceExportInner() {
     var seq = currentPlan && currentPlan.unitSequence;
     if (!seq) return;
 
@@ -6830,7 +6847,13 @@
               '<div class="cmt-wiz-summary-box">' +
                 '<div><strong>' + ctx.escHtml(tr('lcExpSummaryPreset', 'Style:')) + '</strong> ' + ctx.escHtml(st.preset.toUpperCase()) + '</div>' +
                 '<div><strong>' + ctx.escHtml(tr('lcExpSummaryFmt', 'Format:')) + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
-              '</div>';
+              '</div>' +
+              '<div id="lc-wiz-lang-selector-wrap" style="margin-top:12px;"></div>';
+            if (window.ExportLangService) {
+              ExportLangService.renderLangSelector(container.querySelector('#lc-wiz-lang-selector-wrap'), {
+                toolKey: 'lessonCreator'
+              });
+            }
           }
         }
       ],
@@ -6899,6 +6922,16 @@
           var ifr = document.getElementById('exportPreviewIframe');
           if (ifr && document.getElementById('exportPreviewModal').style.display === 'flex') {
             ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        }
+      });
+    }
+    if (window.ExportLangService) {
+      ExportLangService.renderLangSelector(document.getElementById('lc-export-lang-selector-wrap'), {
+        toolKey: 'lessonCreator',
+        onChange: function () {
+          if (document.getElementById('exportPreviewModal').style.display === 'flex') {
+            window.lcPreviewExportInBrowser();
           }
         }
       });
@@ -8319,9 +8352,11 @@
     return html;
   };
 
-  window.lcPreviewExportInBrowser = function () {
+  window.lcPreviewExportInBrowser = async function () {
     var toggles = lcGetExportToggles();
-    var html = lcGenerateExportHtml({ forPrint: false, toggles: toggles });
+    var html = window.ExportLangService
+      ? await ExportLangService.withExportLang('lessonCreator', function () { return lcGenerateExportHtml({ forPrint: false, toggles: toggles }); })
+      : lcGenerateExportHtml({ forPrint: false, toggles: toggles });
     var modal = document.getElementById('exportPreviewModal');
     var iframe = document.getElementById('exportPreviewIframe');
     if (iframe) {
@@ -9107,34 +9142,40 @@
     var destination = await lcPromptExportDestination();
     if (!destination) return;
 
-    switch (activeExportFormat) {
-      case 'html':
-        await lcExecuteExportHtml(destination);
-        break;
-      case 'pdf':
-        await lcExecuteExportPdf(destination);
-        break;
-      case 'docx':
-        await lcExecuteExportDocx(destination);
-        break;
-      case 'xlsx':
-        await lcExecuteExportXlsx(destination, 'xlsx');
-        break;
-      case 'ods':
-        await lcExecuteExportXlsx(destination, 'ods');
-        break;
-      case 'csv':
-        await lcExecuteExportCsv(destination);
-        break;
-      case 'json':
-        await lcExecuteExportJson(destination);
-        break;
-      case 'text':
-        await lcExecuteExportText(destination);
-        break;
-      default:
-        await lcExecuteExportHtml(destination);
-        break;
+    var run = async function () {
+      switch (activeExportFormat) {
+        case 'html':
+          await lcExecuteExportHtml(destination);
+          break;
+        case 'pdf':
+          await lcExecuteExportPdf(destination);
+          break;
+        case 'docx':
+          await lcExecuteExportDocx(destination);
+          break;
+        case 'xlsx':
+          await lcExecuteExportXlsx(destination, 'xlsx');
+          break;
+        case 'ods':
+          await lcExecuteExportXlsx(destination, 'ods');
+          break;
+        case 'csv':
+          await lcExecuteExportCsv(destination);
+          break;
+        case 'json':
+          await lcExecuteExportJson(destination);
+          break;
+        case 'text':
+          await lcExecuteExportText(destination);
+          break;
+        default:
+          await lcExecuteExportHtml(destination);
+      }
+    };
+    if (window.ExportLangService) {
+      await ExportLangService.withExportLang('lessonCreator', run);
+    } else {
+      await run();
     }
   };
 

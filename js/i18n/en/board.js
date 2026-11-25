@@ -1023,5 +1023,6 @@
   "drCompareSharedWords": "shared content words",
   "drClickForExamples": "Click to see matching sentences",
   "drNoExamplesFound": "No matching sentences found.",
-  "drExamplesCount": "{count} example sentence(s) from text."
+  "drExamplesCount": "{count} example sentence(s) from text.",
+  "drLangAuto": "Lang: Auto"
 });

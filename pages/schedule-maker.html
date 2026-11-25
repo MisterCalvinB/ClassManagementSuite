@@ -26,6 +26,7 @@
   <script src="../js/shared/tutorial.js"></script>
   <script src="../modules/xlsx.min.js"></script>
   <script src="../js/shared/export-styles-service.js"></script>
+  <script src="../js/shared/export-lang-service.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1488,6 +1489,7 @@
       <span class="sm-export-section-header" style="margin: 0;" data-i18n="exportStyleLabel">Export Style:</span>
       <div id="sm-export-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
     </div>
+    <div id="sm-export-lang-selector-wrap" style="margin-top: 8px; display: flex; align-items: center; justify-content: space-between; background: #fafaf7; border: 1.5px solid #333333; border-radius: 6px; padding: 8px 12px;"></div>
 
     <div class="sm-export-sections-grid">
       <!-- Columns section -->
@@ -3556,9 +3558,12 @@
                 '<label style="display:flex;align-items:center;gap:8px;font-weight:600;cursor:pointer;"><input type="checkbox" id="sm-wiz-sen" ' + (st.includeSen ? 'checked' : '') + ' style="width:15px;height:15px;accent-color:#222;"> <span>' + ctx.escHtml(tr('smWizShowSen', 'Show SEN accommodation badges (turn off for public door sheets)')) + '</span></label>' +
               '</div>' +
               '<div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">' +
-                '<div style="display:inline-flex;align-items:center;gap:8px;">' +
-                  '<span style="font-size:0.78rem;font-weight:800;text-transform:uppercase;">' + ctx.escHtml(tr('exportStyleLabel', 'Export Style:')) + '</span>' +
-                  '<span id="sm-wiz-style-selector-wrap" style="display:inline-flex;align-items:center;"></span>' +
+                '<div style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap;">' +
+                  '<div style="display:inline-flex;align-items:center;gap:8px;">' +
+                    '<span style="font-size:0.78rem;font-weight:800;text-transform:uppercase;">' + ctx.escHtml(tr('exportStyleLabel', 'Export Style:')) + '</span>' +
+                    '<span id="sm-wiz-style-selector-wrap" style="display:inline-flex;align-items:center;"></span>' +
+                  '</div>' +
+                  '<span id="sm-wiz-lang-selector-wrap" style="display:inline-flex;align-items:center;"></span>' +
                 '</div>' +
                 '<button type="button" id="sm-wiz-preview-btn" class="btn" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;padding:8px 14px;border:2px solid #333;border-radius:6px;background:#fff;box-shadow:2px 2px 0 #555;cursor:pointer;">' +
                   '<img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> ' +
@@ -3567,6 +3572,11 @@
               '</div>';
             if (window.ExportStylesService) {
               ExportStylesService.renderStyleSelector(container.querySelector('#sm-wiz-style-selector-wrap'), {
+                toolKey: 'scheduleMaker'
+              });
+            }
+            if (window.ExportLangService) {
+              ExportLangService.renderLangSelector(container.querySelector('#sm-wiz-lang-selector-wrap'), {
                 toolKey: 'scheduleMaker'
               });
             }
@@ -3633,6 +3643,16 @@
           const ifr = document.getElementById('smPreviewIframe');
           if (ifr && document.getElementById('sm-preview-modal').style.display === 'flex') {
             ExportStylesService.applyStyleToIframe(ifr, styleId);
+          }
+        }
+      });
+    }
+    if (window.ExportLangService) {
+      ExportLangService.renderLangSelector(document.getElementById('sm-export-lang-selector-wrap'), {
+        toolKey: 'scheduleMaker',
+        onChange: function () {
+          if (document.getElementById('sm-preview-modal').style.display === 'flex') {
+            openSmPreviewModal();
           }
         }
       });
@@ -3714,23 +3734,32 @@
     updateSmPresetButtonsState();
   }
 
-  function confirmSmExport() {
+  async function confirmSmExport() {
     const modal = document.getElementById('sm-export-modal');
     if (modal) modal.classList.remove('open');
 
     const fmt = smActiveExportFormat || 'pdf';
-    if (fmt === 'pdf') exportPdf(smExportConfig);
-    else if (fmt === 'csv') exportCsv(smExportConfig);
-    else if (fmt === 'xlsx' || fmt === 'ods') exportXlsx(smExportConfig, fmt);
-    else if (fmt === 'docx') exportDocx(smExportConfig);
-    else if (fmt === 'html') exportHtml(smExportConfig);
+    const run = async () => {
+      if (fmt === 'pdf') await exportPdf(smExportConfig);
+      else if (fmt === 'csv') await exportCsv(smExportConfig);
+      else if (fmt === 'xlsx' || fmt === 'ods') await exportXlsx(smExportConfig, fmt);
+      else if (fmt === 'docx') await exportDocx(smExportConfig);
+      else if (fmt === 'html') await exportHtml(smExportConfig);
+    };
+    if (window.ExportLangService) {
+      await ExportLangService.withExportLang('scheduleMaker', run);
+    } else {
+      await run();
+    }
   }
 
-  function openSmPreviewModal() {
+  async function openSmPreviewModal() {
     const modal = document.getElementById('sm-preview-modal');
     const iframe = document.getElementById('smPreviewIframe');
     if (!modal || !iframe) return;
-    let html = generatePrintableHtml(false, smExportConfig);
+    let html = window.ExportLangService
+      ? await ExportLangService.withExportLang('scheduleMaker', () => generatePrintableHtml(false, smExportConfig))
+      : generatePrintableHtml(false, smExportConfig);
     iframe.srcdoc = html;
     iframe.onload = function () {
       if (window.ExportStylesService) {

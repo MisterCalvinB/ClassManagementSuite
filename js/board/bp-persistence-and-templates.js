@@ -589,6 +589,17 @@
     window.conOpenCurrentFileLocationFolder = conOpenCurrentFileLocationFolder;
 
     async function conOpenCurrentFileNative() {
+      if (!_conCurrentFileName && !_conCurrentFolderName) {
+        const loadInput = document.getElementById('con-load-input');
+        if (loadInput) {
+          loadInput.click();
+          return;
+        }
+        if (typeof openSessionLoadPopup === 'function') {
+          openSessionLoadPopup('constellation');
+          return;
+        }
+      }
       if (!(window.Desktop && Desktop.isElectron())) {
         mdbToast(' Opening files natively is only available in the Desktop application.');
         return;

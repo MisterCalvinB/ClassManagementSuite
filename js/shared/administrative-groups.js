@@ -1975,6 +1975,11 @@
         toolKey: 'adminGroups'
       });
     }
+    if (window.ExportLangService) {
+      ExportLangService.renderLangSelector(document.getElementById('ag-export-lang-selector-wrap'), {
+        toolKey: 'adminGroups'
+      });
+    }
 
     modal.classList.add('active');
   };
@@ -2136,6 +2141,13 @@
 
   // ── Execute Report Export ──
   window.executeExport = async function () {
+    if (window.ExportLangService) {
+      return await ExportLangService.withExportLang('adminGroups', _executeExportInner);
+    }
+    return await _executeExportInner();
+  };
+
+  async function _executeExportInner() {
     var scope = state.reportScope || 'whole_class';
     var fmt = state.exportFormat || 'preview';
     var rawStudents = getFilteredStudents();

@@ -1313,25 +1313,30 @@
         await showAlert(t('gsAlertDocxDesktopOnly'));
         return;
       }
-      const report = buildSemesterReportData(classObj, sem);
-      const markdown = buildSemesterReportMarkdown(report);
       const slug = slugifyForPath(classObj.name || "class");
       const baseName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}`;
       if (window.saveExportWithDestination) {
         return await window.saveExportWithDestination({
           filename: `${baseName}.docx`,
-          docxRequest: {
-            markdown,
-            defaultName: baseName,
-            fontFamily: 'Segoe UI',
-            fontSize: '10pt',
-            lineHeight: '1.2',
-            margins: { top: 18, right: 16, bottom: 18, left: 16 },
-            size: 'A4',
-            orientation: 'portrait'
+          toolKey: 'gradeSheet',
+          buildDocxRequest: () => {
+            const report = buildSemesterReportData(classObj, sem);
+            const markdown = buildSemesterReportMarkdown(report);
+            return {
+              markdown,
+              defaultName: baseName,
+              fontFamily: 'Segoe UI',
+              fontSize: '10pt',
+              lineHeight: '1.2',
+              margins: { top: 18, right: 16, bottom: 18, left: 16 },
+              size: 'A4',
+              orientation: 'portrait'
+            };
           }
         });
       }
+      const report = buildSemesterReportData(classObj, sem);
+      const markdown = buildSemesterReportMarkdown(report);
       const result = await Desktop.exportDocx({
         markdown,
         defaultName: baseName,
@@ -1354,14 +1359,32 @@
     }
 
     async function exportSemesterHtml(classObj, sem) {
+      const slug = slugifyForPath(classObj.name || "class");
+      const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.html`;
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename,
+          toolKey: 'gradeSheet',
+          mimeType: 'text/html;charset=utf-8',
+          allowDocEditor: true,
+          filters: [{ name: 'HTML Files', extensions: ['html'] }, { name: 'All Files', extensions: ['*'] }],
+          buildContent: async () => {
+            const report = buildSemesterReportData(classObj, sem);
+            let html = buildSemesterReportHtml(report);
+            if (window.ExportStylesService) {
+              const sId = ExportStylesService.getSelectedStyle('gradeSheet');
+              html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
+            }
+            return html;
+          }
+        });
+      }
       const report = buildSemesterReportData(classObj, sem);
       let html = buildSemesterReportHtml(report);
       if (window.ExportStylesService) {
         const sId = ExportStylesService.getSelectedStyle('gradeSheet');
         html = await ExportStylesService.injectStyleIntoHtml(html, sId, 'gradeSheet');
       }
-      const slug = slugifyForPath(classObj.name || "class");
-      const filename = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.html`;
       downloadTextFile(html, filename, "text/html;charset=utf-8");
     }
 
@@ -4033,6 +4056,20 @@
           onChange: function (styleId) {
             var f = document.getElementById('gs-report-preview-frame');
             if (f) ExportStylesService.applyStyleToIframe(f, styleId);
+          }
+        });
+      }
+      if (window.ExportLangService) {
+        ExportLangService.renderLangSelector(document.getElementById('gs-report-lang-selector-wrap'), {
+          toolKey: 'gradeSheet',
+          onChange: async function () {
+            if (!_currentActiveReport || typeof _currentActiveReport.rebuild !== 'function') return;
+            const rebuilt = await ExportLangService.withExportLang('gradeSheet', () => _currentActiveReport.rebuild());
+            if (rebuilt) {
+              _currentActiveReport.html = rebuilt;
+              var f = document.getElementById('gs-report-preview-frame');
+              if (f) f.srcdoc = rebuilt;
+            }
           }
         });
       }

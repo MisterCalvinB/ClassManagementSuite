@@ -7603,17 +7603,35 @@ Rules:
       document.getElementById('col-picker-title').textContent = title;
       document.getElementById('col-picker-confirm').textContent = confirmText;
 
-      _colPickerCallback = function (selectedKeys, titleKey) {
-        if (mode === 'pdf') doExportPDF(rows, selectedKeys);
-        else if (mode === 'csv') doExportCSV(rows, selectedKeys);
-        else if (mode === 'html') doExportHTML(rows, selectedKeys);
-        else if (mode === 'html-filter') doExportFilterableHTML(rows, selectedKeys, titleKey);
-        else if (mode === 'md') doExportMarkdown(rows, selectedKeys);
-        else if (mode === 'xlsx' || mode === 'ods') doExportXLSX(rows, selectedKeys, mode);
-        else if (mode === 'docx') doExportDocx(rows, selectedKeys);
+      _colPickerCallback = async function (selectedKeys, titleKey) {
+        const run = async () => {
+          if (mode === 'pdf') await doExportPDF(rows, selectedKeys);
+          else if (mode === 'csv') await doExportCSV(rows, selectedKeys);
+          else if (mode === 'html') await doExportHTML(rows, selectedKeys);
+          else if (mode === 'html-filter') await doExportFilterableHTML(rows, selectedKeys, titleKey);
+          else if (mode === 'md') await doExportMarkdown(rows, selectedKeys);
+          else if (mode === 'xlsx' || mode === 'ods') await doExportXLSX(rows, selectedKeys, mode);
+          else if (mode === 'docx') await doExportDocx(rows, selectedKeys);
+        };
+        if (window.ExportLangService) await ExportLangService.withExportLang('manageDatabase', run);
+        else await run();
       };
 
-      document.getElementById('col-picker-bg').classList.remove('hidden');
+      const colBg = document.getElementById('col-picker-bg');
+      let langWrap = document.getElementById('mdb-col-picker-lang-wrap');
+      if (!langWrap && colBg) {
+        const confirmBtn = document.getElementById('col-picker-confirm');
+        if (confirmBtn && confirmBtn.parentElement) {
+          langWrap = document.createElement('div');
+          langWrap.id = 'mdb-col-picker-lang-wrap';
+          langWrap.style.cssText = 'margin: 8px 0 10px;';
+          confirmBtn.parentElement.parentElement.insertBefore(langWrap, confirmBtn.parentElement);
+        }
+      }
+      if (langWrap && window.ExportLangService) {
+        ExportLangService.renderLangSelector(langWrap, { toolKey: 'manageDatabase' });
+      }
+      colBg.classList.remove('hidden');
     }
 
     function closeColPicker() {
@@ -7925,22 +7943,32 @@ Rules:
                   '<div><strong>' + ctx.escHtml(t('mdbWizSummaryFormat') || 'Format:') + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
                   '<div><strong>' + ctx.escHtml(t('mdbWizSummaryRecords') || 'Records:') + '</strong> ' + targetRows.length + '</div>' +
                   '<div><strong>' + ctx.escHtml(t('mdbWizSummaryCols') || 'Columns:') + '</strong> ' + ctx.escHtml(st.selectedKeys.map(k => k === '_src' ? (t('mdbSourceFileLabel') || 'Source File') : cap(k)).join(', ')) + '</div>' +
-                '</div>';
+                '</div>' +
+                '<div id="mdb-wiz-lang-selector-wrap" style="margin-top:12px;"></div>';
+              if (window.ExportLangService) {
+                ExportLangService.renderLangSelector(container.querySelector('#mdb-wiz-lang-selector-wrap'), {
+                  toolKey: 'manageDatabase'
+                });
+              }
             }
           }
         ],
         finishLabel: t('mdbBtnExport') || 'Export',
         finishIcon: 'export.svg',
-        onFinish: function (st) {
+        onFinish: async function (st) {
           const targetRows = st.scope === 'filtered' ? filteredRows : allRows;
           const keys = st.selectedKeys.slice();
-          if (st.format === 'pdf') doExportPDF(targetRows, keys);
-          else if (st.format === 'csv') doExportCSV(targetRows, keys);
-          else if (st.format === 'html') doExportHTML(targetRows, keys);
-          else if (st.format === 'html-filter') doExportFilterableHTML(targetRows, keys, st.titleKey);
-          else if (st.format === 'md') doExportMarkdown(targetRows, keys);
-          else if (st.format === 'xlsx' || st.format === 'ods') doExportXLSX(targetRows, keys, st.format);
-          else if (st.format === 'docx') doExportDocx(targetRows, keys);
+          const run = async () => {
+            if (st.format === 'pdf') await doExportPDF(targetRows, keys);
+            else if (st.format === 'csv') await doExportCSV(targetRows, keys);
+            else if (st.format === 'html') await doExportHTML(targetRows, keys);
+            else if (st.format === 'html-filter') await doExportFilterableHTML(targetRows, keys, st.titleKey);
+            else if (st.format === 'md') await doExportMarkdown(targetRows, keys);
+            else if (st.format === 'xlsx' || st.format === 'ods') await doExportXLSX(targetRows, keys, st.format);
+            else if (st.format === 'docx') await doExportDocx(targetRows, keys);
+          };
+          if (window.ExportLangService) await ExportLangService.withExportLang('manageDatabase', run);
+          else await run();
         }
       });
     }

@@ -1024,5 +1024,6 @@
   "drCompareSharedWords": "mots lexicaux partagés",
   "drClickForExamples": "Cliquer pour voir les phrases correspondantes",
   "drNoExamplesFound": "Aucune phrase correspondante trouvée.",
-  "drExamplesCount": "{count} phrase(s) d'exemple extraite(s) du texte."
+  "drExamplesCount": "{count} phrase(s) d'exemple extraite(s) du texte.",
+  "drLangAuto": "Langue : Auto"
 });

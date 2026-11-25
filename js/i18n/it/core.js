@@ -3477,5 +3477,11 @@
   "ltHostOptRandomDesc": "Seleziona le domande in ordine casuale.",
   "ltHostOptSeq": "In ordine",
   "ltHostOptSeqDesc": "Segue l'elenco dall'alto verso il basso.",
-  "ltHostWizStartBtn": "Avvia lobby e connetti"
+  "ltHostWizStartBtn": "Avvia lobby e connetti",
+  "exportLangLabel": "Lingua di esportazione:",
+  "exportLangSameAsApp": "Come l'app",
+  "langNameEn": "Inglese",
+  "langNameFr": "Francese",
+  "langNameDe": "Tedesco",
+  "langNameIt": "Italiano"
 });

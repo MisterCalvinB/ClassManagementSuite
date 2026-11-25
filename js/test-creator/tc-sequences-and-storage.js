@@ -580,6 +580,11 @@ window.tcOpenSequenceExportModal = async function () {
       }
     });
   }
+  if (window.ExportLangService) {
+    ExportLangService.renderLangSelector(document.getElementById('tc-seq-export-lang-selector-wrap'), {
+      toolKey: 'testCreator'
+    });
+  }
 };
 
 window.tcCloseSequenceExportModal = function () {
@@ -737,6 +742,12 @@ function tcGetSequenceExportModalOptions() {
 }
 
 window.tcExecuteSequenceExport = async function () {
+  if (window.ExportLangService) {
+    return await ExportLangService.withExportLang('testCreator', _tcExecuteSequenceExportInner);
+  }
+  return await _tcExecuteSequenceExportInner();
+};
+async function _tcExecuteSequenceExportInner() {
   var seq = (currentTest && currentTest.unitSequence) || (typeof tcEnsureCurrentTestSequence === 'function' ? tcEnsureCurrentTestSequence() : null);
   if (!seq) return;
 
@@ -933,6 +944,12 @@ window.tcExecuteSequenceExport = async function () {
 };
 
 window.tcPreviewSequenceExport = async function () {
+  if (window.ExportLangService) {
+    return await ExportLangService.withExportLang('testCreator', _tcPreviewSequenceExportInner);
+  }
+  return await _tcPreviewSequenceExportInner();
+};
+async function _tcPreviewSequenceExportInner() {
   var seq = (currentTest && currentTest.unitSequence) || (typeof tcEnsureCurrentTestSequence === 'function' ? tcEnsureCurrentTestSequence() : null);
   if (!seq) return;
 

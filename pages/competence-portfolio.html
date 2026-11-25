@@ -11,6 +11,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/export-lang-service.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/competence-aggregator-service.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
@@ -1443,46 +1444,60 @@
     }
 
     // ── CSV Export ─────────────────────────────────────────────────────
-    function cpExportCsv() {
+    async function cpExportCsv() {
       if (!_activePortfolio) return;
-      const rows = [
-        ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description', 'Detailed Description']
-      ];
-
-      const classLabel = _activePortfolio.className || (typeof t === 'function' ? t('cpNoClassLabel', 'No Class') : 'No Class');
-      Object.keys(_activePortfolio.categories).forEach(cat => {
-        _activePortfolio.categories[cat].forEach(item => {
-          const c = item.competence;
-          const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
-            ? CompetenceAggregatorService.getDetailedLines(c)
-            : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
-          rows.push([
-            classLabel,
-            c.code,
-            c.title,
-            c.category || '',
-            c.subCategory || '',
-            c.yearLevel || '',
-            c.level || '',
-            c.subjectId || '',
-            c._sourceDb || c.source || '',
-            Array.isArray(c.tags) ? c.tags.join(', ') : (c.tags || ''),
-            item.status,
-            item.plannedCount,
-            item.deliveredCount,
-            item.assessedCount,
-            item.averageScorePct !== null ? `${item.averageScorePct}%` : '',
-            item.latestDate || '',
-            c.description || '',
-            dLines.join(' ; ')
-          ]);
-        });
-      });
-
-      const csvContent = rows.map(r => r.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const fileSlug = (_activePortfolio.className || 'All_Competences').replace(/[^a-zA-Z0-9_-]/g, '_');
       const filename = `Competence_Portfolio_${fileSlug}.csv`;
+
+      const buildCsv = () => {
+        const rows = [
+          ['Class', 'Competence Code', 'Title', 'Domain', 'Sub-Domain', 'Year Level', 'Level', 'Subject', 'Source', 'Tags', 'Status', 'Planned Count', 'Delivered Count', 'Assessed Count', 'Class Mean %', 'Latest Touchpoint', 'Description', 'Detailed Description']
+        ];
+
+        const classLabel = _activePortfolio.className || (typeof t === 'function' ? t('cpNoClassLabel', 'No Class') : 'No Class');
+        Object.keys(_activePortfolio.categories).forEach(cat => {
+          _activePortfolio.categories[cat].forEach(item => {
+            const c = item.competence;
+            const dLines = (typeof CompetenceAggregatorService !== 'undefined' && typeof CompetenceAggregatorService.getDetailedLines === 'function')
+              ? CompetenceAggregatorService.getDetailedLines(c)
+              : (Array.isArray(c.detailedDescription) ? c.detailedDescription : []);
+            rows.push([
+              classLabel,
+              c.code,
+              c.title,
+              c.category || '',
+              c.subCategory || '',
+              c.yearLevel || '',
+              c.level || '',
+              c.subjectId || '',
+              c._sourceDb || c.source || '',
+              Array.isArray(c.tags) ? c.tags.join(', ') : (c.tags || ''),
+              item.status,
+              item.plannedCount,
+              item.deliveredCount,
+              item.assessedCount,
+              item.averageScorePct !== null ? `${item.averageScorePct}%` : '',
+              item.latestDate || '',
+              c.description || '',
+              dLines.join(' ; ')
+            ]);
+          });
+        });
+        return rows.map(r => r.map(v => `"${String(v || '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+      };
+
+      if (window.saveExportWithDestination) {
+        return await window.saveExportWithDestination({
+          filename,
+          toolKey: 'competencePortfolio',
+          mimeType: 'text/csv;charset=utf-8',
+          filters: [{ name: 'CSV Files', extensions: ['csv'] }, { name: 'All Files', extensions: ['*'] }],
+          buildContent: buildCsv
+        });
+      }
+
+      const csvContent = buildCsv();
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 
       if (window.Desktop && typeof Desktop.saveFile === 'function') {
         Desktop.saveFile('toPrint', filename, csvContent).then((saveRes) => {

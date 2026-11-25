@@ -93,6 +93,16 @@ function openPtExportModal() {
             }
         });
     }
+    if (window.ExportLangService) {
+        ExportLangService.renderLangSelector(document.getElementById('pt-export-lang-selector-wrap'), {
+            toolKey: 'participationTracker',
+            onChange: function () {
+                if (document.getElementById('ptExportPreviewModal')?.classList.contains('active')) {
+                    previewPtExport();
+                }
+            }
+        });
+    }
 }
 
 function closePtExportModal() {
@@ -1075,25 +1085,36 @@ function downloadHtmlReport() {
 
 let activePreviewExportType = 'ptExport';
 
-function previewPtExport() {
+async function previewPtExport() {
     activePreviewExportType = 'ptExport';
     const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value || 'classOverview';
     let previewHtml = '';
     let title = 'Report & Export Live Preview';
 
-    if (category === 'exhaustiveReport') {
-        const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
-        const doc = generateExhaustiveReportDocument(reportType);
-        previewHtml = doc.fullHtml;
-        title = doc.title;
-    } else {
-        const data = getExportDataForCategory(category);
-        if (!data || !data.rows || data.rows.length === 0) {
-            showMessage('No records found to preview.', 'error');
-            return;
+    const buildPreview = () => {
+        if (category === 'exhaustiveReport') {
+            const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
+            const doc = generateExhaustiveReportDocument(reportType);
+            previewHtml = doc.fullHtml;
+            title = doc.title;
+        } else {
+            const data = getExportDataForCategory(category);
+            if (!data || !data.rows || data.rows.length === 0) {
+                return false;
+            }
+            title = data.title;
+            previewHtml = generatePrintableHtmlReport(data);
         }
-        title = data.title;
-        previewHtml = generatePrintableHtmlReport(data);
+        return true;
+    };
+
+    const ok = window.ExportLangService
+        ? await ExportLangService.withExportLang('participationTracker', buildPreview)
+        : buildPreview();
+
+    if (!ok) {
+        showMessage('No records found to preview.', 'error');
+        return;
     }
 
     showExportPreviewModal(title, previewHtml);
@@ -1231,31 +1252,39 @@ async function executePtExport() {
     const category = document.querySelector('input[name="ptExportCategory"]:checked')?.value || 'classOverview';
     const format = document.querySelector('input[name="ptExportFormat"]:checked')?.value || 'html';
 
-    if (category === 'exhaustiveReport') {
-        const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
+    const runExport = async () => {
+        if (category === 'exhaustiveReport') {
+            const reportType = document.querySelector('input[name="ptReportType"]:checked')?.value || 'class';
+            closePtExportModal();
+            await executeExhaustiveReport(reportType, format);
+            return;
+        }
+
+        const data = getExportDataForCategory(category);
+        if (!data || !data.rows || data.rows.length === 0) {
+            showMessage('No records found for the selected export options.', 'error');
+            return;
+        }
+
         closePtExportModal();
-        executeExhaustiveReport(reportType, format);
-        return;
-    }
 
-    const data = getExportDataForCategory(category);
-    if (!data || !data.rows || data.rows.length === 0) {
-        showMessage('No records found for the selected export options.', 'error');
-        return;
-    }
+        if (format === 'html') {
+            await exportCategoryAsHtml(category, data);
+        } else if (format === 'pdf') {
+            await exportCategoryAsPdf(category, data);
+        } else if (format === 'docx') {
+            await exportCategoryAsDocx(category, data);
+        } else if (format === 'xlsx' || format === 'ods') {
+            await exportCategoryAsXlsx(category, data, format);
+        } else if (format === 'csv') {
+            await exportCategoryAsCsv(category, data);
+        }
+    };
 
-    closePtExportModal();
-
-    if (format === 'html') {
-        await exportCategoryAsHtml(category, data);
-    } else if (format === 'pdf') {
-        await exportCategoryAsPdf(category, data);
-    } else if (format === 'docx') {
-        await exportCategoryAsDocx(category, data);
-    } else if (format === 'xlsx' || format === 'ods') {
-        exportCategoryAsXlsx(category, data, format);
-    } else if (format === 'csv') {
-        exportCategoryAsCsv(category, data);
+    if (window.ExportLangService) {
+        await ExportLangService.withExportLang('participationTracker', runExport);
+    } else {
+        await runExport();
     }
 }
 

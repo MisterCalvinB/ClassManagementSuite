@@ -1023,5 +1023,6 @@
   "drCompareSharedWords": "gemeinsame Inhaltswörter",
   "drClickForExamples": "Klicken, um passende Sätze zu sehen",
   "drNoExamplesFound": "Keine passenden Sätze gefunden.",
-  "drExamplesCount": "{count} Beispielsatz/-sätze aus dem Text."
+  "drExamplesCount": "{count} Beispielsatz/-sätze aus dem Text.",
+  "drLangAuto": "Sprache: Auto"
 });

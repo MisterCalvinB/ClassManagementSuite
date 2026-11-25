@@ -1023,5 +1023,6 @@
   "drCompareSharedWords": "parole lessicali condivise",
   "drClickForExamples": "Clicca per vedere le frasi corrispondenti",
   "drNoExamplesFound": "Nessuna frase corrispondente trovata.",
-  "drExamplesCount": "{count} frase/i di esempio dal testo."
+  "drExamplesCount": "{count} frase/i di esempio dal testo.",
+  "drLangAuto": "Lingua: Auto"
 });

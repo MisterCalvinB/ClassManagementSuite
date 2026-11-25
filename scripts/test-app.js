@@ -81,6 +81,29 @@ test('i18n placeholder parity & runtime formatting (t / tFmt)', () => {
   );
 });
 
+test('i18n withExportLang temporarily overrides t, tFmt, getLang, and getLocale then restores', async () => {
+  const i18n = require(path.join(ROOT, 'js', 'shared', 'i18n.js'));
+  const origLang = i18n.getUiLang();
+  const res = await i18n.withExportLang('de', async (resolved) => {
+    assert.equal(resolved, 'de');
+    assert.equal(i18n.getLang(), 'de');
+    assert.equal(i18n.getLocale(), 'de-DE');
+    assert.equal(i18n.t('exportLangLabel'), i18n.STRINGS.de.exportLangLabel);
+    assert.equal(i18n.getUiLang(), origLang);
+    return 'ok';
+  });
+  assert.equal(res, 'ok');
+  assert.equal(i18n.getLang(), origLang);
+
+  await assert.rejects(async () => {
+    await i18n.withExportLang('it', async () => {
+      assert.equal(i18n.getLang(), 'it');
+      throw new Error('boom');
+    });
+  }, /boom/);
+  assert.equal(i18n.getLang(), origLang);
+});
+
 test('HTML security: launcher.html and all pages/*.html include Content-Security-Policy (and unsafe-eval when needed)', () => {
   const htmlFiles = [
     path.join(ROOT, 'launcher.html'),

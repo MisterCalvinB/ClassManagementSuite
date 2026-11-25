@@ -3477,5 +3477,11 @@
   "ltHostOptRandomDesc": "Wählt Fragen in zufälliger Reihenfolge aus.",
   "ltHostOptSeq": "Der Reihe nach",
   "ltHostOptSeqDesc": "Folgt der Liste von oben nach unten.",
-  "ltHostWizStartBtn": "Lobby starten & Verbinden"
+  "ltHostWizStartBtn": "Lobby starten & Verbinden",
+  "exportLangLabel": "Exportsprache:",
+  "exportLangSameAsApp": "Wie App-Sprache",
+  "langNameEn": "Englisch",
+  "langNameFr": "Französisch",
+  "langNameDe": "Deutsch",
+  "langNameIt": "Italienisch"
 });

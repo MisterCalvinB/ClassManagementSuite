@@ -257,28 +257,41 @@
               '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('boardExpConfirmSub', 'Click Export to generate your file.')) + '</p>' +
               '<div class="cmt-wiz-summary-box">' +
                 '<div><strong>' + ctx.escHtml(tr('boardExpSummaryChoice', 'Selected Export:')) + '</strong> ' + ctx.escHtml(desc) + '</div>' +
-              '</div>';
+              '</div>' +
+              '<div id="board-wiz-lang-selector-wrap" style="margin-top:12px;"></div>';
+            if (root.ExportLangService) {
+              root.ExportLangService.renderLangSelector(container.querySelector('#board-wiz-lang-selector-wrap'), {
+                toolKey: 'board'
+              });
+            }
           }
         }
       ],
       finishLabel: tr('btnExport', 'Export'),
       finishIcon: 'export.svg',
       onFinish: function (st) {
-        if (st.goal === 'handout') {
-          if (st.pdfMode === 'vector') {
-            if (typeof root.conExportPagesPDF === 'function') root.conExportPagesPDF('vector');
-          } else {
-            if (typeof root.conOpenExportSettingsModal === 'function') root.conOpenExportSettingsModal('pdf_snapshots');
+        var run = function () {
+          if (st.goal === 'handout') {
+            if (st.pdfMode === 'vector') {
+              if (typeof root.conExportPagesPDF === 'function') return root.conExportPagesPDF('vector');
+            } else {
+              if (typeof root.conOpenExportSettingsModal === 'function') return root.conOpenExportSettingsModal('pdf_snapshots');
+            }
+          } else if (st.goal === 'image') {
+            if (st.imageAction === 'png' && typeof root.conExportPNG === 'function') return root.conExportPNG();
+            else if (st.imageAction === 'copy' && typeof root.conCopyPNG === 'function') return root.conCopyPNG();
+            else if (st.imageAction === 'webp' && typeof root.conOpenExportSettingsModal === 'function') return root.conOpenExportSettingsModal('webp');
+          } else if (st.goal === 'vocab') {
+            if (st.vocabFormat === 'pdf' && typeof root.conExportPDF === 'function') return root.conExportPDF();
+            else if (st.vocabFormat === 'csv' && typeof root.conExportCSV === 'function') return root.conExportCSV();
+          } else if (st.goal === 'backup') {
+            if (typeof root.conExportJS === 'function') return root.conExportJS();
           }
-        } else if (st.goal === 'image') {
-          if (st.imageAction === 'png' && typeof root.conExportPNG === 'function') root.conExportPNG();
-          else if (st.imageAction === 'copy' && typeof root.conCopyPNG === 'function') root.conCopyPNG();
-          else if (st.imageAction === 'webp' && typeof root.conOpenExportSettingsModal === 'function') root.conOpenExportSettingsModal('webp');
-        } else if (st.goal === 'vocab') {
-          if (st.vocabFormat === 'pdf' && typeof root.conExportPDF === 'function') root.conExportPDF();
-          else if (st.vocabFormat === 'csv' && typeof root.conExportCSV === 'function') root.conExportCSV();
-        } else if (st.goal === 'backup') {
-          if (typeof root.conExportJS === 'function') root.conExportJS();
+        };
+        if (root.ExportLangService) {
+          root.ExportLangService.withExportLang('board', run);
+        } else {
+          run();
         }
       }
     });

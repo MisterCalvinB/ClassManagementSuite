@@ -21,6 +21,7 @@
     rawText: '',
     bookLabel: '',
     lang: 'en',
+    langOverride: 'auto',
     activeTab: 'characters',
     detectedCharacters: [],
     mergeSelectedIds: new Set(),
@@ -81,13 +82,17 @@
       return;
     }
 
-    if (global.CharacterNetworkService && typeof global.CharacterNetworkService.detectLanguage === 'function') {
+    if (state.langOverride && state.langOverride !== 'auto') {
+      state.lang = state.langOverride;
+    } else if (global.CharacterNetworkService && typeof global.CharacterNetworkService.detectLanguage === 'function') {
       state.lang = global.CharacterNetworkService.detectLanguage(text);
     }
     const words = (text.match(/\S+/g) || []).length;
     const chapters = Math.max(1, (text.match(/(?:^|\n)\s*(?:chapter|chapitre|kapitel|capitolo|book|livre)\b/gi) || []).length);
 
-    if (badgeLang) badgeLang.textContent = state.lang.toUpperCase();
+    if (badgeLang) {
+      badgeLang.textContent = (state.langOverride === 'auto' ? 'AUTO: ' : '') + state.lang.toUpperCase();
+    }
     if (statsEl) {
       statsEl.textContent = words.toLocaleString() + ' ' + _t('drWordsLabel', 'words') +
         ' · ' + chapters + ' ' + _t('drChaptersLabel', 'sec.');
@@ -1248,6 +1253,16 @@
         '</body></html>';
     }
 
+    if (global.saveExportWithDestination) {
+      return await global.saveExportWithDestination({
+        filename,
+        toolKey: 'distantReading',
+        mimeType: ext === 'md' ? 'text/markdown;charset=utf-8' : 'text/html;charset=utf-8',
+        allowDocEditor: true,
+        filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
+        buildContent: () => content
+      });
+    }
     if (global.Desktop && global.Desktop.isElectron() && typeof global.Desktop.saveToDisk === 'function') {
       const res = await global.Desktop.saveToDisk({
         title: 'Export Distant Reading Report',
@@ -1557,11 +1572,24 @@
     }
   }
 
+  function onLangChange(langVal) {
+    state.langOverride = langVal || 'auto';
+    _resetCachedAnalyses();
+    _updateCorpusStats();
+    if (state.rawText && state.rawText.trim()) {
+      if (state.activeTab === 'stylistics') runStylistics();
+      else if (state.activeTab === 'themes') runThemes();
+      else if (state.activeTab === 'collocations') runCollocations();
+      else if (state.activeTab === 'compare' && state.compareTextB) runComparison();
+    }
+  }
+
   const DistantReadingUI = {
     openModal,
     closeModal,
     setActiveTab,
     onBookChange,
+    onLangChange,
     togglePasteDrawer,
     applyPastedText,
     loadBoardNotesAsText,

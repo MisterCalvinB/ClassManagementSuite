@@ -194,8 +194,140 @@
       /* =========================================================================
        * IN-MEMORY DETACHED DOM CACHE FOR BOARD PAGES
        * ========================================================================= */
-      const _CON_DOM_CACHE_MAX_PAGES = 8;
+      const _CON_DOM_CACHE_MAX_PAGES = 20;
       const _conPageDomCache = new Map();
+      const _conPreloadedNodesCache = new Map();
+      let _conPreloadGen = 0;
+      let _conPreloadHandle = null;
+      let _conPreloadUsesIdle = false;
+
+      function _conCancelScheduledPreload() {
+        if (_conPreloadHandle !== null) {
+          if (_conPreloadUsesIdle && typeof cancelIdleCallback === 'function') {
+            cancelIdleCallback(_conPreloadHandle);
+          } else {
+            clearTimeout(_conPreloadHandle);
+          }
+          _conPreloadHandle = null;
+        }
+      }
+
+      function _conClearPreloadedNodesCache() {
+        _conPreloadGen++;
+        _conCancelScheduledPreload();
+        _conPreloadedNodesCache.clear();
+      }
+
+      function _conTakePreloadedPageNodes(pageIdx, snapRef) {
+        const rec = _conPreloadedNodesCache.get(pageIdx);
+        if (!rec) return null;
+        _conPreloadedNodesCache.delete(pageIdx);
+        if (snapRef && rec.snapRef !== snapRef) return null;
+        return rec.items;
+      }
+
+      function conSchedulePreloadPages() {
+        _conCancelScheduledPreload();
+        if (typeof conPageSnapshots === 'undefined' || !Array.isArray(conPageSnapshots) || conPageSnapshots.length <= 1) {
+          return;
+        }
+        if (typeof window.conBuildNodeElement !== 'function') return;
+
+        const gen = _conPreloadGen;
+        const curIdx = (typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0;
+        const total = conPageSnapshots.length;
+        const queue = [];
+        const seen = new Set([curIdx]);
+        for (let dist = 1; dist < total; dist++) {
+          const next = curIdx + dist;
+          if (next >= 0 && next < total && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+          const prev = curIdx - dist;
+          if (prev >= 0 && prev < total && !seen.has(prev)) {
+            seen.add(prev);
+            queue.push(prev);
+          }
+        }
+
+        const scheduleNext = (fn) => {
+          if (typeof requestIdleCallback === 'function') {
+            _conPreloadUsesIdle = true;
+            _conPreloadHandle = requestIdleCallback(fn, { timeout: 1200 });
+          } else {
+            _conPreloadUsesIdle = false;
+            _conPreloadHandle = setTimeout(() => fn({ timeRemaining: () => 16 }), 60);
+          }
+        };
+
+        let vocabWordSet = null;
+        let activeIdx = null;
+        let activeSnap = null;
+        let activeNodes = null;
+        let activeOffset = 0;
+        let activeBuilt = null;
+
+        const step = (deadline) => {
+          _conPreloadHandle = null;
+          if (gen !== _conPreloadGen) return;
+
+          if (typeof window._conIsRestoringSession === 'boolean' && window._conIsRestoringSession) {
+            scheduleNext(step);
+            return;
+          }
+
+          if (!vocabWordSet && typeof window.conBuildVocabWordSet === 'function') {
+            vocabWordSet = window.conBuildVocabWordSet();
+          }
+
+          const hasTime = () => !deadline || typeof deadline.timeRemaining !== 'function' || deadline.timeRemaining() > 4;
+
+          while (hasTime()) {
+            if (activeIdx === null) {
+              while (queue.length > 0) {
+                const candidate = queue.shift();
+                if (candidate === conCurrentPageIndex) continue;
+                if (_conPageDomCache.has(candidate)) continue;
+                const snap = conPageSnapshots[candidate];
+                if (!snap || !Array.isArray(snap.nodes) || snap.nodes.length === 0) continue;
+                const existing = _conPreloadedNodesCache.get(candidate);
+                if (existing && existing.snapRef === snap) continue;
+                activeIdx = candidate;
+                activeSnap = snap;
+                activeNodes = snap.nodes;
+                activeOffset = 0;
+                activeBuilt = [];
+                break;
+              }
+              if (activeIdx === null) return;
+            }
+
+            const batchEnd = Math.min(activeOffset + 25, activeNodes.length);
+            for (; activeOffset < batchEnd; activeOffset++) {
+              const built = window.conBuildNodeElement(activeNodes[activeOffset], vocabWordSet);
+              if (built) activeBuilt.push(built);
+            }
+
+            if (activeOffset >= activeNodes.length) {
+              _conPreloadedNodesCache.set(activeIdx, {
+                snapRef: activeSnap,
+                items: activeBuilt
+              });
+              activeIdx = null;
+              activeSnap = null;
+              activeNodes = null;
+              activeBuilt = null;
+            }
+          }
+
+          if (activeIdx !== null || queue.length > 0) {
+            scheduleNext(step);
+          }
+        };
+
+        scheduleNext(step);
+      }
 
       /**
        * Detaches the currently active page DOM elements from #constellation-board
@@ -505,6 +637,7 @@
        * Completely resets the DOM cache (e.g. on loading a new file or session reset).
        */
       function _conClearPageDomCache(opts = {}) {
+        _conClearPreloadedNodesCache();
         _conPageDomCache.forEach(record => {
           try {
             if (record.boardHolder) record.boardHolder.innerHTML = '';
@@ -521,6 +654,7 @@
        * Drops a specific page from cache (used on page deletion or destructive edit).
        */
       function _conInvalidatePageDomCache(pageIdx, opts = {}) {
+        _conPreloadedNodesCache.delete(pageIdx);
         const rec = _conPageDomCache.get(pageIdx);
         if (rec) {
           if (rec.boardHolder) rec.boardHolder.innerHTML = '';
@@ -536,6 +670,7 @@
        * Remaps cache indices when a page is deleted.
        */
       function _conRemapPageDomCacheOnDelete(deletedIdx, opts = {}) {
+        _conClearPreloadedNodesCache();
         _conInvalidatePageDomCache(deletedIdx, { silent: true });
         const nextCache = new Map();
         for (const [idx, rec] of _conPageDomCache.entries()) {
@@ -558,6 +693,7 @@
        */
       function _conRemapPageDomCacheOnMove(fromIdx, toIdx, opts = {}) {
         if (fromIdx === toIdx) return;
+        _conClearPreloadedNodesCache();
         const targetRec = _conPageDomCache.get(fromIdx);
         _conPageDomCache.delete(fromIdx);
 
@@ -585,6 +721,7 @@
        * Remaps cache indices when 1 page is inserted.
        */
       function _conRemapPageDomCacheOnInsert(insertIdx, opts = {}) {
+        _conClearPreloadedNodesCache();
         const nextCache = new Map();
         for (const [cIdx, rec] of _conPageDomCache.entries()) {
           if (cIdx >= insertIdx) {
@@ -606,6 +743,7 @@
        */
       function _conRemapPageDomCacheOnInsertCount(insertIdx, count, opts = {}) {
         if (count <= 0) return;
+        _conClearPreloadedNodesCache();
         const nextCache = new Map();
         for (const [cIdx, rec] of _conPageDomCache.entries()) {
           if (cIdx >= insertIdx) {
@@ -631,6 +769,8 @@
       window._conRemapPageDomCacheOnMove = _conRemapPageDomCacheOnMove;
       window._conRemapPageDomCacheOnInsert = _conRemapPageDomCacheOnInsert;
       window._conRemapPageDomCacheOnInsertCount = _conRemapPageDomCacheOnInsertCount;
+      window._conTakePreloadedPageNodes = _conTakePreloadedPageNodes;
+      window.conSchedulePreloadPages = conSchedulePreloadPages;
 
       function conDuplicatePageMiniThumb(idx) {
         if (typeof _conCacheCurrentPageDom === 'function') {
@@ -1132,6 +1272,7 @@
           if (!window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
             window._conMirrorBroadcast({ bumpRevision: true });
           }
+          conSchedulePreloadPages();
         } finally {
           if (!_prevSuppress) {
             setTimeout(function () { window._conSuppressMirrorObserver = false; }, 60);

@@ -355,6 +355,11 @@
       });
       gradeInput.addEventListener("blur", flushStudentModalAutoSave);
 
+      const pointsPill = document.createElement("span");
+      pointsPill.className = "smod-points-pill hidden";
+      pointsPill.textContent = "—";
+      pointsPill.title = t('gsSmodPointsGivenTooltip', 'Total points given out of maximum points');
+
       const nextDeltaPill = document.createElement("span");
       nextDeltaPill.className = "smod-next-delta-pill";
       nextDeltaPill.textContent = "—";
@@ -500,6 +505,7 @@
 
       gradeRow.appendChild(gradeLabel);
       gradeRow.appendChild(gradeInput);
+      gradeRow.appendChild(pointsPill);
       gradeRow.appendChild(nextDeltaPill);
       gradeRow.appendChild(overrideBtn);
       gradeRow.appendChild(sanctionWrap);
@@ -559,6 +565,20 @@
           }
         });
         const totals = calcCriteriaTotals(config, draftMap);
+        if (config && (totals.totalPossible > 0 || totals.totalBonusPossible > 0)) {
+          pointsPill.classList.remove("hidden");
+          const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);
+          pointsPill.classList.toggle("is-empty", !hasAnyScored);
+          pointsPill.textContent = tFmt('gsSmodPointsGiven', {
+            scored: hasAnyScored ? fmtN(scored) : "—",
+            total: fmtN(totals.totalPossible)
+          });
+          pointsPill.title = totals.totalBonusScored > 0
+            ? `${t('gsSmodPointsGivenTooltip', 'Total points given out of maximum points')} (${fmtN(totals.totalScored)} + ${fmtN(totals.totalBonusScored)} bonus / ${fmtN(totals.totalPossible)})`
+            : t('gsSmodPointsGivenTooltip', 'Total points given out of maximum points');
+        } else {
+          pointsPill.classList.add("hidden");
+        }
         if (!config || totals.totalPossible <= 0 || (!hasAnyScored && currentGrade == null)) return;
 
         const scored = (totals.totalScored || 0) + (totals.totalBonusScored || 0);

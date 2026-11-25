@@ -27,6 +27,7 @@
   <script src="../js/shared/board-export-service.js"></script>
   <script src="../js/shared/tag-link-modal.js"></script>
   <script src="../js/shared/export-styles-service.js"></script>
+  <script src="../js/shared/export-lang-service.js"></script>
   <script>
     (function () {
       function injectClassicScript(source, name) {
@@ -1239,9 +1240,53 @@
       </div>
       <div class="student-modal-body" id="student-modal-body"></div>
       <div class="student-modal-footer">
+        <div class="smod-footer-actions-left">
+          <button class="btn" id="student-modal-copy-to" type="button" data-hover-help="Copy or move this student's scores and notes to another student" data-i18n-help="gsBtnCopyToStudentHelp">
+            <img src="../assets/icons/copy.svg" class="btn-icon" alt="" />
+            <span data-i18n="gsBtnCopyToStudent">Copy to student...</span>
+          </button>
+          <button class="btn danger" id="student-modal-clear" type="button" data-hover-help="Clear all scores, grades, and notes for this student in this test" data-i18n-help="gsBtnClearStudentHelp">
+            <img src="../assets/icons/clear.svg" class="btn-icon" alt="" />
+            <span data-i18n="gsBtnClearStudent">Clear</span>
+          </button>
+        </div>
         <span id="student-modal-corr-time" class="smod-corr-time-pill hidden"></span>
         <button class="btn" id="student-modal-cancel" data-i18n="btnCancel">Cancel</button>
         <button class="btn primary" id="student-modal-save" data-i18n="gsBtnSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy / Move Student Test Entry modal -->
+  <div id="gs-copy-student-overlay" class="add-class-overlay hidden">
+    <div class="add-class-modal gs-copy-student-modal" role="dialog" aria-modal="true" aria-labelledby="gs-copy-student-title">
+      <div class="student-modal-header">
+        <h2 id="gs-copy-student-title" data-i18n="gsCopyStudentTitle">Copy Student Data</h2>
+        <button class="student-modal-close" id="gs-copy-student-close" type="button" data-hover-help="Close" data-i18n-help="gsToptClose" aria-label="Close">
+          <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+        </button>
+      </div>
+      <div class="gs-copy-student-body">
+        <div class="gs-copy-student-source-card">
+          <div class="gs-copy-student-label" data-i18n="gsCopyStudentFromLabel">From student</div>
+          <div id="gs-copy-student-source-name" class="gs-copy-student-source-name"></div>
+          <div id="gs-copy-student-source-summary" class="gs-copy-student-source-summary"></div>
+        </div>
+        <div class="gs-copy-student-field">
+          <label for="gs-copy-student-target" class="gs-copy-student-label" data-i18n="gsCopyStudentToLabel">Copy to student</label>
+          <select id="gs-copy-student-target" class="gs-copy-student-select"></select>
+        </div>
+        <div id="gs-copy-student-warning" class="gs-copy-student-warning hidden" data-i18n="gsCopyStudentOverwriteWarn">
+          This student already has recorded data for this test. Copying will overwrite their current grade, points, and notes.
+        </div>
+        <label class="gs-copy-student-checkbox-row">
+          <input type="checkbox" id="gs-copy-student-clear-source" checked />
+          <span data-i18n="gsCopyStudentClearSource">Clear source student after copying</span>
+        </label>
+      </div>
+      <div class="add-class-actions">
+        <button id="gs-copy-student-cancel" class="btn" type="button" data-i18n="btnCancel">Cancel</button>
+        <button id="gs-copy-student-confirm" class="btn primary" type="button" data-i18n="gsCopyStudentBtnCopyAndClear">Copy &amp; Clear Source</button>
       </div>
     </div>
   </div>
@@ -2332,6 +2377,7 @@
         </div>
         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto;">
           <div id="gs-report-style-selector-wrap" style="display:inline-flex;align-items:center;"></div>
+          <div id="gs-report-lang-selector-wrap" style="display:inline-flex;align-items:center;"></div>
           <button id="gs-report-btn-options" class="btn" type="button" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;background:#f8fafc;"><img src="../assets/icons/gear.svg" class="btn-icon" alt="" /> <span data-i18n="gsReportCustomizeElements">Elements &amp; Options</span> <span class="neo-caret" aria-hidden="true"></span></button>
           <label id="gs-report-toggle-fit-page-wrap" style="display: inline-flex; align-items: center; gap: 6px; font-size: 0.84rem; font-weight: 700; cursor: pointer; user-select: none; background: #f8fafc; padding: 4px 8px; border: 1.5px solid #111; border-radius: 4px;">
             <input type="checkbox" id="gs-report-toggle-fit-page" style="cursor: pointer; width: 15px; height: 15px;" />
@@ -2428,12 +2474,14 @@
 
   <div id="test-row-menu" class="row-context-menu hidden" role="menu" aria-label="Student row menu" data-i18n-aria="gsAriaStudentRowMenu">
     <button id="test-row-menu-open" class="menu-item" type="button" role="menuitem" data-i18n="gsMenuOpenStudent"><img src="../assets/icons/eye.svg" class="btn-icon" alt="" /> Open student</button>
+    <button id="test-row-menu-copy-to" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/copy.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuCopyToStudent">Copy / move to another student...</span></button>
     <button id="test-row-menu-absent" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span id="test-row-menu-absent-text" data-i18n="gsMenuMarkAbsent">Mark as absent</span></button>
     <button id="test-row-menu-report-student" class="menu-item" type="button" role="menuitem" data-i18n="gsReportStudentTest"><img src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> Student Test Report</button>
     <button id="test-row-menu-dossier" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuStudentDossier">360° Academic Dossier</span></button>
     <button id="test-row-menu-attach-work" class="menu-item" type="button" role="menuitem"><img src="../assets/icons/links.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuAttachStudentWork">Attach Student Work / PDF</span></button>
     <hr class="menu-sep">
     <button id="test-row-menu-reset" class="menu-item danger" type="button" role="menuitem" data-i18n="gsMenuResetPoints"><img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> Reset points and comments</button>
+    <button id="test-row-menu-clear" class="menu-item danger" type="button" role="menuitem"><img src="../assets/icons/eraser.svg" class="btn-icon" alt="" /> <span data-i18n="gsMenuClearStudentEntry">Clear all scores &amp; notes</span></button>
   </div>
 
   <div id="class-card-menu" class="row-context-menu hidden" role="menu" aria-label="Class menu" data-i18n-aria="gsAriaClassMenu">
@@ -2500,6 +2548,7 @@
   <script src="../js/grade-sheet/gs-render.js"></script>
   <script src="../js/grade-sheet/gs-student-modal.js"></script>
   <script src="../js/grade-sheet/gs-integrations.js"></script>
+  <script src="../js/grade-sheet/gs-student-copy.js"></script>
   <script src="../js/grade-sheet/gs-timeline-compare.js"></script>
   <script src="../js/grade-sheet/gs-exports-reports.js"></script>
   <script src="../js/pages/grade-sheet.js"></script>

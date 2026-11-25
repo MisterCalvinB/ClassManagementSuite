@@ -44,7 +44,9 @@
 
   var _baseJsDir = _getBaseJsDir();
 
-  var _getLang = function () {
+  var _exportLangOverride = null;
+
+  var _getUiLang = function () {
     try {
       if (typeof localStorage === 'undefined') return 'fr';
       var override = localStorage.getItem('cmt-lang-' + _pageKey());
@@ -52,6 +54,13 @@
       var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
       return cfg.language || 'fr';
     } catch (e) { return 'fr'; }
+  };
+
+  var _getLang = function () {
+    if (_exportLangOverride && SUPPORTED_LANGS.indexOf(_exportLangOverride) !== -1) {
+      return _exportLangOverride;
+    }
+    return _getUiLang();
   };
 
   var ALL_NAMESPACES = [
@@ -112,44 +121,79 @@
     }
   }
 
+  var _pendingNsCallbacks = {};
+
   function _loadNamespaceScripts(lang, nsList, cb) {
     if (!lang || SUPPORTED_LANGS.indexOf(lang) === -1 || typeof document === 'undefined') {
       if (cb) cb();
       return;
     }
     _loadedNs[lang] = _loadedNs[lang] || {};
-    var pending = [];
-    for (var i = 0; i < nsList.length; i++) {
-      if (!_loadedNs[lang][nsList[i]]) {
-        _loadedNs[lang][nsList[i]] = true;
-        pending.push(nsList[i]);
+    var waiting = 0;
+    var finished = false;
+    function checkDone() {
+      if (finished) return;
+      if (waiting <= 0) {
+        finished = true;
+        if (cb) cb();
       }
     }
-    if (!pending.length) {
+    var toLoad = [];
+    for (var i = 0; i < nsList.length; i++) {
+      var ns = nsList[i];
+      var key = lang + ':' + ns;
+      if (!_loadedNs[lang][ns]) {
+        _loadedNs[lang][ns] = true;
+        _pendingNsCallbacks[key] = [];
+        toLoad.push(ns);
+        waiting++;
+      } else if (_pendingNsCallbacks[key]) {
+        waiting++;
+        _pendingNsCallbacks[key].push(function () {
+          waiting--;
+          checkDone();
+        });
+      }
+    }
+    if (waiting === 0) {
       if (cb) cb();
       return;
     }
-    var remaining = pending.length;
-    function done() {
-      remaining--;
-      if (remaining <= 0 && cb) cb();
-    }
-    for (var j = 0; j < pending.length; j++) {
-      var s = document.createElement('script');
-      s.src = _baseJsDir + 'i18n/' + lang + '/' + pending[j] + '.js';
-      s.onload = done;
-      s.onerror = done;
-      document.head.appendChild(s);
+    for (var j = 0; j < toLoad.length; j++) {
+      (function (nsName) {
+        var k = lang + ':' + nsName;
+        var s = document.createElement('script');
+        s.src = _baseJsDir + 'i18n/' + lang + '/' + nsName + '.js';
+        function onComplete() {
+          var cbs = _pendingNsCallbacks[k] || [];
+          delete _pendingNsCallbacks[k];
+          waiting--;
+          for (var c = 0; c < cbs.length; c++) {
+            try { cbs[c](); } catch (e) {}
+          }
+          checkDone();
+        }
+        s.onload = onComplete;
+        s.onerror = onComplete;
+        document.head.appendChild(s);
+      })(toLoad[j]);
     }
   }
 
-  function _ensureLangLoaded(lang, cb) {
+  function _ensureLangLoaded(lang, cb, allNamespaces) {
     if (!lang || SUPPORTED_LANGS.indexOf(lang) === -1) {
       if (cb) cb();
       return;
     }
-    var nsList = _allNsRequested[lang] ? ALL_NAMESPACES : _getNamespacesForPage();
+    var nsList = (allNamespaces || _allNsRequested[lang]) ? ALL_NAMESPACES : _getNamespacesForPage();
+    if (allNamespaces) _allNsRequested[lang] = true;
     _loadNamespaceScripts(lang, nsList, cb);
+  }
+
+  function _ensureLangLoadedAsync(lang, allNamespaces) {
+    return new Promise(function (resolve) {
+      _ensureLangLoaded(lang, resolve, allNamespaces);
+    });
   }
 
   var _getLocale = function () {
@@ -187,8 +231,8 @@
   };
 
   // Replace {name} placeholder in a template string.
-  var _tFmt = function (key, vars) {
-    var s = _t(key);
+  var _tFmt = function (key, vars, langOverride) {
+    var s = _t(key, undefined, langOverride);
     if (vars && typeof vars === 'object') {
       Object.keys(vars).forEach(function (k) {
         s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
@@ -261,8 +305,35 @@
     });
   };
 
+  var _setExportLang = function (lang) {
+    if (lang && SUPPORTED_LANGS.indexOf(String(lang).toLowerCase()) !== -1) {
+      _exportLangOverride = String(lang).toLowerCase();
+    } else {
+      _exportLangOverride = null;
+    }
+  };
+
+  var _getExportLang = function () {
+    return _exportLangOverride || _getLang();
+  };
+
+  var _withExportLang = async function (lang, fn) {
+    var target = (lang && lang !== 'app' && SUPPORTED_LANGS.indexOf(String(lang).toLowerCase()) !== -1)
+      ? String(lang).toLowerCase()
+      : _getUiLang();
+    await _ensureLangLoadedAsync(target, true);
+    var prev = _exportLangOverride;
+    _exportLangOverride = target;
+    try {
+      return await fn(target);
+    } finally {
+      _exportLangOverride = prev;
+    }
+  };
+
   if (typeof window !== 'undefined') {
     window.getLang = _getLang;
+    window.getUiLang = _getUiLang;
     window.getLocale = _getLocale;
     window.setPageLang = _setPageLang;
     window.updateLangButtons = _updateLangButtons;
@@ -275,11 +346,17 @@
       t: _t,
       tFmt: _tFmt,
       getLang: _getLang,
+      getUiLang: _getUiLang,
       getCurrentLanguage: _getLang,
       getLocale: _getLocale,
       setPageLang: _setPageLang,
+      setExportLang: _setExportLang,
+      getExportLang: _getExportLang,
+      withExportLang: _withExportLang,
       applyTranslations: _applyTranslations,
       ensureLangLoaded: _ensureLangLoaded,
+      ensureLangLoadedAsync: _ensureLangLoadedAsync,
+      SUPPORTED_LANGS: SUPPORTED_LANGS,
       STRINGS: STRINGS
     };
   }
@@ -289,11 +366,17 @@
       t: _t,
       tFmt: _tFmt,
       getLang: _getLang,
+      getUiLang: _getUiLang,
       getCurrentLanguage: _getLang,
       getLocale: _getLocale,
       setPageLang: _setPageLang,
+      setExportLang: _setExportLang,
+      getExportLang: _getExportLang,
+      withExportLang: _withExportLang,
       applyTranslations: _applyTranslations,
       ensureLangLoaded: _ensureLangLoaded,
+      ensureLangLoadedAsync: _ensureLangLoadedAsync,
+      SUPPORTED_LANGS: SUPPORTED_LANGS,
       STRINGS: STRINGS
     };
   }

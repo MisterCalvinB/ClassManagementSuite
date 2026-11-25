@@ -1925,6 +1925,16 @@ window.tcOpenLegacyExportModal = function () {
       }
     });
   }
+  if (window.ExportLangService) {
+    ExportLangService.renderLangSelector(document.getElementById('tc-export-lang-selector-wrap'), {
+      toolKey: 'testCreator',
+      onChange: function () {
+        if (document.getElementById('exportPreviewModal').classList.contains('open')) {
+          window.tcPreviewExportInBrowser();
+        }
+      }
+    });
+  }
 };
 
 window.tcOpenExportModal = function (triggerEvent) {
@@ -1993,7 +2003,13 @@ window.tcOpenExportModal = function (triggerEvent) {
             '<div class="cmt-wiz-summary-box">' +
               '<div><strong>' + ctx.escHtml(tr('tcExpSummaryAud', 'Version:')) + '</strong> ' + ctx.escHtml(st.audience.toUpperCase()) + '</div>' +
               '<div><strong>' + ctx.escHtml(tr('tcExpSummaryFmt', 'Format:')) + '</strong> ' + ctx.escHtml(st.format.toUpperCase()) + '</div>' +
-            '</div>';
+            '</div>' +
+            '<div id="tc-wiz-lang-selector-wrap" style="margin-top:12px;"></div>';
+          if (window.ExportLangService) {
+            ExportLangService.renderLangSelector(container.querySelector('#tc-wiz-lang-selector-wrap'), {
+              toolKey: 'testCreator'
+            });
+          }
         }
       }
     ],
@@ -2048,6 +2064,12 @@ window.tcOnBatchToggle = function () {
 };
 
 window.tcExecuteExport = async function () {
+  if (window.ExportLangService) {
+    return await ExportLangService.withExportLang('testCreator', _tcExecuteExportInner);
+  }
+  return await _tcExecuteExportInner();
+};
+async function _tcExecuteExportInner() {
   var isTeacher = document.querySelector('input[name="expCopyType"]:checked').value === 'teacher';
   var isBatch = document.getElementById('expBatchToggle').checked;
   var vMode = document.querySelector('input[name="batchVariantMode"]:checked').value;
@@ -2279,16 +2301,23 @@ window.tcExecuteExport = async function () {
   }
 };
 
-window.tcPreviewExportInBrowser = function () {
+window.tcPreviewExportInBrowser = async function () {
   if (!currentTest) return;
   window._tcLastPreviewType = 'single';
   var isTeacher = document.querySelector('input[name="expCopyType"]:checked') ? (document.querySelector('input[name="expCopyType"]:checked').value === 'teacher') : false;
   var activeTheme = tcNormalizeThemeId((currentTest.exportStyle && currentTest.exportStyle.theme) || currentTest.stylesheetTheme || (window.ExportStylesService && ExportStylesService.getSelectedStyle('testCreator')) || localStorage.getItem('cmt_default_test_theme') || 'export-light-neobrutalist.css');
 
-  var html = TestCreatorService.exportToHtml(currentTest, {
-    isTeacherKey: isTeacher,
-    stylesheetTheme: activeTheme
-  });
+  var html = window.ExportLangService
+    ? await ExportLangService.withExportLang('testCreator', function () {
+        return TestCreatorService.exportToHtml(currentTest, {
+          isTeacherKey: isTeacher,
+          stylesheetTheme: activeTheme
+        });
+      })
+    : TestCreatorService.exportToHtml(currentTest, {
+        isTeacherKey: isTeacher,
+        stylesheetTheme: activeTheme
+      });
 
   var modal = document.getElementById('exportPreviewModal');
   var iframe = document.getElementById('exportPreviewIframe');
