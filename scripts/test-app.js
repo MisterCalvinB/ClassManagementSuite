@@ -288,6 +288,86 @@ test('zip-utils: crc32, DOS timestamp round-trip, and buildZip output structure'
   assert.ok(zipBuf.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06])));
 });
 
+test('backup-worker: zip, targz, and folder backups run off the main thread and produce valid output', async () => {
+  const os = require('os');
+  const zlib = require('zlib');
+  const { runBackupWorker } = require(path.join(ROOT, 'js', 'main', 'backup-worker-client.js'));
+
+  const tmpBase = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'cmt-backup-test-'));
+  try {
+    const srcDir = path.join(tmpBase, 'user');
+    await fs.promises.mkdir(path.join(srcDir, 'nested'), { recursive: true });
+    await fs.promises.writeFile(path.join(srcDir, 'a.txt'), 'Alpha backup content '.repeat(100), 'utf8');
+    await fs.promises.writeFile(path.join(srcDir, 'nested', 'b.json'), JSON.stringify({ ok: true }), 'utf8');
+
+    const zipOut = path.join(tmpBase, 'out', 'backup.zip');
+    const zipRes = await runBackupWorker({
+      op: 'zip',
+      sourceDir: srcDir,
+      destFile: zipOut,
+      rootPrefix: 'user',
+      includeMeta: true
+    });
+    assert.equal(zipRes.ok, true);
+    assert.equal(zipRes.copied, 2);
+    assert.equal(zipRes.count, 3);
+    const zipBytes = await fs.promises.readFile(zipOut);
+    assert.equal(zipBytes.readUInt32LE(0), 0x04034b50);
+    assert.ok(zipBytes.includes(Buffer.from('user/a.txt')));
+    assert.ok(zipBytes.includes(Buffer.from('user/nested/b.json')));
+    assert.ok(zipBytes.includes(Buffer.from('__backup_meta__.json')));
+    assert.ok(zipBytes.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06])));
+
+    const tgzOut = path.join(tmpBase, 'out', 'backup.tar.gz');
+    const tgzRes = await runBackupWorker({
+      op: 'targz',
+      sourceDir: srcDir,
+      destFile: tgzOut,
+      rootPrefix: 'user'
+    });
+    assert.equal(tgzRes.ok, true);
+    assert.equal(tgzRes.copied, 2);
+    const tgzBytes = await fs.promises.readFile(tgzOut);
+    const tarBytes = zlib.gunzipSync(tgzBytes);
+    assert.ok(tarBytes.includes(Buffer.from('user/a.txt')));
+    assert.ok(tarBytes.includes(Buffer.from('user/nested/b.json')));
+
+    const folderOut = path.join(tmpBase, 'out', 'folder', 'user');
+    const folderRes = await runBackupWorker({
+      op: 'folder',
+      sourceDir: srcDir,
+      destDir: folderOut
+    });
+    assert.equal(folderRes.ok, true);
+    assert.equal(folderRes.copied, 2);
+    assert.equal(
+      await fs.promises.readFile(path.join(folderOut, 'nested', 'b.json'), 'utf8'),
+      JSON.stringify({ ok: true })
+    );
+
+    const cstzOut = path.join(tmpBase, 'out', 'board.cstz');
+    const cstzRes = await runBackupWorker({
+      op: 'zip-entries',
+      destFile: cstzOut,
+      entries: [
+        { name: 'manifest.json', data: JSON.stringify({ version: 1 }), store: true },
+        { name: 'media/pics/img.bin', data: 'data:image/png;base64,AQIDBA==', encoding: 'base64', store: true },
+        { name: 'board.json', data: JSON.stringify({ nodes: [] }), compressionMethod: 8 }
+      ]
+    });
+    assert.equal(cstzRes.ok, true);
+    assert.equal(cstzRes.count, 3);
+    assert.ok(cstzRes.size > 0);
+    const cstzBytes = await fs.promises.readFile(cstzOut);
+    assert.equal(cstzBytes.readUInt32LE(0), 0x04034b50);
+    assert.ok(cstzBytes.includes(Buffer.from('manifest.json')));
+    assert.ok(cstzBytes.includes(Buffer.from('media/pics/img.bin')));
+    assert.ok(cstzBytes.includes(Buffer.from('board.json')));
+  } finally {
+    await fs.promises.rm(tmpBase, { recursive: true, force: true });
+  }
+});
+
 test('DomSync helpers: setText, setClass, setAttr, and patchListByKey preserve DOM node identity', () => {
   const DomSync = require(path.join(ROOT, 'js', 'shared', 'dom-sync.js'));
 

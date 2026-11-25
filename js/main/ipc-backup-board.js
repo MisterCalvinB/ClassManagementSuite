@@ -1,6 +1,8 @@
 // ZIP backup/restore and .board archive IPC handlers extracted from electron-main.js
 'use strict';
 
+const { runBackupWorker } = require('./backup-worker-client');
+
 function registerBackupBoardIpc(ctx) {
   const {
     app,
@@ -23,11 +25,8 @@ function registerBackupBoardIpc(ctx) {
   } = ctx;
 
   ipcMain.handle('app:backup-zip', async (event) => {
-    const BACKUP_META_ENTRY = '__backup_meta__.json';
     const writableRoot = getWritableRootDir();
-    const targets = [
-      { dir: path.join(writableRoot, 'user'), prefix: 'user' }
-    ];
+    const userDir = path.join(writableRoot, 'user');
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const { canceled, filePath } = await dialog.showSaveDialog({
@@ -40,34 +39,17 @@ function registerBackupBoardIpc(ctx) {
       return { ok: false, canceled: true };
     }
 
-    const entries = [];
-    for (const t of targets) {
-      entries.push(...await collectDirEntries(t.dir, t.prefix));
-    }
-
-    const timestampMap = {};
-    for (const entry of entries) {
-      timestampMap[entry.name] = {
-        mtimeMs: Number(entry.mtimeMs) || undefined,
-        ctimeMs: Number(entry.ctimeMs) || undefined,
-        birthtimeMs: Number(entry.birthtimeMs) || undefined
-      };
-    }
-
-    const backupMeta = {
-      version: 1,
-      generatedAt: Date.now(),
-      timestamps: timestampMap
-    };
-    entries.push({
-      name: BACKUP_META_ENTRY,
-      data: Buffer.from(JSON.stringify(backupMeta), 'utf8'),
-      mtimeMs: Date.now()
+    const result = await runBackupWorker({
+      op: 'zip',
+      sourceDir: userDir,
+      destFile: filePath,
+      rootPrefix: 'user',
+      includeMeta: true
     });
-
-    const zipBuffer = await buildZip(entries);
-    await fs.writeFile(filePath, zipBuffer);
-    return { ok: true, path: filePath, count: entries.length };
+    if (!result || !result.ok) {
+      return { ok: false, error: (result && result.error) || 'Backup failed' };
+    }
+    return { ok: true, path: filePath, count: result.count };
   });
 
   // Extract zip entries into an array of { name, data, mtimeMs }
@@ -336,68 +318,22 @@ function registerBackupBoardIpc(ctx) {
     const { targetDir } = resolveAllowedTargetPath(pageFile, target, request.subdir ? path.join(request.subdir, filename) : filename);
 
     const rawEntries = Array.isArray(request.entries) ? request.entries : [];
-    const zipEntries = [];
+    const finalDir = request.subdir ? path.resolve(targetDir, sanitizeRelativePath(request.subdir)) : targetDir;
+    const finalPath = path.join(finalDir, filename);
 
-    for (const entry of rawEntries) {
-      if (!entry || !entry.name) continue;
-      const name = String(entry.name).replace(/\\/g, '/');
-      let data;
-      if (Buffer.isBuffer(entry.data)) {
-        data = entry.data;
-      } else if (entry.data && entry.data.buffer instanceof ArrayBuffer) {
-        data = Buffer.from(entry.data.buffer, entry.data.byteOffset || 0, entry.data.byteLength || entry.data.length);
-      } else if (entry.encoding === 'base64') {
-        let rawB64 = String(entry.data || '');
-        const commaIdx = rawB64.indexOf(',');
-        if (rawB64.startsWith('data:') && commaIdx !== -1) {
-          rawB64 = rawB64.slice(commaIdx + 1);
-        }
-        data = Buffer.from(rawB64, 'base64');
-      } else {
-        data = Buffer.from(String(entry.data || ''), 'utf8');
-      }
-      const store = entry.store !== false && entry.compressionMethod !== 8;
-      zipEntries.push({
-        name,
-        data,
-        store,
-        compressionMethod: store ? 0 : 8,
-        mtimeMs: entry.mtimeMs || Date.now()
+    let result;
+    try {
+      result = await runBackupWorker({
+        op: 'zip-entries',
+        entries: rawEntries,
+        destFile: finalPath
       });
+    } catch (err) {
+      return { ok: false, error: err && err.message ? err.message : String(err) };
     }
 
-    const zipBuffer = await buildZip(zipEntries);
-    const finalDir = request.subdir ? path.resolve(targetDir, sanitizeRelativePath(request.subdir)) : targetDir;
-    await fs.mkdir(finalDir, { recursive: true });
-    const finalPath = path.join(finalDir, filename);
-    const randTag = String(Date.now()) + '-' + Math.random().toString(36).slice(2, 8);
-    const tmpPath = path.join(finalDir, '.' + filename + '.' + randTag + '.tmp');
-
-    try {
-      await fs.writeFile(tmpPath, zipBuffer);
-      let renamed = false;
-      let lastErr = null;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        try {
-          await fs.rename(tmpPath, finalPath);
-          renamed = true;
-          break;
-        } catch (renameErr) {
-          lastErr = renameErr;
-          if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST' || renameErr.code === 'EBUSY' || renameErr.code === 'EACCES') {
-            await fs.unlink(finalPath).catch(() => { });
-            await new Promise(r => setTimeout(r, 60));
-          } else {
-            break;
-          }
-        }
-      }
-      if (!renamed) {
-        throw lastErr || new Error('Could not rename temp archive to target path');
-      }
-    } catch (err) {
-      await fs.unlink(tmpPath).catch(() => { });
-      return { ok: false, error: err && err.message ? err.message : String(err) };
+    if (!result || !result.ok) {
+      return { ok: false, error: (result && result.error) || 'Could not save board archive' };
     }
 
     _broadcastDataChanged(event, pageFile, {
@@ -407,7 +343,7 @@ function registerBackupBoardIpc(ctx) {
       subdir: request.subdir || null
     });
 
-    return { ok: true, filename, path: finalPath, size: zipBuffer.length };
+    return { ok: true, filename, path: finalPath, size: result.size };
   });
 
   ipcMain.handle('app:read-board-archive', async (event, request = {}) => {
@@ -871,34 +807,14 @@ function registerBackupBoardIpc(ctx) {
           });
         }
 
-        const newZipBuffer = await buildZip(zipEntries);
-        const finalDir = path.dirname(fullPath);
         const filename = path.basename(fullPath);
-        const randTag = String(now) + '-' + Math.random().toString(36).slice(2, 8);
-        const tmpPath = path.join(finalDir, '.' + filename + '.' + randTag + '.tmp');
-        try {
-          await fs.writeFile(tmpPath, newZipBuffer);
-          let renamed = false;
-          let lastErr = null;
-          for (let attempt = 0; attempt < 5; attempt++) {
-            try {
-              await fs.rename(tmpPath, fullPath);
-              renamed = true;
-              break;
-            } catch (renameErr) {
-              lastErr = renameErr;
-              if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST' || renameErr.code === 'EBUSY' || renameErr.code === 'EACCES') {
-                await fs.unlink(fullPath).catch(() => { });
-                await new Promise(r => setTimeout(r, 60));
-              } else {
-                break;
-              }
-            }
-          }
-          if (!renamed) throw lastErr || new Error('Could not rename temp archive');
-        } catch (writeErr) {
-          await fs.unlink(tmpPath).catch(() => { });
-          throw writeErr;
+        const zipRes = await runBackupWorker({
+          op: 'zip-entries',
+          entries: zipEntries,
+          destFile: fullPath
+        });
+        if (!zipRes || !zipRes.ok) {
+          throw new Error((zipRes && zipRes.error) || 'Could not update archive');
         }
 
         _sessionMetaCache.clear();

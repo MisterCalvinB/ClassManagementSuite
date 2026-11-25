@@ -1,6 +1,8 @@
 // File/directory operations, class UUID migration, and disk pickers extracted from electron-main.js
 'use strict';
 
+const { runBackupWorker } = require('./backup-worker-client');
+
 function registerFileOpsIpc(ctx) {
   const {
     app,
@@ -801,25 +803,25 @@ function registerFileOpsIpc(ctx) {
       return { ok: false, error: 'No files found to archive.' };
     }
 
-    const zipBuffer = await buildZip(zipEntries);
     await fs.mkdir(archivedDir, { recursive: true });
     const finalZipPath = path.join(archivedDir, zipFilename);
-    const tmpZipPath = finalZipPath + '.tmp';
 
     try {
-      await fs.writeFile(tmpZipPath, zipBuffer);
-      try {
-        await fs.rename(tmpZipPath, finalZipPath);
-      } catch (renameErr) {
-        if (renameErr.code === 'EPERM' || renameErr.code === 'EEXIST') {
-          await fs.unlink(finalZipPath).catch(() => { });
-          await fs.rename(tmpZipPath, finalZipPath);
-        } else {
-          throw renameErr;
-        }
+      const zipRes = await runBackupWorker({
+        op: 'zip-entries',
+        entries: zipEntries.map(e => ({
+          name: e.name,
+          data: e.data,
+          mtimeMs: e.mtimeMs,
+          store: false,
+          compressionMethod: 8
+        })),
+        destFile: finalZipPath
+      });
+      if (!zipRes || !zipRes.ok) {
+        return { ok: false, error: 'Failed to write zip file: ' + ((zipRes && zipRes.error) || 'Unknown error') };
       }
     } catch (err) {
-      await fs.unlink(tmpZipPath).catch(() => { });
       return { ok: false, error: 'Failed to write zip file: ' + (err && err.message ? err.message : String(err)) };
     }
 

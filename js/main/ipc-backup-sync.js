@@ -1,6 +1,8 @@
 // Folder sync, scheduled backup, and FTP/Drive/WebDAV transport engine + IPC handlers extracted from electron-main.js
 'use strict';
 
+const { runBackupWorker } = require('./backup-worker-client');
+
 function registerBackupSyncIpc(ctx) {
   const {
     app,
@@ -74,218 +76,23 @@ function registerBackupSyncIpc(ctx) {
     return saveBackupConfig({ backupLocation: dirPath });
   }
 
-  async function collectFilesForBackup(dir, baseDir = dir) {
-    const fileList = [];
-    async function walk(currentDir) {
-      let entries;
-      try {
-        entries = await fs.readdir(currentDir, { withFileTypes: true });
-      } catch {
-        return;
-      }
-      for (const entry of entries) {
-        const fullPath = path.join(currentDir, entry.name);
-        const relativePath = path.relative(baseDir, fullPath).replace(/\\/g, '/');
-        if (entry.isDirectory()) {
-          await walk(fullPath);
-        } else if (entry.isFile()) {
-          fileList.push({ fullPath, relativePath: 'user/' + relativePath });
-        }
-      }
-    }
-    await walk(dir);
-    return fileList;
-  }
-
   async function createZipBackup(sourceDir, destZipFile) {
-    const files = await collectFilesForBackup(sourceDir);
-    const zlib = require('zlib');
-    const centralDirs = [];
-    let currentOffset = 0;
-    let copiedCount = 0;
-    const errors = [];
-
-    function calcCrc32(buf) {
-      if (typeof zlib.crc32 === 'function') return zlib.crc32(buf);
-      let crc = 0xFFFFFFFF;
-      for (let i = 0; i < buf.length; i++) {
-        crc ^= buf[i];
-        for (let j = 0; j < 8; j++) {
-          crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
-        }
-      }
-      return (crc ^ 0xFFFFFFFF) >>> 0;
-    }
-
-    function toDosDateTime(date) {
-      const d = date || new Date();
-      const year = Math.max(1980, d.getFullYear());
-      const dosDate = ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate();
-      const dosTime = (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2);
-      return { dosDate, dosTime };
-    }
-
-    const parts = [];
-
-    for (const file of files) {
-      try {
-        const rawContent = await fs.readFile(file.fullPath);
-        const stats = await fs.stat(file.fullPath);
-        const { dosDate, dosTime } = toDosDateTime(stats.mtime);
-
-        const uncompressedSize = rawContent.length;
-        const crc = calcCrc32(rawContent);
-
-        let deflated = zlib.deflateRawSync(rawContent);
-        let compMethod = 8;
-        let compData = deflated;
-        let compSize = deflated.length;
-
-        if (compSize >= uncompressedSize) {
-          compMethod = 0;
-          compData = rawContent;
-          compSize = uncompressedSize;
-        }
-
-        const nameBuf = Buffer.from(file.relativePath, 'utf8');
-        const nameLen = nameBuf.length;
-
-        const lfh = Buffer.alloc(30 + nameLen);
-        lfh.writeUInt32LE(0x04034b50, 0);
-        lfh.writeUInt16LE(20, 4);
-        lfh.writeUInt16LE(0x0800, 6);
-        lfh.writeUInt16LE(compMethod, 8);
-        lfh.writeUInt16LE(dosTime, 10);
-        lfh.writeUInt16LE(dosDate, 12);
-        lfh.writeUInt32LE(crc, 14);
-        lfh.writeUInt32LE(compSize, 18);
-        lfh.writeUInt32LE(uncompressedSize, 22);
-        lfh.writeUInt16LE(nameLen, 26);
-        lfh.writeUInt16LE(0, 28);
-        nameBuf.copy(lfh, 30);
-
-        const headerOffset = currentOffset;
-        parts.push(lfh);
-        parts.push(compData);
-        currentOffset += lfh.length + compSize;
-
-        const cdh = Buffer.alloc(46 + nameLen);
-        cdh.writeUInt32LE(0x02014b50, 0);
-        cdh.writeUInt16LE(20, 4);
-        cdh.writeUInt16LE(20, 6);
-        cdh.writeUInt16LE(0x0800, 8);
-        cdh.writeUInt16LE(compMethod, 10);
-        cdh.writeUInt16LE(dosTime, 12);
-        cdh.writeUInt16LE(dosDate, 14);
-        cdh.writeUInt32LE(crc, 16);
-        cdh.writeUInt32LE(compSize, 20);
-        cdh.writeUInt32LE(uncompressedSize, 24);
-        cdh.writeUInt16LE(nameLen, 28);
-        cdh.writeUInt16LE(0, 30);
-        cdh.writeUInt16LE(0, 32);
-        cdh.writeUInt16LE(0, 34);
-        cdh.writeUInt16LE(0, 36);
-        cdh.writeUInt32LE(0x81a40000, 38);
-        cdh.writeUInt32LE(headerOffset, 42);
-        nameBuf.copy(cdh, 46);
-
-        centralDirs.push(cdh);
-        copiedCount++;
-      } catch (err) {
-        errors.push({ filename: file.relativePath, error: String(err?.message || err) });
-      }
-    }
-
-    const cdStartOffset = currentOffset;
-    let cdSize = 0;
-    for (const cdh of centralDirs) {
-      parts.push(cdh);
-      cdSize += cdh.length;
-    }
-
-    const eocd = Buffer.alloc(22);
-    eocd.writeUInt32LE(0x06054b50, 0);
-    eocd.writeUInt16LE(0, 4);
-    eocd.writeUInt16LE(0, 6);
-    eocd.writeUInt16LE(centralDirs.length, 8);
-    eocd.writeUInt16LE(centralDirs.length, 10);
-    eocd.writeUInt32LE(cdSize, 12);
-    eocd.writeUInt32LE(cdStartOffset, 16);
-    eocd.writeUInt16LE(0, 20);
-    parts.push(eocd);
-
-    const finalZipBuffer = Buffer.concat(parts);
-    await fs.mkdir(path.dirname(destZipFile), { recursive: true });
-    await fs.writeFile(destZipFile, finalZipBuffer);
-    return { ok: true, copied: copiedCount, errors };
+    return runBackupWorker({
+      op: 'zip',
+      sourceDir,
+      destFile: destZipFile,
+      rootPrefix: 'user',
+      includeMeta: false
+    });
   }
 
   async function createTarGzBackup(sourceDir, destTarGzFile) {
-    const files = await collectFilesForBackup(sourceDir);
-    const zlib = require('zlib');
-    const blocks = [];
-    let copiedCount = 0;
-    const errors = [];
-
-    for (const file of files) {
-      try {
-        const content = await fs.readFile(file.fullPath);
-        const stats = await fs.stat(file.fullPath);
-
-        const header = Buffer.alloc(512);
-
-        let nameStr = file.relativePath;
-        let prefixStr = '';
-        if (Buffer.byteLength(nameStr) > 100) {
-          const slashIdx = nameStr.indexOf('/', nameStr.length - 100);
-          if (slashIdx > 0 && slashIdx <= 155) {
-            prefixStr = nameStr.substring(0, slashIdx);
-            nameStr = nameStr.substring(slashIdx + 1);
-          }
-        }
-
-        header.write(nameStr, 0, Math.min(100, Buffer.byteLength(nameStr)), 'utf8');
-        header.write('0000644\0', 100, 8, 'utf8');
-        header.write('0000000\0', 108, 8, 'utf8');
-        header.write('0000000\0', 116, 8, 'utf8');
-        header.write(content.length.toString(8).padStart(11, '0') + '\0', 124, 12, 'utf8');
-        const mtimeSec = Math.floor(stats.mtimeMs / 1000);
-        header.write(mtimeSec.toString(8).padStart(11, '0') + '\0', 136, 12, 'utf8');
-        header.write('        ', 148, 8, 'utf8');
-        header.write('0', 156, 1, 'utf8');
-        header.write('ustar\0', 257, 6, 'utf8');
-        header.write('00', 263, 2, 'utf8');
-        if (prefixStr) {
-          header.write(prefixStr, 345, Math.min(155, Buffer.byteLength(prefixStr)), 'utf8');
-        }
-
-        let chksum = 0;
-        for (let i = 0; i < 512; i++) {
-          chksum += header[i];
-        }
-        header.write(chksum.toString(8).padStart(6, '0') + '\0 ', 148, 8, 'utf8');
-
-        blocks.push(header);
-        blocks.push(content);
-
-        const padLen = (512 - (content.length % 512)) % 512;
-        if (padLen > 0) {
-          blocks.push(Buffer.alloc(padLen));
-        }
-
-        copiedCount++;
-      } catch (err) {
-        errors.push({ filename: file.relativePath, error: String(err?.message || err) });
-      }
-    }
-
-    blocks.push(Buffer.alloc(1024));
-
-    const tarBuffer = Buffer.concat(blocks);
-    const compressedGz = zlib.gzipSync(tarBuffer);
-    await fs.mkdir(path.dirname(destTarGzFile), { recursive: true });
-    await fs.writeFile(destTarGzFile, compressedGz);
-    return { ok: true, copied: copiedCount, errors };
+    return runBackupWorker({
+      op: 'targz',
+      sourceDir,
+      destFile: destTarGzFile,
+      rootPrefix: 'user'
+    });
   }
 
   function getSyncLocationConfigPath() {
@@ -533,7 +340,7 @@ function registerBackupSyncIpc(ctx) {
     try {
       const writableRoot = getWritableRootDir();
       const srcDir = path.join(writableRoot, 'user');
-      const destDir = resolveSyncDestDir(syncLocation);
+      const destDir = await resolveSyncDestDir(syncLocation);
       const baselineMap = await loadSyncBaseline();
       const result = await syncTrees(srcDir, destDir, 'to-target', {
         autoNew: true,
@@ -1404,10 +1211,10 @@ function registerBackupSyncIpc(ctx) {
   // The user picks a sync folder that should directly mirror writableRoot/user/.
   // For backward compat, if syncLocation/user/ already has content, use that
   // (old installs that synced to a parent folder).
-  function resolveSyncDestDir(syncLocation) {
+  async function resolveSyncDestDir(syncLocation) {
     const nestedUserPath = path.join(syncLocation, 'user');
     try {
-      const entries = fsSync.readdirSync(nestedUserPath).filter(e => e !== 'sync-baseline.json');
+      const entries = (await fs.readdir(nestedUserPath)).filter(e => e !== 'sync-baseline.json');
       if (entries.length > 0) return nestedUserPath;
     } catch { }
     return syncLocation;
@@ -1628,7 +1435,11 @@ function registerBackupSyncIpc(ctx) {
         }
       }
 
+      let relIdx = 0;
       for (const rel of allRels) {
+        if (++relIdx % 200 === 0) {
+          await new Promise(r => setImmediate(r));
+        }
         const srcEntry = srcFiles.get(rel);
         const destEntry = destFiles.get(rel);
         const baseKey = baseline ? (baseline.prefix ? baseline.prefix + '/' + rel : rel) : null;
@@ -1779,39 +1590,11 @@ function registerBackupSyncIpc(ctx) {
   }
 
   async function copyTreeForBackup(sourceDir, destDir) {
-    let dirents;
-    try {
-      dirents = await fs.readdir(sourceDir, { withFileTypes: true });
-    } catch {
-      return { copied: 0, errors: [] };
-    }
-
-    await fs.mkdir(destDir, { recursive: true });
-
-    let copied = 0;
-    const errors = [];
-
-    for (const entry of dirents) {
-      const srcPath = path.join(sourceDir, entry.name);
-      const destPath = path.join(destDir, entry.name);
-
-      if (entry.isDirectory()) {
-        const sub = await copyTreeForBackup(srcPath, destPath);
-        copied += sub.copied;
-        errors.push(...sub.errors);
-      } else if (entry.isFile()) {
-        try {
-          await fs.copyFile(srcPath, destPath);
-          const stats = await fs.stat(srcPath);
-          await fs.utimes(destPath, stats.atime, stats.mtime).catch(() => { });
-          copied++;
-        } catch (err) {
-          errors.push({ path: srcPath, error: String(err?.message || err) });
-        }
-      }
-    }
-
-    return { copied, errors };
+    return runBackupWorker({
+      op: 'folder',
+      sourceDir,
+      destDir
+    });
   }
 
   ipcMain.handle('app:get-backup-location', async () => {
@@ -1997,7 +1780,7 @@ function registerBackupSyncIpc(ctx) {
 
     const selected = path.resolve(String(filePaths[0]));
     const userDir = path.resolve(path.join(getWritableRootDir(), 'user'));
-    const resolvedDest = path.resolve(resolveSyncDestDir(selected));
+    const resolvedDest = path.resolve(await resolveSyncDestDir(selected));
     if (
       selected === userDir ||
       selected.startsWith(userDir + path.sep) ||
@@ -2055,7 +1838,7 @@ function registerBackupSyncIpc(ctx) {
 
     const writableRoot = getWritableRootDir();
     const srcDir = path.join(writableRoot, 'user');
-    const destDir = resolveSyncDestDir(syncLocation);
+    const destDir = await resolveSyncDestDir(syncLocation);
 
     const baselineMap = await loadSyncBaseline();
 
@@ -2160,7 +1943,7 @@ function registerBackupSyncIpc(ctx) {
 
     const writableRoot = getWritableRootDir();
     const srcDir = path.join(writableRoot, 'user');
-    const destDir = resolveSyncDestDir(syncLocation);
+    const destDir = await resolveSyncDestDir(syncLocation);
 
     async function copyOne(fromPath, toPath) {
       await fs.mkdir(path.dirname(toPath), { recursive: true });
