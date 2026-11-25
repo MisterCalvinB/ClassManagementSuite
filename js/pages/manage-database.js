@@ -3423,7 +3423,14 @@
             const items = Array.isArray(row.items) ? row.items : [];
             const bk = batchKey(row._fi, row._ri);
             const isSel = S.batchSel.has(bk);
-            const itemTags = items.map(it => `<span class="tag" style="background:#f8fafc;color:#1e293b;border:1.5px solid ${secColor}40;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${esc(it)}</span>`).join('');
+            const itemTags = items.map(it => {
+              const rawStr = String(it || '').trim();
+              const m = rawStr.match(/^(.*?)\s*\[([^\[\]]+)\]\s*$/);
+              const label = (m && m[1].trim())
+                ? `${esc(m[1].trim())} <span style="opacity:0.65;font-weight:700;">[${esc(m[2].trim())}]</span>`
+                : esc(rawStr);
+              return `<span class="tag" style="background:#f8fafc;color:#1e293b;border:1.5px solid ${secColor}40;font-size:0.75rem;padding:2px 7px;border-radius:12px;margin:2px;">${label}</span>`;
+            }).join('');
             return `<div class="chip${isSel ? ' chip-selected' : ''}" data-fi="${row._fi}" data-ri="${row._ri}" style="width:100%;flex-direction:column;align-items:flex-start;padding:12px 14px;gap:8px;border:2px solid #333;box-shadow:2px 2px 0 #555;border-radius:8px;">
               <div style="display:flex;align-items:center;width:100%;justify-content:space-between;gap:8px;">
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -3773,8 +3780,13 @@
                <input type="hidden" id="${id}" value="${esc(arrVal.join(', '))}">`;
         } else if (field.longArray) {
           const sv = Array.isArray(val) ? val.join('\n') : String(val ?? '');
-          input = `<textarea id="${id}" rows="4" placeholder="item 1\nitem 2\nitem 3">${escHtml(sv)}</textarea>
-               <div class="form-hint">${t('mdbHintOnePerLine')}</div>`;
+          const isChipsItems = S.typeKey === 'chips' && field.key === 'items';
+          const ph = isChipsItems ? 'Active contributor [AC]\nNeeds encouragement [NE]\nGrammar accuracy' : 'item 1\nitem 2\nitem 3';
+          const hint = isChipsItems
+            ? t('mdbHintChipItemsAbbr', 'One per line. Add an optional abbreviation in square brackets: Active contributor [AC]')
+            : t('mdbHintOnePerLine');
+          input = `<textarea id="${id}" rows="4" placeholder="${esc(ph)}">${escHtml(sv)}</textarea>
+               <div class="form-hint">${hint}</div>`;
         } else {
           const sv = Array.isArray(val) ? val.join(', ') : String(val ?? '');
           input = `<input type="text" id="${id}" value="${esc(sv)}" placeholder="tag1, tag2, tag3">

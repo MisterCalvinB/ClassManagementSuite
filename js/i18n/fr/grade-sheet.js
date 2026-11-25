@@ -1046,5 +1046,14 @@
   "gsCompFilterDeselectAll": "Tout désélectionner",
   "gsToastGradesUpdatedExternal": "Notes mises à jour depuis une session externe.",
   "gsBtnCompetencePortfolio": "Compétences",
-  "gsExportOds": "LibreOffice Calc (.ods)"
+  "gsExportOds": "LibreOffice Calc (.ods)",
+  "gsChipClampBtn": "Largeur puces",
+  "gsChipClampTooltip": "Limiter la largeur des puces d'observation pour plus de clarté",
+  "gsChipClampFull": "Complet (illimité)",
+  "gsChipClampCompact": "Compact (140 px)",
+  "gsChipClampTight": "Serré (95 px)",
+  "gsChipClampCustom": "Personnalisé",
+  "gsChipClampApply": "OK",
+  "gsChipAbbrToggle": "Abrév.",
+  "gsChipAbbrTooltip": "Afficher les abréviations des puces au lieu du nom complet (les exports utilisent toujours le nom complet)"
 });

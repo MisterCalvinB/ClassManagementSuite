@@ -541,5 +541,6 @@
   "mdbWizConfirmSub": "Vérifiez vos choix puis cliquez sur Exporter.",
   "mdbWizSummaryFormat": "Format :",
   "mdbWizSummaryRecords": "Fiches :",
-  "mdbWizSummaryCols": "Colonnes :"
+  "mdbWizSummaryCols": "Colonnes :",
+  "mdbHintChipItemsAbbr": "Une par ligne. Ajoutez une abréviation optionnelle entre crochets : Active contributor [AC]"
 });

@@ -1,3 +1,260 @@
+    const GS_CHIP_CLAMP_MODE_KEY = 'gs_chip_clamp_mode';
+    const GS_CHIP_CLAMP_CUSTOM_KEY = 'gs_chip_clamp_custom_px';
+    const GS_CHIP_SHOW_ABBR_KEY = 'gs_chip_show_abbr';
+
+    function isChipAbbrEnabled() {
+      try {
+        return localStorage.getItem(GS_CHIP_SHOW_ABBR_KEY) !== 'false';
+      } catch (_) {
+        return true;
+      }
+    }
+
+    function setChipAbbrEnabled(enabled) {
+      const val = Boolean(enabled);
+      try {
+        localStorage.setItem(GS_CHIP_SHOW_ABBR_KEY, val ? 'true' : 'false');
+      } catch (_) {}
+      return val;
+    }
+
+    function resolveChipDisplayLabel(fullName, bankFilename) {
+      if (isChipAbbrEnabled() && typeof getObservationChipAbbreviation === 'function') {
+        const abbr = getObservationChipAbbreviation(fullName, bankFilename);
+        if (abbr) return abbr;
+      }
+      return fullName;
+    }
+
+    function createChipAbbrToggleControl(targetContainer) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gs-chip-abbr-toggle';
+      btn.dataset.hoverHelp = t('gsChipAbbrTooltip', 'Show chip abbreviations instead of full names (exports always use full names)');
+
+      const syncBtn = () => {
+        const on = isChipAbbrEnabled();
+        btn.classList.toggle('active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        btn.textContent = t('gsChipAbbrToggle', 'Abbr');
+      };
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setChipAbbrEnabled(!isChipAbbrEnabled());
+        syncBtn();
+        if (targetContainer) {
+          targetContainer.querySelectorAll('.note-checklist-chip').forEach(chipEl => {
+            if (typeof chipEl._updateDisplayLabel === 'function') {
+              chipEl._updateDisplayLabel();
+            }
+          });
+        }
+      });
+
+      syncBtn();
+      return btn;
+    }
+
+    function sanitizeChipClampPx(val, fallback = 120) {
+      const n = parseInt(val, 10);
+      if (isNaN(n)) return fallback;
+      return Math.max(40, Math.min(400, n));
+    }
+
+    function getChipClampState() {
+      let mode = 'none';
+      let customPx = 120;
+      try {
+        const storedMode = localStorage.getItem(GS_CHIP_CLAMP_MODE_KEY);
+        if (storedMode === 'none' || storedMode === 'compact' || storedMode === 'tight' || storedMode === 'custom') {
+          mode = storedMode;
+        }
+        customPx = sanitizeChipClampPx(localStorage.getItem(GS_CHIP_CLAMP_CUSTOM_KEY), 120);
+      } catch (_) {}
+      return { mode, customPx };
+    }
+
+    function setChipClampState(mode, customPx) {
+      const safePx = sanitizeChipClampPx(customPx, 120);
+      try {
+        localStorage.setItem(GS_CHIP_CLAMP_MODE_KEY, mode);
+        localStorage.setItem(GS_CHIP_CLAMP_CUSTOM_KEY, String(safePx));
+      } catch (_) {}
+      return { mode, customPx: safePx };
+    }
+
+    function resolveChipClampMaxWidth(mode, customPx) {
+      if (mode === 'compact') return '140px';
+      if (mode === 'tight') return '95px';
+      if (mode === 'custom') return `${sanitizeChipClampPx(customPx, 120)}px`;
+      return 'none';
+    }
+
+    function applyChipClampToContainer(container, state) {
+      if (!container) return;
+      const st = state || getChipClampState();
+      container.style.setProperty('--gs-chip-max-width', resolveChipClampMaxWidth(st.mode, st.customPx));
+    }
+
+    /**
+     * Build the Light Neobrutalist button + popover for clamping observation chip width.
+     * Mutates `--gs-chip-max-width` in-place on `targetContainer` without rebuilding the DOM.
+     */
+    function createChipClampControl(targetContainer) {
+      const wrap = document.createElement('div');
+      wrap.className = 'gs-chip-clamp-wrap';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'gs-chip-clamp-btn';
+      btn.setAttribute('aria-haspopup', 'true');
+      btn.setAttribute('aria-expanded', 'false');
+      btn.dataset.hoverHelp = t('gsChipClampTooltip', 'Clamp observation chip width for a cleaner layout');
+      btn.innerHTML = `<img src="../assets/icons/fit-text.svg" class="btn-icon" alt="" /> <span class="gs-chip-clamp-btn-label"></span>`;
+
+      const popover = document.createElement('div');
+      popover.className = 'gs-chip-clamp-popover hidden';
+      popover.setAttribute('role', 'menu');
+
+      const presets = [
+        { mode: 'none', labelKey: 'gsChipClampFull', fallback: 'Full (Unclamped)', badge: '' },
+        { mode: 'compact', labelKey: 'gsChipClampCompact', fallback: 'Compact (140px)', badge: '140px' },
+        { mode: 'tight', labelKey: 'gsChipClampTight', fallback: 'Tight (95px)', badge: '95px' }
+      ];
+
+      const optionBtns = new Map();
+      presets.forEach(p => {
+        const opt = document.createElement('button');
+        opt.type = 'button';
+        opt.className = 'gs-chip-clamp-option';
+        opt.setAttribute('role', 'menuitemradio');
+        opt.textContent = t(p.labelKey, p.fallback);
+        opt.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const cur = getChipClampState();
+          const next = setChipClampState(p.mode, cur.customPx);
+          applyChipClampToContainer(targetContainer, next);
+          syncUI();
+          closePopover();
+        });
+        optionBtns.set(p.mode, opt);
+        popover.appendChild(opt);
+      });
+
+      const customRow = document.createElement('div');
+      customRow.className = 'gs-chip-clamp-custom-row';
+      const customLbl = document.createElement('span');
+      customLbl.className = 'gs-chip-clamp-custom-label';
+      customLbl.textContent = t('gsChipClampCustom', 'Custom');
+      const customInput = document.createElement('input');
+      customInput.type = 'number';
+      customInput.min = '40';
+      customInput.max = '400';
+      customInput.step = '5';
+      customInput.className = 'gs-chip-clamp-custom-input';
+      const customUnit = document.createElement('span');
+      customUnit.className = 'gs-chip-clamp-custom-unit';
+      customUnit.textContent = 'px';
+      const customApply = document.createElement('button');
+      customApply.type = 'button';
+      customApply.className = 'gs-chip-clamp-custom-apply';
+      customApply.textContent = t('gsChipClampApply', 'Apply');
+
+      const applyCustom = () => {
+        const next = setChipClampState('custom', customInput.value);
+        customInput.value = String(next.customPx);
+        applyChipClampToContainer(targetContainer, next);
+        syncUI();
+        closePopover();
+      };
+      customApply.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        applyCustom();
+      });
+      customInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          applyCustom();
+        }
+      });
+
+      customRow.append(customLbl, customInput, customUnit, customApply);
+      popover.appendChild(customRow);
+
+      let unregEsc = null;
+      function onDocPointerDown(e) {
+        if (!wrap.contains(e.target)) {
+          closePopover();
+        }
+      }
+      function onDocKeyDown(e) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closePopover();
+        }
+      }
+
+      function openPopover() {
+        syncUI();
+        popover.classList.remove('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+        if (window.cmtPushEscapeHandler) {
+          unregEsc = window.cmtPushEscapeHandler({ el: popover, close: closePopover });
+        }
+        setTimeout(() => {
+          document.addEventListener('pointerdown', onDocPointerDown, true);
+        }, 0);
+        document.addEventListener('keydown', onDocKeyDown, true);
+      }
+
+      function closePopover() {
+        if (popover.classList.contains('hidden')) return;
+        popover.classList.add('hidden');
+        btn.setAttribute('aria-expanded', 'false');
+        if (unregEsc) { unregEsc(); unregEsc = null; }
+        document.removeEventListener('pointerdown', onDocPointerDown, true);
+        document.removeEventListener('keydown', onDocKeyDown, true);
+      }
+
+      function syncUI() {
+        const st = getChipClampState();
+        const isClamped = st.mode !== 'none';
+        btn.classList.toggle('active', isClamped);
+        const lblEl = btn.querySelector('.gs-chip-clamp-btn-label');
+        if (lblEl) {
+          const base = t('gsChipClampBtn', 'Chip Width');
+          lblEl.textContent = isClamped ? `${base}: ${resolveChipClampMaxWidth(st.mode, st.customPx)}` : base;
+        }
+        optionBtns.forEach((opt, m) => {
+          const active = st.mode === m;
+          opt.classList.toggle('active', active);
+          opt.setAttribute('aria-checked', active ? 'true' : 'false');
+        });
+        customInput.value = String(st.customPx);
+        customRow.classList.toggle('active', st.mode === 'custom');
+      }
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (popover.classList.contains('hidden')) {
+          openPopover();
+        } else {
+          closePopover();
+        }
+      });
+
+      syncUI();
+      wrap.append(btn, popover);
+      return wrap;
+    }
+
     function openStudentModal(student, classObj, sem, testIndex, tr, config) {
       // Deep-clone working copies
       const sourceArray = sem === "sem1" ? student.sem1Tests : student.sem2Tests;
@@ -393,6 +650,9 @@
 
       const noteSectionsWrap = document.createElement("div");
       noteSectionsWrap.className = "note-sections-container";
+      applyChipClampToContainer(noteSectionsWrap);
+      noteBankWrap.appendChild(createChipAbbrToggleControl(noteSectionsWrap));
+      noteBankWrap.appendChild(createChipClampControl(noteSectionsWrap));
 
       function getGroupsForSection(sectionLabel) {
         const bankSections = getObservationSectionsWithGroups(_activeChipBankFilename);
@@ -1086,9 +1346,10 @@
               chip.setAttribute("aria-pressed", isSelected ? "true" : "false");
 
               const thickness = getChipUnderlineThickness(count);
+              const displayLabel = resolveChipDisplayLabel(name, _activeChipBankFilename);
               const nameSpan = (isSelected && thickness !== '0px')
-                ? `<span class="chip-label-text" style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">${escapeHtml(name)}</span>`
-                : escapeHtml(name);
+                ? `<span class="chip-label-text" style="text-decoration:underline;text-decoration-thickness:${thickness};text-underline-offset:2px;">${escapeHtml(displayLabel)}</span>`
+                : `<span class="chip-label-text">${escapeHtml(displayLabel)}</span>`;
               const hasAnyText = isSelected && resolvedRemarks.some(r => r.text && r.text.trim());
               const numsOnly = isSelected && !hasAnyText
                 ? resolvedRemarks.map(r => (r.num || '').trim()).filter(Boolean)
@@ -1121,6 +1382,13 @@
               chip.setAttribute('data-hover-help-title', `${name}${countPart}`);
               chip.setAttribute('data-hover-help', `${metaLine}${commentLine}\n${hintText}`);
               chip.setAttribute('data-hover-help-accent', accent);
+            };
+
+            chip._updateDisplayLabel = () => {
+              const lblEl = chip.querySelector('.chip-label-text');
+              if (lblEl) {
+                lblEl.textContent = resolveChipDisplayLabel(name, _activeChipBankFilename);
+              }
             };
 
             const handleCommentEdit = (focusIndex = -1) => {

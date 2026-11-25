@@ -38,6 +38,11 @@
   <script src="../js/shared/media-converter-service.js"></script>
   <script src="../js/board/board-sound-service.js"></script>
   <script src="../js/board/character-network-service.js"></script>
+  <script src="../js/board/distant-reading-stylistics.js"></script>
+  <script src="../js/board/distant-reading-themes.js"></script>
+  <script src="../js/board/distant-reading-collocations.js"></script>
+  <script src="../js/board/distant-reading-compare.js"></script>
+  <script src="../js/board/distant-reading-ui.js"></script>
   <script src="../js/board/board-recorder.js"></script>
   <script src="../js/board/board-ipa-keyboard.js"></script>
   <script src="../modules/katex/dist/katex.min.js"></script>
@@ -890,125 +895,315 @@
   <!-- ============================================================ -->
 
   <div id="character-network-overlay" data-bev-140="1">
-    <div id="character-network-dialog">
+    <div id="character-network-dialog" class="dr-studio-dialog">
       <div class="char-net-header">
         <h3>
           <img src="../assets/icons/links.svg" style="width:18px;height:18px;" alt="" />
-          <span data-i18n="charNetModalTitle">Novel Character Network</span>
+          <span data-i18n="drStudioTitle">Distant Reading Studio</span>
+          <span id="dr-lang-badge" class="char-net-badge">--</span>
+          <span id="dr-corpus-stats" style="font-size:0.75rem; font-weight:600; color:#555;"></span>
         </h3>
-        <button type="button" class="action-btn btn-grey" data-bev-141="1"
-          style="padding:2px 8px; font-weight:800; font-size:1rem; min-width:auto; border-radius:4px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button type="button" class="action-btn btn-sm" id="dr-ai-summary-btn"
+            style="padding:4px 10px; background:#8b7cc2; color:#fff; font-size:0.75rem; font-weight:700;">
+            <span data-i18n="drAiSummaryBtn">AI Summary</span>
+          </button>
+          <button type="button" class="action-btn btn-grey btn-sm" id="dr-export-html-btn"
+            style="padding:4px 10px; font-size:0.75rem; font-weight:700;" data-i18n="drExportHtmlBtn">Export HTML</button>
+          <button type="button" class="action-btn btn-grey btn-sm" id="dr-export-md-btn"
+            style="padding:4px 10px; font-size:0.75rem; font-weight:700;" data-i18n="drExportMdBtn">Export MD</button>
+          <button type="button" class="action-btn btn-grey" data-bev-141="1"
+            style="padding:2px 8px; font-weight:800; font-size:1rem; min-width:auto; border-radius:4px;"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>
+        </div>
+      </div>
+
+      <!-- Shared Source Bar -->
+      <div class="dr-source-bar">
+        <select id="char-net-book-select" data-bev-142="1"
+          style="flex:1; min-width:210px; padding:6px 10px; border:2px solid #333; border-radius:6px; font-weight:600; background:#fff; font-size:0.82rem;">
+          <option value="" data-i18n="charNetChooseBookPrompt">-- Choose a novel --</option>
+        </select>
+        <span id="char-net-book-status" style="font-size:0.75rem; font-weight:700; color:#555;"></span>
+        <button type="button" class="action-btn btn-grey btn-sm" id="dr-paste-toggle-btn" data-i18n="drPasteTextBtn">Paste Text</button>
+        <label class="action-btn btn-grey btn-sm" style="cursor:pointer; margin:0;">
+          <span data-i18n="drUploadFileBtn">Upload .txt/.md</span>
+          <input type="file" id="dr-file-upload-input" accept=".txt,.md,.csv" style="display:none;" />
+        </label>
+        <button type="button" class="action-btn btn-grey btn-sm" id="dr-load-board-btn" data-i18n="drLoadBoardBtn">Analyze Board Notes</button>
+      </div>
+
+      <!-- Optional Paste Drawer -->
+      <div id="dr-paste-drawer" class="dr-paste-drawer" style="display:none;">
+        <textarea id="dr-paste-textarea" rows="4" placeholder="Paste literary text or passage here..."></textarea>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="action-btn btn-grey btn-sm" id="dr-paste-cancel-btn" data-i18n="btnCancel">Cancel</button>
+          <button type="button" class="action-btn btn-sm" id="dr-paste-apply-btn" style="background:#e2c96e; font-weight:800;" data-i18n="drApplyTextBtn">Use Text</button>
+        </div>
+      </div>
+
+      <!-- Progress & Optional AI Summary Output -->
+      <div id="char-net-progress-wrap" class="char-net-progress-wrap" style="margin:0 18px;">
+        <div id="char-net-progress-fill" class="char-net-progress-fill"></div>
+      </div>
+      <div id="dr-ai-summary-output" class="dr-ai-summary-box" style="display:none;"></div>
+
+      <!-- Studio Tabs -->
+      <div id="dr-studio-tabs" class="dr-tab-strip">
+        <button type="button" class="dr-tab-btn dr-tab-active" data-dr-tab="characters" data-i18n="drTabCharacters">Characters & Network</button>
+        <button type="button" class="dr-tab-btn" data-dr-tab="stylistics" data-i18n="drTabStylistics">Stylistics (Kincaid)</button>
+        <button type="button" class="dr-tab-btn" data-dr-tab="themes" data-i18n="drTabThemes">Themes & Narrative Arc</button>
+        <button type="button" class="dr-tab-btn" data-dr-tab="collocations" data-i18n="drTabCollocations">Collocations & Idioms</button>
+        <button type="button" class="dr-tab-btn" data-dr-tab="compare" data-i18n="drTabCompare">Compare Books</button>
       </div>
 
       <div class="char-net-body">
-        <!-- 1. Novel Selection & Scan -->
-        <div class="char-net-card">
-          <div class="char-net-section-title">
-            <span data-i18n="charNetSelectBook">Select Novel from Books Folder</span>
-            <span id="char-net-book-status" style="font-size:0.75rem; font-weight:600; color:#555;"></span>
-          </div>
-          <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <select id="char-net-book-select" data-bev-142="1"
-              style="flex:1; min-width:240px; padding:7px 10px; border:2px solid #333; border-radius:6px; font-weight:600; background:#fff; font-size:0.84rem;">
-              <option value="" data-i18n="charNetChooseBookPrompt">-- Choose a novel --</option>
-            </select>
-            <button type="button" class="action-btn" id="char-net-scan-btn" data-bev-143="1"
-              style="padding:7px 16px; background:#e2c96e; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
-              <img src="../assets/icons/search.svg" class="btn-icon" alt="" />
-              <span data-i18n="charNetScanBtn">Scan Characters</span>
-            </button>
-          </div>
-          <div id="char-net-progress-wrap" class="char-net-progress-wrap">
-            <div id="char-net-progress-fill" class="char-net-progress-fill"></div>
-          </div>
-        </div>
-
-        <!-- 2. Detected Characters & Alias Curation -->
-        <div class="char-net-card">
-          <div class="char-net-section-title">
-            <span data-i18n="charNetDetectedHeading">Detected Characters & Aliases</span>
-            <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-              <button type="button" class="action-btn btn-grey btn-sm" data-bev-144="1"
-                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetSelectAll">Select All</button>
-              <button type="button" class="action-btn btn-grey btn-sm" data-bev-145="1"
-                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetDeselectAll">Deselect All</button>
-              <button type="button" class="action-btn btn-grey btn-sm" data-bev-146="1"
-                style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetAddCharBtn">+ Add Character</button>
-              <button type="button" class="action-btn btn-sm" id="char-net-merge-btn" data-bev-147="1" disabled
-                style="padding:2px 8px; font-size:0.72rem; display:inline-flex; align-items:center; gap:4px; background:#5b8fcc; color:#fff; opacity:0.5; cursor:not-allowed;">
-                <img src="../assets/icons/merge.svg" class="btn-icon" alt="" style="filter:invert(1); width:12px; height:12px;" />
-                <span id="char-net-merge-btn-label" data-i18n="charNetMergeBtn">Merge</span>
-              </button>
-            </div>
-          </div>
-          <div style="font-size:0.74rem; color:#666; margin-bottom:8px;" data-i18n="charNetDetectedSubtitle">
-            Toggle characters, edit names, or add aliases (comma-separated):
-          </div>
-          <div class="char-net-table-wrapper">
-            <table class="char-net-table" id="char-net-chars-table">
-              <thead>
-                <tr>
-                  <th style="width:36px; text-align:center;" data-i18n="charNetIncludeCol"></th>
-                  <th style="width:170px;" data-i18n="charNetCharCol">Character</th>
-                  <th style="width:80px; text-align:center;" data-i18n="charNetOccurrencesCol">Mentions</th>
-                  <th data-i18n="charNetAliasesCol">Aliases (comma-separated)</th>
-                  <th style="width:54px; text-align:center;" data-i18n="charNetMergeCol">Merge</th>
-                </tr>
-              </thead>
-              <tbody id="char-net-chars-tbody">
-                <tr><td colspan="5" style="text-align:center; color:#888; padding:16px;">Scan a novel to detect characters.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 3. Network & Interaction Settings -->
-        <div class="char-net-card">
-          <div class="char-net-section-title">
-            <span data-i18n="charNetSettingsHeading">Network & Interaction Settings</span>
-          </div>
-          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
-            <!-- Interaction Window -->
-            <div>
-              <label for="char-net-window-mode" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetWindowMode">Interaction Window:</label>
-              <select id="char-net-window-mode" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
-                <option value="sliding" selected data-i18n="charNetWindowSliding">Sliding Window (150 words)</option>
-                <option value="paragraph" data-i18n="charNetWindowParagraph">Same Paragraph</option>
-                <option value="chapter" data-i18n="charNetWindowChapter">Same Chapter</option>
-              </select>
-            </div>
-
-            <!-- Min Co-occurrences -->
-            <div>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                <label for="char-net-min-cooc" style="font-size:0.75rem; font-weight:700;" data-i18n="charNetMinCooc">Minimum Co-occurrences:</label>
-                <span id="char-net-min-cooc-val" class="char-net-badge">1</span>
+        <!-- PANE 1: CHARACTERS & NETWORK -->
+        <div class="dr-tab-pane" data-dr-pane="characters" style="display:flex; flex-direction:column; gap:12px;">
+          <div class="char-net-card">
+            <div class="char-net-section-title">
+              <span data-i18n="charNetDetectedHeading">Detected Characters & Aliases</span>
+              <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+                <button type="button" class="action-btn" id="char-net-scan-btn" data-bev-143="1"
+                  style="padding:4px 12px; background:#e2c96e; font-weight:800; font-size:0.75rem; display:inline-flex; align-items:center; gap:5px;">
+                  <img src="../assets/icons/search.svg" class="btn-icon" alt="" />
+                  <span data-i18n="charNetScanBtn">Scan Characters</span>
+                </button>
+                <button type="button" class="action-btn btn-grey btn-sm" data-bev-144="1"
+                  style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetSelectAll">Select All</button>
+                <button type="button" class="action-btn btn-grey btn-sm" data-bev-145="1"
+                  style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetDeselectAll">Deselect All</button>
+                <button type="button" class="action-btn btn-grey btn-sm" data-bev-146="1"
+                  style="padding:2px 8px; font-size:0.72rem;" data-i18n="charNetAddCharBtn">+ Add Character</button>
+                <button type="button" class="action-btn btn-sm" id="char-net-merge-btn" data-bev-147="1" disabled
+                  style="padding:2px 8px; font-size:0.72rem; display:inline-flex; align-items:center; gap:4px; background:#5b8fcc; color:#fff; opacity:0.5; cursor:not-allowed;">
+                  <img src="../assets/icons/merge.svg" class="btn-icon" alt="" style="filter:invert(1); width:12px; height:12px;" />
+                  <span id="char-net-merge-btn-label" data-i18n="charNetMergeBtn">Merge</span>
+                </button>
               </div>
-              <input type="range" id="char-net-min-cooc" min="1" max="10" value="1" step="1"
-                data-bev-148="1"
-                style="width:100%; accent-color:#333; cursor:pointer;">
             </div>
+            <div class="char-net-table-wrapper">
+              <table class="char-net-table" id="char-net-chars-table">
+                <thead>
+                  <tr>
+                    <th style="width:36px; text-align:center;" data-i18n="charNetIncludeCol"></th>
+                    <th style="width:170px;" data-i18n="charNetCharCol">Character</th>
+                    <th style="width:80px; text-align:center;" data-i18n="charNetOccurrencesCol">Mentions</th>
+                    <th data-i18n="charNetAliasesCol">Aliases (comma-separated)</th>
+                    <th style="width:54px; text-align:center;" data-i18n="charNetMergeCol">Merge</th>
+                  </tr>
+                </thead>
+                <tbody id="char-net-chars-tbody">
+                  <tr><td colspan="5" style="text-align:center; color:#888; padding:16px;">Scan a novel to detect characters.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-            <!-- Target Placement -->
-            <div>
-              <label for="char-net-target-location" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetTargetLocation">Target Location:</label>
-              <select id="char-net-target-location" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
-                <option value="new_page" selected data-i18n="charNetTargetNewPage">Create on New Page</option>
-                <option value="current" data-i18n="charNetTargetCurrent">Add to Current Board</option>
-                <option value="clear" data-i18n="charNetTargetClear">Clear Current Board & Replace</option>
-              </select>
+          <div class="char-net-card">
+            <div class="char-net-section-title">
+              <span data-i18n="charNetSettingsHeading">Network & Interaction Settings</span>
+              <label style="font-size:0.74rem; font-weight:700; display:inline-flex; align-items:center; gap:5px; text-transform:none;">
+                <input type="checkbox" id="dr-color-communities" checked style="accent-color:#333;" />
+                <span data-i18n="drColorCommunities">Color by Community</span>
+              </label>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:12px;">
+              <div>
+                <label for="char-net-window-mode" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetWindowMode">Interaction Window:</label>
+                <select id="char-net-window-mode" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
+                  <option value="sliding" selected data-i18n="charNetWindowSliding">Sliding Window (150 words)</option>
+                  <option value="paragraph" data-i18n="charNetWindowParagraph">Same Paragraph</option>
+                  <option value="chapter" data-i18n="charNetWindowChapter">Same Chapter</option>
+                </select>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label for="char-net-min-cooc" style="font-size:0.75rem; font-weight:700;" data-i18n="charNetMinCooc">Minimum Co-occurrences:</label>
+                  <span id="char-net-min-cooc-val" class="char-net-badge">1</span>
+                </div>
+                <input type="range" id="char-net-min-cooc" min="1" max="10" value="1" step="1" data-bev-148="1" style="width:100%; accent-color:#333; cursor:pointer;">
+              </div>
+              <div>
+                <label for="char-net-target-location" style="font-size:0.75rem; font-weight:700; display:block; margin-bottom:4px;" data-i18n="charNetTargetLocation">Target Location:</label>
+                <select id="char-net-target-location" style="width:100%; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
+                  <option value="new_page" selected data-i18n="charNetTargetNewPage">Create on New Page</option>
+                  <option value="current" data-i18n="charNetTargetCurrent">Add to Current Board</option>
+                  <option value="clear" data-i18n="charNetTargetClear">Clear Current Board & Replace</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE 2: STYLISTICS & READABILITY -->
+        <div class="dr-tab-pane" data-dr-pane="stylistics" style="display:none; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <button type="button" class="action-btn" id="dr-run-stylistics-btn" style="background:#e2c96e; font-weight:800;" data-i18n="drRunStylisticsBtn">Analyze Stylistics</button>
+            <button type="button" class="action-btn btn-grey" id="dr-project-stylistics-btn" data-i18n="drProjectStylisticsBtn">Send Table to Board</button>
+          </div>
+          <div id="dr-stylistics-kpis" class="dr-kpi-grid"></div>
+          <div class="dr-two-col">
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drSentHistTitle">Sentence Length Distribution (words)</span><span class="dr-tip-badge" data-dr-tip="Shows how many sentences fall into each word-length bucket, revealing pacing and rhythmic variety.">?</span></div>
+              <div id="dr-sentence-hist"></div>
+            </div>
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drCurveTitle">Chapter / Segment LIX Progression</span><span class="dr-tip-badge" data-dr-tip="Tracks LIX readability across chapters or segments to show where prose becomes denser or simpler.">?</span></div>
+              <div id="dr-readability-curve"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANE 3: THEMES & NARRATIVE ARC -->
+        <div class="dr-tab-pane" data-dr-pane="themes" style="display:none; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="action-btn" id="dr-run-themes-btn" style="background:#e2c96e; font-weight:800;" data-i18n="drRunThemesBtn">Analyze Themes & Arc</button>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input type="text" id="dr-custom-theme-label" class="char-net-alias-input" style="width:130px;" placeholder="Custom theme" />
+              <input type="text" id="dr-custom-theme-terms" class="char-net-alias-input" style="width:180px;" placeholder="word1, word2, ..." />
+              <button type="button" class="action-btn btn-grey btn-sm" id="dr-add-theme-btn" data-i18n="drAddThemeBtn">+ Theme</button>
+              <button type="button" class="action-btn btn-grey" id="dr-project-themes-btn" data-i18n="drProjectThemesBtn">Project Themes to Board</button>
+            </div>
+          </div>
+          <div class="dr-two-col">
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drSemanticFieldsTitle">Literary Semantic Fields</span><span class="dr-tip-badge" data-dr-tip="Hits across curated literary word fields and normalized rate per 10,000 words.">?</span></div>
+              <div id="dr-theme-fields-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </div>
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drNarrativeArcTitle">Sentiment / Tension Narrative Arc</span><span class="dr-tip-badge" data-dr-tip="Plots net positive vs. negative affective valence across equal narrative slices (story shape).">?</span></div>
+              <div id="dr-sentiment-arc"></div>
+              <div class="char-net-section-title" style="margin-top:10px;"><span data-i18n="drKeyphrasesTitle">Extracted Keyphrases (TF-IDF / RAKE)</span><span class="dr-tip-badge" data-dr-tip="Statistically distinctive terms and multi-word phrases extracted automatically from the text. Click any chip for KWIC.">?</span></div>
+              <div id="dr-theme-keywords" class="dr-chip-wrap"></div>
+            </div>
+          </div>
+          <div class="char-net-card">
+            <div class="char-net-section-title"><span data-i18n="drCharThemeMatrixTitle">Character-Theme Affinity Matrix</span><span class="dr-tip-badge" data-dr-tip="Counts how often each character co-occurs in the same window as each literary theme.">?</span></div>
+            <div id="dr-char-theme-matrix" class="char-net-table-wrapper"></div>
+          </div>
+        </div>
+
+        <!-- PANE 4: COLLOCATIONS, IDIOMS & KWIC -->
+        <div class="dr-tab-pane" data-dr-pane="collocations" style="display:none; flex-direction:column; gap:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <button type="button" class="action-btn" id="dr-run-collocations-btn" style="background:#e2c96e; font-weight:800;" data-i18n="drRunCollocationsBtn">Extract Collocations & Idioms</button>
+            <button type="button" class="action-btn btn-grey" id="dr-project-collocations-btn" data-i18n="drProjectCollocationsBtn">Project Collocations to Board</button>
+          </div>
+          <div class="dr-two-col">
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drCollocationsTableTitle">Statistical Collocations (Click for KWIC)</span></div>
+              <div class="char-net-table-wrapper">
+                <table class="char-net-table">
+                  <thead>
+                    <tr>
+                      <th data-i18n="drPhraseCol">Phrase</th>
+                      <th style="text-align:center;" data-dr-tip="Total number of times the phrase appears in the text."><span data-i18n="drFreqCol">Freq</span></th>
+                      <th style="text-align:center;" data-dr-tip="Pointwise Mutual Information: measures how strongly words attract each other compared to chance.">PMI</th>
+                      <th style="text-align:center;" data-dr-tip="Dunning Log-Likelihood (G2): statistical significance of the collocation across the corpus.">G2</th>
+                    </tr>
+                  </thead>
+                  <tbody id="dr-collocations-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drIdiomsTitle">Detected Idioms & Multi-Word Expressions</span></div>
+              <div id="dr-idioms-list" class="char-net-chip-scroll dr-chip-wrap"></div>
+            </div>
+          </div>
+          <div class="char-net-card">
+            <div class="char-net-section-title">
+              <span data-i18n="drKwicTitle">KWIC Concordance</span>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <input type="text" id="dr-kwic-input" class="char-net-alias-input" style="width:200px;" placeholder="Word or phrase..." />
+                <button type="button" class="action-btn btn-grey btn-sm" id="dr-kwic-search-btn" data-i18n="btnSearch">Search</button>
+              </div>
+            </div>
+            <div id="dr-kwic-results" class="dr-kwic-list"></div>
+          </div>
+        </div>
+
+        <!-- PANE 5: COMPARE BOOKS -->
+        <div class="dr-tab-pane" data-dr-pane="compare" style="display:none; flex-direction:column; gap:12px;">
+          <div class="char-net-card">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+              <div style="flex:1; min-width:200px;">
+                <div style="font-size:0.72rem; font-weight:800; color:#555;" data-i18n="drCompareBookALabel">Book A (Primary Source)</div>
+                <div id="dr-compare-book-a-name" style="font-size:0.85rem; font-weight:800; padding:5px 0;">--</div>
+              </div>
+              <div style="flex:1.4; min-width:240px;">
+                <label for="dr-compare-book-b-select" style="font-size:0.72rem; font-weight:800; color:#555; display:block; margin-bottom:3px;" data-i18n="drCompareBookBLabel">Book B (Comparison Target)</label>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <select id="dr-compare-book-b-select" style="flex:1; padding:6px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.8rem; background:#fff; font-weight:600;">
+                    <option value="" data-i18n="charNetChooseBookPrompt">-- Choose a novel --</option>
+                  </select>
+                  <label class="action-btn btn-grey btn-sm" style="cursor:pointer; margin:0;">
+                    <span data-i18n="drUploadFileBtn">Upload .txt/.md</span>
+                    <input type="file" id="dr-compare-file-b-input" accept=".txt,.md,.csv" style="display:none;" />
+                  </label>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px; align-items:flex-end;">
+                <button type="button" class="action-btn" id="dr-run-compare-btn" style="background:#e2c96e; font-weight:800;" data-i18n="drRunCompareBtn">Compare Books</button>
+                <button type="button" class="action-btn btn-grey" id="dr-project-compare-btn" data-i18n="drProjectCompareBtn">Send Table to Board</button>
+              </div>
+            </div>
+          </div>
+
+          <div id="dr-compare-results" style="display:none; flex-direction:column; gap:12px;">
+            <div class="dr-two-col">
+              <div class="char-net-card">
+                <div class="char-net-section-title"><span data-i18n="drCompareStylisticsTitle">Stylistics &amp; Readability Delta</span></div>
+                <div class="char-net-table-wrapper">
+                  <table class="char-net-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="drMetricCol">Metric</th>
+                        <th style="text-align:center;" id="dr-cmp-th-a">Book A</th>
+                        <th style="text-align:center;" id="dr-cmp-th-b">Book B</th>
+                        <th style="text-align:center;">Delta</th>
+                      </tr>
+                    </thead>
+                    <tbody id="dr-compare-stylistics-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="char-net-card">
+                <div class="char-net-section-title">
+                  <span data-i18n="drCompareArcTitle">Dual Narrative Arc (A vs B)</span>
+                  <span style="font-size:0.7rem; font-weight:700;"><span style="color:#5b8fcc;">— A</span> / <span style="color:#c96b6b;">-- B</span></span>
+                </div>
+                <div id="dr-compare-arc-svg"></div>
+                <div class="char-net-section-title" style="margin-top:10px;"><span data-i18n="drCompareVocabTitle">Vocabulary Overlap &amp; Distinctive Words</span></div>
+                <div id="dr-compare-vocab-summary" style="font-size:0.78rem; font-weight:700; margin-bottom:6px;"></div>
+                <div id="dr-compare-distinctive" class="dr-two-col"></div>
+              </div>
+            </div>
+            <div class="char-net-card">
+              <div class="char-net-section-title"><span data-i18n="drCompareThemesTitle">Thematic Profile Comparison (per 10k words)</span></div>
+              <div id="dr-compare-themes-list" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:8px;"></div>
             </div>
           </div>
         </div>
       </div>
 
-      <div class="char-net-footer">
-        <button type="button" class="action-btn btn-grey" data-bev-149="1" data-i18n="btnCancel">Cancel</button>
-        <button type="button" class="action-btn" id="char-net-generate-btn" data-bev-150="1"
-          style="padding:8px 20px; background:#e2c96e; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
-          <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
-          <span data-i18n="charNetGenerateBtn">Generate Network Constellation</span>
-        </button>
+      <div class="char-net-footer" style="justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label for="dr-projection-target" style="font-size:0.75rem; font-weight:700;" data-i18n="drProjectionTargetLabel">Projection Placement:</label>
+          <select id="dr-projection-target" style="padding:5px 8px; border:1.5px solid #333; border-radius:6px; font-size:0.78rem; background:#fff; font-weight:600;">
+            <option value="new_page" selected data-i18n="charNetTargetNewPage">Create on New Page</option>
+            <option value="current" data-i18n="charNetTargetCurrent">Add to Current Board</option>
+            <option value="clear" data-i18n="charNetTargetClear">Clear Current Board & Replace</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <button type="button" class="action-btn btn-grey" data-bev-149="1" data-i18n="btnCancel">Cancel</button>
+          <button type="button" class="action-btn" id="char-net-generate-btn" data-bev-150="1"
+            style="padding:8px 20px; background:#e2c96e; font-weight:800; display:inline-flex; align-items:center; gap:6px;">
+            <img src="../assets/icons/links.svg" class="btn-icon" alt="" />
+            <span data-i18n="charNetGenerateBtn">Generate Network Constellation</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -2822,7 +3017,7 @@
       <button class="action-btn btn-grey" data-bev-478="1"
         data-hover-help="Analyse word frequency in the loaded book">Word Freq</button>
       <button class="action-btn btn-grey" data-bev-479="1"
-        data-hover-help="Generate Character Network from loaded novel"><img src="../assets/icons/network.svg" class="btn-icon" alt="" /> <span data-i18n="btnCharacterNetwork">Character Network</span></button>
+        data-hover-help="Open Distant Reading Studio (Character Network, Stylistics, Themes, Collocations)"><img src="../assets/icons/network.svg" class="btn-icon" alt="" /> <span data-i18n="btnCharacterNetwork">Distant Reading Studio</span></button>
     </div>
 
     <div id="search-results"></div>
@@ -2835,14 +3030,9 @@
         <div id="constellation-toolbar">
 
         <div class="con-tb-group" id="con-tb-file">
-          <span class="con-tb-group-label">File</span>
+          <span class="con-tb-group-label" data-i18n="conTbFile">File</span>
           <div class="con-tb-group-body">
-            <button class="action-btn btn-grey" data-bev-480="1" data-i18n="btnClearAll"
-              data-hover-help="Remove all words from the board"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
-              Clear</button>
-            <button class="action-btn btn-grey" data-bev-481="1"
-              data-hover-help="Export words from the board as PNG, CSV or PDF"><img src="../assets/icons/export.svg"
-                class="btn-icon" alt="" /> Export</button>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecSession">Session</div>
             <button class="action-btn btn-grey" data-bev-482="1"
               data-hover-help="Save current board and start a new one"><img src="../assets/icons/plus.svg" class="btn-icon"
                 alt="" /> New</button>
@@ -2855,6 +3045,14 @@
             <button class="action-btn btn-grey" data-bev-485="1"
               data-hover-help="Duplicate the current board file"><img src="../assets/icons/duplicate.svg" class="btn-icon"
                 alt="" /> Duplicate</button>
+            <button class="action-btn btn-grey" data-bev-488="1"
+              data-hover-help="Load a saved board .js file"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" />
+              Load</button>
+            <button class="action-btn btn-grey" data-bev-489="1"
+              data-hover-help="Close the current file without saving"><img src="../assets/icons/clear.svg" class="btn-icon"
+                alt="" /> Close</button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecDisk">Disk &amp; Export</div>
             <button class="action-btn btn-grey" id="con-tb-open-file-btn" data-bev-486="1"
               data-hover-help="Open current board file in default application" data-i18n-help="conTbOpenFileTitle"><img
                 src="../assets/icons/file-text.svg" class="btn-icon" alt="" /> <span
@@ -2863,62 +3061,74 @@
               data-hover-help="Open folder containing current board file" data-i18n-help="conTbOpenFolderTitle"><img
                 src="../assets/icons/folder-open.svg" class="btn-icon" alt="" /> <span
                 data-i18n="conTbOpenFolder">Open Folder</span></button>
-            <button class="action-btn btn-grey" data-bev-488="1"
-              data-hover-help="Load a saved board .js file"><img src="../assets/icons/folder.svg" class="btn-icon" alt="" />
-              Load</button>
-            <button class="action-btn btn-grey" data-bev-489="1"
-              data-hover-help="Close the current file without saving"><img src="../assets/icons/clear.svg" class="btn-icon"
-                alt="" /> Close</button>
-            <button class="action-btn btn-grey" data-bev-490="1"
-              data-hover-help="Save/load reusable board templates"><img src="../assets/icons/template.svg" class="btn-icon" alt="" />
-              Templates</button>
-            <button class="action-btn btn-grey" id="con-tb-btn-library" data-bev-491="1"
-              data-hover-help="Premade notes, widgets & reusable nodes library" data-i18n-help="premadeLibraryTooltip"><img src="../assets/icons/library.svg" class="btn-icon" alt="" />
-              <span data-i18n="btnPremadeLibrary">Library</span></button>
-            <button class="action-btn btn-grey" id="con-tb-btn-showcase" data-bev-492="1"
-              data-hover-help="Showcase Board demonstrating nodes, notes, media, links & tables" data-i18n-help="conTbShowcaseTitle"><img src="../assets/icons/star.svg" class="btn-icon" alt="" />
-              <span data-i18n="conTbShowcase">Showcase</span></button>
+            <button class="action-btn btn-grey" data-bev-481="1"
+              data-hover-help="Export words from the board as PNG, CSV or PDF"><img src="../assets/icons/export.svg"
+                class="btn-icon" alt="" /> Export</button>
+            <button class="action-btn btn-grey" data-bev-480="1" data-i18n="btnClearAll"
+              data-hover-help="Remove all words from the board"><img src="../assets/icons/delete.svg" class="btn-icon" alt="" />
+              Clear</button>
+            <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
+              data-bev-497="1">
+            <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
+              style="display:none" data-bev-498="1">
+          </div>
+        </div>
+
+        <div class="con-tb-group" id="con-tb-insert">
+          <span class="con-tb-group-label" data-i18n="conTbInsert">Insert</span>
+          <div class="con-tb-group-body">
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecCanvas">Canvas Elements</div>
+            <button class="action-btn btn-grey" id="con-add-table-btn" data-bev-503="1"
+              data-hover-help="Add an editable table to the board"><img src="../assets/icons/table.svg" class="btn-icon" alt="" />
+              Table</button>
+            <button class="action-btn btn-grey" data-bev-504="1" data-hover-help="Add an empty group"><img
+                src="../assets/icons/group.svg" class="btn-icon" alt="" /> Group</button>
+            <button class="action-btn btn-grey" data-bev-502="1" data-hover-help="Add a movable mask rectangle"><img
+                src="../assets/icons/mask-rect.svg" class="btn-icon" alt="" /> Mask</button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecAssets">Assets &amp; Sources</div>
             <button class="action-btn btn-grey" id="con-manage-media-btn" data-bev-493="1"
               data-hover-help="Attach, insert, remove from board, or delete media"><img src="../assets/icons/media.svg"
                 class="btn-icon" alt="" /> Media</button>
+            <span id="con-attachments-summary"
+              style="font-size:0.62rem;color:#555;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;">No
+              attachments</span>
+            <button class="action-btn btn-grey" id="con-tb-btn-library" data-bev-491="1"
+              data-hover-help="Premade notes, widgets & reusable nodes library" data-i18n-help="premadeLibraryTooltip"><img src="../assets/icons/library.svg" class="btn-icon" alt="" />
+              <span data-i18n="btnPremadeLibrary">Library</span></button>
+            <button class="action-btn btn-grey" data-bev-490="1"
+              data-hover-help="Save/load reusable board templates"><img src="../assets/icons/template.svg" class="btn-icon" alt="" />
+              Templates</button>
+            <button class="action-btn btn-grey" id="con-tb-btn-showcase" data-bev-492="1"
+              data-hover-help="Showcase Board demonstrating nodes, notes, media, links & tables" data-i18n-help="conTbShowcaseTitle"><img src="../assets/icons/star.svg" class="btn-icon" alt="" />
+              <span data-i18n="conTbShowcase">Showcase</span></button>
+            <button class="action-btn btn-grey" id="con-tb-universal-import-btn" data-bev-496="1"
+              data-hover-help="Universal Import from Databases, Classes, Grades & Participation" data-i18n-help="conBtnUniversalImportTitle"><img src="../assets/icons/import.svg" class="btn-icon"
+                alt="" /> <span data-i18n="conBtnUniversalImport">[IMPORT]</span></button>
             <button class="action-btn btn-grey" id="con-add-competence-btn" data-bev-494="1"
               data-hover-help="Add or manage competence tags for this board"><img src="../assets/icons/award.svg" class="btn-icon"
                 alt="" /> <span data-i18n="btnCompetenceTags">Competences</span></button>
             <button class="action-btn btn-grey" id="con-tb-links-btn" data-bev-495="1"
               data-hover-help="Links & Tags for this board"><img src="../assets/icons/links.svg" class="btn-icon"
                 alt="" /> <span id="con-tb-links-btn-text" data-i18n="conBoardLinks">[LINKS: 0]</span></button>
-            <button class="action-btn btn-grey" id="con-tb-universal-import-btn" data-bev-496="1"
-              data-hover-help="Universal Import from Databases, Classes, Grades & Participation" data-i18n-help="conBtnUniversalImportTitle"><img src="../assets/icons/import.svg" class="btn-icon"
-                alt="" /> <span data-i18n="conBtnUniversalImport">[IMPORT]</span></button>
-            <input type="file" id="con-load-input" accept=".cstz,.js,.json,.zip" style="display:none"
-              data-bev-497="1">
-            <input type="file" id="con-attachments-input" accept="image/*,audio/*,video/*,application/pdf,.pdf" multiple
-              style="display:none" data-bev-498="1">
-            <span id="con-attachments-summary"
-              style="font-size:0.62rem;color:#555;max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">No
-              attachments</span>
           </div>
         </div>
 
         <div class="con-tb-group" id="con-tb-board">
-          <span class="con-tb-group-label">Board</span>
+          <span class="con-tb-group-label" data-i18n="conTbBoard">Board</span>
           <div class="con-tb-group-body">
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecArrange">Arrange</div>
             <button class="action-btn btn-grey" data-bev-499="1"
               data-hover-help="Spread selected words — remove overlaps"><img src="../assets/icons/spread.svg" class="btn-icon"
                 alt="" /> Spread</button>
             <button class="action-btn btn-grey" data-bev-500="1"
               data-hover-help="Compact words — pull closer together without overlapping"><img src="../assets/icons/compact.svg"
                 class="btn-icon" alt="" /> Compact</button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecAssist">Assist</div>
             <button class="action-btn btn-grey" data-bev-501="1"
               data-hover-help="Hide all words (or reveal if already hidden)"><img src="../assets/icons/mask.svg" class="btn-icon"
                 alt="" /> Hide/Show</button>
-            <button class="action-btn btn-grey" data-bev-502="1" data-hover-help="Add a movable mask rectangle"><img
-                src="../assets/icons/mask-rect.svg" class="btn-icon" alt="" /> Mask</button>
-            <button class="action-btn btn-grey" id="con-add-table-btn" data-bev-503="1"
-              data-hover-help="Add an editable table to the board"><img src="../assets/icons/table.svg" class="btn-icon" alt="" />
-              Table</button>
-            <button class="action-btn btn-grey" data-bev-504="1" data-hover-help="Add an empty group"><img
-                src="../assets/icons/group.svg" class="btn-icon" alt="" /> Group</button>
             <button class="action-btn btn-grey" id="con-snap-toggle-btn" data-bev-505="1"
               data-hover-help="Toggle snap-to-align when dragging elements or resizing notes (hold Alt to bypass snap temporarily)"
               data-i18n-help="conSnapToggleTitle"><img
@@ -2933,6 +3143,7 @@
         <div class="con-tb-group" id="con-tb-vocab">
           <span class="con-tb-group-label" data-i18n="conTbTools">Tools</span>
           <div class="con-tb-group-body">
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecLanguage">Language &amp; Wordbank</div>
             <button class="action-btn btn-grey" data-bev-507="1" data-hover-help="Import words from the word bank"><img
                 src="../assets/icons/import.svg" class="btn-icon" alt="" /> Import</button>
             <button class="action-btn btn-grey" data-bev-508="1"
@@ -2956,24 +3167,35 @@
             <button class="action-btn btn-grey" id="con-sync-new-db-btn" data-bev-514="1"
               data-i18n-help="hhBoardSyncToDb" data-hover-help-accent="green" data-hover-help="{green:**Save new words**} from the board into your wordbank."><img src="../assets/icons/upload.svg" class="btn-icon" alt="" />
               <span data-i18n="conSyncNewNodesToDb">Sync to DB</span></button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecAnalysis">Learning &amp; Distant Reading</div>
             <button class="action-btn btn-grey" id="con-tb-vocab-games-btn" data-bev-515="1"
               data-hover-help="Vocabulary Games & Quizzes" data-i18n-help="conVocabGamesQuizzesTitle"><img src="../assets/icons/learning-tools.svg" class="btn-icon"
                 alt="" /> <span data-i18n="conBtnGamesQuizzes">[GAMES & QUIZZES]</span></button>
             <button class="action-btn btn-grey" id="con-tb-character-network-btn" data-bev-516="1"
-              data-hover-help="Generate Character Network from books" data-i18n-help="btnCharacterNetwork"><img src="../assets/icons/network.svg" class="btn-icon" alt="" />
-              <span data-i18n="btnCharacterNetwork">Character Network</span></button>
+              data-hover-help="Open Distant Reading Studio (Character Network, Stylistics, Themes, Collocations)" data-i18n-help="btnCharacterNetwork"><img src="../assets/icons/network.svg" class="btn-icon" alt="" />
+              <span data-i18n="btnCharacterNetwork">Distant Reading Studio</span></button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecAiMedia">AI &amp; Capture</div>
             <button class="action-btn btn-yellow" id="con-tb-ai-studio-btn" data-bev-517="1"
               data-hover-help="Open AI Studio — expand mind map nodes & generate sentences/analysis" data-i18n-help="boardAiStudioBtnTitle"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" />
               <span data-i18n="boardAiStudioTitle">AI Studio</span></button>
             <button class="action-btn btn-grey" id="con-tb-ai-models-btn" data-bev-518="1"
               data-hover-help="Manage Offline AI Language Models" data-i18n-help="slmManageModelsTitle"><img src="../assets/icons/brain.svg" class="btn-icon" alt="" />
               <span data-i18n="boardAiModelsBtn">AI Models</span></button>
+            <button class="action-btn btn-grey" id="con-dictate-btn" data-bev-528="1"
+              data-i18n-help="btnDictateTitle" data-hover-help="Voice Dictation (Speech to Text) — Ctrl+Alt+V"><img
+                src="../assets/icons/mic.svg" class="btn-icon" alt="" /> <span data-i18n="btnDictate">Dictate</span></button>
+            <button class="action-btn btn-grey" id="con-record-board-btn" data-bev-529="1"
+              data-i18n-help="btnRecordBoardTitle" data-hover-help="Record live video and microphone audio of the board"><img
+                src="../assets/icons/record.svg" class="btn-icon" alt="" /> <span data-i18n="btnRecordBoard">Record Board</span></button>
           </div>
         </div>
 
         <div class="con-tb-group" id="con-tb-view">
-          <span class="con-tb-group-label">View</span>
+          <span class="con-tb-group-label" data-i18n="conTbView">View</span>
           <div class="con-tb-group-body">
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecZoom">Zoom &amp; Typography</div>
             <div class="con-tb-inline-row">
               <button class="action-btn btn-grey" style="width:auto !important; padding: 2px 5px !important;" data-bev-519="1"
                 data-hover-help="Decrease font size 10%"><img src="../assets/icons/zoom-out.svg" class="btn-icon" alt="" /></button>
@@ -2992,6 +3214,11 @@
                 <button type="button" class="con-unit-pill" data-unit="px" data-bev-523="1" data-i18n-help="hhBoardUnitPx" data-hover-help="**Screen pixels**&#10;{muted:*Exact pixel size on display.*}">px</button>
               </div>
             </div>
+            <button class="action-btn btn-grey" id="con-search-btn" data-bev-530="1"
+              data-i18n-help="conSearchBtnTitle" data-hover-help="Search board items (Ctrl+F)"><img
+                src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="conSearchBtn">Search</span></button>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuSecPresentation">Presentation</div>
             <button class="action-btn btn-grey" id="con-mirror-btn" data-bev-524="1"
               data-hover-help="Open presentation mode on second monitor"><img src="../assets/icons/presentation.svg"
                 class="btn-icon" alt="" /> Presentation Mode</button>
@@ -3004,19 +3231,10 @@
             <button class="action-btn btn-grey" id="con-freeze-btn" data-bev-527="1"
               data-hover-help="Freeze the presentation window — board changes won't update until unfrozen"><img
                 src="../assets/icons/snowflake.svg" class="btn-icon" alt="" /> Freeze Board</button>
-                        <button class="action-btn btn-grey" id="con-dictate-btn" data-bev-528="1"
-              data-i18n-help="btnDictateTitle" data-hover-help="Voice Dictation (Speech to Text) — Ctrl+Alt+V"><img
-                src="../assets/icons/mic.svg" class="btn-icon" alt="" /> <span data-i18n="btnDictate">Dictate</span></button>
-            <button class="action-btn btn-grey" id="con-record-board-btn" data-bev-529="1"
-              data-i18n-help="btnRecordBoardTitle" data-hover-help="Record live video and microphone audio of the board"><img
-                src="../assets/icons/record.svg" class="btn-icon" alt="" /> <span data-i18n="btnRecordBoard">Record Board</span></button>
-            <button class="action-btn btn-grey" id="con-search-btn" data-bev-530="1"
-              data-i18n-help="conSearchBtnTitle" data-hover-help="Search board items (Ctrl+F)"><img
-                src="../assets/icons/search.svg" class="btn-icon" alt="" /> <span data-i18n="conSearchBtn">Search</span></button>
           </div>
         </div>
         <div class="con-tb-group" id="con-tb-pages">
-          <span class="con-tb-group-label">Pages</span>
+          <span class="con-tb-group-label" data-i18n="conTbPages">Pages</span>
           <div class="con-tb-group-body" id="con-page-bar">
             <button class="action-btn btn-grey" data-bev-531="1" data-hover-help="Add a new page"><img
                 src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add</button>
@@ -3102,6 +3320,34 @@
               data-bev-547="1" data-hover-help="Laser pointer mode">
               <img src="../assets/icons/laser.svg" class="btn-icon" alt="" /> Laser
             </button>
+          </div>
+        </div>
+
+        <div class="con-tb-group" id="con-tb-menu-prefs-group">
+          <button type="button" class="action-btn btn-grey" id="con-tb-menu-prefs-btn"
+            data-hover-help="Choose menu layout (Standard, Compact, 2-Column) & visible menus">
+            <img src="../assets/icons/general-config.svg" class="btn-icon" alt="" />
+            <span data-i18n="conTbMenuPrefs">Menus</span>
+          </button>
+          <div id="con-tb-menu-prefs-pop" class="con-tb-menu-prefs-pop" style="display:none;">
+            <div class="con-tb-menu-hdr" data-i18n="conMenuLayoutLabel">Menu Layout</div>
+            <div class="con-tb-prefs-modes">
+              <button type="button" class="con-tb-mode-pill" data-menu-mode="standard" data-i18n="conMenuModeStandard">Standard</button>
+              <button type="button" class="con-tb-mode-pill" data-menu-mode="twocol" data-i18n="conMenuModeTwoCol">2-Column</button>
+              <button type="button" class="con-tb-mode-pill" data-menu-mode="compact" data-i18n="conMenuModeCompact">Compact</button>
+            </div>
+            <div class="con-tb-menu-sep"></div>
+            <div class="con-tb-menu-hdr" data-i18n="conMenuVisibleLabel">Visible Menus</div>
+            <div class="con-tb-prefs-checks">
+              <label><input type="checkbox" data-menu-vis="con-tb-file" checked> <span data-i18n="conTbFile">File</span></label>
+              <label><input type="checkbox" data-menu-vis="con-tb-insert" checked> <span data-i18n="conTbInsert">Insert</span></label>
+              <label><input type="checkbox" data-menu-vis="con-tb-board" checked> <span data-i18n="conTbBoard">Board</span></label>
+              <label><input type="checkbox" data-menu-vis="con-tb-vocab" checked> <span data-i18n="conTbTools">Tools</span></label>
+              <label><input type="checkbox" data-menu-vis="con-tb-view" checked> <span data-i18n="conTbView">View</span></label>
+              <label><input type="checkbox" data-menu-vis="con-tb-pages" checked> <span data-i18n="conTbPages">Pages</span></label>
+            </div>
+            <div class="con-tb-menu-sep"></div>
+            <button type="button" class="action-btn btn-grey" id="con-tb-menu-prefs-reset" style="width:100%; font-size:0.72rem;" data-i18n="conMenuReset">Reset Default</button>
           </div>
         </div>
 

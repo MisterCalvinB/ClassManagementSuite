@@ -6,7 +6,7 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "expFooterTeacher": "Lehrkraft",
-  "btnCharacterNetwork": "Figurennetzwerk",
+  "btnCharacterNetwork": "Distant-Reading-Studio",
   "charNetModalTitle": "Figurennetzwerk des Romans",
   "charNetSelectBook": "Roman aus dem Bücherordner auswählen",
   "charNetChooseBookPrompt": "-- Einen Roman auswählen --",

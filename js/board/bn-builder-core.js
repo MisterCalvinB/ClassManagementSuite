@@ -235,15 +235,19 @@
             if (_conToolbarLeaveTimer) clearTimeout(_conToolbarLeaveTimer);
             _conToolbarLeaveTimer = setTimeout(function () {
               _conToolbarLeaveTimer = null;
-              if (wrapper.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') {
-                return;
+              const active = document.activeElement;
+              if (active && wrapper.contains(active)) {
+                if (active.tagName === 'INPUT' || active.tagName === 'SELECT' || active.tagName === 'TEXTAREA') {
+                  return;
+                }
+                if (typeof active.blur === 'function') active.blur();
               }
               if (conHasOpenDropdownMenu()) {
                 wrapper.classList.add('has-open-menu');
                 return;
               }
               wrapper.classList.remove('drawer-hovered', 'has-open-menu');
-            }, 180);
+            }, 40);
           };
 
           wrapper.addEventListener('mouseenter', onEnter);

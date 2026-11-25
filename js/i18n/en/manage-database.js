@@ -541,5 +541,6 @@
   "mdbWizConfirmSub": "Review your choices and click Export to save or print.",
   "mdbWizSummaryFormat": "Format:",
   "mdbWizSummaryRecords": "Records:",
-  "mdbWizSummaryCols": "Columns:"
+  "mdbWizSummaryCols": "Columns:",
+  "mdbHintChipItemsAbbr": "One per line. Add an optional abbreviation in square brackets: Active contributor [AC]"
 });

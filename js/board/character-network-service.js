@@ -44,7 +44,58 @@
     'Rien', 'Autre', 'Autres', 'Chaque', 'Plusieurs', 'Certains', 'Certaines', 'Même',
     'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche', 'Janvier',
     'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre',
-    'Novembre', 'Décembre', 'Chapitre', 'Livre', 'Partie', 'Tome', 'Dieu', 'Ciel'
+    'Novembre', 'Décembre', 'Chapitre', 'Livre', 'Partie', 'Tome', 'Dieu', 'Ciel',
+
+    // German
+    'Der', 'Die', 'Das', 'Ein', 'Eine', 'Einen', 'Einem', 'Einer', 'Und', 'Oder', 'Aber',
+    'Denn', 'Wenn', 'Als', 'Wie', 'Wo', 'Was', 'Wer', 'Ich', 'Du', 'Er', 'Sie', 'Es',
+    'Wir', 'Ihr', 'Nicht', 'Kein', 'Keine', 'Auch', 'Noch', 'Nur', 'Schon', 'Sehr', 'So',
+    'Kapitel', 'Buch', 'Teil', 'Band', 'Gott', 'Himmel', 'Montag', 'Dienstag', 'Mittwoch',
+    'Donnerstag', 'Freitag', 'Samstag', 'Sonntag', 'Januar', 'Februar', 'März', 'Mai',
+    'Juni', 'Juli', 'Oktober', 'Dezember',
+
+    // Italian
+    'Il', 'Lo', 'La', 'Gli', 'Una', 'Uno', 'Ma', 'Però', 'Che', 'Chi', 'Dove', 'Quando',
+    'Come', 'Perché', 'Se', 'Io', 'Tu', 'Lui', 'Lei', 'Noi', 'Voi', 'Loro', 'Non', 'Più',
+    'Molto', 'Tutto', 'Tutti', 'Anche', 'Capitolo', 'Libro', 'Parte', 'Dio', 'Cielo',
+    'Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica',
+    'Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto',
+    'Settembre', 'Ottobre', 'Dicembre'
+  ]);
+
+  // Common question auxiliaries, modals, imperatives, and discourse markers that frequently
+  // open sentences/dialogue with capital letters but are not character names.
+  const SENTENCE_START_WORDS = new Set([
+    // English auxiliaries, modals & common sentence starters
+    'Do', 'Does', 'Did', 'Is', 'Are', 'Was', 'Were', 'Am', 'Be', 'Been', 'Being',
+    'Have', 'Has', 'Had', 'Can', 'Could', 'Will', 'Would', 'Shall', 'Should', 'May', 'Might', 'Must',
+    'Let', 'Look', 'Come', 'Tell', 'Ask', 'See', 'Say', 'Said', 'Think', 'Know', 'Want', 'Need',
+    'Give', 'Take', 'Make', 'Keep', 'Wait', 'Stop', 'Listen', 'Please', 'Thank', 'Thanks',
+    'Sorry', 'Excuse', 'Hello', 'Goodbye', 'Well', 'Sure', 'Actually', 'Really', 'Maybe',
+    'Certainly', 'Obviously', 'Fortunately', 'Unfortunately', 'However', 'Meanwhile', 'Therefore',
+    'More', 'Most', 'Many', 'Few', 'Much', 'Little', 'Nothing', 'Everything', 'Something', 'Anything',
+    'Someone', 'Somebody', 'Anyone', 'Anybody', 'Everyone', 'Everybody', 'Nobody', 'None',
+    'Don', 'Didn', 'Doesn', 'Isn', 'Aren', 'Wasn', 'Weren', 'Haven', 'Hasn', 'Hadn',
+    'Won', 'Wouldn', 'Couldn', 'Shouldn', 'Mustn',
+    // French auxiliaries, question starters & discourse markers
+    'Est', 'Sont', 'Était', 'Étaient', 'Sera', 'Serait', 'Sois', 'Soyez',
+    'As', 'Avez', 'Ont', 'Avait', 'Avaient', 'Aura', 'Aurait',
+    'Peux', 'Peut', 'Pouvez', 'Peuvent', 'Pourrais', 'Pourrait', 'Pourriez',
+    'Veux', 'Veut', 'Voulez', 'Voudrais', 'Voudrait', 'Doit', 'Doivent', 'Faut', 'Fallait',
+    'Sais', 'Sait', 'Savez', 'Fais', 'Fait', 'Faites', 'Dis', 'Dit', 'Dites',
+    'Vois', 'Voit', 'Voyez', 'Voyons', 'Allez', 'Allons', 'Venez', 'Viens',
+    'Regarde', 'Regardez', 'Écoute', 'Écoutez', 'Attends', 'Attendez',
+    'Voici', 'Voilà', 'Merci', 'Pardon', 'Bonjour', 'Bonsoir', 'Salut', 'Adieu', 'Certes', 'Vraiment',
+    'Personne', 'Quelqu', 'Chacun', 'Chacune', 'Aucun', 'Aucune',
+    // German auxiliaries & sentence starters
+    'Hab', 'Habe', 'Hast', 'Hat', 'Haben', 'Hatte', 'Hatten', 'Sind', 'Bist', 'War', 'Waren',
+    'Wird', 'Werden', 'Wurde', 'Wurden', 'Kann', 'Kannst', 'Können', 'Konnte',
+    'Soll', 'Sollen', 'Muss', 'Müssen', 'Darf', 'Dürfen', 'Wollen', 'Willst',
+    'Bitte', 'Danke', 'Hallo', 'Guten', 'Ja', 'Nein', 'Doch', 'Vielleicht', 'Natürlich',
+    // Italian auxiliaries & sentence starters
+    'Sono', 'Sei', 'Siamo', 'Siete', 'Era', 'Erano', 'Sarà', 'Hai', 'Abbiamo', 'Avete', 'Hanno',
+    'Aveva', 'Puoi', 'Può', 'Possiamo', 'Potete', 'Vuoi', 'Vuole', 'Volete',
+    'Devo', 'Devi', 'Deve', 'Dobbiamo', 'Prego', 'Grazie', 'Ciao', 'Ecco', 'Forse', 'Certo'
   ]);
 
   // Common titles & honorific prefixes that belong to character names
@@ -53,7 +104,9 @@
     'Professor', 'Sir', 'Lady', 'Lord', 'Count', 'Countess', 'Baron', 'Baroness', 'King',
     'Queen', 'Prince', 'Princess', 'Captain', 'General', 'Colonel', 'Major', 'Father', 'Mother',
     'Monsieur', 'M.', 'Mme', 'Mme.', 'Mlle', 'Mlle.', 'Abbé', 'Docteur', 'Professeur',
-    'Comte', 'Comtesse', 'Baron', 'Baronne', 'Capitaine', 'Général', 'Père', 'Mère', 'Frère', 'Sœur'
+    'Comte', 'Comtesse', 'Baron', 'Baronne', 'Capitaine', 'Général', 'Père', 'Mère', 'Frère', 'Sœur',
+    'Herr', 'Frau', 'Fräulein', 'Doktor', 'Graf', 'Gräfin', 'Prinz', 'Prinzessin', 'König', 'Königin',
+    'Signor', 'Signora', 'Signorina', 'Dottor', 'Dottore', 'Conte', 'Contessa', 'Padre', 'Madre'
   ];
 
   /**
@@ -113,41 +166,58 @@
             const index = match.index;
 
             // Normalize spacing
-            const cand = rawCand.replace(/\s+/g, ' ');
+            let cand = rawCand.replace(/\s+/g, ' ');
 
-            // Check if single word candidate is in stopwords
-            if (!cand.includes(' ') && (DEFAULT_STOPWORDS.has(cand) || customStopwords.has(cand))) {
+            // Strip leading stopwords / sentence-start auxiliaries from multi-word matches (e.g. "Did Alice" -> "Alice")
+            if (cand.includes(' ')) {
+              const parts = cand.split(' ');
+              while (parts.length > 1 && (DEFAULT_STOPWORDS.has(parts[0]) || SENTENCE_START_WORDS.has(parts[0]) || customStopwords.has(parts[0]))) {
+                parts.shift();
+              }
+              cand = parts.join(' ');
+            }
+
+            // Check if single word candidate is in stopwords or common sentence-start auxiliaries
+            if (!cand.includes(' ') && (DEFAULT_STOPWORDS.has(cand) || SENTENCE_START_WORDS.has(cand) || customStopwords.has(cand))) {
               continue;
             }
 
             counts.set(cand, (counts.get(cand) || 0) + 1);
 
-            // If it occurs strictly after the sentence start (> 0), it is much more likely a real name
-            if (index > 0) {
+            // Check if it occurs strictly after the sentence start (ignoring leading quotes/dashes/spaces)
+            const prefix = sent.slice(0, index);
+            if (!/^[\s"'«»“”‘’—–\-(]*$/.test(prefix)) {
               midSentenceCounts.set(cand, (midSentenceCounts.get(cand) || 0) + 1);
             }
           }
         }
       }
 
-      // Filter candidates: must meet minOccurrences, and single words that never appear mid-sentence are dropped
+      // Filter candidates: must meet minOccurrences, and flag/filter sentence-initial words
       const validCandidates = [];
       counts.forEach((freq, name) => {
         if (freq < minOccurrences) return;
 
+        let likelySentenceStarter = false;
         // Drop short 1-word candidates if they are stopwords or never appeared inside a sentence
         if (!name.includes(' ')) {
           if (name.length < 3) return;
-          if (DEFAULT_STOPWORDS.has(name) || customStopwords.has(name)) return;
+          if (DEFAULT_STOPWORDS.has(name) || SENTENCE_START_WORDS.has(name) || customStopwords.has(name)) return;
           const midCount = midSentenceCounts.get(name) || 0;
-          // If a single word only appears at sentence beginnings and never inside, it's probably not a name
+          const startRatio = (freq - midCount) / freq;
+          // If a single word only appears at sentence beginnings and never inside, drop low-freq ones
           if (midCount === 0 && freq < 6) return;
+          // Flag words that appear almost exclusively at the start of sentences
+          if (midCount === 0 || (startRatio >= 0.85 && midCount < 3)) {
+            likelySentenceStarter = true;
+          }
         }
 
         validCandidates.push({
           name,
           count: freq,
-          midCount: midSentenceCounts.get(name) || 0
+          midCount: midSentenceCounts.get(name) || 0,
+          likelySentenceStarter
         });
       });
 
@@ -192,7 +262,8 @@
           name: item.name,
           count: totalCount,
           aliases: Array.from(aliases),
-          enabled: true
+          likelySentenceStarter: !!item.likelySentenceStarter,
+          enabled: !item.likelySentenceStarter
         });
 
         usedNames.add(item.name);
@@ -468,11 +539,109 @@
         if (betweenness[v] > maxBetweenness) maxBetweenness = betweenness[v];
       });
 
+      // Closeness Centrality (Wasserman-Faust normalized for disconnected components)
+      const closeness = {};
+      let maxCloseness = 0.0001;
+      const totalN = nodeIds.length;
+      nodeIds.forEach(s => {
+        const dist = {};
+        nodeIds.forEach(v => { dist[v] = -1; });
+        dist[s] = 0;
+        const q = [s];
+        let reachable = 0;
+        let sumDist = 0;
+        while (q.length > 0) {
+          const u = q.shift();
+          const nbrs = adj.get(u) || new Map();
+          nbrs.forEach((_, w) => {
+            if (dist[w] < 0) {
+              dist[w] = dist[u] + 1;
+              reachable++;
+              sumDist += dist[w];
+              q.push(w);
+            }
+          });
+        }
+        let cVal = 0;
+        if (reachable > 0 && sumDist > 0 && totalN > 1) {
+          cVal = (reachable / (totalN - 1)) * (reachable / sumDist);
+        }
+        closeness[s] = Math.round(cVal * 1000) / 1000;
+        if (closeness[s] > maxCloseness) maxCloseness = closeness[s];
+      });
+
+      // Weighted PageRank (20 power iterations)
+      const pagerank = {};
+      const nNodes = Math.max(1, nodeIds.length);
+      nodeIds.forEach(v => { pagerank[v] = 1 / nNodes; });
+      const damping = 0.85;
+      for (let it = 0; it < 20; it++) {
+        const nextPr = {};
+        let sinkSum = 0;
+        nodeIds.forEach(v => {
+          nextPr[v] = (1 - damping) / nNodes;
+          if ((strength[v] || 0) === 0) sinkSum += pagerank[v];
+        });
+        nodeIds.forEach(v => {
+          nextPr[v] += damping * (sinkSum / nNodes);
+          const sV = strength[v] || 0;
+          if (sV > 0) {
+            const nbrs = adj.get(v) || new Map();
+            nbrs.forEach((w, nb) => {
+              nextPr[nb] += damping * pagerank[v] * (w / sV);
+            });
+          }
+        });
+        nodeIds.forEach(v => { pagerank[v] = nextPr[v]; });
+      }
+      let maxPagerank = 0.0001;
+      nodeIds.forEach(v => { if (pagerank[v] > maxPagerank) maxPagerank = pagerank[v]; });
+
+      // Deterministic Label Propagation for Community / Faction Detection
+      const labelOf = {};
+      nodeIds.forEach((v, idx) => { labelOf[v] = idx; });
+      const sortedForLp = nodeIds.slice().sort((a, b) => (strength[b] || 0) - (strength[a] || 0));
+      for (let lpIter = 0; lpIter < 12; lpIter++) {
+        let changed = false;
+        for (let i = 0; i < sortedForLp.length; i++) {
+          const u = sortedForLp[i];
+          const nbrs = adj.get(u) || new Map();
+          if (nbrs.size === 0) continue;
+          const scores = new Map();
+          nbrs.forEach((w, nb) => {
+            const lbl = labelOf[nb];
+            scores.set(lbl, (scores.get(lbl) || 0) + w);
+          });
+          let bestLbl = labelOf[u];
+          let bestScore = -1;
+          scores.forEach((sc, lbl) => {
+            if (sc > bestScore || (sc === bestScore && lbl < bestLbl)) {
+              bestScore = sc;
+              bestLbl = lbl;
+            }
+          });
+          if (bestLbl !== labelOf[u]) {
+            labelOf[u] = bestLbl;
+            changed = true;
+          }
+        }
+        if (!changed) break;
+      }
+      // Normalize community IDs to 0..k-1
+      const commRemap = new Map();
+      let nextComm = 0;
+      nodeIds.forEach(v => {
+        const raw = labelOf[v];
+        if (!commRemap.has(raw)) commRemap.set(raw, nextComm++);
+      });
+
       // Assemble enriched nodes
       const nodesWithMetrics = activeChars.map(c => {
         const deg = degree[c.id] || 0;
         const str = strength[c.id] || 0;
         const bet = betweenness[c.id] || 0;
+        const clo = closeness[c.id] || 0;
+        const pr = pagerank[c.id] || 0;
 
         return {
           id: c.id,
@@ -481,9 +650,14 @@
           degree: deg,
           strength: str,
           betweenness: bet,
+          closeness: clo,
+          pagerank: Math.round(pr * 10000) / 10000,
+          communityId: commRemap.get(labelOf[c.id]) || 0,
           normDegree: deg / maxDegree,
           normStrength: str / maxStrength,
-          normBetweenness: bet / maxBetweenness
+          normBetweenness: bet / maxBetweenness,
+          normCloseness: clo / maxCloseness,
+          normPagerank: pr / maxPagerank
         };
       });
 
@@ -793,6 +967,72 @@
         clean = clean.replace(regB, '<mark class="char-mark-b">$1</mark>');
         return clean;
       });
+    },
+
+    /**
+     * Heuristic language detection (EN / FR / DE / IT) from high-frequency function words.
+     */
+    detectLanguage(rawText) {
+      const sample = String(rawText || '').slice(0, 12000).toLowerCase();
+      const tokens = sample.match(/[a-zà-öø-ÿ]+/g) || [];
+      if (tokens.length < 10) return 'en';
+
+      const markers = {
+        en: new Set(['the', 'and', 'was', 'that', 'with', 'his', 'her', 'they', 'would', 'were']),
+        fr: new Set(['les', 'des', 'est', 'dans', 'une', 'pour', 'que', 'avec', 'mais', 'était']),
+        de: new Set(['der', 'die', 'das', 'und', 'ist', 'ein', 'eine', 'nicht', 'mit', 'auch']),
+        it: new Set(['che', 'non', 'per', 'una', 'con', 'sono', 'della', 'gli', 'come', 'era'])
+      };
+      const scores = { en: 0, fr: 0, de: 0, it: 0 };
+      for (let i = 0; i < tokens.length; i++) {
+        const w = tokens[i];
+        if (markers.en.has(w)) scores.en++;
+        if (markers.fr.has(w)) scores.fr++;
+        if (markers.de.has(w)) scores.de++;
+        if (markers.it.has(w)) scores.it++;
+      }
+      let best = 'en';
+      let bestScore = -1;
+      Object.keys(scores).forEach(lang => {
+        if (scores[lang] > bestScore) {
+          bestScore = scores[lang];
+          best = lang;
+        }
+      });
+      return best;
+    },
+
+    /**
+     * Compute per-character narrative presence timeline across equal slices.
+     */
+    computeCharacterTimeline(rawText, characterList, segments = 16) {
+      const activeChars = (characterList || []).filter(c => c && c.enabled !== false && c.name);
+      if (!rawText || activeChars.length === 0) return [];
+
+      const words = String(rawText).split(/\s+/);
+      const count = Math.max(4, Math.min(24, segments));
+      const sliceSize = Math.ceil(words.length / count);
+
+      const compiled = activeChars.slice(0, 10).map(c => {
+        const terms = [c.name, ...(c.aliases || [])].filter(Boolean);
+        const pattern = terms.map(t => {
+          const clean = t.trim();
+          const sb = /^\w/.test(clean) ? '\\b' : '';
+          const eb = /\w$/.test(clean) ? '\\b' : '(?![\\w])';
+          return sb + escapeRegex(clean) + eb;
+        }).join('|');
+        return { id: c.id, name: c.name, regex: new RegExp(pattern, 'gi') };
+      });
+
+      const timeline = compiled.map(c => ({ id: c.id, name: c.name, counts: new Array(count).fill(0) }));
+      for (let s = 0; s < count; s++) {
+        const slice = words.slice(s * sliceSize, (s + 1) * sliceSize).join(' ');
+        for (let c = 0; c < compiled.length; c++) {
+          const matches = slice.match(compiled[c].regex);
+          timeline[c].counts[s] = matches ? matches.length : 0;
+        }
+      }
+      return timeline;
     }
   };
 

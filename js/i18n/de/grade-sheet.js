@@ -1046,5 +1046,14 @@
   "gsRefScaleKey": "Schlüssel",
   "gsRefScaleLabel": "Bezeichnung",
   "gsRefClickToExpand": "Zum Ausklappen klicken",
-  "gsRefClickToCollapse": "Zum Einklappen klicken"
+  "gsRefClickToCollapse": "Zum Einklappen klicken",
+  "gsChipClampBtn": "Chip-Breite",
+  "gsChipClampTooltip": "Chip-Breite für ein übersichtlicheres Layout begrenzen",
+  "gsChipClampFull": "Voll (unbegrenzt)",
+  "gsChipClampCompact": "Kompakt (140 px)",
+  "gsChipClampTight": "Eng (95 px)",
+  "gsChipClampCustom": "Benutzerdef.",
+  "gsChipClampApply": "OK",
+  "gsChipAbbrToggle": "Abk.",
+  "gsChipAbbrTooltip": "Chip-Abkürzungen statt voller Namen anzeigen (Exporte verwenden immer den vollen Namen)"
 });

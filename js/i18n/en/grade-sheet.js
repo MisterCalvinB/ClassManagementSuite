@@ -1046,5 +1046,14 @@
   "gsCompFilterDeselectAll": "Deselect Visible",
   "gsToastGradesUpdatedExternal": "Grades updated from external session.",
   "gsBtnCompetencePortfolio": "Competences",
-  "gsExportOds": "LibreOffice Calc (.ods)"
+  "gsExportOds": "LibreOffice Calc (.ods)",
+  "gsChipClampBtn": "Chip Width",
+  "gsChipClampTooltip": "Clamp observation chip width for a cleaner layout",
+  "gsChipClampFull": "Full (Unclamped)",
+  "gsChipClampCompact": "Compact (140px)",
+  "gsChipClampTight": "Tight (95px)",
+  "gsChipClampCustom": "Custom",
+  "gsChipClampApply": "Apply",
+  "gsChipAbbrToggle": "Abbr",
+  "gsChipAbbrTooltip": "Show chip abbreviations instead of full names (exports always use full names)"
 });

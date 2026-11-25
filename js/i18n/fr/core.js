@@ -5,7 +5,7 @@
   }
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
-  "btnCharacterNetwork": "Réseau de personnages",
+  "btnCharacterNetwork": "Studio de lecture distante",
   "charNetModalTitle": "Réseau de personnages de roman",
   "charNetSelectBook": "Sélectionner un roman dans le dossier livres",
   "charNetChooseBookPrompt": "-- Choisir un roman --",

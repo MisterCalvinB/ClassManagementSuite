@@ -229,9 +229,46 @@
       };
     }
 
+    /**
+     * Parse an observation chip definition string, extracting an optional trailing [abbr].
+     * Example: "Active contributor [AC]" -> { name: "Active contributor", abbr: "AC" }.
+     */
+    function parseChipItemDefinition(raw) {
+      const str = String(raw || '').trim();
+      if (!str) return { name: '', abbr: '' };
+      const m = str.match(/^(.*?)\s*\[([^\[\]]+)\]\s*$/);
+      if (m && m[1].trim()) {
+        return { name: m[1].trim(), abbr: m[2].trim() };
+      }
+      return { name: str, abbr: '' };
+    }
+
     function getObservationChecklistItems(bankFilename) {
       const groups = getObservationChecklistGroups(bankFilename);
       return groups.flatMap(g => g.items);
+    }
+
+    /**
+     * Resolve the configured abbreviation for an observation chip key in the given bank.
+     * Returns empty string when no abbreviation is defined.
+     */
+    function getObservationChipAbbreviation(chipName, bankFilename = null) {
+      const key = String(chipName || '').trim();
+      if (!key) return '';
+      const keyLower = key.toLowerCase();
+      const groups = getObservationChecklistGroups(bankFilename);
+      for (const g of groups) {
+        if (!g || !g.abbr || typeof g.abbr !== 'object') continue;
+        if (typeof g.abbr[key] === 'string' && g.abbr[key].trim()) {
+          return g.abbr[key].trim();
+        }
+        for (const [k, v] of Object.entries(g.abbr)) {
+          if (String(k || '').trim().toLowerCase() === keyLower && typeof v === 'string' && v.trim()) {
+            return v.trim();
+          }
+        }
+      }
+      return '';
     }
 
     function getObservationChecklistGroups(bankFilename) {
@@ -239,6 +276,26 @@
         return Array.isArray(items)
           ? items.map(v => String(v || "").trim()).filter(Boolean)
           : [];
+      }
+
+      function normalizeAbbrMap(rawAbbr, rawItems) {
+        const map = {};
+        if (rawAbbr && typeof rawAbbr === 'object' && !Array.isArray(rawAbbr)) {
+          Object.entries(rawAbbr).forEach(([k, v]) => {
+            const ck = String(k || '').trim();
+            const cv = v !== undefined && v !== null ? String(v).trim() : '';
+            if (ck && cv) map[ck] = cv;
+          });
+        }
+        if (Array.isArray(rawItems)) {
+          rawItems.forEach(raw => {
+            const parsed = parseChipItemDefinition(raw);
+            if (parsed.name && parsed.abbr) {
+              map[parsed.name] = parsed.abbr;
+            }
+          });
+        }
+        return map;
       }
 
       function normalizeRawGroups(raw) {
@@ -249,26 +306,32 @@
               const sec = String((g && (g.section || g.sectionName || g.sectionTitle)) || "").trim() || t('gsSectionGeneral', 'General Observations');
               const col = String((g && (g.color || g.sectionColor)) || "").trim();
               const cat = String((g && (g.type || g.category || g.name || g.label)) || "").trim();
+              const rawItems = normalizeGroupItems(g && g.items);
               return {
                 section: sec,
                 color: col,
                 sectionColor: col,
                 type: cat || "Criteria",
                 category: cat,
-                items: normalizeGroupItems(g && g.items)
+                items: rawItems.map(it => parseChipItemDefinition(it).name),
+                abbr: normalizeAbbrMap(g && g.abbr, rawItems)
               };
             })
             .filter(g => g.items.length > 0);
         } else if (typeof raw === "object") {
           return Object.entries(raw)
-            .map(([type, items]) => ({
-              section: t('gsSectionGeneral', 'General Observations'),
-              color: "",
-              sectionColor: "",
-              type: String(type || "").trim() || "Criteria",
-              category: String(type || "").trim(),
-              items: normalizeGroupItems(items)
-            }))
+            .map(([type, items]) => {
+              const rawItems = normalizeGroupItems(items);
+              return {
+                section: t('gsSectionGeneral', 'General Observations'),
+                color: "",
+                sectionColor: "",
+                type: String(type || "").trim() || "Criteria",
+                category: String(type || "").trim(),
+                items: rawItems.map(it => parseChipItemDefinition(it).name),
+                abbr: normalizeAbbrMap(null, rawItems)
+              };
+            })
             .filter(g => g.items.length > 0);
         }
         return [];

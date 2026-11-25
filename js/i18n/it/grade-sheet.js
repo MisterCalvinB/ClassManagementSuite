@@ -1046,5 +1046,14 @@
   "gsCorrEmptyDesc": "Le date di correzione vengono registrate automaticamente ogni volta che valuti o aggiorni uno studente in una verifica.",
   "gsBtnClose": "Chiudi",
   "gsToastExportSuccess": "Esportazione completata con successo",
-  "gsMotivLast2_1": "Ultimi 2! Forza!"
+  "gsMotivLast2_1": "Ultimi 2! Forza!",
+  "gsChipClampBtn": "Larghezza chip",
+  "gsChipClampTooltip": "Limita la larghezza dei chip per un layout più ordinato",
+  "gsChipClampFull": "Completo (illimitato)",
+  "gsChipClampCompact": "Compatto (140 px)",
+  "gsChipClampTight": "Stretto (95 px)",
+  "gsChipClampCustom": "Personalizz.",
+  "gsChipClampApply": "OK",
+  "gsChipAbbrToggle": "Abbr.",
+  "gsChipAbbrTooltip": "Mostra le abbreviazioni dei chip invece del nome completo (le esportazioni usano sempre il nome completo)"
 });

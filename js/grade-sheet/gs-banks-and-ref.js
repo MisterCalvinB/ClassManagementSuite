@@ -1372,7 +1372,8 @@
           section: secVal || cleanSec || t('gsSectionGeneral', 'General Observations'),
           color: String((g && g.color) || '').trim(),
           type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
-          items: Array.isArray(g && g.items) ? [...g.items] : []
+          items: Array.isArray(g && g.items) ? [...g.items] : [],
+          ...(g && g.abbr && typeof g.abbr === 'object' && !Array.isArray(g.abbr) ? { abbr: { ...g.abbr } } : {})
         };
       });
 
@@ -1398,7 +1399,13 @@
         if (cleanCol && !group.color) group.color = cleanCol;
       }
 
-      if (group.items.some(it => String(it).trim().toLowerCase() === cleanChip.toLowerCase())) {
+      const cleanChipBase = typeof parseChipItemDefinition === 'function'
+        ? parseChipItemDefinition(cleanChip).name.toLowerCase()
+        : cleanChip.toLowerCase();
+      if (group.items.some(it => {
+        const itName = typeof parseChipItemDefinition === 'function' ? parseChipItemDefinition(it).name : String(it || '').trim();
+        return itName.toLowerCase() === cleanChipBase;
+      })) {
         showToast(t('gsAddChipDuplicateError', 'This chip already exists in the selected category.'), true);
         return false;
       }
@@ -1523,7 +1530,8 @@
           section: secVal || t('gsSectionGeneral', 'General Observations'),
           color: String((g && g.color) || '').trim(),
           type: String((g && (g.type || g.label || g.name || g.category)) || 'Criteria').trim() || 'Criteria',
-          items: Array.isArray(g && g.items) ? [...g.items] : []
+          items: Array.isArray(g && g.items) ? [...g.items] : [],
+          ...(g && g.abbr && typeof g.abbr === 'object' && !Array.isArray(g.abbr) ? { abbr: { ...g.abbr } } : {})
         };
       });
 
@@ -1534,23 +1542,29 @@
         return str;
       }
 
+      const chipNameLower = String(chipName || '').trim().toLowerCase();
+      const matchItemName = (it) => {
+        const n = typeof parseChipItemDefinition === 'function' ? parseChipItemDefinition(it).name : String(it || '').trim();
+        return n.toLowerCase() === chipNameLower;
+      };
+
       let srcGroup = chipGroups.find(g => {
         const catMatch = (g.type || '').trim().toLowerCase() === String(sourceCategory || '').trim().toLowerCase();
         const secMatch = sourceSection ? (normSec(g.section) === normSec(sourceSection) || (g.section || '').trim().toLowerCase() === sourceSection.trim().toLowerCase()) : true;
-        const hasItem = Array.isArray(g.items) && g.items.some(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase());
+        const hasItem = Array.isArray(g.items) && g.items.some(matchItemName);
         return catMatch && secMatch && hasItem;
       });
 
       if (!srcGroup) {
         srcGroup = chipGroups.find(g =>
           (g.type || '').trim().toLowerCase() === String(sourceCategory || '').trim().toLowerCase() &&
-          Array.isArray(g.items) && g.items.some(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase())
+          Array.isArray(g.items) && g.items.some(matchItemName)
         );
       }
 
       if (!srcGroup) return false;
 
-      const srcIdx = srcGroup.items.findIndex(it => String(it).trim().toLowerCase() === String(chipName || '').trim().toLowerCase());
+      const srcIdx = srcGroup.items.findIndex(matchItemName);
       if (srcIdx === -1) return false;
 
       const [removed] = srcGroup.items.splice(srcIdx, 1);

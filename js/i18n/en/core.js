@@ -5,7 +5,7 @@
   }
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
-  "btnCharacterNetwork": "Character Network",
+  "btnCharacterNetwork": "Distant Reading Studio",
   "charNetModalTitle": "Novel Character Network",
   "charNetSelectBook": "Select Novel from Books Folder",
   "charNetChooseBookPrompt": "-- Choose a novel --",
