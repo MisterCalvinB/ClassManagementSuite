@@ -333,6 +333,7 @@
 
       // Custom attributes on student object
       Object.keys(student).forEach(key => {
+        if (key === '_miniDbValues') return;
         const lowerKey = key.toLowerCase();
         if (!dict.hasOwnProperty(`student.${lowerKey}`)) {
           dict[`student.${lowerKey}`] = String(student[key] ?? '');
@@ -341,6 +342,17 @@
           dict[lowerKey] = String(student[key] ?? '');
         }
       });
+
+      // Per-document Mini Database fields ({{db.field}})
+      const miniDbVals = (student && student._miniDbValues && typeof student._miniDbValues === 'object')
+        ? student._miniDbValues
+        : (options.miniDbRecord && typeof options.miniDbRecord === 'object' ? options.miniDbRecord : null);
+      if (miniDbVals) {
+        Object.keys(miniDbVals).forEach(key => {
+          const lowerKey = key.toLowerCase();
+          dict[`db.${lowerKey}`] = String(miniDbVals[key] ?? '');
+        });
+      }
 
       return templateText.replace(/{{\s*([\w.-]+)\s*}}/gi, function (match, tagKey) {
         const key = tagKey.trim().toLowerCase();
@@ -360,6 +372,7 @@
       }
 
       const opts = { ...options, isHtml: isHtmlMode, isHtmlMode: isHtmlMode };
+      const withPageBreaks = options.pageBreaks !== false;
 
       const pagesHtml = studentsList.map((student, idx) => {
         const renderedText = this.renderTemplate(templateText, student, classInfo, opts);
@@ -373,11 +386,17 @@
         }
 
         const isLast = idx === studentsList.length - 1;
+        if (!withPageBreaks) {
+          return `<div class="mailposting-student-page mailposting-continuous-item">\n${pageBody}\n</div>`;
+        }
         const pageBreakStyle = isLast ? '' : 'style="page-break-after: always; break-after: page;"';
 
         return `<div class="mailposting-student-page" ${pageBreakStyle}>\n${pageBody}\n</div>`;
       });
 
+      if (!withPageBreaks) {
+        return pagesHtml.join('\n\n');
+      }
       return pagesHtml.join('\n\n<hr class="mailposting-page-break-hr" style="page-break-after: always; break-after: page; border: none; margin: 0; padding: 0;">\n\n');
     },
 

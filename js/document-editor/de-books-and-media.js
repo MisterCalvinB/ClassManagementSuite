@@ -597,6 +597,9 @@ function initImageDrop() {
 
 function initImagePaste() {
   window.addEventListener('paste', function (e) {
+    if (e.target && e.target.closest && e.target.closest('#db-panel-wrapper, #db-import-modal')) {
+      return;
+    }
     const cd = e.clipboardData || window.clipboardData;
     if (!cd) return;
 

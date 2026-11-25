@@ -269,7 +269,8 @@ async function renderPreview() {
       raw = MailpostingService.renderTemplate(raw, activeStudent, activeClass, {
         roster: mpState.studentRoster,
         students: mpState.studentList,
-        isHtml: currentDocType === 'html'
+        isHtml: currentDocType === 'html',
+        miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
       });
     }
 
@@ -544,7 +545,10 @@ function deUpdateScriptEditorUi() {
 }
 
 function deExtractStyleBlocks(rawContent) {
-  const scriptSplit = deExtractScriptBlocks(rawContent);
+  const dbSplit = (window.DeMiniDb && typeof DeMiniDb.extractFromContent === 'function')
+    ? DeMiniDb.extractFromContent(rawContent)
+    : { content: rawContent };
+  const scriptSplit = deExtractScriptBlocks(dbSplit.content);
   dePendingScriptText = scriptSplit.scriptText;
   const content = scriptSplit.content;
   const styles = [];
@@ -753,6 +757,9 @@ function deBuildPersistedCurrentDocContent() {
     const js = [embeddedScript, scriptEditor ? scriptEditor.getValue() : ''].filter(s => String(s).trim()).join('\n\n');
     out = deInjectInlineScript(out, js);
   }
+  if (window.DeMiniDb && typeof DeMiniDb.injectIntoContent === 'function') {
+    out = DeMiniDb.injectIntoContent(out, currentDocType);
+  }
   return out;
 }
 
@@ -801,6 +808,9 @@ function deApplyManagedDocState(cssText, fallbackLayout) {
   deSetScriptEditorValue(dePendingScriptText);
   dePendingScriptText = '';
   deUpdateScriptEditorUi();
+  if (window.DeMiniDb && typeof DeMiniDb.applyPendingOrReset === 'function') {
+    DeMiniDb.applyPendingOrReset();
+  }
 }
 
 async function deSaveManagedDocSnapshot(target, filename, subdir) {

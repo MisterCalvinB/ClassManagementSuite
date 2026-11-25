@@ -1790,7 +1790,18 @@ async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml =
     await fixPreviewImages(wrapper);
     previewContent = wrapper.innerHTML;
   } else if (previewEl && previewEl.querySelector('.full-preview-pdf-pages')) {
-    const raw = mdEditor ? mdEditor.getValue() : '';
+    let raw = mdEditor ? mdEditor.getValue() : '';
+    if (window.MailpostingService) {
+      const activeStudent = (mpState.connectedClass && mpState.studentList.length > 0)
+        ? (mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0])
+        : {};
+      raw = MailpostingService.renderTemplate(raw, activeStudent, mpState.connectedClass || {}, {
+        roster: mpState.studentRoster,
+        students: mpState.studentList,
+        isHtml: currentDocType === 'html',
+        miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
+      });
+    }
     const bodyHtml = currentDocType === 'html' ? raw : marked.parse(raw);
     const wrapper = document.createElement('div');
     wrapper.innerHTML = bodyHtml;
@@ -3892,7 +3903,7 @@ function toggleCssEditor() {
   const wrapper = document.getElementById('css-editor-wrapper');
   const btn = document.getElementById('btn-toggle-css-editor');
   wrapper.classList.toggle('visible', cssEditorVisible);
-  btn.textContent = cssEditorVisible ? 'CSS Editor ▲' : 'CSS Editor ▾';
+  btn.classList.toggle('active', cssEditorVisible);
   if (cssEditorVisible && cssEditor) {
     setTimeout(() => cssEditor.layout(), 30);
   }

@@ -23,6 +23,9 @@ function mpPopulateClassSelects() {
   if (!select) return;
 
   let html = '<option value="">-- Select Class --</option>';
+  if (exportSelect && window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && DeMiniDb.getFieldCount() > 0) {
+    // Export select also supports per-document Mini DB
+  }
   const keys = Object.keys(mpState.classesMeta).filter(k => {
     const c = mpState.classesMeta[k];
     return c && !c.archived && !c.isArchived;
@@ -35,7 +38,13 @@ function mpPopulateClassSelects() {
   });
 
   select.innerHTML = html;
-  if (exportSelect) exportSelect.innerHTML = html;
+  if (exportSelect) {
+    let expHtml = html;
+    if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && DeMiniDb.getFieldCount() > 0) {
+      expHtml = `<option value="@minidb@">Mini Database (${DeMiniDb.getRecordCount()} records)</option>` + html;
+    }
+    exportSelect.innerHTML = expHtml;
+  }
 
   if (mpState.connectedClassId && mpState.classesMeta[mpState.connectedClassId] && !mpState.classesMeta[mpState.connectedClassId].archived) {
     select.value = mpState.connectedClassId;
@@ -366,8 +375,14 @@ function mpOpenFieldPickerModal() {
   showModal('mp-field-picker-modal');
   const grid = document.getElementById('mp-field-picker-grid');
   if (grid && window.MailpostingService) {
-    grid.innerHTML = MailpostingService.AVAILABLE_TAGS.map(t =>
-      `<button class="mp-tag-chip" data-mp-tag="${escHtml(t.tag)}" data-mp-modal="mp-field-picker-modal">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${t.tag}</code></button>`
+    const miniDbTags = (window.DeMiniDb && typeof DeMiniDb.getAvailableTags === 'function')
+      ? DeMiniDb.getAvailableTags()
+      : [];
+    const allTags = miniDbTags.length > 0
+      ? MailpostingService.AVAILABLE_TAGS.concat(miniDbTags)
+      : MailpostingService.AVAILABLE_TAGS;
+    grid.innerHTML = allTags.map(t =>
+      `<button class="mp-tag-chip" data-mp-tag="${escHtml(t.tag)}" data-mp-modal="mp-field-picker-modal">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${escHtml(t.tag)}</code></button>`
     ).join('');
     if (!grid._mpDelegated) {
       grid._mpDelegated = true;
@@ -381,13 +396,15 @@ function mpOpenFieldPickerModal() {
   }
 }
 
-async function mpOpenExportModal() {
+async function mpOpenExportModal(preferredSource) {
   await mpInit();
+  mpPopulateClassSelects();
   showModal('mp-export-modal');
   const select = document.getElementById('mp-export-class-select');
   if (select) {
-    mpPopulateClassSelects();
-    if (mpState.connectedClassId) {
+    if (preferredSource === '@minidb@' && window.DeMiniDb && DeMiniDb.getRecordCount() > 0) {
+      select.value = '@minidb@';
+    } else if (mpState.connectedClassId) {
       select.value = mpState.connectedClassId;
     } else if (select.options[1]) {
       select.value = select.options[1].value;
@@ -395,108 +412,264 @@ async function mpOpenExportModal() {
   }
 }
 
-async function mpExecuteBatchExport() {
+function mpResolveBatchSource() {
   const classId = document.getElementById('mp-export-class-select').value;
-  const format = document.getElementById('mp-export-format').value;
-  const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
-  const mode = modeRadio ? modeRadio.value : 'combined';
-
-  if (!classId || !mpState.classesMeta[classId]) {
+  const isMiniDbSource = classId === '@minidb@';
+  if (!isMiniDbSource && (!classId || !mpState.classesMeta[classId])) {
     showToast('Please select a valid class for batch export.', true);
-    return;
+    return null;
   }
-
-  hideModal('mp-export-modal');
+  if (isMiniDbSource) {
+    if (!window.DeMiniDb || DeMiniDb.getRecordCount() === 0) {
+      showToast('Mini Database has no records.', true);
+      return null;
+    }
+    return {
+      classId,
+      classMeta: { name: 'MiniDB', students: [] },
+      students: DeMiniDb.getRecordsForBatch()
+    };
+  }
   const classMeta = mpState.classesMeta[classId];
   const rawStudents = Array.isArray(classMeta.students) ? classMeta.students : [];
   if (rawStudents.length === 0) {
     showToast('Selected class has no students.', true);
+    return null;
+  }
+  return {
+    classId,
+    classMeta,
+    students: rawStudents.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster))
+  };
+}
+
+async function mpPreviewBatchExport() {
+  const src = mpResolveBatchSource();
+  if (!src) return;
+
+  const { classId, classMeta, students } = src;
+  const format = document.getElementById('mp-export-format').value;
+  const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
+  const mode = modeRadio ? modeRadio.value : 'combined';
+  const withPageBreaks = mode !== 'continuous';
+  const templateContent = mdEditor ? mdEditor.getValue() : '';
+  const isHtmlMode = currentDocType === 'html';
+  const docNameClean = (currentDocName || 'document').replace(/\.(md|html|typ)$/i, '');
+  const titleLabel = (t('deMpPreviewTitle') || 'Batch Preview') + ' — ' + (classMeta.name || classId) + ' (' + students.length + ')';
+
+  const overlay = document.getElementById('full-preview-overlay');
+  const content = document.getElementById('full-preview-content');
+  const titleEl = document.getElementById('full-preview-bar-title');
+  if (!overlay || !content) return;
+
+  if (titleEl) titleEl.textContent = titleLabel;
+  overlay.removeAttribute('hidden');
+
+  if (currentDocType === 'typ') {
+    if (!window.TypstService) {
+      content.innerHTML = '<div class="render-error">Typst service not initialized.</div>';
+      return;
+    }
+    content.classList.remove('paged-mode');
+    content.innerHTML = '<div class="full-preview-loading"><div class="full-preview-spinner"></div><div>Rendering batch Typst preview…</div></div>';
+    try {
+      const combinedTypst = students.map(s =>
+        MailpostingService.renderTemplate(templateContent, s, classMeta, {
+          roster: mpState.studentRoster,
+          students,
+          isHtml: false
+        })
+      ).join(withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n');
+      const res = await TypstService.compileToSvg(combinedTypst);
+      content.innerHTML = '<div class="typst-svg-container">' + res.svg + '</div>';
+    } catch (err) {
+      content.innerHTML = '<div class="typst-compile-error">Typst Error:\n' + escHtml(String(err.message || err)) + '</div>';
+    }
     return;
   }
 
-  const students = rawStudents.map((s, idx) =>
-    MailpostingService.normalizeStudent(s, idx, mpState.studentRoster)
+  const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+    templateContent,
+    isHtmlMode,
+    students,
+    classMeta,
+    isHtmlMode ? null : marked.parse,
+    { pageBreaks: withPageBreaks }
   );
 
-  const templateContent = mdEditor ? mdEditor.getValue() : '';
-  const isHtmlMode = currentDocType === 'html';
-  const classNameClean = (classMeta.name || classId).replace(/[/\\?%*:|"<>]/g, '_');
-  const docNameClean = (currentDocName || 'document').replace(/[/\\?%*:|"<>]/g, '_');
-
-  showToast(`Starting batch export (${format.toUpperCase()}) for ${students.length} students…`);
-
-  if (currentDocType === 'typ') {
-    if (format === 'pdf') {
-      if (!window.TypstService) {
-        showToast('Typst service not initialized.', true);
+  if (window.Desktop && Desktop.isElectron() && typeof deBuildPrintDocumentHtml === 'function') {
+    content.classList.add('doc-preview', 'paged-mode');
+    content.innerHTML = '<div class="full-preview-loading"><div class="full-preview-spinner"></div><div>Rendering high-fidelity print preview…</div></div>';
+    try {
+      deSyncPageLayoutFromControls();
+      deSyncCssEditorWithLayout(true);
+      const printData = await deBuildPrintDocumentHtml(titleLabel, combinedHtmlBody);
+      const result = await Desktop.printPdf({
+        html: printData.html,
+        pdfOptions: printData.pdfOptions,
+        previewOnly: true
+      });
+      if (result && result.ok && result.base64) {
+        const pdfjsLib = await deEnsurePdfjsLib();
+        const bin = atob(result.base64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        const pdfDoc = await pdfjsLib.getDocument({
+          data: bytes,
+          standardFontDataUrl: new URL('../modules/standard_fonts/', location.href).href,
+          wasmUrl: new URL('../modules/wasm/', location.href).href,
+          disableFontFace: false
+        }).promise;
+        content.innerHTML = '';
+        const pagesWrapper = document.createElement('div');
+        pagesWrapper.className = 'full-preview-pdf-pages';
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
+        for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+          const page = await pdfDoc.getPage(pageNum);
+          const unscaled = page.getViewport({ scale: 1.0 });
+          const displayWidth = Math.min(unscaled.width, 860);
+          const scale = (displayWidth / unscaled.width) * dpr;
+          const viewport = page.getViewport({ scale });
+          const canvasWrap = document.createElement('div');
+          canvasWrap.className = 'full-preview-pdf-canvas-wrap';
+          canvasWrap.style.width = displayWidth + 'px';
+          const canvas = document.createElement('canvas');
+          canvas.className = 'full-preview-pdf-canvas';
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          canvas.style.width = displayWidth + 'px';
+          canvas.style.height = (unscaled.height * (displayWidth / unscaled.width)) + 'px';
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+          canvasWrap.appendChild(canvas);
+          pagesWrapper.appendChild(canvasWrap);
+        }
+        content.appendChild(pagesWrapper);
+        if (titleEl) titleEl.textContent = titleLabel + ' — ' + pdfDoc.numPages + ' page' + (pdfDoc.numPages !== 1 ? 's' : '');
         return;
       }
-      try {
-        if (mode === 'combined') {
-          const combinedTypst = students.map(s =>
-            MailpostingService.renderTemplate(templateContent, s, classMeta, {
-              roster: mpState.studentRoster,
-              students: students,
-              isHtml: false
-            })
-          ).join('\n\n#pagebreak()\n\n');
-
-          const combinedTypstTitle = `${classNameClean}_${docNameClean}_BatchCombined`;
-          const pdfBytes = await TypstService.compileToPdf(combinedTypst, { title: combinedTypstTitle });
-          const defaultName = `${combinedTypstTitle}.pdf`;
-          if (window.Desktop && Desktop.isElectron()) {
-            await Desktop.saveBlob('docEditorDocs', defaultName, new Blob([pdfBytes], { type: 'application/pdf' }));
-            showToast(`Batch PDF export complete! Saved as ${defaultName}`);
-          } else {
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = defaultName;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast(`Downloaded ${defaultName}`);
-          }
-        } else {
-          let successCount = 0;
-          for (const s of students) {
-            const studentTypst = MailpostingService.renderTemplate(templateContent, s, classMeta, {
-              roster: mpState.studentRoster,
-              students: students,
-              isHtml: false
-            });
-            const singleTypstTitle = `${classNameClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
-            const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
-            const filename = `${singleTypstTitle}.pdf`;
-            if (window.Desktop && Desktop.isElectron()) {
-              await Desktop.saveBlob('docEditorDocs', filename, new Blob([pdfBytes], { type: 'application/pdf' }));
-              successCount++;
-            } else {
-              const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = filename;
-              a.click();
-              URL.revokeObjectURL(url);
-              successCount++;
-            }
-          }
-          showToast(`Exported ${successCount}/${students.length} individual Typst PDF files.`);
-        }
-      } catch (err) {
-        showToast('Batch export error: ' + (err.message || String(err)), true);
-      }
-      return;
+    } catch (err) {
+      console.warn('Batch PDF preview fallback:', err);
     }
   }
 
-  if (mode === 'combined') {
+  // Fallback for browser mode: use standard deRenderPagedPreview without thick borders
+  content.classList.add('doc-preview');
+  const fpCssEl = document.getElementById('full-preview-custom-css');
+  if (fpCssEl) fpCssEl.textContent = deBuildScopedPreviewCss(cssEditor ? cssEditor.getValue() : '', '#full-preview-content');
+  if (typeof deRenderPagedPreview === 'function') {
+    await deRenderPagedPreview(content, combinedHtmlBody);
+  } else {
+    content.innerHTML = combinedHtmlBody;
+    await fixPreviewImages(content);
+  }
+}
+
+async function mpExecuteBatchExport() {
+  const src = mpResolveBatchSource();
+  if (!src) return;
+  const { classId, classMeta, students } = src;
+  const format = document.getElementById('mp-export-format').value;
+  const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
+  const mode = modeRadio ? modeRadio.value : 'combined';
+
+  hideModal('mp-export-modal');
+
+  const templateContent = mdEditor ? mdEditor.getValue() : '';
+  const isHtmlMode = currentDocType === 'html';
+  const withPageBreaks = mode === 'combined';
+  const isCombinedLike = mode === 'combined' || mode === 'continuous';
+  const classNameClean = (classMeta.name || classId).replace(/[/\\?%*:|"<>]/g, '_');
+  const docNameClean = (currentDocName || 'document').replace(/\.(md|html|typ)$/i, '').replace(/[/\\?%*:|"<>]/g, '_');
+
+  if (currentDocType === 'typ' && format === 'pdf') {
+    if (!window.TypstService) {
+      showToast('Typst service not initialized.', true);
+      return;
+    }
+    try {
+      if (isCombinedLike) {
+        const combinedTypst = students.map(s =>
+          MailpostingService.renderTemplate(templateContent, s, classMeta, {
+            roster: mpState.studentRoster,
+            students,
+            isHtml: false
+          })
+        ).join(withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n');
+
+        const combinedTypstTitle = `${classNameClean}_${docNameClean}_BatchCombined`;
+        const defaultName = `${combinedTypstTitle}.pdf`;
+        const pdfBytes = await TypstService.compileToPdf(combinedTypst, { title: combinedTypstTitle });
+        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+        if (typeof window.saveExportWithDestination === 'function') {
+          await saveExportWithDestination({
+            filename: defaultName,
+            content: blob,
+            mimeType: 'application/pdf',
+            allowDocEditor: false,
+            showLangSelector: false
+          });
+        }
+      } else {
+        const destRes = (window.Desktop && Desktop.isElectron() && typeof window.promptExportDestination === 'function')
+          ? await promptExportDestination({ filename: `${classNameClean}_${docNameClean}_Batch.pdf`, allowDocEditor: false, showLangSelector: false })
+          : { destination: 'browser' };
+        if (!destRes || destRes.canceled) return;
+        const target = destRes.destination === 'to-print' ? 'toPrint' : 'docEditorDocs';
+
+        let successCount = 0;
+        let lastPath = '';
+        for (const s of students) {
+          const studentTypst = MailpostingService.renderTemplate(templateContent, s, classMeta, {
+            roster: mpState.studentRoster,
+            students,
+            isHtml: false
+          });
+          const singleTypstTitle = `${classNameClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
+          const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
+          const filename = `${singleTypstTitle}.pdf`;
+          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+          if (window.Desktop && Desktop.isElectron()) {
+            const res = await Desktop.saveBlob(target, filename, blob);
+            if (res && res.ok) {
+              successCount++;
+              if (res.path) lastPath = res.path;
+            }
+          } else {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+            successCount++;
+          }
+        }
+        showToast(`Exported ${successCount}/${students.length} individual Typst PDF files.`);
+        if (lastPath && typeof window.showExportSuccessPopup === 'function') {
+          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} PDF files`, isFolder: true });
+        }
+      }
+    } catch (err) {
+      showToast('Batch export error: ' + (err.message || String(err)), true);
+    }
+    return;
+  }
+
+  if (isCombinedLike) {
     if (format === 'pdf') {
       if (!window.Desktop || !Desktop.isElectron()) {
         showToast('PDF export requires Electron application.', true);
         return;
       }
+      const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.pdf`;
+      const destRes = typeof window.promptExportDestination === 'function'
+        ? await promptExportDestination({ filename: defaultName, allowDocEditor: false, showLangSelector: false })
+        : { destination: 'picker', filename: defaultName };
+      if (!destRes || destRes.canceled) return;
+      const resolvedName = destRes.filename || defaultName;
+
+      showToast(`Preparing batch PDF for ${students.length} records…`);
       deSyncPageLayoutFromControls();
       deSyncCssEditorWithLayout(true);
 
@@ -505,26 +678,28 @@ async function mpExecuteBatchExport() {
         isHtmlMode,
         students,
         classMeta,
-        currentDocType === 'html' ? null : marked.parse
+        currentDocType === 'html' ? null : marked.parse,
+        { pageBreaks: withPageBreaks }
       );
       const inlinedCombinedHtml = await deInlineAllImages(combinedHtmlBody);
-
       const lexendFontsCss = await getEmbeddedLexendFontsCss();
       const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
       const m = pageLayout.margins;
       const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
       const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
       const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
+      const pageBreakCss = withPageBreaks
+        ? '.mailposting-student-page { page-break-after: always; break-after: page; padding: 0; margin: 0; }\n.mailposting-student-page:last-child { page-break-after: auto; break-after: auto; }\n'
+        : '.mailposting-student-page { padding: 0; margin: 0; }\n';
 
       const defaultPreviewCss =
         '@page { size: auto; margin: ' + marginCss + '; }\n' +
         'body { margin: 0; padding: 0; background: #fff; }\n' +
         '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
-        '.mailposting-student-page { page-break-after: always; break-after: page; padding: 0; margin: 0; }\n' +
-        '.mailposting-student-page:last-child { page-break-after: auto; break-after: auto; }\n' +
+        pageBreakCss +
         customCss;
 
-      const combinedPdfTitle = `${classNameClean} - ${docNameClean}`;
+      const combinedPdfTitle = resolvedName.replace(/\.pdf$/i, '');
       const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
         '<title>' + escHtml(combinedPdfTitle) + '</title>\n' +
         '<style>\n* { box-sizing: border-box; margin: 0; padding: 0; }\n' +
@@ -532,7 +707,6 @@ async function mpExecuteBatchExport() {
         defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
         inlinedCombinedHtml + '\n</div>\n</body>\n</html>';
 
-      const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.pdf`;
       const pdfSize = pageLayout.orientation === 'landscape'
         ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
         : pageLayout.size;
@@ -544,9 +718,18 @@ async function mpExecuteBatchExport() {
         preferCSSPageSize: true
       };
 
-      const result = await Desktop.printPdf({ html, defaultName, title: combinedPdfTitle, pdfOptions });
+      const result = await Desktop.printPdf({
+        html,
+        defaultName: resolvedName,
+        target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
+        title: combinedPdfTitle,
+        pdfOptions
+      });
       if (result && result.ok) {
-        showToast(`Batch PDF export complete! Saved as ${result.name || defaultName}`);
+        showToast(`Batch PDF export complete! Saved as ${result.name || resolvedName}`);
+        if (result.path && typeof window.showExportSuccessPopup === 'function') {
+          showExportSuccessPopup(result.path, result.name || resolvedName);
+        }
       } else if (result && !result.canceled) {
         showToast(`Batch PDF export failed: ${result.error || 'unknown'}`, true);
       }
@@ -556,23 +739,21 @@ async function mpExecuteBatchExport() {
         isHtmlMode,
         students,
         classMeta,
-        currentDocType === 'html' ? null : marked.parse
+        currentDocType === 'html' ? null : marked.parse,
+        { pageBreaks: withPageBreaks }
       );
-      const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>${escHtml(classNameClean)} - ${escHtml(docNameClean)}</title>\n</head>\n<body>\n${combinedHtmlBody}\n</body>\n</html>`;
+      const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+      const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>${escHtml(classNameClean)} - ${escHtml(docNameClean)}</title>\n${customCss.trim() ? '<style>\n' + customCss + '\n</style>\n' : ''}</head>\n<body>\n${combinedHtmlBody}\n</body>\n</html>`;
       const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.html`;
 
-      if (window.Desktop && Desktop.isElectron()) {
-        await Desktop.saveText('docs', defaultName, fullHtml);
-        showToast(`Batch HTML exported as ${defaultName}`);
-      } else {
-        const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = defaultName;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast(`Downloaded ${defaultName}`);
+      if (typeof window.saveExportWithDestination === 'function') {
+        await saveExportWithDestination({
+          filename: defaultName,
+          content: fullHtml,
+          mimeType: 'text/html;charset=utf-8',
+          allowDocEditor: true,
+          showLangSelector: false
+        });
       }
     } else if (format === 'docx') {
       if (!window.Desktop || !Desktop.isElectron()) {
@@ -582,23 +763,27 @@ async function mpExecuteBatchExport() {
       const combinedMarkdown = students.map(s =>
         MailpostingService.renderTemplate(templateContent, s, classMeta, {
           roster: mpState.studentRoster,
-          students: students,
+          students,
           isHtml: false
         })
-      ).join('\n\n---\n\n');
+      ).join(withPageBreaks ? '\n\n---\n\n' : '\n\n');
 
       const images = await collectDocxImages(combinedMarkdown);
-      const result = await Desktop.exportDocx({
-        markdown: combinedMarkdown,
-        defaultName: `${classNameClean}_${docNameClean}_BatchCombined`,
-        margins: pageLayout.margins,
-        size: pageLayout.size,
-        orientation: pageLayout.orientation,
-        images
-      });
-
-      if (result && result.ok) {
-        showToast('Batch DOCX exported');
+      const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.docx`;
+      if (typeof window.saveExportWithDestination === 'function') {
+        await saveExportWithDestination({
+          filename: defaultName,
+          docxRequest: {
+            markdown: combinedMarkdown,
+            defaultName: defaultName.replace(/\.docx$/i, ''),
+            margins: pageLayout.margins,
+            size: pageLayout.size,
+            orientation: pageLayout.orientation,
+            images
+          },
+          allowDocEditor: false,
+          showLangSelector: false
+        });
       }
     }
   } else {
@@ -613,14 +798,30 @@ async function mpExecuteBatchExport() {
     );
 
     if (window.Desktop && Desktop.isElectron()) {
+      const destRes = typeof window.promptExportDestination === 'function'
+        ? await promptExportDestination({ filename: `${classNameClean}_${docNameClean}_Batch.${format}`, allowDocEditor: false, showLangSelector: false })
+        : { destination: 'to-print' };
+      if (!destRes || destRes.canceled) return;
+      const target = destRes.destination === 'to-print' ? 'toPrint' : 'docEditorDocs';
+
       if (format === 'html') {
+        let successCount = 0;
+        let lastPath = '';
         for (const d of docs) {
           const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n</head>\n<body>\n${d.processedContent}\n</body>\n</html>`;
-          await Desktop.saveText('docs', `${d.filename}.html`, fullHtml);
+          const res = await Desktop.saveText(target, `${d.filename}.html`, fullHtml);
+          if (res && res.ok) {
+            successCount++;
+            if (res.path) lastPath = res.path;
+          }
         }
-        showToast(`Exported ${docs.length} individual HTML files to user documents folder.`);
+        showToast(`Exported ${successCount}/${docs.length} individual HTML files.`);
+        if (lastPath && typeof window.showExportSuccessPopup === 'function') {
+          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} HTML files`, isFolder: true });
+        }
       } else if (format === 'pdf') {
         let successCount = 0;
+        let lastPath = '';
         const lexendFontsCss = await getEmbeddedLexendFontsCss();
         const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
         const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
@@ -646,27 +847,42 @@ async function mpExecuteBatchExport() {
           const res = await Desktop.printPdf({
             html,
             defaultName: `${d.filename}.pdf`,
+            target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
             title: d.filename,
             pdfOptions: { landscape: pageLayout.orientation === 'landscape', marginsType: 1, preferCSSPageSize: true }
           });
-          if (res && res.ok) successCount++;
+          if (res && res.ok) {
+            successCount++;
+            if (res.path) lastPath = res.path;
+          }
         }
         showToast(`Exported ${successCount}/${docs.length} individual PDF files.`);
+        if (lastPath && typeof window.showExportSuccessPopup === 'function') {
+          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} PDF files`, isFolder: true });
+        }
       } else if (format === 'docx') {
         let successCount = 0;
+        let lastPath = '';
         for (const d of docs) {
           const images = await collectDocxImages(d.rawRenderedText);
           const res = await Desktop.exportDocx({
             markdown: d.rawRenderedText,
             defaultName: d.filename,
+            target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
             margins: pageLayout.margins,
             size: pageLayout.size,
             orientation: pageLayout.orientation,
             images
           });
-          if (res && res.ok) successCount++;
+          if (res && res.ok) {
+            successCount++;
+            if (res.path) lastPath = res.path;
+          }
         }
         showToast(`Exported ${successCount}/${docs.length} individual DOCX files.`);
+        if (lastPath && typeof window.showExportSuccessPopup === 'function') {
+          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} DOCX files`, isFolder: true });
+        }
       }
     } else {
       // Browser fallback: download HTML files
@@ -813,6 +1029,7 @@ window.addEventListener('DOMContentLoaded', function () {
   document.getElementById('btn-close-preview').addEventListener('click', hideFullPreview);
   document.getElementById('btn-toggle-css-editor').addEventListener('click', toggleCssEditor);
   document.getElementById('btn-toggle-script-editor').addEventListener('click', toggleScriptEditor);
+  if (window.DeMiniDb && typeof DeMiniDb.wireEvents === 'function') DeMiniDb.wireEvents();
   document.getElementById('btn-script-run').addEventListener('click', deRunScriptInSandbox);
   document.getElementById('btn-script-insert').addEventListener('click', deInsertScriptHelperSnippet);
   ['script-helper-trigger', 'script-helper-target'].forEach(id => {
@@ -911,6 +1128,8 @@ window.addEventListener('DOMContentLoaded', function () {
   document.getElementById('btn-mp-field-picker-cancel').addEventListener('click', () => hideModal('mp-field-picker-modal'));
   document.getElementById('mp-export-close').addEventListener('click', () => hideModal('mp-export-modal'));
   document.getElementById('btn-mp-export-cancel').addEventListener('click', () => hideModal('mp-export-modal'));
+  const mpPreviewExpBtn = document.getElementById('btn-mp-export-preview');
+  if (mpPreviewExpBtn) mpPreviewExpBtn.addEventListener('click', mpPreviewBatchExport);
   document.getElementById('btn-mp-export-confirm').addEventListener('click', mpExecuteBatchExport);
   document.getElementById('mp-nav-student-select').addEventListener('change', function () {
     mpState.previewStudentIndex = parseInt(this.value, 10) || 0;
