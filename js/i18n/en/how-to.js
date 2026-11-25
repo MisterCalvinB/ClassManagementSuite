@@ -253,7 +253,7 @@
   "ht_de_q1": "How do I write and format documents?",
   "ht_de_a1": "<p>Type Markdown on the left (headings, lists, tables, math formulas) and see the formatted page update live on the right.</p>",
   "ht_de_q2": "How do I use templates or change the page style?",
-  "ht_de_a2": "<p>Choose a built-in template (Worksheet, Quiz, Letter) or open the <strong>Style / CSS</strong> panel to adjust fonts, margins, and headers.</p>",
+  "ht_de_a2": "<p>Choose a built-in template (Worksheet, Quiz, Letter) or open the <strong>Style / CSS</strong> panel to adjust fonts, margins, and headers. Click <strong>CSS Helper</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> in the CSS bar (or under <strong>Tools</strong>) to open the interactive CSS Basics Tutorial and browse all CSS properties, HTML tags, options, and what they mean.</p>",
   "ht_de_q3": "How do I export a document?",
   "ht_de_a3": "<p>Click <strong>Export PDF</strong> or <strong>Export HTML</strong> to save a clean, print-ready handout.</p>",
   "ht_sec_pdf_title": "PDF Viewer",

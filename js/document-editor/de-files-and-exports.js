@@ -1842,6 +1842,8 @@ async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml =
     '@page { size: ' + dims.w + 'mm ' + dims.h + 'mm; margin: ' + marginCss + '; }\n' +
     'body { margin: 0; padding: 0; background: #fff; }\n' +
     '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
+    '.doc-preview > :first-child { margin-top: 0; }\n' +
+    '.doc-preview > :last-child { margin-bottom: 0; }\n' +
     '.doc-preview h1 { font-size: 2em; font-weight: 800; margin: .67em 0 .4em; padding-bottom: .3em; border-bottom: 2px solid #eee; }\n' +
     '.doc-preview h2 { font-size: 1.5em; font-weight: 700; margin: 1em 0 .4em; padding-bottom: .2em; border-bottom: 2px solid #111; }\n' +
     '.doc-preview h3 { font-size: 1.17em; font-weight: 700; margin: 1em 0 .4em; }\n' +

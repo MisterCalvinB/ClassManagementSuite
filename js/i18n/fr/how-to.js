@@ -253,7 +253,7 @@
   "ht_de_q1": "Comment rédiger et mettre en forme un document ?",
   "ht_de_a1": "<p>Écrivez en Markdown à gauche (titres, listes, tableaux, formules mathématiques) et voyez le rendu instantanément à droite.</p>",
   "ht_de_q2": "Comment utiliser des modèles ou changer le style ?",
-  "ht_de_a2": "<p>Choisissez un modèle prêt à l'emploi ou ouvrez le panneau <strong>Style / CSS</strong> pour ajuster les polices, marges et en-têtes.</p>",
+  "ht_de_a2": "<p>Choisissez un modèle prêt à l'emploi ou ouvrez le panneau <strong>Style / CSS</strong> pour ajuster les polices, marges et en-têtes. Cliquez sur <strong>Aide CSS</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> dans la barre CSS (ou dans <strong>Outils</strong>) pour ouvrir le tutoriel CSS interactif et parcourir chaque propriété, balise HTML et option avec sa signification.</p>",
   "ht_de_q3": "Comment exporter mon document ?",
   "ht_de_a3": "<p>Cliquez sur <strong>Exporter PDF</strong> ou <strong>Exporter HTML</strong> pour obtenir un document prêt à imprimer.</p>",
   "ht_sec_pdf_title": "Lecteur PDF",

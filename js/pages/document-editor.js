@@ -1021,6 +1021,16 @@ window.addEventListener('DOMContentLoaded', function () {
   document.getElementById('syntax-help-modal').addEventListener('click', function (e) {
     if (e.target === this) hideModal('syntax-help-modal');
   });
+  const btnCssHelper = document.getElementById('btn-css-helper');
+  if (btnCssHelper) btnCssHelper.addEventListener('click', () => { if (window.DeCssHelper) window.DeCssHelper.open(); });
+  const btnMenuCssHelper = document.getElementById('btn-menu-css-helper');
+  if (btnMenuCssHelper) btnMenuCssHelper.addEventListener('click', () => { if (window.DeCssHelper) window.DeCssHelper.open(); });
+  const cssHelperClose = document.getElementById('css-helper-close');
+  if (cssHelperClose) cssHelperClose.addEventListener('click', () => { if (window.DeCssHelper) window.DeCssHelper.close(); });
+  const cssHelperModal = document.getElementById('css-helper-modal');
+  if (cssHelperModal) cssHelperModal.addEventListener('click', function (e) {
+    if (e.target === this && window.DeCssHelper) window.DeCssHelper.close();
+  });
   document.getElementById('btn-editor-settings').addEventListener('click', openSettingsModal);
   document.getElementById('stg-close').addEventListener('click', closeSettingsModal);
   document.getElementById('settings-modal').addEventListener('click', function (e) {
@@ -1273,7 +1283,8 @@ window.addEventListener('DOMContentLoaded', function () {
         'file-modal',
         'save-modal',
         'history-modal',
-        'syntax-help-modal'
+        'syntax-help-modal',
+        'css-helper-modal'
       ];
       for (const id of fallbackModals) {
         const el = document.getElementById(id);

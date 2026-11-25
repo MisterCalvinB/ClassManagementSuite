@@ -251,7 +251,7 @@
   "ht_de_q1": "Come scrivo e formatto i documenti?",
   "ht_de_a1": "<p>Scrivi in Markdown a sinistra (titoli, elenchi, tabelle, formule) e vedi l'anteprima a destra.</p>",
   "ht_de_q2": "Come uso i modelli o cambio lo stile?",
-  "ht_de_a2": "<p>Scegli un modello pronto o apri il pannello <strong>Stile / CSS</strong>.</p>",
+  "ht_de_a2": "<p>Scegli un modello pronto o apri il pannello <strong>Stile / CSS</strong>. Clicca su <strong>Guida CSS</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> nella barra CSS (o in <strong>Strumenti</strong>) per aprire il tutorial CSS interattivo ed esplorare proprietà CSS, tag HTML, opzioni e relativi significati.</p>",
   "ht_de_q3": "Come esporto il documento?",
   "ht_de_a3": "<p>Clicca <strong>Esporta PDF</strong> o <strong>Esporta HTML</strong> per un file pronto per la stampa.</p>",
   "ht_sec_pdf_title": "Lettore PDF",

@@ -251,7 +251,7 @@
   "ht_de_q1": "Wie schreibe und formatiere ich Dokumente?",
   "ht_de_a1": "<p>Schreiben Sie links in Markdown (Überschriften, Listen, Tabellen, Formeln) und sehen Sie rechts die fertige Seite.</p>",
   "ht_de_q2": "Wie nutze ich Vorlagen oder ändere das Design?",
-  "ht_de_a2": "<p>Wählen Sie eine Vorlage oder passen Sie im Bereich <strong>Stil / CSS</strong> Schrift und Ränder an.</p>",
+  "ht_de_a2": "<p>Wählen Sie eine Vorlage oder passen Sie im Bereich <strong>Stil / CSS</strong> Schrift und Ränder an. Klicken Sie auf <strong>CSS-Hilfe</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> in der CSS-Leiste (oder unter <strong>Werkzeuge</strong>), um das interaktive CSS-Tutorial sowie alle CSS-Eigenschaften, HTML-Tags und Optionen samt Bedeutung zu öffnen.</p>",
   "ht_de_q3": "Wie exportiere ich ein Dokument?",
   "ht_de_a3": "<p>Über <strong>PDF exportieren</strong> oder <strong>HTML exportieren</strong> erhalten Sie ein druckfertiges Blatt.</p>",
   "ht_sec_pdf_title": "PDF-Viewer",

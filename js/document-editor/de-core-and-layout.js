@@ -279,6 +279,8 @@ async function renderPreview() {
         try {
           const res = await TypstService.compileToSvg(raw);
           const container = document.getElementById('preview-content');
+          container.classList.add('doc-preview', 'paged-mode');
+          container.classList.remove('doc-pages-container');
           container.innerHTML = '<div class="typst-svg-container">' + res.svg + '</div>';
         } catch (e) {
           document.getElementById('preview-content').innerHTML =
