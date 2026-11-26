@@ -2526,7 +2526,10 @@
       e.stopPropagation();
       closeAllColMenus();
 
-      const th = e.currentTarget.closest('th');
+      const triggerEl = (e.currentTarget && typeof e.currentTarget.closest === 'function')
+        ? e.currentTarget
+        : e.target;
+      const th = triggerEl && typeof triggerEl.closest === 'function' ? triggerEl.closest('th') : null;
       if (!th) return;
 
       const menu = document.createElement('div');
@@ -2546,11 +2549,15 @@
           <img src="../assets/icons/clear.svg" class="btn-icon btn-icon-xs" alt="" />
           <span>${t('mdbResetAllColWidths')}</span>
         </div>
+        <div style="border-top:1px solid #eee;margin:3px 0;"></div>
+        <div class="col-menu-item" data-mdb-action="col-rename" data-mdb-key="${esc(colKey)}">
+          <img src="../assets/icons/edit.svg" class="btn-icon btn-icon-xs" alt="" />
+          <span>${t('mdbRenameColumn')}</span>
+        </div>
       `;
 
       if (isCustom) {
         menuHtml += `
-          <div style="border-top:1px solid #eee;margin:3px 0;"></div>
           <div class="col-menu-item danger" data-mdb-action="col-delete" data-mdb-key="${esc(colKey)}">
             <img src="../assets/icons/delete.svg" class="btn-icon btn-icon-xs" alt="" />
             <span>${t('mdbDeleteColumn')}</span>
@@ -2976,6 +2983,15 @@
           const { fi, ri } = _rcmTarget;
           closeRowContextMenu();
           openRecordTagLinkModal(fi, ri);
+        }
+      });
+
+      $('rcm-autofill-db')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (_rcmTarget) {
+          const { fi, ri } = _rcmTarget;
+          closeRowContextMenu();
+          triggerRecordAutofillDb(fi, ri);
         }
       });
 
@@ -3884,7 +3900,10 @@
         && !field.key.startsWith('_') && field.key !== 'id'
         && (field.type === 'string' || field.type === 'array' || field.type === 'number' || field.isLong);
       const actionBtn = isWordField
-        ? `<button type="button" class="btn btn-secondary btn-sm" data-mdb-action="form-ai-autofill" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>`
+        ? `<div style="display:inline-flex;align-items:center;gap:4px;margin-left:auto;">
+            <button type="button" class="btn btn-secondary btn-sm" data-mdb-action="form-db-autofill" style="padding:2px 8px;font-size:0.75rem;border-radius:4px;cursor:pointer;" title="${t('mdbBtnDbAutofill', 'Check Database')}"><img src="../assets/icons/search.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbBtnDbAutofill">${t('mdbBtnDbAutofill', 'Check Database')}</span></button>
+            <button type="button" class="btn btn-secondary btn-sm" data-mdb-action="form-ai-autofill" style="padding:2px 8px;font-size:0.75rem;border-radius:4px;cursor:pointer;" data-i18n="mdbBtnAutofill"><img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" /> Autofill</button>
+          </div>`
         : (isCompCriteriaField
           ? `<button type="button" class="btn btn-secondary btn-sm" data-mdb-action="comp-picker" data-mdb-key="competenceIds" style="padding:2px 8px;font-size:0.75rem;margin-left:auto;border-radius:4px;cursor:pointer;"><img src="../assets/icons/plus.svg" class="btn-icon btn-icon-xs" alt="" /> <span data-i18n="mdbPickCompetences">${t('mdbPickCompetences')}</span></button>`
           : (isCompLinkedField
@@ -4198,6 +4217,10 @@
         <div style="display:flex;align-items:center;gap:6px;">
           <button type="button" class="btn btn-secondary" style="font-size:0.74rem;padding:4px 8px;" data-mdb-action="open-slm-manager" title="${t('slmManageModelsTitle', 'Offline Language Models')}">
             <img src="../assets/icons/brain.svg" class="btn-icon btn-icon-xs" alt="" />
+          </button>
+          <button type="button" class="btn btn-secondary" id="mdb-db-autofill-btn" style="font-size:0.76rem;padding:5px 10px;font-weight:700;" data-mdb-action="form-db-autofill">
+            <img src="../assets/icons/search.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span>${t('mdbBtnDbAutofill', 'Check Database')}</span>
           </button>
           <button type="button" class="btn btn-primary" id="mdb-ai-autofill-btn" style="font-size:0.76rem;padding:5px 10px;background:#e2c96e;font-weight:800;" data-mdb-action="form-ai-autofill">
             <img src="../assets/icons/sparkles.svg" class="btn-icon btn-icon-xs" alt="" />
@@ -5793,6 +5816,10 @@
       if (window.MdbAi && typeof window.MdbAi.triggerRecordAutofill === 'function') {
         return window.MdbAi.triggerRecordAutofill(fi, ri);
       }
+      return triggerRecordAutofillDb(fi, ri);
+    }
+
+    async function triggerRecordAutofillDb(fi, ri) {
       const file = S.files[fi];
       if (!file || !file.records[ri]) return;
       const rec = file.records[ri];
@@ -5848,6 +5875,10 @@
       if (typeof mdbTriggerFormAiAutofill === 'function') {
         return mdbTriggerFormAiAutofill();
       }
+      return triggerWordAutofillDb();
+    }
+
+    async function triggerWordAutofillDb() {
       const wordEl = $('ff-word') || $('ff-english') || document.querySelector('#edit-body input[type="text"]');
       const targetWord = (wordEl ? wordEl.value : '').trim();
 
@@ -6637,6 +6668,93 @@
       }
 
       showToast(tFmt('mdbColumnDeletedSuccess', { key }));
+      S.schema = buildSchema(getAllRecords());
+      renderAll();
+    }
+
+    async function renameColumn(oldKey) {
+      if (!S.typeKey || !oldKey) return;
+      const customCols = getCustomColumns(S.typeKey);
+      const customDef = customCols.find(c => c.key === oldKey);
+      const rawInput = await showPrompt(tFmt('mdbPromptRenameColumn', { key: oldKey }), oldKey);
+      if (rawInput === null) return;
+      const trimmed = String(rawInput).trim();
+      if (!trimmed) {
+        showToast(t('mdbErrColKeyInvalid'), true);
+        return;
+      }
+
+      const cleanKey = trimmed.replace(/[\s-]+/g, '_').replace(/[^\w$]/g, '');
+      if (!cleanKey || cleanKey.startsWith('_')) {
+        showToast(t('mdbErrColKeyInvalid'), true);
+        return;
+      }
+
+      if (cleanKey === oldKey) {
+        if (customDef && trimmed !== (customDef.label || '')) {
+          customDef.label = trimmed;
+          saveCustomColumns(S.typeKey, customCols);
+          S._lastTheadSignature = '';
+          S.schema = buildSchema(getAllRecords());
+          renderAll();
+          showToast(tFmt('mdbColumnRenamedSuccess', { oldKey, newKey: trimmed }));
+        }
+        return;
+      }
+
+      if (S.schema.some(f => f.key.toLowerCase() === cleanKey.toLowerCase())) {
+        showToast(t('mdbErrColKeyExists'), true);
+        return;
+      }
+
+      // 1. Update custom column metadata if present
+      if (customDef) {
+        customDef.key = cleanKey;
+        customDef.label = trimmed !== cleanKey ? trimmed : cap(cleanKey);
+        saveCustomColumns(S.typeKey, customCols);
+      }
+
+      // 2. Migrate column width preference
+      const widths = getColumnWidths(S.typeKey);
+      if (widths[oldKey] !== undefined) {
+        widths[cleanKey] = widths[oldKey];
+        delete widths[oldKey];
+        try {
+          localStorage.setItem(`mdb_col_widths_v1_${S.typeKey}`, JSON.stringify(widths));
+        } catch (_) {}
+      }
+
+      // 3. Migrate active sort & filter state
+      if (S.sortField === oldKey) S.sortField = cleanKey;
+      if (S.filters && Object.prototype.hasOwnProperty.call(S.filters, oldKey)) {
+        S.filters[cleanKey] = S.filters[oldKey];
+        delete S.filters[oldKey];
+      }
+
+      // 4. Rename key in all loaded records (preserving key order) and save to disk
+      const loadedFiles = S.files.filter(f => f.status === 'loaded');
+      for (const file of loadedFiles) {
+        let touched = false;
+        for (const rec of file.records) {
+          if (rec && typeof rec === 'object' && Object.prototype.hasOwnProperty.call(rec, oldKey)) {
+            const entries = Object.entries(rec);
+            for (const k of Object.keys(rec)) delete rec[k];
+            for (const [k, v] of entries) {
+              rec[k === oldKey ? cleanKey : k] = v;
+            }
+            touched = true;
+          }
+        }
+        if (touched) {
+          const fi = S.files.indexOf(file);
+          if (fi !== -1) {
+            await saveFile(fi);
+          }
+        }
+      }
+
+      showToast(tFmt('mdbColumnRenamedSuccess', { oldKey, newKey: cleanKey }));
+      S._lastTheadSignature = '';
       S.schema = buildSchema(getAllRecords());
       renderAll();
     }
@@ -10852,13 +10970,34 @@ Rules:
           if (!destRes || !destRes.destination) return;
           const finalFilename = destRes.filename || filename;
           const dest = destRes.destination;
+          const parseMarginToInches = (marginStr) => {
+            if (typeof window.parseCssMarginToInches === 'function') return window.parseCssMarginToInches(marginStr);
+            const toIn = (tok) => {
+              const m = String(tok || '').trim().match(/^(-?[\d.]+)\s*(mm|cm|in|px|pt)?$/i);
+              if (!m) return 0.47;
+              const v = parseFloat(m[1]);
+              if (isNaN(v)) return 0.47;
+              const u = (m[2] || 'mm').toLowerCase();
+              if (u === 'in') return v;
+              if (u === 'cm') return v / 2.54;
+              if (u === 'px') return v / 96;
+              if (u === 'pt') return v / 72;
+              return v / 25.4;
+            };
+            const parts = String(marginStr || '12mm 10mm').trim().split(/\s+/).filter(Boolean);
+            if (parts.length === 1) { const v = toIn(parts[0]); return { top: v, right: v, bottom: v, left: v }; }
+            if (parts.length === 2) { const tb = toIn(parts[0]), lr = toIn(parts[1]); return { top: tb, right: lr, bottom: tb, left: lr }; }
+            if (parts.length === 3) { const t = toIn(parts[0]), lr = toIn(parts[1]), b = toIn(parts[2]); return { top: t, right: lr, bottom: b, left: lr }; }
+            return { top: toIn(parts[0]), right: toIn(parts[1]), bottom: toIn(parts[2]), left: toIn(parts[3]) };
+          };
           const pdfReq = {
             html,
             defaultName: finalFilename,
             landscape: pdfSettings.isLandscape,
             pdfOptions: {
               pageSize: pdfSettings.pageSize || 'A4',
-              landscape: pdfSettings.isLandscape
+              landscape: pdfSettings.isLandscape,
+              margins: parseMarginToInches(pdfSettings.margin || '12mm 10mm')
             }
           };
           if (dest === 'to-print') {

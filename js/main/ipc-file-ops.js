@@ -27,7 +27,8 @@ function registerFileOpsIpc(ctx) {
     moveAllowedPathEntry,
     deleteAllowedPathEntry,
     sanitizeRelativePath,
-    resolveAllowedTargetPath
+    resolveAllowedTargetPath,
+    getCustomExportRoots
   } = ctx;
 
   ipcMain.handle('app:quick-switcher-index', async () => {
@@ -165,7 +166,21 @@ function registerFileOpsIpc(ctx) {
     const documents = await _listDirNames(targets.docEditorDocs, 5000);
     const constellations = await _listDirNames(targets.constellations || targets.mindmaps, 5000);
     const toPrint = await _listDirNames(targets.toPrint, 5000);
-    return { ok: true, classes, rosterText, documents, constellations, toPrint };
+    const customExportFiles = [];
+    if (typeof getCustomExportRoots === 'function') {
+      for (const root of getCustomExportRoots()) {
+        const rootTarget = 'exportRoot:' + root.id;
+        const files = await _listDirNames(targets[rootTarget], 2000);
+        customExportFiles.push({
+          id: root.id,
+          label: root.label,
+          folderName: root.folderName,
+          target: rootTarget,
+          files
+        });
+      }
+    }
+    return { ok: true, classes, rosterText, documents, constellations, toPrint, customExportFiles };
   });
 
   ipcMain.handle('app:list-by-path', async (event, request = {}) => {

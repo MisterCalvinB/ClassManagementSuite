@@ -435,7 +435,7 @@
   "ht_fm_q6": "What keyboard shortcuts work in File Manager?",
   "ht_fm_a6": "<p>Click <img src='../assets/icons/keyboard.svg' class='ht-inline-icon' alt='' /> <strong>Shortcuts</strong> in the header to view search, rename, and navigation hotkeys.</p>",
   "ht_fm_q7": "How do I check and fix broken class links with Data Health?",
-  "ht_fm_a7": "<p>Open the <strong>Data Health</strong> tab in File Manager to scan your grades, planner entries, and Board constellations for orphaned class IDs and relink them by class name in one click.</p>",
+  "ht_fm_a7": "<p>Open the <strong>Data Health</strong> tab in File Manager to scan your grades, planner entries, and Board constellations for orphaned class IDs or unreadable files. From the summary bar or each issue card, you can auto-relink matching classes, pick a target class manually, unlink or remove orphaned references, open the file or its folder, or launch the corresponding tool.</p>",
   "ht_db_q11": "How do I use the one-click Teacher Presets in AI Studio?",
   "ht_db_a11": "<p>Open <strong>AI Studio</strong> in Manage Database to see live offline AI worker status and click a <strong>Teacher Preset</strong> chip to pre-fill ready-to-use classroom generation prompts.</p>",
   "ht_cp2_q3": "Can I add the teacher's desk, door, or board markers to the room?",

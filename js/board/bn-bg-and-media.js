@@ -1695,6 +1695,76 @@
       conAttachments.forEach(att => {
         const row = document.createElement('div');
         row.className = 'con-insert-attachment-item';
+        if (att.kind === 'pics' || att.kind === 'pdf') {
+          row.addEventListener('contextmenu', (ev) => {
+            ev.preventDefault();
+            ev.stopPropagation();
+            const oldMenu = document.getElementById('con-media-row-ctx-menu');
+            if (oldMenu) oldMenu.remove();
+            const menu = document.createElement('div');
+            menu.id = 'con-media-row-ctx-menu';
+            menu.className = 'con-mini-thumb-menu';
+            const addRowItem = (iconFile, text, fn) => {
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'con-mini-thumb-menu-item';
+              b.style.display = 'flex';
+              b.style.alignItems = 'center';
+              b.style.gap = '6px';
+              b.innerHTML = '<img src="../assets/icons/' + iconFile + '" style="width:13px;height:13px;flex-shrink:0;" alt="" /> <span></span>';
+              b.querySelector('span').textContent = text;
+              b.onclick = (ce) => {
+                ce.stopPropagation();
+                menu.remove();
+                fn();
+              };
+              menu.appendChild(b);
+            };
+            addRowItem(
+              'pdf-viewer.svg',
+              (typeof t === 'function' ? t('fmOpenInPdfStudio') : '') || 'Open in PDF Viewer',
+              () => {
+                if (att.relativePath && window.Desktop && Desktop.isElectron()) {
+                  Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'mindmaps', openRelPath: att.relativePath } });
+                } else if (att.dataUrl) {
+                  const key = 'cmt_pdf_open_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                  try {
+                    localStorage.setItem(key, JSON.stringify({ dataUrl: att.dataUrl, filename: att.name || 'image.png' }));
+                    if (window.Desktop && Desktop.isElectron()) {
+                      Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+                    } else {
+                      window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+                    }
+                  } catch (_) {}
+                }
+              }
+            );
+            if (att.relativePath && window.Desktop && Desktop.isElectron()) {
+              addRowItem('saved-files.svg', (typeof t === 'function' ? t('fmOpenInSystem') : '') || 'Open file in system', () => {
+                Desktop.openNative('mindmaps', att.relativePath);
+              });
+              addRowItem('file-manager.svg', (typeof t === 'function' ? t('fmOpenLocation') : '') || 'Open location', () => {
+                Desktop.showInFolder('mindmaps', att.relativePath);
+              });
+            }
+            document.body.appendChild(menu);
+            const mw = menu.offsetWidth || 200;
+            const mh = menu.offsetHeight || 120;
+            menu.style.left = Math.min(ev.clientX, window.innerWidth - mw - 8) + 'px';
+            menu.style.top = Math.min(ev.clientY, window.innerHeight - mh - 8) + 'px';
+            setTimeout(() => {
+              const closeFn = (ce) => {
+                if (!menu.contains(ce.target)) {
+                  menu.remove();
+                  document.removeEventListener('click', closeFn);
+                  document.removeEventListener('contextmenu', closeFn);
+                }
+              };
+              document.addEventListener('click', closeFn);
+              document.addEventListener('contextmenu', closeFn);
+            }, 0);
+          });
+        }
 
         const label = document.createElement('div');
         label.className = 'con-media-manage-label';

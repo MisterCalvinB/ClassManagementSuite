@@ -433,7 +433,7 @@
   "ht_fm_q6": "Welche Tastenkürzel gibt es im Dateimanager?",
   "ht_fm_a6": "<p>Klicken Sie oben auf <img src='../assets/icons/keyboard.svg' class='ht-inline-icon' alt='' /> <strong>Tastenkürzel</strong> für Suche und Umbenennen.</p>",
   "ht_fm_q7": "Wie prüfe und repariere ich defekte Klassenverknüpfungen mit Datenintegrität?",
-  "ht_fm_a7": "<p>Öffnen Sie den Tab <strong>Datenintegrität</strong> im Dateimanager, um Noten, Planer und Board-Karten auf verwaiste Klassen-IDs zu prüfen und per Klick nach Klassenname neu zu verknüpfen.</p>",
+  "ht_fm_a7": "<p>Öffnen Sie den Tab <strong>Datenintegrität</strong> im Dateimanager, um Noten, Planer und Board-Karten auf verwaiste Klassen-IDs oder unlesbare Dateien zu prüfen. Über die Zusammenfassung oder jede Problemkarte können Sie passende Klassen automatisch oder manuell neu verknüpfen, Verknüpfungen lösen, Einträge bzw. Dateien entfernen, die Datei oder ihren Ordner öffnen oder das zugehörige Werkzeug starten.</p>",
   "ht_db_q11": "Wie nutze ich die Lehrer-Vorlagen im AI Studio?",
   "ht_db_a11": "<p>Öffnen Sie <strong>AI Studio</strong> in der Datenbankverwaltung, um den Live-Status der Offline-KI zu sehen und über einen <strong>Lehrer-Vorlagen</strong>-Chip fertige Unterrichts-Prompts einzufügen.</p>",
   "ht_cp2_q3": "Kann ich Lehrerpult, Tür oder Tafel einzeichnen?",

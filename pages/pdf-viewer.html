@@ -1413,6 +1413,23 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
 
     // ── Application State ──
+    const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif'];
+    function isImageFilename(name) {
+      const lower = String(name || '').toLowerCase();
+      return IMAGE_EXTS.some(ext => lower.endsWith(ext));
+    }
+    function guessImageMime(name) {
+      const lower = String(name || '').toLowerCase();
+      if (lower.endsWith('.png')) return 'image/png';
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+      if (lower.endsWith('.webp')) return 'image/webp';
+      if (lower.endsWith('.gif')) return 'image/gif';
+      if (lower.endsWith('.bmp')) return 'image/bmp';
+      if (lower.endsWith('.svg')) return 'image/svg+xml';
+      if (lower.endsWith('.avif')) return 'image/avif';
+      return 'image/png';
+    }
+
     const state = {
       pdfDoc: null,
       pdfPath: null,
@@ -1420,6 +1437,8 @@
       pdfTarget: null,
       pdfRelPath: null,
       pdfArrayBuffer: null,
+      isImage: false,
+      imageDataUrl: null,
       numPages: 0,
       currentPage: 1,
       scale: 1.35,
@@ -1550,9 +1569,24 @@
       const openTarget = params.get('openTarget');
       const openRelPath = params.get('openRelPath');
       const openAbsPath = params.get('openAbsPath');
+      const openStorageKey = params.get('openStorageKey');
 
       if (!state.isPresentation) {
-        if (openAbsPath) {
+        if (openStorageKey) {
+          try {
+            const raw = localStorage.getItem(openStorageKey);
+            localStorage.removeItem(openStorageKey);
+            if (raw) {
+              const payload = JSON.parse(raw);
+              if (payload && payload.dataUrl) {
+                await initImageDocument(payload.dataUrl, payload.filename || 'image.png');
+                await loadSidecarAnnotations();
+              }
+            }
+          } catch (err) {
+            console.error('openStorageKey error:', err);
+          }
+        } else if (openAbsPath) {
           await loadPdfFromDisk(openAbsPath);
         } else if (openTarget && openRelPath) {
           await loadPdfFromTarget(openTarget, openRelPath);
@@ -1752,14 +1786,17 @@
       // Search Filter Input
       pdfSearchInput.addEventListener('input', () => filterModalList(pdfSearchInput.value));
 
-      // Modal Filter Tabs
-      document.querySelectorAll('.filter-tab').forEach(tab => {
-        tab.addEventListener('click', () => {
-          document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      // Modal Filter Tabs (delegated so dynamic custom export root tabs work)
+      const filterTabsContainer = document.querySelector('.modal-filter-tabs');
+      if (filterTabsContainer) {
+        filterTabsContainer.addEventListener('click', (e) => {
+          const tab = e.target && e.target.closest ? e.target.closest('.filter-tab') : null;
+          if (!tab) return;
+          filterTabsContainer.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
           tab.classList.add('active');
           filterModalList(pdfSearchInput.value, tab.getAttribute('data-filter'));
         });
-      });
+      }
 
       // Drag & Drop
       window.addEventListener('dragover', (e) => e.preventDefault());
@@ -1955,7 +1992,12 @@
         }
 
         const bytes = _toUint8Array(res.content);
-        await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), state.pdfFilename);
+        const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        if (isImageFilename(state.pdfFilename)) {
+          await initImageDocument(buf, state.pdfFilename);
+        } else {
+          await initPdfDocument(buf, state.pdfFilename);
+        }
         await loadSidecarAnnotations();
       } catch (err) {
         console.error('loadPdfFromTarget error:', err);
@@ -2005,7 +2047,12 @@
             return;
           }
           const bytes = _toUint8Array(res.content);
-          await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), state.pdfFilename);
+          const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+          if (isImageFilename(state.pdfFilename)) {
+            await initImageDocument(buf, state.pdfFilename);
+          } else {
+            await initPdfDocument(buf, state.pdfFilename);
+          }
           await loadSidecarAnnotations();
         }
       } catch (err) {
@@ -2031,6 +2078,8 @@
       state.pdfBufferBase64 = optBase64 || null;
       state.pdfFilename = title;
       state.pdfArrayBuffer = arrayBuffer;
+      state.isImage = false;
+      state.imageDataUrl = null;
       state.pdfDoc = await pdfjsLib.getDocument({
         data: new Uint8Array(workerBuffer),
         cMapUrl: new URL('../modules/cmaps/', location.href).href,
@@ -2093,6 +2142,111 @@
           msg.bufferBase64 = state.pdfBufferBase64;
         }
         syncChannel.postMessage(msg);
+      }
+    }
+
+    async function initImageDocument(source, title) {
+      if (state.pdfDoc) {
+        try { await state.pdfDoc.destroy(); } catch (_) {}
+        state.pdfDoc = null;
+      }
+
+      let objectUrlToRevoke = null;
+      let imgSrc = '';
+      let arrayBuffer = null;
+      let dataUrl = null;
+
+      if (source instanceof ArrayBuffer) {
+        arrayBuffer = source;
+        const mime = guessImageMime(title);
+        const blob = new Blob([source], { type: mime });
+        objectUrlToRevoke = URL.createObjectURL(blob);
+        imgSrc = objectUrlToRevoke;
+      } else if (typeof source === 'string') {
+        imgSrc = source;
+        if (source.startsWith('data:')) {
+          dataUrl = source;
+        }
+      } else {
+        throw new Error('Unsupported image source');
+      }
+
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = () => reject(new Error('Failed to decode image'));
+        el.src = imgSrc;
+      });
+
+      const natW = Math.max(1, img.naturalWidth || img.width || 800);
+      const natH = Math.max(1, img.naturalHeight || img.height || 600);
+
+      state.pdfBufferBase64 = null;
+      state.pdfFilename = title || 'image.png';
+      state.pdfArrayBuffer = arrayBuffer;
+      state.isImage = true;
+      state.imageDataUrl = dataUrl;
+      state.pdfDoc = {
+        numPages: 1,
+        getPage: async (pNum) => {
+          if (pNum !== 1) throw new Error('Invalid page number');
+          return {
+            getViewport: ({ scale }) => ({
+              width: natW * scale,
+              height: natH * scale,
+              scale
+            }),
+            render: ({ canvasContext, viewport: vp }) => {
+              const promise = Promise.resolve().then(() => {
+                canvasContext.drawImage(img, 0, 0, vp.width, vp.height);
+              });
+              return { promise, cancel: () => {} };
+            },
+            getTextContent: async () => ({ items: [] })
+          };
+        },
+        destroy: async () => {
+          if (objectUrlToRevoke) {
+            try { URL.revokeObjectURL(objectUrlToRevoke); } catch (_) {}
+            objectUrlToRevoke = null;
+          }
+        }
+      };
+
+      state.numPages = 1;
+      state.currentPage = 1;
+      state.annotations = {};
+      state.undoStack = [];
+      state.redoStack = [];
+
+      if (!state.isPresentation && viewport && viewport.clientWidth > 120) {
+        const fitScale = (viewport.clientWidth - 80) / natW;
+        state.scale = Math.max(0.25, Math.min(1.5, Number(fitScale.toFixed(2))));
+      }
+
+      emptyState.style.display = 'none';
+      if (state.isPresentation) {
+        toolBar.style.display = 'none';
+        pageStepperGroup.style.display = 'none';
+        zoomGroup.style.display = 'none';
+        projectorBtn.style.display = 'none';
+        docBadge.style.display = 'none';
+      } else {
+        toolBar.style.display = 'flex';
+        pageStepperGroup.style.display = 'inline-flex';
+        zoomGroup.style.display = 'inline-flex';
+        projectorBtn.style.display = 'inline-flex';
+        docBadge.style.display = 'inline-flex';
+        docBadgeName.textContent = state.pdfFilename;
+        setDirty(false);
+      }
+
+      updatePageLabel();
+      if (typeof updateZoomLabel === 'function') updateZoomLabel();
+      await renderAllPages();
+      if (!state.isPresentation) {
+        buildThumbnails();
+        syncChannel.postMessage(_buildOpenDocMessage());
       }
     }
 
@@ -3689,7 +3843,7 @@
 
         const fullHtml = `<!DOCTYPE html><html><body style="margin:0;padding:0;">${pagesHtml.join('')}</body></html>`;
         if (window.Desktop && typeof Desktop.printToPdf === 'function') {
-          const expName = state.pdfFilename.replace(/\.pdf$/i, '') + '-annotated.pdf';
+          const expName = state.pdfFilename.replace(/\.(pdf|png|jpe?g|webp|gif|bmp|svg|avif)$/i, '') + '-annotated.pdf';
           const r = await Desktop.printToPdf({
             html: fullHtml,
             defaultName: expName,
@@ -3735,12 +3889,37 @@
           { target: 'docEditorDocs', label: 'Doc Editor' }
         ];
 
+        const tabsWrap = document.querySelector('.modal-filter-tabs');
+        if (tabsWrap) {
+          tabsWrap.querySelectorAll('.filter-tab[data-dynamic-root="1"]').forEach(el => el.remove());
+        }
+        if (typeof Desktop.getExportRoots === 'function') {
+          try {
+            const rootsRes = await Desktop.getExportRoots();
+            if (rootsRes && rootsRes.ok && Array.isArray(rootsRes.roots)) {
+              rootsRes.roots.forEach(r => {
+                const tKey = 'exportRoot:' + r.id;
+                targets.push({ target: tKey, label: r.label });
+                if (tabsWrap) {
+                  const btn = document.createElement('button');
+                  btn.type = 'button';
+                  btn.className = 'filter-tab';
+                  btn.setAttribute('data-filter', tKey);
+                  btn.setAttribute('data-dynamic-root', '1');
+                  btn.textContent = r.label;
+                  tabsWrap.appendChild(btn);
+                }
+              });
+            }
+          } catch (_) {}
+        }
+
         for (const tg of targets) {
           try {
-            const res = await Desktop.listByPath(tg.target, '', { extensions: ['.pdf'], recursive: true });
+            const res = await Desktop.listByPath(tg.target, '', { extensions: ['.pdf', ...IMAGE_EXTS], recursive: true });
             if (res && res.ok && Array.isArray(res.files)) {
               res.files.forEach(f => {
-                if (!f.isDirectory && f.filename.toLowerCase().endsWith('.pdf')) {
+                if (!f.isDirectory && (f.filename.toLowerCase().endsWith('.pdf') || isImageFilename(f.filename))) {
                   appPdfsCache.push({
                     target: tg.target,
                     targetLabel: tg.label,
@@ -3845,7 +4024,11 @@
     async function pickLocalFile() {
       if (window.Desktop && Desktop.isElectron()) {
         try {
-          const res = await Desktop.pickAndReadFile([{ name: 'PDF Documents', extensions: ['pdf'] }]);
+          const res = await Desktop.pickAndReadFile([
+            { name: 'PDF & Images', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'] },
+            { name: 'PDF Documents', extensions: ['pdf'] },
+            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'] }
+          ]);
           if (res && res.ok && res.name) {
             const diskPath = res.path || res.filePath;
             if (diskPath && typeof Desktop.checkFileOpen === 'function') {
@@ -3870,7 +4053,12 @@
             // Picked local file (fallback when path is not available)
             if (res.content) {
               const bytes = _toUint8Array(res.content);
-              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), res.name);
+              const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+              if (isImageFilename(res.name)) {
+                await initImageDocument(buf, res.name);
+              } else {
+                await initPdfDocument(buf, res.name);
+              }
               await loadSidecarAnnotations();
             }
           }
@@ -3881,10 +4069,15 @@
         // Browser fallback: file input
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'application/pdf';
+        input.accept = 'application/pdf,image/*';
         input.onchange = async () => {
           if (input.files && input.files[0]) {
             const file = input.files[0];
+            if (isImageFilename(file.name) || (file.type && file.type.startsWith('image/'))) {
+              const buffer = await file.arrayBuffer();
+              await initImageDocument(buffer, file.name);
+              return;
+            }
             if (file.size > LARGE_PDF_WARN_BYTES) {
               const buf = await file.arrayBuffer();
               if (await _promptOpenInSystemViewer({ blobBuffer: buf, fileSizeBytes: file.size })) {
@@ -3907,9 +4100,15 @@
 
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        if (file.name.toLowerCase().endsWith('.pdf')) {
+        const isImg = isImageFilename(file.name) || (file.type && file.type.startsWith('image/'));
+        if (file.name.toLowerCase().endsWith('.pdf') || isImg) {
           if (window.Desktop && Desktop.isElectron() && file.path) {
             await loadPdfFromDisk(file.path);
+            return;
+          }
+          if (isImg) {
+            const buffer = await file.arrayBuffer();
+            await initImageDocument(buffer, file.name);
             return;
           }
           if (file.size > LARGE_PDF_WARN_BYTES) {
@@ -3923,7 +4122,7 @@
           const buffer = await file.arrayBuffer();
           initPdfDocument(buffer, file.name);
         } else {
-          showToast('Please drop a valid PDF file.', true);
+          showToast('Please drop a valid PDF or image file.', true);
         }
       }
     }
@@ -3968,6 +4167,7 @@
       const msg = {
         action: 'open-doc',
         filename: state.pdfFilename,
+        isImage: !!state.isImage,
         currentPage: state.currentPage || 1,
         annotations: state.annotations,
         scale: state.scale,
@@ -3981,6 +4181,8 @@
         msg.relPath = state.pdfRelPath;
       } else if (state.pdfPath) {
         msg.diskPath = state.pdfPath;
+      } else if (state.isImage && state.imageDataUrl) {
+        msg.imageDataUrl = state.imageDataUrl;
       } else if (state.pdfBufferBase64 || state.pdfArrayBuffer) {
         if (!state.pdfBufferBase64 && state.pdfArrayBuffer) {
           state.pdfBufferBase64 = arrayBufferToBase64(state.pdfArrayBuffer);
@@ -4076,7 +4278,12 @@
             }
             if (res && res.ok) {
               const bytes = _toUint8Array(res.content);
-              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), msg.filename);
+              const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+              if (msg.isImage || isImageFilename(msg.filename)) {
+                await initImageDocument(buf, msg.filename);
+              } else {
+                await initPdfDocument(buf, msg.filename);
+              }
               _mirrorScheduleApplyViewport();
             }
             return;
@@ -4088,16 +4295,30 @@
             }
             if (res && res.ok) {
               const bytes = _toUint8Array(res.content);
-              await initPdfDocument(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), msg.filename);
+              const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+              if (msg.isImage || isImageFilename(msg.filename)) {
+                await initImageDocument(buf, msg.filename);
+              } else {
+                await initPdfDocument(buf, msg.filename);
+              }
               _mirrorScheduleApplyViewport();
             }
+            return;
+          }
+          if (msg.imageDataUrl) {
+            await initImageDocument(msg.imageDataUrl, msg.filename);
+            _mirrorScheduleApplyViewport();
             return;
           }
           if (!msg.bufferBase64) return;
           const binary = atob(msg.bufferBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          await initPdfDocument(bytes.buffer, msg.filename, msg.bufferBase64);
+          if (msg.isImage || isImageFilename(msg.filename)) {
+            await initImageDocument(bytes.buffer, msg.filename);
+          } else {
+            await initPdfDocument(bytes.buffer, msg.filename, msg.bufferBase64);
+          }
           _mirrorScheduleApplyViewport();
         } else if (msg.action === 'viewport-scroll') {
           if (msg.vW) {

@@ -5710,6 +5710,13 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('con-img-sp-openpdfviewer-btn');
+      if (!el) return;
+      el.addEventListener('click', function () {
+        if (typeof window.conImgSpOpenPdfViewer === 'function') window.conImgSpOpenPdfViewer();
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-bev-953]');
       if (!el) return;
       var handler = function (event) { conImgSpOpenFolder() };

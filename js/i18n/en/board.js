@@ -709,6 +709,7 @@
   "conSpDup": " Dup",
   "conSpCrop": "Crop",
   "conSpOpen": "Open",
+  "conSpOpenPdfViewer": "Open in PDF Viewer",
   "conSpFolder": "Folder",
   "conSpDelete": "Delete",
   "conSpFit": "Fit",

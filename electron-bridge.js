@@ -1417,6 +1417,42 @@
     return api.deleteArchive(payload);
   }
 
+  async function getExportRoots() {
+    if (!isElectron()) {
+      try {
+        const raw = window.localStorage ? window.localStorage.getItem('cmt-custom-export-roots') : null;
+        const parsed = raw ? JSON.parse(raw) : [];
+        return { ok: true, roots: Array.isArray(parsed) ? parsed : [] };
+      } catch (_) {
+        return { ok: true, roots: [] };
+      }
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.getExportRoots !== 'function') {
+      return { ok: false, roots: [] };
+    }
+    return api.getExportRoots();
+  }
+
+  async function saveExportRoots(request) {
+    const payload = Array.isArray(request) ? { roots: request } : (request || {});
+    if (!isElectron()) {
+      try {
+        if (window.localStorage) {
+          window.localStorage.setItem('cmt-custom-export-roots', JSON.stringify(payload.roots || []));
+        }
+        return { ok: true, roots: payload.roots || [] };
+      } catch (err) {
+        return { ok: false, error: err.message };
+      }
+    }
+    const api = getDesktopApi();
+    if (!api || typeof api.saveExportRoots !== 'function') {
+      return { ok: false, error: 'saveExportRoots API unavailable' };
+    }
+    return api.saveExportRoots(payload);
+  }
+
   function getAppTeacherName() {
     try {
       if (typeof window !== 'undefined') {
@@ -1442,6 +1478,8 @@
 
   window.Desktop = Object.freeze({
     getTeacherName: getAppTeacherName,
+    getExportRoots,
+    saveExportRoots,
     adjustZoom,
     resetZoom,
     setZoomFactor,

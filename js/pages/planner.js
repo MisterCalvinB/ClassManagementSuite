@@ -6982,6 +6982,12 @@
       if (pickerBtn) pickerBtn.textContent = t('deExportPdfFilePicker') || 'Choose with file picker';
 
       if (pdfExportModalCallback) pdfExportModalCallback(null);
+      var customRootsContainer = document.getElementById('pl-pdf-export-custom-roots');
+      if (customRootsContainer && typeof window.cmtBindExportRootsInModal === 'function') {
+        window.cmtBindExportRootsInModal(customRootsContainer, function (dest) {
+          closePdfExportModal(dest);
+        }, { compact: true, buttonClass: 'tb-btn', newBtnClass: 'tb-btn' });
+      }
       return new Promise(function (resolve) {
         pdfExportModalCallback = resolve;
         openModal('pdfExportModal');
@@ -7009,11 +7015,13 @@
       var pdfSettings = getPdfExportSettings();
       var pdfOpts = { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape };
 
+      var plannerTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+
       if (filters.separateClassFiles) {
         var classes = getSeparateExportClassList();
         if (classes.length === 0) return;
 
-        if (destination === 'to-print') {
+        if (plannerTarget) {
           let successCount = 0;
           let lastPath = '';
           let lastName = '';
@@ -7027,7 +7035,7 @@
             }
             const result = await Desktop.printPdf({
               html: html,
-              target: 'toPrint',
+              target: plannerTarget,
               filename: fileBase + '.pdf',
               pdfOptions: pdfOpts
             });
@@ -7118,8 +7126,8 @@
         html = await ExportStylesService.injectStyleIntoHtml(html, ExportStylesService.getSelectedStyle('planner'));
       }
       var pdfReq = { html: html, pdfOptions: pdfOpts };
-      if (destination === 'to-print') {
-        pdfReq.target = 'toPrint';
+      if (plannerTarget) {
+        pdfReq.target = plannerTarget;
         pdfReq.filename = fileBase + '.pdf';
       } else {
         pdfReq.defaultName = fileBase + '.pdf';

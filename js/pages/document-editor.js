@@ -1785,6 +1785,7 @@ window.addEventListener('DOMContentLoaded', function () {
   initTablePicker();
   initImageDrop();
   initImagePaste();
+  if (typeof initImageContextMenu === 'function') initImageContextMenu();
   initWysiwygListeners();
   deUpdateViewSwitcherState();
   deBookPopulateDropdown();

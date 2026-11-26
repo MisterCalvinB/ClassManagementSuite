@@ -458,12 +458,15 @@ async function fixPreviewImages(container) {
     const filename = relativePath.split('/').pop();
     if (!filename) return;
     try {
+      let resolvedRel = relativePath;
       let r = await Desktop.readByPath('docEditorDocs', relativePath, { encoding: 'base64' });
       if ((!r || !r.ok || !r.content) && currentDocSubdir && !relativePath.startsWith(currentDocSubdir + '/')) {
-        r = await Desktop.readByPath('docEditorDocs', currentDocSubdir + '/' + relativePath, { encoding: 'base64' });
+        resolvedRel = currentDocSubdir + '/' + relativePath;
+        r = await Desktop.readByPath('docEditorDocs', resolvedRel, { encoding: 'base64' });
       }
       if (r && r.content) {
         const ext = (filename.split('.').pop() || 'png').toLowerCase();
+        img.dataset.deRelPath = resolvedRel;
         img.src = 'data:' + (IMAGE_MIME_MAP[ext] || 'image/png') + ';base64,' + r.content;
       }
     } catch (e) { }
@@ -615,6 +618,107 @@ function initImagePaste() {
       embedImageFile(imgFile);
     }
   }, true);
+}
+
+function deCloseImageContextMenu() {
+  const existing = document.getElementById('de-img-ctx-menu');
+  if (existing) existing.remove();
+}
+
+function initImageContextMenu() {
+  const containers = ['preview-pane', 'wysiwyg-editor', 'full-preview-pane', 'hist-preview-pane'];
+  containers.forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.deImgCtxBound === '1') return;
+    el.dataset.deImgCtxBound = '1';
+    el.addEventListener('contextmenu', function (e) {
+      const img = e.target && e.target.closest ? e.target.closest('img') : null;
+      if (!img) return;
+      e.preventDefault();
+      e.stopPropagation();
+      deCloseImageContextMenu();
+
+      const relPathAttr = img.dataset.deRelPath || '';
+      const rawSrc = img.getAttribute('src') || '';
+      let relPath = relPathAttr;
+      if (!relPath && rawSrc && !rawSrc.startsWith('data:') && !rawSrc.startsWith('http://') && !rawSrc.startsWith('https://') && !rawSrc.startsWith('blob:')) {
+        const clean = decodeURIComponent(rawSrc.replace(/\?.*$/, ''));
+        relPath = (typeof currentDocSubdir !== 'undefined' && currentDocSubdir && !clean.startsWith(currentDocSubdir + '/') && !clean.includes('/'))
+          ? (currentDocSubdir + '/' + clean)
+          : clean;
+      }
+
+      const menu = document.createElement('div');
+      menu.id = 'de-img-ctx-menu';
+      menu.className = 'de-img-ctx-menu';
+
+      const addItem = (iconFile, label, handler) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'de-img-ctx-item';
+        const icon = document.createElement('img');
+        icon.src = '../assets/icons/' + iconFile;
+        icon.alt = '';
+        btn.appendChild(icon);
+        const span = document.createElement('span');
+        span.textContent = label;
+        btn.appendChild(span);
+        btn.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          deCloseImageContextMenu();
+          handler();
+        });
+        menu.appendChild(btn);
+      };
+
+      const openPdfLabel = (typeof t === 'function' ? t('fmOpenInPdfStudio') : '') || 'Open in PDF Viewer';
+      addItem('pdf-viewer.svg', openPdfLabel, () => {
+        if (relPath && window.Desktop && Desktop.isElectron()) {
+          Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'docEditorDocs', openRelPath: relPath } });
+          return;
+        }
+        const src = img.src || rawSrc;
+        if (!src) return;
+        const filename = (relPath ? relPath.split('/').pop() : (img.alt || 'image.png')) || 'image.png';
+        const key = 'cmt_pdf_open_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+        try {
+          localStorage.setItem(key, JSON.stringify({ dataUrl: src, filename }));
+        } catch (_) { return; }
+        if (window.Desktop && Desktop.isElectron()) {
+          Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+        } else {
+          window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+        }
+      });
+
+      if (relPath && window.Desktop && Desktop.isElectron()) {
+        addItem('saved-files.svg', (typeof t === 'function' ? t('fmOpenInSystem') : '') || 'Open file in system', () => {
+          Desktop.openNative('docEditorDocs', relPath);
+        });
+        addItem('file-manager.svg', (typeof t === 'function' ? t('fmOpenLocation') : '') || 'Open location', () => {
+          Desktop.showInFolder('docEditorDocs', relPath);
+        });
+      }
+
+      document.body.appendChild(menu);
+      const mw = menu.offsetWidth || 200;
+      const mh = menu.offsetHeight || 120;
+      menu.style.left = Math.min(e.clientX, window.innerWidth - mw - 8) + 'px';
+      menu.style.top = Math.min(e.clientY, window.innerHeight - mh - 8) + 'px';
+
+      setTimeout(() => {
+        const dismiss = (ev) => {
+          if (!menu.contains(ev.target)) {
+            deCloseImageContextMenu();
+            document.removeEventListener('click', dismiss);
+            document.removeEventListener('contextmenu', dismiss);
+          }
+        };
+        document.addEventListener('click', dismiss);
+        document.addEventListener('contextmenu', dismiss);
+      }, 0);
+    });
+  });
 }
 
 // ── Monaco init ──────────────────────────────────────────

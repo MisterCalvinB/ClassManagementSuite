@@ -133,6 +133,35 @@
           () => { if (typeof window.conOpenPageSnapshotWindow === 'function') window.conOpenPageSnapshotWindow(pageIndex); }
         );
         addMenuItem(
+          'pdf-viewer.svg',
+          (typeof t === 'function' ? t('fmOpenInPdfStudio') : '') || 'Open in PDF Viewer',
+          async () => {
+            try {
+              const padded = String(pageIndex + 1).padStart(3, '0');
+              if (_conCurrentFolderName && window.Desktop && Desktop.isElectron()) {
+                for (const ext of ['webp', 'png']) {
+                  const rel = _conCurrentFolderName + '/page-snapshots/page-' + padded + '.' + ext;
+                  const r = await Desktop.readByPath('mindmaps', rel, { encoding: 'base64' }).catch(() => null);
+                  if (r && r.ok && r.content) {
+                    Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'mindmaps', openRelPath: rel } });
+                    return;
+                  }
+                }
+              }
+              const dataUrl = _conPageSnapshotPngs && _conPageSnapshotPngs[pageIndex];
+              if (dataUrl) {
+                const key = 'cmt_pdf_open_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                localStorage.setItem(key, JSON.stringify({ dataUrl, filename: 'page-' + padded + '.png' }));
+                if (window.Desktop && Desktop.isElectron()) {
+                  Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+                } else {
+                  window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+                }
+              }
+            } catch (_) {}
+          }
+        );
+        addMenuItem(
           'external-link.svg',
           typeof t === 'function' ? t('conOpenPageInNewWindow') : 'Open page in new window',
           () => { if (typeof window.conOpenPageInNewWindow === 'function') window.conOpenPageInNewWindow(pageIndex); }

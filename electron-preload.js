@@ -179,6 +179,12 @@ const exposedApi = {
   resetFolders(request) {
     return invoke('app:reset-folders', request);
   },
+  getExportRoots() {
+    return invoke('app:get-export-roots');
+  },
+  saveExportRoots(request) {
+    return invoke('app:save-export-roots', request);
+  },
   getDataLocation() {
     return invoke('app:get-data-location');
   },

@@ -439,11 +439,70 @@ function startLauncherBackgroundCleanup() {
   }, 10 * 60 * 1000);
 }
 
+const RESERVED_EXPORT_ROOT_FOLDERS = new Set([
+  'to-print', 'lessons', 'mindmaps', 'custom-data', 'data', 'grades',
+  'group-participation', 'document-editor', 'class-plans', 'game-results',
+  'log', 'tests', 'export-css', 'trash', 'history', 'backups', 'node_modules'
+]);
+
+function sanitizeExportRootFolderName(raw) {
+  let s = String(raw || '').trim().toLowerCase();
+  try { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (_) {}
+  s = s.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+  if (!s || s === '.' || s === '..' || RESERVED_EXPORT_ROOT_FOLDERS.has(s)) return '';
+  return s;
+}
+
+let _exportRootsCache = { root: '', mtimeMs: -1, roots: [] };
+
+function invalidateExportRootsCache() {
+  _exportRootsCache = { root: '', mtimeMs: -1, roots: [] };
+}
+
+function getCustomExportRoots() {
+  const writableRoot = getWritableRootDir();
+  const configPath = path.join(writableRoot, 'user', 'config.js');
+  try {
+    const st = fsSync.statSync(configPath);
+    if (_exportRootsCache.root === writableRoot && _exportRootsCache.mtimeMs === st.mtimeMs) {
+      return _exportRootsCache.roots;
+    }
+    const content = fsSync.readFileSync(configPath, 'utf8');
+    let parsed = null;
+    try {
+      const vm = require('vm');
+      const sandbox = { window: {}, globalThis: {} };
+      vm.runInNewContext(content.replace(/^\s*(const|let)\s+/gm, 'var '), sandbox, { timeout: 200 });
+      parsed = sandbox.CLASS_MANAGEMENT_CONFIG || null;
+    } catch (_) {
+      const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+      if (match) parsed = JSON.parse(match[1]);
+    }
+    const rawRoots = (parsed && parsed.export && Array.isArray(parsed.export.customRoots)) ? parsed.export.customRoots : [];
+    const seen = new Set();
+    const roots = [];
+    for (const item of rawRoots) {
+      if (!item || typeof item !== 'object') continue;
+      const label = String(item.label || item.name || '').trim();
+      const folderName = sanitizeExportRootFolderName(item.folderName || label);
+      if (!label || !folderName) continue;
+      const id = String(item.id || folderName).trim().toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') || folderName;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      roots.push({ id, label, folderName });
+    }
+    _exportRootsCache = { root: writableRoot, mtimeMs: st.mtimeMs, roots };
+    return roots;
+  } catch (_) {
+    return [];
+  }
+}
+
 function getSaveTargets() {
   const writableRoot = getWritableRootDir();
   const customDataRoot = path.join(writableRoot, 'user/custom-data');
 
-  return {
+  const baseTargets = {
     app: ROOT_DIR,
     user: path.join(writableRoot, 'user'),
     lessons: path.join(writableRoot, 'user/lessons'),
@@ -488,6 +547,10 @@ function getSaveTargets() {
     exportCss:     path.join(ROOT_DIR, 'css/export-css'),
     userExportCss: path.join(writableRoot, 'user/export-css')
   };
+  for (const root of getCustomExportRoots()) {
+    baseTargets['exportRoot:' + root.id] = path.join(writableRoot, 'user', root.folderName);
+  }
+  return baseTargets;
 }
 
 function getWritablePaths() {
@@ -1521,7 +1584,10 @@ function resolveAllowedTargetDir(pageFile, target) {
     throw new Error(`Saving is not configured for ${pageFile}.`);
   }
   if (!allowedTargets.has(target)) {
-    throw new Error(`${pageFile} cannot access ${target}.`);
+    const isCustomExportRoot = typeof target === 'string' && target.startsWith('exportRoot:') && (allowedTargets.has('toPrint') || allowedTargets.has('user'));
+    if (!isCustomExportRoot) {
+      throw new Error(`${pageFile} cannot access ${target}.`);
+    }
   }
 
   const targetDir = getSaveTargets()[target];
@@ -4236,7 +4302,13 @@ registerFileOpsIpc({
   app, dialog, ipcMain, fs, fsSync, os, path, crypto, buildZip, getSaveTargets,
   getRequestingPage, listAllowedPathFiles, createAllowedPathDirectory, _broadcastDataChanged,
   resolveAllowedTargetDir, sanitizeFilename, renameAllowedPathEntry, statAllowedPathEntry,
-  copyAllowedPathEntry, moveAllowedPathEntry, deleteAllowedPathEntry, sanitizeRelativePath, resolveAllowedTargetPath
+  copyAllowedPathEntry, moveAllowedPathEntry, deleteAllowedPathEntry, sanitizeRelativePath, resolveAllowedTargetPath,
+  getCustomExportRoots
+});
+const { registerExportRootsIpc } = require('./js/main/ipc-export-roots');
+registerExportRootsIpc({
+  ipcMain, fs, path, getWritableRootDir, getRequestingPage,
+  getCustomExportRoots, invalidateExportRootsCache, sanitizeExportRootFolderName, _broadcastDataChanged
 });
 
 const { registerBackupSyncIpc } = require('./js/main/ipc-backup-sync');

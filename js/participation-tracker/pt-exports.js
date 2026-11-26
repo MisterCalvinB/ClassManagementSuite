@@ -63,6 +63,13 @@ function openPtPdfExportModal() {
 
     if (ptPdfExportModalCallback) ptPdfExportModalCallback(null);
 
+    const customRootsContainer = document.getElementById('pt-pdf-export-custom-roots');
+    if (customRootsContainer && typeof window.cmtBindExportRootsInModal === 'function') {
+        window.cmtBindExportRootsInModal(customRootsContainer, function (dest) {
+            closePtPdfExportModal(dest);
+        }, { compact: true, buttonClass: 'btn btn-secondary', newBtnClass: 'btn btn-secondary' });
+    }
+
     return new Promise(resolve => {
         ptPdfExportModalCallback = resolve;
         const modal = document.getElementById('ptPdfExportModal');
@@ -1208,8 +1215,9 @@ async function executeExhaustiveReport(reportType, format) {
                     landscape: pdfSettings.isLandscape,
                     pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
                 };
-                if (destination === 'to-print') {
-                    pdfReq.target = 'toPrint';
+                const ptTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+                if (ptTarget) {
+                    pdfReq.target = ptTarget;
                     pdfReq.filename = defaultName;
                 } else {
                     pdfReq.defaultName = defaultName;
@@ -1635,8 +1643,9 @@ async function exportCategoryAsPdf(category, data) {
                 landscape: pdfSettings.isLandscape,
                 pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
             };
-            if (destination === 'to-print') {
-                pdfReq.target = 'toPrint';
+            const ptTarget2 = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+            if (ptTarget2) {
+                pdfReq.target = ptTarget2;
                 pdfReq.filename = defaultName;
             } else {
                 pdfReq.defaultName = defaultName;

@@ -13,6 +13,7 @@
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/export-roots.js"></script>
   <script src="../js/shared/wizard.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/speech-transcriber.js"></script>
@@ -171,6 +172,22 @@
             </div>
             <p class="field-hint" style="margin-top:8px;">
               <span class="save-status" id="pdfExportSaveStatus" data-i18n="saved">Saved</span>
+            </p>
+          </section>
+
+          <!-- ── Export Root Folders ────────────────────────── -->
+          <section class="config-section" id="gcExportRootsSection">
+            <h2 data-i18n="gcSecExportRoots">Export Root Folders</h2>
+            <p class="section-desc" data-i18n="gcSecExportRootsDesc">Manage quick-save root folders (modeled after user/to-print) available in export dialogs, Quick Switcher, and PDF Viewer.</p>
+            <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+              <button type="button" class="neo-btn neo-btn-sm neo-btn-primary" id="gcAddExportRootBtn" style="display:inline-flex;align-items:center;gap:6px;">
+                <img src="../assets/icons/plus.svg" style="width:14px;height:14px;" alt="">
+                <span data-i18n="exportNewRootFolder">New Root Folder...</span>
+              </button>
+            </div>
+            <div id="gcExportRootsList" style="display:flex;flex-direction:column;gap:8px;margin-top:12px;"></div>
+            <p class="field-hint" style="margin-top:8px;">
+              <span class="save-status" id="exportRootsSaveStatus" data-i18n="saved">Saved</span>
             </p>
           </section>
         </div>
@@ -1362,6 +1379,128 @@
       pdfOrientationSelect.addEventListener('change', function () {
         patchExportSettings({ orientation: pdfOrientationSelect.value });
         flashSaved(pdfExportSaveStatus);
+      });
+    }
+
+    /* ── Export Root Folders ───────────────────────────────── */
+    var gcExportRootsList = document.getElementById('gcExportRootsList');
+    var gcAddExportRootBtn = document.getElementById('gcAddExportRootBtn');
+    var exportRootsSaveStatus = document.getElementById('exportRootsSaveStatus');
+
+    function gcT(key, fallback) {
+      try {
+        if (window.i18n && typeof window.i18n.t === 'function') {
+          var v = window.i18n.t(key);
+          if (v && v !== key) return v;
+        }
+      } catch (_) {}
+      return fallback;
+    }
+
+    async function renderGcExportRoots() {
+      if (!gcExportRootsList || !window.ExportRootsService) return;
+      var roots = await ExportRootsService.list();
+      gcExportRootsList.innerHTML = '';
+
+      // Built-in default to-print row
+      var defRow = document.createElement('div');
+      defRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#fafaf7;border:2px solid var(--neo-border-color,#333333);border-radius:6px;';
+      defRow.innerHTML =
+        '<div style="display:flex;align-items:center;gap:10px;min-width:0;">' +
+          '<img src="../assets/icons/printer.svg" style="width:18px;height:18px;flex-shrink:0;" alt="">' +
+          '<div style="min-width:0;">' +
+            '<div style="font-weight:800;font-size:0.9rem;color:#222;">' + gcT('exportToPrintFolder', 'Print Folder (user/to-print)') + '</div>' +
+            '<div style="font-size:0.76rem;color:#555;font-weight:600;">user/to-print/</div>' +
+          '</div>' +
+        '</div>' +
+        '<span style="font-size:0.72rem;font-weight:800;padding:2px 8px;border:1.5px solid #333;border-radius:4px;background:#fef08a;color:#222;">' + gcT('gcExportRootBuiltIn', 'Built-in') + '</span>';
+      gcExportRootsList.appendChild(defRow);
+
+      roots.forEach(function (root) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;background:#fff;border:2px solid var(--neo-border-color,#333333);border-radius:6px;box-shadow:2px 2px 0 #555555;';
+        var left = document.createElement('div');
+        left.style.cssText = 'display:flex;align-items:center;gap:10px;min-width:0;flex:1;';
+        var ico = document.createElement('img');
+        ico.src = '../assets/icons/folder.svg';
+        ico.alt = '';
+        ico.style.cssText = 'width:18px;height:18px;flex-shrink:0;';
+        var info = document.createElement('div');
+        info.style.cssText = 'min-width:0;';
+        var titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:800;font-size:0.9rem;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        titleEl.textContent = root.label;
+        var pathEl = document.createElement('div');
+        pathEl.style.cssText = 'font-size:0.76rem;color:#555;font-weight:600;';
+        pathEl.textContent = 'user/' + root.folderName + '/';
+        info.appendChild(titleEl);
+        info.appendChild(pathEl);
+        left.appendChild(ico);
+        left.appendChild(info);
+
+        var acts = document.createElement('div');
+        acts.style.cssText = 'display:flex;align-items:center;gap:6px;flex-shrink:0;';
+        var editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'neo-btn neo-btn-sm';
+        editBtn.textContent = gcT('btnEdit', 'Edit');
+        editBtn.addEventListener('click', async function () {
+          var newLabel = await showPrompt(gcT('gcExportRootEditLabelPrompt', 'Display name for this export root folder:'), root.label);
+          if (!newLabel || !String(newLabel).trim()) return;
+          var newFolder = await showPrompt(gcT('gcExportRootEditFolderPrompt', 'Folder name under user/ (letters, numbers, hyphens):'), root.folderName);
+          if (!newFolder || !String(newFolder).trim()) return;
+          var res = await ExportRootsService.update(root.id, { label: newLabel.trim(), folderName: newFolder.trim() });
+          if (!res || !res.ok) {
+            showToast((res && res.error) || 'Update failed.', true);
+            return;
+          }
+          flashSaved(exportRootsSaveStatus);
+          renderGcExportRoots();
+        });
+
+        var rmBtn = document.createElement('button');
+        rmBtn.type = 'button';
+        rmBtn.className = 'neo-btn neo-btn-sm';
+        rmBtn.style.cssText = 'color:#991b1b;border-color:#991b1b;';
+        rmBtn.textContent = gcT('btnRemove', 'Remove');
+        rmBtn.addEventListener('click', async function () {
+          var ok = await showConfirm(
+            gcT('gcExportRootRemoveConfirm', 'Remove "{name}" from export root folders? Existing files in user/{folder}/ will remain on disk.')
+              .replace('{name}', root.label)
+              .replace('{folder}', root.folderName)
+          );
+          if (!ok) return;
+          var res = await ExportRootsService.remove(root.id);
+          if (!res || !res.ok) {
+            showToast((res && res.error) || 'Remove failed.', true);
+            return;
+          }
+          flashSaved(exportRootsSaveStatus);
+          renderGcExportRoots();
+        });
+
+        acts.appendChild(editBtn);
+        acts.appendChild(rmBtn);
+        row.appendChild(left);
+        row.appendChild(acts);
+        gcExportRootsList.appendChild(row);
+      });
+    }
+
+    if (gcAddExportRootBtn) {
+      gcAddExportRootBtn.addEventListener('click', async function () {
+        if (!window.ExportRootsService) return;
+        var created = await ExportRootsService.promptNewRootFolder();
+        if (created) {
+          flashSaved(exportRootsSaveStatus);
+          renderGcExportRoots();
+        }
+      });
+    }
+    renderGcExportRoots();
+    if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
+      Desktop.onDataChanged(function (ev) {
+        if (ev && ev.filename === 'config.js') renderGcExportRoots();
       });
     }
 

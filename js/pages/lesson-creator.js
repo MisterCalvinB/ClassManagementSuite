@@ -8444,6 +8444,12 @@
     if (!window.Desktop || !Desktop.isElectron()) {
       return Promise.resolve('browser');
     }
+    var customRootsContainer = document.getElementById('lc-export-custom-roots');
+    if (customRootsContainer && typeof window.cmtBindExportRootsInModal === 'function') {
+      window.cmtBindExportRootsInModal(customRootsContainer, function (dest) {
+        window.lcCloseDestinationModal(dest);
+      }, { compact: true, buttonClass: 'export-destination-card', newBtnClass: 'btn' });
+    }
     return new Promise(function (resolve) {
       destinationModalCallback = resolve;
       var m = document.getElementById('exportDestinationModal');
@@ -8494,9 +8500,10 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
-          result = await Desktop.saveText('toPrint', filename, html);
+        if (lcTarget) {
+          result = await Desktop.saveText(lcTarget, filename, html);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {
@@ -8555,8 +8562,9 @@
             printBackground: true
           }
         };
-        if (dest === 'to-print') {
-          req.target = 'toPrint';
+        var lcPdfTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
+        if (lcPdfTarget) {
+          req.target = lcPdfTarget;
           req.filename = filename;
         }
         var result = await Desktop.printPdf(req);
@@ -8813,10 +8821,11 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
+        if (lcTarget) {
           var blob = new Blob([wbout], { type: mime });
-          result = await Desktop.saveBlob('toPrint', filename, blob);
+          result = await Desktop.saveBlob(lcTarget, filename, blob);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {
@@ -8970,9 +8979,10 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
-          result = await Desktop.saveText('toPrint', filename, csvContent);
+        if (lcTarget) {
+          result = await Desktop.saveText(lcTarget, filename, csvContent);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {
@@ -9020,9 +9030,10 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
-          result = await Desktop.saveText('toPrint', filename, jsonStr);
+        if (lcTarget) {
+          result = await Desktop.saveText(lcTarget, filename, jsonStr);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {
@@ -9063,9 +9074,10 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
-          result = await Desktop.saveText('toPrint', filename, text);
+        if (lcTarget) {
+          result = await Desktop.saveText(lcTarget, filename, text);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {
@@ -9111,9 +9123,10 @@
 
     if (window.Desktop && Desktop.isElectron() && dest !== 'browser') {
       try {
+        var lcTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(dest) : (dest === 'to-print' ? 'toPrint' : null);
         var result = null;
-        if (dest === 'to-print') {
-          result = await Desktop.saveText('toPrint', filename, docHtml);
+        if (lcTarget) {
+          result = await Desktop.saveText(lcTarget, filename, docHtml);
           if (result && result.file && result.file.path) result.path = result.file.path;
           if (result && !result.name) result.name = filename;
         } else {

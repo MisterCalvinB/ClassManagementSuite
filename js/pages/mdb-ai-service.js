@@ -1378,7 +1378,7 @@
       }
 
       window._autofillPendingSuggestions = fieldSuggestions;
-      window._autofillContext = { mode: 'record', fi: fi, ri: ri };
+      window._autofillContext = { mode: 'record', fi: fi, ri: ri, rec: rec };
       mdbRenderAutofillModalUi(localHits, sources, fieldSuggestions, rec);
     } catch (err) {
       console.warn('[MdbAiService] Record autofill error:', err);

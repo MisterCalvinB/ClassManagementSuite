@@ -566,6 +566,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
   - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
   - **Margin Space**: Define page margins using standard CSS margin syntax (e.g., `16mm 14mm` or `15mm`).
   - **Page Orientation**: Choose default layout orientation (**Portrait** or **Landscape**). Applied automatically across all suite export operations (Planner, Grade Sheet, Participation Tracker, Schedule Maker, Class Plan, Board, Lesson Creator, Test Creator, Administrative Groups, Manage Database, Document Editor).
+- **Export Root Folders**: Create, edit, and remove custom quick-save root folders under `user/` (modeled after `user/to-print/`, stored in `user/config.js` under `export.customRoots`). Custom export roots are also creatable directly inside export destination dialogs, manageable in **File Manager**, indexed in **Quick Switcher** (`Ctrl+K`), and filterable in **PDF Viewer -> Search App PDFs**.
 - **Startup & Launch**:
   - **Apps to open at startup**: Select tools to auto-launch when the app starts.
   - **Window arrangement**: Choose layout mode:
@@ -998,7 +999,7 @@ Data file manager with built-in search, rename, move, and synchronization featur
 - **Student Dossiers Tab**: Dedicated academic hub displaying complete student profiles with live GPA/average badges, evaluation counts, competence mastery, scheduled lessons, and 1-click **360° Dossier** inspection and **Export Studio** (PDF & HTML report cards). Includes quick class filtering, live search, and sorting (Name, Class, GPA).
 - **Tags & Units Tab**: Suite-wide explorer to browse, search, and aggregate resources linked to any `#tag` (e.g. `#unit-1`, `#revision`, `#oral-exam`). Features quick tag pills, real-time search filtering, category tabs (`[ALL]`, `[DOCS]`, `[LESSONS]`, `[MINDMAPS]`, `[TESTS]`, `[PLANNER]`, `[GRADES]`, `[360° DOSSIER]`), and 1-click `[OPEN]`, `[360° DOSSIER]`, and `[LINKS & TAGS]` modals.
 - **Archive & Rollover Tab**: Complete year-end and term rollover suite. Teachers can archive completed school years, clean up obsolete sessions, and reset rosters safely.
-- **Data Health Tab**: Cross-tool integrity scanner (`tab-health`) that inspects `class-groups.js`, `user/grades/`, `planner-config.js`, and `user/constellations/` for orphaned class UUIDs, with one-click relinking by class name.
+- **Data Health Tab**: Cross-tool integrity scanner (`tab-health`, `js/file-manager/health-check.js`) that inspects `class-groups.js`, `user/grades/`, `planner-config.js`, and `user/constellations/` for orphaned class UUIDs and unreadable files, with summary actions (**Auto-Relink All**, **Open Group Editor**, **Re-scan**) and per-issue controls (**Relink** by matching name or class selector, **Unlink Class**, **Open in Tool**, **Open File**, **Show in Folder**, **Remove Entry** / **Delete File**).
 - **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs. Automatically handles `.cstz` board archives under the `mindmaps` category.
 
 <details>
@@ -1613,8 +1614,12 @@ Dedicated desktop **PDF Viewer & Annotator** designed for classroom worksheets, 
   - **Text Boxes**: Click anywhere on a page to insert movable, resizable, and editable text boxes.
   - **Eraser & Undo**: Click-to-erase strokes and complete undo/redo stack (`Ctrl+Z`, `Ctrl+Y`).
   - **Laser Pointer (`L`)**: Interactive Board-style laser pointer with glowing cursor dot, click-to-leave-mark (auto-fading), drag-to-trail, and double-click pulse ring—mirrored live to Presentation Mode at 60fps (`Esc` to exit).
-- **File Manager Integration**:
-  - Direct opening from **File Manager** (`pages/file-manager.html`) via "Open in PDF Viewer ↗" buttons and right-click context menu.
+- **Picture & Image Support**: Open, zoom, annotate (pen, highlighter, text boxes, laser pointer), present on secondary display, and export `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.svg`, and `.avif` images alongside PDFs.
+- **Suite-Wide Context Menu & Modal Shortcuts**:
+  - Direct opening from **File Manager** (`pages/file-manager.html`) and **Launcher** (`launcher.html`) via "Open in PDF Viewer ↗" buttons and right-click context menus for both PDFs and images.
+  - **Board** (`pages/board.html`): Right-click any canvas image, Manage Media item, or page thumbnail to open it in PDF Viewer.
+  - **Document Editor** (`pages/document-editor.html`): Right-click any image in the Preview or WYSIWYG pane to open it in PDF Viewer.
+  - **Export Modal, Quick Switcher & Tag/Link Preview**: Exported images, To-Print images, and linked/dossier pictures include direct "Open with PDF Viewer" shortcuts.
   - Double-click on any `.pdf` row in File Manager launches PDF Viewer immediately.
 - **App PDF Search Modal**:
   - Top "Files" menu contains **Search App PDFs...**, scanning all user folders (`user/`, `user/to-print/`, `user/doceditor/`) in real-time with instant text filtering, folder categories, file size, modification dates, and "Annotated" indicators.

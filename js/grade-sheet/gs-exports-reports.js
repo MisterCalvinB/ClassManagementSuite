@@ -23,6 +23,13 @@
 
       if (_gsPdfExportModalCallback) _gsPdfExportModalCallback(null);
 
+      const customRootsContainer = document.getElementById("gs-pdf-export-custom-roots");
+      if (customRootsContainer && typeof window.cmtBindExportRootsInModal === 'function') {
+        window.cmtBindExportRootsInModal(customRootsContainer, function (dest) {
+          closeGsPdfExportModal(dest);
+        }, { compact: true, buttonClass: 'btn', newBtnClass: 'btn' });
+      }
+
       return new Promise(resolve => {
         _gsPdfExportModalCallback = resolve;
         const overlay = document.getElementById("gs-pdf-export-overlay");
@@ -461,8 +468,9 @@
       if (window.Desktop && Desktop.isElectron()) {
         try {
           let defaultName = `${slugifyForPath(classObj.name || "class")}-${sem}-t${testNo}-${new Date().toISOString().slice(0, 10)}.pdf`;
-          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
-            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+          const gsTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+          if (gsTarget && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: gsTarget });
             if (!conflictRes || conflictRes.canceled) return;
             defaultName = conflictRes.filename || defaultName;
           }
@@ -475,8 +483,8 @@
               margins: parseCssMarginToInches(fitToOnePage ? '6mm 9mm 5mm 9mm' : margin)
             }
           };
-          if (destination === 'to-print') {
-            pdfReq.target = 'toPrint';
+          if (gsTarget) {
+            pdfReq.target = gsTarget;
             pdfReq.filename = defaultName;
           } else {
             pdfReq.defaultName = defaultName;
@@ -4133,8 +4141,9 @@
             finalHtml = await ExportStylesService.injectStyleIntoHtml(finalHtml, sId);
           }
 
-          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
-            const conflictRes = await window.resolveExportFilenameConflict({ filename: fname, target: 'toPrint' });
+          const gsTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+          if (gsTarget && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: fname, target: gsTarget });
             if (!conflictRes || conflictRes.canceled) return;
             fname = conflictRes.filename || fname;
           }
@@ -4148,8 +4157,8 @@
               margins: parseCssMarginToInches(getReportFitToOnePage() ? '6mm 9mm 5mm 9mm' : (pdfSettings.margin || '16mm 14mm'))
             }
           };
-          if (destination === 'to-print') {
-            pdfReq.target = 'toPrint';
+          if (gsTarget) {
+            pdfReq.target = gsTarget;
             pdfReq.filename = fname;
           } else {
             pdfReq.defaultName = fname;
@@ -5373,8 +5382,9 @@ ${blocks}
         try {
           const destination = await openGsPdfExportModal();
           if (!destination) return;
-          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
-            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+          const gsTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+          if (gsTarget && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: gsTarget });
             if (!conflictRes || conflictRes.canceled) return;
             defaultName = conflictRes.filename || defaultName;
           }
@@ -5385,8 +5395,8 @@ ${blocks}
             landscape: pdfSettings.isLandscape,
             pdfOptions: { pageSize: pdfSettings.pageSize || 'A4', landscape: pdfSettings.isLandscape, margins: parseCssMarginToInches(pdfSettings.margin) }
           };
-          if (destination === 'to-print') {
-            pdfReq.target = 'toPrint';
+          if (gsTarget) {
+            pdfReq.target = gsTarget;
             pdfReq.filename = defaultName;
           } else {
             pdfReq.defaultName = defaultName;
@@ -5489,8 +5499,9 @@ ${blocks}
           const pdfSettings = getPdfExportSettings();
           const slug = slugifyForPath(classObj.name || "class");
           let defaultName = `${slug}-${sem}-grades-${new Date().toISOString().slice(0, 10)}.pdf`;
-          if (destination === 'to-print' && window.resolveExportFilenameConflict) {
-            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: 'toPrint' });
+          const gsTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+          if (gsTarget && window.resolveExportFilenameConflict) {
+            const conflictRes = await window.resolveExportFilenameConflict({ filename: defaultName, target: gsTarget });
             if (!conflictRes || conflictRes.canceled) return;
             defaultName = conflictRes.filename || defaultName;
           }
@@ -5499,8 +5510,8 @@ ${blocks}
             landscape: pdfSettings.isLandscape,
             pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape, margins: parseCssMarginToInches(pdfSettings.margin) }
           };
-          if (destination === 'to-print') {
-            pdfReq.target = 'toPrint';
+          if (gsTarget) {
+            pdfReq.target = gsTarget;
             pdfReq.filename = defaultName;
           } else {
             pdfReq.defaultName = defaultName;

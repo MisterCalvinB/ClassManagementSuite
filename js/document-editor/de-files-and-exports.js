@@ -1846,6 +1846,13 @@ function openPdfExportModal(sameFolderInfo) {
 
   if (pdfExportModalCallback) pdfExportModalCallback(null);
 
+  const customRootsContainer = document.getElementById('de-pdf-export-custom-roots');
+  if (customRootsContainer && typeof window.cmtBindExportRootsInModal === 'function') {
+    window.cmtBindExportRootsInModal(customRootsContainer, function (dest) {
+      closePdfExportModal(dest);
+    }, { compact: true, buttonClass: 'modal-btn', newBtnClass: 'modal-btn' });
+  }
+
   return new Promise(resolve => {
     pdfExportModalCallback = resolve;
     showModal('pdf-export-modal');
@@ -2066,9 +2073,12 @@ async function exportPdf() {
     ? (sameFolderInfo.absolutePath || '')
     : '';
 
-  if (window.resolveExportFilenameConflict && (destination === 'to-print' || (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available))) {
-    const conflictReq = destination === 'to-print'
-      ? { filename: resolvedPdfName, target: 'toPrint' }
+  const isManagedDest = window.cmtIsManagedExportDest ? window.cmtIsManagedExportDest(destination) : (destination === 'to-print');
+  const managedTarget = window.cmtResolveExportTarget ? window.cmtResolveExportTarget(destination) : (destination === 'to-print' ? 'toPrint' : null);
+
+  if (window.resolveExportFilenameConflict && (isManagedDest || (destination === 'same-folder' && sameFolderInfo && sameFolderInfo.available))) {
+    const conflictReq = isManagedDest
+      ? { filename: resolvedPdfName, target: managedTarget }
       : (resolvedAbsPath
         ? { filename: resolvedPdfName, absolutePath: resolvedAbsPath }
         : { filename: resolvedPdfName, target: sameFolderInfo.target, subdir: sameFolderInfo.subdir });
@@ -2104,9 +2114,9 @@ async function exportPdf() {
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         result = await Desktop.saveBlob(sameFolderInfo.target, resolvedPdfName, blob, sameFolderInfo.subdir);
         if (result && !result.name) result.name = resolvedPdfName;
-      } else if (destination === 'to-print') {
+      } else if (isManagedDest && managedTarget) {
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        result = await Desktop.saveBlob('toPrint', defaultName, blob);
+        result = await Desktop.saveBlob(managedTarget, defaultName, blob);
         if (result && !result.name) result.name = defaultName;
       } else {
         let binary = '';
@@ -2156,8 +2166,8 @@ async function exportPdf() {
       request.subdir = sameFolderInfo.subdir;
       request.filename = resolvedPdfName;
     }
-  } else if (destination === 'to-print') {
-    request.target = 'toPrint';
+  } else if (isManagedDest && managedTarget) {
+    request.target = managedTarget;
     request.filename = defaultName;
   }
   const result = await Desktop.printPdf(request);

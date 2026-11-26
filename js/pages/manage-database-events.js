@@ -724,7 +724,11 @@
         case 'col-autofit': autoFitColumn(key); closeAllColMenus(); break;
         case 'col-reset-w': resetColumnWidth(S.typeKey, key); closeAllColMenus(); break;
         case 'col-reset-all-w': resetAllColumnWidths(S.typeKey); closeAllColMenus(); break;
+        case 'col-rename': renameColumn(key); closeAllColMenus(); break;
         case 'col-delete': deleteCustomColumn(key); closeAllColMenus(); break;
+        case 'form-db-autofill':
+          if (typeof triggerWordAutofillDb === 'function') triggerWordAutofillDb();
+          break;
         case 'form-ai-autofill':
           if (typeof mdbTriggerFormAiAutofill === 'function') mdbTriggerFormAiAutofill();
           else if (typeof triggerWordAutofill === 'function') triggerWordAutofill();

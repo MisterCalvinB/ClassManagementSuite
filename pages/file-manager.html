@@ -13,6 +13,7 @@
   <script src="../js/shared/i18n.js"></script>
   <script src="../js/shared/shortcuts-modal.js"></script>
   <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/export-roots.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/menus.js"></script>
   <link rel="stylesheet" href="../css/tag-link-modal.css">
@@ -107,6 +108,7 @@
       <input type="search" id="browseSearch" class="browse-search" placeholder="Filter…" data-i18n-placeholder="fmBrowseFilter">
       <button id="browseRefresh" class="btn-refresh" data-i18n="fmRefresh">↺ Refresh</button>
       <button id="browseAddFolder" class="btn-refresh" data-i18n="fmAddFolder">+ Folder</button>
+      <button id="browseAddExportRoot" class="btn-refresh" data-i18n="fmAddExportRoot">+ Export Root</button>
       <label id="browseVersionsToggleLabel" style="display:flex;align-items:center;gap:5px;font-size:0.83rem;font-weight:700;cursor:pointer;white-space:nowrap;">
         <input type="checkbox" id="browseShowVersions" style="width:14px;height:14px;accent-color:#000;cursor:pointer;">
         <span data-i18n="rfShowVersions">Show versions</span>
@@ -189,7 +191,7 @@
         </button>
       </div>
     </div>
-    <div id="fmHealthSummary" class="state-msg" style="display:none;margin-top:12px;"></div>
+    <div id="fmHealthSummary" class="fm-health-summary" style="display:none;margin-top:12px;"></div>
     <div id="fmHealthResults" class="file-list" style="margin-top:12px;"></div>
   </div>
 
@@ -430,7 +432,10 @@ function prettyName(fn) {
 
 function escRegex(s) { return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); }
 
-var IMAGE_EXTS = ['.png','.jpg','.jpeg','.gif','.webp','.svg'];
+var IMAGE_EXTS = ['.png','.jpg','.jpeg','.gif','.webp','.svg','.bmp','.avif'];
+function isImageFile(name) {
+  return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(String(name || ''));
+}
 var SOUND_EXTS = ['.mp3','.wav','.ogg','.m4a','.aac'];
 var DOC_EXTS = IMAGE_EXTS.concat(SOUND_EXTS, ['.pdf','.epub']);
 
@@ -1449,8 +1454,24 @@ var SYSTEM_FILES = new Set([
   'ui-prefs.json'
 ]);
 
+var fmExportRoots = [];
+async function fmRefreshExportRoots() {
+  if (window.ExportRootsService && typeof ExportRootsService.list === 'function') {
+    fmExportRoots = await ExportRootsService.list();
+  }
+  return fmExportRoots;
+}
+
+function fmFindExportRootByFolder(folderName) {
+  var low = String(folderName || '').toLowerCase();
+  return fmExportRoots.find(function (r) { return r.folderName.toLowerCase() === low; }) || null;
+}
+
 function fmGetFolderDisplayName(folderName, isRootUserDir) {
   if (isRootUserDir) {
+    if (folderName === 'to-print') return tt('fmTargetToPrint', 'Print Folder') + ' (to-print)';
+    var customRoot = fmFindExportRootByFolder(folderName);
+    if (customRoot) return customRoot.label + ' (' + folderName + ')';
     if (folderName === 'lessons') return tt('fmTargetLessons', 'Lesson Plans');
     if (folderName === 'mindmaps') return tt('fmTargetMindmaps', 'Constellation Maps');
     if (folderName === 'custom-data' || folderName === 'data') return tt('fmTargetData', 'Custom Data');
@@ -1965,6 +1986,12 @@ function startFolderRename(row, folderName, nameEl, prefix) {
         if (window.Pins && typeof Pins.updatePinPath === 'function') {
           await Pins.updatePinPath(browseTarget, oldPath, newPath, newName);
         }
+        if (browseTarget === 'user' && !prefix && window.ExportRootsService) {
+          var matchedRoot = fmFindExportRootByFolder(folderName);
+          if (matchedRoot) {
+            await ExportRootsService.update(matchedRoot.id, { label: matchedRoot.label, folderName: newName }).catch(function(){});
+          }
+        }
         row.dataset.renaming = '';
         await loadBrowse({ preservePath: true });
       } else {
@@ -2009,6 +2036,12 @@ async function deleteFolderConfirm(folderName, fileCount, prefix, row) {
   var folderPath = prefix + folderName;
   Desktop.deleteByPath(browseTarget, folderPath).then(async function(res) {
     if (res && res.ok) {
+      if (browseTarget === 'user' && !prefix && window.ExportRootsService) {
+        var matchedRoot = fmFindExportRootByFolder(folderName);
+        if (matchedRoot) {
+          await ExportRootsService.remove(matchedRoot.id).catch(function(){});
+        }
+      }
       await loadBrowse({ preservePath: true });
     } else {
       showToast(tt('fmDeleteFailed', 'Delete failed.'), true);
@@ -2232,6 +2265,12 @@ function renderBrowse() {
       var n = folderCounts[folder];
       cnt.textContent = n + ' ' + tt(n === 1 ? 'rfFile' : 'rfFiles', n === 1 ? 'file' : 'files');
 
+      if (isRootUserDir && (folder === 'to-print' || fmFindExportRootByFolder(folder))) {
+        var erBadge = document.createElement('span');
+        erBadge.textContent = tt('fmExportRootBadge', 'Export Root');
+        erBadge.style.cssText = 'display:inline-block;margin-left:8px;padding:1px 6px;font-size:0.68rem;font-weight:800;border:1.5px solid #333333;border-radius:4px;background:#fef08a;color:#222222;vertical-align:middle;';
+        nameEl.appendChild(erBadge);
+      }
       row.appendChild(icon);
       row.appendChild(nameEl);
       row.appendChild(cnt);
@@ -2320,6 +2359,65 @@ function renderBrowse() {
               });
             })(folder);
             acts.appendChild(delBtn);
+
+            if (browseTarget === 'user' && !prefix && folder !== 'to-print' && window.ExportRootsService) {
+              var existingRoot = fmFindExportRootByFolder(folder);
+              if (existingRoot) {
+                var editRootBtn = document.createElement('button');
+                editRootBtn.className = 'btn-action';
+                editRootBtn.textContent = tt('fmEditExportRoot', 'Edit Root');
+                (function(rt) {
+                  editRootBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    var newLbl = await showPrompt(tt('gcExportRootEditLabelPrompt', 'Display name for this export root folder:'), rt.label);
+                    if (!newLbl || !String(newLbl).trim()) return;
+                    var uRes = await ExportRootsService.update(rt.id, { label: newLbl.trim(), folderName: rt.folderName });
+                    if (uRes && uRes.ok) {
+                      showToast(tt('saved', 'Saved'));
+                      await loadBrowse({ preservePath: true });
+                    } else {
+                      showToast((uRes && uRes.error) || 'Update failed.', true);
+                    }
+                  });
+                })(existingRoot);
+                acts.appendChild(editRootBtn);
+
+                var unmarkBtn = document.createElement('button');
+                unmarkBtn.className = 'btn-action';
+                unmarkBtn.textContent = tt('fmUnmarkExportRoot', 'Unmark Root');
+                (function(rt) {
+                  unmarkBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    var rRes = await ExportRootsService.remove(rt.id);
+                    if (rRes && rRes.ok) {
+                      await loadBrowse({ preservePath: true });
+                    } else {
+                      showToast((rRes && rRes.error) || 'Failed.', true);
+                    }
+                  });
+                })(existingRoot);
+                acts.appendChild(unmarkBtn);
+              } else if (!ExportRootsService.isReservedFolder(folder)) {
+                var markBtn = document.createElement('button');
+                markBtn.className = 'btn-action';
+                markBtn.textContent = tt('fmMarkExportRoot', '+ Export Root');
+                (function(fn) {
+                  markBtn.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    var lbl = await showPrompt(tt('gcExportRootEditLabelPrompt', 'Display name for this export root folder:'), fn);
+                    if (!lbl || !String(lbl).trim()) return;
+                    var aRes = await ExportRootsService.add(lbl.trim(), fn);
+                    if (aRes && aRes.ok) {
+                      showToast(tt('exportRootFolderAdded', 'Export root folder "{name}" created.').replace('{name}', lbl.trim()));
+                      await loadBrowse({ preservePath: true });
+                    } else {
+                      showToast((aRes && aRes.error) || 'Failed.', true);
+                    }
+                  });
+                })(folder);
+                acts.appendChild(markBtn);
+              }
+            }
           }
         }
 
@@ -2465,7 +2563,7 @@ function makeBrowseRow(file) {
     acts.appendChild(boardBtn);
   }
 
-  if (/\.pdf$/i.test(file.filename)) {
+  if (/\.pdf$/i.test(file.filename) || isImageFile(file.filename)) {
     var pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn-open';
     pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in PDF Viewer') + ' ↗';
@@ -2593,6 +2691,7 @@ async function loadBrowse(options) {
   }
 
   try {
+    await fmRefreshExportRoots();
     if (browseTarget === 'docEditor') {
       var merged = [];
       var docTargets = [
@@ -2710,6 +2809,13 @@ document.getElementById('browseAddFolder').addEventListener('click', async funct
     }
   } catch (e) {
     showToast(tt('fmAddFolderFailed', 'Could not create folder:') + ' ' + (e && e.message ? e.message : String(e)), true);
+  }
+});
+document.getElementById('browseAddExportRoot').addEventListener('click', async function() {
+  if (!window.ExportRootsService) return;
+  var created = await ExportRootsService.promptNewRootFolder();
+  if (created) {
+    await loadBrowse({ preservePath: true });
   }
 });
 document.getElementById('browseSearch').addEventListener('input', function() {
@@ -3006,8 +3112,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
       }
 
-      var isPdf = /\.pdf$/i.test(file.filename);
-      if (isPdf) {
+      var isPdfOrImg = /\.pdf$/i.test(file.filename) || isImageFile(file.filename);
+      if (isPdfOrImg) {
         items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
@@ -3170,8 +3276,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
       }
 
-      var isPdf = /\.pdf$/i.test(file.filename);
-      if (isPdf) {
+      var isPdfOrImg = /\.pdf$/i.test(file.filename) || isImageFile(file.filename);
+      if (isPdfOrImg) {
         items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
@@ -4669,215 +4775,7 @@ function openFmShortcuts() {
       }
     } catch (e) {}
   });
-
-  window.runFmDataHealthCheck = async function () {
-    var summaryEl = document.getElementById('fmHealthSummary');
-    var resultsEl = document.getElementById('fmHealthResults');
-    if (!summaryEl || !resultsEl) return;
-
-    function _tr(key, fallback) {
-      return (window.i18n && typeof window.i18n.t === 'function') ? window.i18n.t(key) : fallback;
-    }
-
-    summaryEl.style.display = 'block';
-    summaryEl.textContent = _tr('fmHealthRunning', 'Scanning data files...');
-    resultsEl.innerHTML = '';
-
-    var issues = [];
-    var stats = { classes: 0, students: 0, gradeFiles: 0, plannerEntries: 0, constellations: 0 };
-
-    function _parseJsOrJson(txt, varNames) {
-      if (!txt || typeof txt !== 'string') return null;
-      var trimmed = txt.trim();
-      if (!trimmed) return null;
-      if (trimmed.charAt(0) === '{' || trimmed.charAt(0) === '[') {
-        try { return JSON.parse(trimmed); } catch (_) {}
-      }
-      try {
-        var sandbox = {};
-        var expr = varNames.map(function (v) {
-          return '(window.' + v + ' !== undefined ? window.' + v + ' : (typeof ' + v + ' !== "undefined" ? ' + v + ' : undefined))';
-        }).join(' || ');
-        var fn = new Function('window', txt + '; return (' + expr + ');');
-        return fn(sandbox);
-      } catch (_) {
-        return null;
-      }
-    }
-
-    async function _readUserFile(rel) {
-      try {
-        if (window.Desktop && typeof window.Desktop.readText === 'function') {
-          var r = await window.Desktop.readText('user', rel);
-          if (r && r.ok && typeof r.content === 'string') return r.content;
-        }
-        if (window.electronApi && typeof window.electronApi.readFile === 'function') {
-          var r2 = await window.electronApi.readFile({ target: 'user', filename: rel, encoding: 'utf8' });
-          if (r2 && r2.ok && typeof r2.content === 'string') return r2.content;
-        }
-      } catch (_) {}
-      return '';
-    }
-
-    async function _listUserDir(dir) {
-      try {
-        var r = null;
-        if (window.Desktop && typeof window.Desktop.listByPath === 'function') {
-          r = await window.Desktop.listByPath('user', dir, { recursive: false });
-        } else if (window.electronApi && typeof window.electronApi.listByPath === 'function') {
-          r = await window.electronApi.listByPath({ target: 'user', relativePath: dir, recursive: false });
-        }
-        if (Array.isArray(r)) return r;
-        if (r && Array.isArray(r.files)) return r.files;
-        if (r && Array.isArray(r.entries)) return r.entries;
-      } catch (_) {}
-      return [];
-    }
-
-    // 1. Load master roster (supports both array and CLASS_GROUPS_DATA / CLASS_GROUPS object map)
-    var rosterRaw = await _readUserFile('class-groups.js');
-    var rosterParsed = _parseJsOrJson(rosterRaw, ['CLASS_GROUPS_DATA', 'CLASS_GROUPS', 'classGroups']);
-    var classes = [];
-    if (Array.isArray(rosterParsed)) {
-      classes = rosterParsed;
-    } else if (rosterParsed && typeof rosterParsed === 'object') {
-      var cgObj = rosterParsed.classGroups || rosterParsed.groups || rosterParsed;
-      var cgMeta = rosterParsed.classGroupsMeta || {};
-      if (Array.isArray(cgObj)) {
-        classes = cgObj;
-      } else if (cgObj && typeof cgObj === 'object') {
-        Object.keys(cgObj).forEach(function (gName) {
-          var meta = cgMeta[gName] || {};
-          classes.push({
-            id: meta.id || gName,
-            name: gName,
-            students: Array.isArray(cgObj[gName]) ? cgObj[gName] : []
-          });
-        });
-      }
-    }
-
-    var validClassIds = new Set();
-    var validStudentIds = new Set();
-    var classByName = new Map();
-    classes.forEach(function (c) {
-      if (!c) return;
-      stats.classes++;
-      if (c.id) validClassIds.add(String(c.id));
-      if (c.name) classByName.set(String(c.name).trim().toLowerCase(), c);
-      if (Array.isArray(c.students)) {
-        c.students.forEach(function (s) {
-          stats.students++;
-          if (s && s.id) validStudentIds.add(String(s.id));
-        });
-      }
-    });
-
-    // 2. Scan user/grades/
-    var gradeFiles = await _listUserDir('grades');
-    for (var g = 0; g < gradeFiles.length; g++) {
-      var gName = typeof gradeFiles[g] === 'string' ? gradeFiles[g] : (gradeFiles[g] && gradeFiles[g].name);
-      if (!gName || (!gName.endsWith('.json') && !gName.endsWith('.js'))) continue;
-      stats.gradeFiles++;
-      var gRaw = await _readUserFile('grades/' + gName);
-      var gData = _parseJsOrJson(gRaw, ['GRADE_DATA', 'gradeData']);
-      if (!gData || typeof gData !== 'object') continue;
-      var cid = gData.classId || gData.groupId || '';
-      if (cid && validClassIds.size > 0 && !validClassIds.has(String(cid))) {
-        var matchCls = gData.className ? classByName.get(String(gData.className).trim().toLowerCase()) : null;
-        issues.push({
-          source: 'grades/' + gName,
-          kind: 'Orphaned Class UUID',
-          detail: 'References missing class ID "' + cid + '"' + (gData.className ? ' (' + gData.className + ')' : ''),
-          canRelink: !!(matchCls && gName.endsWith('.json')),
-          relinkTarget: matchCls,
-          fileRel: 'grades/' + gName,
-          fileData: gData
-        });
-      }
-    }
-
-    // 3. Scan planner-config.js
-    var plannerRaw = await _readUserFile('planner-config.js');
-    var plannerData = _parseJsOrJson(plannerRaw, ['PLANNER_CONFIG', 'plannerConfig']);
-    if (plannerData && typeof plannerData === 'object') {
-      var entries = Array.isArray(plannerData.entries) ? plannerData.entries : (Array.isArray(plannerData.schedule) ? plannerData.schedule : []);
-      entries.forEach(function (entry, idx) {
-        stats.plannerEntries++;
-        if (entry && entry.classId && validClassIds.size > 0 && !validClassIds.has(String(entry.classId))) {
-          issues.push({
-            source: 'planner-config.js',
-            kind: 'Orphaned Planner Class UUID',
-            detail: 'Entry #' + (idx + 1) + ' references missing class ID "' + entry.classId + '"',
-            canRelink: false
-          });
-        }
-      });
-    }
-
-    // 4. Scan constellations/
-    var conFiles = await _listUserDir('constellations');
-    for (var cIdx = 0; cIdx < conFiles.length; cIdx++) {
-      var cName = typeof conFiles[cIdx] === 'string' ? conFiles[cIdx] : (conFiles[cIdx] && conFiles[cIdx].name);
-      if (!cName || !cName.endsWith('.json')) continue;
-      stats.constellations++;
-      var cRaw = await _readUserFile('constellations/' + cName);
-      var cData = _parseJsOrJson(cRaw, []);
-      if (cData && cData.classId && validClassIds.size > 0 && !validClassIds.has(String(cData.classId))) {
-        issues.push({
-          source: 'constellations/' + cName,
-          kind: 'Orphaned Constellation Class UUID',
-          detail: 'References missing class ID "' + cData.classId + '"',
-          canRelink: false
-        });
-      }
-    }
-
-    var countMsg = issues.length === 0
-      ? _tr('fmHealthAllGood', 'All checked references match the master roster.')
-      : (window.i18n && typeof window.i18n.tFmt === 'function'
-          ? window.i18n.tFmt('fmHealthIssuesFound', { count: issues.length })
-          : issues.length + ' issue(s) found');
-
-    summaryEl.textContent = countMsg + ' — Checked ' + stats.classes + ' classes, ' + stats.students + ' students, ' + stats.gradeFiles + ' grade files, ' + stats.plannerEntries + ' planner entries, ' + stats.constellations + ' constellations.';
-
-    issues.forEach(function (iss) {
-      var card = document.createElement('div');
-      card.className = 'file-row';
-      card.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;border:2px solid #333333;border-radius:8px;box-shadow:3px 3px 0 #555555;margin-bottom:8px;';
-
-      var left = document.createElement('div');
-      var title = document.createElement('div');
-      title.style.cssText = 'font-weight:800;font-size:0.9rem;color:#222222;';
-      title.textContent = iss.kind + ' — ' + iss.source;
-      var desc = document.createElement('div');
-      desc.style.cssText = 'font-size:0.8rem;color:#555555;margin-top:2px;';
-      desc.textContent = iss.detail;
-      left.appendChild(title);
-      left.appendChild(desc);
-      card.appendChild(left);
-
-      if (iss.canRelink && iss.relinkTarget && window.electronApi && typeof window.electronApi.saveJson === 'function') {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'fm-archive-start-btn';
-        btn.textContent = _tr('fmHealthRelink', 'Relink') + ' -> ' + iss.relinkTarget.name;
-        btn.addEventListener('click', async function () {
-          try {
-            iss.fileData.classId = iss.relinkTarget.id;
-            await window.electronApi.saveJson('user', iss.fileRel, iss.fileData);
-            if (typeof showToast === 'function') showToast(_tr('fmHealthRelinked', 'Relinked successfully.'));
-            window.runFmDataHealthCheck();
-          } catch (err) {
-            if (typeof showToast === 'function') showToast('Relink failed: ' + (err && err.message || err), true);
-          }
-        });
-        card.appendChild(btn);
-      }
-
-      resultsEl.appendChild(card);
-    });
-  };
 </script>
+<script src="../js/file-manager/health-check.js"></script>
 </body>
 </html>

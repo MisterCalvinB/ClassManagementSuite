@@ -8,60 +8,60 @@
   var style = document.createElement('style');
   style.textContent = [
     '#cmt-toast{',
-      'position:fixed;bottom:18px;left:50%;',
-      'transform:translateX(-50%) translateY(60px);',
-      'background:var(--neo-dark,#222222);color:#ffffff;',
-      'border:2px solid var(--neo-border-color,#333333);',
-      'box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);',
-      'padding:8px 20px;border-radius:var(--neo-radius-md,6px);',
-      'font-size:.84rem;font-weight:700;',
-      'z-index:10000002;pointer-events:none;',
-      'opacity:0;transition:transform .2s ease,opacity .2s ease;',
-      'max-width:min(88vw,540px);text-align:center;white-space:pre-wrap;',
-      'user-select:none;-webkit-user-select:none;',
+    'position:fixed;bottom:18px;left:50%;',
+    'transform:translateX(-50%) translateY(60px);',
+    'background:var(--neo-dark,#222222);color:#ffffff;',
+    'border:2px solid var(--neo-border-color,#333333);',
+    'box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);',
+    'padding:8px 20px;border-radius:var(--neo-radius-md,6px);',
+    'font-size:.84rem;font-weight:700;',
+    'z-index:10000002;pointer-events:none;',
+    'opacity:0;transition:transform .2s ease,opacity .2s ease;',
+    'max-width:min(88vw,540px);text-align:center;white-space:pre-wrap;',
+    'user-select:none;-webkit-user-select:none;',
     '}',
     '#cmt-toast.show{transform:translateX(-50%) translateY(0);opacity:1;}',
     '#cmt-toast.error{background:var(--neo-red,#c96b6b);color:#ffffff;}',
     '.cmt-overlay{',
-      'display:none;position:fixed;inset:0;padding:12px;',
-      'background:rgba(20,20,20,.45);',
-      'z-index:10000000;align-items:center;justify-content:center;',
-      'box-sizing:border-box;',
-      'user-select:none;-webkit-user-select:none;',
+    'display:none;position:fixed;inset:0;padding:12px;',
+    'background:rgba(20,20,20,.45);',
+    'z-index:10000000;align-items:center;justify-content:center;',
+    'box-sizing:border-box;',
+    'user-select:none;-webkit-user-select:none;',
     '}',
     '.cmt-overlay.open{display:flex;}',
     '.cmt-dialog-box{',
-      'background:var(--neo-card-bg,#ffffff);color:var(--neo-dark,#222222);',
-      'border:2px solid var(--neo-border-color,#333333);',
-      'border-radius:var(--neo-radius-lg,10px);',
-      'box-shadow:6px 6px 0 var(--neo-dark,#222222);',
-      'padding:20px 22px 18px;width:100%;max-width:min(440px,calc(100vw - 24px));',
-      'max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;',
-      'box-sizing:border-box;',
+    'background:var(--neo-card-bg,#ffffff);color:var(--neo-dark,#222222);',
+    'border:2px solid var(--neo-border-color,#333333);',
+    'border-radius:var(--neo-radius-lg,10px);',
+    'box-shadow:6px 6px 0 var(--neo-dark,#222222);',
+    'padding:20px 22px 18px;width:100%;max-width:min(440px,calc(100vw - 24px));',
+    'max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain;',
+    'box-sizing:border-box;',
     '}',
     '.cmt-dialog-msg{',
-      'margin:0 0 14px;font-size:.92rem;font-weight:600;',
-      'white-space:pre-wrap;line-height:1.45;',
+    'margin:0 0 14px;font-size:.92rem;font-weight:600;',
+    'white-space:pre-wrap;line-height:1.45;',
     '}',
     '.cmt-dialog-input{',
-      'width:100%;box-sizing:border-box;',
-      'border:2px solid var(--neo-border-color,#333333);',
-      'border-radius:var(--neo-radius-md,6px);',
-      'background:#ffffff;color:var(--neo-dark,#222222);',
-      'padding:7px 11px;font-family:inherit;font-size:.9rem;margin-bottom:14px;',
-      'user-select:text;-webkit-user-select:text;',
-      'transition:border-color .12s ease,box-shadow .12s ease;',
+    'width:100%;box-sizing:border-box;',
+    'border:2px solid var(--neo-border-color,#333333);',
+    'border-radius:var(--neo-radius-md,6px);',
+    'background:#ffffff;color:var(--neo-dark,#222222);',
+    'padding:7px 11px;font-family:inherit;font-size:.9rem;margin-bottom:14px;',
+    'user-select:text;-webkit-user-select:text;',
+    'transition:border-color .12s ease,box-shadow .12s ease;',
     '}',
     '.cmt-dialog-input:focus{outline:none;border-color:var(--neo-dark,#222222);box-shadow:0 0 0 2px var(--neo-yellow,#e2c96e);}',
     '.cmt-dialog-btns{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;user-select:none;-webkit-user-select:none;}',
     '.cmt-btn-cancel,.cmt-btn-ok{',
-      'font-family:inherit;padding:7px 16px;',
-      'border-radius:var(--neo-radius-md,6px);',
-      'border:2px solid var(--neo-border-color,#333333);',
-      'box-shadow:var(--neo-shadow-sm,2px 2px 0 #888888);',
-      'font-size:.85rem;font-weight:700;cursor:pointer;',
-      'user-select:none;-webkit-user-select:none;',
-      'transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;',
+    'font-family:inherit;padding:7px 16px;',
+    'border-radius:var(--neo-radius-md,6px);',
+    'border:2px solid var(--neo-border-color,#333333);',
+    'box-shadow:var(--neo-shadow-sm,2px 2px 0 #888888);',
+    'font-size:.85rem;font-weight:700;cursor:pointer;',
+    'user-select:none;-webkit-user-select:none;',
+    'transition:transform .12s ease,box-shadow .12s ease,background-color .12s ease;',
     '}',
     '.cmt-btn-cancel{background:var(--neo-card-bg,#ffffff);color:var(--neo-dark,#222222);}',
     '.cmt-btn-cancel:hover{background:var(--neo-bg,#f5f5f0);transform:translate(-1px,-1px);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);}',
@@ -69,29 +69,29 @@
     '.cmt-btn-ok:hover{background:#ebd47c;transform:translate(-1px,-1px);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);}',
     // Data-sync banner
     '#cmt-sync-banner{',
-      'position:fixed;top:-90px;left:50%;transform:translateX(-50%);',
-      'background:var(--neo-dark,#222222);color:#ffffff;',
-      'border:2px solid var(--neo-border-color,#333333);border-top:none;border-radius:0 0 10px 10px;',
-      'box-shadow:var(--neo-shadow-lg,4px 4px 0 #555555);',
-      'padding:10px 16px 10px 14px;',
-      'display:flex;align-items:center;gap:10px;flex-wrap:wrap;',
-      'font-size:.82rem;z-index:999997;',
-      'transition:top .3s cubic-bezier(.22,1,.36,1);',
-      'max-width:min(92vw,720px);',
-      'user-select:none;-webkit-user-select:none;',
+    'position:fixed;top:-90px;left:50%;transform:translateX(-50%);',
+    'background:var(--neo-dark,#222222);color:#ffffff;',
+    'border:2px solid var(--neo-border-color,#333333);border-top:none;border-radius:0 0 10px 10px;',
+    'box-shadow:var(--neo-shadow-lg,4px 4px 0 #555555);',
+    'padding:10px 16px 10px 14px;',
+    'display:flex;align-items:center;gap:10px;flex-wrap:wrap;',
+    'font-size:.82rem;z-index:999997;',
+    'transition:top .3s cubic-bezier(.22,1,.36,1);',
+    'max-width:min(92vw,720px);',
+    'user-select:none;-webkit-user-select:none;',
     '}',
     '#cmt-sync-banner.cmt-sync-show{top:0;}',
     '#cmt-sync-banner .cmt-sync-icon{font-size:.95rem;flex-shrink:0;}',
     '#cmt-sync-banner .cmt-sync-msg{flex:1;overflow:hidden;text-overflow:ellipsis;}',
     '#cmt-sync-banner .cmt-sync-btns{display:flex;gap:6px;flex-shrink:0;}',
     '#cmt-sync-banner button{',
-      'padding:4px 10px;border-radius:var(--neo-radius-sm,4px);border:1.5px solid var(--neo-blue,#5b8fcc);',
-      'font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--neo-blue,#5b8fcc);color:#ffffff;',
-      'user-select:none;-webkit-user-select:none;',
+    'padding:4px 10px;border-radius:var(--neo-radius-sm,4px);border:1.5px solid var(--neo-blue,#5b8fcc);',
+    'font-family:inherit;font-size:.78rem;font-weight:700;cursor:pointer;background:var(--neo-blue,#5b8fcc);color:#ffffff;',
+    'user-select:none;-webkit-user-select:none;',
     '}',
     '#cmt-sync-banner button:hover{filter:brightness(1.08);}',
     '#cmt-sync-banner .cmt-sync-dismiss{',
-      'background:transparent;border-color:#666666;color:#cccccc;',
+    'background:transparent;border-color:#666666;color:#cccccc;',
     '}',
     '#cmt-sync-banner .cmt-sync-dismiss:hover{background:#333333;color:#ffffff;}',
   ].join('');
@@ -115,9 +115,9 @@
   window.cmtEscapeStack = window.cmtEscapeStack || [];
 
   window.cmtPushEscapeHandler = function (handlerOrOpts) {
-    if (!handlerOrOpts) return function () {};
+    if (!handlerOrOpts) return function () { };
     var entry = typeof handlerOrOpts === 'function' ? { close: handlerOrOpts, el: null } : handlerOrOpts;
-    if (typeof entry.close !== 'function') return function () {};
+    if (typeof entry.close !== 'function') return function () { };
 
     // Remove any existing duplicate
     window.cmtRemoveEscapeHandler(entry);
@@ -159,7 +159,7 @@
           if (entry.el.classList.contains('hidden') || cs.display === 'none' || cs.visibility === 'hidden') {
             continue;
           }
-        } catch (err) {}
+        } catch (err) { }
       }
 
       if (typeof entry.close === 'function') {
@@ -229,7 +229,7 @@
       setTimeout(function () {
         var focusTarget = opts.initialFocus ? _resolveModalEl(opts.initialFocus) : _getFocusable(el);
         if (focusTarget && typeof focusTarget.focus === 'function') {
-          try { focusTarget.focus(); } catch (_) {}
+          try { focusTarget.focus(); } catch (_) { }
         }
       }, 20);
       return el;
@@ -238,19 +238,19 @@
       var el = _resolveModalEl(target);
       if (!el) return;
       if (el._cmtEscUnreg) {
-        try { el._cmtEscUnreg(); } catch (_) {}
+        try { el._cmtEscUnreg(); } catch (_) { }
         el._cmtEscUnreg = null;
       }
       el.classList.remove('open', 'is-open');
       if (el._cmtUsedDisplay) el.style.display = 'none';
       if (el._cmtPrevFocus && document.body && document.body.contains(el._cmtPrevFocus)) {
-        try { el._cmtPrevFocus.focus(); } catch (_) {}
+        try { el._cmtPrevFocus.focus(); } catch (_) { }
       }
       el._cmtPrevFocus = null;
       if (typeof el._cmtOnClose === 'function') {
         var cb = el._cmtOnClose;
         el._cmtOnClose = null;
-        try { cb(el); } catch (_) {}
+        try { cb(el); } catch (_) { }
       }
     },
     toggleMaximize: function (modalOrBtn, btnEl) {
@@ -322,11 +322,11 @@
     confirmOverlay.setAttribute('aria-modal', 'true');
     confirmOverlay.innerHTML =
       '<div class="cmt-dialog-box">' +
-        '<p class="cmt-dialog-msg"></p>' +
-        '<div class="cmt-dialog-btns">' +
-          '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
-          '<button type="button" class="cmt-btn-ok">OK</button>' +
-        '</div>' +
+      '<p class="cmt-dialog-msg"></p>' +
+      '<div class="cmt-dialog-btns">' +
+      '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
+      '<button type="button" class="cmt-btn-ok">OK</button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(confirmOverlay);
 
@@ -334,7 +334,7 @@
     confirmOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolveConfirm(false); });
     _bindSafeBackdrop(confirmOverlay, function () { resolveConfirm(false); });
     confirmOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(true);  }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(true); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveConfirm(false); }
     });
   }
@@ -379,12 +379,12 @@
     promptOverlay.setAttribute('aria-modal', 'true');
     promptOverlay.innerHTML =
       '<div class="cmt-dialog-box">' +
-        '<p class="cmt-dialog-msg"></p>' +
-        '<input class="cmt-dialog-input" type="text">' +
-        '<div class="cmt-dialog-btns">' +
-          '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
-          '<button type="button" class="cmt-btn-ok">OK</button>' +
-        '</div>' +
+      '<p class="cmt-dialog-msg"></p>' +
+      '<input class="cmt-dialog-input" type="text">' +
+      '<div class="cmt-dialog-btns">' +
+      '<button type="button" class="cmt-btn-cancel">Cancel</button>' +
+      '<button type="button" class="cmt-btn-ok">OK</button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(promptOverlay);
 
@@ -393,7 +393,7 @@
     promptOverlay.querySelector('.cmt-btn-cancel').addEventListener('click', function () { resolvePrompt(null); });
     _bindSafeBackdrop(promptOverlay, function () { resolvePrompt(null); });
     input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(input.value); }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(input.value); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolvePrompt(null); }
     });
   }
@@ -440,15 +440,15 @@
     timedConfirmOverlay.setAttribute('aria-modal', 'true');
     timedConfirmOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: center; max-width: 440px; padding: 24px 26px 20px;">' +
-        '<div style="margin-bottom: 10px; line-height: 1;"><img src="' + _dlgIconPrefix + 'save.svg" class="neo-icon" alt="" style="width: 28px; height: 28px;" /></div>' +
-        '<h3 class="cmt-timed-title" style="margin: 0 0 10px; font-size: 1.1rem; font-weight: 800; color: inherit;"></h3>' +
-        '<p class="cmt-timed-msg" style="margin: 0 0 12px; font-size: .92rem; line-height: 1.45; color: inherit; white-space: pre-wrap;"></p>' +
-        '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: var(--neo-gray-dark,#475569);"></div>' +
-        '<div class="cmt-dialog-btns" style="justify-content: center; gap: 12px; flex-wrap: wrap;">' +
-          '<button type="button" class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
-          '<button type="button" class="cmt-btn-cancel cmt-timed-btn-cancel" style="min-width: 90px; padding: 8px 18px; display: none;"></button>' +
-          '<button type="button" class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
-        '</div>' +
+      '<div style="margin-bottom: 10px; line-height: 1;"><img src="' + _dlgIconPrefix + 'save.svg" class="neo-icon" alt="" style="width: 28px; height: 28px;" /></div>' +
+      '<h3 class="cmt-timed-title" style="margin: 0 0 10px; font-size: 1.1rem; font-weight: 800; color: inherit;"></h3>' +
+      '<p class="cmt-timed-msg" style="margin: 0 0 12px; font-size: .92rem; line-height: 1.45; color: inherit; white-space: pre-wrap;"></p>' +
+      '<div class="cmt-timed-countdown" style="margin-bottom: 18px; font-size: .84rem; font-weight: 600; color: var(--neo-gray-dark,#475569);"></div>' +
+      '<div class="cmt-dialog-btns" style="justify-content: center; gap: 12px; flex-wrap: wrap;">' +
+      '<button type="button" class="cmt-btn-cancel cmt-timed-btn-no" style="min-width: 90px; padding: 8px 18px;"></button>' +
+      '<button type="button" class="cmt-btn-cancel cmt-timed-btn-cancel" style="min-width: 90px; padding: 8px 18px; display: none;"></button>' +
+      '<button type="button" class="cmt-btn-ok cmt-timed-btn-yes" style="min-width: 90px; padding: 8px 18px;"></button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(timedConfirmOverlay);
 
@@ -456,7 +456,7 @@
     timedConfirmOverlay.querySelector('.cmt-timed-btn-no').addEventListener('click', function () { resolveTimedConfirm(false); });
     timedConfirmOverlay.querySelector('.cmt-timed-btn-cancel').addEventListener('click', function () { resolveTimedConfirm('cancel'); });
     timedConfirmOverlay.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter')  { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(true);  }
+      if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(true); }
       if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); resolveTimedConfirm(_timedConfirmHasCancel ? 'cancel' : false); }
     });
   }
@@ -490,7 +490,7 @@
       var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
       var override = localStorage.getItem('cmt-lang-' + page);
       if (override) lang = override;
-    } catch (e) {}
+    } catch (e) { }
 
     var defCountdown = {
       en: 'Saving automatically in {seconds}s...',
@@ -593,7 +593,7 @@
       var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
       var override = localStorage.getItem('cmt-lang-' + page);
       if (override) lang = override;
-    } catch (e) {}
+    } catch (e) { }
     return _LABELS[lang] || _LABELS.en;
   }
 
@@ -615,7 +615,7 @@
       var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
       var override = localStorage.getItem('cmt-lang-' + page);
       if (override) lang = override;
-    } catch (e) {}
+    } catch (e) { }
     // Inline fallback map so the banner works even before i18n.js loads
     var map = {
       en: { dataSyncReload: 'Reload data', dataSyncSaveReload: 'Save & reload', dataSyncDismiss: 'Dismiss', dataSyncMsg: '{source} updated shared data.' },
@@ -628,13 +628,13 @@
       try {
         var res = window.i18nT(key);
         if (res && res !== key) return res;
-      } catch (e) {}
+      } catch (e) { }
     }
     if (typeof window.t === 'function') {
       try {
         var res2 = window.t(key);
         if (res2 && res2 !== key) return res2;
-      } catch (e) {}
+      } catch (e) { }
     }
     return lm[key] || key;
   }
@@ -647,9 +647,9 @@
       '<span class="cmt-sync-icon">🔄</span>' +
       '<span class="cmt-sync-msg" data-i18n="dataSyncMsg"></span>' +
       '<div class="cmt-sync-btns">' +
-        '<button class="cmt-sync-save-reload" data-i18n="dataSyncSaveReload" style="display:none"></button>' +
-        '<button class="cmt-sync-reload" data-i18n="dataSyncReload"></button>' +
-        '<button class="cmt-sync-dismiss" data-i18n="dataSyncDismiss"></button>' +
+      '<button class="cmt-sync-save-reload" data-i18n="dataSyncSaveReload" style="display:none"></button>' +
+      '<button class="cmt-sync-reload" data-i18n="dataSyncReload"></button>' +
+      '<button class="cmt-sync-dismiss" data-i18n="dataSyncDismiss"></button>' +
       '</div>';
     document.body.appendChild(syncBanner);
   }
@@ -770,7 +770,7 @@
       if (!ctrl) return false;
       if (ctrl.tagName === 'INPUT') {
         var t = String(ctrl.type || 'text').toLowerCase();
-        return !['button','checkbox','color','file','hidden','image','radio','range','reset','submit'].includes(t);
+        return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(t);
       }
       return true;
     }
@@ -885,6 +885,11 @@
           var stPrint = await Desktop.statByPath('toPrint', filename);
           return !!(stPrint && stPrint.ok && stPrint.exists);
         }
+      } else if (typeof dest === 'string' && dest.indexOf('exportRoot:') === 0) {
+        if (typeof Desktop.statByPath === 'function') {
+          var stRoot = await Desktop.statByPath(dest, filename);
+          return !!(stRoot && stRoot.ok && stRoot.exists);
+        }
       } else if (dest === 'same-folder' && opts && opts.sameFolderPath) {
         if (typeof Desktop.statDiskFile === 'function') {
           var sep = opts.sameFolderPath.indexOf('\\') !== -1 ? '\\' : '/';
@@ -962,29 +967,29 @@
     exportConflictOverlay.style.zIndex = '10000010';
     exportConflictOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: left; max-width: min(440px, calc(100vw - 24px)); padding: 22px 22px 18px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
-          '<div style="display:flex;align-items:center;gap:10px;">' +
-            '<div style="width:32px;height:32px;border-radius:var(--neo-radius-sm,4px);border:2px solid var(--neo-border-color,#333333);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="' + _dlgIconPrefix + 'error.svg" style="width:18px;height:18px;" alt="" />' +
-            '</div>' +
-            '<h3 class="cmt-conflict-title" style="margin:0;font-size:1.06rem;font-weight:800;font-family:inherit;color:var(--neo-dark,#222222);">File Already Exists</h3>' +
-          '</div>' +
-          '<button type="button" class="cmt-conflict-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
-        '</div>' +
-        '<p class="cmt-conflict-msg" style="margin:0 0 16px;font-size:.88rem;line-height:1.5;color:var(--neo-gray-dark,#475569);word-break:break-word;font-family:inherit;"></p>' +
-        '<div class="cmt-conflict-rename-wrap" style="display:none;margin-bottom:14px;">' +
-          '<label class="cmt-conflict-rename-label neo-label" for="cmt-conflict-rename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
-          '<div style="display:flex;gap:8px;align-items:center;">' +
-            '<input type="text" id="cmt-conflict-rename-input" class="cmt-conflict-rename-input neo-input" style="flex:1;font-weight:700;" />' +
-            '<button type="button" class="cmt-btn-conflict-rename-confirm neo-btn neo-btn-dark" style="white-space:nowrap;">Save</button>' +
-          '</div>' +
-        '</div>' +
-        '<div class="cmt-conflict-actions" style="display:flex;flex-direction:column;gap:8px;">' +
-          '<button type="button" class="cmt-btn-conflict-overwrite neo-btn" style="width:100%;justify-content:center;background:#fee2e2;color:#991b1b;border-color:#333333;">Overwrite Existing File</button>' +
-          '<button type="button" class="cmt-btn-conflict-rename neo-btn neo-btn-primary" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'edit.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-rename-text">Choose New Name</span></button>' +
-          '<button type="button" class="cmt-btn-conflict-timestamp neo-btn" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'clock.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-timestamp-text">Add Timestamp</span></button>' +
-          '<button type="button" class="cmt-btn-conflict-cancel neo-btn neo-btn-ghost" style="width:100%;justify-content:center;margin-top:2px;">Cancel</button>' +
-        '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
+      '<div style="display:flex;align-items:center;gap:10px;">' +
+      '<div style="width:32px;height:32px;border-radius:var(--neo-radius-sm,4px);border:2px solid var(--neo-border-color,#333333);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<img src="' + _dlgIconPrefix + 'error.svg" style="width:18px;height:18px;" alt="" />' +
+      '</div>' +
+      '<h3 class="cmt-conflict-title" style="margin:0;font-size:1.06rem;font-weight:800;font-family:inherit;color:var(--neo-dark,#222222);">File Already Exists</h3>' +
+      '</div>' +
+      '<button type="button" class="cmt-conflict-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
+      '</div>' +
+      '<p class="cmt-conflict-msg" style="margin:0 0 16px;font-size:.88rem;line-height:1.5;color:var(--neo-gray-dark,#475569);word-break:break-word;font-family:inherit;"></p>' +
+      '<div class="cmt-conflict-rename-wrap" style="display:none;margin-bottom:14px;">' +
+      '<label class="cmt-conflict-rename-label neo-label" for="cmt-conflict-rename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
+      '<div style="display:flex;gap:8px;align-items:center;">' +
+      '<input type="text" id="cmt-conflict-rename-input" class="cmt-conflict-rename-input neo-input" style="flex:1;font-weight:700;" />' +
+      '<button type="button" class="cmt-btn-conflict-rename-confirm neo-btn neo-btn-dark" style="white-space:nowrap;">Save</button>' +
+      '</div>' +
+      '</div>' +
+      '<div class="cmt-conflict-actions" style="display:flex;flex-direction:column;gap:8px;">' +
+      '<button type="button" class="cmt-btn-conflict-overwrite neo-btn" style="width:100%;justify-content:center;background:#fee2e2;color:#991b1b;border-color:#333333;">Overwrite Existing File</button>' +
+      '<button type="button" class="cmt-btn-conflict-rename neo-btn neo-btn-primary" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'edit.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-rename-text">Choose New Name</span></button>' +
+      '<button type="button" class="cmt-btn-conflict-timestamp neo-btn" style="width:100%;justify-content:center;gap:8px;"><img src="' + _dlgIconPrefix + 'clock.svg" style="width:16px;height:16px;" alt="" /><span class="cmt-conflict-timestamp-text">Add Timestamp</span></button>' +
+      '<button type="button" class="cmt-btn-conflict-cancel neo-btn neo-btn-ghost" style="width:100%;justify-content:center;margin-top:2px;">Cancel</button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(exportConflictOverlay);
 
@@ -1056,7 +1061,7 @@
         renameInput.focus();
         var dot = currentName.lastIndexOf('.');
         if (dot > 0) {
-          try { renameInput.setSelectionRange(0, dot); } catch (_) {}
+          try { renameInput.setSelectionRange(0, dot); } catch (_) { }
         } else {
           renameInput.select();
         }
@@ -1122,73 +1127,94 @@
     destinationOverlay.setAttribute('aria-modal', 'true');
     destinationOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: left; max-width: min(460px, calc(100vw - 24px)); padding: 22px 22px 18px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
-        '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
-          '<div style="display:flex;align-items:center;gap:8px;">' +
-            '<img src="' + _dlgIconPrefix + 'folder.svg" style="width:20px;height:20px;" alt="">' +
-            '<h3 class="cmt-dest-title" style="margin: 0; font-size: 1.08rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Choose Export Location</h3>' +
-          '</div>' +
-          '<button type="button" class="cmt-dest-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
-        '</div>' +
-        '<p class="cmt-dest-prompt" style="margin: 0 0 12px; font-size: .86rem; line-height: 1.45; color: var(--neo-gray-dark, #475569); font-family: inherit;">Where do you want to save the exported file?</p>' +
-        '<div class="cmt-dest-filename-wrap" style="margin-bottom: 14px;">' +
-          '<label class="cmt-dest-filename-label neo-label" for="cmt-dest-filename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
-          '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input neo-input" style="font-weight:700;" />' +
-        '</div>' +
-        '<div class="cmt-dest-lang-wrap" style="display:none;margin-bottom: 14px;">' +
-          '<label class="cmt-dest-lang-label neo-label" for="cmt-dest-lang-select" style="display:block;margin-bottom:5px;">Export Language:</label>' +
-          '<select id="cmt-dest-lang-select" class="cmt-dest-lang-select neo-input" style="width:100%;font-weight:700;"></select>' +
-        '</div>' +
-        '<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">' +
-          '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef9c3;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="' + _dlgIconPrefix + 'document-editor.svg" style="width:20px;height:20px;" alt="">' +
-            '</div>' +
-            '<div style="flex:1;">' +
-              '<div class="cmt-dest-doceditor-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Document Editor (user/document-editor/docs)</div>' +
-              '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
-            '</div>' +
-          '</button>' +
-          '<button type="button" class="cmt-btn-dest-samefolder" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#ffffff;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-green,#6abf8e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="' + _dlgIconPrefix + 'media.svg" style="width:20px;height:20px;" alt="">' +
-            '</div>' +
-            '<div style="flex:1;">' +
-              '<div class="cmt-dest-samefolder-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Same Folder as Original Media</div>' +
-              '<div class="cmt-dest-samefolder-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Save in the original source folder</div>' +
-            '</div>' +
-          '</button>' +
-          '<button type="button" class="cmt-btn-dest-print" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="../assets/icons/printer.svg" style="width:20px;height:20px;" alt="">' +
-            '</div>' +
-            '<div style="flex:1;">' +
-              '<div class="cmt-dest-print-title" style="font-size:0.92rem;font-weight:800;color:#000;">Print Folder (user/to-print)</div>' +
-              '<div class="cmt-dest-print-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Direct save into the local print folder without browsing</div>' +
-            '</div>' +
-          '</button>' +
-          '<button type="button" class="cmt-btn-dest-custom" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
-            '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#93c5fd;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
-              '<img src="../assets/icons/folder.svg" style="width:20px;height:20px;" alt="">' +
-            '</div>' +
-            '<div style="flex:1;">' +
-              '<div class="cmt-dest-custom-title" style="font-size:0.92rem;font-weight:800;color:#000;">Choose Other Folder (File Picker)</div>' +
-              '<div class="cmt-dest-custom-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Select any folder or drive on your computer using the system dialog</div>' +
-            '</div>' +
-          '</button>' +
-        '</div>' +
-        '<div style="display:flex;justify-content:flex-end;">' +
-          '<button type="button" class="cmt-btn-dest-cancel" style="padding:6px 16px;border:1.5px solid #000;border-radius:6px;background:#fff;font-weight:700;font-size:0.84rem;cursor:pointer;font-family:inherit;">Cancel</button>' +
-        '</div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;">' +
+      '<div style="display:flex;align-items:center;gap:8px;">' +
+      '<img src="' + _dlgIconPrefix + 'folder.svg" style="width:20px;height:20px;" alt="">' +
+      '<h3 class="cmt-dest-title" style="margin: 0; font-size: 1.08rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Choose Export Location</h3>' +
+      '</div>' +
+      '<button type="button" class="cmt-dest-close-x neo-icon-btn neo-close-btn" aria-label="Close"><img src="' + _dlgIconPrefix + 'close.svg" class="neo-icon" alt="" /></button>' +
+      '</div>' +
+      '<p class="cmt-dest-prompt" style="margin: 0 0 12px; font-size: .86rem; line-height: 1.45; color: var(--neo-gray-dark, #475569); font-family: inherit;">Where do you want to save the exported file?</p>' +
+      '<div class="cmt-dest-filename-wrap" style="margin-bottom: 14px;">' +
+      '<label class="cmt-dest-filename-label neo-label" for="cmt-dest-filename-input" style="display:block;margin-bottom:5px;">File Name:</label>' +
+      '<input type="text" id="cmt-dest-filename-input" class="cmt-dest-filename-input neo-input" style="font-weight:700;" />' +
+      '</div>' +
+      '<div class="cmt-dest-lang-wrap" style="display:none;margin-bottom: 14px;">' +
+      '<label class="cmt-dest-lang-label neo-label" for="cmt-dest-lang-select" style="display:block;margin-bottom:5px;">Export Language:</label>' +
+      '<select id="cmt-dest-lang-select" class="cmt-dest-lang-select neo-input" style="width:100%;font-weight:700;"></select>' +
+      '</div>' +
+      '<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">' +
+      '<button type="button" class="cmt-btn-dest-doceditor" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#fef9c3;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
+      '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-yellow,#e2c96e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<img src="' + _dlgIconPrefix + 'document-editor.svg" style="width:20px;height:20px;" alt="">' +
+      '</div>' +
+      '<div style="flex:1;">' +
+      '<div class="cmt-dest-doceditor-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Document Editor (user/document-editor/docs)</div>' +
+      '<div class="cmt-dest-doceditor-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Direct save into documents and open immediately in Document Editor</div>' +
+      '</div>' +
+      '</button>' +
+      '<button type="button" class="cmt-btn-dest-samefolder" style="display:none;align-items:center;gap:12px;padding:12px 14px;background:#ffffff;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .12s ease,box-shadow .12s ease,background .12s ease;outline:none;font-family:inherit;">' +
+      '<div style="width:36px;height:36px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:var(--neo-green,#6abf8e);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<img src="' + _dlgIconPrefix + 'media.svg" style="width:20px;height:20px;" alt="">' +
+      '</div>' +
+      '<div style="flex:1;">' +
+      '<div class="cmt-dest-samefolder-title" style="font-size:0.92rem;font-weight:800;color:var(--neo-dark,#222222);">Same Folder as Original Media</div>' +
+      '<div class="cmt-dest-samefolder-desc" style="font-size:0.75rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;">Save in the original source folder</div>' +
+      '</div>' +
+      '</button>' +
+      '<button type="button" class="cmt-btn-dest-print" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
+      '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#fde047;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<img src="../assets/icons/printer.svg" style="width:20px;height:20px;" alt="">' +
+      '</div>' +
+      '<div style="flex:1;">' +
+      '<div class="cmt-dest-print-title" style="font-size:0.92rem;font-weight:800;color:#000;">Print Folder (user/to-print)</div>' +
+      '<div class="cmt-dest-print-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Direct save into the local print folder without browsing</div>' +
+      '</div>' +
+      '</button>' +
+      '<div class="cmt-dest-custom-roots" style="display:none;flex-direction:column;gap:8px;max-height:190px;overflow-y:auto;padding-right:2px;"></div>' +
+      '<button type="button" class="cmt-btn-dest-new-root" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:8px 12px;background:#f8fafc;border:2px dashed var(--neo-border-color,#333333);border-radius:6px;cursor:pointer;font-size:0.84rem;font-weight:700;color:var(--neo-dark,#222222);font-family:inherit;transition:background .12s;">' +
+      '<img src="' + _dlgIconPrefix + 'plus.svg" style="width:15px;height:15px;" alt="">' +
+      '<span class="cmt-dest-new-root-label">New Root Folder...</span>' +
+      '</button>' +
+      '<button type="button" class="cmt-btn-dest-custom" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:#fff;border:2px solid #000;box-shadow:3px 3px 0 #000;border-radius:6px;cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;">' +
+      '<div style="width:36px;height:36px;border:1.5px solid #000;border-radius:4px;background:#93c5fd;display:flex;align-items:center;justify-content:center;flex-shrink:0;">' +
+      '<img src="../assets/icons/folder.svg" style="width:20px;height:20px;" alt="">' +
+      '</div>' +
+      '<div style="flex:1;">' +
+      '<div class="cmt-dest-custom-title" style="font-size:0.92rem;font-weight:800;color:#000;">Choose Other Folder (File Picker)</div>' +
+      '<div class="cmt-dest-custom-desc" style="font-size:0.75rem;color:#555;font-weight:600;margin-top:2px;">Select any folder or drive on your computer using the system dialog</div>' +
+      '</div>' +
+      '</button>' +
+      '</div>' +
+      '<div style="display:flex;justify-content:flex-end;">' +
+      '<button type="button" class="cmt-btn-dest-cancel" style="padding:6px 16px;border:1.5px solid #000;border-radius:6px;background:#fff;font-weight:700;font-size:0.84rem;cursor:pointer;font-family:inherit;">Cancel</button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(destinationOverlay);
 
     var btnDocEditor = destinationOverlay.querySelector('.cmt-btn-dest-doceditor');
     var btnSameFolder = destinationOverlay.querySelector('.cmt-btn-dest-samefolder');
     var btnPrint = destinationOverlay.querySelector('.cmt-btn-dest-print');
+    var customRootsWrap = destinationOverlay.querySelector('.cmt-dest-custom-roots');
+    var btnNewRoot = destinationOverlay.querySelector('.cmt-btn-dest-new-root');
     var btnCustom = destinationOverlay.querySelector('.cmt-btn-dest-custom');
     var btnCancel = destinationOverlay.querySelector('.cmt-btn-dest-cancel');
     var btnCloseX = destinationOverlay.querySelector('.cmt-dest-close-x');
     var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
+
+    destinationOverlay._handleExportDestSelect = handleSelect;
+    if (btnNewRoot) {
+      btnNewRoot.addEventListener('mouseenter', function () { btnNewRoot.style.background = '#fef9c3'; });
+      btnNewRoot.addEventListener('mouseleave', function () { btnNewRoot.style.background = '#f8fafc'; });
+      btnNewRoot.addEventListener('click', async function () {
+        var created = await _promptAndCreateCustomExportRoot();
+        if (created) {
+          await _renderCustomExportRootsInto(customRootsWrap, handleSelect);
+          var newBtn = customRootsWrap && customRootsWrap.querySelector('[data-export-root-id="' + created.id + '"]');
+          if (newBtn) newBtn.focus();
+        }
+      });
+    }
 
     var closeWith = _closeDestinationOverlay;
     var _destChecking = false;
@@ -1301,9 +1327,16 @@
 
     destinationOverlay.querySelector('.cmt-dest-print-title').textContent = _getExportText('exportToPrintFolder', 'Print Folder (user/to-print)');
     destinationOverlay.querySelector('.cmt-dest-print-desc').textContent = _getExportText('exportToPrintDesc', 'Direct save into the local print folder without browsing');
+    var newRootLabel = destinationOverlay.querySelector('.cmt-dest-new-root-label');
+    if (newRootLabel) newRootLabel.textContent = _getExportText('exportNewRootFolder', 'New Root Folder...');
     destinationOverlay.querySelector('.cmt-dest-custom-title').textContent = _getExportText('exportCustomLocation', 'Choose Other Folder (File Picker)');
     destinationOverlay.querySelector('.cmt-dest-custom-desc').textContent = _getExportText('exportCustomDesc', 'Select any folder or drive on your computer using the system dialog');
     destinationOverlay.querySelector('.cmt-btn-dest-cancel').textContent = _getExportText('btnCancel', 'Cancel');
+
+    var customRootsWrap = destinationOverlay.querySelector('.cmt-dest-custom-roots');
+    if (customRootsWrap && typeof destinationOverlay._handleExportDestSelect === 'function') {
+      _renderCustomExportRootsInto(customRootsWrap, destinationOverlay._handleExportDestSelect);
+    }
 
     var filenameInput = destinationOverlay.querySelector('#cmt-dest-filename-input');
     if (filenameInput) {
@@ -1366,7 +1399,7 @@
           filenameInput.focus();
           var dot = rawFilename.lastIndexOf('.');
           if (dot > 0) {
-            try { filenameInput.setSelectionRange(0, dot); } catch (e) {}
+            try { filenameInput.setSelectionRange(0, dot); } catch (e) { }
           } else {
             filenameInput.select();
           }
@@ -1432,7 +1465,7 @@
           }));
           window.location.href = 'document-editor.html?importPending=draft';
           return { ok: true, path: filename, name: filename, destination: 'doc-editor' };
-        } catch (err) {}
+        } catch (err) { }
       }
       if (config.odtRequest && (!window.OdtConverter || !window.JSZip)) {
         if (typeof showToast === 'function') {
@@ -1512,23 +1545,24 @@
           if (typeof window.showToast === 'function') window.showToast(errText, true);
           return { ok: false, error: errText };
         }
-      } else if (dest === 'to-print') {
+      } else if (dest === 'to-print' || (typeof dest === 'string' && dest.indexOf('exportRoot:') === 0)) {
+        var exportTarget = (dest === 'to-print') ? 'toPrint' : dest;
         if (config.odtRequest) {
-          var reqOdtPrint = Object.assign({}, config.odtRequest, { target: 'toPrint', defaultName: filename.replace(/\.odt$/i, '') });
+          var reqOdtPrint = Object.assign({}, config.odtRequest, { target: exportTarget, defaultName: filename.replace(/\.odt$/i, '') });
           result = await Desktop.exportOdt(reqOdtPrint);
         } else if (config.docxRequest) {
-          var req = Object.assign({}, config.docxRequest, { target: 'toPrint', defaultName: filename.replace(/\.docx$/i, '') });
+          var req = Object.assign({}, config.docxRequest, { target: exportTarget, defaultName: filename.replace(/\.docx$/i, '') });
           result = await Desktop.exportDocx(req);
         } else if (typeof content === 'string') {
-          result = await Desktop.saveText('toPrint', filename, content);
+          result = await Desktop.saveText(exportTarget, filename, content);
         } else if (content instanceof Blob) {
-          result = await Desktop.saveBlob('toPrint', filename, content);
+          result = await Desktop.saveBlob(exportTarget, filename, content);
         } else if (content instanceof ArrayBuffer || (content && content.buffer instanceof ArrayBuffer)) {
           var bytes = content instanceof Uint8Array ? content : new Uint8Array(content);
           var blob2 = new Blob([bytes], { type: config.mimeType || 'application/octet-stream' });
-          result = await Desktop.saveBlob('toPrint', filename, blob2);
+          result = await Desktop.saveBlob(exportTarget, filename, blob2);
         } else {
-          result = await Desktop.saveText('toPrint', filename, String(content || ''));
+          result = await Desktop.saveText(exportTarget, filename, String(content || ''));
         }
 
         if (result && typeof result.file === 'string' && result.file) {
@@ -1623,20 +1657,20 @@
     exportOverlay.setAttribute('aria-modal', 'true');
     exportOverlay.innerHTML =
       '<div class="cmt-dialog-box" style="text-align: center; max-width: min(420px, calc(100vw - 24px)); padding: 26px 22px 20px; border: 2px solid var(--neo-border-color, #333333); box-shadow: 6px 6px 0 var(--neo-dark, #222222); border-radius: var(--neo-radius-lg, 10px);">' +
-        '<div style="display: flex; justify-content: center; margin-bottom: 12px;">' +
-          '<div style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--neo-border-color, #333333); background: var(--neo-green, #6abf8e); display: flex; align-items: center; justify-content: center; box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);">' +
-            '<img src="' + iconPrefix + 'check.svg" style="width: 22px; height: 22px;" alt="" />' +
-          '</div>' +
-        '</div>' +
-        '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.12rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Export Complete</h3>' +
-        '<p class="cmt-export-msg" style="margin: 0 0 20px; font-size: .88rem; line-height: 1.5; color: var(--neo-gray-dark, #475569); word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
-        '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
-          '<button type="button" class="cmt-btn-open-file neo-btn neo-btn-dark" style="width: 100%; justify-content: center;">Open File</button>' +
-          '<button type="button" class="cmt-btn-open-doc-editor neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with Document Editor</button>' +
-          '<button type="button" class="cmt-btn-open-pdf-viewer neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with PDF Viewer</button>' +
-          '<button type="button" class="cmt-btn-show-in-folder neo-btn" style="width: 100%; justify-content: center;">Open Folder</button>' +
-          '<button type="button" class="cmt-btn-close-export neo-btn neo-btn-ghost" style="width: 100%; justify-content: center; margin-top: 2px;">Close</button>' +
-        '</div>' +
+      '<div style="display: flex; justify-content: center; margin-bottom: 12px;">' +
+      '<div style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--neo-border-color, #333333); background: var(--neo-green, #6abf8e); display: flex; align-items: center; justify-content: center; box-shadow: var(--neo-shadow-sm, 2px 2px 0 #888888);">' +
+      '<img src="' + iconPrefix + 'check.svg" style="width: 22px; height: 22px;" alt="" />' +
+      '</div>' +
+      '</div>' +
+      '<h3 class="cmt-export-title" style="margin: 0 0 10px; font-size: 1.12rem; font-weight: 800; font-family: inherit; color: var(--neo-dark, #222222);">Export Complete</h3>' +
+      '<p class="cmt-export-msg" style="margin: 0 0 20px; font-size: .88rem; line-height: 1.5; color: var(--neo-gray-dark, #475569); word-break: break-all; font-family: inherit; font-weight: 500;"></p>' +
+      '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
+      '<button type="button" class="cmt-btn-open-file neo-btn neo-btn-dark" style="width: 100%; justify-content: center;">Open File</button>' +
+      '<button type="button" class="cmt-btn-open-doc-editor neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with Document Editor</button>' +
+      '<button type="button" class="cmt-btn-open-pdf-viewer neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with PDF Viewer</button>' +
+      '<button type="button" class="cmt-btn-show-in-folder neo-btn" style="width: 100%; justify-content: center;">Open Folder</button>' +
+      '<button type="button" class="cmt-btn-close-export neo-btn neo-btn-ghost" style="width: 100%; justify-content: center; margin-top: 2px;">Close</button>' +
+      '</div>' +
       '</div>';
     document.body.appendChild(exportOverlay);
 
@@ -1850,7 +1884,7 @@
       var page = (location.pathname.split('/').pop() || '').replace('.html', '') || 'launcher';
       var override = localStorage.getItem('cmt-lang-' + page);
       if (override) lang = override;
-    } catch (e) {}
+    } catch (e) { }
 
     var map = {
       en: {
@@ -1955,13 +1989,13 @@
       try {
         var r = window.i18n.t(key);
         if (r && r !== key) return r;
-      } catch (e) {}
+      } catch (e) { }
     }
     if (typeof window.t === 'function') {
       try {
         var res = window.t(key);
         if (res && res !== key) return res;
-      } catch (e) {}
+      } catch (e) { }
     }
     return lm[key] || defaultVal;
   }
@@ -1982,7 +2016,7 @@
           localStorage.setItem('cmt_last_dismissed_crash', String(dumpTime));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async function checkScheduledBackupPrompt() {
@@ -2039,6 +2073,184 @@
     setTimeout(checkScheduledBackupPrompt, 1200);
   }
 
+  async function _fetchCustomExportRoots() {
+    if (window.ExportRootsService && typeof window.ExportRootsService.list === 'function') {
+      return window.ExportRootsService.list();
+    }
+    if (window.Desktop && typeof Desktop.getExportRoots === 'function') {
+      try {
+        var res = await Desktop.getExportRoots();
+        if (res && res.ok && Array.isArray(res.roots)) return res.roots;
+      } catch (_) { }
+    }
+    return [];
+  }
+
+  function _slugifyExportRoot(raw) {
+    if (window.ExportRootsService && typeof window.ExportRootsService.slugify === 'function') {
+      return window.ExportRootsService.slugify(raw);
+    }
+    var reserved = new Set([
+      'to-print', 'lessons', 'mindmaps', 'custom-data', 'data', 'grades',
+      'group-participation', 'document-editor', 'class-plans', 'game-results',
+      'log', 'tests', 'export-css', 'trash', 'history', 'backups', 'node_modules'
+    ]);
+    var s = String(raw || '').trim().toLowerCase();
+    try { s = s.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch (_) { }
+    s = s.replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!s || s === '.' || s === '..' || reserved.has(s)) return '';
+    return s;
+  }
+
+  async function _promptAndCreateCustomExportRoot() {
+    if (window.ExportRootsService && typeof window.ExportRootsService.promptNewRootFolder === 'function') {
+      return window.ExportRootsService.promptNewRootFolder();
+    }
+    var label = await _showPrompt(
+      _getExportText('exportNewRootFolderPrompt', 'Enter a name for the new export root folder (created under user/):'),
+      ''
+    );
+    if (!label || !String(label).trim()) return null;
+    var cleanLabel = String(label).trim();
+    var folderName = _slugifyExportRoot(cleanLabel);
+    if (!folderName) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(_getExportText('exportRootReservedName', 'That folder name is reserved or invalid.'), true);
+      }
+      return null;
+    }
+    var current = await _fetchCustomExportRoots();
+    if (current.some(function (r) { return r.folderName.toLowerCase() === folderName.toLowerCase(); })) {
+      if (typeof window.showToast === 'function') {
+        window.showToast(_getExportText('exportRootFolderExists', 'An export root folder with that name already exists.'), true);
+      }
+      return null;
+    }
+    var newRoot = { id: folderName, label: cleanLabel, folderName: folderName };
+    var next = current.concat([newRoot]);
+    if (window.Desktop && typeof Desktop.saveExportRoots === 'function') {
+      var res = await Desktop.saveExportRoots({ roots: next });
+      if (!res || !res.ok) {
+        if (typeof window.showToast === 'function') window.showToast((res && res.error) || 'Failed to create folder.', true);
+        return null;
+      }
+    }
+    if (typeof window.showToast === 'function') {
+      window.showToast(_getExportText('exportRootFolderAdded', 'Export root folder "{name}" created.').replace('{name}', cleanLabel));
+    }
+    return newRoot;
+  }
+
+  async function _renderCustomExportRootsInto(containerEl, onSelect, opts) {
+    if (!containerEl) return;
+    var roots = await _fetchCustomExportRoots();
+    containerEl.innerHTML = '';
+    if (!roots.length) {
+      containerEl.style.display = 'none';
+      return;
+    }
+    containerEl.style.display = 'flex';
+    var compact = !!(opts && opts.compact);
+    var descText = _getExportText('exportToCustomRootDesc', 'Direct save into this folder without browsing');
+    roots.forEach(function (root) {
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-export-root-id', root.id);
+      if (compact) {
+        btn.className = (opts && opts.buttonClass) || 'btn';
+        btn.style.cssText = 'display:flex;align-items:center;gap:8px;padding:9px 12px;justify-content:flex-start;width:100%;text-align:left;background:#fff;border:2px solid var(--neo-border-color,#333333);border-radius:6px;cursor:pointer;font-family:inherit;font-weight:700;font-size:0.88rem;color:var(--neo-dark,#222222);';
+        var img = document.createElement('img');
+        img.src = _dlgIconPrefix + 'folder.svg';
+        img.alt = '';
+        img.style.cssText = 'width:16px;height:16px;flex-shrink:0;';
+        var span = document.createElement('span');
+        span.textContent = root.label + ' (user/' + root.folderName + ')';
+        btn.appendChild(img);
+        btn.appendChild(span);
+      } else {
+        btn.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 14px;background:#fff;border:2px solid var(--neo-border-color,#333333);box-shadow:var(--neo-shadow-md,3px 3px 0 #555555);border-radius:var(--neo-radius-md,6px);cursor:pointer;text-align:left;transition:transform .08s,box-shadow .08s,background .12s;outline:none;font-family:inherit;';
+        var iconBox = document.createElement('div');
+        iconBox.style.cssText = 'width:34px;height:34px;border:1.5px solid var(--neo-border-color,#333333);border-radius:var(--neo-radius-sm,4px);background:#e0f2fe;display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+        var iconImg = document.createElement('img');
+        iconImg.src = _dlgIconPrefix + 'folder.svg';
+        iconImg.alt = '';
+        iconImg.style.cssText = 'width:18px;height:18px;';
+        iconBox.appendChild(iconImg);
+
+        var textBox = document.createElement('div');
+        textBox.style.cssText = 'flex:1;min-width:0;';
+        var titleDiv = document.createElement('div');
+        titleDiv.style.cssText = 'font-size:0.9rem;font-weight:800;color:var(--neo-dark,#222222);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+        titleDiv.textContent = root.label + ' (user/' + root.folderName + ')';
+        var descDiv = document.createElement('div');
+        descDiv.style.cssText = 'font-size:0.74rem;color:var(--neo-gray-dark,#475569);font-weight:600;margin-top:2px;';
+        descDiv.textContent = descText;
+        textBox.appendChild(titleDiv);
+        textBox.appendChild(descDiv);
+
+        btn.appendChild(iconBox);
+        btn.appendChild(textBox);
+        btn.addEventListener('mouseenter', function () { btn.style.background = '#f0f9ff'; });
+        btn.addEventListener('mouseleave', function () { btn.style.background = '#fff'; });
+        btn.addEventListener('mousedown', function () { btn.style.transform = 'translate(1px, 1px)'; btn.style.boxShadow = '2px 2px 0 #555555'; });
+        btn.addEventListener('mouseup', function () { btn.style.transform = 'none'; btn.style.boxShadow = '3px 3px 0 #555555'; });
+      }
+      btn.addEventListener('click', function () {
+        if (typeof onSelect === 'function') onSelect('exportRoot:' + root.id, root);
+      });
+      containerEl.appendChild(btn);
+    });
+  }
+
+  function _isManagedExportDest(dest) {
+    return dest === 'to-print' || (typeof dest === 'string' && dest.indexOf('exportRoot:') === 0);
+  }
+
+  function _resolveExportTarget(dest) {
+    if (dest === 'to-print') return 'toPrint';
+    if (typeof dest === 'string' && dest.indexOf('exportRoot:') === 0) return dest;
+    return null;
+  }
+
+  async function _bindExportRootsInModal(containerEl, onSelect, opts) {
+    if (!containerEl) return;
+    var rootsWrap = containerEl.querySelector('.cmt-modal-custom-roots');
+    if (!rootsWrap) {
+      rootsWrap = document.createElement('div');
+      rootsWrap.className = 'cmt-modal-custom-roots';
+      rootsWrap.style.cssText = 'display:none;flex-direction:column;gap:8px;max-height:170px;overflow-y:auto;';
+      containerEl.appendChild(rootsWrap);
+    }
+    var newBtn = containerEl.querySelector('.cmt-modal-new-root-btn');
+    if (!newBtn) {
+      newBtn = document.createElement('button');
+      newBtn.type = 'button';
+      newBtn.className = (opts && opts.newBtnClass) || 'btn';
+      newBtn.classList.add('cmt-modal-new-root-btn');
+      newBtn.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 12px;background:#f8fafc;border:2px dashed var(--neo-border-color,#333333);border-radius:6px;cursor:pointer;font-size:0.84rem;font-weight:700;color:var(--neo-dark,#222222);width:100%;font-family:inherit;';
+      var img = document.createElement('img');
+      img.src = _dlgIconPrefix + 'plus.svg';
+      img.alt = '';
+      img.style.cssText = 'width:14px;height:14px;';
+      var span = document.createElement('span');
+      span.className = 'cmt-modal-new-root-label';
+      newBtn.appendChild(img);
+      newBtn.appendChild(span);
+      containerEl.appendChild(newBtn);
+    }
+    var lbl = newBtn.querySelector('.cmt-modal-new-root-label');
+    if (lbl) lbl.textContent = _getExportText('exportNewRootFolder', 'New Root Folder...');
+    newBtn.onclick = async function () {
+      var created = await _promptAndCreateCustomExportRoot();
+      if (created) {
+        await _renderCustomExportRootsInto(rootsWrap, onSelect, opts);
+        var createdBtn = rootsWrap.querySelector('[data-export-root-id="' + created.id + '"]');
+        if (createdBtn) createdBtn.focus();
+      }
+    };
+    await _renderCustomExportRootsInto(rootsWrap, onSelect, opts);
+  }
+
   window.checkPreviousSessionCrash = checkPreviousSessionCrash;
   window.checkScheduledBackupPrompt = checkScheduledBackupPrompt;
   window.showExportSuccessPopup = _showExportSuccessPopup;
@@ -2046,6 +2258,11 @@
   window.saveExportWithDestination = _saveExportWithDestination;
   window.sendToDocumentEditor = _sendToDocumentEditor;
   window.resolveExportFilenameConflict = _resolveExportFilenameConflict;
+  window.cmtRenderExportRootButtons = _renderCustomExportRootsInto;
+  window.cmtPromptNewExportRoot = _promptAndCreateCustomExportRoot;
+  window.cmtBindExportRootsInModal = _bindExportRootsInModal;
+  window.cmtIsManagedExportDest = _isManagedExportDest;
+  window.cmtResolveExportTarget = _resolveExportTarget;
 
   // ── Light Neobrutalist Hover Helper Card ──────────────────────────────────
   (function initHoverHelperCard() {
@@ -2053,32 +2270,32 @@
     var hcStyle = document.createElement('style');
     hcStyle.textContent = [
       '#cmt-hover-card{',
-        'position:fixed;top:0;left:0;',
-        'max-width:220px;width:max-content;',
-        'padding:5px 9px;',
-        'background:#fafaf7;color:#222222;',
-        'border:1.5px solid #333333;',
-        'border-left:3px solid #e2c96e;',
-        'border-radius:5px;',
-        'box-shadow:2px 2px 0 #888888;',
-        'font-family:"Lexend",system-ui,-apple-system,sans-serif;',
-        'font-size:0.72rem;font-weight:500;line-height:1.35;',
-        'z-index:10000005;pointer-events:none;',
-        'opacity:0;will-change:opacity;',
-        'transform:translate3d(var(--hc-x,0px),var(--hc-y,0px),0);',
-        'transition:opacity 0.16s cubic-bezier(0.22,1,0.36,1);',
-        'white-space:normal;word-wrap:break-word;',
-        'user-select:none;-webkit-user-select:none;',
+      'position:fixed;top:0;left:0;',
+      'max-width:220px;width:max-content;',
+      'padding:5px 9px;',
+      'background:#fafaf7;color:#222222;',
+      'border:1.5px solid #333333;',
+      'border-left:3px solid #e2c96e;',
+      'border-radius:5px;',
+      'box-shadow:2px 2px 0 #888888;',
+      'font-family:"Lexend",system-ui,-apple-system,sans-serif;',
+      'font-size:0.72rem;font-weight:500;line-height:1.35;',
+      'z-index:10000005;pointer-events:none;',
+      'opacity:0;will-change:opacity;',
+      'transform:translate3d(var(--hc-x,0px),var(--hc-y,0px),0);',
+      'transition:opacity 0.16s cubic-bezier(0.22,1,0.36,1);',
+      'white-space:normal;word-wrap:break-word;',
+      'user-select:none;-webkit-user-select:none;',
       '}',
       '#cmt-hover-card.cmt-hc-visible{',
-        'opacity:0.96;',
+      'opacity:0.96;',
       '}',
       '#cmt-hover-card .cmt-hc-title{',
-        'font-weight:800;font-size:0.74rem;color:#111111;',
-        'margin-bottom:2px;letter-spacing:0.2px;',
+      'font-weight:800;font-size:0.74rem;color:#111111;',
+      'margin-bottom:2px;letter-spacing:0.2px;',
       '}',
       '#cmt-hover-card .cmt-hc-body{',
-        'color:#334155;font-weight:500;',
+      'color:#334155;font-weight:500;',
       '}',
       '#cmt-hover-card strong{font-weight:700;color:#111111;}',
       '#cmt-hover-card em{font-style:italic;}',

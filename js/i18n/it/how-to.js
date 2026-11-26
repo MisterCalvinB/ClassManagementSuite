@@ -433,7 +433,7 @@
   "ht_fm_q6": "Quali scorciatoie funzionano nel Gestore File?",
   "ht_fm_a6": "<p>Clicca <img src='../assets/icons/keyboard.svg' class='ht-inline-icon' alt='' /> <strong>Scorciatoie</strong> in alto per ricerca e rinomina rapida.</p>",
   "ht_fm_q7": "Come controllo e riparo i collegamenti alle classi con Integrità Dati?",
-  "ht_fm_a7": "<p>Apri la scheda <strong>Integrità Dati</strong> nel Gestore File per scansionare voti, agenda e mappe Board alla ricerca di ID classe orfani e ricollegarli per nome in un clic.</p>",
+  "ht_fm_a7": "<p>Apri la scheda <strong>Integrità Dati</strong> nel Gestore File per scansionare voti, agenda e mappe Board alla ricerca di ID classe orfani o file illeggibili. Dal riepilogo o da ogni scheda puoi ricollegare automaticamente o manualmente una classe, scollegare o rimuovere riferimenti orfani, aprire il file o la sua cartella, oppure avviare lo strumento corrispondente.</p>",
   "ht_db_q11": "Come uso i Preset Docente in AI Studio?",
   "ht_db_a11": "<p>Apri <strong>AI Studio</strong> in Gestisci Database per vedere lo stato del motore IA offline e clicca un chip <strong>Preset Docente</strong> per precompilare prompt pronti per la classe.</p>",
   "ht_cp2_q3": "Posso aggiungere cattedra, porta o lavagna sulla piantina?",

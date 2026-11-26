@@ -34,7 +34,7 @@
         inlineParams.forEach(function (v, k) {
           mergedQuery[k] = v;
         });
-      } catch (_) {}
+      } catch (_) { }
     }
     if (query && typeof query === 'object') {
       Object.keys(query).forEach(function (k) {
@@ -131,7 +131,7 @@
       var bc = new BroadcastChannel('cmt-dictionary');
       bc.postMessage({ type: 'search', q: q });
       bc.close();
-    } catch (_) {}
+    } catch (_) { }
     if (window.electronApi && typeof window.electronApi.openHtml === 'function') {
       window.electronApi.openHtml({
         file: 'dictionary.html',
@@ -168,7 +168,7 @@
         try {
           var rawOff = JSON.parse(localStorage.getItem('cmt-dict-banks-off') || '[]');
           if (Array.isArray(rawOff)) rawOff.forEach(function (n) { offSet.add(n); });
-        } catch (_) {}
+        } catch (_) { }
         var enabled = res.banks.map(function (b) { return b.name; }).filter(function (n) { return !offSet.has(n); });
         if (enabled.length === 0) return false;
         await api.dictionarySetBanks({ banks: enabled });
@@ -228,7 +228,7 @@
         if (_backdrop && _backdrop.classList.contains('open') && !_actionTarget) {
           _renderList(_input ? _input.value : '');
         }
-      } catch (_) {}
+      } catch (_) { }
     }, 120);
   }
 
@@ -277,7 +277,7 @@
       if (act.mode === 'dossier') {
         localStorage.setItem('cmt-qs-target-dossier', act.studentName || act.className || '');
       }
-    } catch (_) {}
+    } catch (_) { }
     var query = {};
     if (act.classId) query.classId = act.classId;
     if (act.className) query.className = act.className;
@@ -367,7 +367,7 @@
         var resp = await fetch(prefix + relPath);
         if (resp && resp.ok) return await resp.text();
       }
-    } catch (_) {}
+    } catch (_) { }
     return '';
   }
 
@@ -401,7 +401,7 @@
       if (Array.isArray(res)) return res;
       if (res && Array.isArray(res.files)) return res.files;
       if (res && Array.isArray(res.entries)) return res.entries;
-    } catch (_) {}
+    } catch (_) { }
     return [];
   }
 
@@ -415,6 +415,7 @@
     var docFiles = [];
     var conFiles = [];
     var printFiles = [];
+    var customExportRoots = [];
 
     if (window.electronApi && typeof window.electronApi.quickSwitcherIndex === 'function') {
       try {
@@ -428,19 +429,20 @@
           if (Array.isArray(idx.documents)) docFiles = idx.documents;
           if (Array.isArray(idx.constellations)) conFiles = idx.constellations;
           if (Array.isArray(idx.toPrint)) printFiles = idx.toPrint;
+          if (Array.isArray(idx.customExportFiles)) customExportRoots = idx.customExportFiles;
         }
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. Fallbacks (LinksService, browser mode, or in-memory globals)
     if (classes.length === 0 && window.LinksService && typeof window.LinksService.ensureRosterLoaded === 'function') {
-      try { await window.LinksService.ensureRosterLoaded(); } catch (_) {}
+      try { await window.LinksService.ensureRosterLoaded(); } catch (_) { }
     }
     if (classes.length === 0) {
       try {
         var rosterTxt = await _readUserText('class-groups.js');
         if (rosterTxt) classes = _parseRosterText(rosterTxt);
-      } catch (_) {}
+      } catch (_) { }
     }
     if (classes.length === 0 && (window.CLASS_GROUPS_DATA || window.CLASS_GROUPS)) {
       var cg = (window.CLASS_GROUPS_DATA && window.CLASS_GROUPS_DATA.classGroups) || window.CLASS_GROUPS;
@@ -576,6 +578,44 @@
         };
       }
       nextDynamic.push(printItem);
+    });
+
+    customExportRoots.forEach(function (root) {
+      if (!root || !Array.isArray(root.files)) return;
+      var rTarget = root.target || ('exportRoot:' + root.id);
+      var rLabel = root.label || root.folderName || 'Export';
+      var rFolder = root.folderName || root.id;
+      root.files.forEach(function (f) {
+        var rawPath = typeof f === 'string' ? f : (f && (f.relativePath || f.name || f.filename));
+        if (!rawPath) return;
+        var relPath = String(rawPath).replace(/\\/g, '/');
+        if (/(^|\/)(history|trash|backups|node_modules)(\/|$)/i.test(relPath)) return;
+        var fileName = relPath.split('/').pop();
+        var item = {
+          id: 'exproot:' + root.id + ':' + relPath,
+          cat: 'print',
+          catLabel: rLabel,
+          title: fileName,
+          sub: 'user/' + rFolder + '/' + relPath,
+          icon: 'folder.svg'
+        };
+        if (/\.pdf$/i.test(fileName)) {
+          item.url = _pageHref('pdf-viewer.html') + '?openTarget=' + encodeURIComponent(rTarget) + '&openRelPath=' + encodeURIComponent(relPath);
+        } else if (/\.(md|markdown|html|htm|txt)$/i.test(fileName)) {
+          item.url = _pageHref('document-editor.html') + '?editTarget=' + encodeURIComponent(rTarget) + '&editRelPath=' + encodeURIComponent(relPath);
+        } else {
+          item.onSelect = function () {
+            if (window.Desktop && typeof window.Desktop.openNative === 'function') {
+              window.Desktop.openNative(rTarget, relPath);
+            } else if (window.electronApi && typeof window.electronApi.openNative === 'function') {
+              window.electronApi.openNative({ target: rTarget, relativePath: relPath });
+            } else {
+              _openTarget(_pageHref('file-manager.html'));
+            }
+          };
+        }
+        nextDynamic.push(item);
+      });
     });
 
     _seedTools();

@@ -710,6 +710,7 @@
   "conSpDup": "⧉ Dupliquer",
   "conSpCrop": "Recadrer",
   "conSpOpen": "Ouvrir",
+  "conSpOpenPdfViewer": "Ouvrir dans le lecteur PDF",
   "conSpFolder": "Dossier",
   "conSpDelete": "Supprimer",
   "conSpFit": "⧇ Ajuster",

@@ -2416,6 +2416,31 @@
       openInOs(cleanPath);
     };
 
+    var isPreviewPdfOrImg = /\.(pdf|png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(cleanPath.split('?')[0]);
+    var pdfViewerBtn = document.getElementById('cmt-preview-open-pdf-viewer');
+    if (!pdfViewerBtn && openOsBtn && openOsBtn.parentElement) {
+      pdfViewerBtn = document.createElement('button');
+      pdfViewerBtn.type = 'button';
+      pdfViewerBtn.id = 'cmt-preview-open-pdf-viewer';
+      pdfViewerBtn.className = 'cmt-lm-btn';
+      pdfViewerBtn.textContent = (t('fmOpenInPdfStudio', 'Open in PDF Viewer') || 'Open in PDF Viewer');
+      openOsBtn.parentElement.insertBefore(pdfViewerBtn, openOsBtn);
+    }
+    if (pdfViewerBtn) {
+      pdfViewerBtn.style.display = isPreviewPdfOrImg ? '' : 'none';
+      pdfViewerBtn.onclick = function() {
+        var rel = cleanPath.startsWith('user/') ? cleanPath.slice(5) : cleanPath;
+        var isAbs = /^[a-zA-Z]:[\\/]/.test(cleanPath) || cleanPath.startsWith('/');
+        var query = isAbs ? { openAbsPath: cleanPath } : { openTarget: 'user', openRelPath: rel };
+        if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+          window.Desktop.openTool('pdf-viewer.html', { query: query });
+        } else {
+          var qs = isAbs ? ('openAbsPath=' + encodeURIComponent(cleanPath)) : ('openTarget=user&openRelPath=' + encodeURIComponent(rel));
+          window.open((isSubPage ? '' : 'pages/') + 'pdf-viewer.html?' + qs, '_blank');
+        }
+      };
+    }
+
     if (window.CmtModal && typeof window.CmtModal.open === 'function') {
       window.CmtModal.open(overlay);
     } else {

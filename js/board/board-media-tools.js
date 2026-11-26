@@ -1038,6 +1038,28 @@
       window.conImgStyleDismiss();
       if (item && item.relativePath && window.Desktop && Desktop.isElectron()) Desktop.openNative('mindmaps', item.relativePath);
     };
+    window.conImgSpOpenPdfViewer = function () {
+      var item = _conCtxItem;
+      var wrap = item ? _conMediaGetWrap(item) : null;
+      window.conImgStyleDismiss();
+      if (!item) return;
+      if (item.relativePath && window.Desktop && Desktop.isElectron()) {
+        Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'mindmaps', openRelPath: item.relativePath } });
+        return;
+      }
+      var imgEl = wrap ? wrap.querySelector('img') : null;
+      var src = item.dataUrl || (imgEl && imgEl.src) || '';
+      if (!src) return;
+      var key = 'cmt_pdf_open_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+      try {
+        localStorage.setItem(key, JSON.stringify({ dataUrl: src, filename: item.name || 'image.png' }));
+      } catch (_) { return; }
+      if (window.Desktop && Desktop.isElectron()) {
+        Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+      } else {
+        window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+      }
+    };
     window.conImgSpOpenFolder = function () {
       var item = _conCtxItem;
       window.conImgStyleDismiss();

@@ -435,7 +435,7 @@
   "ht_fm_q6": "Quels raccourcis clavier existent dans le Gestionnaire de fichiers ?",
   "ht_fm_a6": "<p>Cliquez sur <img src='../assets/icons/keyboard.svg' class='ht-inline-icon' alt='' /> <strong>Raccourcis</strong> dans l'en-tête pour la recherche et le renommage rapide.</p>",
   "ht_fm_q7": "Comment vérifier et réparer les liens de classe avec Santé des données ?",
-  "ht_fm_a7": "<p>Ouvrez l'onglet <strong>Santé des données</strong> dans le Gestionnaire de fichiers pour analyser vos notes, votre agenda et vos cartes Board afin de relier en un clic d'éventuelles classes orphelines.</p>",
+  "ht_fm_a7": "<p>Ouvrez l'onglet <strong>Santé des données</strong> dans le Gestionnaire de fichiers pour analyser vos notes, votre agenda et vos cartes Board afin de détecter les ID de classe orphelins ou les fichiers illisibles. Depuis le résumé ou chaque carte, vous pouvez relier automatiquement ou manuellement une classe, dissocier ou supprimer une référence orpheline, ouvrir le fichier ou son dossier, ou ouvrir l'outil correspondant.</p>",
   "ht_db_q11": "Comment utiliser les préréglages enseignant dans AI Studio ?",
   "ht_db_a11": "<p>Ouvrez <strong>AI Studio</strong> dans Gérer la base pour consulter l'état du moteur IA hors ligne et cliquez sur un <strong>Préréglage enseignant</strong> pour préremplir un prompt adapté à la classe.</p>",
   "ht_cp2_q3": "Puis-je ajouter le bureau du professeur, la porte ou le tableau sur le plan ?",

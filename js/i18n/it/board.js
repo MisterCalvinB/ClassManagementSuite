@@ -700,6 +700,7 @@
   "conSpDup": "Duplica",
   "conSpCrop": "Ritaglia",
   "conSpOpen": "Apri",
+  "conSpOpenPdfViewer": "Apri in PDF Viewer",
   "conSpFolder": "Cartella",
   "conPdfStyleTitle": "Stile PDF",
   "conSpFit": "Adatta",
