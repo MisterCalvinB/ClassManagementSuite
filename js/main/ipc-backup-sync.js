@@ -1589,11 +1589,12 @@ function registerBackupSyncIpc(ctx) {
     return { copied, errors, conflicts, added, newFiles, synced, deleted, savedFiles };
   }
 
-  async function copyTreeForBackup(sourceDir, destDir) {
+  async function copyTreeForBackup(sourceDir, destDir, options = {}) {
     return runBackupWorker({
       op: 'folder',
       sourceDir,
-      destDir
+      destDir,
+      excludeRedownloadable: Boolean(options.excludeRedownloadable)
     });
   }
 
@@ -1724,7 +1725,7 @@ function registerBackupSyncIpc(ctx) {
 
       for (const { dir, prefix } of sources) {
         const destDir = path.join(destRoot, prefix);
-        const result = await copyTreeForBackup(dir, destDir);
+        const result = await copyTreeForBackup(dir, destDir, { excludeRedownloadable: true });
         totalCopied += result.copied;
         allErrors.push(...result.errors);
       }

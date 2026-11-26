@@ -671,6 +671,13 @@ if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
       automaticLayout: true,
     }
   );
+  cssEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    if (window.DeDetach && DeDetach.isDetached()) { DeDetach.requestSave(); return; }
+    saveDoc();
+  });
+  cssEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+    if (window.DeCodeFormatter) DeCodeFormatter.cleanCssEditor();
+  });
 
   scriptEditor = monaco.editor.create(
     document.getElementById('script-editor-container'),
@@ -686,15 +693,25 @@ if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
       tabSize: 2,
     }
   );
-  scriptEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
+  window.mdEditor = mdEditor;
+  window.cssEditor = cssEditor;
+  window.scriptEditor = scriptEditor;
+  scriptEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+    if (window.DeDetach && DeDetach.isDetached()) { DeDetach.requestSave(); return; }
+    saveDoc();
+  });
   scriptEditor.onDidChangeModelContent(function () {
     if (deScriptSetting) return;
     scriptModified = true;
     docModified = true;
     if (typeof updateDocIndicator === 'function') updateDocIndicator();
+    if (window.DeDetach) DeDetach.notifyScriptChanged(scriptEditor.getValue());
   });
 
   mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, saveDoc);
+  mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
+    if (window.DeCodeFormatter) DeCodeFormatter.cleanAll();
+  });
   mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyL, () => openSyntaxHelpModal());
   mdEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyN, newDoc);
 
@@ -796,8 +813,13 @@ if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
         updatePreviewFooter();
       }
     }
+    if (window.DeDetach) DeDetach.notifyCssChanged(cssText);
   });
 
+  if (window.DeDetach && DeDetach.isDetached()) {
+    DeDetach.announceReady();
+    return;
+  }
   renderPreview();
   await loadPersistedState();
   await openFromQueryParams(_initialSearchParams);

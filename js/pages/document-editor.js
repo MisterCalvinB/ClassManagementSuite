@@ -23,9 +23,6 @@ function mpPopulateClassSelects() {
   if (!select) return;
 
   let html = '<option value="">-- Select Class --</option>';
-  if (exportSelect && window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && DeMiniDb.getFieldCount() > 0) {
-    // Export select also supports per-document Mini DB
-  }
   const keys = Object.keys(mpState.classesMeta).filter(k => {
     const c = mpState.classesMeta[k];
     return c && !c.archived && !c.isArchived;
@@ -39,51 +36,116 @@ function mpPopulateClassSelects() {
 
   select.innerHTML = html;
   if (exportSelect) {
-    let expHtml = html;
-    if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && DeMiniDb.getFieldCount() > 0) {
-      expHtml = `<option value="@minidb@">Mini Database (${DeMiniDb.getRecordCount()} records)</option>` + html;
+    let expHtml = '';
+    const connectedValid = (mpState.connectedClassIds || []).filter(id => mpState.classesMeta[id]);
+    if (connectedValid.length > 1) {
+      const totalSt = connectedValid.reduce((sum, id) => {
+        const c = mpState.classesMeta[id];
+        return sum + (c && Array.isArray(c.students) ? c.students.length : 0);
+      }, 0);
+      expHtml += `<option value="@all_connected@">${escHtml((typeof t === 'function' && t('deMpAllConnectedClasses')) || 'All Connected Classes')} (${connectedValid.length} classes, ${totalSt} students)</option>`;
     }
+    if (keys.length > 1) {
+      expHtml += `<option value="@custom_multi@">Select Multiple Classes…</option>`;
+    }
+    if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && DeMiniDb.getFieldCount() > 0) {
+      expHtml += `<option value="@minidb@">Mini Database (${DeMiniDb.getRecordCount()} records)</option>`;
+    }
+    expHtml += html;
     exportSelect.innerHTML = expHtml;
   }
 
   if (mpState.connectedClassId && mpState.classesMeta[mpState.connectedClassId] && !mpState.classesMeta[mpState.connectedClassId].archived) {
     select.value = mpState.connectedClassId;
-    if (exportSelect) exportSelect.value = mpState.connectedClassId;
+    if (exportSelect) {
+      exportSelect.value = (mpState.connectedClassIds && mpState.connectedClassIds.length > 1)
+        ? '@all_connected@'
+        : mpState.connectedClassId;
+    }
   }
 }
 
-function mpConnectClass(classId) {
-  if (!classId || !mpState.classesMeta[classId]) {
+function mpConnectClasses(classIds, activeClassId, options = {}) {
+  const validIds = Array.from(new Set((Array.isArray(classIds) ? classIds : [classIds]).filter(id => id && mpState.classesMeta[id])));
+  if (validIds.length === 0) {
+    mpState.connectedClassIds = [];
     mpState.connectedClassId = null;
     mpState.connectedClass = null;
     mpState.studentList = [];
+    mpState.previewStudentIndex = 0;
     mpUpdateNavBadges();
     return;
   }
 
-  const cMeta = mpState.classesMeta[classId];
-  mpState.connectedClassId = classId;
+  const targetActive = (activeClassId && validIds.includes(activeClassId)) ? activeClassId : validIds[0];
+  const cMeta = mpState.classesMeta[targetActive];
+  mpState.connectedClassIds = validIds;
+  mpState.connectedClassId = targetActive;
   mpState.connectedClass = cMeta;
 
   const rawStudents = Array.isArray(cMeta.students) ? cMeta.students : [];
   mpState.studentList = rawStudents.map((s, idx) =>
     MailpostingService.normalizeStudent(s, idx, mpState.studentRoster)
   );
+  if (mpState.previewStudentIndex >= mpState.studentList.length) {
+    mpState.previewStudentIndex = 0;
+  }
 
   mpUpdateNavBadges();
-  showToast((t('mpClassConnected') || 'Class connected: ') + (cMeta.name || classId));
+  if (!options.skipMiniDbSync && window.DeMiniDb && typeof DeMiniDb.importFromClasses === 'function') {
+    DeMiniDb.importFromClasses(validIds, { replaceRoster: true });
+  }
+  if (!options.skipLinkSync && typeof window.deSyncClassLinksToService === 'function') {
+    window.deSyncClassLinksToService(validIds);
+  }
+  if (!options.silent) {
+    const label = validIds.length > 1
+      ? `${cMeta.name || targetActive} (+${validIds.length - 1})`
+      : (cMeta.name || targetActive);
+    showToast((t('mpClassConnected') || 'Class connected: ') + label);
+  }
+}
+
+function mpConnectClass(classId, options = {}) {
+  if (!classId || !mpState.classesMeta[classId]) {
+    mpConnectClasses([], null, options);
+    return;
+  }
+  if (options.keepMulti && Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.includes(classId)) {
+    mpConnectClasses(mpState.connectedClassIds, classId, options);
+    return;
+  }
+  const existing = (Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.length > 1 && mpState.connectedClassIds.includes(classId))
+    ? mpState.connectedClassIds
+    : [classId];
+  mpConnectClasses(existing, classId, options);
 }
 
 function mpUpdateNavBadges() {
   const badge = document.getElementById('mp-active-class-badge');
   const label = document.getElementById('mp-class-badge-label');
+  const classSelect = document.getElementById('mp-nav-class-select');
   const prevBadge = document.getElementById('mp-active-preview-badge');
   const studentSelect = document.getElementById('mp-nav-student-select');
 
   if (mpState.connectedClass) {
     if (badge) {
       badge.style.display = 'inline-flex';
-      if (label) label.textContent = mpState.connectedClass.name || mpState.connectedClassId;
+      const validIds = (mpState.connectedClassIds || []).filter(id => mpState.classesMeta[id]);
+      if (classSelect && validIds.length > 1) {
+        if (label) label.style.display = 'none';
+        classSelect.style.display = 'inline-block';
+        classSelect.innerHTML = validIds.map(id => {
+          const c = mpState.classesMeta[id];
+          return `<option value="${escHtml(id)}" ${id === mpState.connectedClassId ? 'selected' : ''}>${escHtml((c && c.name) || id)}</option>`;
+        }).join('');
+      } else {
+        if (classSelect) classSelect.style.display = 'none';
+        if (label) {
+          label.style.display = 'inline';
+          label.textContent = mpState.connectedClass.name || mpState.connectedClassId;
+        }
+      }
     }
   } else {
     if (badge) badge.style.display = 'none';
@@ -144,6 +206,9 @@ async function mpOpenMailmergeWizard(startStep) {
   };
   const classIds = Object.keys(mpState.classesMeta || {});
   const initialClass = mpState.connectedClassId || classIds[0] || '';
+  const initialClassIds = (Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.length > 0)
+    ? mpState.connectedClassIds.filter(id => mpState.classesMeta[id])
+    : (initialClass ? [initialClass] : []);
 
   CmtWizard.open({
     id: 'de-mailmerge-wizard',
@@ -153,6 +218,7 @@ async function mpOpenMailmergeWizard(startStep) {
     initialStep: startStep || 0,
     initialState: {
       classId: initialClass,
+      classIds: initialClassIds,
       previewIdx: 0,
       format: currentDocType === 'typ' ? 'pdf' : 'pdf',
       mode: 'combined'
@@ -175,43 +241,67 @@ async function mpOpenMailmergeWizard(startStep) {
             '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizClassSub', 'Each student in the selected class can receive their own personalized copy.')) + '</p>';
           const sec = document.createElement('div');
           sec.className = 'cmt-wiz-section';
-          sec.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(tr('deMpClassLabel', 'Class Roster')) + '</label>';
-          const sel = document.createElement('select');
-          sel.className = 'cmt-wiz-select';
-          classIds.forEach(cid => {
+          sec.innerHTML = '<label class="cmt-wiz-label">' + ctx.escHtml(tr('deMpAssociatedClasses', 'Associated Classes')) + '</label>';
+          const toggleList = document.createElement('div');
+          toggleList.className = 'mp-multi-class-list';
+          const selectedSet = new Set(Array.isArray(st.classIds) ? st.classIds : []);
+          toggleList.innerHTML = classIds.map(cid => {
             const c = mpState.classesMeta[cid];
-            const opt = document.createElement('option');
-            opt.value = cid;
             const count = Array.isArray(c.students) ? c.students.length : 0;
-            opt.textContent = (c.name || cid) + ' (' + count + ' students)';
-            if (cid === st.classId) opt.selected = true;
-            sel.appendChild(opt);
-          });
+            const checked = selectedSet.has(cid);
+            return '<label class="mp-multi-class-chip' + (checked ? ' is-checked' : '') + '">' +
+              '<input type="checkbox" value="' + ctx.escHtml(cid) + '" ' + (checked ? 'checked' : '') + ' />' +
+              '<span>' + ctx.escHtml(c.name || cid) + ' (' + count + ')</span>' +
+              '</label>';
+          }).join('');
           const previewList = document.createElement('div');
           previewList.style.cssText = 'margin-top:10px;max-height:130px;overflow-y:auto;font-size:0.82rem;color:#475569;';
           function renderStudents() {
-            const c = mpState.classesMeta[st.classId];
-            const raw = c && Array.isArray(c.students) ? c.students : [];
-            if (!raw.length) { previewList.textContent = tr('deMpNoStudents', 'No students in this class.'); return; }
-            const norm = raw.slice(0, 8).map((s, i) => MailpostingService.normalizeStudent(s, i, mpState.studentRoster));
-            previewList.innerHTML = norm.map((s, i) => '<div>' + (i + 1) + '. <strong>' + ctx.escHtml(s.fullName) + '</strong></div>').join('') +
-              (raw.length > 8 ? '<div style="margin-top:4px;font-style:italic;">+ ' + (raw.length - 8) + ' more...</div>' : '');
+            const ids = Array.isArray(st.classIds) ? st.classIds : [];
+            if (!ids.length) {
+              previewList.textContent = tr('deMpNoStudents', 'No students in selected classes.');
+              return;
+            }
+            const combined = [];
+            ids.forEach(cid => {
+              const c = mpState.classesMeta[cid];
+              const raw = c && Array.isArray(c.students) ? c.students : [];
+              raw.forEach((s, i) => {
+                const norm = MailpostingService.normalizeStudent(s, i, mpState.studentRoster);
+                combined.push({ name: norm.fullName, className: (c && c.name) || cid });
+              });
+            });
+            if (!combined.length) { previewList.textContent = tr('deMpNoStudents', 'No students in this class.'); return; }
+            previewList.innerHTML = combined.slice(0, 8).map((s, i) =>
+              '<div>' + (i + 1) + '. <strong>' + ctx.escHtml(s.name) + '</strong>' +
+              (ids.length > 1 ? ' <span style="color:#64748b;">(' + ctx.escHtml(s.className) + ')</span>' : '') + '</div>'
+            ).join('') +
+              (combined.length > 8 ? '<div style="margin-top:4px;font-style:italic;">+ ' + (combined.length - 8) + ' more...</div>' : '');
           }
-          sel.addEventListener('change', () => {
-            st.classId = sel.value;
-            mpConnectClass(st.classId);
+          toggleList.addEventListener('change', (e) => {
+            const cb = e.target.closest('input[type="checkbox"]');
+            if (!cb) return;
+            const chip = cb.closest('.mp-multi-class-chip');
+            if (chip) chip.classList.toggle('is-checked', cb.checked);
+            st.classIds = Array.from(toggleList.querySelectorAll('input[type="checkbox"]:checked')).map(el => el.value);
+            st.classId = st.classIds[0] || '';
+            mpConnectClasses(st.classIds, st.classId, { silent: true });
             renderStudents();
           });
-          if (st.classId) mpConnectClass(st.classId);
-          sec.appendChild(sel);
+          if (st.classIds.length > 0) mpConnectClasses(st.classIds, st.classIds[0], { silent: true });
+          sec.appendChild(toggleList);
           sec.appendChild(previewList);
           container.appendChild(sec);
           renderStudents();
         },
         validate: function (st) {
-          const c = mpState.classesMeta[st.classId];
-          if (!c || !Array.isArray(c.students) || !c.students.length) {
-            return tr('deMpErrNoClass', 'Please choose a class with at least one student.');
+          const ids = Array.isArray(st.classIds) ? st.classIds : [];
+          const hasStudents = ids.some(cid => {
+            const c = mpState.classesMeta[cid];
+            return c && Array.isArray(c.students) && c.students.length > 0;
+          });
+          if (!hasStudents) {
+            return tr('deMpErrNoClass', 'Please choose at least one class with at least one student.');
           }
           return true;
         }
@@ -226,7 +316,10 @@ async function mpOpenMailmergeWizard(startStep) {
           const wrap = document.createElement('div');
           wrap.className = 'cmt-wiz-section';
           wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;';
-          (MailpostingService.AVAILABLE_TAGS || []).forEach(tagObj => {
+          const miniDbTags = (window.DeMiniDb && typeof DeMiniDb.getAvailableTags === 'function') ? DeMiniDb.getAvailableTags() : [];
+          const customTags = typeof mpLoadCustomTags === 'function' ? mpLoadCustomTags() : [];
+          const allWizTags = (MailpostingService.AVAILABLE_TAGS || []).concat(miniDbTags, customTags);
+          allWizTags.forEach(tagObj => {
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'cmt-wiz-btn cmt-wiz-btn-subtle';
@@ -244,9 +337,18 @@ async function mpOpenMailmergeWizard(startStep) {
         id: 'preview',
         label: tr('deMpWizStep3', '3. Preview'),
         render: function (container, st, ctx) {
-          const c = mpState.classesMeta[st.classId];
-          const raw = (c && Array.isArray(c.students)) ? c.students : [];
-          const students = raw.map((s, i) => MailpostingService.normalizeStudent(s, i, mpState.studentRoster));
+          const ids = Array.isArray(st.classIds) && st.classIds.length ? st.classIds : (st.classId ? [st.classId] : []);
+          const students = [];
+          ids.forEach(cid => {
+            const c = mpState.classesMeta[cid];
+            const raw = (c && Array.isArray(c.students)) ? c.students : [];
+            raw.forEach((s, i) => {
+              const norm = MailpostingService.normalizeStudent(s, i, mpState.studentRoster);
+              norm._classMeta = c || { name: cid, students: [] };
+              students.push(norm);
+            });
+          });
+          if (st.previewIdx >= students.length) st.previewIdx = 0;
           container.innerHTML =
             '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('deMpWizPreviewHeading', 'Preview Personalized Output')) + '</h3>' +
             '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('deMpWizPreviewSub', 'Check how placeholders look when filled in for a real student.')) + '</p>';
@@ -257,7 +359,7 @@ async function mpOpenMailmergeWizard(startStep) {
           students.forEach((s, idx) => {
             const opt = document.createElement('option');
             opt.value = String(idx);
-            opt.textContent = s.fullName;
+            opt.textContent = ids.length > 1 ? `${s.fullName} (${(s._classMeta && s._classMeta.name) || ''})` : s.fullName;
             if (idx === st.previewIdx) opt.selected = true;
             sel.appendChild(opt);
           });
@@ -266,8 +368,12 @@ async function mpOpenMailmergeWizard(startStep) {
           function updatePreview() {
             const stu = students[st.previewIdx] || students[0];
             const tpl = mdEditor ? mdEditor.getValue() : '';
-            const merged = (window.MailpostingService && typeof MailpostingService.mergeTemplate === 'function')
-              ? MailpostingService.mergeTemplate(tpl, stu)
+            const merged = (window.MailpostingService && typeof MailpostingService.renderTemplate === 'function')
+              ? MailpostingService.renderTemplate(tpl, stu, (stu && stu._classMeta) || {}, {
+                roster: mpState.studentRoster,
+                isHtml: currentDocType === 'html',
+                miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
+              })
               : tpl;
             outBox.textContent = merged.slice(0, 1200) + (merged.length > 1200 ? '\n...' : '');
           }
@@ -313,10 +419,28 @@ async function mpOpenMailmergeWizard(startStep) {
     finishLabel: tr('btnExport', 'Export'),
     finishIcon: 'export.svg',
     onFinish: function (st) {
+      mpPopulateClassSelects();
       const classSel = document.getElementById('mp-export-class-select');
       const fmtSel = document.getElementById('mp-export-format');
       const modeRadio = document.querySelector('input[name="mp-export-mode"][value="' + st.mode + '"]');
-      if (classSel) classSel.value = st.classId;
+      const ids = Array.isArray(st.classIds) && st.classIds.length ? st.classIds : (st.classId ? [st.classId] : []);
+      if (classSel) {
+        if (ids.length > 1) {
+          classSel.value = '@custom_multi@';
+          mpRenderExportMultiClassList();
+          const box = document.getElementById('mp-export-multi-classes');
+          if (box) {
+            const idSet = new Set(ids);
+            box.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+              cb.checked = idSet.has(cb.value);
+              const chip = cb.closest('.mp-multi-class-chip');
+              if (chip) chip.classList.toggle('is-checked', cb.checked);
+            });
+          }
+        } else if (ids[0]) {
+          classSel.value = ids[0];
+        }
+      }
       if (fmtSel) fmtSel.value = st.format;
       if (modeRadio) modeRadio.checked = true;
       mpExecuteBatchExport();
@@ -329,6 +453,7 @@ async function mpOpenConnectModal() {
   showModal('mp-connect-modal');
 
   const select = document.getElementById('mp-class-select');
+  const multiList = document.getElementById('mp-class-multi-list');
   const rosterDiv = document.getElementById('mp-roster-preview');
   const tagGrid = document.getElementById('mp-tag-grid-preview');
   const countSpan = document.getElementById('mp-roster-count');
@@ -363,6 +488,40 @@ async function mpOpenConnectModal() {
     }
   };
 
+  if (multiList) {
+    const selectedSet = new Set(
+      (Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.length > 0)
+        ? mpState.connectedClassIds
+        : (mpState.connectedClassId ? [mpState.connectedClassId] : [])
+    );
+    const keys = Object.keys(mpState.classesMeta).filter(k => {
+      const c = mpState.classesMeta[k];
+      return c && !c.archived && !c.isArchived;
+    });
+    multiList.innerHTML = keys.map(k => {
+      const c = mpState.classesMeta[k];
+      const count = Array.isArray(c.students) ? c.students.length : 0;
+      const checked = selectedSet.has(k);
+      return `<label class="mp-multi-class-chip${checked ? ' is-checked' : ''}">` +
+        `<input type="checkbox" value="${escHtml(k)}" ${checked ? 'checked' : ''} />` +
+        `<span>${escHtml((c && c.name) || k)} (${count})</span>` +
+        `</label>`;
+    }).join('');
+    if (!multiList._mpDelegated) {
+      multiList._mpDelegated = true;
+      multiList.addEventListener('change', (e) => {
+        const cb = e.target.closest('input[type="checkbox"]');
+        if (!cb) return;
+        const chip = cb.closest('.mp-multi-class-chip');
+        if (chip) chip.classList.toggle('is-checked', cb.checked);
+        if (cb.checked && select) {
+          select.value = cb.value;
+          updateRosterUI(cb.value);
+        }
+      });
+    }
+  }
+
   if (select) {
     mpPopulateClassSelects();
     select.value = mpState.connectedClassId || (select.options[1] ? select.options[1].value : '');
@@ -371,28 +530,148 @@ async function mpOpenConnectModal() {
   }
 }
 
+function mpLoadCustomTags() {
+  if (Array.isArray(mpState.customTags) && mpState.customTags.length > 0) return mpState.customTags;
+  try {
+    const raw = localStorage.getItem('cmt-de-mp-custom-tags');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        mpState.customTags = parsed.filter(x => x && typeof x.tag === 'string');
+      }
+    }
+  } catch (_) {}
+  return mpState.customTags || [];
+}
+
+function mpSaveCustomTags() {
+  try {
+    localStorage.setItem('cmt-de-mp-custom-tags', JSON.stringify(mpState.customTags || []));
+  } catch (_) {}
+}
+
+function mpRenderFieldPickerGrid() {
+  const grid = document.getElementById('mp-field-picker-grid');
+  if (!grid || !window.MailpostingService) return;
+  const miniDbTags = (window.DeMiniDb && typeof DeMiniDb.getAvailableTags === 'function')
+    ? DeMiniDb.getAvailableTags()
+    : [];
+  const customTags = mpLoadCustomTags();
+  const baseTags = miniDbTags.length > 0
+    ? MailpostingService.AVAILABLE_TAGS.concat(miniDbTags)
+    : MailpostingService.AVAILABLE_TAGS;
+
+  const baseHtml = baseTags.map(t =>
+    `<button type="button" class="mp-tag-chip" data-mp-tag="${escHtml(t.tag)}" data-mp-modal="mp-field-picker-modal">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${escHtml(t.tag)}</code></button>`
+  ).join('');
+
+  const customHtml = customTags.map((t, idx) =>
+    `<div class="mp-tag-chip mp-tag-chip-custom" role="button" tabindex="0" data-mp-tag="${escHtml(t.tag)}" data-mp-modal="mp-field-picker-modal">` +
+      `<span>${escHtml(t.label)}</span><br><code style="font-size:.7rem;color:#0284c7;">${escHtml(t.tag)}</code>` +
+      `<button type="button" class="mp-tag-remove" data-mp-remove-idx="${idx}" title="Remove">&times;</button>` +
+    `</div>`
+  ).join('');
+
+  grid.innerHTML = baseHtml + customHtml;
+}
+
 function mpOpenFieldPickerModal() {
   showModal('mp-field-picker-modal');
   const grid = document.getElementById('mp-field-picker-grid');
-  if (grid && window.MailpostingService) {
-    const miniDbTags = (window.DeMiniDb && typeof DeMiniDb.getAvailableTags === 'function')
-      ? DeMiniDb.getAvailableTags()
-      : [];
-    const allTags = miniDbTags.length > 0
-      ? MailpostingService.AVAILABLE_TAGS.concat(miniDbTags)
-      : MailpostingService.AVAILABLE_TAGS;
-    grid.innerHTML = allTags.map(t =>
-      `<button class="mp-tag-chip" data-mp-tag="${escHtml(t.tag)}" data-mp-modal="mp-field-picker-modal">${escHtml(t.label)}<br><code style="font-size:.7rem;color:#0284c7;">${escHtml(t.tag)}</code></button>`
-    ).join('');
-    if (!grid._mpDelegated) {
-      grid._mpDelegated = true;
-      grid.addEventListener('click', function (e) {
-        var btn = e.target.closest('button.mp-tag-chip[data-mp-tag]');
-        if (!btn) return;
-        mpInsertTagAtCursor(btn.getAttribute('data-mp-tag'));
-        hideModal(btn.getAttribute('data-mp-modal'));
-      });
+  const customInput = document.getElementById('mp-custom-field-input');
+  const customAddBtn = document.getElementById('btn-mp-custom-field-add');
+
+  mpRenderFieldPickerGrid();
+
+  if (grid && !grid._mpDelegated) {
+    grid._mpDelegated = true;
+    grid.addEventListener('click', function (e) {
+      const rmBtn = e.target.closest('button.mp-tag-remove[data-mp-remove-idx]');
+      if (rmBtn) {
+        e.stopPropagation();
+        const idx = parseInt(rmBtn.getAttribute('data-mp-remove-idx'), 10);
+        const list = mpLoadCustomTags();
+        if (!Number.isNaN(idx) && idx >= 0 && idx < list.length) {
+          list.splice(idx, 1);
+          mpSaveCustomTags();
+          mpRenderFieldPickerGrid();
+        }
+        return;
+      }
+      const btn = e.target.closest('.mp-tag-chip[data-mp-tag]');
+      if (!btn) return;
+      mpInsertTagAtCursor(btn.getAttribute('data-mp-tag'));
+      hideModal(btn.getAttribute('data-mp-modal'));
+    });
+  }
+
+  const addAndInsertCustom = () => {
+    if (!customInput) return;
+    let raw = customInput.value.trim();
+    if (!raw) return;
+    raw = raw.replace(/^\{\{\s*|\s*\}\}$/g, '').trim();
+    if (!raw) return;
+    const cleanKey = raw.replace(/\s+/g, '_');
+    const tag = `{{${cleanKey}}}`;
+    const list = mpLoadCustomTags();
+    if (!list.some(t => t.tag.toLowerCase() === tag.toLowerCase())) {
+      list.push({ label: raw, tag });
+      mpSaveCustomTags();
     }
+    customInput.value = '';
+    mpInsertTagAtCursor(tag);
+    hideModal('mp-field-picker-modal');
+  };
+
+  if (customAddBtn && !customAddBtn._mpWired) {
+    customAddBtn._mpWired = true;
+    customAddBtn.addEventListener('click', addAndInsertCustom);
+  }
+  if (customInput && !customInput._mpWired) {
+    customInput._mpWired = true;
+    customInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        addAndInsertCustom();
+      }
+    });
+  }
+}
+
+function mpRenderExportMultiClassList() {
+  const box = document.getElementById('mp-export-multi-classes');
+  const select = document.getElementById('mp-export-class-select');
+  if (!box || !select) return;
+  const showMulti = select.value === '@custom_multi@';
+  box.style.display = showMulti ? 'flex' : 'none';
+  if (!showMulti) return;
+
+  const selectedSet = new Set(
+    (Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.length > 0)
+      ? mpState.connectedClassIds
+      : (mpState.connectedClassId ? [mpState.connectedClassId] : [])
+  );
+  const keys = Object.keys(mpState.classesMeta).filter(k => {
+    const c = mpState.classesMeta[k];
+    return c && !c.archived && !c.isArchived;
+  });
+  box.innerHTML = keys.map(k => {
+    const c = mpState.classesMeta[k];
+    const count = Array.isArray(c.students) ? c.students.length : 0;
+    const checked = selectedSet.has(k);
+    return `<label class="mp-multi-class-chip${checked ? ' is-checked' : ''}">` +
+      `<input type="checkbox" value="${escHtml(k)}" ${checked ? 'checked' : ''} />` +
+      `<span>${escHtml((c && c.name) || k)} (${count})</span>` +
+      `</label>`;
+  }).join('');
+  if (!box._mpDelegated) {
+    box._mpDelegated = true;
+    box.addEventListener('change', (e) => {
+      const cb = e.target.closest('input[type="checkbox"]');
+      if (!cb) return;
+      const chip = cb.closest('.mp-multi-class-chip');
+      if (chip) chip.classList.toggle('is-checked', cb.checked);
+    });
   }
 }
 
@@ -402,33 +681,79 @@ async function mpOpenExportModal(preferredSource) {
   showModal('mp-export-modal');
   const select = document.getElementById('mp-export-class-select');
   if (select) {
-    if (preferredSource === '@minidb@' && window.DeMiniDb && DeMiniDb.getRecordCount() > 0) {
+    if ((preferredSource === '@minidb@' || (!preferredSource && window.DeMiniDb && DeMiniDb.getRecordCount() > 0)) && window.DeMiniDb && DeMiniDb.getRecordCount() > 0) {
       select.value = '@minidb@';
+    } else if (mpState.connectedClassIds && mpState.connectedClassIds.length > 1) {
+      select.value = '@all_connected@';
     } else if (mpState.connectedClassId) {
       select.value = mpState.connectedClassId;
+    } else if (select.options[0] && select.options[0].value) {
+      select.value = select.options[0].value;
     } else if (select.options[1]) {
       select.value = select.options[1].value;
     }
+    mpRenderExportMultiClassList();
   }
 }
 
 function mpResolveBatchSource() {
   const classId = document.getElementById('mp-export-class-select').value;
-  const isMiniDbSource = classId === '@minidb@';
-  if (!isMiniDbSource && (!classId || !mpState.classesMeta[classId])) {
-    showToast('Please select a valid class for batch export.', true);
-    return null;
-  }
-  if (isMiniDbSource) {
+  if (classId === '@minidb@') {
     if (!window.DeMiniDb || DeMiniDb.getRecordCount() === 0) {
       showToast('Mini Database has no records.', true);
       return null;
     }
+    const students = DeMiniDb.getRecordsForBatch();
+    const classMeta = { name: 'MiniDB', students: [] };
     return {
       classId,
-      classMeta: { name: 'MiniDB', students: [] },
-      students: DeMiniDb.getRecordsForBatch()
+      classMeta,
+      students,
+      groups: [{ classId, classMeta, students }]
     };
+  }
+
+  if (classId === '@all_connected@' || classId === '@custom_multi@') {
+    let targetIds = [];
+    if (classId === '@all_connected@') {
+      targetIds = (mpState.connectedClassIds || []).filter(id => mpState.classesMeta[id]);
+    } else {
+      const box = document.getElementById('mp-export-multi-classes');
+      if (box) {
+        targetIds = Array.from(box.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+      }
+    }
+    const groups = [];
+    targetIds.forEach(cid => {
+      const cMeta = mpState.classesMeta[cid];
+      const raw = cMeta && Array.isArray(cMeta.students) ? cMeta.students : [];
+      if (raw.length > 0) {
+        groups.push({
+          classId: cid,
+          classMeta: cMeta,
+          students: raw.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster))
+        });
+      }
+    });
+    if (groups.length === 0) {
+      showToast('Please select at least one class with students for batch export.', true);
+      return null;
+    }
+    const allStudents = groups.flatMap(g => g.students);
+    const labelName = groups.length === 1
+      ? (groups[0].classMeta.name || groups[0].classId)
+      : `${groups.length}_Classes`;
+    return {
+      classId,
+      classMeta: { name: labelName, students: allStudents },
+      students: allStudents,
+      groups
+    };
+  }
+
+  if (!classId || !mpState.classesMeta[classId]) {
+    showToast('Please select a valid class for batch export.', true);
+    return null;
   }
   const classMeta = mpState.classesMeta[classId];
   const rawStudents = Array.isArray(classMeta.students) ? classMeta.students : [];
@@ -436,18 +761,49 @@ function mpResolveBatchSource() {
     showToast('Selected class has no students.', true);
     return null;
   }
+  const students = rawStudents.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster));
   return {
     classId,
     classMeta,
-    students: rawStudents.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster))
+    students,
+    groups: [{ classId, classMeta, students }]
   };
+}
+
+function mpRenderGroupsCombinedHtml(templateContent, isHtmlMode, groups, parseMdFn, withPageBreaks) {
+  const chunks = groups.map(g =>
+    MailpostingService.renderBatchCombinedHtml(
+      templateContent,
+      isHtmlMode,
+      g.students,
+      g.classMeta,
+      parseMdFn,
+      { pageBreaks: withPageBreaks, roster: mpState.studentRoster }
+    )
+  ).filter(Boolean);
+  if (!withPageBreaks) return chunks.join('\n\n');
+  return chunks.join('\n\n<hr class="mailposting-page-break-hr" style="page-break-after: always; break-after: page; border: none; margin: 0; padding: 0;">\n\n');
+}
+
+function mpRenderGroupsCombinedText(templateContent, groups, isHtml, separator) {
+  const parts = [];
+  groups.forEach(g => {
+    g.students.forEach(s => {
+      parts.push(MailpostingService.renderTemplate(templateContent, s, g.classMeta, {
+        roster: mpState.studentRoster,
+        students: g.students,
+        isHtml
+      }));
+    });
+  });
+  return parts.join(separator);
 }
 
 async function mpPreviewBatchExport() {
   const src = mpResolveBatchSource();
   if (!src) return;
 
-  const { classId, classMeta, students } = src;
+  const { classId, classMeta, students, groups } = src;
   const format = document.getElementById('mp-export-format').value;
   const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
   const mode = modeRadio ? modeRadio.value : 'combined';
@@ -473,13 +829,12 @@ async function mpPreviewBatchExport() {
     content.classList.remove('paged-mode');
     content.innerHTML = '<div class="full-preview-loading"><div class="full-preview-spinner"></div><div>Rendering batch Typst preview…</div></div>';
     try {
-      const combinedTypst = students.map(s =>
-        MailpostingService.renderTemplate(templateContent, s, classMeta, {
-          roster: mpState.studentRoster,
-          students,
-          isHtml: false
-        })
-      ).join(withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n');
+      const combinedTypst = mpRenderGroupsCombinedText(
+        templateContent,
+        groups,
+        false,
+        withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n'
+      );
       const res = await TypstService.compileToSvg(combinedTypst);
       content.innerHTML = '<div class="typst-svg-container">' + res.svg + '</div>';
     } catch (err) {
@@ -488,13 +843,12 @@ async function mpPreviewBatchExport() {
     return;
   }
 
-  const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+  const combinedHtmlBody = mpRenderGroupsCombinedHtml(
     templateContent,
     isHtmlMode,
-    students,
-    classMeta,
+    groups,
     isHtmlMode ? null : marked.parse,
-    { pageBreaks: withPageBreaks }
+    withPageBreaks
   );
 
   if (window.Desktop && Desktop.isElectron() && typeof deBuildPrintDocumentHtml === 'function') {
@@ -567,7 +921,7 @@ async function mpPreviewBatchExport() {
 async function mpExecuteBatchExport() {
   const src = mpResolveBatchSource();
   if (!src) return;
-  const { classId, classMeta, students } = src;
+  const { classId, classMeta, students, groups } = src;
   const format = document.getElementById('mp-export-format').value;
   const modeRadio = document.querySelector('input[name="mp-export-mode"]:checked');
   const mode = modeRadio ? modeRadio.value : 'combined';
@@ -588,13 +942,12 @@ async function mpExecuteBatchExport() {
     }
     try {
       if (isCombinedLike) {
-        const combinedTypst = students.map(s =>
-          MailpostingService.renderTemplate(templateContent, s, classMeta, {
-            roster: mpState.studentRoster,
-            students,
-            isHtml: false
-          })
-        ).join(withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n');
+        const combinedTypst = mpRenderGroupsCombinedText(
+          templateContent,
+          groups,
+          false,
+          withPageBreaks ? '\n\n#pagebreak()\n\n' : '\n\n'
+        );
 
         const combinedTypstTitle = `${classNameClean}_${docNameClean}_BatchCombined`;
         const defaultName = `${combinedTypstTitle}.pdf`;
@@ -619,35 +972,38 @@ async function mpExecuteBatchExport() {
 
         let successCount = 0;
         let lastPath = '';
-        for (const s of students) {
-          const studentTypst = MailpostingService.renderTemplate(templateContent, s, classMeta, {
-            roster: mpState.studentRoster,
-            students,
-            isHtml: false
-          });
-          const singleTypstTitle = `${classNameClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
-          const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
-          const filename = `${singleTypstTitle}.pdf`;
-          const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-          if (window.Desktop && Desktop.isElectron()) {
-            const res = await Desktop.saveBlob(target, filename, blob);
-            if (res && res.ok) {
+        for (const g of groups) {
+          const gClassClean = (g.classMeta.name || g.classId).replace(/[/\\?%*:|"<>]/g, '_');
+          for (const s of g.students) {
+            const studentTypst = MailpostingService.renderTemplate(templateContent, s, g.classMeta, {
+              roster: mpState.studentRoster,
+              students: g.students,
+              isHtml: false
+            });
+            const singleTypstTitle = `${gClassClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
+            const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
+            const filename = `${singleTypstTitle}.pdf`;
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            if (window.Desktop && Desktop.isElectron()) {
+              const res = await Desktop.saveBlob(target, filename, blob);
+              if (res && res.ok) {
+                successCount++;
+                if (res.path) lastPath = res.path;
+              }
+            } else {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename;
+              a.click();
+              URL.revokeObjectURL(url);
               successCount++;
-              if (res.path) lastPath = res.path;
             }
-          } else {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            a.click();
-            URL.revokeObjectURL(url);
-            successCount++;
           }
         }
         showToast(`Exported ${successCount}/${students.length} individual Typst PDF files.`);
         if (lastPath && typeof window.showExportSuccessPopup === 'function') {
-          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} PDF files`, isFolder: true });
+          showExportSuccessPopup(lastPath, `${successCount} PDF files`, { isFolder: true });
         }
       }
     } catch (err) {
@@ -673,31 +1029,36 @@ async function mpExecuteBatchExport() {
       deSyncPageLayoutFromControls();
       deSyncCssEditorWithLayout(true);
 
-      const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+      const combinedHtmlBody = mpRenderGroupsCombinedHtml(
         templateContent,
         isHtmlMode,
-        students,
-        classMeta,
+        groups,
         currentDocType === 'html' ? null : marked.parse,
-        { pageBreaks: withPageBreaks }
+        withPageBreaks
       );
       const inlinedCombinedHtml = await deInlineAllImages(combinedHtmlBody);
       const lexendFontsCss = await getEmbeddedLexendFontsCss();
       const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+      const scopedCustomCss = typeof deScopeCssForContainer === 'function'
+        ? deScopeCssForContainer(customCss, '.doc-preview')
+        : customCss;
       const m = pageLayout.margins;
+      const dims = getPageDims();
       const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
       const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
       const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
       const pageBreakCss = withPageBreaks
         ? '.mailposting-student-page { page-break-after: always; break-after: page; padding: 0; margin: 0; }\n.mailposting-student-page:last-child { page-break-after: auto; break-after: auto; }\n'
         : '.mailposting-student-page { padding: 0; margin: 0; }\n';
+      const printRootResetCss =
+        'html, body, body > .doc-preview { border: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }';
 
       const defaultPreviewCss =
-        '@page { size: auto; margin: ' + marginCss + '; }\n' +
+        '@page { size: ' + dims.w + 'mm ' + dims.h + 'mm; margin: ' + marginCss + '; }\n' +
         'body { margin: 0; padding: 0; background: #fff; }\n' +
         '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
         pageBreakCss +
-        customCss;
+        scopedCustomCss + '\n' + printRootResetCss;
 
       const combinedPdfTitle = resolvedName.replace(/\.pdf$/i, '');
       const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
@@ -707,9 +1068,11 @@ async function mpExecuteBatchExport() {
         defaultPreviewCss + '\n</style>\n</head>\n<body>\n<div class="doc-preview">\n' +
         inlinedCombinedHtml + '\n</div>\n</body>\n</html>';
 
-      const pdfSize = pageLayout.orientation === 'landscape'
-        ? { width: Math.round(getPageDims().w * 1000), height: Math.round(getPageDims().h * 1000) }
-        : pageLayout.size;
+      const pdfSize = pageLayout.size === 'Custom'
+        ? { width: Math.round(pageLayout.customW * 1000), height: Math.round(pageLayout.customH * 1000) }
+        : (pageLayout.orientation === 'landscape'
+          ? { width: Math.round(dims.w * 1000), height: Math.round(dims.h * 1000) }
+          : pageLayout.size);
 
       const pdfOptions = {
         landscape: pageLayout.orientation === 'landscape',
@@ -734,13 +1097,12 @@ async function mpExecuteBatchExport() {
         showToast(`Batch PDF export failed: ${result.error || 'unknown'}`, true);
       }
     } else if (format === 'html') {
-      const combinedHtmlBody = MailpostingService.renderBatchCombinedHtml(
+      const combinedHtmlBody = mpRenderGroupsCombinedHtml(
         templateContent,
         isHtmlMode,
-        students,
-        classMeta,
+        groups,
         currentDocType === 'html' ? null : marked.parse,
-        { pageBreaks: withPageBreaks }
+        withPageBreaks
       );
       const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
       const fullHtml = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<title>${escHtml(classNameClean)} - ${escHtml(docNameClean)}</title>\n${customCss.trim() ? '<style>\n' + customCss + '\n</style>\n' : ''}</head>\n<body>\n${combinedHtmlBody}\n</body>\n</html>`;
@@ -760,13 +1122,12 @@ async function mpExecuteBatchExport() {
         showToast('DOCX export requires Electron application.', true);
         return;
       }
-      const combinedMarkdown = students.map(s =>
-        MailpostingService.renderTemplate(templateContent, s, classMeta, {
-          roster: mpState.studentRoster,
-          students,
-          isHtml: false
-        })
-      ).join(withPageBreaks ? '\n\n---\n\n' : '\n\n');
+      const combinedMarkdown = mpRenderGroupsCombinedText(
+        templateContent,
+        groups,
+        false,
+        withPageBreaks ? '\n\n---\n\n' : '\n\n'
+      );
 
       const images = await collectDocxImages(combinedMarkdown);
       const defaultName = `${classNameClean}_${docNameClean}_BatchCombined.docx`;
@@ -788,14 +1149,19 @@ async function mpExecuteBatchExport() {
     }
   } else {
     // Separate Files mode
-    const docs = MailpostingService.renderBatchIndividualDocs(
-      templateContent,
-      isHtmlMode,
-      students,
-      classMeta,
-      docNameClean,
-      currentDocType === 'html' ? null : marked.parse
-    );
+    const docs = [];
+    groups.forEach(g => {
+      const groupDocs = MailpostingService.renderBatchIndividualDocs(
+        templateContent,
+        isHtmlMode,
+        g.students,
+        g.classMeta,
+        docNameClean,
+        currentDocType === 'html' ? null : marked.parse,
+        { roster: mpState.studentRoster }
+      );
+      groupDocs.forEach(d => docs.push(d));
+    });
 
     if (window.Desktop && Desktop.isElectron()) {
       const destRes = typeof window.promptExportDestination === 'function'
@@ -817,23 +1183,29 @@ async function mpExecuteBatchExport() {
         }
         showToast(`Exported ${successCount}/${docs.length} individual HTML files.`);
         if (lastPath && typeof window.showExportSuccessPopup === 'function') {
-          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} HTML files`, isFolder: true });
+          showExportSuccessPopup(lastPath, `${successCount} HTML files`, { isFolder: true });
         }
       } else if (format === 'pdf') {
         let successCount = 0;
         let lastPath = '';
         const lexendFontsCss = await getEmbeddedLexendFontsCss();
         const customCss = deStripManagedLayoutCss(cssEditor ? cssEditor.getValue() : '');
+        const scopedCustomCss = typeof deScopeCssForContainer === 'function'
+          ? deScopeCssForContainer(customCss, '.doc-preview')
+          : customCss;
         const pdfFontFamily = pageLayout.fontFamily || "'Segoe UI', system-ui, sans-serif";
         const pdfFontSize = (pageLayout.fontSize || 11) + 'pt';
         const m = pageLayout.margins;
+        const dims = getPageDims();
         const marginCss = m.top + 'mm ' + m.right + 'mm ' + m.bottom + 'mm ' + m.left + 'mm';
+        const printRootResetCss =
+          'html, body, body > .doc-preview { border: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }';
 
         const defaultPreviewCss =
-          '@page { size: auto; margin: ' + marginCss + '; }\n' +
+          '@page { size: ' + dims.w + 'mm ' + dims.h + 'mm; margin: ' + marginCss + '; }\n' +
           'body { margin: 0; padding: 0; background: #fff; }\n' +
           '.doc-preview { line-height: 1.65; color: #1a1a1a; font-size: ' + pdfFontSize + '; font-family: ' + pdfFontFamily + '; }\n' +
-          customCss;
+          scopedCustomCss + '\n' + printRootResetCss;
 
         for (const d of docs) {
           const inlinedDocContent = await deInlineAllImages(d.processedContent);
@@ -858,7 +1230,7 @@ async function mpExecuteBatchExport() {
         }
         showToast(`Exported ${successCount}/${docs.length} individual PDF files.`);
         if (lastPath && typeof window.showExportSuccessPopup === 'function') {
-          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} PDF files`, isFolder: true });
+          showExportSuccessPopup(lastPath, `${successCount} PDF files`, { isFolder: true });
         }
       } else if (format === 'docx') {
         let successCount = 0;
@@ -881,7 +1253,7 @@ async function mpExecuteBatchExport() {
         }
         showToast(`Exported ${successCount}/${docs.length} individual DOCX files.`);
         if (lastPath && typeof window.showExportSuccessPopup === 'function') {
-          showExportSuccessPopup({ filePath: lastPath, fileName: `${successCount} DOCX files`, isFolder: true });
+          showExportSuccessPopup(lastPath, `${successCount} DOCX files`, { isFolder: true });
         }
       }
     } else {
@@ -1023,6 +1395,19 @@ window.addEventListener('DOMContentLoaded', function () {
   });
   const btnCssHelper = document.getElementById('btn-css-helper');
   if (btnCssHelper) btnCssHelper.addEventListener('click', () => { if (window.DeCssHelper) window.DeCssHelper.open(); });
+  const btnCleanCode = document.getElementById('btn-de-clean-code');
+  if (btnCleanCode) btnCleanCode.addEventListener('click', () => { if (window.DeCodeFormatter) window.DeCodeFormatter.cleanAll(); });
+  const btnCleanCss = document.getElementById('btn-clean-css');
+  if (btnCleanCss) btnCleanCss.addEventListener('click', () => {
+    if (window.DeCodeFormatter) {
+      window.DeCodeFormatter.cleanCssEditor();
+      if (typeof showToast === 'function') showToast(t('deCleanCodeDone') || 'Code formatted');
+    }
+  });
+  const btnDetachedCleanCss = document.getElementById('btn-de-detached-clean-css');
+  if (btnDetachedCleanCss) btnDetachedCleanCss.addEventListener('click', () => {
+    if (window.DeCodeFormatter) window.DeCodeFormatter.cleanAll();
+  });
   const btnMenuCssHelper = document.getElementById('btn-menu-css-helper');
   if (btnMenuCssHelper) btnMenuCssHelper.addEventListener('click', () => { if (window.DeCssHelper) window.DeCssHelper.open(); });
   const cssHelperClose = document.getElementById('css-helper-close');
@@ -1131,9 +1516,32 @@ window.addEventListener('DOMContentLoaded', function () {
   document.getElementById('btn-mp-connect-cancel').addEventListener('click', () => hideModal('mp-connect-modal'));
   document.getElementById('btn-mp-connect-confirm').addEventListener('click', function () {
     const cid = document.getElementById('mp-class-select').value;
-    mpConnectClass(cid);
+    const multiList = document.getElementById('mp-class-multi-list');
+    const checkedIds = multiList
+      ? Array.from(multiList.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value)
+      : [];
+    if (checkedIds.length > 0) {
+      mpConnectClasses(checkedIds, cid && checkedIds.includes(cid) ? cid : checkedIds[0]);
+      if (window.DeMiniDb && typeof DeMiniDb.togglePanel === 'function') {
+        DeMiniDb.togglePanel(true);
+      }
+    } else {
+      mpConnectClass(cid);
+    }
     hideModal('mp-connect-modal');
+    if (mpState.previewEnabled || (window.DeMiniDb && DeMiniDb.getRecordCount() > 0)) renderPreview();
   });
+  const mpNavClassSelect = document.getElementById('mp-nav-class-select');
+  if (mpNavClassSelect) {
+    mpNavClassSelect.addEventListener('change', function () {
+      mpConnectClass(this.value, { keepMulti: true, silent: true });
+      renderPreview();
+    });
+  }
+  const mpExportClassSelect = document.getElementById('mp-export-class-select');
+  if (mpExportClassSelect) {
+    mpExportClassSelect.addEventListener('change', mpRenderExportMultiClassList);
+  }
   document.getElementById('mp-field-picker-close').addEventListener('click', () => hideModal('mp-field-picker-modal'));
   document.getElementById('btn-mp-field-picker-cancel').addEventListener('click', () => hideModal('mp-field-picker-modal'));
   document.getElementById('mp-export-close').addEventListener('click', () => hideModal('mp-export-modal'));

@@ -1,12 +1,11 @@
 'use strict';
 /**
- * Background backup worker (worker_threads).
+ * Background backup worker (Electron utilityProcess or Node worker_threads).
  *
  * Offloads recursive file collection, CRC32 calculation, zlib compression,
- * and archive/folder writing off the Electron main process so the UI and
- * window activation remain 100% responsive while backups are created.
+ * and archive/folder writing into an isolated background process/thread so the
+ * Electron main process and all windows remain 100% responsive.
  */
-const { parentPort, workerData } = require('worker_threads');
 const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
@@ -55,7 +54,19 @@ function deflateRawAsync(buf, level = 1) {
   });
 }
 
-async function collectFiles(dir, rootPrefix) {
+const EXCLUDED_BACKUP_PREFIXES = [
+  'tools/ffmpeg',
+  'models/slm',
+  'models/whisper'
+];
+
+function isExcludedBackupPath(relFromSource) {
+  const norm = String(relFromSource || '').replace(/\\/g, '/').replace(/^\/+/, '').toLowerCase();
+  if (!norm) return false;
+  return EXCLUDED_BACKUP_PREFIXES.some((prefix) => norm === prefix || norm.startsWith(prefix + '/'));
+}
+
+async function collectFiles(dir, rootPrefix, { excludeRedownloadable = true } = {}) {
   const fileList = [];
   async function walk(currentDir) {
     let entries;
@@ -66,10 +77,13 @@ async function collectFiles(dir, rootPrefix) {
     }
     for (const entry of entries) {
       const fullPath = path.join(currentDir, entry.name);
+      const rel = path.relative(dir, fullPath).replace(/\\/g, '/');
+      if (excludeRedownloadable && isExcludedBackupPath(rel)) {
+        continue;
+      }
       if (entry.isDirectory()) {
         await walk(fullPath);
       } else if (entry.isFile()) {
-        const rel = path.relative(dir, fullPath).replace(/\\/g, '/');
         const zipName = rootPrefix ? `${rootPrefix}/${rel}` : rel;
         fileList.push({ fullPath, relativePath: zipName });
       }
@@ -143,8 +157,8 @@ async function writeZipEntry(fh, centralDirs, entryName, rawContent, mtimeMs, cu
   return currentOffset + lfh.length + compSize;
 }
 
-async function runZipBackup({ sourceDir, destFile, rootPrefix = 'user', includeMeta = false, level = 1 }) {
-  const files = await collectFiles(sourceDir, rootPrefix);
+async function runZipBackup({ sourceDir, destFile, rootPrefix = 'user', includeMeta = false, level = 1, excludeRedownloadable = true }) {
+  const files = await collectFiles(sourceDir, rootPrefix, { excludeRedownloadable });
   await fsp.mkdir(path.dirname(destFile), { recursive: true });
 
   const tmpFile = `${destFile}.tmp.${process.pid}.${Date.now()}`;
@@ -248,8 +262,8 @@ async function writeChunkWithBackpressure(stream, buf) {
   }
 }
 
-async function runTarGzBackup({ sourceDir, destFile, rootPrefix = 'user', level = 1 }) {
-  const files = await collectFiles(sourceDir, rootPrefix);
+async function runTarGzBackup({ sourceDir, destFile, rootPrefix = 'user', level = 1, excludeRedownloadable = true }) {
+  const files = await collectFiles(sourceDir, rootPrefix, { excludeRedownloadable });
   await fsp.mkdir(path.dirname(destFile), { recursive: true });
 
   const tmpFile = `${destFile}.tmp.${process.pid}.${Date.now()}`;
@@ -435,7 +449,7 @@ async function runZipEntriesBackup({ entries = [], destFile, level = 1 }) {
   }
 }
 
-async function runFolderBackup({ sourceDir, destDir }) {
+async function runFolderBackup({ sourceDir, destDir, excludeRedownloadable = false }) {
   let copied = 0;
   const errors = [];
 
@@ -451,6 +465,10 @@ async function runFolderBackup({ sourceDir, destDir }) {
     for (const entry of dirents) {
       const srcPath = path.join(src, entry.name);
       const dstPath = path.join(dst, entry.name);
+      const rel = path.relative(sourceDir, srcPath).replace(/\\/g, '/');
+      if (excludeRedownloadable && isExcludedBackupPath(rel)) {
+        continue;
+      }
       if (entry.isDirectory()) {
         await copyTree(srcPath, dstPath);
       } else if (entry.isFile()) {
@@ -470,9 +488,8 @@ async function runFolderBackup({ sourceDir, destDir }) {
   return { ok: true, copied, errors };
 }
 
-async function main() {
+async function executeTask(task, sendResult) {
   try {
-    const task = workerData || {};
     let result;
     if (task.op === 'zip') {
       result = await runZipBackup(task);
@@ -485,18 +502,27 @@ async function main() {
     } else {
       throw new Error(`Unknown backup operation: ${String(task.op)}`);
     }
-    if (parentPort) {
-      parentPort.postMessage(result);
-    }
+    sendResult(result);
   } catch (err) {
-    if (parentPort) {
-      parentPort.postMessage({
-        ok: false,
-        error: String(err?.message || err)
-      });
-    }
+    sendResult({
+      ok: false,
+      error: String(err?.message || err)
+    });
     process.exitCode = 1;
   }
 }
 
-main();
+if (process.parentPort) {
+  process.parentPort.once('message', (event) => {
+    executeTask(event && event.data ? event.data : {}, (res) => {
+      process.parentPort.postMessage(res);
+    }).finally(() => {
+      setImmediate(() => process.exit(process.exitCode || 0));
+    });
+  });
+} else {
+  const { parentPort, workerData } = require('worker_threads');
+  executeTask(workerData || {}, (res) => {
+    if (parentPort) parentPort.postMessage(res);
+  });
+}

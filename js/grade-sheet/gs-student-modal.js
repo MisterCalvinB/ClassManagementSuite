@@ -290,7 +290,11 @@
       const draftCriteria = {};
       config.criteria.forEach(c => {
         if (!criteriaMap[c.id]) criteriaMap[c.id] = { points: null, comment: "" };
-        draftCriteria[c.id] = { points: criteriaMap[c.id].points, comment: criteriaMap[c.id].comment };
+        draftCriteria[c.id] = {
+          points: criteriaMap[c.id].points,
+          comment: criteriaMap[c.id].comment,
+          appliedDecisions: Array.isArray(criteriaMap[c.id].appliedDecisions) ? [...criteriaMap[c.id].appliedDecisions] : []
+        };
       });
 
       const storedMaxRemark = (student.testRemarkMax && student.testRemarkMax[sem] && Number(student.testRemarkMax[sem][testIndex])) || 0;
@@ -1819,7 +1823,7 @@
               testDate: config ? config.testDate : '',
               bankFilename: critBankFn
             });
-            const critRules = (decInfo.rules || []).filter(r => r && String(r).trim().length > 0);
+            const critRules = (decInfo.rules || []).filter(isScoringDecisionRuleActive).map(normalizeScoringDecisionRule);
             if (critRules.length > 0) {
               decBtn.classList.add("has-decisions");
               if (decInfo.isCohort) {
@@ -1846,10 +1850,20 @@
                 inlineDecsWrap.classList.remove("is-cohort");
               }
 
-              critRules.forEach((ruleText, idx) => {
+              critRules.forEach((ruleObj, idx) => {
+                const norm = normalizeScoringDecisionRule(ruleObj);
+                const deduction = parseScoringDecisionDeduction(norm.deduction);
+                const decKey = getScoringDecisionKey(norm, idx);
+                const isApplied = Array.isArray(dr.appliedDecisions) && dr.appliedDecisions.includes(decKey);
+
                 const item = document.createElement("div");
                 item.className = "smod-crit-inline-decision-item";
-                item.title = t('gsInlineDecisionClickToComment', "Click to insert into comment (or click button above to edit)");
+                if (isApplied) item.classList.add("is-applied");
+                item.setAttribute("role", "button");
+                item.setAttribute("aria-pressed", isApplied ? "true" : "false");
+                item.title = deduction > 0
+                  ? ((typeof tFmt === 'function' ? tFmt('gsInlineDecisionClickToDeduct', { pts: fmtN(deduction) }) : null) || `Click to deduct -${fmtN(deduction)} pts (click again to undo)`)
+                  : t('gsInlineDecisionClickToHighlight', "Click to highlight (no point deduction)");
 
                 const num = document.createElement("span");
                 num.className = "smod-crit-inline-decision-num";
@@ -1857,25 +1871,42 @@
 
                 const text = document.createElement("span");
                 text.className = "smod-crit-inline-decision-text";
-                text.textContent = ruleText;
+                text.textContent = norm.text;
 
                 item.appendChild(num);
                 item.appendChild(text);
 
+                if (deduction > 0) {
+                  const dedBadge = document.createElement("span");
+                  dedBadge.className = "smod-crit-inline-decision-deduct";
+                  dedBadge.textContent = `-${fmtN(deduction)}`;
+                  item.appendChild(dedBadge);
+                }
+
                 item.addEventListener("click", (e) => {
                   e.stopPropagation();
-                  const commentTa = commentEls[criterion.id];
-                  if (commentTa) {
-                    const cur = commentTa.value.trim();
-                    const trimmedRule = String(ruleText || '').trim();
-                    if (trimmedRule) {
-                      commentTa.value = cur ? `${cur}\n• ${trimmedRule}` : `• ${trimmedRule}`;
-                      commentTa.dispatchEvent(new Event("input", { bubbles: true }));
-                      if (typeof showToast === 'function') {
-                        showToast(t('gsDecisionInserted', 'Inserted into comment'));
-                      }
-                    }
+                  if (!Array.isArray(dr.appliedDecisions)) dr.appliedDecisions = [];
+                  const existingIdx = dr.appliedDecisions.indexOf(decKey);
+                  const willApply = existingIdx === -1;
+                  if (willApply) {
+                    dr.appliedDecisions.push(decKey);
+                  } else {
+                    dr.appliedDecisions.splice(existingIdx, 1);
                   }
+                  item.classList.toggle("is-applied", willApply);
+                  item.setAttribute("aria-pressed", willApply ? "true" : "false");
+
+                  if (deduction > 0) {
+                    const basePts = dr.points == null ? maxPts : Number(dr.points);
+                    const rawNew = willApply ? (basePts - deduction) : (basePts + deduction);
+                    const roundedNew = Math.round(rawNew * 1000) / 1000;
+                    const clampedNew = Math.max(minPts, Math.min(maxPts, roundedNew));
+                    ptsInput.value = String(clampedNew);
+                    ptsSlider.value = String(clampedNew);
+                    applyPtsValue(clampedNew);
+                  }
+
+                  autoSaveStudentModal(false);
                 });
 
                 inlineDecsWrap.appendChild(item);
@@ -2304,7 +2335,11 @@
         config.criteria.forEach(c => {
           const dr = draftCriteria[c.id];
           if (dr) {
-            criteriaMap[c.id] = { points: dr.points, comment: dr.comment };
+            const entry = { points: dr.points, comment: dr.comment };
+            if (Array.isArray(dr.appliedDecisions) && dr.appliedDecisions.length > 0) {
+              entry.appliedDecisions = [...dr.appliedDecisions];
+            }
+            criteriaMap[c.id] = entry;
           }
         });
       }

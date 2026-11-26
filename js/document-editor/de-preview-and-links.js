@@ -531,7 +531,7 @@ function deResolveClassName(classId, fallbackName) {
   return fallbackName || classId;
 }
 
-async function updateDeDocLinksBadge() {
+async function updateDeDocLinksBadge(opts = {}) {
   const btn = document.getElementById('btn-de-doc-links');
   const textSpan = document.getElementById('btn-de-doc-links-text');
   const classBtn = document.getElementById('btn-de-class-tag');
@@ -562,28 +562,62 @@ async function updateDeDocLinksBadge() {
       btn.innerHTML = `<img src="../assets/icons/links.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" />[LINKS: ${links.length}${tagPart}]`;
     }
 
-    // 1. Class Group Link
-    let classLink = links.find(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
-    if (classLink) {
-      _deLinkedClassId = classLink.otherUrn.slice('cmt:class:'.length);
+    // 1. Class Group Link(s)
+    const classLinks = links.filter(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'));
+    let classLink = classLinks[0];
+    if (classLinks.length > 0) {
+      const linkedIds = classLinks.map(l => l.otherUrn.slice('cmt:class:'.length)).filter(Boolean);
+      _deLinkedClassId = linkedIds[0];
       if (typeof mpInit === 'function' && !mpState.loaded) {
         await mpInit();
       }
-      if (window.mpState && !mpState.connectedClassId && typeof mpConnectClass === 'function') {
-        mpConnectClass(_deLinkedClassId);
+      if (window.mpState) {
+        if (typeof mpConnectClasses === 'function') {
+          const activeId = (mpState.connectedClassId && linkedIds.includes(mpState.connectedClassId))
+            ? mpState.connectedClassId
+            : linkedIds[0];
+          mpConnectClasses(linkedIds, activeId, {
+            silent: true,
+            skipLinkSync: true,
+            skipMiniDbSync: !(opts && opts.syncFromLinks)
+          });
+          if (opts && opts.syncFromLinks && mpState.previewEnabled && typeof renderPreview === 'function') {
+            renderPreview();
+          }
+        } else if (!mpState.connectedClassId && typeof mpConnectClass === 'function') {
+          mpConnectClass(_deLinkedClassId, { silent: true, skipLinkSync: true });
+        }
       }
       let cName = deResolveClassName(_deLinkedClassId, classLink.meta && classLink.meta.className);
-      _deLinkedClassName = cName;
+      _deLinkedClassName = linkedIds.length > 1 ? `${cName} +${linkedIds.length - 1}` : cName;
       if (classBtn) {
         classBtn.style.display = 'inline-flex';
         classBtn.style.background = '#fef08a';
         classBtn.style.color = '#713f12';
         classBtn.style.borderColor = '#000';
-        if (classLabel) classLabel.textContent = `[CLASS: ${cName}]`;
+        if (classLabel) classLabel.textContent = `[CLASS: ${_deLinkedClassName}]`;
+      }
+    } else if (opts && opts.syncFromLinks) {
+      _deLinkedClassId = null;
+      _deLinkedClassName = null;
+      if (window.mpState && typeof mpConnectClasses === 'function') {
+        mpConnectClasses([], null, { silent: true, skipLinkSync: true });
+        if (mpState.previewEnabled && typeof renderPreview === 'function') renderPreview();
+      }
+      if (classBtn) {
+        classBtn.style.display = 'inline-flex';
+        classBtn.style.background = '#f8fafc';
+        classBtn.style.color = '#475569';
+        classBtn.style.borderColor = '#000';
+        if (classLabel) classLabel.textContent = `[+ CLASS]`;
       }
     } else if (mpState && mpState.connectedClassId) {
       _deLinkedClassId = mpState.connectedClassId;
-      _deLinkedClassName = (mpState.connectedClass && mpState.connectedClass.name) || mpState.connectedClassId;
+      const baseName = (mpState.connectedClass && mpState.connectedClass.name) || mpState.connectedClassId;
+      const extraCount = Array.isArray(mpState.connectedClassIds) && mpState.connectedClassIds.length > 1
+        ? mpState.connectedClassIds.length - 1
+        : 0;
+      _deLinkedClassName = extraCount > 0 ? `${baseName} +${extraCount}` : baseName;
       if (classBtn) {
         classBtn.style.display = 'inline-flex';
         classBtn.style.background = '#fef08a';
@@ -673,10 +707,49 @@ function deOpenDocLinksModal() {
   TagLinkModal.open({
     urn: urn,
     label: label,
-    type: 'document'
+    type: 'document',
+    onUpdate: function () {
+      updateDeDocLinksBadge({ syncFromLinks: true });
+    }
   });
 }
 window.deOpenDocLinksModal = deOpenDocLinksModal;
+
+async function deSyncClassLinksToService(classIds) {
+  const urn = getDeActiveDocUrn();
+  if (!urn || typeof LinksService === 'undefined') return;
+  const targetIds = Array.from(new Set((Array.isArray(classIds) ? classIds : []).filter(Boolean)));
+  const targetSet = new Set(targetIds);
+  try {
+    const links = await LinksService.getLinksFor(urn);
+    const existingClassIds = links
+      .filter(l => l.otherUrn && l.otherUrn.startsWith('cmt:class:'))
+      .map(l => l.otherUrn.slice('cmt:class:'.length));
+    const existingSet = new Set(existingClassIds);
+
+    for (const oldId of existingClassIds) {
+      if (!targetSet.has(oldId)) {
+        await LinksService.removeLink(urn, 'cmt:class:' + oldId);
+      }
+    }
+    const metas = (window.mpState && mpState.classesMeta) || {};
+    for (const newId of targetIds) {
+      if (!existingSet.has(newId)) {
+        const cMeta = metas[newId];
+        const cName = cMeta ? (cMeta.name || newId) : newId;
+        await LinksService.addLink(urn, 'cmt:class:' + newId, {
+          relation: 'curriculum_class',
+          meta: {
+            className: cName,
+            docTitle: (typeof currentDocName !== 'undefined' && currentDocName) || 'Document'
+          }
+        });
+      }
+    }
+    await updateDeDocLinksBadge();
+  } catch (_) {}
+}
+window.deSyncClassLinksToService = deSyncClassLinksToService;
 
 // ── Class Group Linking (Feature 1) ──────────────────────
 async function deOpenClassLinkModal() {
@@ -686,24 +759,51 @@ async function deOpenClassLinkModal() {
     return;
   }
   if (typeof mpInit === 'function') await mpInit();
-  const select = document.getElementById('de-link-class-select');
+  const container = document.getElementById('de-link-class-toggles');
   const unlinkBtn = document.getElementById('btn-de-unlink-class');
-  if (select) {
-    let html = '<option value="">-- ' + (t('deSelectClassPrompt') || 'Choose a class') + ' --</option>';
+  let linkedSet = new Set();
+  if (typeof LinksService !== 'undefined') {
+    try {
+      const links = await LinksService.getLinksFor(urn);
+      links.forEach(l => {
+        if (l.otherUrn && l.otherUrn.startsWith('cmt:class:')) {
+          linkedSet.add(l.otherUrn.slice('cmt:class:'.length));
+        }
+      });
+    } catch (_) {}
+  } else if (window.mpState && Array.isArray(mpState.connectedClassIds)) {
+    mpState.connectedClassIds.forEach(id => linkedSet.add(id));
+  } else if (_deLinkedClassId) {
+    linkedSet.add(_deLinkedClassId);
+  }
+
+  if (container) {
     const metas = (window.mpState && mpState.classesMeta) || {};
-    Object.keys(metas).forEach(cid => {
+    const keys = Object.keys(metas).filter(cid => {
       const c = metas[cid];
-      if (c && !c.archived && !c.isArchived) {
-        html += `<option value="${escHtml(cid)}">${escHtml(c.name || cid)}</option>`;
-      }
+      return c && !c.archived && !c.isArchived;
     });
-    select.innerHTML = html;
-    if (_deLinkedClassId && metas[_deLinkedClassId]) {
-      select.value = _deLinkedClassId;
+    container.innerHTML = keys.map(cid => {
+      const c = metas[cid];
+      const count = Array.isArray(c.students) ? c.students.length : 0;
+      const checked = linkedSet.has(cid);
+      return `<label class="mp-multi-class-chip${checked ? ' is-checked' : ''}">` +
+        `<input type="checkbox" value="${escHtml(cid)}" ${checked ? 'checked' : ''} />` +
+        `<span>${escHtml(c.name || cid)} (${count})</span>` +
+        `</label>`;
+    }).join('');
+    if (!container._deDelegated) {
+      container._deDelegated = true;
+      container.addEventListener('change', (e) => {
+        const cb = e.target.closest('input[type="checkbox"]');
+        if (!cb) return;
+        const chip = cb.closest('.mp-multi-class-chip');
+        if (chip) chip.classList.toggle('is-checked', cb.checked);
+      });
     }
   }
   if (unlinkBtn) {
-    unlinkBtn.style.display = _deLinkedClassId ? 'inline-block' : 'none';
+    unlinkBtn.style.display = linkedSet.size > 0 ? 'inline-block' : 'none';
   }
   showModal('de-class-link-modal');
 }
@@ -715,54 +815,53 @@ function deCloseClassLinkModal() {
 window.deCloseClassLinkModal = deCloseClassLinkModal;
 
 async function deConfirmClassLink() {
-  const select = document.getElementById('de-link-class-select');
-  const cid = select ? select.value : '';
+  const container = document.getElementById('de-link-class-toggles');
+  const checkedIds = container
+    ? Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value)
+    : [];
   const urn = getDeActiveDocUrn();
   if (!urn) return;
 
-  if (!cid) {
+  if (checkedIds.length === 0) {
     await deUnlinkCurrentClass();
     return;
   }
 
-  const metas = (window.mpState && mpState.classesMeta) || {};
-  const cMeta = metas[cid];
-  const cName = cMeta ? (cMeta.name || cid) : cid;
+  await deSyncClassLinksToService(checkedIds);
 
-  if (typeof LinksService !== 'undefined') {
-    if (_deLinkedClassId && _deLinkedClassId !== cid) {
-      await LinksService.removeLink(urn, 'cmt:class:' + _deLinkedClassId);
+  if (typeof mpConnectClasses === 'function') {
+    const activeId = (window.mpState && mpState.connectedClassId && checkedIds.includes(mpState.connectedClassId))
+      ? mpState.connectedClassId
+      : checkedIds[0];
+    mpConnectClasses(checkedIds, activeId, { silent: true, skipLinkSync: true });
+    if (window.mpState && mpState.previewEnabled && typeof renderPreview === 'function') {
+      renderPreview();
     }
-    await LinksService.addLink(urn, 'cmt:class:' + cid, {
-      relation: 'curriculum_class',
-      meta: {
-        className: cName,
-        docTitle: currentDocName || 'Document'
-      }
-    });
   }
 
-  if (typeof mpConnectClass === 'function') {
-    mpConnectClass(cid);
-  }
-
-  _deLinkedClassId = cid;
-  _deLinkedClassName = cName;
+  const metas = (window.mpState && mpState.classesMeta) || {};
+  const firstMeta = metas[checkedIds[0]];
+  const firstName = firstMeta ? (firstMeta.name || checkedIds[0]) : checkedIds[0];
+  _deLinkedClassId = checkedIds[0];
+  _deLinkedClassName = checkedIds.length > 1 ? `${firstName} +${checkedIds.length - 1}` : firstName;
   hideModal('de-class-link-modal');
-  updateDeDocLinksBadge();
-  showToast((t('deClassLinked') || 'Class linked to document: ') + cName);
+  await updateDeDocLinksBadge();
+  showToast((t('deClassLinked') || 'Class linked to document: ') + _deLinkedClassName);
 }
 window.deConfirmClassLink = deConfirmClassLink;
 
 async function deUnlinkCurrentClass() {
-  const urn = getDeActiveDocUrn();
-  if (urn && _deLinkedClassId && typeof LinksService !== 'undefined') {
-    await LinksService.removeLink(urn, 'cmt:class:' + _deLinkedClassId);
+  await deSyncClassLinksToService([]);
+  if (typeof mpConnectClasses === 'function') {
+    mpConnectClasses([], null, { silent: true, skipLinkSync: true });
+    if (window.mpState && mpState.previewEnabled && typeof renderPreview === 'function') {
+      renderPreview();
+    }
   }
   _deLinkedClassId = null;
   _deLinkedClassName = null;
   hideModal('de-class-link-modal');
-  updateDeDocLinksBadge();
+  await updateDeDocLinksBadge();
   showToast(t('deClassUnlinked') || 'Class unlinked from document');
 }
 window.deUnlinkCurrentClass = deUnlinkCurrentClass;

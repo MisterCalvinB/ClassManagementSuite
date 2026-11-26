@@ -1486,13 +1486,18 @@
     }
   }
 
-  function open(defaultTab) {
+  function open(defaultTab, searchQuery) {
     if (defaultTab && defaultTab !== _activeTab) {
       _activeTab = defaultTab;
       _activeCat = 'all';
     }
     const searchInput = document.getElementById('css-helper-search');
-    if (searchInput) {
+    if (typeof searchQuery === 'string') {
+      const trimmed = searchQuery.trim();
+      _searchQuery = trimmed.toLowerCase();
+      if (searchInput) searchInput.value = trimmed;
+      if (_searchQuery) _activeCat = 'all';
+    } else if (searchInput) {
       _searchQuery = (searchInput.value || '').trim().toLowerCase();
     }
     bindEventsOnce();
@@ -1516,6 +1521,16 @@
     }
   }
 
-  window.DeCssHelper = { open, close };
+  function getPropertyNames() {
+    return CSS_PROPERTIES.map(p => p.name);
+  }
+
+  function getPropertyOptions(name) {
+    const key = String(name || '').trim().toLowerCase();
+    const item = CSS_PROPERTIES.find(p => p.name === key);
+    return item && Array.isArray(item.options) ? item.options.map(o => o.value) : [];
+  }
+
+  window.DeCssHelper = { open, close, getPropertyNames, getPropertyOptions };
   window.openCssHelperModal = open;
 })();

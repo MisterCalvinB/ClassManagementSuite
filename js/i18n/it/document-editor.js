@@ -420,5 +420,21 @@
   "deCssHelperApplyCss": "Applica al CSS",
   "deCssHelperInsertTag": "Inserisci tag",
   "deCssHelperLoadedQuickRule": "Caricato nella barra Regola rapida",
-  "deCssHelperTagInserted": "Tag inserito al cursore"
+  "deCssHelperTagInserted": "Tag inserito al cursore",
+  "deMpCustomFieldLabel": "Oppure aggiungi un campo personalizzato:",
+  "deMpCustomFieldPlaceholder": "Nome personalizzato (es. tema, db.note)",
+  "deMpCustomFieldAdd": "Aggiungi e inserisci",
+  "deMpAssociatedClasses": "Classi associate",
+  "deMpAllConnectedClasses": "Tutte le classi collegate",
+  "deMpExportClassesLabel": "Classe/i di destinazione / Sorgente",
+  "deMiniDbClassesBtn": "Classi…",
+  "deMiniDbClassesHelp": "Importa o sincronizza elenchi classi in Mini DB",
+  "deDetachBtn": "Stacca",
+  "deDetachCssHelp": "Stacca l'editor CSS in una finestra separata",
+  "deDetachScriptHelp": "Stacca l'editor script in una finestra separata",
+  "deDetachMiniDbHelp": "Stacca Mini DB in una finestra separata",
+  "deDockBackBtn": "Riaggancia",
+  "deCleanCodeBtn": "Pulisci codice",
+  "deCleanCodeHelp": "Formatta indentazione e spazi di HTML e CSS",
+  "deCleanCodeDone": "Codice formattato"
 });

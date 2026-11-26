@@ -297,8 +297,14 @@ test('backup-worker: zip, targz, and folder backups run off the main thread and 
   try {
     const srcDir = path.join(tmpBase, 'user');
     await fs.promises.mkdir(path.join(srcDir, 'nested'), { recursive: true });
+    await fs.promises.mkdir(path.join(srcDir, 'tools', 'ffmpeg'), { recursive: true });
+    await fs.promises.mkdir(path.join(srcDir, 'models', 'slm', 'qwen'), { recursive: true });
+    await fs.promises.mkdir(path.join(srcDir, 'models', 'whisper', 'tiny'), { recursive: true });
     await fs.promises.writeFile(path.join(srcDir, 'a.txt'), 'Alpha backup content '.repeat(100), 'utf8');
     await fs.promises.writeFile(path.join(srcDir, 'nested', 'b.json'), JSON.stringify({ ok: true }), 'utf8');
+    await fs.promises.writeFile(path.join(srcDir, 'tools', 'ffmpeg', 'ffmpeg.exe'), 'FAKE_FFMPEG', 'utf8');
+    await fs.promises.writeFile(path.join(srcDir, 'models', 'slm', 'qwen', 'model.onnx'), 'FAKE_SLM', 'utf8');
+    await fs.promises.writeFile(path.join(srcDir, 'models', 'whisper', 'tiny', 'model.onnx'), 'FAKE_WHISPER', 'utf8');
 
     const zipOut = path.join(tmpBase, 'out', 'backup.zip');
     const zipRes = await runBackupWorker({
@@ -316,6 +322,8 @@ test('backup-worker: zip, targz, and folder backups run off the main thread and 
     assert.ok(zipBytes.includes(Buffer.from('user/a.txt')));
     assert.ok(zipBytes.includes(Buffer.from('user/nested/b.json')));
     assert.ok(zipBytes.includes(Buffer.from('__backup_meta__.json')));
+    assert.equal(zipBytes.includes(Buffer.from('ffmpeg.exe')), false);
+    assert.equal(zipBytes.includes(Buffer.from('model.onnx')), false);
     assert.ok(zipBytes.includes(Buffer.from([0x50, 0x4b, 0x05, 0x06])));
 
     const tgzOut = path.join(tmpBase, 'out', 'backup.tar.gz');
@@ -331,12 +339,15 @@ test('backup-worker: zip, targz, and folder backups run off the main thread and 
     const tarBytes = zlib.gunzipSync(tgzBytes);
     assert.ok(tarBytes.includes(Buffer.from('user/a.txt')));
     assert.ok(tarBytes.includes(Buffer.from('user/nested/b.json')));
+    assert.equal(tarBytes.includes(Buffer.from('ffmpeg.exe')), false);
+    assert.equal(tarBytes.includes(Buffer.from('model.onnx')), false);
 
     const folderOut = path.join(tmpBase, 'out', 'folder', 'user');
     const folderRes = await runBackupWorker({
       op: 'folder',
       sourceDir: srcDir,
-      destDir: folderOut
+      destDir: folderOut,
+      excludeRedownloadable: true
     });
     assert.equal(folderRes.ok, true);
     assert.equal(folderRes.copied, 2);
@@ -344,6 +355,8 @@ test('backup-worker: zip, targz, and folder backups run off the main thread and 
       await fs.promises.readFile(path.join(folderOut, 'nested', 'b.json'), 'utf8'),
       JSON.stringify({ ok: true })
     );
+    assert.equal(fs.existsSync(path.join(folderOut, 'tools', 'ffmpeg', 'ffmpeg.exe')), false);
+    assert.equal(fs.existsSync(path.join(folderOut, 'models', 'slm', 'qwen', 'model.onnx')), false);
 
     const cstzOut = path.join(tmpBase, 'out', 'board.cstz');
     const cstzRes = await runBackupWorker({

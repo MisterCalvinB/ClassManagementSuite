@@ -19,6 +19,14 @@
 
 <body data-neo-hover-all="1">
 
+  <!-- ── Detached Panel Header (shown only in ?detach= window) ── -->
+  <div id="de-detached-header" hidden>
+    <span id="de-detached-title">Panel</span>
+    <span id="de-detached-doc-name">Untitled</span>
+    <button type="button" id="btn-de-detached-clean-css" class="de-detach-btn de-detached-css-only" data-i18n-help="deCleanCodeHelp" data-hover-help="Format HTML and CSS indentation &amp; spacing"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" /> <span data-i18n="deCleanCodeBtn">Clean Code</span></button>
+    <button type="button" id="btn-de-dock-back" class="de-detach-btn"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /> <span data-i18n="deDockBackBtn">Dock Back</span></button>
+  </div>
+
   <!-- ── Nav ──────────────────────────────────────────────── -->
   <nav id="app-nav">
     <span class="nav-brand"></span>
@@ -91,6 +99,7 @@
       <button class="nav-btn"><span data-i18n="menuTools">Tools</span> <span class="neo-caret" aria-hidden="true"></span></button>
       <div class="nav-group-popup">
         <button class="nav-pop-item" id="btn-de-ai-studio"><img src="../assets/icons/sparkles.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deAiStudioMenu">AI Studio…</span> <span class="nav-pop-hint">Ctrl+⇧A</span></button>
+        <button class="nav-pop-item" id="btn-de-clean-code" data-i18n-help="deCleanCodeHelp"><img src="../assets/icons/wand.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deCleanCodeBtn">Clean Code</span> <span class="nav-pop-hint">Ctrl+⇧F</span></button>
         <button class="nav-pop-item" id="btn-de-lookup-dict" data-deev-9="1"><img src="../assets/icons/dictionary.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deLookupInDict">Look up in Quick Dictionary</span> <span class="nav-pop-hint">Ctrl+⇧D</span></button>
         <hr class="nav-pop-sep">
         <button class="nav-pop-item" id="btn-syntax-help"><img src="../assets/icons/info.svg" class="btn-icon" alt="" style="width:13px;height:13px;vertical-align:-2px;margin-right:4px;" /><span data-i18n="deSnippetsLibrary">Snippets &amp; Style Library…</span></button>
@@ -265,7 +274,7 @@
     <span id="doc-name-indicator">Untitled</span>
 
     <!-- Mailposting active badges (compact) -->
-    <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /><span id="mp-class-badge-label">Class</span></span>
+    <span id="mp-active-class-badge" class="mp-nav-badge" style="display:none"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /><span id="mp-class-badge-label">Class</span><select id="mp-nav-class-select" class="mp-select-sm" style="display:none"></select></span>
     <span id="mp-active-preview-badge" class="mp-preview-active-badge" style="display:none"><img src="../assets/icons/user-check.svg" class="btn-icon" alt="" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;" /><select id="mp-nav-student-select" class="mp-select-sm"></select></span>
 
     <!-- Context link badges (compact) -->
@@ -377,7 +386,15 @@
       </button>
     </div>
     <div id="css-editor-wrapper">
+      <div id="css-editor-bar">
+        <span class="cp-label">CSS Editor</span>
+        <div class="de-css-bar-actions">
+          <button type="button" id="btn-clean-css" class="de-detach-btn" data-i18n-help="deCleanCodeHelp" data-hover-help="Format HTML and CSS indentation &amp; spacing"><img src="../assets/icons/wand.svg" class="btn-icon" alt="" /> <span data-i18n="deCleanCodeBtn">Clean Code</span></button>
+          <button type="button" id="btn-detach-css" class="de-detach-btn" data-i18n-help="deDetachCssHelp" data-hover-help="Detach CSS Editor into a separate window"><img src="../assets/icons/external-link.svg" class="btn-icon" alt="" /> <span data-i18n="deDetachBtn">Detach</span></button>
+        </div>
+      </div>
       <div id="css-editor-container"></div>
+      <div class="de-panel-resizer" data-resize-target="css-editor-wrapper" title="Drag to resize"></div>
     </div>
     <div id="script-editor-wrapper">
       <div id="script-editor-bar">
@@ -397,11 +414,13 @@
         <span class="cp-sep"></span>
         <button id="btn-script-run" type="button" data-i18n="deScriptRun">Run in sandbox</button>
         <span id="script-editor-hint" data-i18n="deScriptHint">Saved inside the HTML file. Preview runs in an isolated sandbox.</span>
+        <button type="button" id="btn-detach-script" class="de-detach-btn" data-i18n-help="deDetachScriptHelp" data-hover-help="Detach Script Editor into a separate window"><img src="../assets/icons/external-link.svg" class="btn-icon" alt="" /> <span data-i18n="deDetachBtn">Detach</span></button>
       </div>
       <div id="script-editor-body">
         <div id="script-editor-container"></div>
         <iframe id="script-run-frame" sandbox="allow-scripts" title="Script sandbox"></iframe>
       </div>
+      <div class="de-panel-resizer" data-resize-target="script-editor-wrapper" title="Drag to resize"></div>
     </div>
     <div id="db-panel-wrapper">
       <div id="db-panel-bar">
@@ -416,11 +435,14 @@
         <button id="btn-db-next-record" type="button" class="db-nav-btn" title="Next record" data-i18n-help="deMiniDbNextRecord"><img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
         <span class="cp-sep"></span>
         <button id="btn-db-import" type="button" data-hover-help="Paste from Excel, CSV, ODS or load a spreadsheet file" data-i18n-help="deMiniDbImportHelp"><img src="../assets/icons/paste.svg" class="btn-icon" alt="" /> <span data-i18n="deMiniDbImportBtn">Paste / Import…</span></button>
+        <button id="btn-db-import-classes" type="button" data-hover-help="Import or sync class rosters into Mini DB" data-i18n-help="deMiniDbClassesHelp"><img src="../assets/icons/groups.svg" class="btn-icon" alt="" /> <span data-i18n="deMiniDbClassesBtn">Classes…</span></button>
         <button id="btn-db-batch-export" type="button" disabled><img src="../assets/icons/export.svg" class="btn-icon" alt="" /> <span data-i18n="deMiniDbBatchExport">Batch Export…</span></button>
         <button id="btn-db-clear" type="button" disabled data-hover-help="Clear all fields and records" data-i18n-help="deMiniDbClearHelp"><img src="../assets/icons/trash.svg" class="btn-icon" alt="" /> <span data-i18n="deMiniDbClearBtn">Clear</span></button>
         <span id="db-panel-hint" data-i18n="deMiniDbHint">Saved with the document. Click a tag to insert {{db.field}}.</span>
+        <button type="button" id="btn-detach-minidb" class="de-detach-btn" data-i18n-help="deDetachMiniDbHelp" data-hover-help="Detach Mini DB into a separate window"><img src="../assets/icons/external-link.svg" class="btn-icon" alt="" /> <span data-i18n="deDetachBtn">Detach</span></button>
       </div>
       <div id="db-panel-body" tabindex="0"></div>
+      <div class="de-panel-resizer" data-resize-target="db-panel-wrapper" title="Drag to resize"></div>
     </div>
   </div>
 
@@ -591,11 +613,19 @@
           </div>
 
           <div class="de-insp-row de-insp-custom-row">
-            <input id="de-insp-custom-prop" class="de-insp-input" type="text" spellcheck="false" data-i18n-placeholder="deInspCustomPropPlaceholder" placeholder="property" />
+            <input id="de-insp-custom-prop" class="de-insp-input" type="text" list="de-insp-css-props-list" spellcheck="false" data-i18n-placeholder="deInspCustomPropPlaceholder" placeholder="property" />
+            <datalist id="de-insp-css-props-list"></datalist>
             <span class="de-insp-colon">:</span>
-            <input id="de-insp-custom-val" class="de-insp-input" type="text" spellcheck="false" data-i18n-placeholder="deInspCustomValPlaceholder" placeholder="value" />
+            <input id="de-insp-custom-val" class="de-insp-input" type="text" list="de-insp-css-vals-list" spellcheck="false" data-i18n-placeholder="deInspCustomValPlaceholder" placeholder="value" />
+            <datalist id="de-insp-css-vals-list"></datalist>
             <button type="button" class="de-insp-icon-btn de-insp-add-btn" id="de-insp-custom-add" data-i18n-help="deInspAddCustomTitle" data-hover-help="Apply property">
               <img src="../assets/icons/plus.svg" class="btn-icon" alt="" />
+            </button>
+          </div>
+          <div class="de-insp-helper-row">
+            <button type="button" class="de-insp-helper-link" id="de-insp-css-helper-btn" data-i18n-help="deCssHelperTitle" data-hover-help="Open interactive CSS Helper &amp; Tutorial">
+              <img src="../assets/icons/lightbulb.svg" class="btn-icon" alt="" />
+              <span data-i18n="deCssHelperBtn">CSS Helper</span>
             </button>
           </div>
         </div>
@@ -760,7 +790,9 @@
       </div>
       <div class="modal-body">
         <div class="mp-form-group">
-          <label class="mp-form-label">Select Target Class</label>
+          <label class="mp-form-label" data-i18n="deMpAssociatedClasses">Associated Classes</label>
+          <div id="mp-class-multi-list" class="mp-multi-class-list"></div>
+          <label class="mp-form-label" style="margin-top:8px;">Active Preview Class</label>
           <select id="mp-class-select" class="mp-form-select">
             <option value="">-- No Class Connected --</option>
           </select>
@@ -938,10 +970,8 @@
       </div>
       <div class="modal-body" style="padding:14px;background:#fff;">
         <div style="margin-bottom:14px;">
-          <label style="display:block;font-size:0.8rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;color:#000;" data-i18n="deSelectClassPrompt">Choose a class group to link this document to:</label>
-          <select id="de-link-class-select" class="mp-form-select" style="border:2px solid #000;border-radius:0;box-shadow:2px 2px 0px #000;font-weight:600;padding:6px 8px;width:100%;">
-            <option value="">-- No Class Linked --</option>
-          </select>
+          <label style="display:block;font-size:0.8rem;font-weight:800;text-transform:uppercase;margin-bottom:6px;color:#000;" data-i18n="deSelectClassPrompt">Choose class group(s) to link this document to:</label>
+          <div id="de-link-class-toggles" class="mp-multi-class-list" style="max-height:200px;"></div>
         </div>
         <div class="modal-actions" style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
           <button type="button" class="modal-btn" data-deev-36="1" id="btn-de-unlink-class" style="border:2px solid #ef4444;color:#ef4444;background:#fff;font-weight:700;border-radius:0;display:none;">Unlink Class</button>
@@ -964,6 +994,13 @@
       <div class="modal-body">
         <p style="font-size:.84rem; color:#64748b; margin-bottom:12px;">Click a field below to insert it at your current cursor position:</p>
         <div class="mp-tag-grid" id="mp-field-picker-grid"></div>
+        <div class="mp-custom-field-box">
+          <label class="mp-form-label" for="mp-custom-field-input" data-i18n="deMpCustomFieldLabel">Or add a custom placeholder:</label>
+          <div class="mp-custom-field-row">
+            <input type="text" id="mp-custom-field-input" class="mp-custom-field-input" data-i18n-placeholder="deMpCustomFieldPlaceholder" placeholder="Custom name (e.g. topic, db.notes)" autocomplete="off" spellcheck="false" />
+            <button type="button" class="modal-btn" id="btn-mp-custom-field-add" data-i18n="deMpCustomFieldAdd">Add &amp; Insert</button>
+          </div>
+        </div>
         <div class="modal-actions" style="margin-top:16px;">
           <button class="modal-btn modal-btn-cancel" id="btn-mp-field-picker-cancel">Close</button>
         </div>
@@ -1082,8 +1119,9 @@
       </div>
       <div class="modal-body">
         <div class="mp-form-group">
-          <label class="mp-form-label">Connected Class</label>
+          <label class="mp-form-label" data-i18n="deMpExportClassesLabel">Target Class(es) / Source</label>
           <select id="mp-export-class-select" class="mp-form-select"></select>
+          <div id="mp-export-multi-classes" class="mp-multi-class-list" style="margin-top:8px;display:none;"></div>
         </div>
         <div class="mp-form-group">
           <label class="mp-form-label">Export Format</label>
@@ -1203,6 +1241,8 @@
   <script src="../js/document-editor/de-outline-and-prefs.js"></script>
   <script src="../js/document-editor/de-settings-and-syntax.js"></script>
   <script src="../js/document-editor/de-css-helper.js"></script>
+  <script src="../js/document-editor/de-code-formatter.js"></script>
+  <script src="../js/document-editor/de-detach.js"></script>
   <script src="../js/pages/document-editor.js"></script>
   <script src="../js/pages/document-editor-events.js"></script>
 </body>

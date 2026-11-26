@@ -58,10 +58,14 @@
       Object.keys(rawMap).forEach(cid => {
         const entry = rawMap[cid];
         if (entry && typeof entry === "object") {
-          cloned[cid] = {
+          const item = {
             points: entry.points != null ? entry.points : null,
             comment: entry.comment != null ? String(entry.comment) : ""
           };
+          if (Array.isArray(entry.appliedDecisions) && entry.appliedDecisions.length > 0) {
+            item.appliedDecisions = [...entry.appliedDecisions];
+          }
+          cloned[cid] = item;
         }
       });
       return cloned;

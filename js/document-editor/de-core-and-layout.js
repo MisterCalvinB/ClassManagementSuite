@@ -246,7 +246,13 @@ async function renderPreview() {
       let activeStudent = null;
       let activeClass = mpState.connectedClass;
 
-      if (mpState.connectedClass && mpState.studentList.length > 0) {
+      if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && typeof DeMiniDb.getActiveStudentAndClass === 'function') {
+        const dbCtx = DeMiniDb.getActiveStudentAndClass();
+        if (dbCtx) {
+          activeStudent = dbCtx.student;
+          activeClass = dbCtx.classInfo;
+        }
+      } else if (mpState.connectedClass && mpState.studentList.length > 0) {
         activeStudent = mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0];
       } else {
         activeStudent = {
@@ -254,6 +260,7 @@ async function renderPreview() {
           firstName: 'Jane',
           lastName: 'Doe',
           fullName: 'Jane Doe',
+          customName: 'Janie',
           email: 'jane.doe@school.edu'
         };
         activeClass = {
@@ -300,6 +307,7 @@ async function renderPreview() {
       if (currentViewMode === 'wysiwyg') {
         container.classList.remove('paged-mode', 'doc-pages-container');
         container.innerHTML = html;
+        if (typeof _deUnwrapPagedWrappers === 'function') _deUnwrapPagedWrappers(container);
         _deExpandPageBreakComments(container);
         await fixPreviewImages(container);
       } else if (previewExactPdfMode && window.Desktop && Desktop.isElectron()) {

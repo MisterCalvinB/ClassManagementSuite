@@ -72,7 +72,19 @@
       if (typeof global.updateDocIndicator === 'function') {
         global.updateDocIndicator();
       }
+      if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
+        global.DeDetach.notifyMiniDbChanged(getState());
+      }
     } catch (_) {}
+  }
+
+  function getState() {
+    return JSON.parse(JSON.stringify(_state));
+  }
+
+  function applyExternalState(nextState) {
+    _state = _normalizeState(nextState);
+    renderPanel();
   }
 
   function _schedulePreview() {
@@ -224,8 +236,9 @@
         _state.fields.forEach((f) => {
           const val = rec.values[f.key] != null ? rec.values[f.key] : '';
           html +=
-            '<td class="db-td-cell">' +
+            '<td class="db-td-cell" data-record-index="' + rIdx + '" data-field-key="' + _esc(f.key) + '">' +
             '<input type="text" class="db-cell-input" data-record-id="' + _esc(rec.id) + '" data-field-key="' + _esc(f.key) + '" value="' + _esc(val) + '" placeholder="' + _esc(f.label) + '">' +
+            '<span class="db-fill-handle" data-record-index="' + rIdx + '" data-field-key="' + _esc(f.key) + '" title="Drag or double-click to fill down"></span>' +
             '</td>';
         });
 
@@ -289,6 +302,9 @@
     _markModified();
     renderPanel();
     _schedulePreview();
+    if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
+      global.DeDetach.notifyMiniDbChanged(getState());
+    }
   }
 
   function deleteField(fieldId) {
@@ -301,6 +317,9 @@
     _markModified();
     renderPanel();
     _schedulePreview();
+    if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
+      global.DeDetach.notifyMiniDbChanged(getState());
+    }
   }
 
   function addRecord(silent) {
@@ -333,6 +352,9 @@
     _markModified();
     renderPanel();
     _schedulePreview();
+    if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
+      global.DeDetach.notifyMiniDbChanged(getState());
+    }
   }
 
   function setActiveRecord(index) {
@@ -355,6 +377,9 @@
       });
     }
     _schedulePreview();
+    if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
+      global.DeDetach.notifyMiniDbChanged(getState());
+    }
   }
 
   function stepActiveRecord(delta) {
@@ -365,6 +390,7 @@
 
   function insertTag(tag) {
     if (!tag) return;
+    if (global.DeDetach && global.DeDetach.isDetached() && global.DeDetach.sendInsertTag(tag)) return;
     if (typeof global.mpInsertTagAtCursor === 'function') {
       global.mpInsertTagAtCursor(tag);
     } else if (typeof global.insertTextAtCursor === 'function') {
@@ -399,6 +425,7 @@
   }
 
   function openBatchExport() {
+    if (global.DeDetach && global.DeDetach.isDetached() && global.DeDetach.sendOpenBatchExport()) return;
     if (_state.records.length === 0 || _state.fields.length === 0) {
       if (typeof global.showToast === 'function') {
         global.showToast(_tr('deMiniDbNoRecordsExport', 'Add at least one field and one record before batch exporting.'), true);
@@ -458,6 +485,14 @@
 
     const importBtn = document.getElementById('btn-db-import');
     if (importBtn) importBtn.addEventListener('click', () => openImportModal());
+
+    const importClassesBtn = document.getElementById('btn-db-import-classes');
+    if (importClassesBtn) {
+      importClassesBtn.addEventListener('click', () => {
+        if (global.DeDetach && global.DeDetach.isDetached() && global.DeDetach.sendOpenConnectClasses()) return;
+        if (typeof global.mpOpenConnectModal === 'function') global.mpOpenConnectModal();
+      });
+    }
 
     const importClose = document.getElementById('db-import-close');
     if (importClose) importClose.addEventListener('click', closeImportModal);
@@ -538,6 +573,109 @@
           _renderActiveRecordSelect();
         }
         _schedulePreview();
+      });
+
+      const applyFillRange = (startIdx, endIdx, fieldKey, val) => {
+        const lo = Math.min(startIdx, endIdx);
+        const hi = Math.max(startIdx, endIdx);
+        let changed = false;
+        for (let i = lo; i <= hi; i++) {
+          const rec = _state.records[i];
+          if (!rec) continue;
+          if (!rec.values || typeof rec.values !== 'object') rec.values = {};
+          if (rec.values[fieldKey] !== val) {
+            rec.values[fieldKey] = val;
+            changed = true;
+          }
+          const inp = body.querySelector('td.db-td-cell[data-record-index="' + i + '"][data-field-key="' + CSS.escape(fieldKey) + '"] input.db-cell-input');
+          if (inp && inp.value !== val) inp.value = val;
+        }
+        if (changed) {
+          _markModified();
+          if (_state.fields[0] && _state.fields[0].key === fieldKey) {
+            _renderActiveRecordSelect();
+          }
+          _schedulePreview();
+        }
+      };
+
+      body.addEventListener('dblclick', (e) => {
+        const handle = e.target.closest('.db-fill-handle');
+        if (!handle) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const startIdx = parseInt(handle.getAttribute('data-record-index'), 10);
+        const fieldKey = handle.getAttribute('data-field-key');
+        const rec = _state.records[startIdx];
+        if (Number.isNaN(startIdx) || !fieldKey || !rec) return;
+        const val = (rec.values && rec.values[fieldKey] != null) ? String(rec.values[fieldKey]) : '';
+        if (_state.records.length - 1 > startIdx) {
+          applyFillRange(startIdx, _state.records.length - 1, fieldKey, val);
+        }
+      });
+
+      body.addEventListener('mousedown', (e) => {
+        const handle = e.target.closest('.db-fill-handle');
+        if (!handle) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const startIdx = parseInt(handle.getAttribute('data-record-index'), 10);
+        const fieldKey = handle.getAttribute('data-field-key');
+        const rec = _state.records[startIdx];
+        if (Number.isNaN(startIdx) || !fieldKey || !rec) return;
+        const val = (rec.values && rec.values[fieldKey] != null) ? String(rec.values[fieldKey]) : '';
+
+        const cells = Array.from(body.querySelectorAll('td.db-td-cell[data-field-key="' + CSS.escape(fieldKey) + '"]'));
+        const rowRects = cells.map(td => ({
+          idx: parseInt(td.getAttribute('data-record-index'), 10),
+          td,
+          rect: td.getBoundingClientRect()
+        }));
+
+        let currentEndIdx = startIdx;
+        const sourceTd = handle.closest('td.db-td-cell');
+        if (sourceTd) sourceTd.classList.add('db-fill-source');
+
+        const updateHighlights = (endIdx) => {
+          currentEndIdx = endIdx;
+          const lo = Math.min(startIdx, endIdx);
+          const hi = Math.max(startIdx, endIdx);
+          rowRects.forEach(item => {
+            const inRange = item.idx >= lo && item.idx <= hi && item.idx !== startIdx;
+            item.td.classList.toggle('db-fill-target', inRange);
+          });
+        };
+
+        const onMouseMove = (ev) => {
+          let bestIdx = currentEndIdx;
+          for (let i = 0; i < rowRects.length; i++) {
+            const r = rowRects[i].rect;
+            if (ev.clientY >= r.top && ev.clientY <= r.bottom) {
+              bestIdx = rowRects[i].idx;
+              break;
+            }
+          }
+          if (rowRects.length > 0) {
+            if (ev.clientY < rowRects[0].rect.top) bestIdx = rowRects[0].idx;
+            else if (ev.clientY > rowRects[rowRects.length - 1].rect.bottom) bestIdx = rowRects[rowRects.length - 1].idx;
+          }
+          if (bestIdx !== currentEndIdx) updateHighlights(bestIdx);
+        };
+
+        const onMouseUp = () => {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          document.body.classList.remove('db-filling');
+          if (sourceTd) sourceTd.classList.remove('db-fill-source');
+          rowRects.forEach(item => item.td.classList.remove('db-fill-target'));
+          if (currentEndIdx !== startIdx) {
+            applyFillRange(startIdx, currentEndIdx, fieldKey, val);
+          }
+        };
+
+        document.body.classList.add('db-filling');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
       });
     }
   }
@@ -887,23 +1025,145 @@
     }));
   }
 
-  function getRecordsForBatch() {
-    const firstKey = _state.fields[0] ? _state.fields[0].key : null;
-    return _state.records.map((rec, idx) => {
-      const vals = {};
-      _state.fields.forEach(f => {
-        vals[f.key] = rec.values && rec.values[f.key] != null ? String(rec.values[f.key]) : '';
-      });
-      const display = (firstKey && vals[firstKey]) ? vals[firstKey].trim() : ('Record_' + (idx + 1));
-      return {
-        id: rec.id || ('dbr-' + (idx + 1)),
-        fullName: display,
-        firstName: display,
-        lastName: '',
-        email: '',
-        _miniDbValues: vals
-      };
+  function _ensureRosterField(key, label) {
+    let existing = _state.fields.find(f => f.key.toLowerCase() === key.toLowerCase());
+    if (!existing) {
+      existing = { id: _uid('dbf'), key, label };
+      _state.fields.push(existing);
+    }
+    return existing.key;
+  }
+
+  function importFromClasses(classIds, options) {
+    const opts = options || {};
+    const mp = global.MailpostingService;
+    const metas = (global.mpState && global.mpState.classesMeta) || (mp && mp.classesMeta) || {};
+    const roster = (global.mpState && global.mpState.studentRoster) || (mp && mp.studentRoster) || {};
+    const ids = Array.from(new Set((Array.isArray(classIds) ? classIds : [classIds]).filter(id => id && metas[id])));
+    if (ids.length === 0) {
+      if (opts.replaceRoster && _state.records.length > 0) {
+        _state.records = _state.records.filter(r => !r.values || !r.values.student_id);
+        _state.activeRecordIndex = 0;
+        renderPanel();
+        _markModified();
+        _schedulePreview();
+      }
+      return { added: 0, updated: 0 };
+    }
+
+    const kFull = _ensureRosterField('full_name', 'Full Name');
+    const kFirst = _ensureRosterField('first_name', 'First Name');
+    const kLast = _ensureRosterField('last_name', 'Last Name');
+    const kCustom = _ensureRosterField('custom_name', 'Custom Name');
+    const kEmail = _ensureRosterField('email', 'Email');
+    const kClass = _ensureRosterField('class_name', 'Class');
+    const kId = _ensureRosterField('student_id', 'Student ID');
+
+    const incomingKeys = new Set();
+    const byComposite = new Map();
+    _state.records.forEach(r => {
+      const sid = r.values && r.values[kId] ? String(r.values[kId]) : '';
+      const cls = r.values && r.values[kClass] ? String(r.values[kClass]) : '';
+      if (sid) byComposite.set(sid + '::' + cls, r);
     });
+
+    let added = 0;
+    let updated = 0;
+    ids.forEach(cid => {
+      const cMeta = metas[cid];
+      const className = (cMeta && cMeta.name) ? cMeta.name : cid;
+      const rawStudents = Array.isArray(cMeta.students) ? cMeta.students : [];
+      rawStudents.forEach((rawStu, idx) => {
+        const s = mp && typeof mp.normalizeStudent === 'function'
+          ? mp.normalizeStudent(rawStu, idx, roster)
+          : (typeof rawStu === 'object' ? rawStu : { id: String(rawStu), fullName: String(rawStu) });
+        const sid = String(s.id || ('st-' + (idx + 1)));
+        const compKey = sid + '::' + className;
+        incomingKeys.add(compKey);
+
+        const existingRec = byComposite.get(compKey);
+        if (existingRec) {
+          existingRec.values[kFull] = s.fullName || '';
+          existingRec.values[kFirst] = s.firstName || '';
+          existingRec.values[kLast] = s.lastName || '';
+          existingRec.values[kCustom] = s.customName || '';
+          existingRec.values[kEmail] = s.email || '';
+          existingRec.values[kClass] = className;
+          existingRec.values[kId] = sid;
+          updated++;
+        } else {
+          const vals = {};
+          _state.fields.forEach(f => { vals[f.key] = ''; });
+          vals[kFull] = s.fullName || '';
+          vals[kFirst] = s.firstName || '';
+          vals[kLast] = s.lastName || '';
+          vals[kCustom] = s.customName || '';
+          vals[kEmail] = s.email || '';
+          vals[kClass] = className;
+          vals[kId] = sid;
+          const newRec = { id: _uid('dbr'), values: vals };
+          _state.records.push(newRec);
+          byComposite.set(compKey, newRec);
+          added++;
+        }
+      });
+    });
+
+    if (opts.replaceRoster) {
+      _state.records = _state.records.filter(r => {
+        const sid = r.values && r.values[kId] ? String(r.values[kId]) : '';
+        const cls = r.values && r.values[kClass] ? String(r.values[kClass]) : '';
+        if (!sid) return true;
+        return incomingKeys.has(sid + '::' + cls);
+      });
+    }
+    if (_state.activeRecordIndex >= _state.records.length) {
+      _state.activeRecordIndex = Math.max(0, _state.records.length - 1);
+    }
+
+    renderPanel();
+    _markModified();
+    _schedulePreview();
+    return { added, updated };
+  }
+
+  function _recordToStudentObj(rec, idx) {
+    const vals = {};
+    _state.fields.forEach(f => {
+      vals[f.key] = rec.values && rec.values[f.key] != null ? String(rec.values[f.key]) : '';
+    });
+    const firstKey = _state.fields[0] ? _state.fields[0].key : null;
+    const display = (vals.full_name || (firstKey && vals[firstKey]) || ('Record_' + (idx + 1))).trim();
+    return {
+      id: vals.student_id || rec.id || ('dbr-' + (idx + 1)),
+      fullName: vals.full_name || display,
+      firstName: vals.first_name || display,
+      lastName: vals.last_name || '',
+      customName: vals.custom_name || '',
+      email: vals.email || '',
+      _className: vals.class_name || '',
+      _miniDbValues: vals
+    };
+  }
+
+  function getActiveStudentAndClass() {
+    if (_state.fields.length === 0 || _state.records.length === 0) return null;
+    const idx = Math.max(0, Math.min(_state.activeRecordIndex, _state.records.length - 1));
+    const rec = _state.records[idx];
+    if (!rec) return null;
+    const student = _recordToStudentObj(rec, idx);
+    const className = student._className || '';
+    const sameClassStudents = className
+      ? _state.records.map((r, i) => _recordToStudentObj(r, i)).filter(s => s._className === className)
+      : _state.records.map((r, i) => _recordToStudentObj(r, i));
+    return {
+      student,
+      classInfo: { name: className, students: sameClassStudents }
+    };
+  }
+
+  function getRecordsForBatch() {
+    return _state.records.map((rec, idx) => _recordToStudentObj(rec, idx));
   }
 
   function getRecordCount() {
@@ -930,11 +1190,15 @@
     openImportModal,
     parseDelimitedText,
     importRows,
+    importFromClasses,
     extractFromContent,
     injectIntoContent,
     applyPendingOrReset,
     reset,
+    getState,
+    applyExternalState,
     getActiveRecordDict,
+    getActiveStudentAndClass,
     getAvailableTags,
     getRecordsForBatch,
     getRecordCount,

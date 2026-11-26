@@ -1108,6 +1108,10 @@ async function saveDiskDoc() {
 }
 
 async function saveDoc() {
+  if (window.DeDetach && typeof DeDetach.isDetached === 'function' && DeDetach.isDetached()) {
+    DeDetach.requestSave();
+    return;
+  }
   if (!window.Desktop || !Desktop.isElectron()) {
     showToast('File saving requires the Electron app.', true);
     return;
@@ -1195,6 +1199,7 @@ async function doSaveDoc(filename, folderPath = null) {
 }
 
 async function autosaveDoc() {
+  if (window.DeDetach && typeof DeDetach.isDetached === 'function' && DeDetach.isDetached()) return;
   if (docSaveInProgress) return;
   if (!window.Desktop || !Desktop.isElectron() || !currentDocName || !mdEditor) return;
   const needsManagedSave = currentDocStoredInDocs && (docModified || cssModified);
@@ -1786,16 +1791,25 @@ async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml =
   if (typeof overrideBodyHtml === 'string') {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = overrideBodyHtml;
+    _deUnwrapPagedWrappers(wrapper);
     _deExpandPageBreakComments(wrapper);
     await fixPreviewImages(wrapper);
     previewContent = wrapper.innerHTML;
   } else if (previewEl && previewEl.querySelector('.full-preview-pdf-pages')) {
     let raw = mdEditor ? mdEditor.getValue() : '';
     if (window.MailpostingService) {
-      const activeStudent = (mpState.connectedClass && mpState.studentList.length > 0)
+      let activeStudent = (mpState.connectedClass && mpState.studentList.length > 0)
         ? (mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0])
         : {};
-      raw = MailpostingService.renderTemplate(raw, activeStudent, mpState.connectedClass || {}, {
+      let activeClass = mpState.connectedClass || {};
+      if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && typeof DeMiniDb.getActiveStudentAndClass === 'function') {
+        const dbCtx = DeMiniDb.getActiveStudentAndClass();
+        if (dbCtx) {
+          activeStudent = dbCtx.student;
+          activeClass = dbCtx.classInfo;
+        }
+      }
+      raw = MailpostingService.renderTemplate(raw, activeStudent, activeClass, {
         roster: mpState.studentRoster,
         students: mpState.studentList,
         isHtml: currentDocType === 'html',
@@ -1870,13 +1884,15 @@ async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml =
 
   const pdfTitle = overrideTitle || getPdfExportBaseName() || 'Document';
   const scopedCustomCss = deScopeCssForContainer(customCss, '.doc-preview');
+  const printRootResetCss =
+    'html, body, body > .doc-preview { border: none !important; box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; max-width: none !important; }';
 
   const html = '<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n' +
     '<title>' + escHtml(pdfTitle) + '</title>\n' +
     katexCssLink + '\n' +
     '<style>\n* { box-sizing: border-box; }\nhtml, body { margin: 0; padding: 0; }\n' +
     lexendFontsCss + '\n' +
-    defaultPreviewCss + '\n' + scopedCustomCss + '\n</style>\n' +
+    defaultPreviewCss + '\n' + scopedCustomCss + '\n' + printRootResetCss + '\n</style>\n' +
     '</head>\n<body>\n<div class="doc-preview">\n' + previewContent + '\n</div>\n</body>\n</html>';
 
   const pdfSize = pageLayout.size === 'Custom'
@@ -2955,9 +2971,25 @@ function _deExpandPageBreakComments(container) {
   });
 }
 
+function _deUnwrapPagedWrappers(root) {
+  if (!root) return;
+  root.querySelectorAll('.doc-page-header, .doc-page-footer, .de-page-break-divider, .de-preview-footer, .de-fp-ruler')
+    .forEach(el => el.remove());
+  let wrapper;
+  while ((wrapper = root.querySelector('.doc-page-sheet, .doc-page-body, .doc-page-content'))) {
+    const parent = wrapper.parentNode;
+    if (!parent) break;
+    while (wrapper.firstChild) {
+      parent.insertBefore(wrapper.firstChild, wrapper);
+    }
+    wrapper.remove();
+  }
+}
+
 async function deRenderPagedPreview(container, html) {
   if (!container) return 1;
 
+  const seq = (container._dePagedSeq = (container._dePagedSeq || 0) + 1);
   container.classList.add('doc-pages-container', 'paged-mode');
   container.innerHTML = '';
 
@@ -2977,9 +3009,17 @@ async function deRenderPagedPreview(container, html) {
   // Parse HTML in sandbox
   const sandbox = document.createElement('div');
   sandbox.innerHTML = html || '<p><br></p>';
+  _deUnwrapPagedWrappers(sandbox);
+  if (container.id && typeof deScopeCssForContainer === 'function') {
+    sandbox.querySelectorAll('style').forEach(styleEl => {
+      styleEl.textContent = deScopeCssForContainer(styleEl.textContent || '', '#' + container.id);
+    });
+  }
   _deExpandPageBreakComments(sandbox);
   _deHoistNestedPageBreaks(sandbox);
   await fixPreviewImages(sandbox);
+  if (container._dePagedSeq !== seq) return 1;
+  container.innerHTML = '';
 
   // Group inline children into block elements
   const blocks = [];
@@ -3724,6 +3764,7 @@ function deSetViewMode(mode) {
       pc.classList.remove('paged-mode', 'doc-pages-container');
       const raw = mdEditor ? mdEditor.getValue() : '';
       pc.innerHTML = raw;
+      _deUnwrapPagedWrappers(pc);
       _deExpandPageBreakComments(pc);
       fixPreviewImages(pc);
     }
@@ -3731,12 +3772,12 @@ function deSetViewMode(mode) {
 }
 
 function deSyncWysiwygToEditor() {
-  if (!mdEditor || currentDocType !== 'html') return;
+  if (!mdEditor || currentDocType !== 'html' || currentViewMode !== 'wysiwyg') return;
   const pc = document.getElementById('preview-content');
-  if (!pc) return;
+  if (!pc || pc.classList.contains('paged-mode')) return;
 
   const clone = pc.cloneNode(true);
-  clone.querySelectorAll('.de-fp-ruler').forEach(el => el.remove());
+  _deUnwrapPagedWrappers(clone);
   clone.querySelectorAll('.de-page-break, .page-break').forEach(el => {
     const comment = document.createComment(' pagebreak ');
     el.replaceWith(comment);
@@ -4974,6 +5015,71 @@ function initDocumentInspector() {
   const customProp = document.getElementById('de-insp-custom-prop');
   const customVal = document.getElementById('de-insp-custom-val');
   const customAdd = document.getElementById('de-insp-custom-add');
+  const propsList = document.getElementById('de-insp-css-props-list');
+  const valsList = document.getElementById('de-insp-css-vals-list');
+  const cssHelperBtn = document.getElementById('de-insp-css-helper-btn');
+
+  if (propsList && !propsList.childElementCount) {
+    const propSet = new Set([
+      'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left',
+      'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+      'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-radius',
+      'background', 'background-color', 'color', 'font', 'font-family', 'font-size', 'font-weight', 'font-style',
+      'line-height', 'letter-spacing', 'text-align', 'text-decoration', 'text-transform',
+      'display', 'flex', 'flex-direction', 'flex-wrap', 'justify-content', 'align-items', 'gap', 'row-gap', 'column-gap',
+      'grid', 'grid-template-columns', 'grid-template-rows',
+      'width', 'min-width', 'max-width', 'height', 'min-height', 'max-height',
+      'position', 'top', 'right', 'bottom', 'left', 'inset', 'z-index',
+      'overflow', 'box-shadow', 'opacity', 'outline', 'list-style', 'border-collapse',
+      'break-before', 'break-after', 'break-inside', 'page-break-before', 'page-break-after', 'page-break-inside'
+    ]);
+    if (window.DeCssHelper && typeof window.DeCssHelper.getPropertyNames === 'function') {
+      window.DeCssHelper.getPropertyNames().forEach(p => propSet.add(p));
+    }
+    try {
+      const cs = window.getComputedStyle(document.documentElement);
+      for (let i = 0; i < cs.length; i++) {
+        const p = cs[i];
+        if (p && !p.startsWith('-')) propSet.add(p);
+      }
+    } catch (_) {}
+    const frag = document.createDocumentFragment();
+    Array.from(propSet).sort().forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      frag.appendChild(opt);
+    });
+    propsList.appendChild(frag);
+  }
+
+  const updateValSuggestions = () => {
+    if (!valsList) return;
+    const p = (customProp?.value || '').trim().toLowerCase();
+    const opts = (window.DeCssHelper && typeof window.DeCssHelper.getPropertyOptions === 'function')
+      ? window.DeCssHelper.getPropertyOptions(p)
+      : [];
+    valsList.innerHTML = '';
+    opts.forEach(v => {
+      const opt = document.createElement('option');
+      opt.value = v;
+      valsList.appendChild(opt);
+    });
+  };
+  if (customProp) {
+    customProp.addEventListener('input', updateValSuggestions);
+    customProp.addEventListener('change', updateValSuggestions);
+  }
+
+  if (cssHelperBtn) {
+    cssHelperBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.DeCssHelper && typeof window.DeCssHelper.open === 'function') {
+        const typedProp = (customProp?.value || '').trim();
+        window.DeCssHelper.open('properties', typedProp);
+      }
+    });
+  }
+
   const applyCustom = () => {
     const p = (customProp?.value || '').trim().toLowerCase();
     const v = (customVal?.value || '').trim();

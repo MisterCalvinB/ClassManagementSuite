@@ -1977,8 +1977,10 @@ const mpState = {
   classesMeta: {},
   studentRoster: {},
   connectedClassId: null,
+  connectedClassIds: [],
   connectedClass: null,
   studentList: [],
+  customTags: [],
   previewEnabled: false,
   previewStudentIndex: 0
 };

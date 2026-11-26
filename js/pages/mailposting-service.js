@@ -12,6 +12,7 @@
       { id: 'student.fullName', label: 'Student Full Name', tag: '{{student.fullName}}', category: 'Student' },
       { id: 'student.firstName', label: 'Student First Name', tag: '{{student.firstName}}', category: 'Student' },
       { id: 'student.lastName', label: 'Student Last Name', tag: '{{student.lastName}}', category: 'Student' },
+      { id: 'student.customName', label: 'Student Custom Name', tag: '{{student.customName}}', category: 'Student' },
       { id: 'student.email', label: 'Student Email', tag: '{{student.email}}', category: 'Student' },
       { id: 'student.id', label: 'Student ID', tag: '{{student.id}}', category: 'Student' },
       { id: 'class.name', label: 'Class Name', tag: '{{class.name}}', category: 'Class' },
@@ -68,8 +69,12 @@
         try {
           const res = await global.Desktop.readText('user', 'class-groups.js');
           if (res && res.ok && res.content) {
-            const fn = new Function(res.content + '\nreturn (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) };');
-            const parsed = fn();
+            const fn = new Function(res.content + '\nreturn { data: (typeof CLASS_GROUPS_DATA !== "undefined") ? CLASS_GROUPS_DATA : { classGroupsMeta: (typeof CLASS_GROUPS_META !== "undefined" ? CLASS_GROUPS_META : {}) }, studentRoster: (typeof STUDENT_ROSTER !== "undefined" ? STUDENT_ROSTER : null) };');
+            const parsedWrap = fn();
+            const parsed = parsedWrap && parsedWrap.data;
+            if (parsedWrap && parsedWrap.studentRoster && typeof parsedWrap.studentRoster === 'object') {
+              Object.assign(roster, parsedWrap.studentRoster);
+            }
             if (parsed && (parsed.classGroupsMeta || parsed.classGroups)) {
               rawMeta = parsed.classGroupsMeta || parsed.classGroups;
             }
@@ -212,6 +217,7 @@
             firstName: fn || full,
             lastName: ln,
             fullName: full,
+            customName: (s.customName || s.custom_name || '').trim(),
             email: s.email || s.mail || '',
             ...s
           };
@@ -262,6 +268,7 @@
         firstName: fn || full,
         lastName: ln,
         fullName: full,
+        customName: (targetObj.customName || targetObj.custom_name || '').trim(),
         email: targetObj.email || targetObj.mail || '',
         grade: targetObj.grade || targetObj.score || '',
         comment: targetObj.comment || targetObj.comments || '',
@@ -276,7 +283,9 @@
       if (typeof templateText !== 'string') return '';
 
       const today = options.date || new Date().toLocaleDateString();
-      const className = (classInfo && classInfo.name) ? classInfo.name : (options.className || '');
+      const className = (student && student._className)
+        ? student._className
+        : ((classInfo && classInfo.name) ? classInfo.name : (options.className || ''));
       const isHtml = !!(options.isHtml || options.isHtmlMode);
 
       const rosterMap = (options.roster && Object.keys(options.roster).length > 0)
@@ -312,6 +321,8 @@
         'firstname': student.firstName || '',
         'student.lastname': student.lastName || '',
         'lastname': student.lastName || '',
+        'student.customname': student.customName || '',
+        'customname': student.customName || '',
         'student.email': student.email || '',
         'email': student.email || '',
         'student.id': student.id || '',

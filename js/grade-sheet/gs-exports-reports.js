@@ -1967,9 +1967,14 @@
           text-align: left;
           color: var(--exp-text-color, #1e293b);
         }
+        table.report-table { table-layout: auto; }
+        table.report-table th, table.report-table td {
+          padding: ${fitToOnePage ? '2px 4px' : '3px 5px'};
+        }
+        table.report-table th:first-child, table.report-table td:first-child { white-space: nowrap; }
         th, thead th, table.report-table th, .scale-table thead th { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; color: var(--exp-text-color, #1e293b); border-bottom: 2px solid #000000 !important; }
-        table.report-table td.center, table.report-table th.center { text-align: center; }
-        table.report-table td.right, table.report-table th.right { text-align: right; }
+        table.report-table td.center, table.report-table th.center { text-align: center; padding: ${fitToOnePage ? '2px 3px' : '3px 3px'}; white-space: nowrap; }
+        table.report-table td.right, table.report-table th.right { text-align: right; padding: ${fitToOnePage ? '2px 3px' : '3px 3px'}; white-space: nowrap; }
         table.report-table tr.stats-row td, tr.stats-row td, .total-row td { background: var(--exp-table-th-bg, #f0f0eb); font-weight: 800; font-size: ${fitToOnePage ? '8.5px' : '9.5px'}; border-top: 2px solid #000000 !important; }
         table.report-table tr:nth-child(even) td:not(.stats-row td), tbody tr:nth-child(even) td:not(.stats-row td) { background: var(--exp-table-row-even, #fafafa); }
         .crit-pts-scored {
@@ -4104,7 +4109,7 @@
           const destination = await openGsPdfExportModal();
           if (!destination) return;
           const pdfSettings = getPdfExportSettings();
-          const fname = `${defaultFilename || 'report'}-${new Date().toISOString().slice(0, 10)}.pdf`;
+          let fname = `${defaultFilename || 'report'}-${new Date().toISOString().slice(0, 10)}.pdf`;
 
           let finalHtml = html;
           if (rebuild && typeof rebuild === 'function') {

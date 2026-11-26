@@ -131,6 +131,37 @@
       return null;
     }
 
+    function normalizeScoringDecisionRule(rule) {
+      if (typeof rule === 'string') {
+        return { text: rule, deduction: '' };
+      }
+      if (rule && typeof rule === 'object') {
+        const text = rule.text != null ? String(rule.text) : (rule.label != null ? String(rule.label) : '');
+        const deduction = rule.deduction != null ? String(rule.deduction) : (rule.points != null ? String(rule.points) : '');
+        return { text, deduction };
+      }
+      return { text: '', deduction: '' };
+    }
+
+    function isScoringDecisionRuleActive(rule) {
+      const norm = normalizeScoringDecisionRule(rule);
+      return norm.text.trim().length > 0 || norm.deduction.trim().length > 0;
+    }
+
+    function parseScoringDecisionDeduction(val) {
+      if (val == null) return 0;
+      const s = String(val).trim().replace(',', '.');
+      if (!s) return 0;
+      const n = Number(s);
+      if (!Number.isFinite(n) || n === 0) return 0;
+      return Math.abs(n);
+    }
+
+    function getScoringDecisionKey(rule, idx) {
+      const norm = normalizeScoringDecisionRule(rule);
+      return norm.text.trim() ? norm.text.trim() : `#${idx}`;
+    }
+
     function syncCriteriaRecordScoringDecisions(critArray, decList) {
       if (!Array.isArray(critArray) || !Array.isArray(decList)) return;
       for (const crit of critArray) {
@@ -140,7 +171,7 @@
           if (!testEntry || !testEntry.criteriaDecisions) continue;
           const rules = testEntry.criteriaDecisions[crit.name];
           if (Array.isArray(rules)) {
-            const activeRules = rules.filter(r => String(r || '').trim().length > 0);
+            const activeRules = rules.filter(isScoringDecisionRuleActive).map(normalizeScoringDecisionRule);
             if (activeRules.length > 0) {
               critDecs.push({
                 classTitle: testEntry.classTitle || '',
@@ -244,10 +275,10 @@
 
       if (exactMatch && cleanCrit) {
         const rules = exactMatch.criteriaDecisions[cleanCrit];
-        if (Array.isArray(rules) && rules.some(r => String(r || '').trim().length > 0)) {
+        if (Array.isArray(rules) && rules.some(isScoringDecisionRuleActive)) {
           return {
             entry: exactMatch,
-            rules: rules.filter(r => String(r || '').trim().length > 0),
+            rules: rules.filter(isScoringDecisionRuleActive).map(normalizeScoringDecisionRule),
             rawRules: rules,
             isCohort: false,
             matchedClass: exactMatch.classTitle
@@ -286,7 +317,7 @@
 
           if (cleanCrit) {
             const rules = (entry.criteriaDecisions && entry.criteriaDecisions[cleanCrit]) || [];
-            const activeRules = rules.filter(r => String(r || '').trim().length > 0);
+            const activeRules = rules.filter(isScoringDecisionRuleActive).map(normalizeScoringDecisionRule);
             if (activeRules.length > 0) {
               return {
                 entry,
@@ -446,8 +477,10 @@
         if (_activeCriterionPopover.rulesRef) {
           const rList = _activeCriterionPopover.rulesRef;
           for (let i = rList.length - 1; i >= 0; i--) {
-            if (String(rList[i] || '').trim() === '') {
+            if (!isScoringDecisionRuleActive(rList[i])) {
               rList.splice(i, 1);
+            } else {
+              rList[i] = normalizeScoringDecisionRule(rList[i]);
             }
           }
           if (_activeCriterionPopover.cohortSourceEntry && _activeCriterionPopover.critName) {
@@ -521,14 +554,17 @@
       let cohortSourceEntry = null;
       if (decInfo.isCohort && decInfo.rules.length > 0) {
         cohortSourceEntry = decInfo.entry;
-        if (localRecord.criteriaDecisions[criterion.name].length === 0 || localRecord.criteriaDecisions[criterion.name].every(r => !String(r || '').trim())) {
+        if (localRecord.criteriaDecisions[criterion.name].length === 0 || localRecord.criteriaDecisions[criterion.name].every(r => !isScoringDecisionRuleActive(r))) {
           localRecord.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(decInfo.rules));
         }
       }
 
       const rules = localRecord.criteriaDecisions[criterion.name];
+      for (let i = 0; i < rules.length; i++) {
+        rules[i] = normalizeScoringDecisionRule(rules[i]);
+      }
       if (rules.length === 0) {
-        rules.push("");
+        rules.push({ text: "", deduction: "" });
       }
 
       function renderPopoverContent() {
@@ -587,7 +623,10 @@
         const list = document.createElement("ol");
         list.className = "smod-decision-list";
 
-        rules.forEach((ruleText, idx) => {
+        rules.forEach((ruleObj, idx) => {
+          const rule = normalizeScoringDecisionRule(ruleObj);
+          rules[idx] = rule;
+
           const item = document.createElement("li");
           item.className = "smod-decision-item";
 
@@ -598,18 +637,41 @@
           const input = document.createElement("input");
           input.type = "text";
           input.className = "smod-decision-input";
-          input.value = ruleText;
+          input.value = rule.text;
           input.placeholder = t('gsPlaceholderDecision', 'Describe scoring rule or decision...');
           input.addEventListener("input", () => {
-            rules[idx] = input.value;
+            rules[idx].text = input.value;
             if (cohortSourceEntry) {
               if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
-              cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+              cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
             }
             saveScoringDecisionsToBank(criteriaBankFn);
             if (typeof onUpdate === 'function') onUpdate();
           });
           input.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              addBtn.click();
+            }
+          });
+
+          const deductInput = document.createElement("input");
+          deductInput.type = "text";
+          deductInput.inputMode = "decimal";
+          deductInput.className = "smod-decision-deduct-input";
+          deductInput.value = rule.deduction;
+          deductInput.placeholder = t('gsPlaceholderDecisionDeduct', '-0.5');
+          deductInput.title = t('gsDecisionDeductTitle', 'Points to deduct (optional)');
+          deductInput.addEventListener("input", () => {
+            rules[idx].deduction = deductInput.value;
+            if (cohortSourceEntry) {
+              if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
+              cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
+            }
+            saveScoringDecisionsToBank(criteriaBankFn);
+            if (typeof onUpdate === 'function') onUpdate();
+          });
+          deductInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               addBtn.click();
@@ -637,7 +699,7 @@
               rules[idx - 1] = tmp;
               if (cohortSourceEntry) {
                 if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
-                cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+                cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
               }
               saveScoringDecisionsToBank(criteriaBankFn);
               if (typeof onUpdate === 'function') onUpdate();
@@ -663,7 +725,7 @@
               rules[idx + 1] = tmp;
               if (cohortSourceEntry) {
                 if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
-                cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+                cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
               }
               saveScoringDecisionsToBank(criteriaBankFn);
               if (typeof onUpdate === 'function') onUpdate();
@@ -682,7 +744,7 @@
               e.preventDefault();
               e.stopPropagation();
             }
-            const ruleVal = String(rules[idx] || '').trim();
+            const ruleVal = String(rules[idx].text || '').trim();
             if (ruleVal && commentTextarea) {
               const cur = commentTextarea.value.trim();
               commentTextarea.value = cur ? `${cur}\n• ${ruleVal}` : `• ${ruleVal}`;
@@ -706,11 +768,11 @@
             }
             rules.splice(idx, 1);
             if (rules.length === 0) {
-              rules.push("");
+              rules.push({ text: "", deduction: "" });
             }
             if (cohortSourceEntry) {
               if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
-              cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+              cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
             }
             saveScoringDecisionsToBank(criteriaBankFn);
             if (typeof onUpdate === 'function') onUpdate();
@@ -718,7 +780,7 @@
           };
 
           actionsWrap.append(upBtn, downBtn, insertBtn, delBtn);
-          item.append(numSpan, input, actionsWrap);
+          item.append(numSpan, input, deductInput, actionsWrap);
           list.appendChild(item);
         });
 
@@ -738,10 +800,10 @@
             e.preventDefault();
             e.stopPropagation();
           }
-          rules.push("");
+          rules.push({ text: "", deduction: "" });
           if (cohortSourceEntry) {
             if (!cohortSourceEntry.criteriaDecisions) cohortSourceEntry.criteriaDecisions = {};
-            cohortSourceEntry.criteriaDecisions[criterion.name] = [...rules];
+            cohortSourceEntry.criteriaDecisions[criterion.name] = JSON.parse(JSON.stringify(rules));
           }
           saveScoringDecisionsToBank(criteriaBankFn);
           if (typeof onUpdate === 'function') onUpdate();

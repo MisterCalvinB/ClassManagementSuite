@@ -420,5 +420,21 @@
   "deCssHelperApplyCss": "Auf CSS anwenden",
   "deCssHelperInsertTag": "Tag einfügen",
   "deCssHelperLoadedQuickRule": "In Schnellregel-Leiste geladen",
-  "deCssHelperTagInserted": "Tag an Cursorposition eingefügt"
+  "deCssHelperTagInserted": "Tag an Cursorposition eingefügt",
+  "deMpCustomFieldLabel": "Oder benutzerdefiniertes Feld hinzufügen:",
+  "deMpCustomFieldPlaceholder": "Eigener Name (z. B. thema, db.notizen)",
+  "deMpCustomFieldAdd": "Hinzufügen & einfügen",
+  "deMpAssociatedClasses": "Verknüpfte Klassen",
+  "deMpAllConnectedClasses": "Alle verknüpften Klassen",
+  "deMpExportClassesLabel": "Zielklasse(n) / Quelle",
+  "deMiniDbClassesBtn": "Klassen…",
+  "deMiniDbClassesHelp": "Klassenlisten in Mini DB importieren oder synchronisieren",
+  "deDetachBtn": "Abdocken",
+  "deDetachCssHelp": "CSS-Editor in ein eigenes Fenster abdocken",
+  "deDetachScriptHelp": "Skript-Editor in ein eigenes Fenster abdocken",
+  "deDetachMiniDbHelp": "Mini DB in ein eigenes Fenster abdocken",
+  "deDockBackBtn": "Andocken",
+  "deCleanCodeBtn": "Code bereinigen",
+  "deCleanCodeHelp": "HTML- und CSS-Einrückung & Abstände formatieren",
+  "deCleanCodeDone": "Code formatiert"
 });
