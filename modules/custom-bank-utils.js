@@ -179,7 +179,11 @@
       const result = await Desktop.readText(config.target, cleanName);
       if (!result || !result.ok) return [];
       const parsed = parseJsDataFile(result.content || '');
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      if (type === 'words' && global.WordbankSchema && typeof global.WordbankSchema.normalizeWordbankArray === 'function') {
+        global.WordbankSchema.normalizeWordbankArray(parsed, { inPlace: true });
+      }
+      return parsed;
     } catch (err) {
       console.warn('Failed to read custom bank file ' + cleanName + ':', err);
       return [];
@@ -209,7 +213,10 @@
 
     (Array.isArray(items) ? items : []).forEach((rawItem, itemIndex) => {
       if (!rawItem || typeof rawItem !== 'object') return;
-      const entry = Object.assign({}, rawItem);
+      const normalizedItem = (type === 'words' && global.WordbankSchema && typeof global.WordbankSchema.normalizeWordbankRecord === 'function')
+        ? global.WordbankSchema.normalizeWordbankRecord(rawItem, { inPlace: false })
+        : rawItem;
+      const entry = Object.assign({}, normalizedItem);
       entry._custom = true;
       if (sourceId) entry._source = sourceId;
       if (customFile) entry._customFile = customFile;

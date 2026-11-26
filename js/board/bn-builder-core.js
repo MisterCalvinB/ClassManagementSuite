@@ -798,29 +798,51 @@
         const bw = brd.clientWidth, bh = brd.clientHeight;
         let lastId = null;
         const newIds = [];
-        words.forEach(text => {
-          const id = 'cn' + conNextId++;
-          const x = 60 + Math.random() * (bw - 160);
-          const y = 60 + Math.random() * (bh - 120);
-          const dbMatch = conFindDbEntry(text);
-          const el = document.createElement('div');
-          el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
-          el.id = id;
-          el.textContent = text;
-          el.style.left = x + 'px';
-          el.style.top = y + 'px';
-          conApplyDefaultWordFontSize(el);
-          if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
-          brd.appendChild(el);
-          const baseWord = text;
-          const node = { id, el, x, y, baseX: x, baseY: y, dbWord: dbMatch ? dbMatch.word : null, baseWord, fontFamily: window._bcNodeFontFamily || null };
-          conNodes.push(node);
-          conAttachNodeEvents(id, el);
-          conAddNodeStarBtn(node);
-          newIds.push(id);
-          lastId = id;
-        });
-        if (lastId) conSelect(lastId);
+        const createdNodes = [];
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          words.forEach(text => {
+            const id = 'cn' + conNextId++;
+            const x = 60 + Math.random() * (bw - 160);
+            const y = 60 + Math.random() * (bh - 120);
+            const dbMatch = conFindDbEntry(text);
+            const el = document.createElement('div');
+            el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+            el.id = id;
+            el.textContent = text;
+            el.style.left = x + 'px';
+            el.style.top = y + 'px';
+            conApplyDefaultWordFontSize(el);
+            if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+            brd.appendChild(el);
+            const baseWord = text;
+            const node = { id, el, x, y, baseX: x, baseY: y, dbWord: dbMatch ? dbMatch.word : null, baseWord, fontFamily: window._bcNodeFontFamily || null };
+            conNodes.push(node);
+            createdNodes.push(node);
+            conAttachNodeEvents(id, el);
+            conAddNodeStarBtn(node);
+            newIds.push(id);
+            lastId = id;
+          });
+          if (lastId) conSelect(lastId);
+          if (!_prevSuppress && createdNodes.length && typeof window._conMirrorSend === 'function' && typeof window.conSerializeNodeForMirror === 'function') {
+            const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+            const serializedNodes = createdNodes.map(window.conSerializeNodeForMirror).filter(Boolean);
+            if (serializedNodes.length) {
+              window._conMirrorSend({
+                type: 'board-paste',
+                revision: rev,
+                nodes: serializedNodes,
+                selection: lastId ? { selectedNodeId: lastId, selectedNodeIds: [lastId] } : undefined
+              });
+            }
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
         inp.focus();
       };
 

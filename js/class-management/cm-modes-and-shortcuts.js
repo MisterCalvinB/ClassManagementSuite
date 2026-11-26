@@ -53,6 +53,45 @@
             return defs.map(renderButton).join('');
         }
 
+        function _getContextMenuIndividualBadges() {
+            return (badgeDefinitions && badgeDefinitions.length ? badgeDefinitions : DEFAULT_BADGE_DEFINITIONS)
+                .filter(badge => !badge.hidden && !badge.isBuiltin && _badgeAppliesToTarget(badge, 'individual'));
+        }
+
+        function buildContextMenuBadgeButtons() {
+            const defs = _getContextMenuIndividualBadges();
+            if (!defs.length) return '';
+
+            const renderButton = (badge, idx) => {
+                const title = [badge.label, badge.meaning].filter(Boolean).join(' — ');
+                const toneClass = badge.tone === 'negative' ? 'tone-negative' : 'tone-positive';
+                return `<button type="button" class="ctx-badge-btn ${toneClass}" data-ctx-badge-idx="${idx}" title="${escapeSettingsHtml(title)}">${escapeSettingsHtml(badge.icon)}</button>`;
+            };
+
+            const positive = [];
+            const negative = [];
+            defs.forEach((badge, idx) => {
+                if (badge.tone === 'negative') negative.push(renderButton(badge, idx));
+                else positive.push(renderButton(badge, idx));
+            });
+
+            if (positive.length && negative.length) {
+                return `${positive.join('')}<div class="ctx-badges-divider"></div>${negative.join('')}`;
+            }
+            return positive.join('') || negative.join('');
+        }
+
+        function handleRosterContextBadgeClick(event) {
+            const btn = event && event.target && event.target.closest ? event.target.closest('.ctx-badge-btn') : null;
+            if (!btn) return;
+            const idx = parseInt(btn.getAttribute('data-ctx-badge-idx'), 10);
+            const badge = _getContextMenuIndividualBadges()[idx];
+            const targetId = rosterContextStudentId;
+            if (!badge || targetId == null) return;
+            closeRosterContextMenu();
+            awardBadge(targetId, badge.icon, badge.label, badge.tone, badge.meaning, 'individual');
+        }
+
         function toggleBadgePopup(event, targetId, targetType = 'individual') {
             event.stopPropagation();
             const popupKey = _badgePopupKey(targetId, targetType);

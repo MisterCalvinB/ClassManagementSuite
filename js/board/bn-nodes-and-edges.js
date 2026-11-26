@@ -601,15 +601,21 @@
             // Highlight nearby nodes as drop targets (single-node drag only)
             if (!groupSnap) {
               const DROP_DIST = 24;
+              const selfW = (node._cachedW > 0 ? node._cachedW : (node._cachedW = el.offsetWidth || 80));
+              const selfH = (node._cachedH > 0 ? node._cachedH : (node._cachedH = el.offsetHeight || 32));
+              const selfCx = node.x + selfW / 2;
+              const selfCy = node.y + selfH / 2;
               conNodes.forEach(n => {
                 if (n.id === id) return;
-                const dx = (n.x + (n.el.offsetWidth || 80) / 2) - (node.x + (el.offsetWidth || 80) / 2);
-                const dy = (n.y + (n.el.offsetHeight || 32) / 2) - (node.y + (el.offsetHeight || 32) / 2);
+                const nw = (n._cachedW > 0 ? n._cachedW : (n._cachedW = (n.el && n.el.offsetWidth) || 80));
+                const nh = (n._cachedH > 0 ? n._cachedH : (n._cachedH = (n.el && n.el.offsetHeight) || 32));
+                const dx = (n.x + nw / 2) - selfCx;
+                const dy = (n.y + nh / 2) - selfCy;
                 const dist = Math.sqrt(dx * dx + dy * dy);
                 n.el.classList.toggle('con-drop-target', dist < DROP_DIST);
               });
             }
-            conRedrawEdges();
+            conRedrawEdges({ preserveSizeCache: true });
             conGroupRefitAll();
             // Send lightweight move messages to mirror throttled to rAF — avoids full snapshot during drag
             if (window._conMirrorSend) {
@@ -713,8 +719,8 @@
                 });
               }
             }
-            // Lift drag suppression so the MutationObserver resumes normal operation
-            window._conMirrorDragging = false;
+            // Lift drag suppression after trailing MutationObserver ticks
+            setTimeout(() => { window._conMirrorDragging = false; }, 60);
             // Clear snap lines and drop-target highlights
             document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
             conNodes.forEach(n => n.el.classList.remove('con-drop-target'));
@@ -760,6 +766,7 @@
                   toAdd.forEach(nid => hitGroup.nodeIds.push(nid));
                   requestAnimationFrame(() => {
                     conGroupRefit(hitGroup);
+                    if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
                   });
                 } else if (window._conDropNodeToCell) {
                   // Check if dropped inside a table cell
@@ -808,8 +815,6 @@
               if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
             }
-            // Full mirror sync on drag end so the mirror state is always consistent
-            if (dragging && window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
 
             if (!dragging) {
               // It was a click — check modifiers
@@ -2588,17 +2593,20 @@
         return Math.min(rw, rh) + 3; // +3 so arrow tip is just outside node edge
       }
 
-      function conRedrawEdges() {
-        if (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) {
-          for (let i = 0; i < conNodes.length; i++) {
-            conNodes[i]._cachedW = 0;
-            conNodes[i]._cachedH = 0;
+      function conRedrawEdges(opts) {
+        const preserveSizeCache = !!(opts && opts.preserveSizeCache);
+        if (!preserveSizeCache) {
+          if (typeof conNodes !== 'undefined' && Array.isArray(conNodes)) {
+            for (let i = 0; i < conNodes.length; i++) {
+              conNodes[i]._cachedW = 0;
+              conNodes[i]._cachedH = 0;
+            }
           }
-        }
-        if (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) {
-          for (let i = 0; i < conNotes.length; i++) {
-            conNotes[i]._cachedW = 0;
-            conNotes[i]._cachedH = 0;
+          if (typeof conNotes !== 'undefined' && Array.isArray(conNotes)) {
+            for (let i = 0; i < conNotes.length; i++) {
+              conNotes[i]._cachedW = 0;
+              conNotes[i]._cachedH = 0;
+            }
           }
         }
         conEdges.forEach(e => conUpdateEdge(e));
@@ -2802,24 +2810,60 @@
         }
       }
 
+      let _pendingMirrorRemoveNodeIds = [];
+      let _pendingMirrorRemoveScheduled = false;
+      function _conQueueMirrorNodeRemove(id) {
+        if (!id) return;
+        _pendingMirrorRemoveNodeIds.push(String(id));
+        if (_pendingMirrorRemoveScheduled) return;
+        _pendingMirrorRemoveScheduled = true;
+        Promise.resolve().then(() => {
+          _pendingMirrorRemoveScheduled = false;
+          const ids = _pendingMirrorRemoveNodeIds.splice(0);
+          if (ids.length && typeof window._conMirrorSend === 'function') {
+            const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+            window._conMirrorSend({
+              type: 'nodes-remove',
+              ids: ids,
+              revision: rev
+            });
+          }
+          setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+        });
+      }
+
       function conRemoveNode(id) {
         const idx = conNodes.findIndex(n => n.id === id);
         if (idx === -1) return;
-        conNodes[idx].el.remove();
-        conNodes.splice(idx, 1);
-        // Remove connected edges in-place to preserve array references across modules
-        for (let i = conEdges.length - 1; i >= 0; i--) {
-          const e = conEdges[i];
-          if (e && (e.a === id || e.b === id)) {
-            if (e.g && e.g.remove) e.g.remove();
-            conEdges.splice(i, 1);
+        const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        let queuedMirrorRemove = false;
+        try {
+          conNodes[idx].el.remove();
+          conNodes.splice(idx, 1);
+          // Remove connected edges in-place to preserve array references across modules
+          for (let i = conEdges.length - 1; i >= 0; i--) {
+            const e = conEdges[i];
+            if (e && (e.a === id || e.b === id)) {
+              if (e.g && e.g.remove) e.g.remove();
+              conEdges.splice(i, 1);
+            }
+          }
+          window.conEdges = global.conEdges = conEdges;
+          // Remove from any group
+          conGroupRemoveNode(id);
+          if (conSelected === id) conSelect(null);
+          if (conConnSrc === id) conConnSrc = null;
+          if (!isMirrorWin && !_prevSuppress) {
+            _conQueueMirrorNodeRemove(id);
+            queuedMirrorRemove = true;
+          }
+        } finally {
+          if (!_prevSuppress && !queuedMirrorRemove) {
+            window._conSuppressMirrorObserver = false;
           }
         }
-        window.conEdges = global.conEdges = conEdges;
-        // Remove from any group
-        conGroupRemoveNode(id);
-        if (conSelected === id) conSelect(null);
-        if (conConnSrc === id) conConnSrc = null;
       }
 
       function conRemoveEdge(eid) {
@@ -2984,26 +3028,34 @@
           : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
         if (!targets.length) return;
 
-        const rotationsToSend = [];
-        targets.forEach(node => {
-          conApplyNodeRotation(node, deg);
-          rotationsToSend.push({ id: String(node.id), rotation: deg });
-        });
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          const rotationsToSend = [];
+          targets.forEach(node => {
+            conApplyNodeRotation(node, deg);
+            rotationsToSend.push({ id: String(node.id), rotation: deg });
+          });
 
-        if (targets.length === 1) {
-          conSyncRotationButtons(targets[0]);
-        } else {
-          conSyncRotationButtons({ rotation: deg });
-        }
+          if (targets.length === 1) {
+            conSyncRotationButtons(targets[0]);
+          } else {
+            conSyncRotationButtons({ rotation: deg });
+          }
 
-        conRedrawEdges();
-        if (window.conGroupRefitAll) window.conGroupRefitAll();
+          conRedrawEdges();
+          if (window.conGroupRefitAll) window.conGroupRefitAll();
 
-        if (typeof window._conMirrorSend === 'function') {
-          if (rotationsToSend.length === 1) {
-            window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
-          } else if (rotationsToSend.length > 1) {
-            window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+          if (typeof window._conMirrorSend === 'function') {
+            if (rotationsToSend.length === 1) {
+              window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
+            } else if (rotationsToSend.length > 1) {
+              window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+            }
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
           }
         }
       };
@@ -3037,25 +3089,33 @@
           : (conSelected ? [conNodes.find(n => n.id === conSelected)].filter(Boolean) : []);
         if (!targets.length) return;
         conPushUndo();
-        const rotationsToSend = [];
-        targets.forEach(node => {
-          const curRot = conNormalizeNodeRotation(node.rotation || 0);
-          const nextRot = conNormalizeNodeRotation(curRot + angleStep);
-          conApplyNodeRotation(node, nextRot);
-          rotationsToSend.push({ id: String(node.id), rotation: nextRot });
-        });
-        if (targets.length === 1) {
-          conSyncRotationButtons(targets[0]);
-        } else {
-          conSyncRotationButtons({ rotation: targets[0].rotation });
-        }
-        conRedrawEdges();
-        if (window.conGroupRefitAll) window.conGroupRefitAll();
-        if (typeof window._conMirrorSend === 'function') {
-          if (rotationsToSend.length === 1) {
-            window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
-          } else if (rotationsToSend.length > 1) {
-            window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          const rotationsToSend = [];
+          targets.forEach(node => {
+            const curRot = conNormalizeNodeRotation(node.rotation || 0);
+            const nextRot = conNormalizeNodeRotation(curRot + angleStep);
+            conApplyNodeRotation(node, nextRot);
+            rotationsToSend.push({ id: String(node.id), rotation: nextRot });
+          });
+          if (targets.length === 1) {
+            conSyncRotationButtons(targets[0]);
+          } else {
+            conSyncRotationButtons({ rotation: targets[0].rotation });
+          }
+          conRedrawEdges();
+          if (window.conGroupRefitAll) window.conGroupRefitAll();
+          if (typeof window._conMirrorSend === 'function') {
+            if (rotationsToSend.length === 1) {
+              window._conMirrorSend({ type: 'node-rotate', id: rotationsToSend[0].id, rotation: rotationsToSend[0].rotation });
+            } else if (rotationsToSend.length > 1) {
+              window._conMirrorSend({ type: 'nodes-rotate', rotations: rotationsToSend });
+            }
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
           }
         }
       };
@@ -3478,16 +3538,42 @@
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
           : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
-        targets.forEach(node => {
-          if (conIsNodeLocked(node)) return;
-          const fmt = conGetNodeFmt(node);
-          fmt.maxWidth = (mw > 0) ? mw : null;
-          conApplyNodeShape(node, node.shape);
-          conRenderNodeLabel(node);
-        });
-        conRedrawEdges();
-        if (window.conGroupRefitAll) window.conGroupRefitAll();
-        if (window.conMarkBoardDirty) window.conMarkBoardDirty();
+        const resizedNodes = [];
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          targets.forEach(node => {
+            if (conIsNodeLocked(node)) return;
+            node._cachedW = undefined;
+            node._cachedH = undefined;
+            node.w = undefined;
+            node.h = undefined;
+            const fmt = conGetNodeFmt(node);
+            fmt.maxWidth = (mw > 0) ? mw : null;
+            conApplyNodeShape(node, node.shape);
+            conRenderNodeLabel(node);
+            resizedNodes.push({ id: String(node.id), maxWidth: fmt.maxWidth, shape: node.shape });
+          });
+          conRedrawEdges();
+          if (window.conGroupRefitAll) window.conGroupRefitAll();
+          if (window.conMarkBoardDirty) window.conMarkBoardDirty();
+          if (resizedNodes.length && window._conMirrorSend) {
+            if (resizedNodes.length === 1) {
+              window._conMirrorSend({
+                type: 'node-resize',
+                id: resizedNodes[0].id,
+                maxWidth: resizedNodes[0].maxWidth,
+                shape: resizedNodes[0].shape
+              });
+            } else {
+              window._conMirrorSend({ type: 'nodes-resize', nodes: resizedNodes });
+            }
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       };
       document.addEventListener('mouseup', () => { _conApplyMaxWidthUndoPushed = false; });
 
@@ -3497,13 +3583,30 @@
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
           : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
-        targets.forEach(node => {
-          node.shape = normalized;
-          conApplyNodeShape(node, normalized);
-        });
-        if (targets.length === 1) conSyncShapeButtons(targets[0]);
-        conRedrawEdges();
-        if (window.conGroupRefitAll) window.conGroupRefitAll();
+        const resizedNodes = [];
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          targets.forEach(node => {
+            node.shape = normalized;
+            conApplyNodeShape(node, normalized);
+            resizedNodes.push({ id: String(node.id), shape: normalized });
+          });
+          if (targets.length === 1) conSyncShapeButtons(targets[0]);
+          conRedrawEdges();
+          if (window.conGroupRefitAll) window.conGroupRefitAll();
+          if (resizedNodes.length && window._conMirrorSend) {
+            if (resizedNodes.length === 1) {
+              window._conMirrorSend({ type: 'node-resize', id: resizedNodes[0].id, shape: resizedNodes[0].shape });
+            } else {
+              window._conMirrorSend({ type: 'nodes-resize', nodes: resizedNodes });
+            }
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       };
 
       let _conApplyBorderWidthUndoPushed = false;

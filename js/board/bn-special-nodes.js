@@ -3680,31 +3680,71 @@
         conOpenRecordPopup(_boardCtxX, _boardCtxY);
       };
 
+      let _pendingMirrorAddNodes = [];
+      let _pendingMirrorAddScheduled = false;
+      function _conQueueMirrorNodeAdd(node) {
+        if (!node) return;
+        _pendingMirrorAddNodes.push(node);
+        if (_pendingMirrorAddScheduled) return;
+        _pendingMirrorAddScheduled = true;
+        Promise.resolve().then(() => {
+          _pendingMirrorAddScheduled = false;
+          const batch = _pendingMirrorAddNodes.splice(0);
+          if (batch.length && typeof window._conMirrorSend === 'function' && typeof window.conSerializeNodeForMirror === 'function') {
+            const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+            const serialized = batch.map(window.conSerializeNodeForMirror).filter(Boolean);
+            if (serialized.length) {
+              const selId = window.conGetSelected ? window.conGetSelected() : null;
+              window._conMirrorSend({
+                type: 'board-paste',
+                revision: rev,
+                nodes: serialized,
+                selection: selId ? { selectedNodeId: selId, selectedNodeIds: [selId] } : undefined
+              });
+            }
+          }
+          setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+        });
+      }
+
       function conAddWordAt(text, x, y, pageNum) {
-        const id = 'cn' + conNextId++;
-        const brd = board();
-        const dbMatch = conFindDbEntry(text);
-        const el = document.createElement('div');
-        el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
-        el.id = id;
-        el.style.left = x + 'px';
-        el.style.top = y + 'px';
-        conApplyDefaultWordFontSize(el);
-        if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
-        brd.appendChild(el);
-        const baseWord = text;
-        const node = { id, el, x, y, dbWord: dbMatch ? dbMatch.word : null, baseWord, pageNum: pageNum != null ? pageNum : null, locked: false, fontFamily: window._bcNodeFontFamily || null };
-        conNodes.push(node);
-        conSyncNodeLockState(node);
-        if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('create_node');
-        conRenderNodeLabel(node);
-        conAttachNodeEvents(id, el);
-        conAddNodeStarBtn(node);
-        conSelect(id);
-        if (typeof window.conMaybeAutoExpandBoard === 'function') {
-          window.conMaybeAutoExpandBoard(y + (el.offsetHeight || 36), { skipSave: true });
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        let queuedMirrorAdd = false;
+        try {
+          const id = 'cn' + conNextId++;
+          const brd = board();
+          const dbMatch = conFindDbEntry(text);
+          const el = document.createElement('div');
+          el.className = 'con-node' + (dbMatch ? ' con-node-matched' : '');
+          el.id = id;
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+          conApplyDefaultWordFontSize(el);
+          if (window._bcNodeFontFamily) el.style.fontFamily = window._bcNodeFontFamily;
+          brd.appendChild(el);
+          const baseWord = text;
+          const node = { id, el, x, y, dbWord: dbMatch ? dbMatch.word : null, baseWord, pageNum: pageNum != null ? pageNum : null, locked: false, fontFamily: window._bcNodeFontFamily || null };
+          conNodes.push(node);
+          conSyncNodeLockState(node);
+          if (typeof BoardAudioService !== 'undefined') BoardAudioService.playAction('create_node');
+          conRenderNodeLabel(node);
+          conAttachNodeEvents(id, el);
+          conAddNodeStarBtn(node);
+          conSelect(id);
+          if (typeof window.conMaybeAutoExpandBoard === 'function') {
+            window.conMaybeAutoExpandBoard(y + (el.offsetHeight || 36), { skipSave: true });
+          }
+          if (!_prevSuppress) {
+            _conQueueMirrorNodeAdd(node);
+            queuedMirrorAdd = true;
+          }
+          return id;
+        } finally {
+          if (!_prevSuppress && !queuedMirrorAdd) {
+            window._conSuppressMirrorObserver = false;
+          }
         }
-        return id;
       }
 
       function conCreateNodeActForNode(mainNodeId, actText) {

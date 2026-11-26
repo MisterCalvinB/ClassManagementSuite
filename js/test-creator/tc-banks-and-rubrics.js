@@ -212,6 +212,10 @@ window.tcLoadLearningDbSource = async function () {
     console.warn('Error reading learning DB source:', e);
   }
 
+  if (type === 'wordbanks' && typeof WordbankSchema !== 'undefined' && typeof WordbankSchema.normalizeWordbankArray === 'function') {
+    WordbankSchema.normalizeWordbankArray(items, { inPlace: true });
+  }
+
   _cachedLearningItems = items;
 
   if (type === 'wordbanks') {

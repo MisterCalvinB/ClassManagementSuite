@@ -51,8 +51,13 @@
     function awLoadCustomWords() {
       const custom = awGetCustomWords(); if (!custom.length) return;
       custom.forEach(w => {
+        if (!w || typeof w !== 'object') return;
+        if (typeof WordbankSchema !== 'undefined' && typeof WordbankSchema.normalizeWordbankRecord === 'function') {
+          WordbankSchema.normalizeWordbankRecord(w, { inPlace: true });
+        }
+        if (typeof w.word !== 'string' || !w.word.trim()) return;
         w._source = 'custom';
-        const bi = vocabBank.findIndex(v => v.word.toLowerCase() === w.word.toLowerCase());
+        const bi = vocabBank.findIndex(v => v && typeof v.word === 'string' && v.word.toLowerCase() === w.word.toLowerCase());
         if (bi !== -1) { vocabBank[bi] = w; } else { vocabBank.push(w); }
       });
     }
@@ -83,6 +88,21 @@
       for (const type of ['words'].concat(AW_NON_WORD_TYPES)) {
         try {
           await CustomBankUtils.loadCustomBanksForType(type);
+          if (type === 'words') {
+            const _wordFiles = await CustomBankUtils.listCustomFiles('words');
+            const _baseFile = CustomBankUtils.getConfig('words').baseFile;
+            _customDbSources = _wordFiles
+              .map(f => String((f && (f.filename || f.relativePath)) || '').trim())
+              .filter(name => name && name.toLowerCase() !== _baseFile.toLowerCase())
+              .map(name => name.replace(/\.js$/i, ''))
+              .filter((v, i, arr) => arr.indexOf(v) === i)
+              .sort();
+            if (typeof populateAllThemeMenus === 'function') populateAllThemeMenus();
+            if (typeof updateAllFilterCounts === 'function') updateAllFilterCounts();
+            if (activeSection && activeSection !== 'main-menu' && typeof refreshCurrentGame === 'function') {
+              refreshCurrentGame();
+            }
+          }
         } catch (err) {
           console.warn('Custom bank load failed for type:', type, err);
         }
@@ -1114,6 +1134,7 @@
       });
       if (typeof populateAllThemeMenus === 'function' && typeof vocabBank !== 'undefined' && vocabBank.length > 0) {
         populateAllThemeMenus();
+        if (typeof updateAllFilterCounts === 'function') updateAllFilterCounts();
       }
       document.querySelectorAll('[data-i18n-title]').forEach(el => {
         el.title = t(el.getAttribute('data-i18n-title'));

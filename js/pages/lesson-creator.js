@@ -6217,6 +6217,10 @@
       console.warn('lcLoadWordBankItems error:', err);
     }
 
+    if (type === 'wordbanks' && typeof WordbankSchema !== 'undefined' && typeof WordbankSchema.normalizeWordbankArray === 'function') {
+      WordbankSchema.normalizeWordbankArray(items, { inPlace: true });
+    }
+
     _cachedWordBankItems = items;
 
     var themesSet = new Set();

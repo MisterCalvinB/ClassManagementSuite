@@ -111,6 +111,15 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('ctx-badges-grid');
+      if (!el) return;
+      el.addEventListener('click', function (event) {
+        if (typeof handleRosterContextBadgeClick === 'function') {
+          handleRosterContextBadgeClick(event);
+        }
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-cmev-19]');
       if (!el) return;
       var handler = function (event) { closeMp3Picker() };

@@ -548,6 +548,7 @@
       const filtered = getFilteredBank();
       if (!filtered.length) return;
       hWordObj = pickUnused(filtered);
+      if (!hWordObj || typeof hWordObj.word !== 'string' || !hWordObj.word.trim()) return;
       hGuessed = []; hMistakes = 0;
       hangmanClueStep = 0;
       hangmanClueRevealed = false;
@@ -592,6 +593,7 @@
     }
 
     function renderH() {
+      if (!hWordObj || typeof hWordObj.word !== 'string' || !hWordObj.word.trim()) return;
       const word = hWordObj.word.toLowerCase();
       document.getElementById('word-display').textContent = word.split('').map(l => hGuessed.includes(l) ? l : '_').join('');
       const lives = hMaxMistakes - hMistakes;
@@ -704,6 +706,7 @@
       hangmanRenderPresenterPreview();
     }
     function revealHangmanAnswer() {
+      if (!hWordObj || typeof hWordObj.word !== 'string') return;
       awardPoints(POINTS_LOSE);
       const word = hWordObj.word.toLowerCase();
       const fb = document.getElementById('hangman-feedback');

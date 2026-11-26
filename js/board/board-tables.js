@@ -46,6 +46,17 @@
           const wrap = tbl.el.querySelector('.con-table-grid-wrap');
           if (wrap) { wrap.style.width = _totalW(tbl) + 'px'; wrap.style.height = _totalH(tbl) + 'px'; }
         }
+        window._conTableApplyGridStyle = _applyGridStyle;
+
+        function _sendTableResizeMirror(tbl) {
+          if (!tbl || !window._conMirrorSend) return;
+          window._conMirrorSend({
+            type: 'table-resize',
+            id: String(tbl.id),
+            colWidths: [...tbl.colWidths],
+            rowHeights: [...tbl.rowHeights]
+          });
+        }
 
         function _applyCellStyle(tbl, r, c) {
           const gridEl = tbl.el && tbl.el.querySelector('.con-table-grid');
@@ -188,23 +199,32 @@
             h.style.height = _totalH(tbl) + 'px';
             wrap.appendChild(h);
             (function (col, startXAcc) {
-              let drag = false, sx = 0, sw = 0;
+              let drag = false, sx = 0, sw = 0, _colResizeRaf = null;
               h.addEventListener('mousedown', function (e) {
                 if (e.button !== 0 || tbl.locked) return;
                 e.preventDefault(); e.stopPropagation();
                 drag = true; sx = e.clientX; sw = tbl.colWidths[col] || 80;
+                window._conMirrorDragging = true;
                 conPushUndo();
               });
               document.addEventListener('mousemove', function (e) {
                 if (!drag) return;
                 tbl.colWidths[col] = Math.max(30, sw + (e.clientX - sx));
                 _applyGridStyle(tbl); _rebuildResizers(tbl);
+                if (window._conMirrorSend && !_colResizeRaf) {
+                  _colResizeRaf = requestAnimationFrame(() => {
+                    _colResizeRaf = null;
+                    _sendTableResizeMirror(tbl);
+                  });
+                }
               });
               document.addEventListener('mouseup', function () {
                 if (drag) {
                   drag = false;
+                  if (_colResizeRaf) { cancelAnimationFrame(_colResizeRaf); _colResizeRaf = null; }
+                  _sendTableResizeMirror(tbl);
                   if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-                  if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+                  setTimeout(() => { window._conMirrorDragging = false; }, 60);
                 }
               });
             })(c, xAcc);
@@ -218,23 +238,32 @@
             h.style.width = _totalW(tbl) + 'px';
             wrap.appendChild(h);
             (function (row) {
-              let drag = false, sy = 0, sh = 0;
+              let drag = false, sy = 0, sh = 0, _rowResizeRaf = null;
               h.addEventListener('mousedown', function (e) {
                 if (e.button !== 0 || tbl.locked) return;
                 e.preventDefault(); e.stopPropagation();
                 drag = true; sy = e.clientY; sh = tbl.rowHeights[row] || 36;
+                window._conMirrorDragging = true;
                 conPushUndo();
               });
               document.addEventListener('mousemove', function (e) {
                 if (!drag) return;
                 tbl.rowHeights[row] = Math.max(24, sh + (e.clientY - sy));
                 _applyGridStyle(tbl); _rebuildResizers(tbl);
+                if (window._conMirrorSend && !_rowResizeRaf) {
+                  _rowResizeRaf = requestAnimationFrame(() => {
+                    _rowResizeRaf = null;
+                    _sendTableResizeMirror(tbl);
+                  });
+                }
               });
               document.addEventListener('mouseup', function () {
                 if (drag) {
                   drag = false;
+                  if (_rowResizeRaf) { cancelAnimationFrame(_rowResizeRaf); _rowResizeRaf = null; }
+                  _sendTableResizeMirror(tbl);
                   if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-                  if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+                  setTimeout(() => { window._conMirrorDragging = false; }, 60);
                 }
               });
             })(r);
@@ -577,12 +606,14 @@
           });
 
           // Corner resize
-          let _rs = false, _rsx = 0, _rsy = 0, _rcw = [], _rrh = [];
+          let _rs = false, _rsx = 0, _rsy = 0, _rcw = [], _rrh = [], _cornerResizeRaf = null;
           resizer.addEventListener('mousedown', function (e) {
             if (e.button !== 0 || tbl.locked) return;
             e.preventDefault(); e.stopPropagation();
             _rs = true; _rsx = e.clientX; _rsy = e.clientY;
-            _rcw = [...tbl.colWidths]; _rrh = [...tbl.rowHeights]; conPushUndo();
+            _rcw = [...tbl.colWidths]; _rrh = [...tbl.rowHeights];
+            window._conMirrorDragging = true;
+            conPushUndo();
           });
           document.addEventListener('mousemove', function (e) {
             if (!_rs) return;
@@ -594,12 +625,20 @@
             tbl.colWidths = _rcw.map(w => Math.max(30, Math.round(w * nw / oldW)));
             tbl.rowHeights = _rrh.map(h => Math.max(24, Math.round(h * nh / oldH)));
             _applyGridStyle(tbl); _rebuildResizers(tbl);
+            if (window._conMirrorSend && !_cornerResizeRaf) {
+              _cornerResizeRaf = requestAnimationFrame(() => {
+                _cornerResizeRaf = null;
+                _sendTableResizeMirror(tbl);
+              });
+            }
           });
           document.addEventListener('mouseup', function () {
             if (_rs) {
               _rs = false;
+              if (_cornerResizeRaf) { cancelAnimationFrame(_cornerResizeRaf); _cornerResizeRaf = null; }
+              _sendTableResizeMirror(tbl);
               if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+              setTimeout(() => { window._conMirrorDragging = false; }, 60);
             }
           });
 

@@ -205,6 +205,9 @@
         if (source) {
           var loaded = (new Function(source + '\n; return (typeof vocabBank !== "undefined" ? vocabBank : []);'))();
           global.vocabBank = Array.isArray(loaded) ? loaded : [];
+          if (global.WordbankSchema && typeof global.WordbankSchema.normalizeWordbankArray === 'function') {
+            global.WordbankSchema.normalizeWordbankArray(global.vocabBank, { inPlace: true });
+          }
         } else if (!Array.isArray(global.vocabBank)) {
           global.vocabBank = [];
         }

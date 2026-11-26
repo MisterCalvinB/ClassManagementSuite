@@ -3093,6 +3093,22 @@
                 }
             }
 
+            // Populate quick-add badges grid
+            const badgesSection = document.getElementById('ctx-badges-section');
+            const badgesGrid = document.getElementById('ctx-badges-grid');
+            if (badgesSection && badgesGrid) {
+                const badgesHtml = (!student || student.isAbsent || typeof buildContextMenuBadgeButtons !== 'function')
+                    ? ''
+                    : buildContextMenuBadgeButtons();
+                if (badgesHtml) {
+                    badgesGrid.innerHTML = badgesHtml;
+                    badgesSection.style.display = 'block';
+                } else {
+                    badgesGrid.innerHTML = '';
+                    badgesSection.style.display = 'none';
+                }
+            }
+
             const studentEl = (event && event.target && event.target.closest && event.target.closest('[data-student-id]')) || document.querySelector(`[data-student-id="${studentId}"]`);
 
             const pad = 6;

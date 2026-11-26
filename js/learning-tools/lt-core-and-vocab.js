@@ -1546,6 +1546,7 @@
       const simple = SIMPLE_WORD_SECTIONS.has(activeSection);
 
       function matchItem(item, skip) {
+        if (!item || typeof item.word !== 'string' || !item.word.trim()) return false;
         const lvlM = skip === 'level' || lvls.includes('all') || (item.level && lvls.includes(item.level.toLowerCase()));
         const thmM = skip === 'theme' || thms.includes('all') || getItemThemes(item).some(t => thms.includes(t));
         const posM = skip === 'pos' || poss.includes('all') || (item.partOfSpeech && (Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => poss.includes(p.toLowerCase())));
@@ -1601,9 +1602,11 @@
     }
 
     function isSimpleWord(item) {
-      const w = item.word || '';
+      if (!item || typeof item.word !== 'string') return false;
+      const w = item.word.trim();
+      if (!w) return false;
       if (/[()]/.test(w)) return false;        // exclude parentheses
-      if (w.trim().includes(' ')) return false; // exclude multi-word
+      if (w.includes(' ')) return false;        // exclude multi-word
       return true;
     }
 
@@ -1634,6 +1637,7 @@
       const srcs = current.querySelector('.source-picker-wrap') ? themePickerGetSelected(current.querySelector('.source-picker-wrap')) : ['all'];
       const simple = SIMPLE_WORD_SECTIONS.has(activeSection);
       return vocabBank.filter(item => {
+        if (!item || typeof item.word !== 'string' || !item.word.trim()) return false;
         const lvlM = (lvls.includes('all') || (item.level && lvls.includes(item.level.toLowerCase())));
         const thmM = (thms.includes('all') || getItemThemes(item).some(t => thms.includes(t)));
         const posM = (poss.includes('all') || (item.partOfSpeech && (Array.isArray(item.partOfSpeech) ? item.partOfSpeech : [item.partOfSpeech]).some(p => poss.includes(p.toLowerCase()))));
@@ -1817,16 +1821,17 @@
     // --- SESSION DEDUPLICATION ---
 
     function pickUnused(pool) {
+      if (!Array.isArray(pool) || pool.length === 0) return null;
       // Filter out already-used words
-      let available = pool.filter(item => !usedWords.has(item.word));
+      let available = pool.filter(item => item && !usedWords.has(item.word));
       // If all used, reset and start fresh
       if (available.length === 0) {
         usedWords.clear();
         available = pool;
       }
       const item = available[Math.floor(Math.random() * available.length)];
-      usedWords.add(item.word);
-      return item;
+      if (item && item.word) usedWords.add(item.word);
+      return item || null;
     }
 
 

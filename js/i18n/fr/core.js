@@ -2737,6 +2737,7 @@
   "ctx_group_title": "Activer le mode Groupe",
   "ctx_copy_roster": "Copier la liste",
   "ctx_copy_roster_title": "Copier les noms (avec équipes et rôles) dans le presse-papiers",
+  "ctx_quick_badges": "Badges rapides",
   "timer_pp_title": "Démarrer / Pause",
   "timer_stop_title": "Arrêter",
   "timer_detach_title": "Ouvrir le minuteur dans une nouvelle fenêtre",

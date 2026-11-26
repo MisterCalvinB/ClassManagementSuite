@@ -674,66 +674,24 @@
       var handler = function (event) { openHelp() };
       el.addEventListener('click', handler);
     })();
-    (function () {
-      var el = document.querySelector('[data-ltev-113]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-114]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-115]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-116]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-117]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-118]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-119]');
-      if (!el) return;
-      var handler = function (event) { themePickerToggle(this) };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-120]');
-      if (!el) return;
-      var handler = function (event) { ltToggleStarredFilter() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-121]');
-      if (!el) return;
-      var handler = function (event) { showActiveWordsPopup() };
-      el.addEventListener('click', handler);
-    })();
-    (function () {
-      var el = document.querySelector('[data-ltev-122]');
-      if (!el) return;
-      var handler = function (event) { resetAllFilters() };
-      el.addEventListener('click', handler);
-    })();
+    document.addEventListener('click', function (event) {
+      var pickerBtn = event.target.closest('[data-ltev-113], [data-ltev-114], [data-ltev-115], [data-ltev-116], [data-ltev-117], [data-ltev-118], [data-ltev-119]');
+      if (pickerBtn) {
+        themePickerToggle(pickerBtn);
+        return;
+      }
+      if (event.target.closest('[data-ltev-120]')) {
+        ltToggleStarredFilter();
+        return;
+      }
+      if (event.target.closest('[data-ltev-121]')) {
+        showActiveWordsPopup();
+        return;
+      }
+      if (event.target.closest('[data-ltev-122]')) {
+        resetAllFilters();
+      }
+    });
     (function () {
       var el = document.querySelector('[data-ltev-123]');
       if (!el) return;

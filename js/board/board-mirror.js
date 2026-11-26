@@ -1346,22 +1346,36 @@
           if (_mirrorIsFrozen) return;
           if (!d.positions || !d.positions.length) return;
           var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
+          var _nodeById = (d.positions.length > 1)
+            ? new Map(_liveNodes.map(function (n) { return [String(n.id), n]; }))
+            : null;
+          var _affectedGroups = (typeof window.conGroupOfNode === 'function' && typeof window.conGroupRefit === 'function') ? new Set() : null;
           d.positions.forEach(function (p) {
-            var nel = document.getElementById(p.id);
+            var pid = String(p.id);
+            var nd = _nodeById
+              ? _nodeById.get(pid)
+              : _liveNodes.find(function (n) { return String(n.id) === pid; });
+            var nel = (nd && nd.el) || document.getElementById(p.id);
             if (nel) {
               nel.style.left = p.x + 'px';
               nel.style.top = p.y + 'px';
             }
-            var nd = _liveNodes.find(function (n) { return String(n.id) === String(p.id); });
             if (nd) {
               nd.x = p.x;
               nd.y = p.y;
               nd.baseX = p.x;
               nd.baseY = p.y;
             }
+            if (_affectedGroups) {
+              var g = window.conGroupOfNode(p.id);
+              if (g && !g.phraseGroup) _affectedGroups.add(g);
+            }
           });
-          // Redraw edges so connections stay aligned during the drag
-          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          if (_affectedGroups && _affectedGroups.size > 0) {
+            _affectedGroups.forEach(function (g) { window.conGroupRefit(g); });
+          }
+          // Redraw edges in-place without invalidating cached node dimensions during drag
+          if (typeof conRedrawEdges === 'function') conRedrawEdges({ preserveSizeCache: true });
           return;
         }
 
@@ -1381,7 +1395,7 @@
               nt.y = p.y;
             }
           });
-          if (typeof conRedrawEdges === 'function') conRedrawEdges();
+          if (typeof conRedrawEdges === 'function') conRedrawEdges({ preserveSizeCache: true });
           return;
         }
 
@@ -1867,6 +1881,18 @@
           if (typeof window.conMasksClear === 'function') {
             window.conMasksClear();
           }
+          return;
+        }
+
+        if (d.type === 'node-remove' || d.type === 'nodes-remove') {
+          if (_mirrorIsFrozen) return;
+          var rmIds = Array.isArray(d.ids) ? d.ids : (d.id ? [d.id] : []);
+          if (rmIds.length && typeof window.conRemoveNode === 'function') {
+            rmIds.forEach(function (nid) { window.conRemoveNode(nid); });
+            if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+            if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+          }
+          if (d.revision) _lastRenderedRevision = d.revision;
           return;
         }
 
@@ -2571,7 +2597,7 @@
         if (d.type === 'node-resize' || d.type === 'nodes-resize') {
           if (_mirrorIsFrozen) return;
           var _liveNodes = window.conGetNodes ? window.conGetNodes() : [];
-          var items = Array.isArray(d.nodes) ? d.nodes : (d.id ? [{ id: d.id, fontSize: d.fontSize, shape: d.shape }] : []);
+          var items = Array.isArray(d.nodes) ? d.nodes : (d.id ? [{ id: d.id, fontSize: d.fontSize, shape: d.shape, maxWidth: d.maxWidth }] : []);
           var nodeMap = new Map(_liveNodes.map(function (n) { return [String(n.id), n]; }));
           var phraseGroupsToUpdate = new Set();
           items.forEach(function (item) {
@@ -2579,9 +2605,20 @@
             var nObj = nodeMap.get(String(item.id));
             var nel = document.getElementById(item.id);
             if (nObj || nel) {
+              if (nObj) {
+                nObj._cachedW = undefined;
+                nObj._cachedH = undefined;
+                nObj.w = undefined;
+                nObj.h = undefined;
+              }
               var parsedFs = parseFloat(item.fontSize);
               if (Number.isFinite(parsedFs) && parsedFs > 0 && typeof window.conSetNodeBaseFontSize === 'function') {
                 window.conSetNodeBaseFontSize(nObj || nel, parsedFs);
+              }
+              if (nObj && item.maxWidth !== undefined) {
+                nObj.fmt = nObj.fmt || {};
+                nObj.fmt.maxWidth = item.maxWidth;
+                if (typeof window.conRenderNodeLabel === 'function') window.conRenderNodeLabel(nObj);
               }
               if (nObj && typeof window.conApplyNodeShape === 'function') {
                 window.conApplyNodeShape(nObj, item.shape || nObj.shape);
@@ -2597,6 +2634,20 @@
           }
           if (typeof conRedrawEdges === 'function') conRedrawEdges();
           if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
+          return;
+        }
+
+        if (d.type === 'table-resize') {
+          if (_mirrorIsFrozen || !d.id) return;
+          var _liveTables = window.conGetTables ? window.conGetTables() : [];
+          var tObj = _liveTables.find(function (t) { return String(t.id) === String(d.id); });
+          if (tObj) {
+            if (Array.isArray(d.colWidths)) tObj.colWidths = d.colWidths.slice();
+            if (Array.isArray(d.rowHeights)) tObj.rowHeights = d.rowHeights.slice();
+            if (typeof window._conTableApplyGridStyle === 'function') {
+              window._conTableApplyGridStyle(tObj);
+            }
+          }
           return;
         }
 
@@ -2774,6 +2825,7 @@
           if (Array.isArray(d.nodes) && typeof window.conAppendNodeFromData === 'function') {
             var liveNodesPaste = window.conGetNodes ? window.conGetNodes() : [];
             d.nodes.forEach(function (n) { window.conAppendNodeFromData(n, brdPaste, liveNodesPaste); });
+            if (d.nodes.length && typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
           }
           if (Array.isArray(d.edges) && d.edges.length && typeof window._conRestoreEdge === 'function') {
             d.edges.forEach(function (e) {

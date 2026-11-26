@@ -2044,6 +2044,7 @@
   "ctx_group_title": "Gruppenarbeitsmodus aktivieren",
   "ctx_copy_roster": "Liste kopieren",
   "ctx_copy_roster_title": "Namen (mit Teams und Rollen) in Zwischenablage kopieren",
+  "ctx_quick_badges": "Schnell-Abzeichen",
   "timer_pp_title": "Starten / Pause",
   "timer_stop_title": "Stoppen",
   "timer_detach_title": "Timer in neuem Fenster öffnen",

@@ -2820,6 +2820,7 @@
   "ctx_group_title": "Activate Group mode",
   "ctx_copy_roster": "Copy roster",
   "ctx_copy_roster_title": "Copy roster names (with teams and roles) to clipboard, without badges or scores",
+  "ctx_quick_badges": "Quick Badges",
   "timer_pp_title": "Play / Pause",
   "timer_stop_title": "Stop",
   "timer_detach_title": "Open timer in new window",

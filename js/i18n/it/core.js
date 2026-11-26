@@ -1906,6 +1906,7 @@
   "ctx_group_title": "Attiva la modalità Lavoro di gruppo",
   "ctx_copy_roster": "Copia lista",
   "ctx_copy_roster_title": "Copia nomi (con squadre e ruoli) negli appunti",
+  "ctx_quick_badges": "Badge rapidi",
   "timer_pp_title": "Avvia / Pausa",
   "timer_stop_title": "Ferma",
   "timer_detach_title": "Apri il timer in una nuova finestra",
