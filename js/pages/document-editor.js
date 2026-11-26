@@ -94,6 +94,8 @@ function mpConnectClasses(classIds, activeClassId, options = {}) {
   mpUpdateNavBadges();
   if (!options.skipMiniDbSync && window.DeMiniDb && typeof DeMiniDb.importFromClasses === 'function') {
     DeMiniDb.importFromClasses(validIds, { replaceRoster: true });
+  } else if (window.DeMiniDb && typeof DeMiniDb.updateSourceStatus === 'function') {
+    DeMiniDb.updateSourceStatus();
   }
   if (!options.skipLinkSync && typeof window.deSyncClassLinksToService === 'function') {
     window.deSyncClassLinksToService(validIds);
@@ -638,10 +640,39 @@ function mpOpenFieldPickerModal() {
   }
 }
 
+function mpUpdateExportSourceHint() {
+  const hintEl = document.getElementById('mp-export-source-hint');
+  const select = document.getElementById('mp-export-class-select');
+  if (!hintEl || !select) return;
+  const val = select.value;
+  const raw = mdEditor ? mdEditor.getValue() : '';
+  const hasDbTags = /{{\s*db\.[\w.-]+\s*}}/i.test(raw);
+  const hasRoster = Boolean(mpState.connectedClass && Array.isArray(mpState.studentList) && mpState.studentList.length > 0);
+  const hasDbRecords = Boolean(window.DeMiniDb && DeMiniDb.getRecordCount() > 0);
+
+  hintEl.classList.remove('is-warning');
+  if (val === '@minidb@' && hasRoster) {
+    hintEl.textContent = t('deMpHintMiniDbWithRoster') || 'Mini DB records will drive both {{db.*}} and {{student.*}} placeholders. Choose a Class Roster above if you want to export from your connected class instead.';
+    hintEl.hidden = false;
+  } else if (val && val !== '@minidb@' && hasDbTags) {
+    if (hasDbRecords) {
+      hintEl.textContent = t('deMpHintRosterWithDb') || 'Class Roster will drive {{student.*}} placeholders, while {{db.*}} placeholders will use each student\'s matching Mini DB row (or the active Mini DB record as fallback).';
+    } else {
+      hintEl.textContent = t('deMpHintRosterMissingDb') || 'This document contains {{db.*}} placeholders, but Mini DB has no records — those tags will remain literal text.';
+      hintEl.classList.add('is-warning');
+    }
+    hintEl.hidden = false;
+  } else {
+    hintEl.hidden = true;
+    hintEl.textContent = '';
+  }
+}
+
 function mpRenderExportMultiClassList() {
   const box = document.getElementById('mp-export-multi-classes');
   const select = document.getElementById('mp-export-class-select');
   if (!box || !select) return;
+  mpUpdateExportSourceHint();
   const showMulti = select.value === '@custom_multi@';
   box.style.display = showMulti ? 'flex' : 'none';
   if (!showMulti) return;
@@ -681,7 +712,10 @@ async function mpOpenExportModal(preferredSource) {
   showModal('mp-export-modal');
   const select = document.getElementById('mp-export-class-select');
   if (select) {
-    if ((preferredSource === '@minidb@' || (!preferredSource && window.DeMiniDb && DeMiniDb.getRecordCount() > 0)) && window.DeMiniDb && DeMiniDb.getRecordCount() > 0) {
+    const hasDb = Boolean(window.DeMiniDb && DeMiniDb.getRecordCount() > 0);
+    const hasCustomDb = Boolean(hasDb && typeof DeMiniDb.hasCustomFields === 'function' && DeMiniDb.hasCustomFields());
+    const hasConnectedRoster = Boolean(mpState.connectedClassId || (mpState.connectedClassIds && mpState.connectedClassIds.length > 0));
+    if (hasDb && (preferredSource === '@minidb@' || (!preferredSource && (!hasConnectedRoster || hasCustomDb)))) {
       select.value = '@minidb@';
     } else if (mpState.connectedClassIds && mpState.connectedClassIds.length > 1) {
       select.value = '@all_connected@';
@@ -731,7 +765,14 @@ function mpResolveBatchSource() {
         groups.push({
           classId: cid,
           classMeta: cMeta,
-          students: raw.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster))
+          students: raw.map((s, idx) => {
+            const stu = MailpostingService.normalizeStudent(s, idx, mpState.studentRoster);
+            if (window.DeMiniDb && typeof DeMiniDb.getRecordDictForStudent === 'function') {
+              const matched = DeMiniDb.getRecordDictForStudent(stu.id, cMeta && cMeta.name);
+              if (matched) stu._miniDbValues = matched;
+            }
+            return stu;
+          })
         });
       }
     });
@@ -761,7 +802,14 @@ function mpResolveBatchSource() {
     showToast('Selected class has no students.', true);
     return null;
   }
-  const students = rawStudents.map((s, idx) => MailpostingService.normalizeStudent(s, idx, mpState.studentRoster));
+  const students = rawStudents.map((s, idx) => {
+    const stu = MailpostingService.normalizeStudent(s, idx, mpState.studentRoster);
+    if (window.DeMiniDb && typeof DeMiniDb.getRecordDictForStudent === 'function') {
+      const matched = DeMiniDb.getRecordDictForStudent(stu.id, classMeta && classMeta.name);
+      if (matched) stu._miniDbValues = matched;
+    }
+    return stu;
+  });
   return {
     classId,
     classMeta,
@@ -771,6 +819,7 @@ function mpResolveBatchSource() {
 }
 
 function mpRenderGroupsCombinedHtml(templateContent, isHtmlMode, groups, parseMdFn, withPageBreaks) {
+  const miniDbRecord = window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null;
   const chunks = groups.map(g =>
     MailpostingService.renderBatchCombinedHtml(
       templateContent,
@@ -778,7 +827,7 @@ function mpRenderGroupsCombinedHtml(templateContent, isHtmlMode, groups, parseMd
       g.students,
       g.classMeta,
       parseMdFn,
-      { pageBreaks: withPageBreaks, roster: mpState.studentRoster }
+      { pageBreaks: withPageBreaks, roster: mpState.studentRoster, miniDbRecord }
     )
   ).filter(Boolean);
   if (!withPageBreaks) return chunks.join('\n\n');
@@ -786,13 +835,15 @@ function mpRenderGroupsCombinedHtml(templateContent, isHtmlMode, groups, parseMd
 }
 
 function mpRenderGroupsCombinedText(templateContent, groups, isHtml, separator) {
+  const miniDbRecord = window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null;
   const parts = [];
   groups.forEach(g => {
     g.students.forEach(s => {
       parts.push(MailpostingService.renderTemplate(templateContent, s, g.classMeta, {
         roster: mpState.studentRoster,
         students: g.students,
-        isHtml
+        isHtml,
+        miniDbRecord
       }));
     });
   });
@@ -978,7 +1029,8 @@ async function mpExecuteBatchExport() {
             const studentTypst = MailpostingService.renderTemplate(templateContent, s, g.classMeta, {
               roster: mpState.studentRoster,
               students: g.students,
-              isHtml: false
+              isHtml: false,
+              miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
             });
             const singleTypstTitle = `${gClassClean}_${(s.fullName || s.lastName || 'student').replace(/[/\\?%*:|"<>]/g, '_')}_${docNameClean}`;
             const pdfBytes = await TypstService.compileToPdf(studentTypst, { title: singleTypstTitle });
@@ -1158,7 +1210,7 @@ async function mpExecuteBatchExport() {
         g.classMeta,
         docNameClean,
         currentDocType === 'html' ? null : marked.parse,
-        { roster: mpState.studentRoster }
+        { roster: mpState.studentRoster, miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null }
       );
       groupDocs.forEach(d => docs.push(d));
     });

@@ -184,6 +184,7 @@
   function renderPanel() {
     _updateCountBadge();
     _renderActiveRecordSelect();
+    updateSourceStatus();
 
     const body = document.getElementById('db-panel-body');
     if (!body) return;
@@ -1174,6 +1175,104 @@
     return _state.fields.length;
   }
 
+  const _ROSTER_KEYS = new Set(['full_name', 'first_name', 'last_name', 'custom_name', 'email', 'class_name', 'student_id']);
+
+  function hasCustomFields() {
+    return _state.fields.some(f => !_ROSTER_KEYS.has(String(f.key || '').toLowerCase()));
+  }
+
+  function getRecordDictForStudent(studentId, className) {
+    const sid = String(studentId || '').trim();
+    if (!sid || _state.fields.length === 0 || _state.records.length === 0) return null;
+    const cls = String(className || '').trim();
+    let rec = null;
+    if (cls) {
+      rec = _state.records.find(r => r.values && String(r.values.student_id || '') === sid && String(r.values.class_name || '') === cls);
+    }
+    if (!rec) {
+      rec = _state.records.find(r => r.values && String(r.values.student_id || '') === sid);
+    }
+    if (!rec || !rec.values) return null;
+    const out = {};
+    _state.fields.forEach(f => {
+      out[f.key] = rec.values[f.key] != null ? String(rec.values[f.key]) : '';
+    });
+    return out;
+  }
+
+  function resolvePreviewContext(mpStateObj, useSampleFallback) {
+    const hasRoster = Boolean(mpStateObj && mpStateObj.connectedClass && Array.isArray(mpStateObj.studentList) && mpStateObj.studentList.length > 0);
+    if (hasRoster) {
+      const idx = mpStateObj.previewStudentIndex || 0;
+      const activeStudent = mpStateObj.studentList[idx] || mpStateObj.studentList[0];
+      const activeClass = mpStateObj.connectedClass;
+      const matched = activeStudent ? getRecordDictForStudent(activeStudent.id, activeClass && activeClass.name) : null;
+      return {
+        activeStudent,
+        activeClass,
+        miniDbRecord: matched || getActiveRecordDict()
+      };
+    }
+    if (_state.records.length > 0 && _state.fields.length > 0) {
+      const dbCtx = getActiveStudentAndClass();
+      if (dbCtx) {
+        return {
+          activeStudent: dbCtx.student,
+          activeClass: dbCtx.classInfo,
+          miniDbRecord: getActiveRecordDict()
+        };
+      }
+    }
+    if (useSampleFallback) {
+      return {
+        activeStudent: {
+          id: 'st-sample',
+          firstName: 'Jane',
+          lastName: 'Doe',
+          fullName: 'Jane Doe',
+          customName: 'Janie',
+          email: 'jane.doe@school.edu'
+        },
+        activeClass: {
+          name: 'Class 101 (Sample)',
+          students: [
+            { id: 'st-1', firstName: 'Alex', lastName: 'Smith', fullName: 'Alex Smith', email: 'alex.smith@school.edu' },
+            { id: 'st-2', firstName: 'Emma', lastName: 'Johnson', fullName: 'Emma Johnson', email: 'emma.johnson@school.edu' },
+            { id: 'st-3', firstName: 'Lucas', lastName: 'Brown', fullName: 'Lucas Brown', email: 'lucas.brown@school.edu' }
+          ]
+        },
+        miniDbRecord: getActiveRecordDict()
+      };
+    }
+    return {
+      activeStudent: {},
+      activeClass: {},
+      miniDbRecord: getActiveRecordDict()
+    };
+  }
+
+  function updateSourceStatus() {
+    const el = document.getElementById('db-source-status');
+    if (!el) return;
+    const mp = global.mpState;
+    const hasRoster = Boolean(mp && mp.connectedClass && Array.isArray(mp.studentList) && mp.studentList.length > 0);
+    const hasDb = _state.records.length > 0 && _state.fields.length > 0;
+    if (!hasRoster || !hasDb) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    const matchedCount = mp.studentList.filter(s => Boolean(getRecordDictForStudent(s.id, mp.connectedClass.name))).length;
+    if (matchedCount > 0) {
+      el.textContent = _tr('deMiniDbSourceDualMatched', 'Class Roster drives {{student.*}} · Mini DB drives {{db.*}} ({matched}/{total} students matched).')
+        .replace('{matched}', String(matchedCount))
+        .replace('{total}', String(mp.studentList.length));
+    } else {
+      el.textContent = _tr('deMiniDbSourceDual', 'Class Roster drives {{student.*}} · Active Mini DB record drives {{db.*}}.');
+    }
+    el.hidden = false;
+  }
+
   global.DeMiniDb = {
     wireEvents,
     togglePanel,
@@ -1198,6 +1297,10 @@
     getState,
     applyExternalState,
     getActiveRecordDict,
+    getRecordDictForStudent,
+    resolvePreviewContext,
+    updateSourceStatus,
+    hasCustomFields,
     getActiveStudentAndClass,
     getAvailableTags,
     getRecordsForBatch,

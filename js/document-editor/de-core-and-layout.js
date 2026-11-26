@@ -243,41 +243,35 @@ async function renderPreview() {
   try {
     let raw = mdEditor.getValue();
     if (window.MailpostingService) {
-      let activeStudent = null;
-      let activeClass = mpState.connectedClass;
-
-      if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && typeof DeMiniDb.getActiveStudentAndClass === 'function') {
-        const dbCtx = DeMiniDb.getActiveStudentAndClass();
-        if (dbCtx) {
-          activeStudent = dbCtx.student;
-          activeClass = dbCtx.classInfo;
-        }
-      } else if (mpState.connectedClass && mpState.studentList.length > 0) {
-        activeStudent = mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0];
-      } else {
-        activeStudent = {
-          id: 'st-sample',
-          firstName: 'Jane',
-          lastName: 'Doe',
-          fullName: 'Jane Doe',
-          customName: 'Janie',
-          email: 'jane.doe@school.edu'
+      const ctx = (window.DeMiniDb && typeof DeMiniDb.resolvePreviewContext === 'function')
+        ? DeMiniDb.resolvePreviewContext(mpState, true)
+        : {
+          activeStudent: (mpState.connectedClass && mpState.studentList.length > 0)
+            ? (mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0])
+            : {
+              id: 'st-sample',
+              firstName: 'Jane',
+              lastName: 'Doe',
+              fullName: 'Jane Doe',
+              customName: 'Janie',
+              email: 'jane.doe@school.edu'
+            },
+          activeClass: mpState.connectedClass || {
+            name: 'Class 101 (Sample)',
+            students: [
+              { id: 'st-1', firstName: 'Alex', lastName: 'Smith', fullName: 'Alex Smith', email: 'alex.smith@school.edu' },
+              { id: 'st-2', firstName: 'Emma', lastName: 'Johnson', fullName: 'Emma Johnson', email: 'emma.johnson@school.edu' },
+              { id: 'st-3', firstName: 'Lucas', lastName: 'Brown', fullName: 'Lucas Brown', email: 'lucas.brown@school.edu' }
+            ]
+          },
+          miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
         };
-        activeClass = {
-          name: 'Class 101 (Sample)',
-          students: [
-            { id: 'st-1', firstName: 'Alex', lastName: 'Smith', fullName: 'Alex Smith', email: 'alex.smith@school.edu' },
-            { id: 'st-2', firstName: 'Emma', lastName: 'Johnson', fullName: 'Emma Johnson', email: 'emma.johnson@school.edu' },
-            { id: 'st-3', firstName: 'Lucas', lastName: 'Brown', fullName: 'Lucas Brown', email: 'lucas.brown@school.edu' }
-          ]
-        };
-      }
 
-      raw = MailpostingService.renderTemplate(raw, activeStudent, activeClass, {
+      raw = MailpostingService.renderTemplate(raw, ctx.activeStudent, ctx.activeClass, {
         roster: mpState.studentRoster,
         students: mpState.studentList,
         isHtml: currentDocType === 'html',
-        miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
+        miniDbRecord: ctx.miniDbRecord
       });
     }
 

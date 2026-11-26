@@ -1900,22 +1900,20 @@ async function deBuildPrintDocumentHtml(overrideTitle = null, overrideBodyHtml =
   } else if (previewEl && previewEl.querySelector('.full-preview-pdf-pages')) {
     let raw = mdEditor ? mdEditor.getValue() : '';
     if (window.MailpostingService) {
-      let activeStudent = (mpState.connectedClass && mpState.studentList.length > 0)
-        ? (mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0])
-        : {};
-      let activeClass = mpState.connectedClass || {};
-      if (window.DeMiniDb && DeMiniDb.getRecordCount() > 0 && typeof DeMiniDb.getActiveStudentAndClass === 'function') {
-        const dbCtx = DeMiniDb.getActiveStudentAndClass();
-        if (dbCtx) {
-          activeStudent = dbCtx.student;
-          activeClass = dbCtx.classInfo;
-        }
-      }
-      raw = MailpostingService.renderTemplate(raw, activeStudent, activeClass, {
+      const ctx = (window.DeMiniDb && typeof DeMiniDb.resolvePreviewContext === 'function')
+        ? DeMiniDb.resolvePreviewContext(mpState, false)
+        : {
+          activeStudent: (mpState.connectedClass && mpState.studentList.length > 0)
+            ? (mpState.studentList[mpState.previewStudentIndex] || mpState.studentList[0])
+            : {},
+          activeClass: mpState.connectedClass || {},
+          miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
+        };
+      raw = MailpostingService.renderTemplate(raw, ctx.activeStudent, ctx.activeClass, {
         roster: mpState.studentRoster,
         students: mpState.studentList,
         isHtml: currentDocType === 'html',
-        miniDbRecord: window.DeMiniDb ? DeMiniDb.getActiveRecordDict() : null
+        miniDbRecord: ctx.miniDbRecord
       });
     }
     const bodyHtml = currentDocType === 'html' ? raw : marked.parse(raw);
