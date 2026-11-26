@@ -1330,6 +1330,8 @@ window.addEventListener('DOMContentLoaded', function () {
   const btnSaveFolder = document.getElementById('btn-save-to-folder');
   if (btnSaveFolder) btnSaveFolder.addEventListener('click', saveDocToFolder);
   document.getElementById('btn-save-all-doc').addEventListener('click', saveAll);
+  const btnRenameDoc = document.getElementById('btn-rename-doc');
+  if (btnRenameDoc) btnRenameDoc.addEventListener('click', renameDoc);
   document.getElementById('btn-doc-history').addEventListener('click', openHistoryModal);
   document.getElementById('btn-pin-doc').addEventListener('click', async function () {
     if (!currentEditTarget || !currentEditRelPath) return;

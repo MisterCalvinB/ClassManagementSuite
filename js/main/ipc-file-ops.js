@@ -957,6 +957,30 @@ function registerFileOpsIpc(ctx) {
     }
   });
 
+  ipcMain.handle('app:rename-disk-file', async (_event, request = {}) => {
+    if (!request.oldPath || !request.newPath) {
+      return { ok: false, error: 'Missing path.' };
+    }
+    try {
+      const oldFull = path.resolve(String(request.oldPath));
+      const newFull = path.resolve(String(request.newPath));
+      if (oldFull === newFull) {
+        return { ok: true, path: newFull, name: path.basename(newFull) };
+      }
+      const isCaseOnlyRename = process.platform === 'win32' && oldFull.toLowerCase() === newFull.toLowerCase();
+      if (!isCaseOnlyRename) {
+        const destExists = await fs.access(newFull).then(() => true).catch(() => false);
+        if (destExists) {
+          return { ok: false, error: 'A file with that name already exists.' };
+        }
+      }
+      await fs.rename(oldFull, newFull);
+      return { ok: true, path: newFull, name: path.basename(newFull) };
+    } catch (err) {
+      return { ok: false, error: String(err?.message || err) };
+    }
+  });
+
   ipcMain.handle('app:pick-and-copy-files', async (event, request = {}) => {
     const pageFile = getRequestingPage(event);
     const target = String(request.target || '');

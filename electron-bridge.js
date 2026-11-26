@@ -546,6 +546,15 @@
     return api.statDiskFile({ absolutePath });
   }
 
+  async function renameDiskFile(oldPath, newPath) {
+    if (!isElectron() || !oldPath || !newPath) return null;
+    var api = getDesktopApi();
+    if (!api || typeof api.renameDiskFile !== 'function') {
+      return { ok: false, error: 'renameDiskFile API unavailable' };
+    }
+    return api.renameDiskFile({ oldPath, newPath });
+  }
+
   async function saveToDisk(request) {
     if (!isElectron()) return null;
     return getDesktopApi().saveToDisk(request || {});
@@ -1562,6 +1571,7 @@
     readDiskFile,
     writeDiskFile,
     statDiskFile,
+    renameDiskFile,
     pickAndCopyFiles,
     zipAndDeleteArchived,
     fetchUrl,

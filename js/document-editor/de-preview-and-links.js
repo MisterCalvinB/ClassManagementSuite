@@ -385,6 +385,11 @@ function updateDocIndicator() {
   el.textContent = name;
   document.title = (docModified ? '● ' : '') + name + ' — Document Editor';
   el.classList.toggle('modified', docModified);
+  const renameBtn = document.getElementById('btn-rename-doc');
+  if (renameBtn) {
+    const hasActualFile = Boolean(currentOpenedDiskPath || (currentEditTarget && currentEditRelPath) || (currentDocStoredInDocs && currentDocName));
+    renameBtn.disabled = !hasActualFile;
+  }
   updatePinButtonState();
   updateDeDocLinksBadge();
   dePersistActiveDocState();

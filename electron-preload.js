@@ -275,6 +275,9 @@ const exposedApi = {
   statDiskFile(request) {
     return invoke('app:stat-disk-file', request);
   },
+  renameDiskFile(request) {
+    return invoke('app:rename-disk-file', request);
+  },
   pickAndCopyFiles(request) {
     return invoke('app:pick-and-copy-files', request);
   },

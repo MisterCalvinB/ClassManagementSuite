@@ -1171,6 +1171,108 @@ async function saveDocAs() {
   });
 }
 
+async function renameDoc() {
+  if (window.DeDetach && typeof DeDetach.isDetached === 'function' && DeDetach.isDetached()) {
+    return;
+  }
+  if (!window.Desktop || !Desktop.isElectron()) {
+    showToast((window.t && t('deRenameElectronRequired')) || 'File renaming requires the Electron app.', true);
+    return;
+  }
+  const hasDiskPath = Boolean(currentOpenedDiskPath);
+  const managedTarget = currentEditTarget || (currentDocStoredInDocs ? 'docEditorDocs' : null);
+  const managedRelPath = currentEditRelPath || (currentDocStoredInDocs && currentDocName ? deJoinRelPath(currentDocSubdir || '', currentDocName) : null);
+  if (!hasDiskPath && (!managedTarget || !managedRelPath)) {
+    showToast((window.t && t('deRenameUnsaved')) || 'Save the document first before renaming it.', true);
+    return;
+  }
+
+  const oldFilename = currentDocName || (hasDiskPath ? deBasename(currentOpenedDiskPath) : deBasename(managedRelPath));
+  const promptLabel = (window.t && t('deRenamePrompt')) || 'New file name:';
+  const nextInput = await showPrompt(promptLabel, oldFilename);
+  if (nextInput === null) return;
+
+  let newFilename = String(nextInput).trim();
+  if (!newFilename) {
+    showToast((window.t && t('deRenameEmpty')) || 'File name cannot be empty.', true);
+    return;
+  }
+  if (/[\\/:*?"<>|]/.test(newFilename) || newFilename === '.' || newFilename === '..') {
+    showToast((window.t && t('deRenameInvalidChars')) || 'File name contains invalid characters (\\ / : * ? " < > |).', true);
+    return;
+  }
+  if (!/\.[a-z0-9]{1,8}$/i.test(newFilename)) {
+    const extMatch = oldFilename.match(/(\.[^.]+)$/);
+    if (extMatch) newFilename += extMatch[1];
+  }
+  if (newFilename === oldFilename) return;
+
+  try {
+    if (hasDiskPath) {
+      const newDiskPath = deNativeSiblingPath(currentOpenedDiskPath, newFilename);
+      const isCaseOnly = newDiskPath.toLowerCase() === currentOpenedDiskPath.toLowerCase();
+      if (!isCaseOnly && typeof Desktop.statDiskFile === 'function') {
+        const st = await Desktop.statDiskFile(newDiskPath);
+        if (st && st.exists) {
+          showToast((window.t && t('deRenameConflict')) || 'A file with that name already exists.', true);
+          return;
+        }
+      }
+      const r = await Desktop.renameDiskFile(currentOpenedDiskPath, newDiskPath);
+      if (!r || !r.ok) {
+        showToast(((window.t && t('deRenameFailed')) || 'Rename failed:') + ' ' + ((r && r.error) || ''), true);
+        return;
+      }
+      currentOpenedDiskPath = r.path || newDiskPath;
+      currentDocName = r.name || newFilename;
+    } else {
+      const dir = deDirname(managedRelPath);
+      const newRelPath = deJoinRelPath(dir, newFilename);
+      const isCaseOnly = newRelPath.toLowerCase() === managedRelPath.toLowerCase();
+      if (!isCaseOnly && typeof Desktop.statByPath === 'function') {
+        const st = await Desktop.statByPath(managedTarget, newRelPath);
+        if (st && st.exists) {
+          showToast((window.t && t('deRenameConflict')) || 'A file with that name already exists.', true);
+          return;
+        }
+      }
+      const r = await Desktop.renameByPath(managedTarget, managedRelPath, newRelPath);
+      if (!r || !r.ok) {
+        showToast(((window.t && t('deRenameFailed')) || 'Rename failed:') + ' ' + ((r && r.error) || ''), true);
+        return;
+      }
+      const finalRelPath = (r.renamed && r.renamed.newRelativePath) ? r.renamed.newRelativePath : newRelPath;
+      currentEditTarget = managedTarget;
+      currentEditRelPath = finalRelPath;
+      currentDocName = deBasename(finalRelPath);
+      currentDocSubdir = deDirname(finalRelPath) || null;
+      currentDocStoredInDocs = (managedTarget === 'docEditorDocs');
+    }
+
+    const lower = currentDocName.toLowerCase();
+    const nextType = lower.endsWith('.typ') ? 'typ' : (lower.endsWith('.html') || lower.endsWith('.htm') ? 'html' : (lower.endsWith('.md') || lower.endsWith('.markdown') ? 'md' : currentDocType));
+    if (nextType !== currentDocType) {
+      currentDocType = nextType;
+      const typeBtn = document.getElementById('btn-doc-type');
+      if (typeBtn) {
+        typeBtn.textContent = currentDocType.toUpperCase();
+        typeBtn.classList.toggle('html-mode', currentDocType === 'html');
+        typeBtn.classList.toggle('typ-mode', currentDocType === 'typ');
+      }
+      if (mdEditor && window.monaco && monaco.editor) {
+        monaco.editor.setModelLanguage(mdEditor.getModel(), currentDocType === 'html' ? 'html' : (currentDocType === 'typ' ? 'typst' : 'markdown'));
+      }
+      if (typeof deUpdateViewSwitcherState === 'function') deUpdateViewSwitcherState();
+      if (typeof renderPreview === 'function') renderPreview();
+    }
+
+    updateDocIndicator();
+    showToast(((window.t && t('deRenamedToast')) || 'Renamed to:') + ' ' + currentDocName);
+  } catch (e) {
+    showToast(((window.t && t('deRenameFailed')) || 'Rename failed:') + ' ' + e.message, true);
+  }
+}
+
 async function doSaveDoc(filename, folderPath = null) {
   if (!mdEditor) return;
   if (docSaveInProgress) return;
