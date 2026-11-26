@@ -1407,6 +1407,7 @@
     function timerUpdateButtons() {
       document.querySelectorAll('.timer-btn').forEach(btn => {
         btn.classList.remove('timer-running', 'timer-warning');
+        const labelEl = btn.querySelector('.timer-btn-label');
         if (timerState.running) {
           const elapsed = timerState.elapsed;
           const grace = timerCfg.grace;
@@ -1420,9 +1421,12 @@
             pct = 100 - ((afterGrace % interval) / interval) * 100;
           } else { pct = 100; }
           btn.classList.add(pct < 30 ? 'timer-warning' : 'timer-running');
-          btn.textContent = `⏱ ${Math.floor(timerState.elapsed / 60)}:${(timerState.elapsed % 60).toString().padStart(2, '0')}`;
+          const timeText = `${Math.floor(timerState.elapsed / 60)}:${(timerState.elapsed % 60).toString().padStart(2, '0')}`;
+          if (labelEl) labelEl.textContent = timeText;
+          else btn.textContent = timeText;
         } else {
-          btn.textContent = '⏱ Timer';
+          if (labelEl) labelEl.textContent = 'Timer';
+          else btn.textContent = 'Timer';
         }
       });
     }

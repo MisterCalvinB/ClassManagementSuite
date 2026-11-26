@@ -3,6 +3,12 @@
   'use strict';
   function bindEvents() {
     (function () {
+      var el = document.querySelector('[data-ltev-nav-timer]');
+      if (!el) return;
+      var handler = function (event) { timerOpenSettings() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
       var el = document.querySelector('[data-ltev-1]');
       if (!el) return;
       var handler = function (event) { toggleMute() };
