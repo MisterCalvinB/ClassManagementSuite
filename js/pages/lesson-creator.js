@@ -6834,7 +6834,7 @@
               '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('lcExpWizFmtHeading', 'Choose file format')) + '</h3>' +
               '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('lcExpWizFmtSub', 'Pick PDF to print, Word to edit, or Spreadsheet for planning tables.')) + '</p>';
             ctx.renderCards(container, [
-              { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('lcExpFmtPdf', 'Printable PDF'), desc: tr('lcExpFmtPdfDesc', 'Ready for printing or sharing with colleagues.') },
+              { id: 'pdf', icon: 'printer.svg', badge: 'PDF', title: tr('lcExpFmtPdf', 'Printable PDF'), desc: tr('lcExpFmtPdfDesc', 'Ready for printing or sharing with colleagues.') },
               { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('lcExpFmtDocx', 'Word Document (.docx)'), desc: tr('lcExpFmtDocxDesc', 'Editable in Microsoft Word or LibreOffice Writer.') },
               { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('lcExpFmtHtml', 'Webpage (.html)'), desc: tr('lcExpFmtHtmlDesc', 'Opens in Document Editor for custom themes.') },
               { id: 'xlsx', icon: 'table.svg', badge: 'XLSX', title: tr('lcExpFmtXlsx', 'Excel Spreadsheet (.xlsx)'), desc: tr('lcExpFmtXlsxDesc', 'Exports phases and timings into spreadsheet rows.') }

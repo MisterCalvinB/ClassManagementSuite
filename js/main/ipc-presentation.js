@@ -547,10 +547,10 @@ function registerPresentationIpc(ctx) {
       console.error('app:open-pdf-presentation load failed', err);
       return { ok: false, error: String(err) };
     }
-    if (senderWin && !senderWin.isDestroyed() && winRefs.pdf && !winRefs.pdf.isDestroyed()) {
+    if (winRefs.pdf && !winRefs.pdf.isDestroyed()) {
       try {
-        const srcZoom = senderWin.webContents.getZoomFactor();
-        winRefs.pdf.webContents.setZoomFactor(srcZoom);
+        winRefs.pdf.webContents.setZoomLevel(0);
+        winRefs.pdf.webContents.setZoomFactor(1.0);
       } catch (_) { }
     }
     return { ok: true };

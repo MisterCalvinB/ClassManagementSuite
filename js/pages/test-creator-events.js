@@ -227,7 +227,7 @@
     (function () {
       var el = document.querySelector('[data-tcev-38]');
       if (!el) return;
-      var handler = function (event) { tcOpenExportModal() };
+      var handler = function (event) { tcOpenExportModal(event) };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -971,7 +971,7 @@
     (function () {
       var el = document.querySelector('[data-tcev-162]');
       if (!el) return;
-      var handler = function (event) { tcOpenExportModal() };
+      var handler = function (event) { tcOpenExportModal(event) };
       el.addEventListener('click', handler);
     })();
     (function () {

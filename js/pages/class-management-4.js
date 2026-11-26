@@ -167,13 +167,15 @@
                     return fb;
                 };
                 var initialCfg = { mode: 'local', port: 8787, serverUrl: '', hostSecret: '', status: null };
+                var isClosed = false;
 
                 var wiz = CmtWizard.open({
                     id: 'cm-remote-wizard',
                     title: tr('cmRemoteWizTitle', 'Connect Your Phone Remote'),
-                    icon: 'remote.svg',
+                    icon: 'phone.svg',
                     width: '680px',
                     initialState: initialCfg,
+                    onClose: function () { isClosed = true; },
                     quickModeToggle: {
                         label: tr('wizQuickAdvanced', 'Quick / Advanced'),
                         icon: 'settings.svg',
@@ -191,7 +193,7 @@
                                     '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteWizNetHeading', 'How is your phone connected?')) + '</h3>' +
                                     '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteWizNetSub', 'Most teachers use Classroom Wi-Fi. Use External Server only if your school blocks direct device connections.')) + '</p>';
                                 var opts = [
-                                    { id: 'local', icon: 'wifi.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('cmRemoteOptLocal', 'Same Classroom Wi-Fi'), desc: tr('cmRemoteOptLocalDesc', 'Phone and computer are on the same Wi-Fi or hotspot. Fastest setup.') },
+                                    { id: 'local', icon: 'network.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('cmRemoteOptLocal', 'Same Classroom Wi-Fi'), desc: tr('cmRemoteOptLocalDesc', 'Phone and computer are on the same Wi-Fi or hotspot. Fastest setup.') },
                                     { id: 'external', icon: 'globe.svg', badge: 'Web', title: tr('cmRemoteOptExt', 'School / External Server'), desc: tr('cmRemoteOptExtDesc', 'Connect through a relay URL if your school network isolates devices.') }
                                 ];
                                 ctx.renderCards(container, opts, st.mode, function (item) {
@@ -222,7 +224,7 @@
                             id: 'connect',
                             label: tr('cmRemoteWizStep2', '2. Start'),
                             render: function (container, st, ctx) {
-                                var running = st.status && st.status.running;
+                                var running = !!(st.status && (st.status.running || st.status.ok));
                                 container.innerHTML =
                                     '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteWizStartHeading', 'Start Classroom Connection')) + '</h3>' +
                                     '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteWizStartSub', 'Turn on the connection so your phone can link to this session.')) + '</p>' +
@@ -245,20 +247,22 @@
                                         ? { mode: 'local', port: st.port || 8787 }
                                         : { mode: 'external', serverUrl: st.serverUrl, hostSecret: st.hostSecret };
                                     Desktop.remoteStart(opts).then(function (res) {
+                                        if (isClosed) return;
                                         if (res && res.ok) {
-                                            st.status = res;
-                                            _showServerOn(res);
+                                            st.status = Object.assign({ running: true }, res);
+                                            _showServerOn(st.status);
                                             ctx.next();
                                         } else {
                                             ctx.setError((res && res.error) || 'Could not start remote server.');
                                         }
-                                    }).catch(function (e) { ctx.setError(e && e.message ? e.message : String(e)); });
+                                    }).catch(function (e) { if (!isClosed) ctx.setError(e && e.message ? e.message : String(e)); });
                                 });
                                 var stopBtn = container.querySelector('#cm-wiz-stop-btn');
                                 if (stopBtn) {
                                     stopBtn.addEventListener('click', function () {
                                         if (window.Desktop && Desktop.remoteStop) {
                                             Desktop.remoteStop().then(function () {
+                                                if (isClosed) return;
                                                 st.status = null;
                                                 _showServerOff();
                                                 ctx.refresh();
@@ -273,21 +277,27 @@
                             label: tr('cmRemoteWizStep3', '3. Scan QR'),
                             render: function (container, st, ctx) {
                                 var s = st.status;
-                                if (!s || !s.running) {
+                                if (!s || (!s.running && !s.ok)) {
                                     container.innerHTML =
                                         '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteNotReady', 'Connection not started')) + '</h3>' +
                                         '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteGoBackStart', 'Go back to Step 2 and click Start Connection first.')) + '</p>';
                                     return;
                                 }
-                                var url = (s.mode === 'external' && s.httpUrl)
-                                    ? (s.httpUrl.replace(/\/remote\.html$/, '') + '/?t=' + s.token)
-                                    : ('http://' + s.ip + ':' + s.port + '/?t=' + s.token);
-                                var qrSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=140x140&margin=4&data=' + encodeURIComponent(url);
+                                var url;
+                                if (s.mode === 'external') {
+                                    var baseUrl = (s.httpUrl || s.serverUrl || '').replace(/\/remote\.html$/, '').replace(/\/+$/, '');
+                                    url = baseUrl + '/?t=' + s.token;
+                                } else {
+                                    url = 'http://' + s.ip + ':' + s.port + '/?t=' + s.token;
+                                }
+                                var qrSrc = (window.CmtQrCode && typeof window.CmtQrCode.toDataUrl === 'function')
+                                    ? window.CmtQrCode.toDataUrl(url, 140)
+                                    : '';
                                 container.innerHTML =
                                     '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('cmRemoteScanHeading', 'Scan this QR code with your phone')) + '</h3>' +
                                     '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('cmRemoteScanSub', 'Open your phone camera and point it at the QR code, or open the link below.')) + '</p>' +
                                     '<div class="cmt-wiz-section" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">' +
-                                      '<img src="' + ctx.escHtml(qrSrc) + '" alt="QR Code" style="width:120px;height:120px;border:2px solid #333;border-radius:6px;background:#fff;">' +
+                                      (qrSrc ? '<img src="' + ctx.escHtml(qrSrc) + '" alt="QR Code" style="width:120px;height:120px;border:2px solid #333;border-radius:6px;background:#fff;">' : '') +
                                       '<div style="flex:1;min-width:200px;">' +
                                         '<div style="font-size:0.78rem;font-weight:800;text-transform:uppercase;margin-bottom:4px;">' + ctx.escHtml(tr('cmRemoteJoinLink', 'Direct Link')) + '</div>' +
                                         '<div style="word-break:break-all;font-size:0.84rem;font-weight:700;padding:6px 8px;background:#fff;border:1.5px solid #333;border-radius:4px;margin-bottom:8px;">' + ctx.escHtml(url) + '</div>' +
@@ -296,7 +306,7 @@
                                     '</div>' +
                                     '<details style="margin-top:10px;font-size:0.8rem;color:#475569;">' +
                                       '<summary style="cursor:pointer;font-weight:700;">' + ctx.escHtml(tr('cmRemoteHelpTitle', 'Phone cannot connect on school Wi-Fi?')) + '</summary>' +
-                                      '<p style="margin:6px 0 0;">' + ctx.escHtml(tr('cmRemoteHelpText', 'If Windows Firewall blocks the connection, ask IT to allow port ' + s.port + ', or go back to Step 1 and switch to External Server.')) + '</p>' +
+                                      '<p style="margin:6px 0 0;">' + ctx.escHtml(tr('cmRemoteHelpText', 'If Windows Firewall blocks the connection, ask IT to allow port ' + (s.port || 8787) + ', or go back to Step 1 and switch to External Server.')) + '</p>' +
                                     '</details>';
                                 container.querySelector('#cm-wiz-copy-url').addEventListener('click', function () {
                                     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -315,18 +325,22 @@
                 if (window.Desktop && window.Desktop.isElectron() && wiz) {
                     var loadCfg = typeof Desktop.remoteConfigRead === 'function' ? Desktop.remoteConfigRead() : Promise.resolve({ ok: true, config: {} });
                     loadCfg.then(function (r) {
+                        if (isClosed) return null;
                         var cfg = (r && r.config) || {};
-                        wiz.setState({
-                            mode: cfg.mode === 'external' ? 'external' : 'local',
-                            serverUrl: cfg.serverUrl || '',
-                            hostSecret: cfg.hostSecret || ''
-                        });
+                        if (wiz.getStepIndex() === 0) {
+                            wiz.setState({
+                                mode: cfg.mode === 'external' ? 'external' : 'local',
+                                serverUrl: cfg.serverUrl || '',
+                                hostSecret: cfg.hostSecret || ''
+                            });
+                        }
                         return Desktop.remoteStatus();
                     }).then(function (s) {
-                        if (s && s.running) {
+                        if (isClosed || !s) return;
+                        if (s.running) {
                             wiz.setState({ status: s });
                             wiz.goTo(2);
-                        } else {
+                        } else if (wiz.getStepIndex() === 0) {
                             wiz.refresh();
                         }
                     }).catch(function () {});
@@ -367,8 +381,11 @@
                 document.getElementById('remote-token-display').textContent = s.token;
                 var qrImg = document.getElementById('remote-qr-img');
                 if (qrImg) {
-                    qrImg.style.display = 'block';
-                    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=4&data=' + encodeURIComponent(url);
+                    var qrData = (window.CmtQrCode && typeof window.CmtQrCode.toDataUrl === 'function')
+                        ? window.CmtQrCode.toDataUrl(url, 96)
+                        : '';
+                    qrImg.style.display = qrData ? 'block' : 'none';
+                    if (qrData) qrImg.src = qrData;
                 }
                 window._cmsRemoteStatusUpdate(s.connected || 0);
                 _remotePushStateDebounced();
@@ -407,7 +424,7 @@
                 var url = document.getElementById('remote-url-display').textContent;
                 if (url && navigator.clipboard) {
                     navigator.clipboard.writeText(url).then(function () {
-                        var btn = document.querySelector('[onclick="_remoteCopyUrl()"]');
+                        var btn = document.querySelector('[data-cmev-436]');
                         if (btn) { btn.innerHTML = '<img src="../assets/icons/check.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />'; setTimeout(function () { btn.innerHTML = '<img src="../assets/icons/copy.svg" class="btn-icon" alt="" style="width:13px;height:13px;" />'; }, 1500); }
                     }).catch(function () { });
                 }
@@ -427,8 +444,11 @@
                         document.getElementById('remote-token-display').textContent = res.token;
                         var qrImg = document.getElementById('remote-qr-img');
                         if (qrImg) {
-                            qrImg.style.display = 'block';
-                            qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=96x96&margin=4&data=' + encodeURIComponent(url);
+                            var qrData = (window.CmtQrCode && typeof window.CmtQrCode.toDataUrl === 'function')
+                                ? window.CmtQrCode.toDataUrl(url, 96)
+                                : '';
+                            qrImg.style.display = qrData ? 'block' : 'none';
+                            if (qrData) qrImg.src = qrData;
                         }
                         window._cmsRemoteStatusUpdate(0);
                     }

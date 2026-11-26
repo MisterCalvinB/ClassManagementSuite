@@ -1986,7 +1986,7 @@ window.tcOpenExportModal = function (triggerEvent) {
             '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('tcExpWizFmtHeading', 'Choose file format')) + '</h3>' +
             '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('tcExpWizFmtSub', 'Pick PDF to print right away, or Word/HTML to customize further.')) + '</p>';
           ctx.renderCards(container, [
-            { id: 'pdf', icon: 'print.svg', badge: 'PDF', title: tr('tcExpFmtPdf', 'Printable PDF'), desc: tr('tcExpFmtPdfDesc', 'Ready for classroom printing with clean page breaks.') },
+            { id: 'pdf', icon: 'printer.svg', badge: 'PDF', title: tr('tcExpFmtPdf', 'Printable PDF'), desc: tr('tcExpFmtPdfDesc', 'Ready for classroom printing with clean page breaks.') },
             { id: 'docx', icon: 'document-editor.svg', badge: 'DOCX', title: tr('tcExpFmtDocx', 'Word Document (.docx)'), desc: tr('tcExpFmtDocxDesc', 'Edit questions or layout in Microsoft Word or LibreOffice.') },
             { id: 'html', icon: 'globe.svg', badge: 'HTML', title: tr('tcExpFmtHtml', 'Webpage (.html)'), desc: tr('tcExpFmtHtmlDesc', 'Opens in Document Editor or any web browser.') },
             { id: 'odt', icon: 'file-text.svg', badge: 'ODT', title: tr('tcExpFmtOdt', 'LibreOffice Writer (.odt)'), desc: tr('tcExpFmtOdtDesc', 'Native open-source document format.') }

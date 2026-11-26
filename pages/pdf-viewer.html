@@ -1548,7 +1548,17 @@
     const pdfItemsList = document.getElementById('pdfItemsList');
 
     // ── Initialisation ──
-    window.addEventListener('DOMContentLoaded', async () => {
+    let _pdfZoomGesturesInitialized = false;
+    function ensurePdfZoomGestures() {
+      if (_pdfZoomGesturesInitialized) return;
+      _pdfZoomGesturesInitialized = true;
+      setupPdfZoomGestures();
+    }
+    ensurePdfZoomGestures();
+
+    const _onPdfViewerReady = async () => {
+      ensurePdfZoomGestures();
+
       // Check presentation mode query parameter
       const params = new URLSearchParams(window.location.search);
       if (params.get('presentation') === '1') {
@@ -1603,7 +1613,12 @@
           }
         }, 800);
       }
-    });
+    };
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', _onPdfViewerReady);
+    } else {
+      _onPdfViewerReady();
+    }
 
     // ── Setup UI Event Handlers ──
     function setupEvents() {
@@ -1850,20 +1865,100 @@
         if (_vpResizeObserver) { _vpResizeObserver.disconnect(); _vpResizeObserver = null; }
         try { syncChannel.close(); } catch (_) {}
       });
+    }
 
-      // Ctrl + Wheel / Trackpad Pinch Zoom (anchored at pointer)
-      viewport.addEventListener('wheel', (e) => {
-        if (e.ctrlKey) {
+    function setupPdfZoomGestures() {
+      let _unsubPdfZoom = null;
+      if (window.electronApi) {
+        if (typeof window.electronApi.disableVisualZoom === 'function') {
+          window.electronApi.disableVisualZoom();
+        }
+        if (typeof window.electronApi.onPdfZoom === 'function') {
+          _unsubPdfZoom = window.electronApi.onPdfZoom((action) => applyPdfZoomAction(action));
+        }
+      }
+      window.addEventListener('beforeunload', () => {
+        if (typeof _unsubPdfZoom === 'function') { _unsubPdfZoom(); _unsubPdfZoom = null; }
+      });
+
+      // Ctrl/Cmd + Wheel & Trackpad Pinch Zoom (capture phase on document so it runs before any passive child listeners)
+      document.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
-          const clampedDelta = Math.max(-120, Math.min(120, e.deltaY));
-          const factor = Math.exp(-clampedDelta * 0.0015);
+          e.stopPropagation();
+          if (state.isPresentation || !state.pdfDoc) return;
+          const rawDelta = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+          if (!rawDelta) return;
+          const clampedDelta = Math.max(-120, Math.min(120, rawDelta));
+          const factor = Math.exp(-clampedDelta * 0.002);
           setScale(state.scale * factor, state.currentPage, {
             clientX: e.clientX,
             clientY: e.clientY,
             debounceMs: 140
           });
         }
+      }, { passive: false, capture: true });
+
+      // WebKit / macOS Trackpad Gesture Pinch Zoom
+      let _gestureStartScale = null;
+      window.addEventListener('gesturestart', (e) => {
+        e.preventDefault();
+        if (!state.isPresentation && state.pdfDoc) {
+          _gestureStartScale = state.scale;
+        }
       }, { passive: false });
+      window.addEventListener('gesturechange', (e) => {
+        e.preventDefault();
+        if (state.isPresentation || !state.pdfDoc || _gestureStartScale === null) return;
+        if (typeof e.scale === 'number' && isFinite(e.scale) && e.scale > 0) {
+          setScale(_gestureStartScale * e.scale, state.currentPage, {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            debounceMs: 140
+          });
+        }
+      }, { passive: false });
+      window.addEventListener('gestureend', (e) => {
+        e.preventDefault();
+        _gestureStartScale = null;
+      }, { passive: false });
+
+      // Two-finger Touch / Precision Touchpad Pinch Zoom
+      let _pinchStartDist = 0;
+      let _pinchStartScale = null;
+      function _getTouchDist(t1, t2) {
+        return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      }
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches && e.touches.length === 2) {
+          _pinchStartDist = _getTouchDist(e.touches[0], e.touches[1]);
+          _pinchStartScale = (!state.isPresentation && state.pdfDoc) ? state.scale : null;
+        }
+      }, { passive: true });
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches && e.touches.length === 2 && _pinchStartDist > 0) {
+          e.preventDefault();
+          if (state.isPresentation || !state.pdfDoc || _pinchStartScale === null) return;
+          const dist = _getTouchDist(e.touches[0], e.touches[1]);
+          if (dist > 0) {
+            const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            setScale(_pinchStartScale * (dist / _pinchStartDist), state.currentPage, {
+              clientX: cx,
+              clientY: cy,
+              debounceMs: 140
+            });
+          }
+        }
+      }, { passive: false });
+      const _resetTouchPinch = (e) => {
+        if (!e.touches || e.touches.length < 2) {
+          _pinchStartDist = 0;
+          _pinchStartScale = null;
+        }
+      };
+      window.addEventListener('touchend', _resetTouchPinch, { passive: true });
+      window.addEventListener('touchcancel', _resetTouchPinch, { passive: true });
     }
 
     // ── Large File & Canvas Safety Limits ──
@@ -4444,8 +4539,30 @@
       setTimeout(_reqState, 3000);
     }
 
+    function applyPdfZoomAction(action) {
+      if (state.isPresentation || !state.pdfDoc) return;
+      if (action === 'in') {
+        setScale(state.scale * 1.2, state.currentPage, { debounceMs: 80 });
+      } else if (action === 'out') {
+        setScale(state.scale / 1.2, state.currentPage, { debounceMs: 80 });
+      } else if (action === 'reset') {
+        setScale(1.0, state.currentPage, { debounceMs: 80 });
+      }
+    }
+
     // ── Keyboard Shortcuts ──
     function handleKeyShortcuts(e) {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+        const isZoomIn = e.key === '+' || e.key === '=' || e.code === 'NumpadAdd' || (e.code === 'Equal' && e.shiftKey);
+        const isZoomOut = e.key === '-' || e.key === '_' || e.code === 'NumpadSubtract' || e.code === 'Minus';
+        const isZoomReset = e.key === '0' || e.code === 'Digit0' || e.code === 'Numpad0';
+        if (isZoomIn || isZoomOut || isZoomReset) {
+          e.preventDefault();
+          applyPdfZoomAction(isZoomIn ? 'in' : (isZoomOut ? 'out' : 'reset'));
+          return;
+        }
+      }
+
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
         e.preventDefault();
         if (window.Desktop && Desktop.isElectron()) {

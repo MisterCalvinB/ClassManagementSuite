@@ -419,6 +419,19 @@ const exposedApi = {
   resetZoom() {
     return invoke('app:reset-zoom');
   },
+  disableVisualZoom() {
+    if (webFrame && typeof webFrame.setVisualZoomLevelLimits === 'function') {
+      webFrame.setVisualZoomLevelLimits(1, 1);
+    }
+  },
+  onPdfZoom(callback) {
+    if (!ipcRenderer || typeof callback !== 'function') return () => {};
+    const handler = function (_event, action) { callback(action); };
+    ipcRenderer.on('app:pdf-zoom', handler);
+    return () => {
+      try { ipcRenderer.removeListener('app:pdf-zoom', handler); } catch (_) {}
+    };
+  },
   remoteStart(request) {
     return invoke('app:remote-start', request);
   },

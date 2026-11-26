@@ -576,8 +576,15 @@
           fallbackEl.style.display = 'inline-block';
         }
       };
-      qrEl.style.display = 'inline-block';
-      qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=128x128&margin=6&data=' + encodeURIComponent(joinUrl);
+      var qrData = (window.CmtQrCode && typeof window.CmtQrCode.toDataUrl === 'function')
+        ? window.CmtQrCode.toDataUrl(joinUrl, 128)
+        : '';
+      if (qrData) {
+        qrEl.style.display = 'inline-block';
+        qrEl.src = qrData;
+      } else {
+        qrEl.onerror();
+      }
     }
 
     function quizMpSend(payload) {
@@ -845,7 +852,7 @@
                 '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(tr('ltHostWizNetHeading', 'How will students join?')) + '</h3>' +
                 '<p class="cmt-wiz-step-sub">' + ctx.escHtml(tr('ltHostWizNetSub', 'Use Classroom Wi-Fi when everyone is in the same room.')) + '</p>';
               ctx.renderCards(container, [
-                { id: 'local', icon: 'wifi.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('ltHostOptLocal', 'Classroom Wi-Fi (Local)'), desc: tr('ltHostOptLocalDesc', 'Students scan a QR code on the same Wi-Fi network.') },
+                { id: 'local', icon: 'network.svg', badge: tr('wizRecommended', 'Recommended'), title: tr('ltHostOptLocal', 'Classroom Wi-Fi (Local)'), desc: tr('ltHostOptLocalDesc', 'Students scan a QR code on the same Wi-Fi network.') },
                 { id: 'external', icon: 'globe.svg', badge: 'Web', title: tr('ltHostOptExt', 'External Web Server'), desc: tr('ltHostOptExtDesc', 'For remote classes or restricted school Wi-Fi.') }
               ], st.server, function (item) { st.server = item.id; });
             }

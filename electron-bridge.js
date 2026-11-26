@@ -1972,9 +1972,19 @@
     });
   }
 
+  function isPdfViewerPage() {
+    try {
+      return /(?:^|[\\/])pdf-viewer\.html(?:[?#]|$)/i.test(window.location.pathname || window.location.href || '');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function wireCtrlWheelZoom() {
+    if (isPdfViewerPage()) return;
     window.addEventListener('wheel', function (e) {
-      if (!e.ctrlKey) return;
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (isPdfViewerPage()) return;
       e.preventDefault();
       const desktopApi = getDesktopApi();
       if (!desktopApi || typeof desktopApi.adjustZoom !== 'function') return;

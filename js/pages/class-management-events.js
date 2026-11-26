@@ -29,7 +29,7 @@
     (function () {
       var el = document.querySelector('[data-cmev-5]');
       if (!el) return;
-      var handler = function (event) { openRemoteModal() };
+      var handler = function (event) { openRemoteModal(event) };
       el.addEventListener('click', handler);
     })();
     (function () {

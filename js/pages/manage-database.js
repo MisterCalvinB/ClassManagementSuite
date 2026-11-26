@@ -7862,7 +7862,7 @@ Rules:
                 '<h3 class="cmt-wiz-step-heading">' + ctx.escHtml(t('mdbWizGoalHeading') || 'What do you want to create?') + '</h3>' +
                 '<p class="cmt-wiz-step-sub">' + ctx.escHtml(t('mdbWizGoalSub') || 'Pick a goal below, or use Quick / Advanced Formats for direct one-click options.') + '</p>';
               const goals = [
-                { id: 'handout', icon: 'print.svg', badge: 'PDF / DOCX', title: t('mdbWizGoalHandout') || 'Printable Handout', desc: t('mdbWizGoalHandoutDesc') || 'Clean table ready to print (PDF) or edit in Word (.docx).' },
+                { id: 'handout', icon: 'printer.svg', badge: 'PDF / DOCX', title: t('mdbWizGoalHandout') || 'Printable Handout', desc: t('mdbWizGoalHandoutDesc') || 'Clean table ready to print (PDF) or edit in Word (.docx).' },
                 { id: 'cards', icon: 'search.svg', badge: 'HTML', title: t('mdbWizGoalCards') || 'Interactive Study Cards', desc: t('mdbWizGoalCardsDesc') || 'Self-contained webpage where students can search and filter cards.' },
                 { id: 'spreadsheet', icon: 'table.svg', badge: 'XLSX / ODS / CSV', title: t('mdbWizGoalSheet') || 'Spreadsheet', desc: t('mdbWizGoalSheetDesc') || 'Open in Excel, LibreOffice Calc, or import into other apps.' },
                 { id: 'document', icon: 'document-editor.svg', badge: 'HTML / MD', title: t('mdbWizGoalDoc') || 'Editable Document', desc: t('mdbWizGoalDocDesc') || 'Open in Document Editor for custom styling or Markdown editing.' }
@@ -7924,7 +7924,7 @@ Rules:
               const choices = [
                 {
                   id: 'filtered',
-                  icon: 'filter.svg',
+                  icon: 'search.svg',
                   badge: filteredRows.length + ' ' + (t('mdbWizItems') || 'items'),
                   title: t('mdbWizScopeFiltered') || 'Currently Filtered Records',
                   desc: hasActiveFilters
@@ -7933,7 +7933,7 @@ Rules:
                 },
                 {
                   id: 'all',
-                  icon: 'database.svg',
+                  icon: 'manage-database.svg',
                   badge: allRows.length + ' ' + (t('mdbWizItems') || 'items'),
                   title: t('mdbWizScopeAll') || 'All Loaded Records',
                   desc: t('mdbWizScopeAllDesc') || 'Includes every record from all loaded files, ignoring active filters.'

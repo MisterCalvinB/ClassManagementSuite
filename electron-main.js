@@ -1213,6 +1213,13 @@ function getAssociatedSourceWindow(win) {
 
 function setWindowZoom(win, factor) {
   if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
+  if (isPdfViewerWindow(win)) {
+    try {
+      win.webContents.setZoomLevel(0);
+      win.webContents.setZoomFactor(1.0);
+    } catch (_) {}
+    return;
+  }
   const clamped = Math.max(0.5, Math.min(3.0, Number(factor.toFixed(2))));
   try {
     win.webContents.setZoomFactor(clamped);
@@ -1241,9 +1248,58 @@ function setWindowZoom(win, factor) {
   }
 }
 
+function isPdfViewerWindow(win) {
+  if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return false;
+  if (win === pdfPresentationWindow) return true;
+  try {
+    const u = win.webContents.getURL() || '';
+    return /(?:^|[\\/])pdf-viewer\.html(?:[?#]|$)/i.test(u);
+  } catch (_) {
+    return false;
+  }
+}
+
 function setupWindowZoomShortcuts(win) {
   if (!win || win._zoomShortcutsSetup || !win.webContents) return;
   win._zoomShortcutsSetup = true;
+
+  const updateVisualZoomLimits = () => {
+    if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
+    const isPdf = isPdfViewerWindow(win);
+    if (isPdf) {
+      try {
+        win.webContents.setZoomLevel(0);
+        win.webContents.setZoomFactor(1.0);
+      } catch (_) {}
+    }
+    if (typeof win.webContents.setVisualZoomLevelLimits === 'function') {
+      const limits = isPdf ? [1, 1] : [1, 5];
+      Promise.resolve(win.webContents.setVisualZoomLevelLimits(limits[0], limits[1])).catch(() => {});
+    }
+  };
+  win.webContents.on('did-finish-load', updateVisualZoomLimits);
+
+  win.webContents.on('zoom-changed', (_event, zoomDirection) => {
+    if (!isPdfViewerWindow(win)) return;
+    try {
+      win.webContents.setZoomLevel(0);
+      win.webContents.setZoomFactor(1.0);
+    } catch (_) {}
+    setImmediate(() => {
+      if (!win || win.isDestroyed() || !win.webContents || win.webContents.isDestroyed()) return;
+      if (!isPdfViewerWindow(win)) return;
+      try {
+        win.webContents.setZoomLevel(0);
+        win.webContents.setZoomFactor(1.0);
+      } catch (_) {}
+    });
+    const targetWin = (win === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+      ? pdfPresentationSourceWindow
+      : win;
+    try {
+      targetWin.webContents.send('app:pdf-zoom', zoomDirection === 'in' ? 'in' : 'out');
+    } catch (_) {}
+  });
 
   win.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
@@ -1272,6 +1328,20 @@ function setupWindowZoomShortcuts(win) {
       input.code === 'Digit0' ||
       input.code === 'Numpad0'
     );
+
+    if (isPdfViewerWindow(win)) {
+      if (isZoomIn || isZoomOut || isZoomReset) {
+        event.preventDefault();
+        const action = isZoomIn ? 'in' : (isZoomOut ? 'out' : 'reset');
+        const targetWin = (win === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+          ? pdfPresentationSourceWindow
+          : win;
+        try {
+          targetWin.webContents.send('app:pdf-zoom', action);
+        } catch (_) {}
+      }
+      return;
+    }
 
     if (isZoomIn) {
       event.preventDefault();
@@ -1467,9 +1537,51 @@ function buildMenu() {
           }
         },
         { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
+        {
+          label: 'Actual Size',
+          accelerator: 'CmdOrCtrl+0',
+          click: (_item, focusedWin) => {
+            if (isPdfViewerWindow(focusedWin)) {
+              const targetWin = (focusedWin === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+                ? pdfPresentationSourceWindow : focusedWin;
+              try { targetWin.webContents.send('app:pdf-zoom', 'reset'); } catch (_) {}
+              return;
+            }
+            if (focusedWin && !focusedWin.isDestroyed()) setWindowZoom(focusedWin, 1.0);
+          }
+        },
+        {
+          label: 'Zoom In',
+          accelerator: 'CmdOrCtrl+=',
+          click: (_item, focusedWin) => {
+            if (isPdfViewerWindow(focusedWin)) {
+              const targetWin = (focusedWin === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+                ? pdfPresentationSourceWindow : focusedWin;
+              try { targetWin.webContents.send('app:pdf-zoom', 'in'); } catch (_) {}
+              return;
+            }
+            if (focusedWin && !focusedWin.isDestroyed()) {
+              const current = focusedWin.webContents.getZoomFactor() || 1.0;
+              setWindowZoom(focusedWin, current + 0.1);
+            }
+          }
+        },
+        {
+          label: 'Zoom Out',
+          accelerator: 'CmdOrCtrl+-',
+          click: (_item, focusedWin) => {
+            if (isPdfViewerWindow(focusedWin)) {
+              const targetWin = (focusedWin === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+                ? pdfPresentationSourceWindow : focusedWin;
+              try { targetWin.webContents.send('app:pdf-zoom', 'out'); } catch (_) {}
+              return;
+            }
+            if (focusedWin && !focusedWin.isDestroyed()) {
+              const current = focusedWin.webContents.getZoomFactor() || 1.0;
+              setWindowZoom(focusedWin, current - 0.1);
+            }
+          }
+        },
         { type: 'separator' },
         { role: 'togglefullscreen' }
       ]
@@ -4268,8 +4380,15 @@ ipcMain.handle('app:adjust-zoom', (event, delta) => {
   if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
     return { ok: false };
   }
-  const current = senderWin.webContents.getZoomFactor() || 1.0;
   const numDelta = typeof delta === 'number' ? delta : 0.1;
+  if (isPdfViewerWindow(senderWin)) {
+    const targetWin = (senderWin === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+      ? pdfPresentationSourceWindow
+      : senderWin;
+    try { targetWin.webContents.send('app:pdf-zoom', numDelta >= 0 ? 'in' : 'out'); } catch (_) {}
+    return { ok: true, zoomFactor: 1.0 };
+  }
+  const current = senderWin.webContents.getZoomFactor() || 1.0;
   const next = current + numDelta;
   setWindowZoom(senderWin, next);
   return { ok: true, zoomFactor: senderWin.webContents.getZoomFactor() };
@@ -4280,6 +4399,13 @@ ipcMain.handle('app:reset-zoom', (event) => {
   if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
     return { ok: false };
   }
+  if (isPdfViewerWindow(senderWin)) {
+    const targetWin = (senderWin === pdfPresentationWindow && pdfPresentationSourceWindow && !pdfPresentationSourceWindow.isDestroyed())
+      ? pdfPresentationSourceWindow
+      : senderWin;
+    try { targetWin.webContents.send('app:pdf-zoom', 'reset'); } catch (_) {}
+    return { ok: true, zoomFactor: 1.0 };
+  }
   setWindowZoom(senderWin, 1.0);
   return { ok: true, zoomFactor: 1.0 };
 });
@@ -4288,6 +4414,10 @@ ipcMain.handle('app:set-zoom-factor', (event, factor) => {
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   if (!senderWin || senderWin.isDestroyed() || !senderWin.webContents || senderWin.webContents.isDestroyed()) {
     return { ok: false };
+  }
+  if (isPdfViewerWindow(senderWin)) {
+    setWindowZoom(senderWin, 1.0);
+    return { ok: true, zoomFactor: 1.0 };
   }
   if (typeof factor === 'number' && !isNaN(factor)) {
     setWindowZoom(senderWin, factor);
