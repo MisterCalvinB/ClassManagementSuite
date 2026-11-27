@@ -299,8 +299,9 @@
 
   async function _ensurePdfjsLib() {
     if (window._cmtPdfjsLib) return window._cmtPdfjsLib;
-    var mod = await import('../modules/pdf.min.mjs');
-    mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
+    var base = /\/pages\//.test(location.pathname) ? '../modules/' : 'modules/';
+    var mod = await import(new URL(base + 'pdf.min.mjs', location.href).href);
+    mod.GlobalWorkerOptions.workerSrc = new URL(base + 'pdf.worker.min.mjs', location.href).href;
     window._cmtPdfjsLib = mod;
     return mod;
   }

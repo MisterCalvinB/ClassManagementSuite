@@ -3684,10 +3684,16 @@
       let _pendingMirrorAddScheduled = false;
       let _pendingMirrorAddTimer = null;
       let _pendingMirrorAddHadExternalSuppress = false;
+      let _pendingMirrorAddHoldingMicro = false;
+      let _suppressAddQueueInDuplicate = false;
       function _conQueueMirrorNodeAdd(node, hadExternalSuppress) {
         if (!node) return;
         if (!_pendingMirrorAddScheduled && _pendingMirrorAddTimer === null) {
           _pendingMirrorAddHadExternalSuppress = !!hadExternalSuppress;
+          if (!_pendingMirrorAddHadExternalSuppress && !_pendingMirrorAddHoldingMicro) {
+            _pendingMirrorAddHoldingMicro = true;
+            window._conMicroSuppressCount = (window._conMicroSuppressCount || 0) + 1;
+          }
         }
         _pendingMirrorAddNodes.push(node);
         if (_pendingMirrorAddScheduled) return;
@@ -3713,7 +3719,11 @@
           }
           _pendingMirrorAddTimer = setTimeout(() => {
             _pendingMirrorAddTimer = null;
-            if (!_pendingMirrorAddHadExternalSuppress) {
+            if (_pendingMirrorAddHoldingMicro) {
+              _pendingMirrorAddHoldingMicro = false;
+              window._conMicroSuppressCount = Math.max(0, (window._conMicroSuppressCount || 1) - 1);
+            }
+            if (!_pendingMirrorAddHadExternalSuppress && !(window._conMicroSuppressCount > 0)) {
               window._conSuppressMirrorObserver = false;
             }
             _pendingMirrorAddHadExternalSuppress = false;
@@ -3724,7 +3734,7 @@
       function conAddWordAt(text, x, y, pageNum) {
         const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
         const _prevSuppress = !!window._conSuppressMirrorObserver;
-        const _hadExternalSuppress = _prevSuppress && !_pendingMirrorAddScheduled && _pendingMirrorAddTimer === null;
+        const _hadExternalSuppress = _suppressAddQueueInDuplicate || (_prevSuppress && !(window._conMicroSuppressCount > 0));
         window._conSuppressMirrorObserver = true;
         let queuedMirrorAdd = false;
         try {
@@ -3811,7 +3821,13 @@
         const x = Math.max(0, Math.min(maxX, src.x + dx));
         const y = Math.max(0, Math.min(maxY, src.y + dy));
 
-        const newId = conAddWordAt(src.baseWord || src.el.textContent.trim(), x, y, src.pageNum);
+        _suppressAddQueueInDuplicate = true;
+        let newId;
+        try {
+          newId = conAddWordAt(src.baseWord || src.el.textContent.trim(), x, y, src.pageNum);
+        } finally {
+          _suppressAddQueueInDuplicate = false;
+        }
         const dup = conNodes.find(n => n.id === newId);
         if (!dup) return null;
 
@@ -4062,7 +4078,6 @@
           }
         }
         conRedrawEdges();
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
         conMergeChoiceClose();
       };
 
@@ -4226,9 +4241,6 @@
               positions: movedNotes.map(nd => ({ id: nd.id, x: nd.x, y: nd.y }))
             });
           }
-        }
-        if (window._conMirrorBroadcast) {
-          window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         }
       }
       window.conCommitSelectedLayout = conCommitSelectedLayout;

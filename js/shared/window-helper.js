@@ -44,6 +44,10 @@
   var _mirrorOrder = [];
   var _presets = [];
   var _openMissing = false;
+  var _saveAsRatio = true;
+  var _snapRatio = 50;
+  var _layoutGap = 0;
+  var _layoutDisplayId = null;
   var _showPresetForm = false;
   var _makerOpen = false;
   var _makerEditId = null;
@@ -110,7 +114,12 @@
       '.cmt-wh-maker-dims{grid-column:1 / -1;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding-top:4px;border-top:1px dashed #cccccc}',
       '.cmt-wh-select,.cmt-wh-num{padding:4px 6px;font-family:inherit;font-size:0.76rem;font-weight:600;border:1.5px solid #333333;border-radius:5px;background:#ffffff;color:#222222}',
       '.cmt-wh-num{width:68px}',
-      '.cmt-wh-lbl{font-size:0.72rem;font-weight:700;color:#555555}'
+      '.cmt-wh-lbl{font-size:0.72rem;font-weight:700;color:#555555}',
+      '.cmt-wh-snapbar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:6px 8px;background:#f5f5f0;border:1.5px solid #333333;border-radius:6px}',
+      '.cmt-wh-snapbar-group{display:flex;align-items:center;gap:4px;flex-wrap:wrap}',
+      '.cmt-wh-pill-btn{padding:3px 7px;font-family:inherit;font-size:0.72rem;font-weight:700;border:1.5px solid #333333;border-radius:4px;background:#ffffff;color:#222222;cursor:pointer;transition:background-color 0.1s ease}',
+      '.cmt-wh-pill-btn:hover{background:#f0f0ea}',
+      '.cmt-wh-pill-btn.active{background:#e2c96e}'
     ].join('');
     document.head.appendChild(s);
   }
@@ -147,14 +156,12 @@
     } catch (_) {}
   }
 
-  function _capturePreset(name) {
-    var trimmed = String(name || '').trim();
-    if (!trimmed) return false;
+  function _capturePresetSlots(asRatio) {
     var dispMap = {};
     (_state.displays || []).forEach(function (d) { dispMap[d.id] = d; });
 
     var allOrdered = _orderedWindows('main').concat(_orderedWindows('mirror'));
-    var slots = allOrdered.map(function (w) {
+    return allOrdered.map(function (w) {
       var d = dispMap[w.displayId] || (_state.displays && _state.displays[0]) || null;
       var wa = (d && d.workArea) ? d.workArea : { x: 0, y: 0, width: 1280, height: 800 };
       var b = w.bounds || { x: wa.x, y: wa.y, width: 800, height: 600 };
@@ -162,18 +169,31 @@
       var rh = wa.height > 0 ? Number((b.height / wa.height).toFixed(4)) : 0.5;
       var rx = wa.width > 0 ? Number(((b.x - wa.x) / wa.width).toFixed(4)) : 0;
       var ry = wa.height > 0 ? Number(((b.y - wa.y) / wa.height).toFixed(4)) : 0;
+      var pctW = wa.width > 0 ? Math.max(1, Math.min(100, Number(((b.width / wa.width) * 100).toFixed(1)))) : 50;
+      var pctH = wa.height > 0 ? Math.max(1, Math.min(100, Number(((b.height / wa.height) * 100).toFixed(1)))) : 100;
+      var pctX = wa.width > 0 ? Math.max(0, Math.min(100, Number((((b.x - wa.x) / wa.width) * 100).toFixed(1)))) : 0;
+      var pctY = wa.height > 0 ? Math.max(0, Math.min(100, Number((((b.y - wa.y) / wa.height) * 100).toFixed(1)))) : 0;
       return {
         pageFile: w.pageFile,
         title: w.title,
         role: w.role === 'mirror' ? 'mirror' : 'main',
         displayIndex: typeof w.displayIndex === 'number' ? w.displayIndex : 0,
-        bounds: { x: b.x, y: b.y, width: b.width, height: b.height },
+        snap: w.isMaximized ? 'full' : 'custom',
+        unit: asRatio ? '%' : 'px',
+        bounds: asRatio
+          ? { x: pctX, y: pctY, width: pctW, height: pctH }
+          : { x: b.x, y: b.y, width: b.width, height: b.height },
         relBounds: { rx: rx, ry: ry, rw: rw, rh: rh },
         isMaximized: !!w.isMaximized,
         isAlwaysOnTop: !!w.isAlwaysOnTop
       };
     });
+  }
 
+  function _capturePreset(name) {
+    var trimmed = String(name || '').trim();
+    if (!trimmed) return false;
+    var slots = _capturePresetSlots(_saveAsRatio);
     if (slots.length === 0) return false;
     _presets.push({
       id: 'preset-' + Date.now(),
@@ -241,6 +261,7 @@
       var nextDisp = _state.displays[(curIdx + 1) % _state.displays.length];
       if (nextDisp) nextDisplayId = nextDisp.id;
     }
+    var pctTag = ' (' + _snapRatio + '%)';
 
     return [
       '<div class="' + cls + '" draggable="true" data-wh-id="' + w.id + '" data-wh-role="' + role + '">',
@@ -256,12 +277,16 @@
         : '    <span class="cmt-wh-pill count">' + _esc(dispLabel) + '</span>',
       total > 1 ? '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="up" data-wh-role="' + role + '" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_move_up', 'Move up')) + '"' + (idx === 0 ? ' disabled' : '') + '>' + _icon('arrow-up') + '</button>' : '',
       total > 1 ? '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="down" data-wh-role="' + role + '" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_move_down', 'Move down')) + '"' + (idx === total - 1 ? ' disabled' : '') + '>' + _icon('arrow-down') + '</button>' : '',
-      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-left" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_left', 'Snap left')) + '">' + _icon('align-left') + '</button>',
-      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-right" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_right', 'Snap right')) + '">' + _icon('align-right') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-left" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_left', 'Snap left') + pctTag) + '">' + _icon('align-left') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-right" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_right', 'Snap right') + pctTag) + '">' + _icon('align-right') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-top" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_top', 'Snap top') + pctTag) + '">' + _icon('align-top') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="snap-bottom" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_bottom', 'Snap bottom') + pctTag) + '">' + _icon('align-bottom') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="center" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_snap_center', 'Center')) + '">' + _icon('align-center-h') + '</button>',
       '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="focus" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_focus', 'Focus')) + '">' + _icon('eye') + '</button>',
+      '    <button type="button" class="cmt-wh-btn icon-only" data-wh-act="minimize" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_minimize', 'Minimize')) + '">' + _icon('minimize') + '</button>',
       '    <button type="button" class="cmt-wh-btn icon-only' + (w.isAlwaysOnTop ? ' active' : '') + '" data-wh-act="toggle-pin" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_pin', 'Always on top')) + '">' + _icon('pin') + '</button>',
       '    <button type="button" class="cmt-wh-btn icon-only' + (w.isMaximized ? ' active' : '') + '" data-wh-act="maximize" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_maximize', 'Maximize')) + '">' + _icon('maximize') + '</button>',
-      role === 'mirror'
+      (role === 'mirror' || total > 1)
         ? '    <button type="button" class="cmt-wh-btn icon-only danger" data-wh-act="close" data-wh-id="' + w.id + '" title="' + _esc(_t('wh_close_window', 'Close')) + '">' + _icon('close') + '</button>'
         : '',
       '  </div>',
@@ -269,15 +294,59 @@
     ].join('');
   }
 
+  function _renderSnapBar() {
+    var ratios = [20, 25, 33, 50, 67, 75, 80];
+    var anyPinned = (_state.windows || []).some(function (w) { return !!w.isAlwaysOnTop; });
+    var hasMultiple = (_state.windows || []).length > 1;
+    return [
+      '<div class="cmt-wh-snapbar">',
+      '  <div class="cmt-wh-snapbar-group">',
+      '    <span class="cmt-wh-lbl">' + _esc(_t('wh_snap_ratio', 'Snap %')) + '</span>',
+      ratios.map(function (r) {
+        return '<button type="button" class="cmt-wh-pill-btn' + (_snapRatio === r ? ' active' : '') + '" data-wh-snap-pct="' + r + '">' + r + '%</button>';
+      }).join(''),
+      '    <input type="number" class="cmt-wh-num" id="cmt-wh-snap-custom" value="' + _snapRatio + '" min="10" max="95" style="width:52px" title="' + _esc(_t('wh_snap_ratio', 'Snap %')) + '" />',
+      '  </div>',
+      '  <div class="cmt-wh-snapbar-group">',
+      hasMultiple ? '    <button type="button" class="cmt-wh-pill-btn" data-wh-act="minimize-others">' + _esc(_t('wh_minimize_others', 'Minimize Others')) + '</button>' : '',
+      anyPinned ? '    <button type="button" class="cmt-wh-pill-btn" data-wh-act="unpin-all">' + _esc(_t('wh_unpin_all', 'Unpin All')) + '</button>' : '',
+      '  </div>',
+      '</div>'
+    ].join('');
+  }
+
   function _renderLayoutBar(role, count) {
     if (count === 0) return '';
+    var displays = _state.displays || [];
+    var dispSelect = '';
+    if (displays.length > 1) {
+      dispSelect = '<select class="cmt-wh-select" id="cmt-wh-layout-display" title="' + _esc(_t('wh_target_display', 'Target display')) + '">' +
+        '<option value=""' + (_layoutDisplayId === null ? ' selected' : '') + '>' + _esc(_t('wh_display_auto', 'Auto')) + '</option>' +
+        displays.map(function (d, i) {
+          return '<option value="' + d.id + '"' + (_layoutDisplayId === d.id ? ' selected' : '') + '>' + _esc(_t('wh_display_n', 'D{n}').replace('{n}', String(i + 1))) + '</option>';
+        }).join('') +
+        '</select>';
+    }
     return [
       '<div class="cmt-wh-bar">',
       '  <button type="button" class="cmt-wh-btn primary" data-wh-layout="horizontal" data-wh-role="' + role + '">' + _icon('split') + '<span>' + _esc(_t('wh_layout_split', '50 / 50')) + '</span></button>',
       count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-20-80" data-wh-role="' + role + '">' + _esc(_t('wh_layout_20_80', '20 / 80')) + '</button>' : '',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-25-75" data-wh-role="' + role + '">25 / 75</button>' : '',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-30-70" data-wh-role="' + role + '">30 / 70</button>' : '',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-70-30" data-wh-role="' + role + '">70 / 30</button>' : '',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-75-25" data-wh-role="' + role + '">75 / 25</button>' : '',
       count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="split-80-20" data-wh-role="' + role + '">' + _esc(_t('wh_layout_80_20', '80 / 20')) + '</button>' : '',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="main-stack" data-wh-role="' + role + '">' + _esc(_t('wh_layout_main_stack', 'Main + Stack')) + '</button>' : '',
       '  <button type="button" class="cmt-wh-btn" data-wh-layout="grid" data-wh-role="' + role + '">' + _icon('grid') + '<span>' + _esc(_t('wh_layout_grid', 'Grid')) + '</span></button>',
       '  <button type="button" class="cmt-wh-btn" data-wh-layout="vertical" data-wh-role="' + role + '">' + _icon('layout') + '<span>' + _esc(_t('wh_layout_stack', 'Stack')) + '</span></button>',
+      count >= 2 ? '  <button type="button" class="cmt-wh-btn" data-wh-layout="cascade" data-wh-role="' + role + '">' + _esc(_t('wh_layout_cascade', 'Cascade')) + '</button>' : '',
+      '  <span class="cmt-wh-lbl" style="margin-left:auto">' + _esc(_t('wh_gap', 'Gap')) + '</span>',
+      '  <select class="cmt-wh-select" id="cmt-wh-layout-gap">',
+      '    <option value="0"' + (_layoutGap === 0 ? ' selected' : '') + '>0px</option>',
+      '    <option value="8"' + (_layoutGap === 8 ? ' selected' : '') + '>8px</option>',
+      '    <option value="16"' + (_layoutGap === 16 ? ' selected' : '') + '>16px</option>',
+      '  </select>',
+      dispSelect,
       '</div>'
     ].join('');
   }
@@ -321,6 +390,7 @@
     var html = ['<div class="cmt-wh-maker">'];
     html.push('  <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">');
     html.push('    <input type="text" class="cmt-wh-input" id="cmt-wh-maker-name" value="' + _esc(_makerName) + '" placeholder="' + _esc(_t('wh_preset_name_prompt', 'Preset name (e.g. Board + Class Mgmt)...')) + '" />');
+    html.push('    <button type="button" class="cmt-wh-btn" data-wh-preset-act="capture-into-maker">' + _icon('copy') + '<span>' + _esc(_t('wh_capture_open', 'Capture Open')) + '</span></button>');
     html.push('    <button type="button" class="cmt-wh-btn" data-wh-preset-act="add-slot">' + _icon('plus') + '<span>' + _esc(_t('wh_add_slot', 'Add App')) + '</span></button>');
     html.push('  </div>');
 
@@ -345,6 +415,9 @@
       html.push('    <select class="cmt-wh-select" data-wh-slot-field="snap">');
       html.push('      <option value="left"' + (sl.snap === 'left' ? ' selected' : '') + '>' + _esc(_t('wh_snap_left', 'Snap left')) + '</option>');
       html.push('      <option value="right"' + (sl.snap === 'right' ? ' selected' : '') + '>' + _esc(_t('wh_snap_right', 'Snap right')) + '</option>');
+      html.push('      <option value="top"' + (sl.snap === 'top' ? ' selected' : '') + '>' + _esc(_t('wh_snap_top', 'Snap top')) + '</option>');
+      html.push('      <option value="bottom"' + (sl.snap === 'bottom' ? ' selected' : '') + '>' + _esc(_t('wh_snap_bottom', 'Snap bottom')) + '</option>');
+      html.push('      <option value="center"' + (sl.snap === 'center' ? ' selected' : '') + '>' + _esc(_t('wh_snap_center', 'Center')) + '</option>');
       html.push('      <option value="custom"' + (sl.snap === 'custom' ? ' selected' : '') + '>' + _esc(_t('wh_snap_custom', 'Custom (X, Y)')) + '</option>');
       html.push('      <option value="full"' + (sl.snap === 'full' ? ' selected' : '') + '>' + _esc(_t('wh_maximize', 'Maximize')) + '</option>');
       html.push('    </select>');
@@ -402,6 +475,7 @@
     if (mainWins.length === 0) {
       html.push('  <div class="cmt-wh-empty">' + _esc(_t('wh_no_windows', 'No open windows found.')) + '</div>');
     } else {
+      html.push(_renderSnapBar());
       html.push('  <div class="cmt-wh-list">' + mainWins.map(function (w, i) { return _renderWindowRow(w, i, mainWins.length, 'main', multiDisplay); }).join('') + '</div>');
       html.push(_renderLayoutBar('main', mainWins.length));
     }
@@ -441,6 +515,7 @@
     if (_showPresetForm) {
       html.push('  <div class="cmt-wh-preset-form">');
       html.push('    <input type="text" class="cmt-wh-input" id="cmt-wh-preset-name" placeholder="' + _esc(_t('wh_preset_name_prompt', 'Preset name (e.g. Board + Class Mgmt)...')) + '" />');
+      html.push('    <label class="cmt-wh-check"><input type="checkbox" id="cmt-wh-save-ratio"' + (_saveAsRatio ? ' checked' : '') + ' /><span>' + _esc(_t('wh_save_as_ratio', 'Save as ratio (%)')) + '</span></label>');
       html.push('    <button type="button" class="cmt-wh-btn primary" data-wh-preset-act="confirm-save">' + _esc(_t('wh_save', 'Save')) + '</button>');
       html.push('    <button type="button" class="cmt-wh-btn" data-wh-preset-act="cancel-save">' + _esc(_t('wh_cancel', 'Cancel')) + '</button>');
       html.push('  </div>');
@@ -460,7 +535,7 @@
           var dims = sl.snap === 'full'
             ? _t('wh_maximize', 'Maximize')
             : (sl.bounds ? (sl.bounds.width + u + 'x' + sl.bounds.height + u) : '');
-          var snapTag = (sl.snap === 'left' || sl.snap === 'right') ? (' · ' + sl.snap) : '';
+          var snapTag = (sl.snap === 'left' || sl.snap === 'right' || sl.snap === 'top' || sl.snap === 'bottom' || sl.snap === 'center') ? (' · ' + sl.snap) : '';
           var pinTag = sl.isAlwaysOnTop ? ' · Pin' : '';
           var dTag = 'D' + ((typeof sl.displayIndex === 'number' ? sl.displayIndex : 0) + 1);
           return '<span class="cmt-wh-chip' + (sl.role === 'mirror' ? ' is-mirror' : '') + '">' + _esc(label) + (sl.role === 'mirror' ? ' [M]' : '') + (dims ? ' · ' + _esc(dims) : '') + _esc(snapTag) + _esc(pinTag) + ' · ' + dTag + '</span>';
@@ -473,6 +548,7 @@
         html.push('      <div class="cmt-wh-row-btns">');
         html.push('        <button type="button" class="cmt-wh-btn primary" data-wh-preset-act="apply" data-wh-preset-id="' + _esc(p.id) + '">' + _esc(_t('wh_apply_preset', 'Apply')) + '</button>');
         html.push('        <button type="button" class="cmt-wh-btn icon-only' + (p.pinned ? ' active' : '') + '" data-wh-preset-act="toggle-preset-pin" data-wh-preset-id="' + _esc(p.id) + '" title="' + _esc(_t('wh_pin', 'Always on top')) + '">' + _icon('pin') + '</button>');
+        html.push('        <button type="button" class="cmt-wh-btn icon-only" data-wh-preset-act="duplicate" data-wh-preset-id="' + _esc(p.id) + '" title="' + _esc(_t('wh_duplicate_preset', 'Duplicate')) + '">' + _icon('duplicate') + '</button>');
         html.push('        <button type="button" class="cmt-wh-btn icon-only" data-wh-preset-act="edit" data-wh-preset-id="' + _esc(p.id) + '" title="' + _esc(_t('wh_edit_preset', 'Edit')) + '">' + _icon('edit') + '</button>');
         html.push('        <button type="button" class="cmt-wh-btn icon-only danger" data-wh-preset-act="delete" data-wh-preset-id="' + _esc(p.id) + '" title="' + _esc(_t('wh_delete_preset', 'Delete')) + '">' + _icon('close') + '</button>');
         html.push('      </div>');
@@ -543,6 +619,14 @@
         return;
       }
 
+      var snapPctBtn = e.target.closest('[data-wh-snap-pct]');
+      if (snapPctBtn) {
+        var pct = Math.max(10, Math.min(95, Number(snapPctBtn.getAttribute('data-wh-snap-pct')) || 50));
+        _snapRatio = pct;
+        _render();
+        return;
+      }
+
       var layoutBtn = e.target.closest('[data-wh-layout]');
       if (layoutBtn) {
         var layout = layoutBtn.getAttribute('data-wh-layout');
@@ -551,9 +635,10 @@
         if (wins.length > 0 && window.Desktop && typeof window.Desktop.reorderWindows === 'function') {
           await window.Desktop.reorderWindows({
             scope: role,
-            displayId: wins[0].displayId,
+            displayId: _layoutDisplayId !== null ? _layoutDisplayId : wins[0].displayId,
             orderedIds: wins.map(function (w) { return w.id; }),
-            layout: layout
+            layout: layout,
+            gap: _layoutGap
           });
           await _refreshState();
         }
@@ -569,7 +654,9 @@
         if (act === 'down') { _moveOrder(role2, winId, 1); return; }
         if (window.Desktop && typeof window.Desktop.windowAction === 'function') {
           var req = { windowId: winId, action: act };
-          if (act === 'move-display') {
+          if (act === 'snap-left' || act === 'snap-right' || act === 'snap-top' || act === 'snap-bottom') {
+            req.ratio = _snapRatio;
+          } else if (act === 'move-display') {
             req.action = 'move-to-display';
             req.targetDisplayId = Number(actBtn.getAttribute('data-wh-display'));
           } else if (act === 'swap-pair') {
@@ -633,6 +720,38 @@
           var pp = _presets.find(function (p) { return p.id === ppId; });
           if (pp) {
             pp.pinned = !pp.pinned;
+            await _savePresets();
+            _render();
+          }
+        } else if (pa === 'capture-into-maker') {
+          var captured = _capturePresetSlots(_saveAsRatio);
+          if (captured.length > 0) {
+            _makerSlots = captured.map(function (sl) {
+              return {
+                pageFile: sl.pageFile,
+                role: sl.role,
+                displayIndex: sl.displayIndex,
+                snap: sl.snap || 'custom',
+                unit: sl.unit === '%' ? '%' : 'px',
+                width: sl.bounds ? sl.bounds.width : 50,
+                height: sl.bounds ? sl.bounds.height : 100,
+                x: sl.bounds ? sl.bounds.x : 0,
+                y: sl.bounds ? sl.bounds.y : 0,
+                isAlwaysOnTop: !!sl.isAlwaysOnTop
+              };
+            });
+            _render();
+          }
+        } else if (pa === 'duplicate') {
+          var dupId = pBtn.getAttribute('data-wh-preset-id');
+          var dp = _presets.find(function (p) { return p.id === dupId; });
+          if (dp) {
+            _presets.push({
+              id: 'preset-' + Date.now(),
+              name: (dp.name || 'Preset') + ' (2)',
+              createdAt: new Date().toISOString(),
+              slots: JSON.parse(JSON.stringify(dp.slots || []))
+            });
             await _savePresets();
             _render();
           }
@@ -721,6 +840,23 @@
         _openMissing = !!e.target.checked;
         return;
       }
+      if (e.target && e.target.id === 'cmt-wh-save-ratio') {
+        _saveAsRatio = !!e.target.checked;
+        return;
+      }
+      if (e.target && e.target.id === 'cmt-wh-layout-gap') {
+        _layoutGap = Math.max(0, Math.min(48, Number(e.target.value) || 0));
+        return;
+      }
+      if (e.target && e.target.id === 'cmt-wh-layout-display') {
+        _layoutDisplayId = e.target.value ? Number(e.target.value) : null;
+        return;
+      }
+      if (e.target && e.target.id === 'cmt-wh-snap-custom') {
+        _snapRatio = Math.max(10, Math.min(95, Number(e.target.value) || 50));
+        _render();
+        return;
+      }
       var slotRow = e.target && e.target.closest ? e.target.closest('.cmt-wh-maker-slot[data-wh-slot-idx]') : null;
       var field = e.target && e.target.getAttribute ? e.target.getAttribute('data-wh-slot-field') : null;
       if (slotRow && field) {
@@ -754,6 +890,13 @@
     _modal.addEventListener('input', function (e) {
       if (e.target && e.target.id === 'cmt-wh-maker-name') {
         _makerName = e.target.value;
+        return;
+      }
+      if (e.target && e.target.id === 'cmt-wh-snap-custom') {
+        var val = Number(e.target.value);
+        if (Number.isFinite(val) && val >= 10 && val <= 95) {
+          _snapRatio = Math.round(val);
+        }
         return;
       }
       var slotRow = e.target && e.target.closest ? e.target.closest('.cmt-wh-maker-slot[data-wh-slot-idx]') : null;

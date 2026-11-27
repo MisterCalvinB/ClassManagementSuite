@@ -666,9 +666,7 @@
               conGroupFocus(group.id);
             }
             dragging = false;
-            // Lift drag suppression and do a full broadcast so mirror is in sync
             window._conMirrorDragging = false;
-            if (window._conMirrorBroadcast) window._conMirrorBroadcast();
           }
           document.addEventListener('mousemove', onMove);
           document.addEventListener('mouseup', onUp);
@@ -880,8 +878,18 @@
           } else {
             conGroupRefit(g);
           }
-          if (!window._conSuppressMirrorObserver && typeof window._conMirrorBroadcast === 'function') {
-            window._conMirrorBroadcast({ bumpRevision: true });
+          const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+          if (!isMirrorWin && !window._conSuppressMirrorObserver && typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({
+              type: 'group-update',
+              groupId: String(g.id),
+              nodeIds: Array.isArray(g.nodeIds) ? g.nodeIds.slice() : [],
+              noteIds: Array.isArray(g.noteIds) ? g.noteIds.slice() : [],
+              drawingIds: Array.isArray(g.drawingIds) ? g.drawingIds.slice() : [],
+              shapeIds: Array.isArray(g.shapeIds) ? g.shapeIds.slice() : [],
+              mediaIds: Array.isArray(g.mediaIds) ? g.mediaIds.slice() : [],
+              revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+            });
           }
         }
       }
@@ -890,32 +898,45 @@
         const idx = conGroups.findIndex(g => g.id === gid);
         if (idx === -1) return;
         const dissolved = conGroups[idx];
-        // Clean up phrase-node CSS classes if this was a phrase group
-        if (dissolved.phraseGroup) {
-          dissolved.nodeIds.forEach(nid => {
-            const node = conNodes.find(n => n.id === nid);
-            conClearNodePhraseClasses(node);
-          });
-        }
-        dissolved.el.remove();
-        conGroups.splice(idx, 1);
-        if (conGroupFocused === gid) conGroupFocused = null;
-        const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
-        if (Array.isArray(edgesArr)) {
-          for (let i = edgesArr.length - 1; i >= 0; i--) {
-            const e = edgesArr[i];
-            if (e && (e.a === gid || e.b === gid)) {
-              if (e.g && e.g.remove) e.g.remove();
-              edgesArr.splice(i, 1);
-            }
+        const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          // Clean up phrase-node CSS classes if this was a phrase group
+          if (dissolved.phraseGroup) {
+            dissolved.nodeIds.forEach(nid => {
+              const node = conNodes.find(n => n.id === nid);
+              conClearNodePhraseClasses(node);
+            });
           }
-          if (typeof window !== 'undefined') window.conEdges = edgesArr;
-          if (typeof global !== 'undefined') global.conEdges = edgesArr;
-          conEdges = edgesArr;
-          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
-        }
-        if (!window._conSuppressMirrorObserver && typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast({ bumpRevision: true });
+          dissolved.el.remove();
+          conGroups.splice(idx, 1);
+          if (conGroupFocused === gid) conGroupFocused = null;
+          const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
+          if (Array.isArray(edgesArr)) {
+            for (let i = edgesArr.length - 1; i >= 0; i--) {
+              const e = edgesArr[i];
+              if (e && (e.a === gid || e.b === gid)) {
+                if (e.g && e.g.remove) e.g.remove();
+                edgesArr.splice(i, 1);
+              }
+            }
+            if (typeof window !== 'undefined') window.conEdges = edgesArr;
+            if (typeof global !== 'undefined') global.conEdges = edgesArr;
+            conEdges = edgesArr;
+            if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges({ preserveSizeCache: true });
+          }
+          if (!isMirrorWin && typeof window._conMirrorSend === 'function') {
+            window._conMirrorSend({
+              type: 'group-dissolve',
+              groupId: String(gid),
+              revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+            });
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
         }
       }
 

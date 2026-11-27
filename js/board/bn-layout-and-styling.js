@@ -411,7 +411,6 @@
         conRedrawEdges();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
 
         if (splitCount === 0 && typeof showToast === 'function') {
           const msg = (typeof i18n !== 'undefined' && i18n.t('conSplitCannotSplit')) || 'No words could be split';
@@ -499,7 +498,6 @@
         conRedrawEdges();
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
       };
 
       window.conCtxRemoveFromGroup = function () {

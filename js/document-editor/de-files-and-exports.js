@@ -3362,7 +3362,7 @@ async function deRenderPagedPreview(container, html) {
 
 async function deEnsurePdfjsLib() {
   if (!window._dePdfjsLib) {
-    const mod = await import('../modules/pdf.min.mjs');
+    const mod = await import(new URL('../modules/pdf.min.mjs', location.href).href);
     mod.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
     window._dePdfjsLib = mod;
   }

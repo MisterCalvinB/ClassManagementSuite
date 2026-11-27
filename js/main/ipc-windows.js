@@ -132,10 +132,37 @@ function registerWindowsIpc(ctx) {
     return true;
   }
 
-  function _computeLayoutRects(count, workArea, layout) {
+  function _normalizeRatio(val, fallback = 0.5) {
+    const num = Number(val);
+    if (!Number.isFinite(num) || num <= 0) return fallback;
+    const r = num > 1 ? num / 100 : num;
+    return Math.max(0.1, Math.min(0.95, r));
+  }
+
+  function _splitSpan(start, total, count, gap) {
+    const segs = [];
+    if (count <= 0) return segs;
+    const totalGap = gap * Math.max(0, count - 1);
+    const usable = Math.max(count * 100, total - totalGap);
+    const each = Math.floor(usable / count);
+    let cursor = start;
+    for (let i = 0; i < count; i++) {
+      const isLast = i === count - 1;
+      const size = isLast ? (start + total - cursor) : each;
+      segs.push({ pos: cursor, size: Math.max(100, size) });
+      cursor += size + gap;
+    }
+    return segs;
+  }
+
+  function _computeLayoutRects(count, workArea, layout, options = {}) {
     const rects = [];
     if (count <= 0 || !workArea) return rects;
-    const { x, y, width, height } = workArea;
+    const gap = Math.max(0, Math.min(48, Math.round(Number(options.gap) || 0)));
+    const x = workArea.x + gap;
+    const y = workArea.y + gap;
+    const width = Math.max(260, workArea.width - 2 * gap);
+    const height = Math.max(200, workArea.height - 2 * gap);
 
     if (count === 1) {
       rects.push({ x, y, width, height });
@@ -143,73 +170,86 @@ function registerWindowsIpc(ctx) {
     }
 
     if (layout === 'vertical') {
-      const rowH = Math.floor(height / count);
-      for (let i = 0; i < count; i++) {
-        const isLast = i === count - 1;
-        rects.push({
-          x,
-          y: y + i * rowH,
-          width,
-          height: isLast ? (height - i * rowH) : rowH
-        });
-      }
+      const rows = _splitSpan(y, height, count, gap);
+      rows.forEach((r) => rects.push({ x, y: r.pos, width, height: r.size }));
       return rects;
     }
 
     if (layout === 'grid') {
       const cols = Math.ceil(Math.sqrt(count));
       const rows = Math.ceil(count / cols);
-      const cellW = Math.floor(width / cols);
-      const cellH = Math.floor(height / rows);
+      const colSpans = _splitSpan(x, width, cols, gap);
+      const rowSpans = _splitSpan(y, height, rows, gap);
       for (let i = 0; i < count; i++) {
         const r = Math.floor(i / cols);
         const c = i % cols;
-        const isLastCol = c === cols - 1 || i === count - 1;
-        const isLastRow = r === rows - 1;
-        // If last row has fewer items, stretch last item to fill row width
-        const itemW = (i === count - 1 && count % cols !== 0)
-          ? (width - c * cellW)
-          : (isLastCol ? (width - c * cellW) : cellW);
+        const isLastItem = i === count - 1;
+        const stretchLast = isLastItem && count % cols !== 0;
+        const cellX = colSpans[c].pos;
+        const cellW = stretchLast ? (x + width - cellX) : colSpans[c].size;
         rects.push({
-          x: x + c * cellW,
-          y: y + r * cellH,
-          width: itemW,
-          height: isLastRow ? (height - r * cellH) : cellH
+          x: cellX,
+          y: rowSpans[r].pos,
+          width: cellW,
+          height: rowSpans[r].size
         });
       }
       return rects;
     }
 
-    if (layout === 'split-20-80' || layout === 'split-80-20') {
-      const firstRatio = layout === 'split-20-80' ? 0.20 : 0.80;
-      const firstW = Math.max(240, Math.round(width * firstRatio));
-      rects.push({ x, y, width: firstW, height });
-      const remCount = count - 1;
-      const remW = Math.max(200, width - firstW);
-      const eachW = Math.floor(remW / remCount);
-      for (let i = 0; i < remCount; i++) {
-        const isLast = i === remCount - 1;
+    if (layout === 'cascade') {
+      const stepX = Math.min(36, Math.floor((width * 0.28) / Math.max(1, count - 1)));
+      const stepY = Math.min(32, Math.floor((height * 0.24) / Math.max(1, count - 1)));
+      const winW = Math.max(360, Math.round(width * 0.72));
+      const winH = Math.max(260, Math.round(height * 0.76));
+      for (let i = 0; i < count; i++) {
         rects.push({
-          x: x + firstW + i * eachW,
-          y,
-          width: isLast ? (remW - i * eachW) : eachW,
-          height
+          x: Math.min(x + width - winW, x + i * stepX),
+          y: Math.min(y + height - winH, y + i * stepY),
+          width: winW,
+          height: winH
         });
       }
+      return rects;
+    }
+
+    if (layout === 'main-stack') {
+      const firstRatio = _normalizeRatio(options.ratio, 0.65);
+      const firstW = Math.max(260, Math.min(width - 260 - gap, Math.round((width - gap) * firstRatio)));
+      rects.push({ x, y, width: firstW, height });
+      const remX = x + firstW + gap;
+      const remW = Math.max(200, width - firstW - gap);
+      const rows = _splitSpan(y, height, count - 1, gap);
+      rows.forEach((r) => rects.push({ x: remX, y: r.pos, width: remW, height: r.size }));
+      return rects;
+    }
+
+    const splitRatios = {
+      'split-20-80': 0.20,
+      'split-25-75': 0.25,
+      'split-30-70': 0.30,
+      'split-70-30': 0.70,
+      'split-75-25': 0.75,
+      'split-80-20': 0.80
+    };
+    if (Object.prototype.hasOwnProperty.call(splitRatios, layout) || layout === 'split-custom') {
+      const firstRatio = layout === 'split-custom'
+        ? _normalizeRatio(options.ratio, 0.5)
+        : splitRatios[layout];
+      const remCount = count - 1;
+      const usableW = Math.max(460, width - gap * remCount);
+      const firstW = Math.max(220, Math.min(usableW - 200 * remCount, Math.round(usableW * firstRatio)));
+      rects.push({ x, y, width: firstW, height });
+      const remStart = x + firstW + gap;
+      const remTotalW = Math.max(200, x + width - remStart);
+      const remCols = _splitSpan(remStart, remTotalW, remCount, gap);
+      remCols.forEach((c) => rects.push({ x: c.pos, y, width: c.size, height }));
       return rects;
     }
 
     // Default: 'horizontal' (equal columns)
-    const colW = Math.floor(width / count);
-    for (let i = 0; i < count; i++) {
-      const isLast = i === count - 1;
-      rects.push({
-        x: x + i * colW,
-        y,
-        width: isLast ? (width - i * colW) : colW,
-        height
-      });
-    }
+    const cols = _splitSpan(x, width, count, gap);
+    cols.forEach((c) => rects.push({ x: c.pos, y, width: c.size, height }));
     return rects;
   }
 
@@ -248,7 +288,10 @@ function registerWindowsIpc(ctx) {
       targetDisplay = screen.getPrimaryDisplay();
     }
 
-    const rects = _computeLayoutRects(targets.length, targetDisplay.workArea, layout);
+    const rects = _computeLayoutRects(targets.length, targetDisplay.workArea, layout, {
+      gap: request.gap,
+      ratio: request.ratio
+    });
     targets.forEach((win, idx) => {
       if (!_prepareWindowForBounds(win)) return;
       _applySafeBounds(win, rects[idx]);
@@ -314,17 +357,26 @@ function registerWindowsIpc(ctx) {
       if (snap === 'full') {
         _applySafeBounds(win, { x: wa.x, y: wa.y, width: wa.width, height: wa.height });
         win.maximize();
-      } else if (snap === 'left' || snap === 'right') {
-        const rawW = slot.bounds && typeof slot.bounds.width === 'number' ? slot.bounds.width : (unit === '%' ? 50 : Math.floor(wa.width / 2));
-        const rawH = slot.bounds && typeof slot.bounds.height === 'number' ? slot.bounds.height : (unit === '%' ? 100 : wa.height);
+      } else if (snap === 'left' || snap === 'right' || snap === 'top' || snap === 'bottom' || snap === 'center') {
+        const isHoriz = snap === 'left' || snap === 'right';
+        const defW = isHoriz ? (unit === '%' ? 50 : Math.floor(wa.width / 2)) : (snap === 'center' ? (unit === '%' ? 75 : Math.round(wa.width * 0.75)) : (unit === '%' ? 100 : wa.width));
+        const defH = !isHoriz && snap !== 'center' ? (unit === '%' ? 50 : Math.floor(wa.height / 2)) : (snap === 'center' ? (unit === '%' ? 85 : Math.round(wa.height * 0.85)) : (unit === '%' ? 100 : wa.height));
+        const rawW = slot.bounds && typeof slot.bounds.width === 'number' ? slot.bounds.width : defW;
+        const rawH = slot.bounds && typeof slot.bounds.height === 'number' ? slot.bounds.height : defH;
         const w = unit === '%'
           ? Math.max(260, Math.min(wa.width, Math.round(wa.width * (rawW / 100))))
           : Math.max(260, Math.min(wa.width, Math.round(rawW)));
         const h = unit === '%'
           ? Math.max(200, Math.min(wa.height, Math.round(wa.height * (rawH / 100))))
           : Math.max(200, Math.min(wa.height, Math.round(rawH)));
-        const x = snap === 'left' ? wa.x : (wa.x + wa.width - w);
-        const y = wa.y;
+        let x = wa.x;
+        let y = wa.y;
+        if (snap === 'right') x = wa.x + wa.width - w;
+        else if (snap === 'bottom') y = wa.y + wa.height - h;
+        else if (snap === 'center') {
+          x = wa.x + Math.round((wa.width - w) / 2);
+          y = wa.y + Math.round((wa.height - h) / 2);
+        }
         rect = { x, y, width: w, height: h };
         _applySafeBounds(win, rect);
       } else if (unit === '%' && slot.bounds) {
@@ -371,6 +423,24 @@ function registerWindowsIpc(ctx) {
     const action = String(request.action || '');
     const allWins = BrowserWindow.getAllWindows().filter((w) => w && !w.isDestroyed());
     const win = allWins.find((w) => w.id === Number(request.windowId));
+
+    if (action === 'minimize-others') {
+      const senderWin = BrowserWindow.fromWebContents(event.sender);
+      const keepId = Number(request.windowId) || (senderWin && !senderWin.isDestroyed() ? senderWin.id : -1);
+      allWins.forEach((w) => {
+        if (w.id !== keepId && !w.isMinimized()) w.minimize();
+      });
+      notifyWindowsChanged();
+      return { ok: true };
+    }
+
+    if (action === 'unpin-all') {
+      allWins.forEach((w) => {
+        if (w.isAlwaysOnTop()) w.setAlwaysOnTop(false);
+      });
+      notifyWindowsChanged();
+      return { ok: true };
+    }
 
     if (action === 'swap-pair') {
       const winA = allWins.find((w) => w.id === Number(request.windowId));
@@ -423,16 +493,39 @@ function registerWindowsIpc(ctx) {
         else win.maximize();
         break;
       case 'snap-left':
-      case 'snap-right': {
+      case 'snap-right':
+      case 'snap-top':
+      case 'snap-bottom':
+      case 'center': {
         if (typeof _teardownLinkedResize === 'function') _teardownLinkedResize();
         const curBounds = win.getBounds();
         const disp = screen.getDisplayMatching(curBounds) || screen.getPrimaryDisplay();
         const wa = disp.workArea;
-        const halfW = Math.floor(wa.width / 2);
         _prepareWindowForBounds(win);
-        _applySafeBounds(win, action === 'snap-left'
-          ? { x: wa.x, y: wa.y, width: halfW, height: wa.height }
-          : { x: wa.x + halfW, y: wa.y, width: wa.width - halfW, height: wa.height });
+        if (action === 'center') {
+          const wr = _normalizeRatio(request.wRatio || request.ratio, 0.75);
+          const hr = _normalizeRatio(request.hRatio, 0.85);
+          const cw = Math.max(320, Math.min(wa.width, Math.round(wa.width * wr)));
+          const ch = Math.max(240, Math.min(wa.height, Math.round(wa.height * hr)));
+          _applySafeBounds(win, {
+            x: wa.x + Math.round((wa.width - cw) / 2),
+            y: wa.y + Math.round((wa.height - ch) / 2),
+            width: cw,
+            height: ch
+          });
+        } else if (action === 'snap-left' || action === 'snap-right') {
+          const r = _normalizeRatio(request.ratio, 0.5);
+          const w = Math.max(260, Math.min(wa.width, Math.round(wa.width * r)));
+          _applySafeBounds(win, action === 'snap-left'
+            ? { x: wa.x, y: wa.y, width: w, height: wa.height }
+            : { x: wa.x + wa.width - w, y: wa.y, width: w, height: wa.height });
+        } else {
+          const r = _normalizeRatio(request.ratio, 0.5);
+          const h = Math.max(200, Math.min(wa.height, Math.round(wa.height * r)));
+          _applySafeBounds(win, action === 'snap-top'
+            ? { x: wa.x, y: wa.y, width: wa.width, height: h }
+            : { x: wa.x, y: wa.y + wa.height - h, width: wa.width, height: h });
+        }
         break;
       }
       case 'toggle-pin': {

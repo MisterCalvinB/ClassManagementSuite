@@ -197,7 +197,7 @@
   async function ensurePdfjs() {
     if (root._cmtPdfjsLib) return root._cmtPdfjsLib;
     var base = /\/pages\//.test(location.pathname) ? '../modules/' : 'modules/';
-    var mod = await import(base + 'pdf.min.mjs');
+    var mod = await import(new URL(base + 'pdf.min.mjs', location.href).href);
     mod.GlobalWorkerOptions.workerSrc = new URL(base + 'pdf.worker.min.mjs', location.href).href;
     root._cmtPdfjsLib = mod;
     return mod;

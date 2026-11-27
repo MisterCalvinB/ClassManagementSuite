@@ -2372,7 +2372,7 @@
     var isSubPage = _isPagesPath();
     var prefix = isSubPage ? '../' : '';
     try {
-      var mod = await import(prefix + 'modules/pdf.min.mjs');
+      var mod = await import(new URL(prefix + 'modules/pdf.min.mjs', location.href).href);
       if (mod && mod.GlobalWorkerOptions) {
         mod.GlobalWorkerOptions.workerSrc = new URL(prefix + 'modules/pdf.worker.min.mjs', location.href).href;
       }

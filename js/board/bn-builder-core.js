@@ -1029,38 +1029,56 @@
         if (!preset) return;
         if (!options || !options.skipUndo) conPushUndo();
         const ids = targetIds || (conMultiSelected.size > 1 ? [...conMultiSelected] : (conCtxNodeId ? [conCtxNodeId] : []));
-        ids.forEach(id => {
-          const node = conNodes.find(n => n.id === id);
-          if (!node || conIsNodeLocked(node)) return;
-          node.el.style.background = preset.bg;
-          node.el.style.color = preset.color;
-          node.el.style.borderColor = preset.borderColor;
-          node.borderWidth = preset.borderWidth;
-          node.borderStyle = preset.borderStyle;
-          node.highlight = preset.highlight || null;
-          node.preset = preset.key;
-          node.fontFamily = preset.fontFamily || null;
-          node.el.style.fontFamily = preset.fontFamily || '';
-          if (preset.fontSize != null) conSetNodeBaseFontSize(node, Number(preset.fontSize));
-          // Apply text stroke
-          node.textStrokeColor = (preset.textStrokeWidth > 0 && preset.textStrokeColor) ? preset.textStrokeColor : null;
-          node.textStrokeWidth = (preset.textStrokeWidth > 0) ? preset.textStrokeWidth : null;
-          conApplyTextStrokeStyle(node.el, node.textStrokeWidth, node.textStrokeColor);
-          // Apply shape
-          conApplyNodeShape(node, preset.shape || 'rectangle');
-          if (node.id === conCtxNodeId) conSyncShapeButtons(node);
-          // Apply text formatting
-          const fmt = conGetNodeFmt(node);
-          fmt.bold = !!preset.fmt.bold;
-          fmt.italic = !!preset.fmt.italic;
-          fmt.underline = !!preset.fmt.underline;
-          fmt.strike = !!preset.fmt.strike;
-          conRenderNodeLabel(node);
-          if (node.id === conCtxNodeId) conSyncFmtButtons(node);
-        });
-        conRedrawEdges();
-        // Refresh active indicator on preset buttons
-        _conSyncPresetButtons();
+        const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        const styledNodes = [];
+        try {
+          ids.forEach(id => {
+            const node = conNodes.find(n => n.id === id);
+            if (!node || conIsNodeLocked(node)) return;
+            node.el.style.background = preset.bg;
+            node.el.style.color = preset.color;
+            node.el.style.borderColor = preset.borderColor;
+            node.borderWidth = preset.borderWidth;
+            node.borderStyle = preset.borderStyle;
+            node.highlight = preset.highlight || null;
+            node.preset = preset.key;
+            node.fontFamily = preset.fontFamily || null;
+            node.el.style.fontFamily = preset.fontFamily || '';
+            if (preset.fontSize != null) conSetNodeBaseFontSize(node, Number(preset.fontSize));
+            // Apply text stroke
+            node.textStrokeColor = (preset.textStrokeWidth > 0 && preset.textStrokeColor) ? preset.textStrokeColor : null;
+            node.textStrokeWidth = (preset.textStrokeWidth > 0) ? preset.textStrokeWidth : null;
+            conApplyTextStrokeStyle(node.el, node.textStrokeWidth, node.textStrokeColor);
+            // Apply shape
+            conApplyNodeShape(node, preset.shape || 'rectangle');
+            if (node.id === conCtxNodeId) conSyncShapeButtons(node);
+            // Apply text formatting
+            const fmt = conGetNodeFmt(node);
+            fmt.bold = !!preset.fmt.bold;
+            fmt.italic = !!preset.fmt.italic;
+            fmt.underline = !!preset.fmt.underline;
+            fmt.strike = !!preset.fmt.strike;
+            conRenderNodeLabel(node);
+            if (node.id === conCtxNodeId) conSyncFmtButtons(node);
+            styledNodes.push(node);
+          });
+          conRedrawEdges();
+          // Refresh active indicator on preset buttons
+          _conSyncPresetButtons();
+          if (!isMirrorWin && styledNodes.length && typeof window._conMirrorSend === 'function' && typeof window.conSerializeNodeForMirror === 'function') {
+            window._conMirrorSend({
+              type: 'nodes-style',
+              nodes: styledNodes.map(window.conSerializeNodeForMirror).filter(Boolean),
+              revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+            });
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       }
       window.conApplyNodePreset = conApplyNodePreset;
       window.conGetNodePresets = conGetNodePresets;
@@ -2352,9 +2370,6 @@
             if (isLaser && _ld) {
               var wasTr = _lt; _ld = false; _lt = false;
               if (!wasTr) { var p = _normBrd(e.clientX, e.clientY); window._conMirrorSend({ type: 'laser-mark', nx: p.nx, ny: p.ny }); }
-            } else {
-              // Flush mirror after resize / drag operations settle
-              _mirrorBroadcast();
             }
           });
           document.addEventListener('dblclick', function (e) {

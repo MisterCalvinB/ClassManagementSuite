@@ -454,8 +454,7 @@
                   positions: _dragMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y }))
                 });
               }
-              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
-              if (window.conRedrawEdges) window.conRedrawEdges();
+              if (window.conRedrawEdges) window.conRedrawEdges({ preserveSizeCache: true });
             } else if (!_hasActuallyMoved && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
               const _totalOther = (conDrawingSelected.size > 1 ? conDrawingSelected.size - 1 : 0) + _dragNodeSnaps.length + _dragNoteSnaps.length + _dragShapeSnaps.length + _dragTableSnaps.length + _dragMediaSnaps.length;
               if (_totalOther > 0) {
@@ -538,8 +537,7 @@
             });
           }
           if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
-          if (window.conRedrawEdges) window.conRedrawEdges();
+          if (window.conRedrawEdges) window.conRedrawEdges({ preserveSizeCache: true });
           pDragging = false;
           setTimeout(() => {
             window._conMirrorDragging = false;

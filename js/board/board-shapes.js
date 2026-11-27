@@ -811,7 +811,6 @@
               if (_shapeMediaSnaps.length > 0) {
                 window._conMirrorSend({ type: 'media-move', positions: _shapeMediaSnaps.map(({ m }) => ({ id: m.id, x: m.x, y: m.y })) });
               }
-              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
             } else if (!_hasActuallyMoved && ev && !ev.shiftKey && !ev.ctrlKey && !ev.metaKey) {
               const _totalOther = (_conShapeSelected.size > 1 ? _conShapeSelected.size - 1 : 0) + _shapeNodeSnaps.length + _shapeNoteSnaps.length + _shapeDrawSnaps.length + _shapeTableSnaps.length + _shapeMediaSnaps.length;
               if (_totalOther > 0) {

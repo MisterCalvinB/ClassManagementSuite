@@ -160,6 +160,21 @@
       }
     }
 
+    function _conSendNoteTextMicro(noteData) {
+      if (!noteData || !noteData.id || typeof window._conMirrorSend !== 'function') return;
+      window._conMirrorSend({
+        type: 'note-text',
+        id: String(noteData.id),
+        html: noteData.html,
+        text: noteData.text,
+        baseWidth: noteData.liveBaseWidth,
+        baseHeight: noteData.liveBaseHeight,
+        width: noteData.width || noteData.liveBaseWidth,
+        height: noteData.height || noteData.liveBaseHeight,
+        manualSize: !!noteData.manualSize
+      });
+    }
+
     function conScheduleNoteMirrorUpdate(noteData, editor) {
       conCancelNoteMirrorUpdate();
       _conNoteMirrorSyncTimer = setTimeout(() => {
@@ -167,9 +182,7 @@
         if (noteData && editor) {
           wnSyncNoteDataFromEditor(noteData, editor);
           conNoteAutosize(editor, noteData);
-        }
-        if (typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast();
+          _conSendNoteTextMicro(noteData);
         }
       }, 100);
     }
@@ -623,61 +636,124 @@
       });
     }
 
-    function wnDeleteNoteData(nd) {
-      if (!nd) return;
-      document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
-      conCancelNoteMirrorUpdate();
-      if (_conNoteCtxData && _conNoteCtxData.id === nd.id) _conNoteCtxData = null;
-      if (nd.id && nd.id.startsWith('cn')) {
-        conNotes = conNotes.filter(n => n.id !== nd.id);
-        window.conNotes = global.conNotes = conNotes;
-        if (nd.nodeId) {
-          const allNodes = (typeof conGetNodes === 'function') ? conGetNodes() : (window.conGetNodes ? window.conGetNodes() : []);
-          const linkedNode = allNodes.find(n => n.id === nd.nodeId);
-          if (linkedNode && linkedNode.el) {
-            const stillHas = conNotes.some(n => n.nodeId === nd.nodeId);
-            if (!stillHas) linkedNode.el.classList.remove('has-con-note');
-            if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
-          }
+    let _pendingMirrorNoteRemoveIds = [];
+    let _pendingMirrorNoteRemoveScheduled = false;
+    let _pendingMirrorNoteRemoveTimer = null;
+    let _pendingMirrorNoteRemoveHadExternalSuppress = false;
+    let _pendingMirrorNoteRemoveHoldingMicro = false;
+
+    function _conQueueMirrorNoteRemove(id, hadExternalSuppress) {
+      if (id == null || id === '') return;
+      if (!_pendingMirrorNoteRemoveScheduled && _pendingMirrorNoteRemoveTimer === null) {
+        _pendingMirrorNoteRemoveHadExternalSuppress = !!hadExternalSuppress;
+        if (!_pendingMirrorNoteRemoveHadExternalSuppress && !_pendingMirrorNoteRemoveHoldingMicro) {
+          _pendingMirrorNoteRemoveHoldingMicro = true;
+          window._conMicroSuppressCount = (window._conMicroSuppressCount || 0) + 1;
         }
-        const allGroups = (typeof conGroups !== 'undefined') ? conGroups : (window.conGetGroups ? window.conGetGroups() : []);
-        if (Array.isArray(allGroups)) {
-          allGroups.forEach(g => {
-            if (Array.isArray(g.noteIds) && g.noteIds.includes(nd.id)) {
-              g.noteIds = g.noteIds.filter(id => id !== nd.id);
-            }
+      }
+      _pendingMirrorNoteRemoveIds.push(String(id));
+      if (_pendingMirrorNoteRemoveScheduled) return;
+      _pendingMirrorNoteRemoveScheduled = true;
+      Promise.resolve().then(() => {
+        _pendingMirrorNoteRemoveScheduled = false;
+        const ids = Array.from(new Set(_pendingMirrorNoteRemoveIds.splice(0)));
+        if (ids.length && typeof window._conMirrorSend === 'function') {
+          const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+          window._conMirrorSend({
+            type: 'notes-remove',
+            ids: ids,
+            revision: rev
           });
         }
-      } else {
-        taWordNotes = taWordNotes.filter(n => n.id !== nd.id);
-        const tok = taFindToken(nd.tokId);
-        if (tok) tok.note = '';
-        const cell = document.querySelector(`.ta-cell[data-id="${nd.tokId}"]`);
-        if (cell) cell.classList.remove('has-word-note');
-      }
-      if (_wnActiveNote && _wnActiveNote.id === nd.id) wnStyleDismiss();
-      if (_wnCtxNoteData && _wnCtxNoteData.id === nd.id) wnCtxClose();
-      if (typeof _boardSttTargetNote !== 'undefined' && _boardSttTargetNote && _boardSttTargetNote.id === nd.id) {
-        if (typeof boardStopDictation === 'function') boardStopDictation();
-      }
-      const noteEl = wnGetNoteElementById(nd.id);
-      if (noteEl) noteEl.remove();
-      const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
-      if (Array.isArray(edgesArr)) {
-        for (let i = edgesArr.length - 1; i >= 0; i--) {
-          const e = edgesArr[i];
-          if (e && (e.a === nd.id || e.b === nd.id)) {
-            if (e.g && e.g.remove) e.g.remove();
-            edgesArr.splice(i, 1);
-          }
+        if (_pendingMirrorNoteRemoveTimer !== null) {
+          clearTimeout(_pendingMirrorNoteRemoveTimer);
         }
-        if (typeof window !== 'undefined') window.conEdges = edgesArr;
-        if (typeof global !== 'undefined') global.conEdges = edgesArr;
-        conEdges = edgesArr;
-        if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
+        _pendingMirrorNoteRemoveTimer = setTimeout(() => {
+          _pendingMirrorNoteRemoveTimer = null;
+          if (_pendingMirrorNoteRemoveHoldingMicro) {
+            _pendingMirrorNoteRemoveHoldingMicro = false;
+            window._conMicroSuppressCount = Math.max(0, (window._conMicroSuppressCount || 1) - 1);
+          }
+          if (!_pendingMirrorNoteRemoveHadExternalSuppress && !(window._conMicroSuppressCount > 0)) {
+            window._conSuppressMirrorObserver = false;
+          }
+          _pendingMirrorNoteRemoveHadExternalSuppress = false;
+        }, 60);
+      });
+    }
+
+    function wnDeleteNoteData(nd) {
+      if (!nd) return;
+      const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+      const _prevSuppress = !!window._conSuppressMirrorObserver;
+      const _hadExternalSuppress = _prevSuppress && !(window._conMicroSuppressCount > 0);
+      window._conSuppressMirrorObserver = true;
+      let queuedMirrorNoteRemove = false;
+      try {
+        document.querySelectorAll('.con-snap-line').forEach(l => l.remove());
+        conCancelNoteMirrorUpdate();
+        if (_conNoteCtxData && _conNoteCtxData.id === nd.id) _conNoteCtxData = null;
+        if (nd.id && nd.id.startsWith('cn')) {
+          conNotes = conNotes.filter(n => n.id !== nd.id);
+          window.conNotes = global.conNotes = conNotes;
+          if (nd.nodeId) {
+            const allNodes = (typeof conGetNodes === 'function') ? conGetNodes() : (window.conGetNodes ? window.conGetNodes() : []);
+            const linkedNode = allNodes.find(n => n.id === nd.nodeId);
+            if (linkedNode && linkedNode.el) {
+              const stillHas = conNotes.some(n => n.nodeId === nd.nodeId);
+              if (!stillHas) linkedNode.el.classList.remove('has-con-note');
+              if (typeof conUpdateNodeNoteButton === 'function') conUpdateNodeNoteButton(linkedNode);
+            }
+          }
+          const allGroups = (typeof conGroups !== 'undefined') ? conGroups : (window.conGetGroups ? window.conGetGroups() : []);
+          if (Array.isArray(allGroups)) {
+            allGroups.forEach(g => {
+              if (Array.isArray(g.noteIds) && g.noteIds.includes(nd.id)) {
+                g.noteIds = g.noteIds.filter(id => id !== nd.id);
+              }
+            });
+          }
+        } else {
+          taWordNotes = taWordNotes.filter(n => n.id !== nd.id);
+          const tok = taFindToken(nd.tokId);
+          if (tok) tok.note = '';
+          const cell = document.querySelector(`.ta-cell[data-id="${nd.tokId}"]`);
+          if (cell) cell.classList.remove('has-word-note');
+        }
+        if (_wnActiveNote && _wnActiveNote.id === nd.id) wnStyleDismiss();
+        if (_wnCtxNoteData && _wnCtxNoteData.id === nd.id) wnCtxClose();
+        if (typeof _boardSttTargetNote !== 'undefined' && _boardSttTargetNote && _boardSttTargetNote.id === nd.id) {
+          if (typeof boardStopDictation === 'function') boardStopDictation();
+        }
+        const noteEl = wnGetNoteElementById(nd.id);
+        if (noteEl) noteEl.remove();
+        const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
+        if (Array.isArray(edgesArr)) {
+          for (let i = edgesArr.length - 1; i >= 0; i--) {
+            const e = edgesArr[i];
+            if (e && (e.a === nd.id || e.b === nd.id)) {
+              if (e.g && e.g.remove) e.g.remove();
+              edgesArr.splice(i, 1);
+              if (!isMirrorWin && typeof window._conMirrorSend === 'function') {
+                window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+              }
+            }
+          }
+          if (typeof window !== 'undefined') window.conEdges = edgesArr;
+          if (typeof global !== 'undefined') global.conEdges = edgesArr;
+          conEdges = edgesArr;
+          if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges({ preserveSizeCache: true });
+        }
+        if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
+        if (!isMirrorWin && nd.id && String(nd.id).startsWith('cn')) {
+          _conQueueMirrorNoteRemove(nd.id, _hadExternalSuppress);
+          queuedMirrorNoteRemove = true;
+        }
+      } finally {
+        if (!_prevSuppress && !queuedMirrorNoteRemove) {
+          window._conSuppressMirrorObserver = false;
+        }
       }
-      if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-      if (typeof window._conMirrorBroadcast === 'function') window._conMirrorBroadcast();
     }
 
     function wnFocusNoteData(nd) {
@@ -2270,7 +2346,6 @@
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
       else if (window.conRedrawEdges) window.conRedrawEdges();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-      if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
     };
 
     // Convert active/selected note(s) to word node(s)
@@ -2589,9 +2664,6 @@
           manualSize: !!nd.manualSize
         });
       }
-      if (typeof window._conMirrorBroadcast === 'function') {
-        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
-      }
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
       if (typeof conGroupRefitAll === 'function') conGroupRefitAll();
       if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
@@ -2793,35 +2865,45 @@
       }
 
       if (!targetNote.emojiStickers) targetNote.emojiStickers = [];
+      const movedStickers = [];
       secondaryNotes.forEach(sec => {
         if (Array.isArray(sec.emojiStickers) && sec.emojiStickers.length) {
           const dy = (sec.y || 0) - (targetNote.y || 0);
+          targetNote.emojiStickers = targetNote.emojiStickers || [];
           sec.emojiStickers.forEach(stk => {
-            targetNote.emojiStickers.push(Object.assign({}, stk, {
+            const movedStk = Object.assign({}, stk, {
               y: (stk.y || 0) + dy
-            }));
+            });
+            targetNote.emojiStickers.push(movedStk);
+            movedStickers.push(movedStk);
           });
         }
       });
 
+      const removedEdgeIds = [];
+      const reassignedEdges = [];
       const edgesArr = (typeof window !== 'undefined' && window.conEdges) || (typeof global !== 'undefined' && global.conEdges) || conEdges;
       if (Array.isArray(edgesArr)) {
         secondaryNotes.forEach(sec => {
           edgesArr.forEach(e => {
             if (!e) return;
-            if (e.a === sec.id) e.a = targetNote.id;
-            if (e.b === sec.id) e.b = targetNote.id;
+            let changed = false;
+            if (e.a === sec.id) { e.a = targetNote.id; changed = true; }
+            if (e.b === sec.id) { e.b = targetNote.id; changed = true; }
+            if (changed && !reassignedEdges.includes(e)) reassignedEdges.push(e);
           });
         });
         for (let i = edgesArr.length - 1; i >= 0; i--) {
           const e = edgesArr[i];
           if (!e || e.a === e.b) {
+            if (e && e.id != null) removedEdgeIds.push(String(e.id));
             if (e && e.g && e.g.remove) e.g.remove();
             edgesArr.splice(i, 1);
             continue;
           }
           const duplicate = edgesArr.findIndex((o, idx) => idx < i && o && ((o.a === e.a && o.b === e.b) || (o.a === e.b && o.b === e.a)));
           if (duplicate !== -1) {
+            if (e && e.id != null) removedEdgeIds.push(String(e.id));
             if (e.g && e.g.remove) e.g.remove();
             edgesArr.splice(i, 1);
           }
@@ -2898,9 +2980,30 @@
           baseHeight: targetNote.height || targetNote.liveBaseHeight,
           manualSize: !!targetNote.manualSize
         });
-      }
-      if (typeof window._conMirrorBroadcast === 'function') {
-        window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+        movedStickers.forEach(stk => {
+          window._conMirrorSend({ type: 'sticker-add', target: 'note', noteId: String(targetNote.id), sticker: stk });
+        });
+        removedEdgeIds.forEach(eid => {
+          window._conMirrorSend({ type: 'edge-remove', id: eid });
+        });
+        const removedEdgeSet = new Set(removedEdgeIds);
+        reassignedEdges.forEach(e => {
+          if (!e || removedEdgeSet.has(String(e.id))) return;
+          window._conMirrorSend({ type: 'edge-remove', id: String(e.id) });
+          window._conMirrorSend({
+            type: 'edge-add',
+            edge: {
+              id: e.id, a: e.a, b: e.b, type: e.type || 'none', label: e.label || '',
+              labelSize: e.labelSize, labelColor: e.labelColor, labelWeight: e.labelWeight,
+              thickness: e.thickness, dashStyle: e.dashStyle || null,
+              strokeType: e.strokeType, routing: e.routing, curvature: e.curvature,
+              opacity: e.opacity, terminator: e.terminator, animated: !!e.animated,
+              labelBg: e.labelBg, anchorA: e.anchorA, anchorB: e.anchorB,
+              colorMode: e.colorMode, strokeColor: e.strokeColor,
+              points: e.points, avoidObstacles: !!e.avoidObstacles
+            }
+          });
+        });
       }
 
       if (typeof conRedrawEdges === 'function') conRedrawEdges();
@@ -3216,9 +3319,7 @@
       cb.addEventListener('change', () => {
         if (noteData && editor) {
           wnSyncNoteDataFromEditor(noteData, editor);
-          if (typeof window._conMirrorBroadcast === 'function') {
-            window._conMirrorBroadcast();
-          }
+          _conSendNoteTextMicro(noteData);
         }
       });
       cb.dataset.wnCbInit = '1';
@@ -5586,6 +5687,7 @@
     let _pendingMirrorNoteAddScheduled = false;
     let _pendingMirrorNoteAddTimer = null;
     let _pendingMirrorNoteAddHadExternalSuppress = false;
+    let _pendingMirrorNoteAddHoldingMicro = false;
 
     function _conSerializeNoteForMirror(n) {
       if (!n || !n.id) return null;
@@ -5643,6 +5745,10 @@
       if (!noteData || !noteData.id) return;
       if (!_pendingMirrorNoteAddScheduled && _pendingMirrorNoteAddTimer === null) {
         _pendingMirrorNoteAddHadExternalSuppress = !!hadExternalSuppress;
+        if (!_pendingMirrorNoteAddHadExternalSuppress && !_pendingMirrorNoteAddHoldingMicro) {
+          _pendingMirrorNoteAddHoldingMicro = true;
+          window._conMicroSuppressCount = (window._conMicroSuppressCount || 0) + 1;
+        }
       }
       _pendingMirrorNoteAddList.push(noteData);
       if (_pendingMirrorNoteAddScheduled) return;
@@ -5673,7 +5779,11 @@
         }
         _pendingMirrorNoteAddTimer = setTimeout(() => {
           _pendingMirrorNoteAddTimer = null;
-          if (!_pendingMirrorNoteAddHadExternalSuppress) {
+          if (_pendingMirrorNoteAddHoldingMicro) {
+            _pendingMirrorNoteAddHoldingMicro = false;
+            window._conMicroSuppressCount = Math.max(0, (window._conMicroSuppressCount || 1) - 1);
+          }
+          if (!_pendingMirrorNoteAddHadExternalSuppress && !(window._conMicroSuppressCount > 0)) {
             window._conSuppressMirrorObserver = false;
           }
           _pendingMirrorNoteAddHadExternalSuppress = false;
@@ -5896,9 +6006,6 @@
         _flushNoteTextImmediate();
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
           wnSyncAndBroadcastNoteSelection(true);
-        }
-        if (typeof window._conMirrorBroadcast === 'function') {
-          window._conMirrorBroadcast();
         }
       });
       ta.addEventListener('mouseup', () => wnRememberSelection(ta));
@@ -6426,7 +6533,7 @@
 
       const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
       const _prevSuppress = !!window._conSuppressMirrorObserver;
-      const _hadExternalSuppress = _prevSuppress && !_pendingMirrorNoteAddScheduled && _pendingMirrorNoteAddTimer === null;
+      const _hadExternalSuppress = _prevSuppress && !(window._conMicroSuppressCount > 0);
       window._conSuppressMirrorObserver = true;
       let queuedMirrorNoteAdd = false;
       try {
@@ -6977,8 +7084,6 @@
           }
           if (_preDragSnap && typeof conPushUndo === 'function') conPushUndo(_preDragSnap);
           if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
-          // Full mirror sync with revision bumped
-          if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
         } else if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
           const totalOther = (conNoteSelected.size > 1 ? conNoteSelected.size - 1 : 0) + _nodeOffsets.length + _drawOffsets.length + _shapeOffsets.length + _tableOffsets.length + _mediaOffsets.length;
           if (totalOther > 0) {

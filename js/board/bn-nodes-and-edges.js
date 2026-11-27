@@ -766,7 +766,18 @@
                   toAdd.forEach(nid => hitGroup.nodeIds.push(nid));
                   requestAnimationFrame(() => {
                     conGroupRefit(hitGroup);
-                    if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true });
+                    if (window._conMirrorSend) {
+                      window._conMirrorSend({
+                        type: 'group-update',
+                        groupId: String(hitGroup.id),
+                        nodeIds: Array.isArray(hitGroup.nodeIds) ? hitGroup.nodeIds.slice() : [],
+                        noteIds: Array.isArray(hitGroup.noteIds) ? hitGroup.noteIds.slice() : [],
+                        drawingIds: Array.isArray(hitGroup.drawingIds) ? hitGroup.drawingIds.slice() : [],
+                        shapeIds: Array.isArray(hitGroup.shapeIds) ? hitGroup.shapeIds.slice() : [],
+                        mediaIds: Array.isArray(hitGroup.mediaIds) ? hitGroup.mediaIds.slice() : [],
+                        revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+                      });
+                    }
                   });
                 } else if (window._conDropNodeToCell) {
                   // Check if dropped inside a table cell
@@ -2814,10 +2825,15 @@
       let _pendingMirrorRemoveScheduled = false;
       let _pendingMirrorRemoveTimer = null;
       let _pendingMirrorRemoveHadExternalSuppress = false;
+      let _pendingMirrorRemoveHoldingMicro = false;
       function _conQueueMirrorNodeRemove(id, hadExternalSuppress) {
         if (id == null || id === '') return;
         if (!_pendingMirrorRemoveScheduled && _pendingMirrorRemoveTimer === null) {
           _pendingMirrorRemoveHadExternalSuppress = !!hadExternalSuppress;
+          if (!_pendingMirrorRemoveHadExternalSuppress && !_pendingMirrorRemoveHoldingMicro) {
+            _pendingMirrorRemoveHoldingMicro = true;
+            window._conMicroSuppressCount = (window._conMicroSuppressCount || 0) + 1;
+          }
         }
         _pendingMirrorRemoveNodeIds.push(String(id));
         if (_pendingMirrorRemoveScheduled) return;
@@ -2838,7 +2854,11 @@
           }
           _pendingMirrorRemoveTimer = setTimeout(() => {
             _pendingMirrorRemoveTimer = null;
-            if (!_pendingMirrorRemoveHadExternalSuppress) {
+            if (_pendingMirrorRemoveHoldingMicro) {
+              _pendingMirrorRemoveHoldingMicro = false;
+              window._conMicroSuppressCount = Math.max(0, (window._conMicroSuppressCount || 1) - 1);
+            }
+            if (!_pendingMirrorRemoveHadExternalSuppress && !(window._conMicroSuppressCount > 0)) {
               window._conSuppressMirrorObserver = false;
             }
             _pendingMirrorRemoveHadExternalSuppress = false;
@@ -2852,7 +2872,7 @@
         if (idx === -1) return;
         const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
         const _prevSuppress = !!window._conSuppressMirrorObserver;
-        const _hadExternalSuppress = _prevSuppress && !_pendingMirrorRemoveScheduled && _pendingMirrorRemoveTimer === null;
+        const _hadExternalSuppress = _prevSuppress && !(window._conMicroSuppressCount > 0);
         window._conSuppressMirrorObserver = true;
         let queuedMirrorRemove = false;
         try {

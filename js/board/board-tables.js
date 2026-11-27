@@ -86,12 +86,6 @@
         }
         function conScheduleTableMirrorUpdate() {
           conCancelTableMirrorUpdate();
-          _conTableMirrorSyncTimer = setTimeout(() => {
-            _conTableMirrorSyncTimer = null;
-            if (typeof window._conMirrorBroadcast === 'function') {
-              window._conMirrorBroadcast();
-            }
-          }, 100);
         }
         window.conScheduleTableMirrorUpdate = conScheduleTableMirrorUpdate;
         window.conCancelTableMirrorUpdate = conCancelTableMirrorUpdate;
@@ -165,9 +159,6 @@
               cell.text = te.textContent || '';
               te.contentEditable = 'false';
               _syncCell();
-              if (typeof window._conMirrorBroadcast === 'function') {
-                window._conMirrorBroadcast();
-              }
             });
             te.addEventListener('keydown', function (e) {
               if (!e || typeof e.key !== 'string') return;
@@ -585,7 +576,6 @@
                 }
               }
               if (_pre) { conPushUndo(_pre); }
-              if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
             } else if (_sx && _sy && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
               const totalOther = (conTableSelected.size > 1 ? conTableSelected.size - 1 : 0) + _tblNodeOffsets.length + _tblNoteOffsets.length + _tblDrawOffsets.length + _tblShapeOffsets.length + _tblMediaOffsets.length;
               if (totalOther > 0) {
