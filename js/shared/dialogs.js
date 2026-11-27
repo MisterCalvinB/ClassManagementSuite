@@ -2106,7 +2106,7 @@
     if (window.ExportRootsService && typeof window.ExportRootsService.promptNewRootFolder === 'function') {
       return window.ExportRootsService.promptNewRootFolder();
     }
-    var label = await _showPrompt(
+    var label = await _dlgPrompt(
       _getExportText('exportNewRootFolderPrompt', 'Enter a name for the new export root folder (created under user/):'),
       ''
     );
