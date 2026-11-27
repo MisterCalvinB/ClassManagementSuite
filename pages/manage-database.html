@@ -19,6 +19,8 @@
   <script src="../js/shared/dialogs.js"></script>
   <script src="../js/shared/export-lang-service.js"></script>
   <script src="../js/shared/wizard.js"></script>
+  <script src="../js/shared/document-wordbank-extractor.js"></script>
+  <script src="../js/shared/document-wordbank-wizard.js"></script>
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/shortcuts-modal.js"></script>
   <script src="../js/shared/menus.js"></script>
@@ -34,6 +36,7 @@
   <script src="../js/pages/mdb-ai-service.js"></script>
   <script src="../js/pages/manage-database-bootstrap.js"></script>
   <link rel="stylesheet" href="../css/manage-database.css">
+  <link rel="stylesheet" href="../css/document-wordbank-wizard.css">
 </head>
 
 <body data-neo-hover-all="1">
@@ -761,8 +764,57 @@
     </div>
   </div>
 
+  <!-- Complete Import Modal -->
+  <div id="mdb-import-modal-bg" class="modal-bg hidden" role="dialog" aria-modal="true" aria-labelledby="mdb-import-modal-title">
+    <div class="modal" style="max-width:680px;width:92%;">
+      <div class="modal-hd">
+        <span id="mdb-import-modal-title" data-i18n="mdbImportModalTitle">Import into Database</span>
+        <button type="button" class="modal-x" id="mdb-import-modal-close"><img src="../assets/icons/close.svg" class="btn-icon btn-icon-xs" alt="Close" /></button>
+      </div>
+      <div class="modal-bd">
+        <div class="mdb-import-grid">
+          <button type="button" class="mdb-import-card is-featured" id="mdb-imp-card-doc-wizard">
+            <div class="mdb-import-card-top">
+              <span class="mdb-import-card-icon"><img src="../assets/icons/book.svg" alt="" /></span>
+              <span class="mdb-import-card-title" data-i18n="mdbImpDocWizTitle">Document to Wordbank Wizard (.epub, .pdf, .txt, .md)</span>
+            </div>
+            <div class="mdb-import-card-desc" data-i18n="mdbImpDocWizDesc">Extract every word from a book, article, or document into a wordbank .js file with occurrence count, percentage, percentile, and example sentences.</div>
+          </button>
+
+          <button type="button" class="mdb-import-card" id="mdb-imp-card-full-tool">
+            <div class="mdb-import-card-top">
+              <span class="mdb-import-card-icon is-blue"><img src="../assets/icons/import-tool.svg" alt="" /></span>
+              <span class="mdb-import-card-title" data-i18n="mdbImpFullToolTitle">Open Import Tool</span>
+            </div>
+            <div class="mdb-import-card-desc" data-i18n="mdbImpFullToolDesc">Column-mapping wizard for CSV, XLSX, JSON, PDF, EPUB, TXT, and MD files across all database types.</div>
+          </button>
+
+          <button type="button" class="mdb-import-card" id="mdb-imp-card-merge">
+            <div class="mdb-import-card-top">
+              <span class="mdb-import-card-icon is-green"><img src="../assets/icons/merge.svg" alt="" /></span>
+              <span class="mdb-import-card-title" data-i18n="mdbBtnMergeFiles">Merge Files</span>
+            </div>
+            <div class="mdb-import-card-desc" data-i18n="mdbImpMergeDesc">Merge records from another existing database file into the currently open database.</div>
+          </button>
+        </div>
+
+        <div class="mdb-import-context">
+          <span id="mdb-import-context-text"></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="mdb-imp-open-studio">
+            <img src="../assets/icons/table.svg" class="btn-icon btn-icon-xs" alt="" />
+            <span data-i18n="mdbImpOpenDataStudio">Data Studio</span>
+          </button>
+        </div>
+      </div>
+      <div class="modal-ft">
+        <button type="button" class="btn btn-secondary" id="mdb-import-modal-cancel" data-i18n="mdbBtnCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/pages/manage-database.js"></script>
   <script src="../js/pages/manage-database-events.js"></script>
+  <script src="../js/pages/manage-database-import-modal.js"></script>
 </body>
 
 </html>

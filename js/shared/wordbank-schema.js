@@ -33,7 +33,10 @@
     hypernym: 'hyper',
     hyponym: 'hypo',
     keywords: 'kw',
-    picture: 'pic'
+    picture: 'pic',
+    occurrences: 'occ',
+    percentage: 'pct',
+    percentile: 'pctl'
   });
 
   // Primary short key + accepted legacy aliases -> canonical field
@@ -69,7 +72,14 @@
     hypo: 'hyponym',
     hpo: 'hyponym',
     kw: 'keywords',
-    pic: 'picture'
+    pic: 'picture',
+    occ: 'occurrences',
+    count: 'occurrences',
+    freq: 'occurrences',
+    frequency: 'occurrences',
+    pct: 'percentage',
+    percent: 'percentage',
+    pctl: 'percentile'
   });
 
   const ARRAY_FIELDS = new Set([

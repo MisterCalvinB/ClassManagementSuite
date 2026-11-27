@@ -5,7 +5,13 @@
     (function () {
       var el = document.querySelector('[data-mdbev-1]');
       if (!el) return;
-      var handler = function (event) { if(window.Desktop&&Desktop.isElectron())Desktop.openTool('import-tool.html') };
+      var handler = function (event) {
+        if (typeof openCompleteImportModal === 'function') {
+          openCompleteImportModal();
+        } else if (window.Desktop && Desktop.isElectron()) {
+          Desktop.openTool('import-tool.html');
+        }
+      };
       el.addEventListener('click', handler);
     })();
     (function () {

@@ -8,6 +8,8 @@
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
+  <link rel="stylesheet" href="../css/wizard.css">
+  <link rel="stylesheet" href="../css/document-wordbank-wizard.css">
   <script src="../modules/xlsx.min.js"></script>
   <script src="../electron-bridge.js"></script>
   <script src="../js/shared/dialogs.js"></script>
@@ -16,8 +18,12 @@
   <script src="../js/shared/shortcuts-modal.js"></script>
   <script src="../js/shared/tutorial.js"></script>
   <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/wizard.js"></script>
+  <script src="../js/shared/links-service.js"></script>
   <script src="../js/shared/import-utils.js"></script>
   <script src="../js/shared/wordbank-schema.js"></script>
+  <script src="../js/shared/document-wordbank-extractor.js"></script>
+  <script src="../js/shared/document-wordbank-wizard.js"></script>
   <script src="../js/import-modules/students.js"></script>
   <script src="../js/import-modules/class-groups.js"></script>
   <script src="../js/import-modules/admin-groups.js"></script>
@@ -190,6 +196,10 @@
                   </select>
                 </div>
               </div>
+              <div id="wb-doc-wizard-shortcut" style="margin-top:12px;padding-top:10px;border-top:1.5px dashed #ccc;display:flex;align-items:center;justify-content:space-between;gap:10px;">
+                <span style="font-size:0.78rem;color:#555;" data-i18n="importWbDocWizHint">Importing a book or text (.epub, .pdf, .txt, .md)?</span>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-open-doc-wb-wizard-modal" data-i18n="mdbImpDocWizShort">Document → Wordbank Wizard</button>
+              </div>
             </div>
 
             <!-- Info summary when no extra fields are required -->
@@ -211,13 +221,18 @@
       <div class="step" id="step-2">
         <div class="step-title" data-i18n="importStep2Title">Choose a file to import</div>
 
+        <div id="wb-doc-wizard-banner" style="display:none;margin-bottom:12px;padding:10px 14px;background:#faf6e6;border:2px solid #333;border-radius:8px;box-shadow:3px 3px 0 #555;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+          <div style="font-size:0.82rem;color:#333;font-weight:600;" data-i18n="importWbDocWizBanner">Want full word-frequency options, stopword filtering, and percentile preview for .epub / .pdf / .txt / .md?</div>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-open-doc-wb-wizard-step2" data-i18n="mdbImpDocWizShort">Document → Wordbank Wizard</button>
+        </div>
+
         <div class="drop-zone" id="drop-zone">
           <div class="drop-icon"></div>
           <div class="drop-main" data-i18n="importStep2Drop">Drop file here or</div>
           <button class="drop-browse" data-ev-10="1" data-i18n="importStep2Browse">Browse</button>
-          <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON, PDF</div>
+          <div class="drop-sub" style="margin-top:10px;" data-i18n="importStep2Supports">Supports CSV, XLSX, JSON, PDF, EPUB, TXT, MD</div>
         </div>
-        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json,.pdf">
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls,.json,.pdf,.epub,.txt,.md,.markdown">
 
         <div class="file-info" id="file-info">
           <span class="file-info-name" id="file-info-name"></span>
@@ -592,6 +607,10 @@
       }
       var wbOpts = document.getElementById('wb-options');
       if (wbOpts) wbOpts.classList.toggle('visible', hasWb);
+      var wbDocShortcut = document.getElementById('wb-doc-wizard-shortcut');
+      if (wbDocShortcut) wbDocShortcut.style.display = (mod && mod.id === 'wordbank') ? 'flex' : 'none';
+      var wbDocBanner = document.getElementById('wb-doc-wizard-banner');
+      if (wbDocBanner) wbDocBanner.style.display = (mod && mod.id === 'wordbank') ? 'flex' : 'none';
       if (hasWb) {
         var pickLabel = document.getElementById('wb-pick-label');
         if (pickLabel) pickLabel.textContent = tt(mod.filePickerLabelKey || 'importWbPickLabel', 'Target file');
@@ -812,7 +831,43 @@
       document.getElementById('file-info').classList.add('visible');
       document.getElementById('drop-zone').classList.add('has-file');
 
+      var ext = (file.name || '').split('.').pop().toLowerCase();
+      var isWordbank = selectedModule && selectedModule.id === 'wordbank';
+      var isDocExt = (ext === 'epub' || ext === 'txt' || ext === 'md' || ext === 'markdown');
+
+      if (isWordbank && isDocExt && window.DocumentWordbankExtractor) {
+        try {
+          var rawRes = await DocumentWordbankExtractor.extractRawTextFromFile(file);
+          var analysis = DocumentWordbankExtractor.analyzeTextToWordbank(rawRes.text || '', {
+            theme: file.name.replace(/\.[^.]+$/, '')
+          });
+          parsedFile = DocumentWordbankExtractor.toTableRows(analysis.entries);
+          buildStartRowControls();
+          buildRawPreview();
+          return;
+        } catch (err) {
+          showError('err-step2', tt('importErrParseFail', 'Could not parse file') + (err && err.message ? ': ' + err.message : ''));
+          parsedFile = null;
+          return;
+        }
+      }
+
       var result = await ImportUtils.parseFile(file);
+      if (isWordbank && ext === 'pdf' && (!result.ok || !result.headers || result.headers.length <= 1) && window.DocumentWordbankExtractor) {
+        try {
+          var pdfRaw = await DocumentWordbankExtractor.extractRawTextFromFile(file);
+          var pdfAnalysis = DocumentWordbankExtractor.analyzeTextToWordbank(pdfRaw.text || '', {
+            theme: file.name.replace(/\.[^.]+$/, '')
+          });
+          if (pdfAnalysis.entries.length) {
+            parsedFile = DocumentWordbankExtractor.toTableRows(pdfAnalysis.entries);
+            buildStartRowControls();
+            buildRawPreview();
+            return;
+          }
+        } catch (_) {}
+      }
+
       if (!result.ok) {
         showError('err-step2', tt('importErrParseFail', 'Could not parse file') + (result.error ? ': ' + result.error : ''));
         parsedFile = null;
@@ -1356,7 +1411,9 @@
           btn.textContent = tt('importBtnOpenDb', 'Open Database');
           btn.style.display = '';
           window.doneAction = function () {
-            if (window.Desktop && Desktop.isElectron()) Desktop.openTool('manage-database.html');
+            var targetPage = (selectedModule && selectedModule.id === 'wordbank') ? 'manage-database.html?type=wordbanks' : 'manage-database.html';
+            if (window.Desktop && Desktop.isElectron()) Desktop.openTool(targetPage);
+            else window.location.href = targetPage;
           };
         }
         goToStep(5);
@@ -2032,6 +2089,36 @@
       if (!el) return;
       el.addEventListener('click', backToDataStudio);
     })();
+    function openDocWordbankWizardFromImportTool() {
+      closeDestConfigModal();
+      if (!window.DocumentWordbankWizard) return;
+      var existingTarget = (wbMode === 'existing' && document.getElementById('wb-existing-select'))
+        ? document.getElementById('wb-existing-select').value
+        : '';
+      window.DocumentWordbankWizard.open({
+        defaultTargetFile: existingTarget,
+        onSaved: function (res) {
+          document.getElementById('done-added').textContent = res.added || 0;
+          document.getElementById('done-updated').textContent = res.updated || 0;
+          document.getElementById('done-skipped').textContent = res.skipped || 0;
+          var btn = document.getElementById('btn-done-action');
+          if (btn) {
+            btn.textContent = tt('importBtnOpenDb', 'Open Database');
+            btn.style.display = '';
+            window.doneAction = function () {
+              var targetPage = 'manage-database.html?type=wordbanks';
+              if (window.Desktop && Desktop.isElectron()) Desktop.openTool(targetPage);
+              else window.location.href = targetPage;
+            };
+          }
+          goToStep(5);
+        }
+      });
+    }
+    var docWizModalBtn = document.getElementById('btn-open-doc-wb-wizard-modal');
+    if (docWizModalBtn) docWizModalBtn.addEventListener('click', openDocWordbankWizardFromImportTool);
+    var docWizStep2Btn = document.getElementById('btn-open-doc-wb-wizard-step2');
+    if (docWizStep2Btn) docWizStep2Btn.addEventListener('click', openDocWordbankWizardFromImportTool);
   });
 </script>
 </body>

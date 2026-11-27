@@ -3682,8 +3682,13 @@
 
       let _pendingMirrorAddNodes = [];
       let _pendingMirrorAddScheduled = false;
-      function _conQueueMirrorNodeAdd(node) {
+      let _pendingMirrorAddTimer = null;
+      let _pendingMirrorAddHadExternalSuppress = false;
+      function _conQueueMirrorNodeAdd(node, hadExternalSuppress) {
         if (!node) return;
+        if (!_pendingMirrorAddScheduled && _pendingMirrorAddTimer === null) {
+          _pendingMirrorAddHadExternalSuppress = !!hadExternalSuppress;
+        }
         _pendingMirrorAddNodes.push(node);
         if (_pendingMirrorAddScheduled) return;
         _pendingMirrorAddScheduled = true;
@@ -3703,12 +3708,23 @@
               });
             }
           }
-          setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          if (_pendingMirrorAddTimer !== null) {
+            clearTimeout(_pendingMirrorAddTimer);
+          }
+          _pendingMirrorAddTimer = setTimeout(() => {
+            _pendingMirrorAddTimer = null;
+            if (!_pendingMirrorAddHadExternalSuppress) {
+              window._conSuppressMirrorObserver = false;
+            }
+            _pendingMirrorAddHadExternalSuppress = false;
+          }, 60);
         });
       }
 
       function conAddWordAt(text, x, y, pageNum) {
+        const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
         const _prevSuppress = !!window._conSuppressMirrorObserver;
+        const _hadExternalSuppress = _prevSuppress && !_pendingMirrorAddScheduled && _pendingMirrorAddTimer === null;
         window._conSuppressMirrorObserver = true;
         let queuedMirrorAdd = false;
         try {
@@ -3735,8 +3751,8 @@
           if (typeof window.conMaybeAutoExpandBoard === 'function') {
             window.conMaybeAutoExpandBoard(y + (el.offsetHeight || 36), { skipSave: true });
           }
-          if (!_prevSuppress) {
-            _conQueueMirrorNodeAdd(node);
+          if (!isMirrorWin && !_hadExternalSuppress) {
+            _conQueueMirrorNodeAdd(node, _hadExternalSuppress);
             queuedMirrorAdd = true;
           }
           return id;

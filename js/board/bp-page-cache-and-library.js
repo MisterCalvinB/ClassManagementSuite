@@ -257,6 +257,7 @@
 
       function conSchedulePreloadPages() {
         _conCancelScheduledPreload();
+        if (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1) return;
         if (typeof conPageSnapshots === 'undefined' || !Array.isArray(conPageSnapshots) || conPageSnapshots.length <= 1) {
           return;
         }

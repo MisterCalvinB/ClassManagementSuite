@@ -90,6 +90,24 @@ window.IMPORT_MODULE_WORDBANK = {
       i18nKey: 'importWbFieldAntonyms',
       required: false,
       autoMatch: ['antonyms', 'antonymes', 'antonyme', 'antonimi', 'antonym', 'opposite', 'contraire', 'ant']
+    },
+    {
+      key: 'occurrences',
+      i18nKey: 'importWbFieldOccurrences',
+      required: false,
+      autoMatch: ['occurrences', 'count', 'frequency', 'freq', 'occ', 'nombre', 'anzahl', 'occorrenze']
+    },
+    {
+      key: 'percentage',
+      i18nKey: 'importWbFieldPercentage',
+      required: false,
+      autoMatch: ['percentage', 'percent', 'pct', 'pourcentage', 'prozentsatz', 'percentuale', '%']
+    },
+    {
+      key: 'percentile',
+      i18nKey: 'importWbFieldPercentile',
+      required: false,
+      autoMatch: ['percentile', 'pctl', 'centile', 'perzentil']
     }
   ],
   conflictKey: function (row) {
@@ -120,10 +138,17 @@ window.IMPORT_MODULE_WORDBANK = {
 
       if (decision === 'skip') { skipped++; return; }
 
-      var optFields = ['sourceLanguage','english','french','german','italian','ipa','partOfSpeech','level','theme','definition','exampleSentence','synonyms','antonyms'];
+      var optFields = ['sourceLanguage','english','french','german','italian','ipa','partOfSpeech','level','theme','definition','exampleSentence','synonyms','antonyms','occurrences','percentage','percentile'];
       var wordObj = { word: wordRaw };
       optFields.forEach(function (key) {
-        if (row[key] !== undefined && row[key] !== '') wordObj[key] = row[key];
+        if (row[key] !== undefined && row[key] !== '') {
+          if (key === 'occurrences' || key === 'percentage' || key === 'percentile') {
+            var num = Number(row[key]);
+            wordObj[key] = Number.isFinite(num) ? num : row[key];
+          } else {
+            wordObj[key] = row[key];
+          }
+        }
       });
       // Default sourceLanguage to 'en' when not mapped
       if (!wordObj.sourceLanguage) wordObj.sourceLanguage = 'en';

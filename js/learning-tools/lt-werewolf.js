@@ -40,6 +40,8 @@
     let wwTurnKillStepEnabledByStep = {};
     let wwTurnAudio = null;
     let wwTurnSoundChoiceResolver = null;
+    let wwShowRolesOnChips = false;
+    let wwExpandedStepOptions = {};
     let wwVoteTimerState = {
       running: false,
       stepKey: '',
@@ -47,6 +49,51 @@
       tickId: null,
       timeoutId: null
     };
+
+    function wwSetActiveTab(tabName) {
+      const isSetup = tabName === 'setup';
+      const playTab = document.getElementById('ww-tab-play');
+      const setupTab = document.getElementById('ww-tab-setup');
+      const playPanel = document.getElementById('ww-panel-play');
+      const setupPanel = document.getElementById('ww-panel-setup');
+      const fixedControls = document.getElementById('ww-fixed-controls');
+
+      if (playTab) {
+        playTab.classList.toggle('active', !isSetup);
+        playTab.setAttribute('aria-selected', String(!isSetup));
+      }
+      if (setupTab) {
+        setupTab.classList.toggle('active', isSetup);
+        setupTab.setAttribute('aria-selected', String(isSetup));
+      }
+      if (playPanel) {
+        playPanel.classList.toggle('hidden', isSetup);
+        playPanel.classList.toggle('active', !isSetup);
+      }
+      if (setupPanel) {
+        setupPanel.classList.toggle('hidden', !isSetup);
+        setupPanel.classList.toggle('active', isSetup);
+      }
+      if (fixedControls) {
+        fixedControls.classList.toggle('hidden', isSetup);
+      }
+    }
+
+    function wwToggleRolesDrawer(forceOpen) {
+      const drawer = document.getElementById('ww-roles-drawer');
+      const btn = document.getElementById('ww-toggle-roles-drawer-btn');
+      if (!drawer) return;
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : drawer.classList.contains('hidden');
+      drawer.classList.toggle('hidden', !shouldOpen);
+      if (btn) btn.setAttribute('aria-expanded', String(shouldOpen));
+      if (shouldOpen) wwPopulateAllPlayers({ notifyIfMissing: false });
+    }
+
+    function wwToggleShowRoles() {
+      const toggle = document.getElementById('ww-show-roles-toggle');
+      wwShowRolesOnChips = !!(toggle && toggle.checked);
+      wwRenderStudents();
+    }
 
     function wwSetStatus(msg, isOk) {
       const el = document.getElementById('ww-save-status');
@@ -246,7 +293,7 @@
         const dragHandle = document.createElement('span');
         dragHandle.className = 'ww-role-drag ww-instr-drag';
         dragHandle.title = 'Drag to reorder';
-        dragHandle.textContent = '⋮⋮';
+        dragHandle.innerHTML = '<img src="../assets/icons/grip.svg" class="btn-icon" alt="" />';
         head.appendChild(dragHandle);
 
         if (isBaseKey) {
@@ -288,7 +335,7 @@
           });
           const delBtn = document.createElement('button');
           delBtn.className = 'action-btn btn-orange';
-          delBtn.textContent = '✕';
+          delBtn.innerHTML = '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />';
           delBtn.title = 'Delete step';
           delBtn.style.marginLeft = 'auto';
           delBtn.addEventListener('click', function () { wwDeleteExtraStep(key); });
@@ -333,16 +380,16 @@
         controls.style.marginTop = '6px';
 
         const upBtn = document.createElement('button');
-        upBtn.className = 'action-btn btn-grey';
+        upBtn.className = 'action-btn btn-grey ww-icon-btn';
         upBtn.title = 'Move up';
-        upBtn.textContent = '↑';
+        upBtn.innerHTML = '<img src="../assets/icons/arrow-up.svg" class="btn-icon" alt="Up" />';
         upBtn.disabled = idx === 0;
         upBtn.addEventListener('click', function () { wwMoveStepOrderItem(key, -1); });
 
         const downBtn = document.createElement('button');
-        downBtn.className = 'action-btn btn-grey';
+        downBtn.className = 'action-btn btn-grey ww-icon-btn';
         downBtn.title = 'Move down';
-        downBtn.textContent = '↓';
+        downBtn.innerHTML = '<img src="../assets/icons/arrow-down.svg" class="btn-icon" alt="Down" />';
         downBtn.disabled = idx === order.length - 1;
         downBtn.addEventListener('click', function () { wwMoveStepOrderItem(key, 1); });
 
@@ -360,7 +407,7 @@
         if (!availableSounds.length) {
           const empty = document.createElement('option');
           empty.value = '';
-          empty.textContent = 'No files found (use ↻ Sounds above)';
+          empty.textContent = 'No sound files found';
           soundSel.appendChild(empty);
         }
         const selectedSound = String(soundMap[key] || '');
@@ -378,14 +425,32 @@
         const soundBtn = document.createElement('button');
         soundBtn.className = 'action-btn btn-orange ww-order-test-btn';
         soundBtn.title = 'Test turn sound';
-        soundBtn.textContent = '🔊';
+        soundBtn.innerHTML = '<img src="../assets/icons/volume.svg" class="btn-icon" alt="Play" />';
         soundBtn.addEventListener('click', function () { wwPlayTurnSoundForKey(key); });
+
+        const hasAdvancedOptions = wwIsTurnSoundChoiceEnabled(key) || wwIsTurnKillStepEnabled(key);
+        const isOptionsOpen = !!wwExpandedStepOptions[key];
+        const optionsBtn = document.createElement('button');
+        optionsBtn.type = 'button';
+        optionsBtn.className = 'action-btn btn-grey ww-step-options-btn' + (hasAdvancedOptions ? ' has-active' : '');
+        optionsBtn.title = 'Step options';
+        optionsBtn.innerHTML = '<img src="../assets/icons/settings.svg" class="btn-icon" alt="" /> Options';
 
         controls.appendChild(upBtn);
         controls.appendChild(downBtn);
         controls.appendChild(soundSel);
         controls.appendChild(soundBtn);
+        controls.appendChild(optionsBtn);
         block.appendChild(controls);
+
+        const optionsPanel = document.createElement('div');
+        optionsPanel.className = 'ww-step-options-panel' + (isOptionsOpen ? '' : ' hidden');
+
+        optionsBtn.addEventListener('click', function () {
+          const nextOpen = optionsPanel.classList.contains('hidden');
+          wwExpandedStepOptions[key] = nextOpen;
+          optionsPanel.classList.toggle('hidden', !nextOpen);
+        });
 
         const choiceControls = document.createElement('div');
         choiceControls.className = 'ww-inline-controls ww-turn-choice-row';
@@ -409,6 +474,7 @@
           const enabled = !!askCheck.checked;
           wwSetTurnSoundChoiceEnabledForStep(key, enabled);
           promptInput.disabled = !enabled;
+          optionsBtn.classList.toggle('has-active', enabled || wwIsTurnKillStepEnabled(key));
         });
 
         promptInput.addEventListener('input', function () {
@@ -418,7 +484,7 @@
         choiceControls.appendChild(askLabel);
         choiceControls.appendChild(askCheck);
         choiceControls.appendChild(promptInput);
-        block.appendChild(choiceControls);
+        optionsPanel.appendChild(choiceControls);
 
         const killControls = document.createElement('div');
         killControls.className = 'ww-inline-controls ww-turn-choice-row';
@@ -431,12 +497,15 @@
         killCheck.type = 'checkbox';
         killCheck.checked = wwIsTurnKillStepEnabled(key);
         killCheck.addEventListener('change', function () {
-          wwSetTurnKillStepEnabledForStep(key, !!killCheck.checked);
+          const enabled = !!killCheck.checked;
+          wwSetTurnKillStepEnabledForStep(key, enabled);
+          optionsBtn.classList.toggle('has-active', enabled || wwIsTurnSoundChoiceEnabled(key));
         });
 
         killControls.appendChild(killLabel);
         killControls.appendChild(killCheck);
-        block.appendChild(killControls);
+        optionsPanel.appendChild(killControls);
+        block.appendChild(optionsPanel);
 
         root.appendChild(block);
       });
@@ -643,8 +712,8 @@
     }
 
     function wwOpenRoleAssignments() {
-      wwPopulateAllPlayers({ notifyIfMissing: true });
-      const root = document.getElementById('ww-picked-players');
+      wwToggleRolesDrawer(true);
+      const root = document.getElementById('ww-roles-drawer');
       if (root && typeof root.scrollIntoView === 'function') {
         root.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
@@ -930,12 +999,12 @@
           placeholder: newInput.placeholder
         };
 
-        titleEl.textContent = isLoad ? '📂 Load Werewolf Setup' : '💾 Save Werewolf Setup';
+        titleEl.textContent = isLoad ? 'Load Werewolf Setup' : 'Save Werewolf Setup';
         hintEl.textContent = isLoad
           ? 'Choose a werewolf setup database to load.'
           : 'Choose a werewolf setup database to save into, or create a new one.';
         newLabel.textContent = 'Database file name';
-        confirmBtn.textContent = isLoad ? '📂 Load' : '💾 Save';
+        confirmBtn.textContent = isLoad ? 'Load' : 'Save';
         newInput.placeholder = 'e.g. werewolf-grade9.js';
 
         const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -943,9 +1012,9 @@
         const radioName = 'cdbp-file-ww';
 
         listEl.innerHTML = existingFiles.map(fn =>
-          '<label class="cdbp-file-item"><input type="radio" name="' + radioName + '" value="' + esc(fn) + '"><span>📄 ' + esc(fn) + '</span></label>'
+          '<label class="cdbp-file-item"><input type="radio" name="' + radioName + '" value="' + esc(fn) + '"><span>' + esc(fn) + '</span></label>'
         ).join('') + (allowNew
-          ? '<label class="cdbp-file-item cdbp-new-item"><input type="radio" name="' + radioName + '" value="__new__"><span>✨ New file...</span></label>'
+          ? '<label class="cdbp-file-item cdbp-new-item"><input type="radio" name="' + radioName + '" value="__new__"><span>New file...</span></label>'
           : '');
 
         newInput.value = allowNew ? wwNormalizeConfigLeafName(currentLeaf || 'werewolf-custom.js') : '';
@@ -1010,7 +1079,7 @@
           if (allowNew && selected.value === '__new__') {
             const normalized = wwNormalizeConfigLeafName(newInput.value);
             if (!normalized) {
-              newErr.textContent = '⚠ Enter a valid file name (letters, numbers, spaces, hyphens, dots).';
+              newErr.textContent = 'Enter a valid file name (letters, numbers, spaces, hyphens, dots).';
               newInput.focus();
               return;
             }
@@ -1235,11 +1304,13 @@
 
     function wwRenderStudents() {
       const container = document.getElementById('ww-student-list');
+      const countEl = document.getElementById('ww-player-counts');
       if (!container) return;
       container.innerHTML = '';
 
       const students = wwGetActiveRoster();
       if (!students.length) {
+        if (countEl) countEl.textContent = '0 Alive';
         const p = document.createElement('p');
         p.className = 'ww-student-empty';
         p.textContent = 'Select a class to load students.';
@@ -1250,19 +1321,41 @@
       }
 
       const deadMap = wwDeadByGroup[wwCurrentGroup] || {};
+      let aliveCount = 0;
+      let deadCount = 0;
+
       students.forEach(student => {
         const isDead = !!deadMap[student];
+        if (isDead) deadCount += 1;
+        else aliveCount += 1;
+
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'ww-student-chip' + (isDead ? ' dead' : '');
-        if (isDead) {
-          const role = wwGetPlayerRole(student);
-          btn.textContent = role ? (student + ' (' + role + ')') : student;
+        const role = wwGetPlayerRole(student);
+        if (isDead || (wwShowRolesOnChips && role)) {
+          const nameSpan = document.createElement('span');
+          nameSpan.textContent = student;
+          btn.appendChild(nameSpan);
+          if (role) {
+            const roleSpan = document.createElement('span');
+            roleSpan.className = 'ww-chip-role';
+            roleSpan.textContent = role;
+            btn.appendChild(roleSpan);
+          }
         } else {
           btn.textContent = student;
         }
         btn.onclick = () => wwToggleStudentDead(student);
         container.appendChild(btn);
       });
+
+      if (countEl) {
+        countEl.textContent = deadCount > 0
+          ? (aliveCount + ' Alive / ' + deadCount + ' Eliminated')
+          : (aliveCount + ' Alive');
+      }
+
       wwRenderKillPickerForCurrentStep();
       wwBroadcastPresentation();
     }
@@ -2196,13 +2289,23 @@
       if (!progress) return;
       progress.innerHTML = '';
       wwSteps.forEach((step, idx) => {
-        const el = document.createElement('span');
+        const el = document.createElement('button');
+        el.type = 'button';
         el.className = 'ww-step';
         if (idx < wwCurrentStep) el.classList.add('done');
         if (idx === wwCurrentStep) el.classList.add('active');
         el.textContent = step.title;
+        el.title = 'Jump to ' + step.title;
+        el.addEventListener('click', function () { wwJumpToStep(idx); });
         progress.appendChild(el);
       });
+    }
+
+    function wwUpdateStepSoundReplayBtn(step) {
+      const btn = document.getElementById('ww-play-step-sound-btn');
+      if (!btn) return;
+      const hasSound = !!(step && step.key && wwGetTurnSoundForStep(step.key));
+      btn.classList.toggle('hidden', !hasSound);
     }
 
     function wwRenderCurrentStep() {
@@ -2213,8 +2316,9 @@
 
       if (wwCurrentStep < 0 || wwCurrentStep >= wwSteps.length) {
         titleEl.textContent = 'Round Complete';
-        msgEl.textContent = 'Click Start Night to run another cycle, or edit instructions first.';
+        msgEl.textContent = 'Click Start Night to run another cycle, or edit instructions in Setup & Script.';
         counterEl.textContent = 'Round complete';
+        wwUpdateStepSoundReplayBtn(null);
         wwRenderKillPickerForCurrentStep();
         wwAnimateTurnCard();
         wwRenderProgress();
@@ -2225,12 +2329,39 @@
       const step = wwSteps[wwCurrentStep];
       titleEl.textContent = step.title;
       msgEl.textContent = step.text;
+      wwUpdateStepSoundReplayBtn(step);
       wwScheduleVoteTimer();
       counterEl.textContent = wwGetTurnCounterText();
       wwRenderKillPickerForCurrentStep();
       wwAnimateTurnCard();
       wwRenderProgress();
       wwBroadcastPresentation();
+    }
+
+    async function wwJumpToStep(index) {
+      if (!wwSteps.length) wwBuildSteps();
+      const idx = parseInt(index, 10);
+      if (!Number.isFinite(idx) || idx < 0 || idx >= wwSteps.length) return;
+      wwStopAutoAdvance();
+      wwStopVoteTimer();
+      wwCurrentStep = idx;
+      wwRenderCurrentStep();
+      await wwMaybePlayCurrentTurnSound();
+      wwScheduleAutoAdvance();
+    }
+
+    async function wwPrevTurn() {
+      if (!wwSteps.length) wwBuildSteps();
+      wwStopAutoAdvance();
+      wwStopVoteTimer();
+      if (wwCurrentStep <= 0) {
+        wwResetRound();
+        return;
+      }
+      wwCurrentStep = Math.min(wwSteps.length - 1, wwCurrentStep - 1);
+      wwRenderCurrentStep();
+      await wwMaybePlayCurrentTurnSound();
+      wwScheduleAutoAdvance();
     }
 
     async function wwStartNight() {
@@ -2274,12 +2405,29 @@
       if (titleEl) titleEl.textContent = 'Moderator';
       if (msgEl) msgEl.textContent = 'Click Start Night to begin the sequence.';
       if (counterEl) counterEl.textContent = 'Ready to start';
+      wwUpdateStepSoundReplayBtn(null);
       wwRenderKillPickerForCurrentStep();
       wwRenderProgress();
       wwAnimateTurnCard();
     }
 
+    function wwBindSimplifiedUiEvents() {
+      const bind = (id, evt, fn) => {
+        const el = document.getElementById(id);
+        if (!el || el.dataset.wwBound === '1') return;
+        el.dataset.wwBound = '1';
+        el.addEventListener(evt, fn);
+      };
+      bind('ww-tab-play', 'click', function () { wwSetActiveTab('play'); });
+      bind('ww-tab-setup', 'click', function () { wwSetActiveTab('setup'); });
+      bind('ww-prev-turn-btn', 'click', function () { wwPrevTurn(); });
+      bind('ww-play-step-sound-btn', 'click', function () { wwPlayCurrentTurnSound(); });
+      bind('ww-show-roles-toggle', 'change', function () { wwToggleShowRoles(); });
+      bind('ww-toggle-roles-drawer-btn', 'click', function () { wwToggleRolesDrawer(); });
+    }
+
     function wwInit() {
+      wwBindSimplifiedUiEvents();
       wwBootProjectionReceiverIfNeeded();
       wwLoadDeadState();
       wwLoadAutoSettings();

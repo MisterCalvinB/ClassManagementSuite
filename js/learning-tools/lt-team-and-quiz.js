@@ -1929,24 +1929,24 @@
         root.id = 'ww-projector-root';
         root.innerHTML = ''
           + '<div class="ww-proj-topline">'
-          + '  <span id="ww-proj-class">Class</span>'
-          + '  <span id="ww-proj-turn">Turn</span>'
+          + '  <span class="ww-proj-badge" id="ww-proj-class">Class</span>'
+          + '  <span class="ww-proj-badge ww-proj-badge-turn" id="ww-proj-turn">Turn</span>'
           + '</div>'
-          + '<div>'
+          + '<div class="ww-proj-hero">'
           + '  <div class="ww-proj-title" id="ww-proj-title">Werewolf</div>'
           + '  <div class="ww-proj-message" id="ww-proj-message">Waiting for moderator...</div>'
+          + '  <div class="ww-proj-progress" id="ww-proj-progress"></div>'
           + '</div>'
           + '<div class="ww-proj-columns">'
-          + '  <div class="ww-proj-panel">'
-          + '    <h4>Alive</h4>'
+          + '  <div class="ww-proj-panel ww-proj-panel-alive">'
+          + '    <h4 id="ww-proj-alive-heading">Alive</h4>'
           + '    <div class="ww-proj-list" id="ww-proj-alive"></div>'
           + '  </div>'
-          + '  <div class="ww-proj-panel">'
-          + '    <h4>Eliminated</h4>'
+          + '  <div class="ww-proj-panel ww-proj-panel-dead">'
+          + '    <h4 id="ww-proj-dead-heading">Eliminated</h4>'
           + '    <div class="ww-proj-list" id="ww-proj-dead"></div>'
           + '  </div>'
-          + '</div>'
-          + '<div class="ww-proj-progress" id="ww-proj-progress"></div>';
+          + '</div>';
         document.body.appendChild(root);
       }
 
@@ -1959,6 +1959,8 @@
       const turnEl = document.getElementById('ww-proj-turn');
       const titleEl = document.getElementById('ww-proj-title');
       const msgEl = document.getElementById('ww-proj-message');
+      const aliveHeading = document.getElementById('ww-proj-alive-heading');
+      const deadHeading = document.getElementById('ww-proj-dead-heading');
       const aliveEl = document.getElementById('ww-proj-alive');
       const deadEl = document.getElementById('ww-proj-dead');
       const progressEl = document.getElementById('ww-proj-progress');
@@ -1967,6 +1969,8 @@
       if (turnEl) turnEl.textContent = safeState.turnLabel || 'Ready';
       if (titleEl) titleEl.textContent = safeState.title || 'Werewolf';
       if (msgEl) msgEl.textContent = safeState.message || 'Waiting for moderator...';
+      if (aliveHeading) aliveHeading.textContent = 'Alive (' + alive.length + ')';
+      if (deadHeading) deadHeading.textContent = 'Eliminated (' + dead.length + ')';
 
       if (aliveEl) {
         aliveEl.innerHTML = alive.length

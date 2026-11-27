@@ -2812,14 +2812,19 @@
 
       let _pendingMirrorRemoveNodeIds = [];
       let _pendingMirrorRemoveScheduled = false;
-      function _conQueueMirrorNodeRemove(id) {
-        if (!id) return;
+      let _pendingMirrorRemoveTimer = null;
+      let _pendingMirrorRemoveHadExternalSuppress = false;
+      function _conQueueMirrorNodeRemove(id, hadExternalSuppress) {
+        if (id == null || id === '') return;
+        if (!_pendingMirrorRemoveScheduled && _pendingMirrorRemoveTimer === null) {
+          _pendingMirrorRemoveHadExternalSuppress = !!hadExternalSuppress;
+        }
         _pendingMirrorRemoveNodeIds.push(String(id));
         if (_pendingMirrorRemoveScheduled) return;
         _pendingMirrorRemoveScheduled = true;
         Promise.resolve().then(() => {
           _pendingMirrorRemoveScheduled = false;
-          const ids = _pendingMirrorRemoveNodeIds.splice(0);
+          const ids = Array.from(new Set(_pendingMirrorRemoveNodeIds.splice(0)));
           if (ids.length && typeof window._conMirrorSend === 'function') {
             const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
             window._conMirrorSend({
@@ -2828,24 +2833,35 @@
               revision: rev
             });
           }
-          setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          if (_pendingMirrorRemoveTimer !== null) {
+            clearTimeout(_pendingMirrorRemoveTimer);
+          }
+          _pendingMirrorRemoveTimer = setTimeout(() => {
+            _pendingMirrorRemoveTimer = null;
+            if (!_pendingMirrorRemoveHadExternalSuppress) {
+              window._conSuppressMirrorObserver = false;
+            }
+            _pendingMirrorRemoveHadExternalSuppress = false;
+          }, 60);
         });
       }
 
       function conRemoveNode(id) {
-        const idx = conNodes.findIndex(n => n.id === id);
+        const sid = id != null ? String(id) : '';
+        const idx = conNodes.findIndex(n => n && (n.id === id || String(n.id) === sid));
         if (idx === -1) return;
         const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
         const _prevSuppress = !!window._conSuppressMirrorObserver;
+        const _hadExternalSuppress = _prevSuppress && !_pendingMirrorRemoveScheduled && _pendingMirrorRemoveTimer === null;
         window._conSuppressMirrorObserver = true;
         let queuedMirrorRemove = false;
         try {
-          conNodes[idx].el.remove();
+          if (conNodes[idx].el) conNodes[idx].el.remove();
           conNodes.splice(idx, 1);
           // Remove connected edges in-place to preserve array references across modules
           for (let i = conEdges.length - 1; i >= 0; i--) {
             const e = conEdges[i];
-            if (e && (e.a === id || e.b === id)) {
+            if (e && (e.a === id || e.b === id || String(e.a) === sid || String(e.b) === sid)) {
               if (e.g && e.g.remove) e.g.remove();
               conEdges.splice(i, 1);
             }
@@ -2853,10 +2869,10 @@
           window.conEdges = global.conEdges = conEdges;
           // Remove from any group
           conGroupRemoveNode(id);
-          if (conSelected === id) conSelect(null);
-          if (conConnSrc === id) conConnSrc = null;
-          if (!isMirrorWin && !_prevSuppress) {
-            _conQueueMirrorNodeRemove(id);
+          if (conSelected === id || String(conSelected) === sid) conSelect(null);
+          if (conConnSrc === id || String(conConnSrc) === sid) conConnSrc = null;
+          if (!isMirrorWin) {
+            _conQueueMirrorNodeRemove(id, _hadExternalSuppress);
             queuedMirrorRemove = true;
           }
         } finally {

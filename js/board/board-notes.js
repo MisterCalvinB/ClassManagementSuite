@@ -76,6 +76,7 @@
   function wnRenderMathHtml(html) {
     const source = String(html || '');
     if (!source || typeof document === 'undefined') return source;
+    if (source.indexOf('$') === -1) return source;
     if (typeof katex === 'undefined' || !katex || typeof katex.renderToString !== 'function') return source;
 
     const root = document.createElement('div');
@@ -5581,6 +5582,105 @@
       else if (typeof window.conRedrawEdges === 'function') window.conRedrawEdges();
     }
 
+    let _pendingMirrorNoteAddList = [];
+    let _pendingMirrorNoteAddScheduled = false;
+    let _pendingMirrorNoteAddTimer = null;
+    let _pendingMirrorNoteAddHadExternalSuppress = false;
+
+    function _conSerializeNoteForMirror(n) {
+      if (!n || !n.id) return null;
+      const zoom = (typeof window.conGetZoom === 'function' ? window.conGetZoom() : 1) || 1;
+      const w = Number(n.liveBaseWidth != null ? n.liveBaseWidth : (n.width != null ? n.width : n.w)) || 120;
+      const h = Number(n.liveBaseHeight != null ? n.liveBaseHeight : (n.height != null ? n.height : n.h)) || 40;
+      return {
+        id: n.id,
+        nodeId: n.nodeId || null,
+        text: n.text || '',
+        html: n.html || '',
+        x: Number(n.x) || 0,
+        y: Number(n.y) || 0,
+        w: w,
+        h: h,
+        liveBaseWidth: w,
+        liveBaseHeight: h,
+        color: n.color || '#111111',
+        bg: n.bg || '#ffffff',
+        fontSize: n.fontSize || 14,
+        fontFamily: n.fontFamily || null,
+        bold: !!n.bold,
+        italic: !!n.italic,
+        underline: !!n.underline,
+        wavy: !!n.wavy,
+        casing: n.casing || null,
+        strike: !!n.strike,
+        hidden: !!n.hidden,
+        locked: !!n.locked,
+        lockRatio: !!n.lockRatio,
+        manualSize: !!n.manualSize,
+        width: w,
+        height: h,
+        styleWidth: w,
+        styleHeight: h,
+        emojiStickers: Array.isArray(n.emojiStickers)
+          ? n.emojiStickers.map(s => ({ id: s.id, emoji: s.emoji, x: Number(s.x) || 0, y: Number(s.y) || 0, size: Number(s.size) || 32 }))
+          : [],
+        borderWidth: n.borderWidth || null,
+        borderStyle: n.borderStyle || null,
+        borderColor: n.borderColor || null,
+        preset: n.preset || null,
+        blink: !!n.blink,
+        anim: n.anim || '',
+        revealAnim: n.revealAnim || '',
+        studentInput: !!n.studentInput,
+        textAlign: n.textAlign || null,
+        noteNumber: n.noteNumber != null ? n.noteNumber : null,
+        noteNumberFormat: n.noteNumberFormat || null,
+        _zoom: zoom
+      };
+    }
+
+    function _conQueueMirrorNoteAdd(noteData, hadExternalSuppress) {
+      if (!noteData || !noteData.id) return;
+      if (!_pendingMirrorNoteAddScheduled && _pendingMirrorNoteAddTimer === null) {
+        _pendingMirrorNoteAddHadExternalSuppress = !!hadExternalSuppress;
+      }
+      _pendingMirrorNoteAddList.push(noteData);
+      if (_pendingMirrorNoteAddScheduled) return;
+      _pendingMirrorNoteAddScheduled = true;
+      Promise.resolve().then(() => {
+        _pendingMirrorNoteAddScheduled = false;
+        const batch = _pendingMirrorNoteAddList.splice(0);
+        const seen = new Set();
+        const serializedNotes = [];
+        batch.forEach(nd => {
+          if (!nd || !nd.id) return;
+          const sid = String(nd.id);
+          if (seen.has(sid)) return;
+          seen.add(sid);
+          const s = _conSerializeNoteForMirror(nd);
+          if (s) serializedNotes.push(s);
+        });
+        if (serializedNotes.length && typeof window._conMirrorSend === 'function') {
+          const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+          window._conMirrorSend({
+            type: 'board-paste',
+            revision: rev,
+            notes: serializedNotes
+          });
+        }
+        if (_pendingMirrorNoteAddTimer !== null) {
+          clearTimeout(_pendingMirrorNoteAddTimer);
+        }
+        _pendingMirrorNoteAddTimer = setTimeout(() => {
+          _pendingMirrorNoteAddTimer = null;
+          if (!_pendingMirrorNoteAddHadExternalSuppress) {
+            window._conSuppressMirrorObserver = false;
+          }
+          _pendingMirrorNoteAddHadExternalSuppress = false;
+        }, 60);
+      });
+    }
+
     function conNoteBuild(noteData) {
       const board = document.getElementById('constellation-board');
       if (!board) return;
@@ -5735,24 +5835,51 @@
       }
       noteData._updateContent = updateNoteContent;
 
+      let _noteTextMirrorRaf = null;
+      let _pendingNoteTextPayload = null;
+      function _buildNoteTextPayload() {
+        return {
+          type: 'note-text',
+          id: String(noteData.id),
+          html: noteData.html,
+          text: noteData.text,
+          baseWidth: noteData.liveBaseWidth,
+          baseHeight: noteData.liveBaseHeight,
+          width: noteData.width || noteData.liveBaseWidth,
+          height: noteData.height || noteData.liveBaseHeight,
+          manualSize: !!noteData.manualSize
+        };
+      }
+      function _sendNoteTextThrottled() {
+        if (typeof window._conMirrorSend !== 'function') return;
+        _pendingNoteTextPayload = _buildNoteTextPayload();
+        if (_noteTextMirrorRaf) return;
+        _noteTextMirrorRaf = requestAnimationFrame(() => {
+          _noteTextMirrorRaf = null;
+          if (_pendingNoteTextPayload && typeof window._conMirrorSend === 'function') {
+            const payload = _pendingNoteTextPayload;
+            _pendingNoteTextPayload = null;
+            window._conMirrorSend(payload);
+          }
+        });
+      }
+      function _flushNoteTextImmediate() {
+        if (_noteTextMirrorRaf) {
+          cancelAnimationFrame(_noteTextMirrorRaf);
+          _noteTextMirrorRaf = null;
+        }
+        _pendingNoteTextPayload = null;
+        if (typeof window._conMirrorSend === 'function') {
+          window._conMirrorSend(_buildNoteTextPayload());
+        }
+      }
+
       ta.addEventListener('input', e => {
         wnSyncNoteDataFromEditor(noteData, e.currentTarget);
         conNoteAutosize(ta, noteData);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
-        if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({
-            type: 'note-text',
-            id: String(noteData.id),
-            html: noteData.html,
-            text: noteData.text,
-            baseWidth: noteData.liveBaseWidth,
-            baseHeight: noteData.liveBaseHeight,
-            width: noteData.width || noteData.liveBaseWidth,
-            height: noteData.height || noteData.liveBaseHeight,
-            manualSize: !!noteData.manualSize
-          });
-        }
+        _sendNoteTextThrottled();
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
           wnSyncAndBroadcastNoteSelection(false);
         }
@@ -5766,19 +5893,7 @@
         conNoteAutosize(ta, noteData);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof updateKatexBtnVisibility === 'function') updateKatexBtnVisibility();
-        if (typeof window._conMirrorSend === 'function') {
-          window._conMirrorSend({
-            type: 'note-text',
-            id: String(noteData.id),
-            html: noteData.html,
-            text: noteData.text,
-            baseWidth: noteData.liveBaseWidth,
-            baseHeight: noteData.liveBaseHeight,
-            width: noteData.width || noteData.liveBaseWidth,
-            height: noteData.height || noteData.liveBaseHeight,
-            manualSize: !!noteData.manualSize
-          });
-        }
+        _flushNoteTextImmediate();
         if (typeof wnSyncAndBroadcastNoteSelection === 'function') {
           wnSyncAndBroadcastNoteSelection(true);
         }
@@ -6309,23 +6424,38 @@
         _miniHideTimer = setTimeout(() => miniActions.classList.remove('wn-mini-visible'), 3000);
       });
 
-      board.appendChild(note);
-      wnAttachResizeHandle(note, ta, noteData, {
-        minW: 40,
-        maxW: 1400,
-        minH: 40,
-        maxH: () => {
-          const zoom = window.conGetZoom ? window.conGetZoom() : 1;
-          const board = document.getElementById('constellation-board');
-          const boardH = Math.max(200, (board && board.clientHeight) || 0);
-          return Math.max(40, boardH / Math.max(0.5, zoom));
-        },
-        scaleGetter: () => (window.conGetZoom ? window.conGetZoom() : 1)
-      });
+      const isMirrorWin = (typeof location !== 'undefined' && location.search.indexOf('mirror=1') !== -1);
+      const _prevSuppress = !!window._conSuppressMirrorObserver;
+      const _hadExternalSuppress = _prevSuppress && !_pendingMirrorNoteAddScheduled && _pendingMirrorNoteAddTimer === null;
+      window._conSuppressMirrorObserver = true;
+      let queuedMirrorNoteAdd = false;
+      try {
+        board.appendChild(note);
+        wnAttachResizeHandle(note, ta, noteData, {
+          minW: 40,
+          maxW: 1400,
+          minH: 40,
+          maxH: () => {
+            const zoom = window.conGetZoom ? window.conGetZoom() : 1;
+            const board = document.getElementById('constellation-board');
+            const boardH = Math.max(200, (board && board.clientHeight) || 0);
+            return Math.max(40, boardH / Math.max(0.5, zoom));
+          },
+          scaleGetter: () => (window.conGetZoom ? window.conGetZoom() : 1)
+        });
 
-      applyNoteStyle();
-      conNoteAutosize(ta, noteData);
-      conNoteRebuildAllStickers(noteData, note);
+        applyNoteStyle();
+        conNoteAutosize(ta, noteData);
+        conNoteRebuildAllStickers(noteData, note);
+        if (!isMirrorWin && !_hadExternalSuppress) {
+          _conQueueMirrorNoteAdd(noteData, _hadExternalSuppress);
+          queuedMirrorNoteAdd = true;
+        }
+      } finally {
+        if (!_prevSuppress && !queuedMirrorNoteAdd) {
+          window._conSuppressMirrorObserver = false;
+        }
+      }
 
       // Right-click opens note style popup
       note.addEventListener('contextmenu', e => {
