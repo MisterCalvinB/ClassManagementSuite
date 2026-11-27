@@ -1190,7 +1190,7 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
 - **Interactive Quizzes & Learning Games on Board (`[GAMES & QUIZZES]`)**: Dedicated multi-tab Neobrutalist modal in the File and Vocab toolbars to seamlessly integrate learning content onto the Board canvas:
   - **Quizzes Tab**: Browse built-in and custom quiz question sets. Filter by CEFR level (A1–C2), theme, and question type (Multiple-choice, Single-choice, True/False) with Select All / Deselect All, real-time counters, answer previews, and explanation tooltips.
   - **Vocabulary Games Tab**: Select from 8 vocabulary activity modes (*Definition Match*, *Hangman*, *Scrambled Word*, *Word Quest*, *Phonetics / IPA*, *Synonyms & Antonyms*, *Flash Cards*, *Word Search*). Filter words by theme, CEFR level, part of speech, source, or star status with live selection counters.
-  - **Grammar & Language Tools Tab**: Select from 7 grammar tools (*Sentence Builder*, *Gap Fill*, *Find the Error*, *Dictation*, *Order Sentences*, *Quote Analyser*, *Werewolf*) with schema-adaptive item previews.
+  - **Grammar & Language Tools Tab**: Select from 7 grammar tools (*Sentence Builder*, *Gap Fill*, *Find the Error*, *Dictation*, *Order Sentences*, *Quote Analyser*, *Role-Playing Game / Werewolf*) with schema-adaptive item previews.
   - **4 Flexible Placement Formats**: Spawns directly on canvas as:
     - *Interactive Launcher Card*: Draggable, resizable widget with activity badges, 1-click **[PLAY IN WINDOW]** deep-link launcher, **[MULTIPLAYER]** quiz host launcher, and an expandable **[PREVIEW ITEMS]** drawer.
     - *Mindmap Cluster*: Central hub activity node linked radially to child question/word nodes inside a styled group container.

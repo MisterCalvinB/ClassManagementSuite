@@ -4269,7 +4269,14 @@
           if (typeof _boardScheduleSave === 'function') _boardScheduleSave('constellation');
         }
         if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
-        if (window._conMirrorBroadcast) window._conMirrorBroadcast({ bumpRevision: true, boardHeight: newH });
+        if (window._conMirrorSend) {
+          window._conMirrorSend({
+            type: 'board-height',
+            height: newH,
+            pageIndex: pIdx,
+            revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+          });
+        }
       };
 
       window.conMaybeAutoExpandBoard = function (bottomY, opts = {}) {

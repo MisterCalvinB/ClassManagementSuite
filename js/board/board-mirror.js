@@ -898,6 +898,7 @@
           tpl.innerHTML = htmlStr;
           _mirrorReconcileChildren(editor, tpl.content);
         }
+        window.conPatchEditorDom = _mirrorPatchEditorDom;
         function _flushMirrorNoteTextUpdates() {
           _mirrorNoteTextRaf = null;
           if (_mirrorIsFrozen) {
@@ -2962,6 +2963,18 @@
           return;
         }
 
+        if (d.type === 'group-create') {
+          if (_mirrorIsFrozen || !d.group || !d.group.id) return;
+          var _liveGroupsCr = window.conGetGroups ? window.conGetGroups() : [];
+          var existsGr = _liveGroupsCr.find(function (g) { return String(g.id) === String(d.group.id); });
+          if (!existsGr && typeof window._conRestoreGroup === 'function') {
+            window._conRestoreGroup(d.group, d.group.nodeIds || []);
+            if (typeof window.conGroupRefitAll === 'function') window.conGroupRefitAll();
+          }
+          if (d.revision) _lastRenderedRevision = d.revision;
+          return;
+        }
+
         if (d.type === 'group-update') {
           if (_mirrorIsFrozen) return;
           var _liveGroupsUpd = window.conGetGroups ? window.conGetGroups() : [];
@@ -3117,6 +3130,21 @@
             var dur = Number(d.durationMs) || 2500;
             setTimeout(function () { if (targetEl) targetEl.classList.remove(cls); }, dur);
           }
+          return;
+        }
+
+        if (d.type === 'board-height') {
+          if (_mirrorIsFrozen) return;
+          var brdH = document.getElementById('constellation-board');
+          if (brdH && typeof d.height === 'number' && d.height > 0) {
+            brdH.style.height = d.height + 'px';
+            if (typeof conPageSnapshots !== 'undefined' && Array.isArray(conPageSnapshots)) {
+              var hpIdx = (typeof d.pageIndex === 'number') ? d.pageIndex : ((typeof conCurrentPageIndex === 'number') ? conCurrentPageIndex : 0);
+              if (conPageSnapshots[hpIdx]) conPageSnapshots[hpIdx].boardHeight = d.height;
+            }
+            if (typeof window._conSyncDrawOverlaySize === 'function') window._conSyncDrawOverlaySize();
+          }
+          if (d.revision) _lastRenderedRevision = d.revision;
           return;
         }
 

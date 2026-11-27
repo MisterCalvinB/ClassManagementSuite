@@ -1954,6 +1954,7 @@
       const alive = Array.isArray(safeState.alive) ? safeState.alive : [];
       const dead = Array.isArray(safeState.dead) ? safeState.dead : [];
       const steps = Array.isArray(safeState.steps) ? safeState.steps : [];
+      const tagsByStudent = safeState.tagsByStudent && typeof safeState.tagsByStudent === 'object' ? safeState.tagsByStudent : {};
 
       const classEl = document.getElementById('ww-proj-class');
       const turnEl = document.getElementById('ww-proj-turn');
@@ -1967,26 +1968,40 @@
 
       if (classEl) classEl.textContent = safeState.classLabel || 'No class selected';
       if (turnEl) turnEl.textContent = safeState.turnLabel || 'Ready';
-      if (titleEl) titleEl.textContent = safeState.title || 'Werewolf';
+      if (titleEl) titleEl.textContent = safeState.title || 'Role-Playing Game';
       if (msgEl) msgEl.textContent = safeState.message || 'Waiting for moderator...';
       if (aliveHeading) aliveHeading.textContent = 'Alive (' + alive.length + ')';
       if (deadHeading) deadHeading.textContent = 'Eliminated (' + dead.length + ')';
 
+      const escHtml = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
       if (aliveEl) {
         aliveEl.innerHTML = alive.length
-          ? alive.map(name => '<span class="ww-proj-chip">' + String(name) + '</span>').join('')
+          ? alive.map(name => {
+              const tags = Array.isArray(tagsByStudent[name]) ? tagsByStudent[name] : [];
+              const tagsHtml = tags.map(t => '<span class="rpg-status-tag" style="background:' + escHtml(t.color || '#5b8fcc') + '">' + escHtml(t.label || '') + '</span>').join('');
+              return '<span class="ww-proj-chip">' + escHtml(name) + (tagsHtml ? ' <span class="rpg-chip-tags">' + tagsHtml + '</span>' : '') + '</span>';
+            }).join('')
           : '<span class="ww-proj-empty">No students listed</span>';
       }
       if (deadEl) {
         deadEl.innerHTML = dead.length
-          ? dead.map(name => '<span class="ww-proj-chip dead">' + String(name) + '</span>').join('')
+          ? dead.map(name => '<span class="ww-proj-chip dead">' + escHtml(name) + '</span>').join('')
           : '<span class="ww-proj-empty">None eliminated</span>';
       }
       if (progressEl) {
         progressEl.innerHTML = steps.map(step => {
           const cls = step.status === 'active' ? 'ww-proj-step active' : step.status === 'done' ? 'ww-proj-step done' : 'ww-proj-step';
-          return '<span class="' + cls + '">' + String(step.title || '') + '</span>';
+          return '<span class="' + cls + '">' + escHtml(step.title || '') + '</span>';
         }).join('');
+      }
+
+      if (safeState.animNonce && safeState.animNonce !== window._wwProjLastAnimNonce) {
+        window._wwProjLastAnimNonce = safeState.animNonce;
+        const hero = document.querySelector('#ww-projector-root .ww-proj-hero');
+        if (hero && safeState.animName && typeof rpgTriggerAnimation === 'function') {
+          rpgTriggerAnimation(safeState.animName, hero);
+        }
       }
     }
 
@@ -2068,6 +2083,9 @@
         classLabel: wwCurrentGroup || 'No class selected',
         alive,
         dead,
+        tagsByStudent: (typeof rpgPlayerTagsByGroup !== 'undefined' && wwCurrentGroup && rpgPlayerTagsByGroup[wwCurrentGroup]) ? rpgPlayerTagsByGroup[wwCurrentGroup] : {},
+        animNonce: typeof rpgLastAnimNonce !== 'undefined' ? rpgLastAnimNonce : 0,
+        animName: typeof rpgLastAnimName !== 'undefined' ? rpgLastAnimName : 'none',
         steps,
         updatedAt: Date.now()
       };
@@ -2310,3 +2328,152 @@
       }
     })();
 
+
+    // =============================================
+    // TEAM MODE & PRE-GAME / END-GAME HELPERS
+    // =============================================
+    function switchToTeam(idx) {
+      if (idx === currentTeamIdx || idx < 0 || idx >= teams.length) return;
+      currentTeamIdx = idx;
+      renderMainScoreboard();
+      renderGameTeamUI();
+      const banner = document.getElementById('turn-banner');
+      if (banner) {
+        banner.style.transform = 'scale(1.06)';
+        setTimeout(() => { banner.style.transform = ''; }, 300);
+      }
+    }
+
+    function showPointsToast(pts, msg) {
+      const toast = document.createElement('div');
+      toast.style.cssText = `position:fixed;top:20px;right:20px;z-index:9999;padding:14px 24px;border-radius:12px;font-size:1.5rem;font-weight:bold;color:white;background:${pts >= 0 ? '#2ecc71' : '#e74c3c'};box-shadow:0 4px 15px rgba(0,0,0,0.3);animation:fadeIn 0.3s;`;
+      toast.textContent = (pts >= 0 ? '+ ' : '') + msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+      renderMainScoreboard();
+      renderGameTeamUI();
+    }
+
+    function pregameShow(sectionId) {
+      document.getElementById('pregame-turns').value = turnsPerTeam;
+      document.getElementById('pregame-grace').value = timerCfg.grace;
+      document.getElementById('pregame-timer-pts').value = timerCfg.points;
+      document.getElementById('pregame-timer-int').value = timerCfg.interval;
+      document.getElementById('pregame-timer-enable').checked = false;
+      pregameToggleTimer();
+      const color = teams.length > 0 ? teams[0].color : '#111';
+      document.getElementById('pregame-modal').style.borderTopColor = color;
+      document.getElementById('pregame-overlay').classList.add('active');
+    }
+
+    function pregameCancel() {
+      document.getElementById('pregame-overlay').classList.remove('active');
+      navTo('main-menu');
+    }
+
+    function pregameToggleTimer() {
+      const enabled = document.getElementById('pregame-timer-enable').checked;
+      const fields = document.getElementById('pregame-timer-fields');
+      fields.style.opacity = enabled ? '1' : '0.4';
+      fields.style.pointerEvents = enabled ? 'auto' : 'none';
+    }
+
+    function pregameStart() {
+      turnsPerTeam = Math.max(1, parseInt(document.getElementById('pregame-turns').value) || 5);
+      timerCfg.grace = Math.max(0, parseInt(document.getElementById('pregame-grace').value) || 1);
+      timerCfg.points = Math.max(1, parseInt(document.getElementById('pregame-timer-pts').value) || 5);
+      timerCfg.interval = Math.max(1, parseInt(document.getElementById('pregame-timer-int').value) || 10);
+      document.getElementById('timer-grace').value = timerCfg.grace;
+      document.getElementById('timer-points').value = timerCfg.points;
+      document.getElementById('timer-interval').value = timerCfg.interval;
+      const autoTimer = document.getElementById('pregame-timer-enable').checked;
+      teamTurnsUsed = {};
+      teams.forEach((_, i) => { teamTurnsUsed[i] = 0; });
+      document.getElementById('pregame-overlay').classList.remove('active');
+      startCountdown(() => {
+        refreshCurrentGame();
+        renderGameTeamUI();
+        if (autoTimer) { timerStop(); timerStart(); }
+      });
+    }
+
+    function startCountdown(onFinish) {
+      const overlay = document.getElementById('countdown-overlay');
+      const numEl = document.getElementById('countdown-display');
+      overlay.classList.add('active');
+      const steps = [5, 4, 3, 2, 1, 'GO!'];
+      let i = 0;
+      function tick() {
+        numEl.classList.remove('count-pop');
+        void numEl.offsetWidth;
+        numEl.textContent = steps[i];
+        numEl.classList.toggle('go', steps[i] === 'GO!');
+        numEl.classList.add('count-pop');
+        if (steps[i] !== 'GO!') { playCountdownBeep(); } else { playCountdownGo(); }
+        if (i < steps.length - 1) {
+          i++;
+          setTimeout(tick, 1000);
+        } else {
+          setTimeout(() => {
+            overlay.classList.remove('active');
+            numEl.classList.remove('count-pop', 'go');
+            if (typeof onFinish === 'function') onFinish();
+          }, 800);
+        }
+      }
+      tick();
+    }
+
+    function playCountdownBeep() {
+      if (soundMuted) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator(), gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine'; osc.frequency.value = 880;
+        const t = ctx.currentTime;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.3, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        osc.start(t); osc.stop(t + 0.19);
+      } catch (e) { }
+    }
+
+    function playCountdownGo() {
+      if (soundMuted) return;
+      try {
+        const ctx = getAudioCtx();
+        [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine'; osc.frequency.value = freq;
+          const t = ctx.currentTime + i * 0.08;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.22, t + 0.01);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+          osc.start(t); osc.stop(t + 0.29);
+        });
+      } catch (e) { }
+    }
+
+    function endgameShow() {
+      const sorted = [...teams]
+        .map((tm, i) => ({ ...tm, origIdx: i }))
+        .sort((a, b) => b.score - a.score);
+      let html = '';
+      sorted.forEach((tm, rank) => {
+        const medal = `${rank + 1}.`;
+        html += `<div class="endgame-score-row${rank === 0 ? ' endgame-winner' : ''}" style="border-left:5px solid ${tm.color};">
+          <span style="font-size:1.2rem;font-weight:800;">${medal}</span>
+          <span class="team-color-dot" style="background:${tm.color};width:14px;height:14px;border-radius:50%;display:inline-block;flex-shrink:0;"></span>
+          <span style="flex:1;text-align:left;">${tm.name}</span>
+          <strong>${tm.score} pts</strong>
+        </div>`;
+      });
+      document.getElementById('endgame-scores').innerHTML = html;
+      document.getElementById('endgame-overlay').classList.add('active');
+    }
+
+    function endgameClose() {
+      document.getElementById('endgame-overlay').classList.remove('active');
+    }

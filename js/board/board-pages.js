@@ -2330,7 +2330,13 @@
             if (editorEl) {
               const content = n.html ? String(n.html) : boardEscapeHtml(n.text || '').replace(/\n/g, '<br>');
               const rendered = (typeof wnRenderMathHtml === 'function') ? wnRenderMathHtml(content) : content;
-              if (editorEl.innerHTML !== rendered) editorEl.innerHTML = rendered;
+              if (editorEl.innerHTML !== rendered) {
+                if (typeof window.conPatchEditorDom === 'function') {
+                  window.conPatchEditorDom(editorEl, rendered);
+                } else {
+                  editorEl.innerHTML = rendered;
+                }
+              }
             }
             if (existing._applyStyle) existing._applyStyle();
             if (existing._updateContent) existing._updateContent();
@@ -3164,7 +3170,8 @@
       if (!isMirrorSync && typeof conQueueCurrentPageSnapshotPng === 'function') {
         conQueueCurrentPageSnapshotPng(conCurrentPageIndex);
       }
-      if (!isMirrorSync && !isPageRestore && !window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
+      const _skipMirrorBroadcastForUndoRedo = !!(data && data._isUndoRedo);
+      if (!isMirrorSync && !isPageRestore && !_skipMirrorBroadcastForUndoRedo && !window._conMirrorFrozen && typeof window._conMirrorBroadcast === 'function') {
         window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
       }
       if (!isMirrorSync && !isPageRestore && typeof window.conSchedulePreloadPages === 'function') {

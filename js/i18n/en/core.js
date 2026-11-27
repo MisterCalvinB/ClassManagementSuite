@@ -3574,5 +3574,16 @@
   "fmExportRootBadge": "Export Root",
   "fmEditExportRoot": "Edit Root",
   "fmUnmarkExportRoot": "Unmark Root",
-  "fmMarkExportRoot": "+ Export Root"
+  "fmMarkExportRoot": "+ Export Root",
+  "btnRolePlayingGame": "Role-Playing Game",
+  "rpgModeratorTitle": "Role-Playing Game Moderator",
+  "rpgModeratorSubtitle": "Create custom roles and interactions with animations & sounds, or play the Werewolf preset.",
+  "rpgClearTags": "Clear Tags",
+  "rpgStartRound": "Start Round",
+  "rpgSettingsTitle": "Presets, Timers, Audio & Saved Setups",
+  "rpgPresetLabel": "Game Preset",
+  "rpgRolesLibraryTitle": "Roles Library",
+  "rpgNewRole": "New Role",
+  "rpgInteractionsLibraryTitle": "Interactions & Effects",
+  "rpgNewInteraction": "New Interaction"
 });

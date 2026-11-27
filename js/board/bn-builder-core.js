@@ -339,21 +339,309 @@
         if (_conUndoStack.length > _CON_UNDO_MAX) _conUndoStack.shift();
         _conRedoStack = [];
       }
+      function _conDiffKeyChanged(a, b, keys) {
+        for (let i = 0; i < keys.length; i++) {
+          const k = keys[i];
+          const va = a ? a[k] : undefined;
+          const vb = b ? b[k] : undefined;
+          if (va !== vb) {
+            if (typeof va === 'object' || typeof vb === 'object') {
+              if (JSON.stringify(va) !== JSON.stringify(vb)) return true;
+            } else {
+              return true;
+            }
+          }
+        }
+        return false;
+      }
+
+      function _conBroadcastUndoRedoDiff(beforeSnap, afterSnap) {
+        if (!beforeSnap || !afterSnap) return;
+        if (typeof window._conMirrorSend !== 'function') return;
+        if (window._conMirrorFrozen) return;
+
+        // Fallback to full snapshot only for heavy/binary or structural table/PDF/sticker layers
+        if (
+          JSON.stringify(beforeSnap.media || []) !== JSON.stringify(afterSnap.media || []) ||
+          JSON.stringify(beforeSnap.tables || []) !== JSON.stringify(afterSnap.tables || []) ||
+          JSON.stringify(beforeSnap.backgroundPdf || null) !== JSON.stringify(afterSnap.backgroundPdf || null) ||
+          JSON.stringify(beforeSnap.boardStickers || []) !== JSON.stringify(afterSnap.boardStickers || [])
+        ) {
+          if (typeof window._conMirrorBroadcast === 'function') {
+            window._conMirrorBroadcast({ bumpRevision: true, forceRender: true });
+          }
+          return;
+        }
+
+        const rev = (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null;
+        const send = window._conMirrorSend;
+
+        // 1. Nodes diff
+        const prevNodes = Array.isArray(beforeSnap.nodes) ? beforeSnap.nodes : [];
+        const nextNodes = Array.isArray(afterSnap.nodes) ? afterSnap.nodes : [];
+        const prevNodeMap = new Map(prevNodes.map(n => [String(n.id), n]));
+        const nextNodeMap = new Map(nextNodes.map(n => [String(n.id), n]));
+
+        const removedNodeIds = [];
+        prevNodes.forEach(n => { if (!nextNodeMap.has(String(n.id))) removedNodeIds.push(String(n.id)); });
+        if (removedNodeIds.length) {
+          send({ type: 'nodes-remove', ids: removedNodeIds, revision: rev });
+        }
+
+        const addedNodes = [];
+        const movedNodes = [];
+        const styledNodes = [];
+        const rotatedNodes = [];
+        const maskedNodes = [];
+        const lockedNodes = [];
+        const liveNodeMap = new Map((window.conGetNodes ? window.conGetNodes() : conNodes).map(n => [String(n.id), n]));
+
+        nextNodes.forEach(nn => {
+          const nid = String(nn.id);
+          const pn = prevNodeMap.get(nid);
+          if (!pn) {
+            const live = liveNodeMap.get(nid);
+            const ser = (live && typeof window.conSerializeNodeForMirror === 'function') ? window.conSerializeNodeForMirror(live) : nn;
+            if (ser) addedNodes.push(ser);
+            return;
+          }
+          if (pn.x !== nn.x || pn.y !== nn.y) {
+            movedNodes.push({ id: nn.id, x: nn.x, y: nn.y });
+          }
+          if (_conDiffKeyChanged(pn, nn, ['bg', 'color', 'border', 'borderWidth', 'borderStyle', 'highlight', 'preset', 'fontFamily', 'fontSize', 'textStrokeColor', 'textStrokeWidth', 'shape', 'fmt', 'baseWord', 'anim'])) {
+            const live = liveNodeMap.get(nid);
+            const ser = (live && typeof window.conSerializeNodeForMirror === 'function') ? window.conSerializeNodeForMirror(live) : nn;
+            if (ser) styledNodes.push(ser);
+          }
+          if ((pn.rotation || 0) !== (nn.rotation || 0)) {
+            rotatedNodes.push({ id: nn.id, rotation: Number(nn.rotation) || 0 });
+          }
+          if (!!pn.masked !== !!nn.masked) {
+            maskedNodes.push({ id: nn.id, masked: !!nn.masked });
+          }
+          if (!!pn.locked !== !!nn.locked) {
+            lockedNodes.push({ nodeId: nn.id, locked: !!nn.locked });
+          }
+        });
+
+        if (addedNodes.length) send({ type: 'board-paste', nodes: addedNodes, revision: rev });
+        if (movedNodes.length) send({ type: 'node-move', positions: movedNodes });
+        if (styledNodes.length) send({ type: 'nodes-style', nodes: styledNodes, revision: rev });
+        if (rotatedNodes.length) send({ type: 'nodes-rotate', rotations: rotatedNodes });
+        if (maskedNodes.length) send({ type: 'node-masks', masks: maskedNodes });
+        lockedNodes.forEach(item => send({ type: 'node-lock', nodeId: item.nodeId, locked: item.locked }));
+
+        // 2. Notes diff
+        const prevNotes = Array.isArray(beforeSnap.notes) ? beforeSnap.notes : [];
+        const nextNotes = Array.isArray(afterSnap.notes) ? afterSnap.notes : [];
+        const prevNoteMap = new Map(prevNotes.map(n => [String(n.id), n]));
+        const nextNoteMap = new Map(nextNotes.map(n => [String(n.id), n]));
+
+        const removedNoteIds = [];
+        prevNotes.forEach(n => { if (!nextNoteMap.has(String(n.id))) removedNoteIds.push(String(n.id)); });
+        if (removedNoteIds.length) {
+          send({ type: 'notes-remove', ids: removedNoteIds, revision: rev });
+        }
+
+        const addedNotes = [];
+        const movedNotes = [];
+        nextNotes.forEach(nn => {
+          const nid = String(nn.id);
+          const pn = prevNoteMap.get(nid);
+          if (!pn) {
+            addedNotes.push(nn);
+            return;
+          }
+          if (pn.x !== nn.x || pn.y !== nn.y) {
+            movedNotes.push({ id: nn.id, x: nn.x, y: nn.y });
+          }
+          if ((pn.html || '') !== (nn.html || '') || (pn.text || '') !== (nn.text || '')) {
+            send({
+              type: 'note-text',
+              id: nid,
+              html: nn.html || '',
+              text: nn.text || '',
+              baseWidth: nn.liveBaseWidth,
+              baseHeight: nn.liveBaseHeight,
+              width: nn.width || nn.liveBaseWidth,
+              height: nn.height || nn.liveBaseHeight,
+              manualSize: !!nn.manualSize
+            });
+          }
+          if (_conDiffKeyChanged(pn, nn, ['bg', 'color', 'fontSize', 'bold', 'italic', 'underline', 'wavy', 'strike', 'fontFamily', 'casing', 'textAlign', 'borderWidth', 'borderStyle', 'borderColor', 'hidden', 'blink'])) {
+            send({
+              type: 'note-style',
+              id: nid,
+              bg: nn.bg, color: nn.color, fontSize: nn.fontSize,
+              bold: !!nn.bold, italic: !!nn.italic, underline: !!nn.underline, wavy: !!nn.wavy, strike: !!nn.strike,
+              fontFamily: nn.fontFamily || null, casing: nn.casing || null, textAlign: nn.textAlign || null,
+              borderWidth: nn.borderWidth || '', borderStyle: nn.borderStyle || '', borderColor: nn.borderColor || '',
+              hidden: !!nn.hidden, blink: !!nn.blink,
+              baseWidth: nn.liveBaseWidth, baseHeight: nn.liveBaseHeight,
+              width: nn.width || nn.liveBaseWidth, height: nn.height || nn.liveBaseHeight,
+              manualSize: !!nn.manualSize
+            });
+          } else if (pn.width !== nn.width || pn.height !== nn.height || pn.liveBaseWidth !== nn.liveBaseWidth || pn.liveBaseHeight !== nn.liveBaseHeight || !!pn.manualSize !== !!nn.manualSize) {
+            send({
+              type: 'note-resize',
+              id: nid,
+              width: nn.width || nn.liveBaseWidth,
+              height: nn.height || nn.liveBaseHeight,
+              baseWidth: nn.liveBaseWidth,
+              baseHeight: nn.liveBaseHeight,
+              manualSize: !!nn.manualSize
+            });
+          }
+          if (!!pn.locked !== !!nn.locked) {
+            send({ type: 'note-lock', noteId: nid, locked: !!nn.locked });
+          }
+        });
+        if (addedNotes.length) send({ type: 'board-paste', notes: addedNotes, revision: rev });
+        if (movedNotes.length) send({ type: 'note-move', positions: movedNotes });
+
+        // 3. Edges diff
+        const prevEdges = Array.isArray(beforeSnap.edges) ? beforeSnap.edges : [];
+        const nextEdges = Array.isArray(afterSnap.edges) ? afterSnap.edges : [];
+        const prevEdgeMap = new Map(prevEdges.map(e => [String(e.id), e]));
+        const nextEdgeMap = new Map(nextEdges.map(e => [String(e.id), e]));
+        prevEdges.forEach(e => {
+          if (!nextEdgeMap.has(String(e.id))) send({ type: 'edge-remove', id: String(e.id) });
+        });
+        nextEdges.forEach(ne => {
+          const pe = prevEdgeMap.get(String(ne.id));
+          if (!pe) {
+            send({ type: 'edge-add', edge: ne });
+          } else if (JSON.stringify(pe) !== JSON.stringify(ne)) {
+            send({ type: 'edge-update', edge: ne });
+          }
+        });
+
+        // 4. Drawings diff
+        const prevDraws = Array.isArray(beforeSnap.drawings) ? beforeSnap.drawings : [];
+        const nextDraws = Array.isArray(afterSnap.drawings) ? afterSnap.drawings : [];
+        const prevDrawMap = new Map(prevDraws.map(dr => [String(dr.id), dr]));
+        const nextDrawMap = new Map(nextDraws.map(dr => [String(dr.id), dr]));
+        const rmDrawIds = [];
+        prevDraws.forEach(dr => { if (!nextDrawMap.has(String(dr.id))) rmDrawIds.push(String(dr.id)); });
+        if (rmDrawIds.length) send({ type: 'drawing-remove', ids: rmDrawIds });
+        const addDraws = [];
+        const moveDraws = [];
+        nextDraws.forEach(ndr => {
+          const pdr = prevDrawMap.get(String(ndr.id));
+          if (!pdr) {
+            addDraws.push(ndr);
+          } else if (pdr.w !== ndr.w || pdr.h !== ndr.h || JSON.stringify(pdr.points) !== JSON.stringify(ndr.points)) {
+            send({ type: 'drawing-resize', id: ndr.id, x: ndr.x, y: ndr.y, w: ndr.w, h: ndr.h, points: ndr.points });
+          } else if (pdr.x !== ndr.x || pdr.y !== ndr.y) {
+            moveDraws.push({ id: ndr.id, x: ndr.x, y: ndr.y });
+          }
+        });
+        if (addDraws.length) send({ type: 'drawings-add', drawings: addDraws });
+        if (moveDraws.length) send({ type: 'drawing-move', positions: moveDraws });
+
+        // 5. Shapes diff
+        const prevShapes = Array.isArray(beforeSnap.shapes) ? beforeSnap.shapes : [];
+        const nextShapes = Array.isArray(afterSnap.shapes) ? afterSnap.shapes : [];
+        const prevShapeMap = new Map(prevShapes.map(s => [String(s.id), s]));
+        const nextShapeMap = new Map(nextShapes.map(s => [String(s.id), s]));
+        const rmShapeIds = [];
+        prevShapes.forEach(s => { if (!nextShapeMap.has(String(s.id))) rmShapeIds.push(String(s.id)); });
+        if (rmShapeIds.length) send({ type: 'shape-remove', ids: rmShapeIds });
+        const addShapes = [];
+        const moveShapes = [];
+        nextShapes.forEach(ns => {
+          const ps = prevShapeMap.get(String(ns.id));
+          if (!ps) {
+            addShapes.push(ns);
+          } else if (ps.w !== ns.w || ps.h !== ns.h || ps.lx1 !== ns.lx1 || ps.ly1 !== ns.ly1 || ps.lx2 !== ns.lx2 || ps.ly2 !== ns.ly2 || JSON.stringify(ps.pts) !== JSON.stringify(ns.pts)) {
+            send({ type: 'shape-resize', id: ns.id, x: ns.x, y: ns.y, w: ns.w, h: ns.h, lx1: ns.lx1, ly1: ns.ly1, lx2: ns.lx2, ly2: ns.ly2, pts: ns.pts });
+          } else if (ps.x !== ns.x || ps.y !== ns.y) {
+            moveShapes.push({ id: ns.id, x: ns.x, y: ns.y, lx1: ns.lx1, ly1: ns.ly1, lx2: ns.lx2, ly2: ns.ly2, pts: ns.pts });
+          }
+        });
+        if (addShapes.length) send({ type: 'shapes-add', shapes: addShapes });
+        if (moveShapes.length) send({ type: 'shape-move', positions: moveShapes });
+
+        // 6. Groups diff
+        const prevGroups = Array.isArray(beforeSnap.groups) ? beforeSnap.groups : [];
+        const nextGroups = Array.isArray(afterSnap.groups) ? afterSnap.groups : [];
+        const prevGroupMap = new Map(prevGroups.map(g => [String(g.id), g]));
+        const nextGroupMap = new Map(nextGroups.map(g => [String(g.id), g]));
+        prevGroups.forEach(g => {
+          if (!nextGroupMap.has(String(g.id))) send({ type: 'group-dissolve', groupId: String(g.id), revision: rev });
+        });
+        nextGroups.forEach(ng => {
+          const pg = prevGroupMap.get(String(ng.id));
+          if (!pg) {
+            send({ type: 'group-create', group: ng, revision: rev });
+          } else {
+            if (_conDiffKeyChanged(pg, ng, ['nodeIds', 'noteIds', 'drawingIds', 'shapeIds', 'mediaIds'])) {
+              send({
+                type: 'group-update',
+                groupId: String(ng.id),
+                nodeIds: ng.nodeIds || [],
+                noteIds: ng.noteIds || [],
+                drawingIds: ng.drawingIds || [],
+                shapeIds: ng.shapeIds || [],
+                mediaIds: ng.mediaIds || [],
+                revision: rev
+              });
+            }
+            if (!!pg.locked !== !!ng.locked) {
+              send({ type: 'group-lock', groupId: String(ng.id), locked: !!ng.locked });
+            }
+          }
+        });
+
+        // 7. Masks diff
+        const prevMasks = Array.isArray(beforeSnap.masks) ? beforeSnap.masks : [];
+        const nextMasks = Array.isArray(afterSnap.masks) ? afterSnap.masks : [];
+        const prevMaskMap = new Map(prevMasks.map(m => [String(m.id), m]));
+        const nextMaskMap = new Map(nextMasks.map(m => [String(m.id), m]));
+        prevMasks.forEach(m => {
+          if (!nextMaskMap.has(String(m.id))) send({ type: 'mask-remove', id: m.id });
+        });
+        nextMasks.forEach(nm => {
+          const pm = prevMaskMap.get(String(nm.id));
+          if (!pm) {
+            send({ type: 'mask-add', mask: nm });
+          } else {
+            if (pm.x !== nm.x || pm.y !== nm.y) send({ type: 'mask-move', id: nm.id, x: nm.x, y: nm.y });
+            if (pm.width !== nm.width || pm.height !== nm.height) send({ type: 'mask-resize', id: nm.id, x: nm.x, y: nm.y, width: nm.width, height: nm.height });
+            if (pm.color !== nm.color || pm.opacity !== nm.opacity) send({ type: 'mask-style', id: nm.id, color: nm.color, opacity: nm.opacity });
+          }
+        });
+
+        // 8. Board height & background diff
+        if (beforeSnap.boardHeight !== afterSnap.boardHeight && typeof afterSnap.boardHeight === 'number') {
+          send({ type: 'board-height', height: afterSnap.boardHeight, revision: rev });
+        }
+        const prevBgColor = beforeSnap.boardBgColor || beforeSnap.boardBackgroundColor;
+        const nextBgColor = afterSnap.boardBgColor || afterSnap.boardBackgroundColor;
+        if (prevBgColor !== nextBgColor) {
+          send({ type: 'board-bg', color: nextBgColor || '#f5f5f0' });
+        }
+      }
+
       function conUndo() {
         if (_conUndoStack.length === 0) return;
-        _conRedoStack.push(conBuildPageSnapshot());
+        const beforeSnap = conBuildPageSnapshot();
+        _conRedoStack.push(beforeSnap);
         const snap = _conUndoStack.pop();
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
+        _conBroadcastUndoRedoDiff(beforeSnap, snap);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       }
       function conRedo() {
         if (_conRedoStack.length === 0) return;
-        _conUndoStack.push(conBuildPageSnapshot());
+        const beforeSnap = conBuildPageSnapshot();
+        _conUndoStack.push(beforeSnap);
         const snap = _conRedoStack.pop();
         if (typeof _conInvalidatePageDomCache === 'function') _conInvalidatePageDomCache(conCurrentPageIndex);
         _conRestorePageToBoard(snap, { isUndoRedo: true, scrollToTop: false });
+        _conBroadcastUndoRedoDiff(beforeSnap, snap);
         if (typeof window.conMarkBoardDirty === 'function') window.conMarkBoardDirty();
         if (typeof window.boardSetDirty === 'function') window.boardSetDirty(true);
       }

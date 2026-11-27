@@ -3575,5 +3575,16 @@
   "fmExportRootBadge": "Racine d'export",
   "fmEditExportRoot": "Modifier racine",
   "fmUnmarkExportRoot": "Retirer racine",
-  "fmMarkExportRoot": "+ Racine d'export"
+  "fmMarkExportRoot": "+ Racine d'export",
+  "btnRolePlayingGame": "Jeu de rôle",
+  "rpgModeratorTitle": "Modérateur de jeu de rôle",
+  "rpgModeratorSubtitle": "Créez des rôles et interactions personnalisés avec animations et sons, ou jouez au préréglage Loup-Garou.",
+  "rpgClearTags": "Effacer les tags",
+  "rpgStartRound": "Démarrer le tour",
+  "rpgSettingsTitle": "Préréglages, minuteurs, audio et configurations",
+  "rpgPresetLabel": "Préréglage",
+  "rpgRolesLibraryTitle": "Bibliothèque de rôles",
+  "rpgNewRole": "Nouveau rôle",
+  "rpgInteractionsLibraryTitle": "Interactions et effets",
+  "rpgNewInteraction": "Nouvelle interaction"
 });

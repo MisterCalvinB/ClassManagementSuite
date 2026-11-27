@@ -1137,7 +1137,7 @@
     <h3 class="section-label" data-i18n="secOtherGames"><img src="../assets/icons/dice.svg" class="main-hdr-icon" alt="" /> Other Games</h3>
     <div class="menu-grid">
       <button class="menu-btn btn-grey" data-ltev-105="1"><img src="../assets/icons/quiz.svg" class="main-btn-icon" alt="" /> Quiz</button>
-      <button class="menu-btn btn-grey" data-ltev-106="1"><img src="../assets/icons/werewolf.svg" class="main-btn-icon" alt="" /> Werewolf</button>
+      <button class="menu-btn btn-grey" data-ltev-106="1" data-i18n="btnRolePlayingGame"><img src="../assets/icons/theater.svg" class="main-btn-icon" alt="" /> Role-Playing Game</button>
     </div>
     <h3 class="section-label" data-i18n="secTools"><img src="../assets/icons/learning-tools.svg" class="main-hdr-icon" alt="" /> Tools</h3>
     <div class="menu-grid">
@@ -2129,8 +2129,8 @@
     <div class="ww-topbar">
       <button class="action-btn btn-back neo-back-btn" data-ltev-287="1"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> <span>Back</span></button>
       <div class="ww-topbar-title">
-        <h2><img src="../assets/icons/werewolf.svg" class="ww-heading-icon" alt="" /> Werewolf Moderator</h2>
-        <p class="ww-subtitle">Guide night and day phases, track eliminations, and customize your class script.</p>
+        <h2><img src="../assets/icons/theater.svg" class="ww-heading-icon" alt="" /> <span data-i18n="rpgModeratorTitle">Role-Playing Game Moderator</span></h2>
+        <p class="ww-subtitle" data-i18n="rpgModeratorSubtitle">Create custom roles and interactions with animations &amp; sounds, or play the Werewolf preset.</p>
       </div>
       <div class="ww-topbar-actions">
         <button class="action-btn btn-purple" id="ww-present-btn" data-ltev-296="1">
@@ -2185,6 +2185,9 @@
             <button type="button" id="ww-toggle-roles-drawer-btn" class="action-btn btn-grey" aria-expanded="false">
               <img src="../assets/icons/users.svg" class="btn-icon" alt="" /> Assign Roles &amp; Absences
             </button>
+            <button type="button" id="rpg-clear-tags-btn" class="action-btn btn-grey" title="Clear all player status tags">
+              <img src="../assets/icons/clear.svg" class="btn-icon" alt="" /> <span data-i18n="rpgClearTags">Clear Tags</span>
+            </button>
           </div>
 
           <div id="ww-roles-drawer" class="ww-roles-drawer hidden">
@@ -2204,7 +2207,7 @@
       </div>
 
       <div class="ww-fixed-controls" id="ww-fixed-controls">
-        <button class="action-btn ww-btn-start" data-ltev-304="1"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> Start Night</button>
+        <button class="action-btn ww-btn-start" data-ltev-304="1"><img src="../assets/icons/play.svg" class="btn-icon" alt="" /> <span data-i18n="rpgStartRound">Start Round</span></button>
         <button class="action-btn btn-grey" type="button" id="ww-prev-turn-btn"><img src="../assets/icons/arrow-left.svg" class="btn-icon" alt="" /> Previous</button>
         <button class="action-btn btn-blue" data-ltev-305="1">Next Turn <img src="../assets/icons/arrow-right.svg" class="btn-icon" alt="" /></button>
         <button class="action-btn btn-grey" data-ltev-306="1"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Reset Round</button>
@@ -2215,10 +2218,18 @@
       <div class="ww-setup-stack">
         <div class="ww-card">
           <div class="ww-card-header">
-            <h3 class="ww-title">Timers, Audio &amp; Saved Setups</h3>
+            <h3 class="ww-title" data-i18n="rpgSettingsTitle">Presets, Timers, Audio &amp; Saved Setups</h3>
             <span id="ww-save-status" class="ww-status">Not saved</span>
           </div>
           <div class="ww-settings-grid">
+            <div class="ww-setting-group">
+              <label class="ww-inline-label" for="rpg-preset-select" data-i18n="rpgPresetLabel">Game Preset</label>
+              <select id="rpg-preset-select" class="ww-select">
+                <option value="werewolf">Werewolf (Classic)</option>
+                <option value="mystery">Mystery / Syndicate</option>
+                <option value="blank">Blank Custom RPG</option>
+              </select>
+            </div>
             <div class="ww-setting-group">
               <label class="ww-toggle-chip" for="ww-auto-enable">
                 <input id="ww-auto-enable" type="checkbox" data-ltev-289="1">
@@ -2238,12 +2249,12 @@
             </div>
 
             <div class="ww-setting-group">
-              <label class="ww-inline-label" for="ww-kill-sound-select">Kill sound</label>
+              <label class="ww-inline-label" for="ww-kill-sound-select">Elimination sound</label>
               <select id="ww-kill-sound-select" class="ww-select" data-ltev-293="1">
                 <option value="">No sound</option>
               </select>
               <button class="action-btn btn-grey" data-ltev-294="1" title="Reload sound files"><img src="../assets/icons/refresh.svg" class="btn-icon" alt="" /> Sounds</button>
-              <button class="action-btn btn-orange" data-ltev-295="1" title="Test kill sound"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Test</button>
+              <button class="action-btn btn-orange" data-ltev-295="1" title="Test sound"><img src="../assets/icons/volume.svg" class="btn-icon" alt="" /> Test</button>
             </div>
           </div>
 
@@ -2255,15 +2266,89 @@
 
         <div class="ww-card">
           <div class="ww-card-header">
+            <h3 class="ww-title" data-i18n="rpgRolesLibraryTitle">Roles Library</h3>
+            <button class="action-btn btn-blue" type="button" id="rpg-new-role-btn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="rpgNewRole">New Role</span></button>
+          </div>
+          <div id="rpg-roles-library-list" class="rpg-library-grid"></div>
+        </div>
+
+        <div class="ww-card">
+          <div class="ww-card-header">
+            <h3 class="ww-title" data-i18n="rpgInteractionsLibraryTitle">Interactions &amp; Effects</h3>
+            <button class="action-btn btn-blue" type="button" id="rpg-new-interaction-btn"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> <span data-i18n="rpgNewInteraction">New Interaction</span></button>
+          </div>
+          <div id="rpg-interactions-library-list" class="rpg-library-grid"></div>
+        </div>
+
+        <div class="ww-card">
+          <div class="ww-card-header">
             <h3 class="ww-title">Turn Sequence &amp; Script</h3>
             <button class="action-btn btn-blue" type="button" data-ltev-288="1"><img src="../assets/icons/plus.svg" class="btn-icon" alt="" /> Add Step</button>
           </div>
           <div class="ww-role-chips-wrap">
             <div class="ww-inline-label">Quick Insert Role</div>
-            <p class="ww-tip" style="margin:4px 0 8px;">Click a role chip to add its phase to the night sequence. Drag steps below to reorder.</p>
+            <p class="ww-tip" style="margin:4px 0 8px;">Click a role chip to add its phase to the sequence. Drag steps below to reorder.</p>
             <div id="ww-role-chip-list" class="ww-role-chip-list"></div>
           </div>
           <div id="ww-fields-ordered" class="ww-fields"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role Creator / Editor Modal -->
+    <div id="rpg-role-modal-overlay" class="ww-choice-overlay">
+      <div class="ww-choice-modal rpg-editor-modal" role="dialog" aria-modal="true" aria-labelledby="rpg-role-modal-title">
+        <div class="rpg-modal-head">
+          <h3 id="rpg-role-modal-title">Create New Role</h3>
+          <button type="button" id="rpg-role-modal-close" class="action-btn btn-grey ww-icon-btn" title="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        </div>
+        <div class="rpg-modal-form">
+          <label>Role Name <input id="rpg-role-name" type="text" class="ww-select" placeholder="e.g. Witch, Bard, Spy"></label>
+          <div class="rpg-form-row">
+            <label>Faction <select id="rpg-role-alignment" class="ww-select"><option value="village">Village / Allies</option><option value="werewolf">Werewolf / Antagonist</option><option value="neutral">Neutral / Custom</option></select></label>
+            <label>Default Count <input id="rpg-role-count" type="number" min="0" max="50" value="1" class="ww-select"></label>
+          </div>
+          <div class="rpg-form-row">
+            <label>Icon <select id="rpg-role-icon" class="ww-select"></select></label>
+            <label>Color <select id="rpg-role-color" class="ww-select"></select></label>
+          </div>
+          <label>Default Interaction <select id="rpg-role-default-interaction" class="ww-select"></select></label>
+          <label>Turn Instruction <textarea id="rpg-role-instruction" class="ww-textarea" placeholder="What happens during this role's turn?"></textarea></label>
+        </div>
+        <div class="ww-choice-actions">
+          <button type="button" id="rpg-role-modal-save" class="action-btn btn-blue">Save Role</button>
+          <button type="button" id="rpg-role-modal-cancel" class="action-btn btn-grey">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interaction Creator / Editor Modal -->
+    <div id="rpg-interaction-modal-overlay" class="ww-choice-overlay">
+      <div class="ww-choice-modal rpg-editor-modal" role="dialog" aria-modal="true" aria-labelledby="rpg-int-modal-title">
+        <div class="rpg-modal-head">
+          <h3 id="rpg-int-modal-title">Create New Interaction</h3>
+          <button type="button" id="rpg-int-modal-close" class="action-btn btn-grey ww-icon-btn" title="Close"><img src="../assets/icons/close.svg" class="btn-icon" alt="" /></button>
+        </div>
+        <div class="rpg-modal-form">
+          <label>Interaction Name <input id="rpg-int-name" type="text" class="ww-select" placeholder="e.g. Shield, Charm, Silence, Poison"></label>
+          <div class="rpg-form-row">
+            <label>Target Mode <select id="rpg-int-target-mode" class="ww-select"><option value="single">Single Player</option><option value="multi">Multiple Players</option><option value="none">No Target (Effect Only)</option></select></label>
+            <label>Max Targets <input id="rpg-int-max-targets" type="number" min="1" max="10" value="2" class="ww-select"></label>
+          </div>
+          <label>Effect Action <select id="rpg-int-effect" class="ww-select"><option value="add_tag">Add Status Tag</option><option value="toggle_tag">Toggle Status Tag</option><option value="remove_tag">Remove Status Tag</option><option value="eliminate">Eliminate Player(s)</option><option value="restore">Restore Player(s)</option><option value="announce_only">Animation &amp; Sound Only</option></select></label>
+          <div class="rpg-form-row">
+            <label>Status Tag Label <input id="rpg-int-tag-label" type="text" class="ww-select" placeholder="e.g. Protected, Charmed"></label>
+            <label>Tag Color <select id="rpg-int-tag-color" class="ww-select"></select></label>
+          </div>
+          <div class="rpg-form-row">
+            <label>Tag Icon <select id="rpg-int-tag-icon" class="ww-select"></select></label>
+            <label>Animation <select id="rpg-int-animation" class="ww-select"></select></label>
+          </div>
+          <label>Sound Effect <select id="rpg-int-sound" class="ww-select"></select></label>
+        </div>
+        <div class="ww-choice-actions">
+          <button type="button" id="rpg-int-modal-save" class="action-btn btn-blue">Save Interaction</button>
+          <button type="button" id="rpg-int-modal-cancel" class="action-btn btn-grey">Cancel</button>
         </div>
       </div>
     </div>
@@ -2289,7 +2374,10 @@
   <script src="../js/learning-tools/lt-core-and-vocab.js"></script>
   <script src="../js/learning-tools/lt-sentence-and-matching.js"></script>
   <script src="../js/learning-tools/lt-team-and-quiz.js"></script>
-  <script src="../js/learning-tools/lt-werewolf.js"></script>
+  <script src="../js/learning-tools/lt-rpg-data.js"></script>
+  <script src="../js/learning-tools/lt-rpg-effects.js"></script>
+  <script src="../js/learning-tools/lt-rpg-editor.js"></script>
+  <script src="../js/learning-tools/lt-rpg-play.js"></script>
   <script src="../js/learning-tools/lt-grammar-dictation-synonyms.js"></script>
   <script src="../js/learning-tools/lt-database-tools.js"></script>
   <script src="../js/pages/learning-tools.js"></script>

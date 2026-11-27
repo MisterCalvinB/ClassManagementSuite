@@ -3575,5 +3575,16 @@
   "fmExportRootBadge": "Cartella export",
   "fmEditExportRoot": "Modifica cartella",
   "fmUnmarkExportRoot": "Rimuovi cartella",
-  "fmMarkExportRoot": "+ Cartella export"
+  "fmMarkExportRoot": "+ Cartella export",
+  "btnRolePlayingGame": "Gioco di ruolo",
+  "rpgModeratorTitle": "Moderatore Gioco di Ruolo",
+  "rpgModeratorSubtitle": "Crea ruoli e interazioni personalizzate con animazioni e suoni, oppure usa il preset Lupus in Fabula.",
+  "rpgClearTags": "Cancella tag",
+  "rpgStartRound": "Avvia round",
+  "rpgSettingsTitle": "Preset, timer, audio e configurazioni salvate",
+  "rpgPresetLabel": "Preset di gioco",
+  "rpgRolesLibraryTitle": "Libreria dei ruoli",
+  "rpgNewRole": "Nuovo ruolo",
+  "rpgInteractionsLibraryTitle": "Interazioni ed effetti",
+  "rpgNewInteraction": "Nuova interazione"
 });

@@ -89,6 +89,7 @@
           let _rz = false, _rx = 0, _rFontSize = 0, _rWidth = 0;
           let _nodeResizeRaf = null;
           let _pendingNodeResizeMsg = null;
+          let _preResizeSnap = null;
           _resizer.addEventListener('mousedown', function (e) {
             if (e.button !== 0) return;
             const _rzNode = conNodes.find(n => n && (n.id === id || String(n.id) === String(id)))
@@ -102,6 +103,7 @@
             _rx = e.clientX;
             _rFontSize = conGetNodeBaseFontSize(_rzNode || el);
             _rWidth = el.offsetWidth;
+            _preResizeSnap = (typeof window.conBuildPageSnapshot === 'function') ? window.conBuildPageSnapshot() : null;
           });
           document.addEventListener('mousemove', function (e) {
             if (!_rz) return;
@@ -151,7 +153,10 @@
             }
             conGroupRefitAll();
             _rz = false;
-            if (typeof window.conPushUndo === 'function') window.conPushUndo();
+            if (typeof window.conPushUndo === 'function' && _preResizeSnap) {
+              window.conPushUndo(_preResizeSnap);
+            }
+            _preResizeSnap = null;
             setTimeout(() => {
               window._conMirrorDragging = false;
             }, 60);
@@ -3489,27 +3494,43 @@
       }
 
       window.conCtxApplyStyle = function () {
+        conPushUndo();
         const [bg, text, border] = CON_PALETTES[conActivePalette];
         // Apply to multi-selected set if there are multiple; otherwise just the ctx node
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))
           : (conCtxNodeId ? [conNodes.find(n => n.id === conCtxNodeId)].filter(Boolean) : []);
-        targets.forEach(node => {
-          node.el.style.background = bg;
-          node.el.style.color = text;
-          node.el.style.borderColor = border;
-          // Swatch applies a plain palette — clear preset-specific overrides
-          node.borderWidth = null;
-          node.borderStyle = null;
-          node.highlight = null;
-          node.preset = null;
-          conApplyNodeShape(node, node.shape);
-        });
-        conRedrawEdges();
-        _conSyncPresetButtons();
-        // Sync border color display to the palette border
-        const mainNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
-        if (mainNode) conSyncBorderControls(mainNode);
+        const _prevSuppress = !!window._conSuppressMirrorObserver;
+        window._conSuppressMirrorObserver = true;
+        try {
+          targets.forEach(node => {
+            node.el.style.background = bg;
+            node.el.style.color = text;
+            node.el.style.borderColor = border;
+            // Swatch applies a plain palette — clear preset-specific overrides
+            node.borderWidth = null;
+            node.borderStyle = null;
+            node.highlight = null;
+            node.preset = null;
+            conApplyNodeShape(node, node.shape);
+          });
+          conRedrawEdges();
+          _conSyncPresetButtons();
+          // Sync border color display to the palette border
+          const mainNode = conCtxNodeId ? conNodes.find(n => n.id === conCtxNodeId) : null;
+          if (mainNode) conSyncBorderControls(mainNode);
+          if (targets.length && typeof window._conMirrorSend === 'function' && typeof window.conSerializeNodeForMirror === 'function') {
+            window._conMirrorSend({
+              type: 'nodes-style',
+              nodes: targets.map(window.conSerializeNodeForMirror).filter(Boolean),
+              revision: (typeof window._conBumpBoardRevision === 'function') ? window._conBumpBoardRevision() : null
+            });
+          }
+        } finally {
+          if (!_prevSuppress) {
+            setTimeout(() => { window._conSuppressMirrorObserver = false; }, 60);
+          }
+        }
       };
 
       window.conCtxApplySize = function () {

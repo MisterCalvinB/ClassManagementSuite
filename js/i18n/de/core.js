@@ -3575,5 +3575,16 @@
   "fmExportRootBadge": "Export-Stammordner",
   "fmEditExportRoot": "Stammordner bearbeiten",
   "fmUnmarkExportRoot": "Stammordner entfernen",
-  "fmMarkExportRoot": "+ Export-Stammordner"
+  "fmMarkExportRoot": "+ Export-Stammordner",
+  "btnRolePlayingGame": "Rollenspiel",
+  "rpgModeratorTitle": "Rollenspiel-Moderator",
+  "rpgModeratorSubtitle": "Erstellen Sie eigene Rollen und Interaktionen mit Animationen & Sounds oder spielen Sie die Werwolf-Vorlage.",
+  "rpgClearTags": "Tags löschen",
+  "rpgStartRound": "Runde starten",
+  "rpgSettingsTitle": "Vorlagen, Timer, Audio & Gespeicherte Setups",
+  "rpgPresetLabel": "Spielvorlage",
+  "rpgRolesLibraryTitle": "Rollenbibliothek",
+  "rpgNewRole": "Neue Rolle",
+  "rpgInteractionsLibraryTitle": "Interaktionen & Effekte",
+  "rpgNewInteraction": "Neue Interaktion"
 });
