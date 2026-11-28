@@ -140,6 +140,7 @@
       }
     } catch (_) {}
     _presets = Array.isArray(list) ? list : [];
+    return _presets.slice();
   }
 
   async function _savePresets() {
@@ -152,6 +153,28 @@
         await window.Desktop.saveWindowPresets(_presets);
       }
     } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function' && typeof CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('cmt-wh-presets-changed', { detail: { presets: _presets.slice() } }));
+      }
+    } catch (_) {}
+  }
+
+  async function applyPreset(presetOrId, options) {
+    var opts = options || {};
+    var openMissing = opts.openMissing !== undefined ? !!opts.openMissing : _openMissing;
+    var preset = (presetOrId && typeof presetOrId === 'object') ? presetOrId : null;
+    if (!preset && presetOrId) {
+      var list = _presets.length > 0 ? _presets : await _loadPresets();
+      preset = list.find(function (p) { return p && p.id === String(presetOrId); }) || null;
+    }
+    if (!preset || !Array.isArray(preset.slots) || preset.slots.length === 0) {
+      return { ok: false, error: 'preset-not-found' };
+    }
+    if (window.Desktop && typeof window.Desktop.applyWindowPreset === 'function') {
+      return window.Desktop.applyWindowPreset({ slots: preset.slots, openMissing: openMissing });
+    }
+    return { ok: false, error: 'not-electron' };
   }
 
   function _capturePresetSlots() {
@@ -752,6 +775,8 @@
   window.WindowHelper = Object.freeze({
     open: open,
     close: close,
-    toggle: toggle
+    toggle: toggle,
+    loadPresets: _loadPresets,
+    applyPreset: applyPreset
   });
 })();

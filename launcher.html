@@ -32,12 +32,6 @@
         sessionStorage.setItem('cmt-launcher-started', '1');
 
         var cfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');
-        var layout  = cfg.startupLayout || 'separate';
-        var apps    = Array.isArray(cfg.startupApps) ? cfg.startupApps : [];
-        var hasApps = apps.length > 0;
-        var isSplit = layout === 'split' && cfg.startupSplitLeft && cfg.startupSplitRight;
-
-        if (!hasApps && !isSplit) return;
 
         // Wait for the launcher to render, then open apps silently in the background.
         window.addEventListener('DOMContentLoaded', function () {
@@ -45,11 +39,38 @@
             try {
               var api = window.electronApi;
               if (!api) return;
-              if (isSplit && api.openSplit) {
+              if (!cfg.startupLayout && window.Desktop && typeof window.Desktop.readJson === 'function') {
+                try {
+                  var appRes = await window.Desktop.readJson('user', 'app-settings.json');
+                  if (appRes && appRes.ok && appRes.data && typeof appRes.data === 'object') {
+                    cfg = Object.assign({}, appRes.data, cfg);
+                  }
+                } catch (_) {}
+              }
+              var layout  = cfg.startupLayout || 'separate';
+              var apps    = Array.isArray(cfg.startupApps) ? cfg.startupApps : [];
+              var hasApps = apps.length > 0;
+              var isSplit = layout === 'split' && cfg.startupSplitLeft && cfg.startupSplitRight;
+              var isPreset = layout === 'preset' && !!cfg.startupPresetId;
+
+              if (isPreset) {
+                if (window.WindowHelper && typeof window.WindowHelper.applyPreset === 'function') {
+                  await window.WindowHelper.loadPresets();
+                  await window.WindowHelper.applyPreset(cfg.startupPresetId, { openMissing: true });
+                } else if (window.Desktop && typeof window.Desktop.getWindowPresets === 'function' && typeof window.Desktop.applyWindowPreset === 'function') {
+                  var pRes = await window.Desktop.getWindowPresets();
+                  var pList = (pRes && pRes.ok && Array.isArray(pRes.presets)) ? pRes.presets : [];
+                  var match = pList.find(function (p) { return p && p.id === cfg.startupPresetId; });
+                  if (match && Array.isArray(match.slots) && match.slots.length > 0) {
+                    await window.Desktop.applyWindowPreset({ slots: match.slots, openMissing: true });
+                  }
+                }
+              } else if (isSplit && api.openSplit) {
                 await api.openSplit({
                   pageFile1: cfg.startupSplitLeft,
                   pageFile2: cfg.startupSplitRight,
-                  fraction:  cfg.startupSplitFraction || 0.5
+                  fraction:  cfg.startupSplitFraction || 0.5,
+                  gap:       Number(cfg.startupSplitGap) || 0
                 });
               } else if (hasApps && api.openTool) {
                 var maximize = layout === 'maximize';

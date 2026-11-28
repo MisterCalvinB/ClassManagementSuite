@@ -15,10 +15,12 @@
     records: [],  // [{ id, values: { [key]: string } }]
     activeRecordIndex: 0
   };
+  let _sortState = { fieldKey: null, direction: null };
   let _panelVisible = false;
   let _pendingData = null;
   let _previewTimer = null;
   let _wired = false;
+  const _naturalCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
   function _tr(key, fallback) {
     try {
@@ -202,13 +204,24 @@
 
     _state.fields.forEach((f) => {
       const tag = '{{db.' + f.key + '}}';
+      const isSorted = _sortState.fieldKey === f.key;
+      const sortDir = isSorted ? _sortState.direction : null;
+      const sortIcon = sortDir === 'desc' ? 'arrow-down.svg' : 'arrow-up.svg';
+      const sortTitle = sortDir === 'asc'
+        ? _tr('deMiniDbSortDesc', 'Sort descending')
+        : _tr('deMiniDbSortAsc', 'Sort ascending');
       html +=
         '<th class="db-th-field" data-field-id="' + _esc(f.id) + '">' +
         '<div class="db-th-top">' +
         '<span class="db-field-label" title="' + _esc(_tr('deMiniDbRenameHint', 'Click to rename field')) + '" data-db-action="rename-field" data-field-id="' + _esc(f.id) + '">' + _esc(f.label) + '</span>' +
+        '<div class="db-th-btns">' +
+        '<button type="button" class="db-icon-btn db-sort-field-btn' + (isSorted ? ' active' : '') + '" data-db-action="sort-field" data-field-id="' + _esc(f.id) + '" title="' + _esc(sortTitle) + '">' +
+        '<img src="../assets/icons/' + sortIcon + '" class="btn-icon" alt="" />' +
+        '</button>' +
         '<button type="button" class="db-icon-btn db-del-field-btn" data-db-action="delete-field" data-field-id="' + _esc(f.id) + '" title="' + _esc(_tr('deMiniDbDeleteField', 'Delete field')) + '">' +
         '<img src="../assets/icons/close.svg" class="btn-icon" alt="" />' +
         '</button>' +
+        '</div>' +
         '</div>' +
         '<button type="button" class="db-field-tag-btn" data-db-action="insert-tag" data-db-tag="' + _esc(tag) + '" title="' + _esc(_tr('deMiniDbInsertTagTitle', 'Insert placeholder at cursor')) + '">' +
         '<code>' + _esc(tag) + '</code>' +
@@ -239,7 +252,7 @@
           html +=
             '<td class="db-td-cell" data-record-index="' + rIdx + '" data-field-key="' + _esc(f.key) + '">' +
             '<input type="text" class="db-cell-input" data-record-id="' + _esc(rec.id) + '" data-field-key="' + _esc(f.key) + '" value="' + _esc(val) + '" placeholder="' + _esc(f.label) + '">' +
-            '<span class="db-fill-handle" data-record-index="' + rIdx + '" data-field-key="' + _esc(f.key) + '" title="Drag or double-click to fill down"></span>' +
+            '<span class="db-fill-handle" data-record-index="' + rIdx + '" data-field-key="' + _esc(f.key) + '" title="' + _esc(_tr('deMiniDbFillHandleTitle', 'Drag or double-click to fill (increments numbers; hold Ctrl to copy)')) + '"></span>' +
             '</td>';
         });
 
@@ -293,6 +306,7 @@
     field.key = newKey;
 
     if (oldKey !== newKey) {
+      if (_sortState.fieldKey === oldKey) _sortState.fieldKey = newKey;
       _state.records.forEach(rec => {
         if (rec.values && Object.prototype.hasOwnProperty.call(rec.values, oldKey)) {
           rec.values[newKey] = rec.values[oldKey];
@@ -312,6 +326,9 @@
     const idx = _state.fields.findIndex(f => f.id === fieldId);
     if (idx === -1) return;
     const removed = _state.fields.splice(idx, 1)[0];
+    if (removed && _sortState.fieldKey === removed.key) {
+      _sortState = { fieldKey: null, direction: null };
+    }
     _state.records.forEach(rec => {
       if (rec.values && removed) delete rec.values[removed.key];
     });
@@ -321,6 +338,45 @@
     if (global.DeDetach && typeof global.DeDetach.notifyMiniDbChanged === 'function') {
       global.DeDetach.notifyMiniDbChanged(getState());
     }
+  }
+
+  function _compareFieldValues(aVal, bVal, direction) {
+    const sa = String(aVal == null ? '' : aVal).trim();
+    const sb = String(bVal == null ? '' : bVal).trim();
+    if (sa === '' && sb === '') return 0;
+    if (sa === '') return 1;
+    if (sb === '') return -1;
+
+    const dir = direction === 'desc' ? -1 : 1;
+    const numRe = /^-?\d+(?:\.\d+)?$/;
+    if (numRe.test(sa) && numRe.test(sb)) {
+      const diff = Number(sa) - Number(sb);
+      if (diff !== 0) return diff * dir;
+    }
+    return _naturalCollator.compare(sa, sb) * dir;
+  }
+
+  function sortByField(fieldId) {
+    const field = _state.fields.find(f => f.id === fieldId);
+    if (!field) return;
+    const nextDir = (_sortState.fieldKey === field.key && _sortState.direction === 'asc') ? 'desc' : 'asc';
+    _sortState = { fieldKey: field.key, direction: nextDir };
+
+    if (_state.records.length > 1) {
+      const activeRec = _state.records[_state.activeRecordIndex] || null;
+      _state.records.sort((a, b) => {
+        const av = a && a.values ? a.values[field.key] : '';
+        const bv = b && b.values ? b.values[field.key] : '';
+        return _compareFieldValues(av, bv, nextDir);
+      });
+      if (activeRec) {
+        const newIdx = _state.records.indexOf(activeRec);
+        if (newIdx !== -1) _state.activeRecordIndex = newIdx;
+      }
+      _markModified();
+      _schedulePreview();
+    }
+    renderPanel();
   }
 
   function addRecord(silent) {
@@ -416,6 +472,7 @@
       if (!ok) return;
     }
     _state = { fields: [], records: [], activeRecordIndex: 0 };
+    _sortState = { fieldKey: null, direction: null };
     _pendingData = null;
     _markModified();
     renderPanel();
@@ -548,6 +605,8 @@
         const action = actionEl.getAttribute('data-db-action');
         if (action === 'insert-tag') {
           insertTag(actionEl.getAttribute('data-db-tag'));
+        } else if (action === 'sort-field') {
+          sortByField(actionEl.getAttribute('data-field-id'));
         } else if (action === 'delete-field') {
           deleteField(actionEl.getAttribute('data-field-id'));
         } else if (action === 'rename-field') {
@@ -576,13 +635,59 @@
         _schedulePreview();
       });
 
-      const applyFillRange = (startIdx, endIdx, fieldKey, val) => {
+      const computeFillValue = (sourceVal, stepOffset, forceCopy) => {
+        if (forceCopy || stepOffset === 0) return sourceVal;
+        const str = String(sourceVal == null ? '' : sourceVal);
+        if (!str) return str;
+
+        // Pure integer (preserves sign & zero-padding like "001" -> "002")
+        const intMatch = str.match(/^(-?)(\d+)$/);
+        if (intMatch) {
+          const sign = intMatch[1];
+          const digits = intMatch[2];
+          const base = (sign ? -1 : 1) * parseInt(digits, 10);
+          const next = base + stepOffset;
+          if (digits.length > 1 && digits.startsWith('0')) {
+            const absStr = String(Math.abs(next)).padStart(digits.length, '0');
+            return (next < 0 ? '-' : '') + absStr;
+          }
+          return String(next);
+        }
+
+        // Pure decimal (preserves decimal places like "1.5" -> "2.5")
+        const decMatch = str.match(/^(-?)(\d+)\.(\d+)$/);
+        if (decMatch) {
+          const decimals = decMatch[3].length;
+          const next = parseFloat(str) + stepOffset;
+          return next.toFixed(decimals);
+        }
+
+        // Text with trailing integer (e.g. "Item 1" -> "Item 2", "Q01" -> "Q02"),
+        // skipping fractions like "18/20".
+        const trailMatch = str.match(/^(.*?)(\d+)$/);
+        if (trailMatch && !trailMatch[1].endsWith('/')) {
+          const prefix = trailMatch[1];
+          const digits = trailMatch[2];
+          const next = parseInt(digits, 10) + stepOffset;
+          if (next >= 0) {
+            const formatted = (digits.length > 1 && digits.startsWith('0'))
+              ? String(next).padStart(digits.length, '0')
+              : String(next);
+            return prefix + formatted;
+          }
+        }
+
+        return str;
+      };
+
+      const applyFillRange = (startIdx, endIdx, fieldKey, sourceVal, forceCopy) => {
         const lo = Math.min(startIdx, endIdx);
         const hi = Math.max(startIdx, endIdx);
         let changed = false;
         for (let i = lo; i <= hi; i++) {
           const rec = _state.records[i];
           if (!rec) continue;
+          const val = computeFillValue(sourceVal, i - startIdx, forceCopy);
           if (!rec.values || typeof rec.values !== 'object') rec.values = {};
           if (rec.values[fieldKey] !== val) {
             rec.values[fieldKey] = val;
@@ -611,7 +716,7 @@
         if (Number.isNaN(startIdx) || !fieldKey || !rec) return;
         const val = (rec.values && rec.values[fieldKey] != null) ? String(rec.values[fieldKey]) : '';
         if (_state.records.length - 1 > startIdx) {
-          applyFillRange(startIdx, _state.records.length - 1, fieldKey, val);
+          applyFillRange(startIdx, _state.records.length - 1, fieldKey, val, Boolean(e.ctrlKey || e.metaKey));
         }
       });
 
@@ -663,14 +768,14 @@
           if (bestIdx !== currentEndIdx) updateHighlights(bestIdx);
         };
 
-        const onMouseUp = () => {
+        const onMouseUp = (ev) => {
           document.removeEventListener('mousemove', onMouseMove);
           document.removeEventListener('mouseup', onMouseUp);
           document.body.classList.remove('db-filling');
           if (sourceTd) sourceTd.classList.remove('db-fill-source');
           rowRects.forEach(item => item.td.classList.remove('db-fill-target'));
           if (currentEndIdx !== startIdx) {
-            applyFillRange(startIdx, currentEndIdx, fieldKey, val);
+            applyFillRange(startIdx, currentEndIdx, fieldKey, val, Boolean(ev && (ev.ctrlKey || ev.metaKey)));
           }
         };
 
@@ -1003,6 +1108,7 @@
   function reset() {
     _pendingData = null;
     _state = { fields: [], records: [], activeRecordIndex: 0 };
+    _sortState = { fieldKey: null, direction: null };
     renderPanel();
   }
 
@@ -1280,6 +1386,7 @@
     addField,
     renameField,
     deleteField,
+    sortByField,
     addRecord,
     deleteRecord,
     setActiveRecord,

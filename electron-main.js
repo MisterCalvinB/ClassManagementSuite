@@ -877,6 +877,17 @@ function scheduleSaveSessionState(delayMs = 600) {
   }, delayMs);
 }
 
+function readAppSettingsSync() {
+  try {
+    const filePath = path.join(getWritableRootDir(), 'user', 'app-settings.json');
+    if (!fsSync.existsSync(filePath)) return {};
+    const parsed = JSON.parse(fsSync.readFileSync(filePath, 'utf8'));
+    return (parsed && typeof parsed === 'object') ? parsed : {};
+  } catch (_) {
+    return {};
+  }
+}
+
 function readSavedSessionState() {
   try {
     const filePath = getSessionStateFilePath();
@@ -3673,24 +3684,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   return { ok: true, windowId: toolWin.id };
 });
 
-ipcMain.handle('app:open-split', async (event, request = {}) => {
-  const knownPages = new Set(Object.values(PAGE_FILES));
-  const pageFile1 = String(request.pageFile1 || '');
-  const pageFile2 = String(request.pageFile2 || '');
-  if (!pageFile1 || !knownPages.has(pageFile1)) return { ok: false, error: `Unknown page: ${pageFile1}` };
-  if (!pageFile2 || !knownPages.has(pageFile2)) return { ok: false, error: `Unknown page: ${pageFile2}` };
-  const fraction = Math.min(Math.max(Number(request.fraction) || 0.5, 0.1), 0.9);
-  const win1 = createToolWindow(pageFile1);
-  const win2 = createToolWindow(pageFile2);
-  await new Promise(resolve => setImmediate(resolve));
-  const { workArea } = screen.getPrimaryDisplay();
-  const { x, y, width, height } = workArea;
-  const w1 = Math.round(width * fraction);
-  if (!win1.isDestroyed()) win1.setBounds({ x, y, width: w1, height });
-  if (!win2.isDestroyed()) win2.setBounds({ x: x + w1, y, width: width - w1, height });
-  if (!win2.isDestroyed()) win2.focus();
-  return { ok: true };
-});
+// app:open-split is registered in js/main/ipc-windows.js (shared with Window Reorder Helper)
 
 ipcMain.handle('app:arrange-side-by-side', async (event, request = {}) => {
   const senderWin = BrowserWindow.fromWebContents(event.sender);
@@ -4757,11 +4751,13 @@ app.whenReady().then(async () => {
   if (!firstRunDetected && !hasCliArg) {
     const savedSession = readSavedSessionState();
     if (savedSession && Array.isArray(savedSession.windows) && savedSession.windows.length > 0) {
+      const appSettings = readAppSettingsSync();
+      const restoreOnLaunch = appSettings.restoreSessionOnLaunch !== false;
       const hasRealTools = savedSession.windows.some(w => w && w.pageFile && w.pageFile !== PAGE_FILES.launcher);
       const isUnclean = !savedSession.cleanQuit;
 
-      // Restore if unexpected termination (task manager, Linux OOM, crash) OR if active tools were open
-      if (isUnclean || hasRealTools) {
+      // Restore on actual crash/unclean exit, OR on normal relaunch when restoreSessionOnLaunch is enabled
+      if (isUnclean || (restoreOnLaunch && hasRealTools)) {
         try {
           didRestore = restoreSavedSession(savedSession);
         } catch (restoreErr) {
@@ -4828,12 +4824,15 @@ let _remoteQuitSyncDone = false;
 app.on('before-quit', (event) => {
   _isQuittingCleanly = true;
   try {
+    const appSettings = readAppSettingsSync();
+    const restoreOnLaunch = appSettings.restoreSessionOnLaunch !== false;
     const activeSnapshot = getActiveSessionSnapshot(false);
     const hasTools = activeSnapshot.windows && activeSnapshot.windows.some(
       w => w && w.pageFile && w.pageFile !== PAGE_FILES.launcher
     );
-    // If active tools were open (Board, Grade Sheet, etc.), keep cleanQuit = false so state restores!
-    saveSessionStateSync(!hasTools);
+    // When restoreSessionOnLaunch is enabled, keep cleanQuit = false if tools are open so they restore.
+    // When disabled, mark cleanQuit = true on normal quit so Startup & Launch runs next time (crashes still recover).
+    saveSessionStateSync(restoreOnLaunch ? !hasTools : true);
   } catch (_) {}
   stopQuizServer();
   try { _dictionaryService.dispose(); } catch (_) {}

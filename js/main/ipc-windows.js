@@ -39,6 +39,31 @@ function registerWindowsIpc(ctx) {
     return { displays, map, primary };
   }
 
+  function _getVisualBounds(win) {
+    let bounds = { x: 0, y: 0, width: 800, height: 600 };
+    try {
+      const ob = win.getBounds();
+      bounds = { x: ob.x, y: ob.y, width: ob.width, height: ob.height };
+      if (process.platform === 'win32' && !win.isMinimized() && typeof win.getContentBounds === 'function') {
+        const cb = win.getContentBounds();
+        if (cb && cb.width > 0 && cb.height > 0) {
+          const rawL = cb.x - ob.x;
+          const rawR = (ob.x + ob.width) - (cb.x + cb.width);
+          const rawB = (ob.y + ob.height) - (cb.y + cb.height);
+          const insetL = (rawL >= 0 && rawL < 50) ? rawL : 0;
+          const insetR = (rawR >= 0 && rawR < 50) ? rawR : 0;
+          const insetB = (rawB >= 0 && rawB < 50) ? rawB : 0;
+          if (insetL > 0 || insetR > 0 || insetB > 0) {
+            bounds.x += insetL;
+            bounds.width = Math.max(1, bounds.width - insetL - insetR);
+            bounds.height = Math.max(1, bounds.height - insetB);
+          }
+        }
+      }
+    } catch (_) {}
+    return bounds;
+  }
+
   function _buildWindowsSnapshot(senderWin = null) {
     const { displays, map, primary } = _getDisplayIndexMap();
     const allWins = BrowserWindow.getAllWindows().filter((w) => w && !w.isDestroyed());
@@ -56,10 +81,7 @@ function registerWindowsIpc(ctx) {
         continue;
       }
 
-      let bounds = { x: 0, y: 0, width: 800, height: 600 };
-      try {
-        bounds = win.getBounds();
-      } catch (_) {}
+      const bounds = _getVisualBounds(win);
 
       const matchedDisplay = screen.getDisplayMatching(bounds) || primary;
       const dispMeta = matchedDisplay && map.has(matchedDisplay.id)
@@ -252,6 +274,46 @@ function registerWindowsIpc(ctx) {
     cols.forEach((c) => rects.push({ x: c.pos, y, width: c.size, height }));
     return rects;
   }
+
+  ipcMain.handle('app:open-split', async (_event, request = {}) => {
+    const knownPages = new Set(Object.values(PAGE_FILES || {}));
+    const pageFile1 = String(request.pageFile1 || '');
+    const pageFile2 = String(request.pageFile2 || '');
+    if (!pageFile1 || !knownPages.has(pageFile1)) return { ok: false, error: `Unknown page: ${pageFile1}` };
+    if (!pageFile2 || !knownPages.has(pageFile2)) return { ok: false, error: `Unknown page: ${pageFile2}` };
+    if (typeof createToolWindow !== 'function') return { ok: false, error: 'no-create-tool-window' };
+
+    if (typeof _teardownLinkedResize === 'function') {
+      _teardownLinkedResize();
+    }
+
+    const win1 = createToolWindow(pageFile1);
+    const win2 = createToolWindow(pageFile2);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const displays = screen.getAllDisplays();
+    let targetDisplay = null;
+    if (request.displayId !== undefined && request.displayId !== null) {
+      targetDisplay = displays.find((d) => d.id === Number(request.displayId)) || null;
+    }
+    if (!targetDisplay) targetDisplay = screen.getPrimaryDisplay();
+
+    const ratio = _normalizeRatio(request.fraction ?? request.ratio, 0.5);
+    const gap = Math.max(0, Math.min(48, Math.round(Number(request.gap) || 0)));
+    const rects = _computeLayoutRects(2, targetDisplay.workArea, 'split-custom', { ratio, gap });
+
+    if (win1 && !win1.isDestroyed() && _prepareWindowForBounds(win1)) {
+      _applySafeBounds(win1, rects[0]);
+    }
+    if (win2 && !win2.isDestroyed() && _prepareWindowForBounds(win2)) {
+      _applySafeBounds(win2, rects[1]);
+    }
+    if (win2 && !win2.isDestroyed()) {
+      try { win2.focus(); } catch (_) {}
+    }
+    notifyWindowsChanged();
+    return { ok: true };
+  });
 
   ipcMain.handle('app:get-windows-state', (event) => {
     const senderWin = BrowserWindow.fromWebContents(event.sender);

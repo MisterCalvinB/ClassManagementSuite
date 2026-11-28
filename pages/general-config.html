@@ -20,6 +20,7 @@
   <script src="../js/shared/whisper-model-modal.js"></script>
   <script src="../js/shared/slm-service.js"></script>
   <script src="../js/shared/slm-model-modal.js"></script>
+  <script src="../js/shared/window-helper.js"></script>
   <link rel="stylesheet" href="../css/general-config.css">
   <script src="../js/shared/tutorial.js"></script>
 </head>
@@ -223,6 +224,12 @@
                   <span class="layout-label" data-i18n="gcLayoutMaximize">Maximized</span>
                   <span class="layout-hint" data-i18n="gcLayoutMaximizeHint">Each window fills the screen</span>
                 </label>
+                <label class="layout-card" data-layout="preset">
+                  <input type="radio" name="layout" value="preset">
+                  <span class="layout-icon"><img src="../assets/icons/saved-files.svg" class="btn-icon" alt="" /></span>
+                  <span class="layout-label" data-i18n="gcLayoutPreset">Saved layout</span>
+                  <span class="layout-hint" data-i18n="gcLayoutPresetHint">Use a Window Reorder Helper preset</span>
+                </label>
               </div>
             </div>
 
@@ -255,6 +262,41 @@
               </div>
               <p class="field-hint" style="margin-top:6px;" data-i18n="gcSplitDragHint">Drag to set how much screen
                 width each side receives.</p>
+
+              <div class="gc-split-gap-row">
+                <label class="field-label" for="splitGapSelect" style="margin:0;" data-i18n="wh_gap">Gap</label>
+                <select id="splitGapSelect">
+                  <option value="0">0px</option>
+                  <option value="8">8px</option>
+                  <option value="16">16px</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Saved layout preset controls (preset mode only) -->
+            <div class="preset-controls field" id="presetControls">
+              <label class="field-label" for="startupPresetSelect" data-i18n="gcFieldSavedLayout">Saved layout preset</label>
+              <div class="gc-preset-row">
+                <select id="startupPresetSelect"></select>
+                <button type="button" class="neo-btn neo-btn-sm neo-btn-primary" id="gcApplyStartupPresetBtn" style="display:inline-flex;align-items:center;gap:6px;">
+                  <img src="../assets/icons/play.svg" class="btn-icon" style="width:14px;height:14px;" alt="" />
+                  <span data-i18n="gcApplyPresetNow">Apply now</span>
+                </button>
+                <button type="button" class="neo-btn neo-btn-sm" id="gcOpenWindowHelperBtn" style="display:inline-flex;align-items:center;gap:6px;">
+                  <img src="../assets/icons/layout.svg" class="btn-icon" style="width:14px;height:14px;" alt="" />
+                  <span data-i18n="gcManageWindowLayouts">Manage in Window Reorder Helper</span>
+                </button>
+              </div>
+              <div class="gc-preset-preview" id="startupPresetPreview"></div>
+              <p class="field-hint" style="margin-top:8px;" data-i18n="gcPresetStartupHint">Saved presets are shared with Window Reorder Helper (Ctrl+Shift+W) and open all missing apps automatically on launch.</p>
+            </div>
+
+            <div class="field" style="margin-top:14px;">
+              <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;font-weight:700;">
+                <input type="checkbox" id="restoreSessionToggle" style="width:15px;height:15px;cursor:pointer;accent-color:#000;">
+                <span data-i18n="gcRestoreSessionOnLaunch">Restore previous session windows on launch</span>
+              </label>
+              <p class="field-hint" data-i18n="gcRestoreSessionOnLaunchHint">When on, reopening the app restores any tool windows that were open when you quit (instead of running Startup &amp; Launch). Turn off to always apply your Startup &amp; Launch layout on normal launch; crashed sessions still recover.</p>
             </div>
 
             <p class="field-hint" style="margin-top:8px;">
@@ -1654,8 +1696,11 @@
         card.classList.toggle('active', card.dataset.layout === layout);
       });
       var isSplit = layout === 'split';
-      document.getElementById('appsField').style.display = isSplit ? 'none' : 'block';
+      var isPreset = layout === 'preset';
+      document.getElementById('appsField').style.display = (isSplit || isPreset) ? 'none' : 'block';
       document.getElementById('splitControls').style.display = isSplit ? 'block' : 'none';
+      var presetCtrl = document.getElementById('presetControls');
+      if (presetCtrl) presetCtrl.style.display = isPreset ? 'block' : 'none';
     }
 
     document.getElementById('layoutGrid').addEventListener('change', function (e) {
@@ -1713,10 +1758,127 @@
 
     var splitSlider = document.getElementById('splitSlider');
     var splitPct = document.getElementById('splitPct');
+    var splitGapSelect = document.getElementById('splitGapSelect');
+    var startupPresetSelect = document.getElementById('startupPresetSelect');
+    var startupPresetPreview = document.getElementById('startupPresetPreview');
+    var gcApplyStartupPresetBtn = document.getElementById('gcApplyStartupPresetBtn');
+    var gcOpenWindowHelperBtn = document.getElementById('gcOpenWindowHelperBtn');
+    var restoreSessionToggle = document.getElementById('restoreSessionToggle');
+    var _gcPresetsCache = [];
+
     splitSlider.addEventListener('input', function () {
       var v = parseInt(splitSlider.value);
       splitPct.textContent = v + ' / ' + (100 - v);
       persistStartup();
+    });
+    if (splitGapSelect) {
+      splitGapSelect.addEventListener('change', persistStartup);
+    }
+    if (restoreSessionToggle) {
+      restoreSessionToggle.addEventListener('change', persistStartup);
+    }
+
+    function renderStartupPresetPreview(presetId) {
+      if (!startupPresetPreview) return;
+      while (startupPresetPreview.firstChild) {
+        startupPresetPreview.removeChild(startupPresetPreview.firstChild);
+      }
+      var preset = _gcPresetsCache.find(function (p) { return p && p.id === presetId; }) || null;
+      if (!preset || !Array.isArray(preset.slots) || preset.slots.length === 0) {
+        var empty = document.createElement('span');
+        empty.className = 'gc-preset-empty';
+        empty.textContent = _gcPresetsCache.length === 0
+          ? t('gcNoSavedLayouts', 'No saved layouts yet. Open Window Reorder Helper (Ctrl+Shift+W) to arrange windows and save a preset.')
+          : t('gcSelectSavedLayout', 'Select a saved layout preset.');
+        startupPresetPreview.appendChild(empty);
+        if (gcApplyStartupPresetBtn) gcApplyStartupPresetBtn.disabled = true;
+        return;
+      }
+      if (gcApplyStartupPresetBtn) gcApplyStartupPresetBtn.disabled = false;
+      preset.slots.forEach(function (sl) {
+        var chip = document.createElement('span');
+        chip.className = 'gc-preset-chip' + (sl.role === 'mirror' ? ' is-mirror' : '');
+        var label = String(sl.title || sl.pageFile || '').replace(/\s*[–-]\s*Presentation.*$/i, '');
+        var u = sl.unit === '%' ? '%' : '';
+        var dims = sl.snap === 'full'
+          ? t('wh_maximize', 'Maximize')
+          : (sl.bounds ? (sl.bounds.width + u + 'x' + sl.bounds.height + u) : '');
+        var dTag = 'D' + ((typeof sl.displayIndex === 'number' ? sl.displayIndex : 0) + 1);
+        chip.textContent = label + (sl.role === 'mirror' ? ' [M]' : '') + (dims ? ' · ' + dims : '') + ' · ' + dTag;
+        startupPresetPreview.appendChild(chip);
+      });
+    }
+
+    async function refreshStartupPresets(preferredId) {
+      if (!startupPresetSelect) return;
+      var list = [];
+      try {
+        if (window.WindowHelper && typeof window.WindowHelper.loadPresets === 'function') {
+          list = await window.WindowHelper.loadPresets();
+        } else if (window.Desktop && typeof window.Desktop.getWindowPresets === 'function') {
+          var res = await window.Desktop.getWindowPresets();
+          if (res && res.ok && Array.isArray(res.presets)) list = res.presets;
+        }
+      } catch (_) {}
+      _gcPresetsCache = (Array.isArray(list) ? list : []).slice().sort(function (a, b) {
+        return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+      });
+      var targetId = preferredId !== undefined ? preferredId : startupPresetSelect.value;
+      while (startupPresetSelect.firstChild) {
+        startupPresetSelect.removeChild(startupPresetSelect.firstChild);
+      }
+      if (_gcPresetsCache.length === 0) {
+        var optEmpty = document.createElement('option');
+        optEmpty.value = '';
+        optEmpty.textContent = t('gcNoSavedLayoutsOption', '— No saved presets —');
+        startupPresetSelect.appendChild(optEmpty);
+        startupPresetSelect.value = '';
+        renderStartupPresetPreview('');
+        return;
+      }
+      _gcPresetsCache.forEach(function (p) {
+        var opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        startupPresetSelect.appendChild(opt);
+      });
+      if (targetId && _gcPresetsCache.some(function (p) { return p.id === targetId; })) {
+        startupPresetSelect.value = targetId;
+      } else {
+        startupPresetSelect.value = _gcPresetsCache[0].id;
+      }
+      renderStartupPresetPreview(startupPresetSelect.value);
+    }
+
+    if (startupPresetSelect) {
+      startupPresetSelect.addEventListener('change', function () {
+        renderStartupPresetPreview(startupPresetSelect.value);
+        persistStartup();
+      });
+    }
+    if (gcOpenWindowHelperBtn) {
+      gcOpenWindowHelperBtn.addEventListener('click', function () {
+        if (window.WindowHelper && typeof window.WindowHelper.open === 'function') {
+          window.WindowHelper.open();
+        }
+      });
+    }
+    if (gcApplyStartupPresetBtn) {
+      gcApplyStartupPresetBtn.addEventListener('click', async function () {
+        var pid = startupPresetSelect ? startupPresetSelect.value : '';
+        if (!pid) return;
+        if (window.WindowHelper && typeof window.WindowHelper.applyPreset === 'function') {
+          await window.WindowHelper.applyPreset(pid, { openMissing: true });
+        }
+      });
+    }
+    window.addEventListener('cmt-wh-presets-changed', function () {
+      var prev = startupPresetSelect ? startupPresetSelect.value : '';
+      refreshStartupPresets(prev).then(function () {
+        if (getCurrentLayout() === 'preset' && !prev && startupPresetSelect && startupPresetSelect.value) {
+          persistStartup();
+        }
+      });
     });
 
     /* ── persist all startup settings ─────────────────── */
@@ -1727,7 +1889,10 @@
         startupApps: getCheckedApps(),
         startupSplitLeft: document.getElementById('splitLeftSelect').value,
         startupSplitRight: document.getElementById('splitRightSelect').value,
-        startupSplitFraction: parseInt(splitSlider.value) / 100
+        startupSplitFraction: parseInt(splitSlider.value) / 100,
+        startupSplitGap: splitGapSelect ? (Number(splitGapSelect.value) || 0) : 0,
+        startupPresetId: startupPresetSelect ? (startupPresetSelect.value || '') : '',
+        restoreSessionOnLaunch: restoreSessionToggle ? !!restoreSessionToggle.checked : true
       });
       flashSaved(startupStatus);
     }
@@ -2350,6 +2515,13 @@
       var pct = Math.round((cfg.startupSplitFraction || 0.5) * 100);
       splitSlider.value = pct;
       splitPct.textContent = pct + ' / ' + (100 - pct);
+      if (splitGapSelect) {
+        splitGapSelect.value = String(cfg.startupSplitGap || 0);
+      }
+      if (restoreSessionToggle) {
+        restoreSessionToggle.checked = cfg.restoreSessionOnLaunch !== false;
+      }
+      refreshStartupPresets(cfg.startupPresetId || '');
 
       showDevFeaturesToggle.checked = cfg.showDevFeatures === true;
       updateDevFeaturesVisibility();
