@@ -576,7 +576,7 @@
     if (!isDesktop) {
       el.input.disabled = true;
       el.banksBtn.disabled = true;
-      showEmpty(t('qdWebOnly', 'The Quick Dictionary needs the desktop app to read your word banks.'));
+      showEmpty(t('qdWebOnly', 'The Dictionary needs the desktop app to read your word banks.'));
       return;
     }
 

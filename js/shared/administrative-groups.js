@@ -2385,8 +2385,12 @@
             printBackground: true
           }
         };
-        if (destRes.destination === 'to-print' || destRes.destination === 'print') {
-          pdfReq.target = 'toPrint';
+        var resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+          ? window.cmtResolveExportTarget(destRes.destination)
+          : ((destRes.destination === 'to-print' || destRes.destination === 'print') ? 'toPrint' : null);
+        if (!resolvedTarget && destRes.destination === 'print') resolvedTarget = 'toPrint';
+        if (resolvedTarget) {
+          pdfReq.target = resolvedTarget;
           pdfReq.filename = finalPdfName;
         }
         var pdfRes = await Desktop.printPdf(pdfReq);

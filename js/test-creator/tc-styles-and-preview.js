@@ -2129,8 +2129,11 @@ async function _tcExecuteExportInner() {
         printBackground: true
       }
     };
-    if (destRes.destination === 'to-print') {
-      pdfReq.target = 'toPrint';
+    var resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+      ? window.cmtResolveExportTarget(destRes.destination)
+      : (destRes.destination === 'to-print' ? 'toPrint' : null);
+    if (resolvedTarget) {
+      pdfReq.target = resolvedTarget;
       pdfReq.filename = finalPdfName;
     }
     var pdfRes = await Desktop.printPdf(pdfReq);

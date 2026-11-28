@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' file: data: blob:; style-src 'self' 'unsafe-inline' file: data:; connect-src 'self' ws://127.0.0.1:* http://127.0.0.1:* file: data: blob:; font-src 'self' file: data:; img-src 'self' file: data: blob:; media-src 'self' file: data: blob:; worker-src 'self' file: blob:;">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="rbAppTitle">Reference Builder</title>
+  <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
+  <link rel="stylesheet" href="../css/neo-ui.css">
+  <link rel="stylesheet" href="../css/menus.css">
+  <link rel="stylesheet" href="../css/tag-link-modal.css">
+  <link rel="stylesheet" href="../css/pages/reference-builder.css">
+  <script src="../electron-bridge.js"></script>
+  <script src="../js/shared/i18n.js"></script>
+  <script src="../js/shared/dialogs.js"></script>
+  <script src="../js/shared/tutorial.js"></script>
+  <script src="../js/shared/menus.js"></script>
+  <script src="../js/shared/quick-switcher.js"></script>
+  <script src="../js/shared/links-service.js"></script>
+  <script src="../js/shared/tag-link-modal.js"></script>
+  <script src="../js/shared/export-styles-service.js"></script>
+  <script src="../js/shared/export-lang-service.js"></script>
+  <script src="../modules/marked/marked.umd.js"></script>
+  <script src="../modules/katex/dist/katex.min.js"></script>
+</head>
+<body data-neo-hover-all="1">
+  <div class="rb-app">
+    <nav id="app-nav">
+      <span class="nav-brand">
+        <img src="../assets/icons/reference-builder.svg" alt="" />
+        <span data-i18n="rbAppTitle">Reference Builder</span>
+      </span>
+
+      <div class="nav-group">
+        <button type="button" class="nav-btn" data-i18n="menuFile">File</button>
+        <div class="nav-group-popup">
+          <button type="button" class="nav-pop-item" data-rb-action="new-subject" data-i18n="rbNewSubject">New Subject…</button>
+          <button type="button" class="nav-pop-item" data-rb-action="new-manual" data-i18n="rbNewManual">New Reference Manual…</button>
+          <button type="button" class="nav-pop-item" data-rb-action="save-manual"><span data-i18n="rbSaveManual">Save Manual</span> <span class="nav-pop-hint">Ctrl+S</span></button>
+          <hr class="nav-pop-sep">
+          <button type="button" class="nav-pop-item" data-rb-action="open-export-modal" data-i18n="rbExportMenu">Export (HTML / PDF / MD / ODT)…</button>
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <button type="button" class="nav-btn" data-i18n="rbCustomizeMenu">Customize</button>
+        <div class="nav-group-popup">
+          <button type="button" class="nav-pop-item" data-rb-action="open-type-builder" data-i18n="rbCustomTypesBtn">Custom Module Types…</button>
+          <button type="button" class="nav-pop-item" data-rb-action="open-css-modal" data-i18n="rbCustomCssBtn">Custom CSS Sheets…</button>
+          <button type="button" class="nav-pop-item" data-rb-action="toggle-preview" data-i18n="rbTogglePreview">Toggle Live Preview</button>
+        </div>
+      </div>
+
+      <button type="button" class="nav-btn rb-nav-library-btn" id="rb-btn-library" data-rb-action="show-library" data-i18n="rbLibraryBtn">Library</button>
+
+      <div class="nav-spacer"></div>
+
+      <button type="button" class="nav-btn rb-tour-btn" id="rb-btn-tour" data-rb-action="start-tour" title="Interactive Tour">?</button>
+    </nav>
+
+    <!-- ── VIEW 1: LIBRARY (SUBJECTS + REFERENCE CARDS) ─────────────────── -->
+    <main id="rb-library-view" class="rb-library-view">
+      <aside class="rb-subjects-sidebar">
+        <div class="rb-sidebar-head">
+          <h2 data-i18n="rbSubjectsTitle">Subjects</h2>
+          <button type="button" class="rb-btn rb-btn-amber rb-btn-sm" data-rb-action="new-subject" data-i18n="rbAddSubjectBtn">+ Subject</button>
+        </div>
+        <div id="rb-subjects-list" class="rb-subjects-list"></div>
+      </aside>
+
+      <section class="rb-library-main">
+        <div class="rb-library-toolbar">
+          <input type="search" id="rb-search-input" class="rb-input rb-search-input" data-i18n-placeholder="rbSearchPlaceholder" placeholder="Search references, topics, levels, tags…" />
+          <input type="text" id="rb-filter-level" class="rb-input rb-filter-sm" data-i18n-placeholder="rbFilterLevel" placeholder="Level (e.g. B1)" />
+          <input type="text" id="rb-filter-year" class="rb-input rb-filter-sm" data-i18n-placeholder="rbFilterYear" placeholder="Year / Grade" />
+          <input type="text" id="rb-filter-subdisc" class="rb-input rb-filter-sm" data-i18n-placeholder="rbFilterSubDisc" placeholder="Sub-discipline" />
+          <button type="button" class="rb-btn rb-btn-sage" data-rb-action="new-manual" data-i18n="rbNewManualBtn">+ New Reference</button>
+        </div>
+
+        <div id="rb-cards-grid" class="rb-cards-grid"></div>
+      </section>
+    </main>
+
+    <!-- ── VIEW 2: MANUAL EDITOR + LIVE PREVIEW ─────────────────────────── -->
+    <main id="rb-editor-view" class="rb-editor-view is-hidden">
+      <!-- Left: Topics / Outline -->
+      <aside class="rb-outline-pane">
+        <div class="rb-outline-header">
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="show-library" data-i18n="rbBackToLibrary">← Library</button>
+          <button type="button" class="rb-btn rb-btn-amber rb-btn-sm" data-rb-action="add-chapter" data-i18n="rbAddTopicBtn">+ Topic</button>
+        </div>
+
+        <div class="rb-manual-meta-card">
+          <input type="text" id="rb-manual-title" class="rb-input rb-input-title" data-i18n-placeholder="rbManualTitlePh" placeholder="Manual Title" />
+          <input type="text" id="rb-manual-subtitle" class="rb-input" data-i18n-placeholder="rbManualSubtitlePh" placeholder="Subtitle / Description" />
+          <div class="rb-meta-grid">
+            <input type="text" id="rb-manual-level" class="rb-input" data-i18n-placeholder="rbLevelPh" placeholder="Level" />
+            <input type="text" id="rb-manual-year" class="rb-input" data-i18n-placeholder="rbYearPh" placeholder="Year" />
+          </div>
+          <input type="text" id="rb-manual-subdisc" class="rb-input" data-i18n-placeholder="rbSubDiscPh" placeholder="Sub-discipline" />
+          <input type="text" id="rb-manual-tags" class="rb-input" data-i18n-placeholder="rbTagsPh" placeholder="Tags (comma separated)" />
+        </div>
+
+        <div id="rb-outline-list" class="rb-outline-list"></div>
+      </aside>
+
+      <!-- Center: Active Topic & Modules -->
+      <section class="rb-workspace-pane">
+        <div class="rb-workspace-bar">
+          <div class="rb-topic-meta-bar">
+            <input type="text" id="rb-chapter-title" class="rb-input rb-input-topic" data-i18n-placeholder="rbTopicTitlePh" placeholder="Topic / Chapter Title" />
+            <input type="text" id="rb-chapter-prefix" class="rb-input rb-filter-xs" data-i18n-placeholder="rbPrefixPh" placeholder="Prefix (e.g. Unit)" />
+            <select id="rb-chapter-title-style" class="rb-input rb-filter-sm">
+              <option value="default">Title: Underline</option>
+              <option value="banner">Title: Banner</option>
+              <option value="boxed">Title: Boxed</option>
+            </select>
+            <label class="rb-inline-check"><input type="checkbox" id="rb-chapter-show-num" checked /> <span data-i18n="rbShowNumLbl">#</span></label>
+            <input type="text" id="rb-chapter-level" class="rb-input rb-filter-xs" data-i18n-placeholder="rbLevelPh" placeholder="Level" />
+            <input type="text" id="rb-chapter-year" class="rb-input rb-filter-xs" data-i18n-placeholder="rbYearPh" placeholder="Year" />
+            <input type="text" id="rb-chapter-subdisc" class="rb-input rb-filter-sm" data-i18n-placeholder="rbSubDiscPh" placeholder="Sub-discipline" />
+          </div>
+          <div class="rb-workspace-actions">
+            <button type="button" class="rb-btn rb-btn-sm" data-rb-action="save-manual" data-i18n="rbSaveBtn">Save</button>
+            <button type="button" class="rb-btn rb-btn-amber rb-btn-sm" data-rb-action="open-export-modal" data-i18n="rbExportBtn">Export</button>
+            <button type="button" class="rb-btn rb-btn-sm" data-rb-action="toggle-preview" data-i18n="rbPreviewBtn">Preview</button>
+          </div>
+        </div>
+
+        <div class="rb-module-palette" id="rb-module-palette"></div>
+
+        <div id="rb-modules-list" class="rb-modules-list"></div>
+      </section>
+
+      <!-- Right: Live Reader Preview -->
+      <aside id="rb-preview-pane" class="rb-preview-pane">
+        <div class="rb-preview-head">
+          <div class="rb-preview-mode-group">
+            <button type="button" class="rb-btn rb-btn-sm rb-btn-amber" id="rb-preview-mode-html" data-rb-action="preview-mode-html">HTML</button>
+            <button type="button" class="rb-btn rb-btn-sm" id="rb-preview-mode-pdf" data-rb-action="preview-mode-pdf">PDF</button>
+          </div>
+          <div id="rb-preview-style-selector-wrap" class="rb-preview-style-wrap"></div>
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="open-css-modal">{ } CSS</button>
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="toggle-preview">×</button>
+        </div>
+        <iframe id="rb-preview-frame" class="rb-preview-frame" title="Reference Live Preview"></iframe>
+        <iframe id="rb-preview-pdf-frame" class="rb-preview-frame is-hidden" title="Exact PDF Preview"></iframe>
+      </aside>
+    </main>
+  </div>
+
+  <!-- ── MODAL: SUBJECT ─────────────────────────────────────────────────── -->
+  <div id="rb-subject-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal">
+      <div class="rb-modal-head">
+        <h3 data-i18n="rbSubjectModalTitle">Subject</h3>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-modals">×</button>
+      </div>
+      <div class="rb-modal-body">
+        <label class="rb-label" data-i18n="rbSubjectNameLbl">Subject Name</label>
+        <input type="text" id="rb-subj-name" class="rb-input" placeholder="e.g. Biology, English, French" />
+        <label class="rb-label" data-i18n="rbSubjectDescLbl">Description</label>
+        <input type="text" id="rb-subj-desc" class="rb-input" placeholder="Short description" />
+        <label class="rb-label" data-i18n="rbAccentColorLbl">Accent Color</label>
+        <div id="rb-subj-colors" class="rb-color-row"></div>
+      </div>
+      <div class="rb-modal-foot">
+        <button type="button" class="rb-btn rb-btn-rose is-hidden" id="rb-subj-delete-btn" data-rb-action="delete-subject" data-i18n="btnDelete">Delete</button>
+        <button type="button" class="rb-btn" data-rb-action="close-modals" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="rb-btn rb-btn-sage" data-rb-action="save-subject" data-i18n="btnSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: NEW REFERENCE MANUAL ────────────────────────────────────── -->
+  <div id="rb-manual-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal">
+      <div class="rb-modal-head">
+        <h3 data-i18n="rbNewManualModalTitle">New Reference Manual</h3>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-modals">×</button>
+      </div>
+      <div class="rb-modal-body">
+        <label class="rb-label" data-i18n="rbSubjectLbl">Subject</label>
+        <select id="rb-new-manual-subject" class="rb-input"></select>
+        <label class="rb-label" data-i18n="rbManualTitleLbl">Title</label>
+        <input type="text" id="rb-new-manual-title" class="rb-input" placeholder="e.g. English Grammar Manual" />
+        <label class="rb-label" data-i18n="rbLevelLbl">Level</label>
+        <input type="text" id="rb-new-manual-level" class="rb-input" placeholder="e.g. B1 / Grade 10" />
+        <label class="rb-label" data-i18n="rbYearLbl">Year</label>
+        <input type="text" id="rb-new-manual-year" class="rb-input" placeholder="e.g. 2026-2027" />
+        <label class="rb-label" data-i18n="rbSubDiscLbl">Sub-discipline</label>
+        <input type="text" id="rb-new-manual-subdisc" class="rb-input" placeholder="e.g. Syntax, Cell Biology" />
+      </div>
+      <div class="rb-modal-foot">
+        <button type="button" class="rb-btn" data-rb-action="close-modals" data-i18n="btnCancel">Cancel</button>
+        <button type="button" class="rb-btn rb-btn-sage" data-rb-action="create-manual" data-i18n="rbCreateBtn">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: CUSTOM MODULE TYPE BUILDER ──────────────────────────────── -->
+  <div id="rb-type-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal rb-modal-lg">
+      <div class="rb-modal-head">
+        <h3 data-i18n="rbTypeBuilderTitle">Custom Module Type Builder</h3>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-modals">×</button>
+      </div>
+      <div class="rb-modal-body">
+        <div id="rb-custom-types-list" class="rb-custom-types-list"></div>
+        <hr class="rb-sep">
+        <h4 data-i18n="rbCreateCustomTypeTitle">Create New Module Type</h4>
+        <label class="rb-label" data-i18n="rbTypeNameLbl">Module Type Name</label>
+        <input type="text" id="rb-ctype-name" class="rb-input" placeholder="e.g. Conjugation Box, Lab Safety, Historical Quote" />
+        <label class="rb-label" data-i18n="rbAccentColorLbl">Accent Color</label>
+        <div id="rb-ctype-colors" class="rb-color-row"></div>
+        <label class="rb-label" data-i18n="rbFieldsLbl">Fields</label>
+        <div id="rb-ctype-fields" class="rb-ctype-fields"></div>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="add-ctype-field" data-i18n="rbAddFieldBtn">+ Add Field</button>
+      </div>
+      <div class="rb-modal-foot">
+        <button type="button" class="rb-btn" data-rb-action="close-modals" data-i18n="btnClose">Close</button>
+        <button type="button" class="rb-btn rb-btn-sage" data-rb-action="save-custom-type" data-i18n="rbSaveCustomTypeBtn">Save Module Type</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: CUSTOM CSS SHEETS ───────────────────────────────────────── -->
+  <div id="rb-css-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal rb-modal-lg">
+      <div class="rb-modal-head">
+        <h3 data-i18n="rbCustomCssModalTitle">Custom CSS Stylesheets</h3>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-modals">×</button>
+      </div>
+      <div class="rb-modal-body">
+        <div class="rb-list-row">
+          <button type="button" class="rb-btn rb-btn-amber rb-btn-sm" data-rb-action="add-css-sheet" data-i18n="rbAddCssSheetBtn">+ Add Custom CSS Sheet</button>
+        </div>
+        <div id="rb-css-sheets-list" class="rb-css-sheets-list"></div>
+      </div>
+      <div class="rb-modal-foot">
+        <button type="button" class="rb-btn rb-btn-sage" data-rb-action="close-modals" data-i18n="btnClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: EXPORT ──────────────────────────────────────────────────── -->
+  <div id="rb-export-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal rb-modal-lg">
+      <div class="rb-modal-head">
+        <h3 data-i18n="rbExportModalTitle">Export Reference Manual</h3>
+        <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-modals">×</button>
+      </div>
+      <div class="rb-modal-body">
+        <label class="rb-label" data-i18n="rbExportStyleLbl">Export Visual Theme (HTML &amp; PDF)</label>
+        <div id="rb-export-style-selector-wrap"></div>
+        <div class="rb-export-opts-grid">
+          <div>
+            <label class="rb-label" data-i18n="rbExpPageSizeLbl">Page Size</label>
+            <select id="rb-exp-pagesize" class="rb-input">
+              <option value="general" data-i18n="rbUseGeneralConfig">From General Config</option>
+              <option value="A4">A4</option>
+              <option value="A3">A3</option>
+              <option value="A5">A5</option>
+              <option value="Letter">Letter</option>
+              <option value="Legal">Legal</option>
+            </select>
+          </div>
+          <div>
+            <label class="rb-label" data-i18n="rbExpOrientationLbl">Orientation</label>
+            <select id="rb-exp-orientation" class="rb-input">
+              <option value="general" data-i18n="rbUseGeneralConfig">From General Config</option>
+              <option value="portrait" data-i18n="rbPortraitLbl">Portrait</option>
+              <option value="landscape" data-i18n="rbLandscapeLbl">Landscape</option>
+            </select>
+          </div>
+          <div>
+            <label class="rb-label" data-i18n="rbExpMarginLbl">Margins (blank = General Config)</label>
+            <input type="text" id="rb-exp-margin" class="rb-input" placeholder="e.g. 16mm 14mm" />
+          </div>
+          <div>
+            <label class="rb-label" data-i18n="rbExpFontSizeLbl">Base Font Size</label>
+            <input type="text" id="rb-exp-fontsize" class="rb-input" placeholder="e.g. 14px" />
+          </div>
+        </div>
+        <div class="rb-export-checks">
+          <label class="rb-inline-check"><input type="checkbox" id="rb-exp-cover" checked /> <span data-i18n="rbExpCoverLbl">Cover Header</span></label>
+          <label class="rb-inline-check"><input type="checkbox" id="rb-exp-toc" checked /> <span data-i18n="rbExpTocLbl">Table of Contents</span></label>
+          <label class="rb-inline-check"><input type="checkbox" id="rb-exp-anskey" checked /> <span data-i18n="rbExpAnsKeyLbl">Answer Key</span></label>
+          <label class="rb-inline-check"><input type="checkbox" id="rb-exp-pagebreak" /> <span data-i18n="rbExpPageBreakLbl">Page Break per Topic</span></label>
+        </div>
+        <div class="rb-export-grid">
+          <button type="button" class="rb-btn rb-btn-amber" data-rb-export="html">HTML (.html)</button>
+          <button type="button" class="rb-btn rb-btn-slate" data-rb-export="pdf">PDF (.pdf)</button>
+          <button type="button" class="rb-btn rb-btn-sage" data-rb-export="md">Markdown (.md)</button>
+          <button type="button" class="rb-btn rb-btn-violet" data-rb-export="odt">OpenDocument (.odt)</button>
+        </div>
+        <div class="rb-export-pdf-preview-bar">
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="open-export-preview" data-i18n="rbExactPdfPreviewBtn">Open Live Print / PDF Preview…</button>
+        </div>
+      </div>
+      <div class="rb-modal-foot">
+        <button type="button" class="rb-btn" data-rb-action="close-modals" data-i18n="btnClose">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: LIVE EXPORT / PRINT PREVIEW (matching Lesson & Test Creator) ── -->
+  <div id="rb-export-preview-modal" class="rb-modal-backdrop is-hidden">
+    <div class="rb-modal rb-modal-preview">
+      <div class="rb-modal-head">
+        <div class="rb-preview-modal-title-wrap">
+          <img src="../assets/icons/eye.svg" class="rb-icon-md" alt="" />
+          <h3 data-i18n="rbPreviewModalTitle">Live Export Preview</h3>
+        </div>
+        <div class="rb-preview-modal-actions">
+          <div id="rb-modal-preview-style-selector-wrap"></div>
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="preview-open-external">
+            <img src="../assets/icons/fullscreen.svg" class="rb-icon-xs" alt="" />
+            <span data-i18n="rbPreviewOpenExternal">Open in System Browser</span>
+          </button>
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="preview-print">
+            <img src="../assets/icons/printer.svg" class="rb-icon-xs" alt="" />
+            <span data-i18n="btnPrint">Print</span>
+          </button>
+          <button type="button" class="rb-btn rb-btn-sm" data-rb-action="close-export-preview">×</button>
+        </div>
+      </div>
+      <div class="rb-preview-modal-sub" data-i18n="rbPreviewModalSub">
+        Live rendered view with all formatting, color codes, and print layout before exporting.
+      </div>
+      <div class="rb-preview-modal-frame-wrap">
+        <iframe id="rb-export-preview-iframe" class="rb-export-preview-iframe" title="Live Export Preview"></iframe>
+      </div>
+      <div class="rb-modal-foot rb-modal-foot-split">
+        <button type="button" class="rb-btn" data-rb-action="back-to-export-options">
+          <img src="../assets/icons/arrow-left.svg" class="rb-icon-xs" alt="" />
+          <span data-i18n="rbPreviewBackBtn">Back to Options</span>
+        </button>
+        <button type="button" class="rb-btn rb-btn-slate" data-rb-export="pdf">
+          <img src="../assets/icons/download.svg" class="rb-icon-xs" alt="" />
+          <span>PDF (.pdf)</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── POPOVER: SAVED PHRASES ─────────────────────────────────────────── -->
+  <div id="rb-phrase-popover" class="rb-phrase-popover is-hidden"></div>
+
+  <script src="../js/reference-builder/rb-store.js"></script>
+  <script src="../js/reference-builder/rb-module-types.js"></script>
+  <script src="../js/reference-builder/rb-quiz-media.js"></script>
+  <script src="../js/reference-builder/rb-exporter.js"></script>
+  <script src="../js/pages/reference-builder.js"></script>
+  <script src="../js/pages/reference-builder-events.js"></script>
+</body>
+</html>

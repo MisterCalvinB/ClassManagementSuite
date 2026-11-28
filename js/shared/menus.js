@@ -52,7 +52,7 @@
   var _APPS = [
     { href: 'class-management.html', icon: 'class-management.svg', label: 'Class Management' },
     { href: 'board.html',            icon: 'board.svg',            label: 'Board'            },
-    { href: 'learning-tools.html',   icon: 'learning-tools.svg',   label: 'Learning Tools'   },
+    { href: 'learning-tools.html',   icon: 'learning-tools.svg',   label: 'Games'            },
     { href: 'manage-database.html',  icon: 'manage-database.svg',  label: 'Database'         },
     { href: 'grade-sheet.html',      icon: 'grade-sheet.svg',      label: 'Grade Sheet'      },
     { href: 'participation-tracker.html',  icon: 'participation-tracker.svg', label: 'Tracker'               },
@@ -67,6 +67,7 @@
     { href: 'test-creator.html',     icon: 'test-creator.svg',     label: 'Test Creator'     },
     { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
     { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
+    { href: 'reference-builder.html', icon: 'reference-builder.svg', label: 'Reference Builder' },
     { href: 'pdf-viewer.html',       icon: 'pdf-viewer.svg',       label: 'PDF Viewer'       },
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
     { href: 'database-converter.html', icon: 'table.svg',          label: 'Data Studio'      },

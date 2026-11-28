@@ -5,7 +5,7 @@
   }
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
-  "deLookupInDict": "Rechercher dans le Dictionnaire rapide",
+  "deLookupInDict": "Rechercher dans le Dictionnaire",
   "deLookupInDictHint": "Rechercher le mot sélectionné dans les banques de mots (Ctrl+Maj+D)",
   "deAiStudioMenu": "Studio IA…",
   "deAiPillBtn": "Studio IA",

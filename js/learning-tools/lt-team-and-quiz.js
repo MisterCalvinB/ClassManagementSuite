@@ -1481,9 +1481,9 @@
 
     function ltGetSectionTitle(sectionId) {
       const section = document.getElementById(sectionId);
-      if (!section) return 'Learning Tools';
+      if (!section) return 'Games';
       const heading = section.querySelector('h2, h3');
-      return (heading && heading.textContent ? heading.textContent.trim() : '') || 'Learning Tools';
+      return (heading && heading.textContent ? heading.textContent.trim() : '') || 'Games';
     }
 
     function ltBuildPresentationHtml(sectionId) {
@@ -1760,7 +1760,7 @@
       }
 
       ltRenderProjectionState({
-        title: LT_PRESENTATION_SECTION_QUERY ? ltGetSectionTitle(LT_PRESENTATION_SECTION_QUERY) : 'Learning Tools',
+        title: LT_PRESENTATION_SECTION_QUERY ? ltGetSectionTitle(LT_PRESENTATION_SECTION_QUERY) : 'Games',
         updatedAt: Date.now(),
         html: '<p style="opacity:.8;">Waiting for presenter...</p>'
       });

@@ -4973,8 +4973,13 @@
           }
         };
 
-        if (destRes && destRes.destination === 'to-print') {
-          pdfReq.target = 'toPrint';
+        var resolvedTarget = destRes
+          ? (typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null))
+          : null;
+        if (resolvedTarget) {
+          pdfReq.target = resolvedTarget;
           pdfReq.filename = targetFilename;
         } else {
           pdfReq.defaultName = targetFilename;
@@ -5064,9 +5069,13 @@
         }
 
         var targetFilename = (destRes && destRes.filename) ? destRes.filename : defaultName;
-        var saveTarget = 'docEditorDocs';
-        if (destRes && destRes.destination === 'to-print') saveTarget = 'toPrint';
-        else if (destRes && destRes.destination === 'custom') saveTarget = 'custom';
+        var resolvedTarget = destRes
+          ? (typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null))
+          : null;
+        var saveTarget = resolvedTarget || 'docEditorDocs';
+        if (destRes && destRes.destination === 'custom') saveTarget = 'custom';
 
         var savedPath = '';
         if (saveTarget === 'custom' && destRes.customPath) {
@@ -5203,8 +5212,13 @@
           }
         };
 
-        if (destRes && destRes.destination === 'to-print') {
-          pdfReq.target = 'toPrint';
+        var resolvedTarget = destRes
+          ? (typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null))
+          : null;
+        if (resolvedTarget) {
+          pdfReq.target = resolvedTarget;
           pdfReq.filename = targetFilename;
         } else {
           pdfReq.defaultName = targetFilename;

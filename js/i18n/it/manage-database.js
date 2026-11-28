@@ -390,6 +390,7 @@
   "mdbTypeSentences": "Frasi",
   "mdbTypeStories": "Storie",
   "mdbTypeQuizzes": "Quiz",
+  "mdbTypeReferences": "Riferimenti",
   "mdbBtnAddColumn": "Aggiungi colonna",
   "mdbModalAddColTitle": "Aggiungi colonna al database",
   "mdbColKey": "Chiave / Campo colonna",

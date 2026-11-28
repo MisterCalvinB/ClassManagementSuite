@@ -408,7 +408,7 @@
   "conMergeAsSingleNode": "Fusionner en un seul nœud",
   "conMergeAsSingleNodeDesc": "Combiner tous les mots en un seul nœud séparés par des espaces",
   "conConvertToNoteTitle": "Convertir le mot en note",
-  "conLookUpDictionary": "Consulter dans le Dictionnaire rapide",
+  "conLookUpDictionary": "Consulter dans le Dictionnaire",
   "conShowAttachedNote": "Afficher la note attachée",
   "conHideAttachedNote": "Masquer la note attachée",
   "conSplitTitle": "Diviser le mot",

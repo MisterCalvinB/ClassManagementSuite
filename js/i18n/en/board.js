@@ -408,7 +408,7 @@
   "conMergeAsSingleNode": "Merge into one node",
   "conMergeAsSingleNodeDesc": "Combine all words into a single node joined by spaces",
   "conConvertToNoteTitle": "Convert word to note",
-  "conLookUpDictionary": "Look up in Quick Dictionary",
+  "conLookUpDictionary": "Look up in Dictionary",
   "conShowAttachedNote": "Show attached note",
   "conHideAttachedNote": "Hide attached note",
   "conSplitTitle": "Split word",

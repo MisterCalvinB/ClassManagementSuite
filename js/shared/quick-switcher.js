@@ -415,6 +415,7 @@
     var docFiles = [];
     var conFiles = [];
     var printFiles = [];
+    var refManuals = [];
     var customExportRoots = [];
 
     if (window.electronApi && typeof window.electronApi.quickSwitcherIndex === 'function') {
@@ -429,6 +430,7 @@
           if (Array.isArray(idx.documents)) docFiles = idx.documents;
           if (Array.isArray(idx.constellations)) conFiles = idx.constellations;
           if (Array.isArray(idx.toPrint)) printFiles = idx.toPrint;
+          if (Array.isArray(idx.references)) refManuals = idx.references;
           if (Array.isArray(idx.customExportFiles)) customExportRoots = idx.customExportFiles;
         }
       } catch (_) { }
@@ -616,6 +618,73 @@
         }
         nextDynamic.push(item);
       });
+    });
+
+    // Web fallback for Reference Builder manuals
+    if (refManuals.length === 0 && typeof localStorage !== 'undefined') {
+      try {
+        var rawIdx = localStorage.getItem('cmt_references_index_v1');
+        var parsedIdx = rawIdx ? JSON.parse(rawIdx) : null;
+        var subjMap = {};
+        if (parsedIdx && Array.isArray(parsedIdx.subjects)) {
+          parsedIdx.subjects.forEach(function (s) { if (s && s.id) subjMap[s.id] = s.name || ''; });
+        }
+        var manualIds = (parsedIdx && Array.isArray(parsedIdx.manualIds)) ? parsedIdx.manualIds : [];
+        manualIds.forEach(function (mid) {
+          var mRaw = localStorage.getItem('cmt_reference_manual_' + mid);
+          if (!mRaw) return;
+          var m = JSON.parse(mRaw);
+          if (m && m.id) {
+            refManuals.push(Object.assign({}, m, { subjectName: subjMap[m.subjectId] || m.subjectName || '' }));
+          }
+        });
+      } catch (_) { }
+    }
+
+    refManuals.forEach(function (m) {
+      if (!m || !m.id) return;
+      var metaParts = [m.subjectName, m.level, m.year, m.subDiscipline].filter(Boolean);
+      if (Array.isArray(m.tags) && m.tags.length) metaParts.push(m.tags.join(' '));
+      nextDynamic.push({
+        id: 'ref:' + m.id,
+        cat: 'doc',
+        catLabel: _t('qsCatReference', 'Reference'),
+        title: m.title || 'Reference Manual',
+        sub: metaParts.join(' · ') || 'Reference Builder',
+        icon: 'reference-builder.svg',
+        url: _pageHref('reference-builder.html') + '?manual=' + encodeURIComponent(m.id)
+      });
+      if (Array.isArray(m.chapters)) {
+        m.chapters.forEach(function (ch) {
+          if (!ch) return;
+          var chMeta = [m.title, ch.level || m.level, ch.year || m.year, ch.subDiscipline || m.subDiscipline].filter(Boolean);
+          if (ch.title) {
+            nextDynamic.push({
+              id: 'refch:' + m.id + ':' + (ch.id || ch.title),
+              cat: 'doc',
+              catLabel: _t('qsCatReferenceTopic', 'Ref Topic'),
+              title: ch.title,
+              sub: chMeta.join(' · '),
+              icon: 'reference-builder.svg',
+              url: _pageHref('reference-builder.html') + '?manual=' + encodeURIComponent(m.id) + (ch.id ? '&chapter=' + encodeURIComponent(ch.id) : '')
+            });
+          }
+          if (Array.isArray(ch.modules)) {
+            ch.modules.forEach(function (mod) {
+              if (!mod || !mod.title) return;
+              nextDynamic.push({
+                id: 'refmod:' + m.id + ':' + (mod.id || mod.title),
+                cat: 'doc',
+                catLabel: _t('qsCatReferenceModule', 'Ref Module'),
+                title: mod.title,
+                sub: [m.title, ch.title, mod.summaryText || ''].filter(Boolean).join(' · '),
+                icon: 'reference-builder.svg',
+                url: _pageHref('reference-builder.html') + '?manual=' + encodeURIComponent(m.id) + (mod.id ? '&module=' + encodeURIComponent(mod.id) : '')
+              });
+            });
+          }
+        });
+      }
     });
 
     _seedTools();

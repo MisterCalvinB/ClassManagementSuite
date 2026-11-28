@@ -857,7 +857,7 @@ if (new URLSearchParams(window.location.search).get('presentation') !== '1') {
 
   mdEditor.addAction({
     id: 'cmt-lookup-word-in-dictionary',
-    label: window.t ? t('deLookupInDict', 'Look up in Quick Dictionary') : 'Look up in Quick Dictionary',
+    label: window.t ? t('deLookupInDict', 'Look up in Dictionary') : 'Look up in Dictionary',
     keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyD],
     contextMenuGroupId: '1_snippets',
     contextMenuOrder: 1.3,

@@ -1019,7 +1019,7 @@ async function mpExecuteBatchExport() {
           ? await promptExportDestination({ filename: `${classNameClean}_${docNameClean}_Batch.pdf`, allowDocEditor: false, showLangSelector: false })
           : { destination: 'browser' };
         if (!destRes || destRes.canceled) return;
-        const target = destRes.destination === 'to-print' ? 'toPrint' : 'docEditorDocs';
+        const target = (typeof window.cmtResolveExportTarget === 'function' && window.cmtResolveExportTarget(destRes.destination)) || 'docEditorDocs';
 
         let successCount = 0;
         let lastPath = '';
@@ -1133,10 +1133,13 @@ async function mpExecuteBatchExport() {
         preferCSSPageSize: true
       };
 
+      const pdfTarget = typeof window.cmtResolveExportTarget === 'function'
+        ? (window.cmtResolveExportTarget(destRes.destination) || undefined)
+        : (destRes.destination === 'to-print' ? 'toPrint' : undefined);
       const result = await Desktop.printPdf({
         html,
         defaultName: resolvedName,
-        target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
+        target: pdfTarget,
         title: combinedPdfTitle,
         pdfOptions
       });
@@ -1220,7 +1223,10 @@ async function mpExecuteBatchExport() {
         ? await promptExportDestination({ filename: `${classNameClean}_${docNameClean}_Batch.${format}`, allowDocEditor: false, showLangSelector: false })
         : { destination: 'to-print' };
       if (!destRes || destRes.canceled) return;
-      const target = destRes.destination === 'to-print' ? 'toPrint' : 'docEditorDocs';
+      const target = (typeof window.cmtResolveExportTarget === 'function' && window.cmtResolveExportTarget(destRes.destination)) || 'docEditorDocs';
+      const printTarget = typeof window.cmtResolveExportTarget === 'function'
+        ? (window.cmtResolveExportTarget(destRes.destination) || undefined)
+        : (destRes.destination === 'to-print' ? 'toPrint' : undefined);
 
       if (format === 'html') {
         let successCount = 0;
@@ -1271,7 +1277,7 @@ async function mpExecuteBatchExport() {
           const res = await Desktop.printPdf({
             html,
             defaultName: `${d.filename}.pdf`,
-            target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
+            target: printTarget,
             title: d.filename,
             pdfOptions: { landscape: pageLayout.orientation === 'landscape', marginsType: 1, preferCSSPageSize: true }
           });
@@ -1292,7 +1298,7 @@ async function mpExecuteBatchExport() {
           const res = await Desktop.exportDocx({
             markdown: d.rawRenderedText,
             defaultName: d.filename,
-            target: destRes.destination === 'to-print' ? 'toPrint' : undefined,
+            target: printTarget,
             margins: pageLayout.margins,
             size: pageLayout.size,
             orientation: pageLayout.orientation,

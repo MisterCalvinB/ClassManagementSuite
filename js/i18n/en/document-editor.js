@@ -5,7 +5,7 @@
   }
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
-  "deLookupInDict": "Look up in Quick Dictionary",
+  "deLookupInDict": "Look up in Dictionary",
   "deLookupInDictHint": "Look up selected word in word banks (Ctrl+Shift+D)",
   "deAiStudioMenu": "AI Studio…",
   "deAiPillBtn": "AI Studio",

@@ -166,6 +166,55 @@ function registerFileOpsIpc(ctx) {
     const documents = await _listDirNames(targets.docEditorDocs, 5000);
     const constellations = await _listDirNames(targets.constellations || targets.mindmaps, 5000);
     const toPrint = await _listDirNames(targets.toPrint, 5000);
+    const references = [];
+    if (targets.references) {
+      try {
+        const idxRaw = await fs.readFile(path.join(targets.references, 'index.json'), 'utf8');
+        const idxData = JSON.parse(idxRaw);
+        const subjectMap = new Map();
+        if (idxData && Array.isArray(idxData.subjects)) {
+          idxData.subjects.forEach((s) => {
+            if (s && s.id) subjectMap.set(String(s.id), s.name || '');
+          });
+        }
+        const manualsDir = path.join(targets.references, 'manuals');
+        const manualFiles = await _listDirNames(manualsDir, 2000);
+        for (const mf of manualFiles) {
+          if (!/\.json$/i.test(mf)) continue;
+          try {
+            const mRaw = await fs.readFile(path.join(manualsDir, mf), 'utf8');
+            const m = JSON.parse(mRaw);
+            if (!m || !m.id) continue;
+            const subjName = subjectMap.get(String(m.subjectId)) || m.subjectName || '';
+            const chapters = Array.isArray(m.chapters) ? m.chapters.map((ch) => ({
+              id: ch.id || '',
+              title: ch.title || '',
+              level: ch.level || '',
+              year: ch.year || '',
+              subDiscipline: ch.subDiscipline || '',
+              modules: Array.isArray(ch.modules) ? ch.modules.map((mod) => ({
+                id: mod.id || '',
+                title: mod.title || '',
+                typeId: mod.typeId || '',
+                summaryText: String((mod.data && (mod.data.body || mod.data.text || mod.data.summary || mod.data.caption)) || '').slice(0, 160)
+              })) : []
+            })) : [];
+            references.push({
+              id: m.id,
+              title: m.title || 'Untitled Reference',
+              subtitle: m.subtitle || '',
+              subjectId: m.subjectId || '',
+              subjectName: subjName,
+              level: m.level || '',
+              year: m.year || '',
+              subDiscipline: m.subDiscipline || '',
+              tags: Array.isArray(m.tags) ? m.tags : [],
+              chapters
+            });
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
     const customExportFiles = [];
     if (typeof getCustomExportRoots === 'function') {
       for (const root of getCustomExportRoots()) {
@@ -180,7 +229,7 @@ function registerFileOpsIpc(ctx) {
         });
       }
     }
-    return { ok: true, classes, rosterText, documents, constellations, toPrint, customExportFiles };
+    return { ok: true, classes, rosterText, documents, constellations, toPrint, references, customExportFiles };
   });
 
   ipcMain.handle('app:list-by-path', async (event, request = {}) => {

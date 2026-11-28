@@ -34,7 +34,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Import Tool (`import-tool.html`)](#import-toolhtml)
   - [Database Converter (`database-converter.html`)](#database-converterhtml)
   - [Video & Sound Converter (`media-converter.html`)](#media-converterhtml)
-  - [Quick Dictionary (`dictionary.html`)](#dictionaryhtml)
+  - [Dictionary (`dictionary.html`)](#dictionaryhtml)
   - [Planner (`planner.html`)](#plannerhtml)
   - [Lesson Creator (`lesson-creator.html`)](#lesson-creatorhtml)
   - [Test Creator (`test-creator.html`)](#test-creatorhtml)
@@ -44,13 +44,14 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [File Manager (`file-manager.html`)](#file-managerhtml)
   - [Class Management (`class-management.html`)](#class-managementhtml)
   - [Board (`board.html`)](#boardhtml)
-  - [Learning Tools (`learning-tools.html`)](#learning-toolshtml)
+  - [Games (`learning-tools.html`)](#learning-toolshtml)
   - [Manage Database (`manage-database.html`)](#manage-databasehtml)
   - [Grade Sheet (`grade-sheet.html`)](#grade-sheethtml)
   - [Competence Portfolio (`competence-portfolio.html`)](#competence-portfoliohtml)
   - [Participation Tracker (`participation-tracker.html`)](#participation-trackerhtml)
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
+  - [Reference Builder (`reference-builder.html`)](#reference-builderhtml)
   - [PDF Viewer (`pdf-viewer.html`)](#pdf-viewerhtml)
   - [How-To Guide (`how-to.html`)](#how-tohtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
@@ -115,12 +116,13 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
 | [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, clock constellation widget, compact presentation mirror toolbar, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
-| [`manage-database.html`](#manage-databasehtml) | Central curriculum, assessment & learning content database (words, competences, criteria, scales, phases, chips) | Powers [Learning Tools](#learning-toolshtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml) & [Lesson Creator](#lesson-creatorhtml) |
+| [`manage-database.html`](#manage-databasehtml) | Central curriculum, assessment & learning content database (words, competences, criteria, scales, phases, chips) | Powers [Games](#learning-toolshtml), [Grade Sheet](#grade-sheethtml), [Competence Portfolio](#competence-portfoliohtml) & [Lesson Creator](#lesson-creatorhtml) |
 | [`grade-sheet.html`](#grade-sheethtml) | Test & grade tracking per class, term, and criterion with drag-and-drop test reordering, grading scale models, and multi-format export (PDF/DOCX/CSV/HTML) | Linked from [Planner](#plannerhtml), [Oral Marking](#oral-markinghtml), [Participation Tracker](#participation-trackerhtml) |
 | [`competence-portfolio.html`](#competence-portfoliohtml) | Curriculum standards coverage tracking, audit timeline, matrix view, and cross-tool grade/lesson aggregation | Sinks from [Grade Sheet](#grade-sheethtml), [Planner](#plannerhtml), [Lesson Creator](#lesson-creatorhtml), [Board](#boardhtml) |
 | [`participation-tracker.html`](#participation-trackerhtml) | Participation & attendance analytics dashboard with weekly trend line charts, student score distributions, multi-group comparisons, dynamic window positioning, full i18n, and provisional grading rules | Exports provisional grades to [Grade Sheet](#grade-sheethtml) |
 | [`administrative-groups.html`](#administrative-groupshtml) | Comprehensive student administrative tracker, medical & SEN accommodation manager, infraction point scoring, automated sanction rules engine, period chips, student action timeline, and multi-format reports | Syncs with [Group Editor](#group-editorhtml) & master student roster |
 | [`document-editor.html`](#document-editorhtml) | Multi-format document editor supporting Typst (`.typ`), Markdown (`.md`), and HTML (`.html`) with WebAssembly live preview, Monaco syntax highlighting, native vector PDF export, Mailposting batch student reports, and built-in Syntax Guide | Edits `.typ` / `.md` / `.html` files suite-wide |
+| [`reference-builder.html`](#reference-builderhtml) | Modular subject reference manual & textbook builder with customizable module types, pictures, videos, inline & imported quizzes, CMT tool links, global search indexing, and HTML/PDF/MD/ODT export | Indexed in Quick Switcher (`Ctrl+K`) & Launcher search; deep-links via `LinksService` (`cmt:reference:...`) |
 | [`how-to.html`](#how-tohtml) | Comprehensive built-in user guide, interactive tool manuals, and local storage inspector with instant Neobrutalist search modal (`Ctrl+K`), keyword previews, keyboard navigation, and target highlight pulses | Accessible from tool headers via **?** buttons and Launcher |
 | [`setup-wizard.html`](#setup-wizardhtml) | 7-pillar classroom setup checklist and onboarding wizard with live progress tracking, sample demo data loader, and dual-mode quick/advanced controls | Accessible on startup or from Launcher **More** menu |
 | [`data-location.html`](#data-locationhtml) | Legacy data-folder configuration page (superseded by General Config) | Deprecated |
@@ -141,7 +143,7 @@ Class Management Tools features deep cross-tool synchronisation. Data edited in 
 | **Participation Tracker** | Filters session logs by group and active term dates, displaying formatted student names |
 | **Grade Sheet** | Loads student lists per class automatically with formatted student display names |
 | **Planner** | Class selection dropdowns for lesson schedules |
-| **Learning Tools** | Populates Team Mode rosters |
+| **Games** | Populates Team Mode rosters |
 | **Schedule Maker** | Loads student lists and SEN accommodation flags |
 | **Class Plan** | Imports student lists for seat assignment |
 | **Competence Portfolio** | Aggregates class curriculum coverage, combining planned lessons, delivered activities, and grade evaluations |
@@ -459,7 +461,7 @@ Saving grades at the end of an oral exam session automatically registers or upda
 
 ### Manage Database ↔ Learning Content, Curriculum & Assessment Central Repository
 
-Vocabulary decks (with optional word pictures via upload, drag-and-drop, clipboard paste, or URL), quotes, dictations, grammar sets, and quizzes managed in [Manage Database](#manage-databasehtml) feed directly into [Learning Tools](#learning-toolshtml) game modes and instant node generation on the [Board](#boardhtml). In addition, curricular standards, lesson phases, evaluation criteria (with linked competences), scale models, and observation chips directly configure and power [Competence Portfolio](#competence-portfoliohtml), [Lesson Creator](#lesson-creatorhtml), [Grade Sheet](#grade-sheethtml), and [Oral Marking](#oral-markinghtml).
+Vocabulary decks (with optional word pictures via upload, drag-and-drop, clipboard paste, or URL), quotes, dictations, grammar sets, and quizzes managed in [Manage Database](#manage-databasehtml) feed directly into [Games](#learning-toolshtml) game modes and instant node generation on the [Board](#boardhtml). In addition, curricular standards, lesson phases, evaluation criteria (with linked competences), scale models, and observation chips directly configure and power [Competence Portfolio](#competence-portfoliohtml), [Lesson Creator](#lesson-creatorhtml), [Grade Sheet](#grade-sheethtml), and [Oral Marking](#oral-markinghtml).
 
 ---
 
@@ -477,7 +479,7 @@ Five tools support multi-monitor presentation modes:
 |---|---|---|
 | **Board** | Toolbar → 📽️ Presentation Mode | Clean canvas view with live synchronized note resizing, drawing, and movements, optional laser dot, freeze mode (pauses canvas updates and page switching with an inline toolbar status badge), Always on Top window pinning, Default size reset button, and window position popups |
 | **Class Management** | Top Menu → Presentation | Student roster with roles, badges, point animations, independent freeze control, Always on Top window pinning, and Default size reset button |
-| **Learning Tools** | Game Toolbar → 📽️ Presentation Icon | Student-facing quiz & game screen while teacher control panel remains private |
+| **Games** | Game Toolbar → 📽️ Presentation Icon | Student-facing quiz & game screen while teacher control panel remains private |
 | **Document Editor** | Nav Bar → Presentation Mode | Live rendered Markdown/KaTeX preview on dark background, updated per keystroke |
 | **Oral Marking** | Header → Present | Live candidate countdown screen showing current phase (PREP / EXAM), student name, remaining timer, and color-coded alert state while scoring rubrics and teacher notes remain private |
 
@@ -492,7 +494,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
 #### Key Features
 - **Collapsible Tool Sections & Disk Sync**: Organize apps into custom or default categories (*Classroom*, *Students*, *Content*, *System*). Collapse secondary sections into compact bars with tool count pills to keep primary tools front and center. Toggling or reordering sections automatically persists to `user/launcher-config.js` and synchronizes across teacher workstations. Typing in the search bar (`/`) temporarily expands matching collapsed sections.
 - **Automatic Post-Sync Live Updates**: Performing a sync (via the header **Sync** button, General Config, remote cloud sync, or background auto-sync) immediately and seamlessly refreshes the Launcher in real-time. Synced configurations (`config.js`), card settings/notes (`launcher-config.js`), recent documents and mindmaps, pending to-dos (`todos.js`), upcoming schedule events and tests, tags, and class rosters are reloaded and rendered in place without requiring a window reload.
-- **Instant Tool Search (`/` or `Ctrl+K`) & Global Quick Switcher (`Ctrl+K`)**: On the Launcher, typing `/` filters tool cards across all sections (`Enter` launches the top match; `Escape` clears). Across **every** tool window and the Launcher, pressing `Ctrl+K` opens the **Global Quick Switcher** (`js/shared/quick-switcher.js`, auto-loaded by `js/shared/menus.js`), indexing tools, classes and students from `class-groups.js`, recent documents/constellations, and live Quick Dictionary word bank results (selecting a word opens or focuses Quick Dictionary on that entry) with full keyboard navigation.
+- **Instant Tool Search (`/` or `Ctrl+K`) & Global Quick Switcher (`Ctrl+K`)**: On the Launcher, typing `/` filters tool cards across all sections (`Enter` launches the top match; `Escape` clears). Across **every** tool window and the Launcher, pressing `Ctrl+K` opens the **Global Quick Switcher** (`js/shared/quick-switcher.js`, auto-loaded by `js/shared/menus.js`), indexing tools, classes and students from `class-groups.js`, recent documents/constellations, and live Dictionary word bank results (selecting a word opens or focuses Dictionary on that entry) with full keyboard navigation.
 - **Window Reorder Helper (`Ctrl+Shift+W`)**: Global Light Neobrutalist modal (`js/shared/window-helper.js`, also accessible from the hamburger menu, Quick Switcher, and Board / Class Management presentation bars) to drag-to-reorder, focus, minimize, pin, maximize, center, ratio-snap (**20%–80%** or custom % left/right/top/bottom), move across displays, or tile (**50/50**, **20/80**, **25/75**, **30/70**, **70/30**, **75/25**, **80/20**, **Main + Stack**, **Grid**, **Stack**, **Cascade** with configurable **Gap** and target display) open **Main View** and **Mirrored / Presentation View** windows, swap Main and Mirror displays in one click, and save/duplicate/apply persisted custom app+geometry presets (`user/window-presets.json`, saved as **% ratio by default** with optional pixel mode).
 - **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
 - **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙), tool documentation (**?**), and reordering handles (⠿).
@@ -501,7 +503,7 @@ The central entry point for the suite. Opens on app launch and provides quick na
 - **Daily Companion Sidebar**:
   - **Live Date Indicator & Quick View Tabs**: Top header displays today's live localized date with a 3-way view switcher (`[All]`, `[Agenda]`, `[Library]`). Switching to **Agenda** instantly isolates Upcoming Events and To-Dos for a distraction-free teaching routine.
   - **Light Neobrutalist Cards**: Softened borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), warm `#fafaf7` headers, and individual section icon badges (📌, 📅, ✓, 📄, 🏷️) replacing monolithic black headers.
-  - **Upcoming Events**: Displays lessons, tests, and assignments from [Planner](#plannerhtml) for today and upcoming dates. Click any entry to jump directly to that date in Planner.
+  - **Upcoming Events & Calendar Viewer**: Includes an interactive compact calendar viewer (`Day`, `Week`, `Month`, `Year` views with period navigation, holiday shading, and event dots) alongside the upcoming lessons, tests, assignments, and correction deadlines from [Planner](#plannerhtml) and [Grade Sheet](#grade-sheethtml). Click any day to inspect its events or click an entry to jump directly to Planner or Grade Sheet.
   - **To-do List**: Shows pending tasks from Planner sorted by urgency. Overdue items are highlighted in red. Click **+** to add a new to-do.
   - **Recent Docs**: Quick links to recently modified Board constellation maps (`.cstz`) and Document Editor files. Includes real-time change tracking and item count selector (1–20).
 - **Consolidated Top Header Navbar**:
@@ -561,7 +563,7 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 #### 1. General Tab (`data-tab="general"`)
 
 - **App Identity**: Customize the global **App Title** (displayed in launcher headers and window title bars) and configure the **Teacher's Name**, which automatically persists to `user/config.js` (`launcherSettings.teacherName`) and injects into document and report export footers across the suite (Lesson Creator, Weekly Planner, Class Plan, Class Management, Schedule Maker, Participation Tracker, Grade Sheet, and Test Creator).
-- **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Learning Tools](#learning-toolshtml).
+- **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Games](#learning-toolshtml).
 - **PDF Export Settings**:
   - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
   - **Margin Space**: Define page margins using standard CSS margin syntax (e.g., `16mm 14mm` or `15mm`).
@@ -674,7 +676,7 @@ Comprehensive offline-first **Database & Table Converter** enabling seamless bid
   - **Grade Sheet Criteria**: Evaluation criteria schema with grade scales, points, and descriptors compatible with [Grade Sheet](#grade-sheethtml).
   - **Competence Bank**: Curriculum standards/competence bank with code, title, domain, level, descriptors compatible with [Competence Portfolio](#competence-portfoliohtml) and [Lesson Creator](#lesson-creatorhtml).
   - **Class Rosters & Students**: `class-groups.js` compatible roster format with UUIDs, first/last names, SEN flags, and class groups compatible with [Group Editor](#group-editorhtml).
-  - **Vocabulary / Word Bank**: Multilingual vocabulary database (word, definitions, translations, POS, level) compatible with [Manage Database](#manage-databasehtml) & [Learning Tools](#learning-toolshtml).
+  - **Vocabulary / Word Bank**: Multilingual vocabulary database (word, definitions, translations, POS, level) compatible with [Manage Database](#manage-databasehtml) & [Games](#learning-toolshtml).
   - **Quiz Question Bank**: Structured multiple-choice questions compatible with [Manage Database](#manage-databasehtml) and multiplayer quiz tools.
   - **Administrative Groups**: Student cohort mapping compatible with [Administrative Groups](#administrative-groupshtml).
   - **Interactive Field Mapping Matrix**: Dedicated panel showing required and optional fields with `<select>` source column pickers, status badges (`✓ Mapped`, `⚠ Required`, `Optional`), and two-way real-time synchronization with the Schema Editor.
@@ -741,7 +743,7 @@ Offline-first **Video & Sound Converter** with visual waveform trimming, audio e
 
 ### dictionary.html
 
-Offline-first **Quick Dictionary** designed for instantaneous, sub-millisecond keyword lookup through vocabulary databases and word banks stored in `user/custom-data/wordbanks/`.
+Offline-first **Dictionary** designed for instantaneous, sub-millisecond keyword lookup through vocabulary databases and word banks stored in `user/custom-data/wordbanks/`.
 
 #### Key Features & Architecture
 - **Dedicated Background Worker Thread (`js/workers/dictionary-worker.js`)**:
@@ -1156,10 +1158,10 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
   - **Note Word Count**: Right-click context menu option and live word & character counter for notes (`sentence.svg`), supporting selection details and multi-note aggregation.
   - **Note Splitting, Merging & Conversion**: Split a sticky note at the cursor into two stacked notes with the initial note's height automatically reduced to the split point. Next to split, click **Merge Notes** (`merge.svg`) to merge notes into one (instant combination when multiple notes are selected with Shift+click, or interactive note pick mode when one note is active, with automatic height refitting, formatting preservation, emoji sticker transfer, and connector rewiring), or convert note text into word nodes via a Neobrutalist options modal (by whole note, lines, sentences, or words).
   - **Word / Node Splitting**: Split a multi-word or single-word node via the context menu button into separate nodes: choose **Split by space** to break phrases into individual words, or **Split by letter** to decompose text into individual letter nodes (whitespace stripped). Supports single-node execution as well as batch-splitting across all multi-selected nodes.
-  - **Quick Dictionary Lookup Integration (`dictionary.html`)**: Instant 1-click word lookup across all active word banks:
-    - **Node Right-Click**: Right-clicking any node on the board displays a dedicated Quick Dictionary button (`dictionary.svg`) in both the word relations row and bottom action bar, as well as an integrated header button in the Node Word Card modal (`[Dictionary]`).
-    - **Note Text Selection Right-Click**: Selecting any word or phrase in a sticky note and right-clicking displays the selected word in the Note Style header alongside an instant **Quick Dictionary** action button (`dictionary.svg`) and phonetics/translations. An additional Quick Dictionary icon button is provided in the bottom note action bar.
-    - **Cross-Window Instant Search**: Queries broadcast in real time across active windows via `BroadcastChannel('cmt-dictionary')`, focusing and updating an already-open Quick Dictionary window with zero reload latency.
+  - **Dictionary Lookup Integration (`dictionary.html`)**: Instant 1-click word lookup across all active word banks:
+    - **Node Right-Click**: Right-clicking any node on the board displays a dedicated Dictionary button (`dictionary.svg`) in both the word relations row and bottom action bar, as well as an integrated header button in the Node Word Card modal (`[Dictionary]`).
+    - **Note Text Selection Right-Click**: Selecting any word or phrase in a sticky note and right-clicking displays the selected word in the Note Style header alongside an instant **Dictionary** action button (`dictionary.svg`) and phonetics/translations. An additional Dictionary icon button is provided in the bottom note action bar.
+    - **Cross-Window Instant Search**: Queries broadcast in real time across active windows via `BroadcastChannel('cmt-dictionary')`, focusing and updating an already-open Dictionary window with zero reload latency.
   - **Blink / Pulse**: Animated pulsing highlight for active discussion nodes and free-floating notes (`blink.svg`), phase-synced in presentation view.
   - **Rich Hyperlinks**: Direct hyperlinks to web URLs, local files, or Planner lessons.
 - **Compact Drawing & Annotation Mode**: Freehand annotations, shape drawing (rectangle, circle, diamond, line, arrow, polygon), and canvas panning organized into 5 compact Neobrutalist dropdowns (**Presets**, **Shapes**, **Colour**, **Line**, and **Eraser**). Features both **Partial** stroke erasing (excising intersected stroke segments in real-time with continuous interpolation and automatic splitting of severed strokes) and **Stroke** erasing (instant deletion upon touching any stroke segment or shape), with an adjustable radius slider and integrated **Hand** mode (shortcut: `H`) for effortless board panning and repositioning.
@@ -1196,7 +1198,7 @@ Interactive mind-map, visual board, constellation session maps, and whiteboard c
     - *Mindmap Cluster*: Central hub activity node linked radially to child question/word nodes inside a styled group container.
     - *Markdown Note Checklist*: Sticky note card with interactive markdown checkboxes (`- [ ] Item`).
     - *Bottom Staging Tray*: Stashes selected items into the staging tray for drag-and-drop lesson pacing.
-  - **Deep-Linking & Two-Way Execution**: Clicking **Play in Window** on any launcher card opens [Learning Tools](#learning-toolshtml) or [Quiz Player](#quiz-playerhtml) pre-loaded with exact section, theme, level, and word filters.
+  - **Deep-Linking & Two-Way Execution**: Clicking **Play in Window** on any launcher card opens [Games](#learning-toolshtml) or [Quiz Player](#quiz-playerhtml) pre-loaded with exact section, theme, level, and word filters.
 
 - **Distant Reading Studio & Novel Character Network**: Comprehensive, offline-first literary and linguistic analysis suite accessible via **Character Network** in the Board toolbar and Novel Search section. Supports books in `user/custom-data/books/` (`.epub`, `.html`, `.txt`, `.xhtml`), pasted text, uploaded `.txt`/`.md`/`.csv` files, and current Board notes:
   - **Character Network & Community Detection**: Scans plain text for character entities and aliases (EN/FR/DE/IT stopwords & honorifics), computes sliding-window/paragraph/chapter co-occurrences, Degree, Strength, Betweenness, Closeness, and Weighted PageRank centralities, plus Label Propagation community detection to color-code character factions on the Board with double-click excerpt inspection.
@@ -1297,7 +1299,7 @@ Centralized content, curriculum, and assessment database editor supporting multi
 - **Draggable & Auto-Fitting Column Resizing**: Grab and drag header dividers with 60fps fluidity (without triggering column sorting), double-click dividers to auto-fit to cell content, and enjoy persistent column widths stored per database in local configuration.
 - **Right-Click Quick Context Menu**: Right-click any row in Table View or chip in Chips View to summon a Neobrutalist popup menu providing **Edit** (opens full record inspector/editor), **Autofill** (cross-database search matching identical terms to automatically suggest and populate missing definitions, translations, and metadata directly onto the record with instant disk saving), **Copy to other file** (opens file destination selector with optional move), **Duplicate** (creates an instant in-place copy with updated identifiers), and **Delete** (with confirmation safeguard).
 - **Multi-Format Exporting, File Name Prompt & Universal Export Modal**: Export to CSV, vector PDF, styled editable HTML table, **Interactive & Filterable HTML Explorer** (standalone offline web viewer featuring dynamic cascaded multi-column faceted filtering, live candidate counts, search, dual **Cards / Tables** view switcher with shared-title table grouping where items sharing the same title appear on separate rows of dedicated Neobrutalist tables, and interactive sorting on all table columns), GitHub-flavored Markdown (MD), Excel (XLSX), and Word (DOCX). Selecting an export format launches a column toggle picker followed by the Universal Destination Modal, allowing teachers to customize the output **File Name** before saving and select their destination: direct quick-save to the **Print Folder (`user/to-print/`)**, custom file browser location, or **Document Editor** (for HTML and Markdown, saving directly into `user/document-editor/docs/` and opening Document Editor immediately). Multiline markdown fields are rendered as formatted HTML across both HTML tables and vector PDF prints. Standard exports saved to disk trigger `showExportSuccessPopup` providing one-click **Open File**, **Open Folder**, and **Open with Document Editor** actions with clean semantic CSS classes and zero repetitive inline styles.
-- **High-Speed Folded Search Indexing & Scope Filtering**: Engineered with principles from Quick Dictionary, including pre-computed diacritic-folded search tokens (`_fSearch` and `_fKey` with `normalize('NFD')`), debounced input handling, zero-copy record referencing in `getDisplayRecords()`, an integrated **Search Scope** selector (*All fields* vs. *Primary term (fastest)*), and stable `<thead>` DOM preservation. Database scanning runs near-instantaneously without layout thrashing, with a default page size of 100 (customizable to 50, 200, 500, or All) and persistent preference memory.
+- **High-Speed Folded Search Indexing & Scope Filtering**: Engineered with principles from Dictionary, including pre-computed diacritic-folded search tokens (`_fSearch` and `_fKey` with `normalize('NFD')`), debounced input handling, zero-copy record referencing in `getDisplayRecords()`, an integrated **Search Scope** selector (*All fields* vs. *Primary term (fastest)*), and stable `<thead>` DOM preservation. Database scanning runs near-instantaneously without layout thrashing, with a default page size of 100 (customizable to 50, 200, 500, or All) and persistent preference memory.
 
 ---
 
@@ -1389,7 +1391,7 @@ Centralized curriculum tracking and auditing dashboard aggregating learning stan
 - **Audit Timeline**: Chronological event feed tracing every planned lesson, classroom activity, and evaluation date linked to specific curriculum codes.
 - **Matrix Table & Multi-Field Filtering Toolbar**: Complete schema filtering with dedicated dropdowns for **Subject**, **Year Level**, **Level / CEFR / Cycle**, **Source**, **Domain**, dynamic cascading **Sub-Domain**, **Tags**, and **Status** (`All`, `Covered`, `Assessed`, `Delivered`, `Planned`, `Untouched`), plus live cross-field search and 1-click **Reset Filters**.
 - **Dense Tabular Columns**: High-density matrix displaying Code, Statement, Domain, Sub-Domain, Year Level, Level, Subject, Source, Tags, Planned count, Delivered count, Assessed count, Class Mean Score (average %), and Status.
-- **Blazing Fast In-Place Node Reconciliation & Pre-Indexed Search**: Adopts Quick Dictionary's zero-teardown DOM recycling (`syncNodes`) across Accordion, Table, and Timeline views, retaining collapsed/expanded domain state without `innerHTML = ''` container wipes. Search utilizes normalized diacritic-insensitive `fold()` hashing precomputed on load, debounced keystroke evaluation (60ms), O(1) multi-filter Set lookups, and CSS `content-visibility: auto` GPU acceleration for instant response times.
+- **Blazing Fast In-Place Node Reconciliation & Pre-Indexed Search**: Adopts Dictionary's zero-teardown DOM recycling (`syncNodes`) across Accordion, Table, and Timeline views, retaining collapsed/expanded domain state without `innerHTML = ''` container wipes. Search utilizes normalized diacritic-insensitive `fold()` hashing precomputed on load, debounced keystroke evaluation (60ms), O(1) multi-filter Set lookups, and CSS `content-visibility: auto` GPU acceleration for instant response times.
 - **Activity & Assessment History Modal**: Detailed modal inspector showing complete pedagogical descriptions, structured metadata chips (Domain, Sub-Domain, Level, Year, Subject, Source, Tags), linked cross-database competences, and touchpoint provenance with direct jump links to Grade Sheet, Lesson Creator, Board, and Planner.
 - **Reports & Exporting**: One-click CSV export (`Competence_Portfolio_[ClassName].csv`) with all 18 schema & tracking columns (including Detailed Description), and printer-ready PDF/paper audit reports.
 
@@ -1553,6 +1555,18 @@ Neobrutalist test and exam authoring studio for creating printable assessments, 
 
 ---
 
+### reference-builder.html
+
+Modular reference manual and textbook builder organized by **Subjects → Reference Cards → Chapters/Topics → Modular Blocks** (`user/references/`).
+
+#### Features
+- **Subjects & Reference Library**: Create customizable subjects (English, French, Biology, History, etc.) and filter reference manuals by keyword, level, year, or sub-discipline.
+- **Built-in & Custom Module Types**: Includes Definition, Rule/Grammar Point, Example, Tip, Warning, Procedure, Comparison Table, Picture/Diagram, Video Embed, Interactive Quiz (inline + `customQuizzes` bank importer), CMT Tool Link (`LinksService`), and Summary—plus a **Custom Module Type Builder** for custom fields, colors, and icons.
+- **Global Search & Deep Linking**: Indexed in `QuickSwitcher` (`Ctrl+K`) and Launcher Global Search, and deep-linkable via `cmt:reference:<manualId>[#<moduleId>]`.
+- **4-Format Export**: Export to interactive **HTML** (self-checking quizzes), print-ready **PDF**, **Markdown (`.md`)**, and **OpenDocument Text (`.odt`)** with `ExportStylesService` themes.
+
+---
+
 ### document-editor.html
 
 Multi-format desktop document editor and typesetting suite supporting **Typst (`.typ`)**, **Markdown (`.md`)**, and **HTML (`.html`)** with live multi-page vector preview, Monaco syntax highlighting, and native vector PDF compilation.
@@ -1590,7 +1604,7 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
   - **Convert Outline to Board Mindmap (`cmt:board:<filename>`)**: In Export and File menus, **Convert Outline to Mindmap…** parses document headings (`#`, `##`, `<h3>`, etc.) and list items (`-`, `*`, `1.`, `<li>`) into an interactive Neobrutalist modal selector. Teachers can customize the central topic, filter elements (Select All, Deselect All, Headings Only, or individual branches), choose between Radial/Starburst or Horizontal Tree layouts, and generate a branching Constellation session on [Board](#boardhtml) saved to `user/mindmaps/` with automatic bidirectional linking in `LinksService` and 1-click launch.
 - **Live Preview-to-Code & CSS Inspector**: Click any element in the live preview (headings, paragraphs, inline formatting, tables, images, math formulas) to immediately locate and highlight its source code in Monaco, and automatically open and highlight matching stylesheet rules in the CSS Editor panel. Also pre-fills the Quick Rule selector for rapid styling.
 - **Preview Pane Zoom & Exact PDF Toggle**: Floating Light Neobrutalist zoom bar in the preview pane (`25%` to `250%`, `100%` reset, and **Fit to Width**), `Ctrl + MouseWheel` zooming with persistent zoom level in `localStorage`, plus an **Exact PDF** toggle that renders pixel-accurate `printToPDF` pages via PDF.js directly inside the split preview pane.
-- **Quick Dictionary Lookup (`Ctrl+Shift+D`)**: Look up any selected word or expression directly in [Quick Dictionary](#dictionaryhtml) via right-click in Monaco editor, floating selection pill in the live preview, the Tools navigation menu, or global shortcut <kbd>Ctrl+Shift+D</kbd>. Opens or focuses a single reusable companion dictionary window without cluttering the desktop, automatically trimming surrounding punctuation and formatting.
+- **Dictionary Lookup (`Ctrl+Shift+D`)**: Look up any selected word or expression directly in [Dictionary](#dictionaryhtml) via right-click in Monaco editor, floating selection pill in the live preview, the Tools navigation menu, or global shortcut <kbd>Ctrl+Shift+D</kbd>. Opens or focuses a single reusable companion dictionary window without cluttering the desktop, automatically trimming surrounding punctuation and formatting.
 - **Offline AI Studio (`Ctrl+Shift+A`)**: Open the Light Neobrutalist Ask AI popover (`js/pages/document-editor-ai.js`) powered by local offline SLMs (`SlmService`) from the Tools navigation menu, the Preview floating selection pill, the HTML WYSIWYG toolbar, or <kbd>Ctrl+Shift+A</kbd>. Captures selected text from Code, WYSIWYG, or Preview, supports one-click quick prompts (*Meaning*, *Explain*, *Translate*, *Example*, *Synonyms*, *Antonyms*), Brief/Long & word-limit controls, streaming generation with **Go on**, **Copy**, **Insert**, and **Replace** actions, and direct access to the Offline AI Models Manager.
 - **Unified Snippets & Style Library (`Ctrl+Shift+L`)**: Centralized modal merging syntax cheat-sheets (Typst, Markdown, HTML, KaTeX math, Mailposting tokens), reusable text snippets, and custom CSS style rules (Callout boxes, table themes, exam notices) with instant search, category filtering, in-place **Edit** and **Delete** actions for custom entries, one-click `+ Insert` at cursor, and `+ Apply to Document CSS`.
 - **Interactive CSS Helper & Tutorial (`js/document-editor/de-css-helper.js`)**: Accessible via the **CSS Helper** button in the `#css-panel` bar or **Tools > CSS Helper & Tutorial…**, providing a Light Neobrutalist modal with four tabs: **CSS Basics Tutorial** (rule anatomy, visual Box Model diagram, units guide, and editor workflow), **CSS Styles & Properties** (30+ properties across Typography, Colors, Spacing, Borders, Layout, Tables, and Print with clickable option values that load directly into Quick Rule or apply to CSS), **HTML Tags & Options** (14+ tags with attributes/styles, meanings, and `+ Insert Tag`), and **Selectors & Patterns** (`tag`, `.class`, `#id`, combinators, `:nth-child`, `@media print`).
@@ -1609,7 +1623,7 @@ Dedicated desktop **PDF Viewer & Annotator** designed for classroom worksheets, 
 
 #### Features
 - **High-DPI PDF Rendering & Selectable Text Layer**: Offline PDF rendering powered by Mozilla PDF.js at native device pixel ratio with continuous vertical scroll, zoom controls (50% to 300%, Fit Width, Fit Page), and a native selectable text layer for selecting and copying page text.
-- **Quick Dictionary Lookup (`Ctrl+Shift+D`)**: Select any text on a page or inside text notes to display a floating Light Neobrutalist lookup pill (`🔍 Look up in Dictionary`). Also accessible via right-click, the top **Files** dropdown menu, and the header **Dictionary** button (<kbd>Ctrl+Shift+D</kbd>) to search words in [Quick Dictionary](#dictionaryhtml) companion window.
+- **Dictionary Lookup (`Ctrl+Shift+D`)**: Select any text on a page or inside text notes to display a floating Light Neobrutalist lookup pill (`🔍 Look up in Dictionary`). Also accessible via right-click, the top **Files** dropdown menu, and the header **Dictionary** button (<kbd>Ctrl+Shift+D</kbd>) to search words in [Dictionary](#dictionaryhtml) companion window.
 - **Interactive Annotation Engine**:
   - **Pen**: Smooth Bézier inking with teacher color palette (Charcoal, Crimson, Slate Blue, Emerald, Purple, Warm Gold) and configurable stroke widths (2px to 16px).
   - **Highlighter**: Semi-transparent multiply blend highlighting that preserves sharp text legibility underneath.

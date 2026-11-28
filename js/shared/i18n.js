@@ -67,7 +67,7 @@
     'core', 'tutorials', 'audit-console', 'board', 'class-plan', 'document-editor', 'file-manager',
     'general-config', 'grade-sheet', 'group-editor', 'how-to', 'lesson-creator',
     'manage-database', 'oral-marking', 'participation-tracker', 'planner',
-    'schedule-maker', 'test-creator'
+    'reference-builder', 'schedule-maker', 'test-creator'
   ];
 
   var PAGE_NAMESPACES = {
@@ -85,6 +85,7 @@
     'oral-marking': ['oral-marking'],
     'participation-tracker': ['participation-tracker'],
     'planner': ['planner', 'grade-sheet'],
+    'reference-builder': ['reference-builder'],
     'schedule-maker': ['schedule-maker'],
     'test-creator': ['test-creator']
   };

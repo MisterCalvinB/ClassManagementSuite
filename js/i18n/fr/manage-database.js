@@ -202,6 +202,7 @@
   "mdbTypeSentences": "Phrases",
   "mdbTypeStories": "Histoires",
   "mdbTypeQuizzes": "Quiz",
+  "mdbTypeReferences": "Références",
   "mdbTypeDescriptors": "Compétences",
   "mdbTypeCompetences": "Compétences",
   "mdbTypePhases": "Phases",

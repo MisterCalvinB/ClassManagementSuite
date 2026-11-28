@@ -11,6 +11,7 @@
       { key: 'sentencebanks', labelKey: 'mdbTypeSentences', icon: 'sentence.svg', target: 'customSentences', defaultView: 'table' },
       { key: 'storybanks', labelKey: 'mdbTypeStories', icon: 'book.svg', target: 'customStorybanks', defaultView: 'table' },
       { key: 'quizzes', labelKey: 'mdbTypeQuizzes', icon: 'quiz.svg', target: 'customQuizzes', defaultView: 'table' },
+      { key: 'references', labelKey: 'mdbTypeReferences', icon: 'reference-builder.svg', target: 'referenceManuals', defaultView: 'table' },
       { key: 'testbanks', labelKey: 'mdbTypeTestBanks', icon: 'award.svg', target: 'customExercises', defaultView: 'table' },
       { key: 'competences', labelKey: 'mdbTypeCompetences', icon: 'file-text.svg', target: 'customCompetences', defaultView: 'table' },
       { key: 'phases', labelKey: 'mdbTypePhases', icon: 'zap.svg', target: 'customPhases', defaultView: 'table' },
@@ -25,7 +26,7 @@
       {
         id: 'learningContent',
         labelKey: 'mdbSectionLearningContent',
-        types: ['wordbanks', 'quotebanks', 'dictations', 'grammarbanks', 'gapfillbanks', 'errorbanks', 'sentencebanks', 'storybanks', 'quizzes']
+        types: ['wordbanks', 'quotebanks', 'dictations', 'grammarbanks', 'gapfillbanks', 'errorbanks', 'sentencebanks', 'storybanks', 'quizzes', 'references']
       },
       {
         id: 'assessmentCurriculum',
@@ -39,7 +40,7 @@
       dictations: 'customDictationBank', grammarbanks: 'customGrammarBank',
       gapfillbanks: 'customGapFillBank', errorbanks: 'customErrorBank',
       sentencebanks: 'customSentenceBank', storybanks: 'customStoryBank',
-      quizzes: 'customQuizBank', testbanks: 'customExerciseBank',
+      quizzes: 'customQuizBank', references: 'customReferenceBank', testbanks: 'customExerciseBank',
       competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
       phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
       scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
@@ -714,6 +715,49 @@
             records = JSON.parse(JSON.stringify(DEFAULT_OBSERVATION_CHIP_GROUPS));
           }
         }
+      } else if (typeKey === 'references') {
+        varName = 'customReferenceBank';
+        try {
+          const parsed = (jsonResult && jsonResult.ok && jsonResult.data) ? jsonResult.data : (content ? JSON.parse(content) : null);
+          if (parsed && Array.isArray(parsed.chapters)) {
+            const flat = [];
+            parsed.chapters.forEach((ch) => {
+              const mods = Array.isArray(ch.modules) ? ch.modules : [];
+              if (!mods.length) {
+                flat.push({
+                  id: ch.id || parsed.id,
+                  manualTitle: parsed.title || '',
+                  topic: ch.title || '',
+                  moduleTitle: '',
+                  typeId: '',
+                  level: ch.level || parsed.level || '',
+                  year: ch.year || parsed.year || '',
+                  subDiscipline: ch.subDiscipline || parsed.subDiscipline || '',
+                  content: ch.summary || ''
+                });
+              } else {
+                mods.forEach((mod) => {
+                  const d = mod.data || {};
+                  const text = d.body || d.term || d.caption || (Array.isArray(d.steps) ? d.steps.join('; ') : '') || (Array.isArray(d.bullets) ? d.bullets.join('; ') : '') || '';
+                  flat.push({
+                    id: mod.id || ch.id,
+                    manualTitle: parsed.title || '',
+                    topic: ch.title || '',
+                    moduleTitle: mod.title || '',
+                    typeId: mod.typeId || '',
+                    level: ch.level || parsed.level || '',
+                    year: ch.year || parsed.year || '',
+                    subDiscipline: ch.subDiscipline || parsed.subDiscipline || '',
+                    content: String(text)
+                  });
+                });
+              }
+            });
+            records = flat;
+          } else if (Array.isArray(parsed)) {
+            records = parsed;
+          }
+        } catch (_) {}
       } else if (typeKey === 'scales') {
         varName = 'XLSM_SCALE_MODELS';
         if (content) {

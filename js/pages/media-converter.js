@@ -926,10 +926,13 @@
 
       if (destRes.destination === 'same-folder') {
         outDir = inputDir;
-      } else if (destRes.destination === 'to-print') {
+      } else if (typeof window.cmtIsManagedExportDest === 'function' ? window.cmtIsManagedExportDest(destRes.destination) : destRes.destination === 'to-print') {
+        var resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+          ? window.cmtResolveExportTarget(destRes.destination)
+          : 'toPrint';
         var toPrintResolved = '';
         if (typeof window.Desktop.resolvePath === 'function') {
-          var resP = await window.Desktop.resolvePath('toPrint', '');
+          var resP = await window.Desktop.resolvePath(resolvedTarget || 'toPrint', '');
           if (resP && typeof resP === 'string') toPrintResolved = resP;
           else if (resP && resP.path) toPrintResolved = resP.path;
         }
@@ -979,10 +982,13 @@
       var batchDir = '';
       if (batchDest.destination === 'same-folder') {
         batchDir = 'same-folder';
-      } else if (batchDest.destination === 'to-print') {
+      } else if (typeof window.cmtIsManagedExportDest === 'function' ? window.cmtIsManagedExportDest(batchDest.destination) : batchDest.destination === 'to-print') {
+        var resolvedBatchTarget = typeof window.cmtResolveExportTarget === 'function'
+          ? window.cmtResolveExportTarget(batchDest.destination)
+          : 'toPrint';
         var toPrintResolved = '';
         if (typeof window.Desktop.resolvePath === 'function') {
-          var resP = await window.Desktop.resolvePath('toPrint', '');
+          var resP = await window.Desktop.resolvePath(resolvedBatchTarget || 'toPrint', '');
           if (resP && typeof resP === 'string') toPrintResolved = resP;
           else if (resP && resP.path) toPrintResolved = resP.path;
         }

@@ -169,6 +169,9 @@
     if (type === 'planner' || type === 'slot' || type === 'planner-entry') {
       return makeUrn('planner', id, p.anchor);
     }
+    if (type === 'reference' || type === 'references' || type === 'manual' || type === 'ref') {
+      return makeUrn('reference', id, p.anchor);
+    }
     if (type === 'lesson' || type === 'lessons' || type === 'lessonplan') {
       return makeUrn('lesson', id, p.anchor);
     }
@@ -3280,6 +3283,20 @@
         }
         var qs = new URLSearchParams(query).toString();
         window.open(resolvePageUrl('grade-sheet.html') + '?' + qs, '_blank');
+        return true;
+      }
+
+      case 'reference':
+      case 'references':
+      case 'manual':
+      case 'ref': {
+        var refQuery = { manual: p.id };
+        if (p.anchor) refQuery.module = p.anchor;
+        if (desktop && typeof desktop.openTool === 'function') {
+          return desktop.openTool('reference-builder.html', { query: refQuery });
+        }
+        var refQs = new URLSearchParams(refQuery).toString();
+        window.open(resolvePageUrl('reference-builder.html') + '?' + refQs, '_blank');
         return true;
       }
 

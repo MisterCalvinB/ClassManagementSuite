@@ -486,14 +486,14 @@
         const safeTitle = titleVal.replace(/[\\/:*?"<>|]/g, '_') || 'vocabulary';
         const defaultName = safeTitle + '.pdf';
 
-        const doPrint = (targetFilename, isToPrint) => {
+        const doPrint = (targetFilename, exportTarget) => {
           const pdfReq = {
             html,
             landscape: pdfSettings.isLandscape,
             pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape, printBackground: true }
           };
-          if (isToPrint) {
-            pdfReq.target = 'toPrint';
+          if (exportTarget) {
+            pdfReq.target = exportTarget;
             pdfReq.filename = targetFilename;
           } else {
             pdfReq.defaultName = targetFilename;
@@ -521,10 +521,13 @@
             allowDocEditor: false
           }).then(destRes => {
             if (!destRes || destRes.canceled) return;
-            doPrint(destRes.filename || defaultName, destRes.destination === 'to-print');
+            const resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null);
+            doPrint(destRes.filename || defaultName, resolvedTarget);
           });
         } else {
-          doPrint(defaultName, false);
+          doPrint(defaultName, null);
         }
       } else {
         let iframe = document.getElementById('con-pdf-iframe');
@@ -2865,14 +2868,14 @@
       const defaultName = safeTitle + '_pages.pdf';
 
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.printPdf === 'function') {
-        const doPrint = (targetFilename, isToPrint) => {
+        const doPrint = (targetFilename, exportTarget) => {
           const pdfReq = {
             html,
             landscape: true,
             pdfOptions: { pageSize: 'A4', landscape: true, printBackground: true }
           };
-          if (isToPrint) {
-            pdfReq.target = 'toPrint';
+          if (exportTarget) {
+            pdfReq.target = exportTarget;
             pdfReq.filename = targetFilename;
           } else {
             pdfReq.defaultName = targetFilename;
@@ -2900,10 +2903,13 @@
             allowDocEditor: false
           }).then(destRes => {
             if (!destRes || destRes.canceled) return;
-            doPrint(destRes.filename || defaultName, destRes.destination === 'to-print');
+            const resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null);
+            doPrint(destRes.filename || defaultName, resolvedTarget);
           });
         } else {
-          doPrint(defaultName, false);
+          doPrint(defaultName, null);
         }
       } else {
         let iframe = document.getElementById('con-pages-pdf-iframe');

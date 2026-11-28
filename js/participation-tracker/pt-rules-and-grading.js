@@ -1323,8 +1323,11 @@ async function exportRulesAsPdf(data) {
                 landscape: pdfSettings.isLandscape,
                 pdfOptions: { pageSize: pdfSettings.pageSize, landscape: pdfSettings.isLandscape }
             };
-            if (destination === 'to-print') {
-                pdfReq.target = 'toPrint';
+            const resolvedTarget = typeof window.cmtResolveExportTarget === 'function'
+                ? window.cmtResolveExportTarget(destination)
+                : (destination === 'to-print' ? 'toPrint' : null);
+            if (resolvedTarget) {
+                pdfReq.target = resolvedTarget;
                 pdfReq.filename = defaultName;
             } else {
                 pdfReq.defaultName = defaultName;

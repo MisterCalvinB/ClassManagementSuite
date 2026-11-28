@@ -5,7 +5,7 @@
   }
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
-  "deLookupInDict": "Im Schnellwörterbuch nachschlagen",
+  "deLookupInDict": "Im Wörterbuch nachschlagen",
   "deLookupInDictHint": "Ausgewähltes Wort in Wortschatzdatenbanken nachschlagen (Strg+Umschalt+D)",
   "deAiStudioMenu": "KI-Studio…",
   "deAiPillBtn": "KI-Studio",

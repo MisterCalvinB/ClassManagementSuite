@@ -17,6 +17,7 @@
   <script src="js/shared/pins.js"></script>
   <script src="js/shared/quick-switcher.js"></script>
   <script src="js/shared/window-helper.js"></script>
+  <script src="js/pages/launcher-calendar.js"></script>
   <script>
     // Startup: open configured apps in the background after the launcher renders.
     // Runs once per window session — navigating back to the launcher skips this.
@@ -231,10 +232,27 @@
         <span class="sb-chevron"><img src="assets/icons/chevron-down.svg" class="sb-chevron-img" alt="" /></span>
         <span class="sb-section-icon" aria-hidden="true"><img src="assets/icons/calendar.svg" class="sb-section-icon-img" alt="" /></span>
         <span class="sb-section-title" data-i18n="sbUpcomingTitle">Upcoming Events</span>
-        <button class="sb-count-btn" id="sbEventsCountBtn" data-i18n-help="sbCountTooltip">5</button>
       </div>
-      <div class="sb-list" id="sbEventsList">
-        <div class="sb-empty" data-i18n="sbLoading">Loading…</div>
+      <div class="sb-cal" id="sbCal">
+        <div class="sb-cal-bar">
+          <div class="sb-cal-views" id="sbCalViews" role="group" aria-label="Calendar view">
+            <button type="button" class="sb-cal-view-btn" data-view="day" data-i18n="sbCalDay">Day</button>
+            <button type="button" class="sb-cal-view-btn" data-view="week" data-i18n="sbCalWeek">Week</button>
+            <button type="button" class="sb-cal-view-btn active" data-view="month" data-i18n="sbCalMonth">Month</button>
+            <button type="button" class="sb-cal-view-btn" data-view="year" data-i18n="sbCalYear">Year</button>
+          </div>
+          <button type="button" class="sb-cal-today-btn" id="sbCalTodayBtn" data-i18n="sbToday">Today</button>
+        </div>
+        <div class="sb-cal-nav">
+          <button type="button" class="sb-cal-nav-btn" id="sbCalPrevBtn" data-i18n-help="sbCalPrev" aria-label="Previous">
+            <img src="assets/icons/triangle-left.svg" class="sb-cal-nav-icon" alt="" />
+          </button>
+          <span class="sb-cal-period" id="sbCalPeriod"></span>
+          <button type="button" class="sb-cal-nav-btn" id="sbCalNextBtn" data-i18n-help="sbCalNext" aria-label="Next">
+            <img src="assets/icons/triangle-right.svg" class="sb-cal-nav-icon" alt="" />
+          </button>
+        </div>
+        <div class="sb-cal-body" id="sbCalBody"></div>
       </div>
     </div>
     <div class="sb-section" id="sbTodoSection">
@@ -511,7 +529,7 @@
       id: 'learningTools',
       pageFile: 'learning-tools.html',
       icon: 'assets/icons/learning-tools.svg',
-      title: 'Learning Tools',
+      title: 'Games',
       desc: 'Vocabulary, word work, grammar practice, and custom activity presentation for the classroom.'
     },
     {
@@ -563,6 +581,13 @@
       icon: 'assets/icons/document-editor.svg',
       title: 'Document Editor',
       desc: 'Write Markdown with LaTeX math (KaTeX), custom CSS stylesheets, templates, and PDF export.'
+    },
+    {
+      id: 'referenceBuilder',
+      pageFile: 'reference-builder.html',
+      icon: 'assets/icons/reference-builder.svg',
+      title: 'Reference Builder',
+      desc: 'Build customizable subject reference manuals and textbooks with modular blocks, media, quizzes, and HTML/PDF/MD/ODT export.'
     },
     {
       id: 'pdfViewer',
@@ -617,7 +642,7 @@
       id: 'dictionary',
       pageFile: 'dictionary.html',
       icon: 'assets/icons/dictionary.svg',
-      title: 'Quick Dictionary',
+      title: 'Dictionary',
       desc: 'Lightning-fast dictionary that searches your word banks. Choose the search scope and which banks to include.'
     }
   ];
@@ -626,7 +651,7 @@
   var DEFAULT_GROUPS = [
     { id: 'grp-classroom', labelKey: 'sectionClassroom', cardIds: ['board', 'classManagement', 'learningTools'], collapsed: false },
     { id: 'grp-students',  labelKey: 'sectionStudents',  cardIds: ['administrativeGroups', 'competencePortfolio', 'testCreator', 'lessonCreator', 'participationTracker', 'gradeSheet', 'oralMarking', 'groupEditor', 'classPlan', 'planner', 'scheduleMaker'], collapsed: false },
-    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'dictionary', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'fileManager'], collapsed: true },
+    { id: 'grp-content',   labelKey: 'sectionContent',   cardIds: ['manageDatabase', 'dictionary', 'mediaConverter', 'importTool', 'databaseConverter', 'documentEditor', 'referenceBuilder', 'fileManager'], collapsed: true },
     { id: 'grp-system',    labelKey: 'sectionSystem',    cardIds: ['generalConfig'], collapsed: true }
   ];
 
@@ -2941,13 +2966,6 @@
       toggleBtn.classList.toggle('active', _sbOpen);
       toggleBtn.addEventListener('click', sbToggle);
     }
-    var evBtn = document.getElementById('sbEventsCountBtn');
-    if (evBtn) {
-      evBtn.textContent = String(_sbPrefs.eventsCount || 5);
-      evBtn.addEventListener('click', function(e) {
-        e.stopPropagation(); sbShowCountPopup(this, 'events');
-      });
-    }
     var docBtn = document.getElementById('sbDocsCountBtn');
     if (docBtn) {
       docBtn.textContent = String(_sbPrefs.docsCount || 5);
@@ -2965,6 +2983,10 @@
         var countPopup = document.getElementById('sbCountPopup');
         if (countPopup && !countPopup.hidden) sbApplyCount(this.value);
       });
+    }
+
+    if (window.LauncherCalendar && typeof LauncherCalendar.init === 'function') {
+      LauncherCalendar.init();
     }
 
     // Defer sidebar file loading slightly so main launcher grid renders instantly
@@ -2999,6 +3021,7 @@
         applyTitle();
         if (typeof applyTranslations === 'function') applyTranslations();
         if (typeof sbRender === 'function') sbRender();
+        if (window.LauncherCalendar && typeof LauncherCalendar.render === 'function') LauncherCalendar.render();
         if (typeof rfRender === 'function') rfRender();
       }
       if (e.key === 'cmt-launcher-groups') {
@@ -3255,14 +3278,10 @@
   }
 
   async function sbLoadEvents(silent) {
-    var list = document.getElementById('sbEventsList');
-    if (!list) return;
-    var hasItems = !!list.querySelector('.sb-item');
-    if (!silent && !hasItems) {
-      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbLoading') : 'Loading…') + '</div>';
-    }
     if (!window.Desktop || !Desktop.isElectron()) {
-      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
+      if (window.LauncherCalendar && typeof LauncherCalendar.setData === 'function') {
+        LauncherCalendar.setData({ cfg: null, classMeta: {}, entries: [], deadlines: [], gradeClassNames: {} });
+      }
       return;
     }
 
@@ -3417,102 +3436,17 @@
     ]);
 
     var todayStr = sbTodayStr();
-    var count = Number(sbGetPrefs().eventsCount) || 5;
-    var slots = [];
-
-    if (cfg && cfg.semesters && cfg.semesters.length) {
-      var activeSem = cfg.semesters.find(function(s) { return s.id === cfg.activeSemesterId; }) || cfg.semesters[0];
-      var semIdx    = cfg.semesters.indexOf(activeSem);
-      var semKey    = semIdx >= 0 ? 'sem' + (semIdx + 1) : null;
-
-      if (activeSem && activeSem.semesterStart && activeSem.semesterEnd) {
-        // Build holiday date set
-        var holDates = new Set();
-        (activeSem.holidays || []).forEach(function(h) {
-          if (!h.date) return;
-          var hd = new Date(h.date + 'T12:00:00');
-          var hEnd = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : hd;
-          var d2 = new Date(hd);
-          while (d2 <= hEnd) { holDates.add(d2.toISOString().slice(0, 10)); d2.setDate(d2.getDate() + 1); }
-        });
-
-        // Entry map keyed by "date|classId"
-        var emap = {}, consumed = {};
-        entries.forEach(function(e) {
-          if (!e || !e.date || e.isCorrectionDeadline || e.type === 'correction-deadline') return;
-          var k = e.date + '|' + (e.classId || '');
-          if (!emap[k]) emap[k] = [];
-          emap[k].push(e);
-        });
-
-        // Iterate days from today to semester end (cap at +120 days to keep it fast)
-        var startD = new Date(Math.max(
-          new Date(todayStr + 'T12:00:00').getTime(),
-          new Date(activeSem.semesterStart + 'T12:00:00').getTime()
-        ));
-        var endD = new Date(Math.min(
-          new Date(activeSem.semesterEnd + 'T12:00:00').getTime(),
-          new Date(startD.getTime() + 120 * 86400000).getTime()
-        ));
-
-        var d = new Date(startD);
-        while (d <= endD) {
-          var ds  = d.toISOString().slice(0, 10);
-          var dow = d.getDay();
-          if (!holDates.has(ds)) {
-            Object.keys(cfg.classes || {}).forEach(function(cid) {
-              // Skip archived classes
-              if ((classMeta[cid] || {}).archived) return;
-              // Skip classes disabled in this semester
-              if (semKey) {
-                var sems = (cfg.classes[cid] || {}).semesters;
-                if (sems && sems[semKey] === false) return;
-              }
-              var sched = (cfg.classes[cid] || {}).schedule || [];
-              sched.forEach(function(s) {
-                if (parseInt(s.day) !== dow) return;
-                var k = ds + '|' + cid;
-                consumed[k] = true;
-                var entArr = emap[k] || [null];
-                entArr.forEach(function(e) {
-                  slots.push({
-                    date: ds, classId: cid,
-                    time: (e && e.time) || s.time || '',
-                    timeEnd: (e && e.timeEnd) || s.timeEnd || '',
-                    type: (e && e.type) || 'lesson',
-                    topic: (e && e.topic) || '',
-                    entryId: (e && e.id) || ''
-                  });
-                });
-              });
-            });
-          }
-          d.setDate(d.getDate() + 1);
-        }
-
-        // Orphan entries (tests, assignments, etc. not on a scheduled slot)
-        entries.forEach(function(e) {
-          if (!e || !e.date || e.date < todayStr || e.type === 'holiday' || e.isCorrectionDeadline || e.type === 'correction-deadline') return;
-          if (e.classId && (classMeta[e.classId] || {}).archived) return;
-          var k = e.classId ? (e.date + '|' + e.classId) : (e.date + '|__' + (e.id || ''));
-          if (consumed[k]) return;
-          if (holDates.has(e.date)) return;
-          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '', timeEnd: e.timeEnd || '',
-                       type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
-        });
-      }
-    } else {
-      // No config: fall back to entries only
-      entries.forEach(function(e) {
-        if (e && e.date && e.date >= todayStr && e.type !== 'holiday' && !e.isCorrectionDeadline && e.type !== 'correction-deadline' &&
-            !(e.classId && (classMeta[e.classId] || {}).archived)) {
-          slots.push({ date: e.date, classId: e.classId || '', time: e.time || '', timeEnd: e.timeEnd || '',
-                       type: e.type || 'lesson', topic: e.topic || '', entryId: e.id || '' });
-        }
+    if (window.LauncherCalendar && typeof LauncherCalendar.setData === 'function') {
+      LauncherCalendar.setData({
+        cfg: cfg,
+        classMeta: classMeta,
+        entries: entries,
+        deadlines: deadlines,
+        gradeClassNames: sbGradeClassNames
       });
     }
 
-    // Merge correction deadlines into slots
+    // Check correction deadlines for overdue / due-today toast
     var dlSnoozes = {};
     try {
       dlSnoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
@@ -3523,45 +3457,13 @@
 
     deadlines.forEach(function(dl) {
       if (dl.classId && (classMeta[dl.classId] || {}).archived) return;
-
       var snoozeKey = dl.classId + '|' + dl.semester + '|' + dl.testIndex;
       var snoozedUntil = dlSnoozes[snoozeKey] || null;
       var isSnoozed = !!(snoozedUntil && snoozedUntil >= todayStr);
-
-      var isOverdue = dl.deadline < todayStr;
-      var isDueToday = dl.deadline === todayStr;
-
       if (!isSnoozed) {
-        if (isOverdue) hasOverdue = true;
-        if (isDueToday) hasToday = true;
+        if (dl.deadline < todayStr) hasOverdue = true;
+        if (dl.deadline === todayStr) hasToday = true;
       }
-
-      var displayDate = isSnoozed ? snoozedUntil : dl.deadline;
-      var diffDays = Math.ceil((new Date(dl.deadline + 'T12:00:00').getTime() - new Date(todayStr + 'T12:00:00').getTime()) / 86400000);
-      var isUrgent = !isOverdue && !isDueToday && diffDays <= 3;
-      var pct = dl.total > 0 ? Math.round((dl.scored / dl.total) * 100) : 0;
-
-      slots.push({
-        date: displayDate,
-        deadlineDate: dl.deadline,
-        time: dl.time || '18:00',
-        type: 'correction-deadline',
-        topic: dl.testTitle,
-        classId: dl.classId,
-        className: dl.className,
-        semester: dl.semester,
-        testIndex: dl.testIndex,
-        total: dl.total,
-        scored: dl.scored,
-        remaining: dl.remaining,
-        pct: pct,
-        isOverdue: isOverdue,
-        isDueToday: isDueToday,
-        isUrgent: isUrgent,
-        isSnoozed: isSnoozed,
-        diffDays: diffDays,
-        snoozedUntil: snoozedUntil
-      });
     });
 
     if (!window._cmtDeadlineToastFired && (hasOverdue || hasToday)) {
@@ -3574,109 +3476,6 @@
         }
       }
     }
-
-    slots.sort(function(a, b) {
-      if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-      if (a.type === 'correction-deadline' && b.type !== 'correction-deadline') return -1;
-      if (b.type === 'correction-deadline' && a.type !== 'correction-deadline') return 1;
-      if (a.time && b.time && a.time !== b.time) return a.time < b.time ? -1 : 1;
-      return 0;
-    });
-    slots = slots.slice(0, count);
-
-    if (!slots.length) {
-      list.innerHTML = '<div class="sb-empty">' + escHtml(typeof t === 'function' ? t('sbEmpty') : 'Nothing here yet') + '</div>';
-      return;
-    }
-
-    var fragment = document.createDocumentFragment();
-    slots.forEach(function(s) {
-      var isPast = s.type !== 'correction-deadline' && sbIsPastEvent(s);
-      var ds = sbFormatDate(s.date);
-      var isToday = s.date === sbTodayStr(), isTom = s.date === sbTomorrowStr();
-      var item = document.createElement('div');
-      var clsName = sbResolveClassTitle(s.classId, s.className);
-
-      if (s.type === 'correction-deadline') {
-        var statusCls = s.isSnoozed ? 'sb-dl-snoozed' : (s.isOverdue ? 'sb-dl-overdue' : (s.isDueToday || s.isUrgent ? 'sb-dl-urgent' : 'sb-dl-ontrack'));
-        item.className = 'sb-item sb-item-deadline ' + statusCls;
-
-        var badgeLabel = '';
-        var badgeCls = '';
-        if (s.isSnoozed) {
-          badgeLabel = typeof t === 'function' ? t('sbTagSnoozed') : 'Snoozed';
-          badgeCls = 'sb-dl-badge-snoozed';
-        } else if (s.isOverdue) {
-          badgeLabel = typeof t === 'function' ? t('sbDeadlineDueOverdue') : 'Overdue';
-          badgeCls = 'sb-dl-badge-overdue';
-        } else if (s.isDueToday) {
-          badgeLabel = typeof t === 'function' ? t('sbDeadlineDueToday') : 'Due today';
-          badgeCls = 'sb-dl-badge-urgent';
-        } else {
-          badgeLabel = (typeof t === 'function' ? t('sbDeadlineDueDaysLeft') : '{n}d left').replace('{n}', s.diffDays);
-          badgeCls = s.isUrgent ? 'sb-dl-badge-urgent' : 'sb-dl-badge-ontrack';
-        }
-
-        var progressText = (typeof t === 'function' ? t('gsProgressScored') : '{n} / {total} scored')
-          .replace('{n}', s.scored)
-          .replace('{total}', s.total) + ' (' + (typeof t === 'function' ? t('gsProgressRemaining') : '{n} remaining').replace('{n}', s.remaining) + ')';
-
-        var motivHtml = '';
-        if (window.ScoringMotivators && ScoringMotivators.isEnabled()) {
-          var dlStatus = s.isOverdue ? 'overdue' : (s.diffDays <= 2 ? 'behind' : 'on-track');
-          var motiv = ScoringMotivators.pick({ deadlineStatus: dlStatus, remaining: s.remaining, total: s.total, pct: s.pct, scored: s.scored });
-          if (motiv && motiv.text) {
-            motivHtml = '<div class="sb-dl-motivator">' + escHtml(motiv.text) + '</div>';
-          }
-        }
-
-        item.innerHTML =
-          '<div class="sb-item-top">' +
-            '<span class="sb-tag ' + sbTypeClass(s.type) + '">' + escHtml(sbTypeLabel(s.type)) + '</span>' +
-            '<span class="sb-dl-badge ' + badgeCls + '">' + escHtml(badgeLabel) + '</span>' +
-            '<span class="sb-date' + (isToday ? ' sb-today' : isTom ? ' sb-tomorrow' : '') + '">' + escHtml(ds) + '</span>' +
-          '</div>' +
-          '<div class="sb-name" title="' + escHtml(s.topic) + '">' + escHtml(s.topic) + '</div>' +
-          (clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '') +
-          '<div class="sb-dl-progress-track"><div class="sb-dl-progress-fill" style="transform: scaleX(' + (s.pct / 100) + ')"></div></div>' +
-          '<div class="sb-dl-stats"><span>' + escHtml(progressText) + '</span><span>' + s.pct + '%</span></div>' +
-          motivHtml;
-
-        (function(slot) {
-          item.addEventListener('click', function() {
-            try {
-              localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify({
-                classId: slot.classId,
-                semester: slot.semester,
-                testIndex: slot.testIndex
-              }));
-            } catch(e) {}
-            openApp('pages/grade-sheet.html');
-          });
-          if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
-        })(s);
-      } else {
-        item.className = 'sb-item' + (isPast ? ' sb-item-past' : '');
-        item.innerHTML =
-          '<div class="sb-item-top">' +
-            '<span class="sb-tag ' + sbTypeClass(s.type) + '">' + escHtml(sbTypeLabel(s.type)) + '</span>' +
-            '<span class="sb-date' + (isToday ? ' sb-today' : isTom ? ' sb-tomorrow' : '') + '">' + escHtml(ds) + '</span>' +
-            (s.time ? '<span class="sb-date"> ' + escHtml(s.time) + '</span>' : '') +
-          '</div>' +
-          '<div class="sb-name" title="' + escHtml(s.topic || clsName || '') + '">' + escHtml(s.topic || clsName || '—') + '</div>' +
-          (s.topic && clsName ? '<div class="sb-meta">' + escHtml(clsName) + '</div>' : '');
-
-        (function(slot) {
-          item.addEventListener('click', function() {
-            try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(e) {}
-            openApp('planner.html');
-          });
-          if (typeof sbEventAttachCtx === 'function') sbEventAttachCtx(item, slot);
-        })(s);
-      }
-      fragment.appendChild(item);
-    });
-    list.replaceChildren(fragment);
   }
 
   async function sbLoadDocs(silent) {
@@ -4159,11 +3958,7 @@
 
   function sbApplyCount(val) {
     var n = Math.max(1, Math.min(20, parseInt(val, 10) || 5));
-    if (_sbCountTarget === 'events') {
-      sbSavePrefs({ eventsCount: n });
-      document.getElementById('sbEventsCountBtn').textContent = String(n);
-      sbLoadEvents();
-    } else if (_sbCountTarget === 'docs') {
+    if (_sbCountTarget === 'docs') {
       sbSavePrefs({ docsCount: n });
       document.getElementById('sbDocsCountBtn').textContent = String(n);
       sbLoadDocs();
@@ -4185,7 +3980,7 @@
       { selector: '#addSectionBtn',        title: t('tutLn5Title'), text: t('tutLn5Text') },
       moreBtn     ? { selector: '#headerMoreBtn',   title: t('tutLn6Title'), text: t('tutLn6Text') } : null,
       { selector: '#sbToggleBtn',  title: t('tutLn7Title'), text: t('tutLn7Text') },
-      { selector: '#sbEventsList', title: t('tutLn8Title'), text: t('tutLn8Text') },
+      { selector: '#sbCal',        title: t('tutLn8Title'), text: t('tutLn8Text') },
       { selector: '#sbTodoList',   title: t('tutLn9Title'), text: t('tutLn9Text') },
       { selector: '#sbDocsList',   title: t('tutLn10Title'),text: t('tutLn10Text') }
     ].filter(Boolean), {
@@ -4659,113 +4454,120 @@
     });
   };
 
-  /* ── Sidebar: Upcoming Events context menu ── */
+  /* ── Sidebar: Calendar Events context menu ── */
+  window.sbShowEventCtx = function(clientX, clientY, slot) {
+    if (!slot) return;
+    if (slot.type === 'correction-deadline') {
+      var snoozeKey = slot.classId + '|' + slot.semester + '|' + slot.testIndex;
+      var todayStr = sbTodayStr();
+      var snoozes = {};
+      try { snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}'); } catch(ex) {}
+      var isSnoozed = !!(snoozes[snoozeKey] && snoozes[snoozeKey] >= todayStr);
+      var menuItems = [
+        {
+          label: typeof t === 'function' ? t('sbDeadlineOpenGradeSheet') : 'Open in Grade Sheet',
+          action: function() {
+            try {
+              localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify({
+                classId: slot.classId,
+                semester: slot.semester,
+                testIndex: slot.testIndex
+              }));
+            } catch(ex) {}
+            openApp('pages/grade-sheet.html');
+          }
+        },
+        '-'
+      ];
+
+      if (isSnoozed) {
+        menuItems.push({
+          label: typeof t === 'function' ? t('sbDeadlineClearSnooze') : 'Clear snooze',
+          action: function() {
+            try {
+              var s = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+              delete s[snoozeKey];
+              localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(s));
+            } catch(ex) {}
+            sbLoadEvents(true);
+          }
+        });
+      } else {
+        menuItems.push({
+          label: typeof t === 'function' ? t('sbDeadlineSnoozeTomorrow') : 'Snooze reminder until tomorrow',
+          action: function() {
+            try {
+              var s = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+              var d = new Date();
+              d.setDate(d.getDate() + 1);
+              s[snoozeKey] = d.toISOString().slice(0, 10);
+              localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(s));
+            } catch(ex) {}
+            sbLoadEvents(true);
+          }
+        });
+        menuItems.push({
+          label: typeof t === 'function' ? t('sbDeadlineSnooze3Days') : 'Snooze reminder for 3 days',
+          action: function() {
+            try {
+              var s = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
+              var d = new Date();
+              d.setDate(d.getDate() + 3);
+              s[snoozeKey] = d.toISOString().slice(0, 10);
+              localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(s));
+            } catch(ex) {}
+            sbLoadEvents(true);
+          }
+        });
+      }
+
+      if (typeof showCtx === 'function') {
+        showCtx(clientX, clientY, menuItems);
+      }
+      return;
+    }
+
+    if (!window.Pins) return;
+
+    var pinInfo = {
+      type: 'planner-entry',
+      classId: slot.classId || '',
+      date: slot.date,
+      time: slot.time || '',
+      timeEnd: slot.timeEnd || '',
+      entryId: slot.entryId || ''
+    };
+
+    Pins.isPinned(pinInfo).then(function(pinned) {
+      var menuItems = [
+        { label: tl('sbOpenInPlanner', 'Open in Planner'), action: function() {
+          try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
+          openApp('planner.html');
+        }},
+        '-',
+        {
+          label: pinned ? (typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') : (typeof t === 'function' ? t('ctxPinItem') : 'Pin to sidebar'),
+          action: async function() {
+            if (pinned) {
+              await Pins.unpinItem(pinInfo);
+            } else {
+              var displayTitle = (slot.topic || (typeof t === 'function' ? t('pl_emptySlot') : 'Lesson')).trim();
+              var className = sbResolveClassTitle(slot.classId, slot.className);
+              if (className) displayTitle = className + ': ' + displayTitle;
+              await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
+            }
+            sbLoadPinned(true);
+          }
+        }
+      ];
+      showCtx(clientX, clientY, menuItems);
+    });
+  };
   window.sbEventAttachCtx = function(item, slot) {
     item.addEventListener('contextmenu', function(e) {
       e.preventDefault();
       e.stopPropagation();
-
-      if (slot.type === 'correction-deadline') {
-        var snoozeKey = slot.classId + '|' + slot.semester + '|' + slot.testIndex;
-        var menuItems = [
-          {
-            label: typeof t === 'function' ? t('sbDeadlineOpenGradeSheet') : 'Open in Grade Sheet',
-            action: function() {
-              try {
-                localStorage.setItem('cmt-grade-sheet-nav', JSON.stringify({
-                  classId: slot.classId,
-                  semester: slot.semester,
-                  testIndex: slot.testIndex
-                }));
-              } catch(ex) {}
-              openApp('pages/grade-sheet.html');
-            }
-          },
-          '-'
-        ];
-
-        if (slot.isSnoozed) {
-          menuItems.push({
-            label: typeof t === 'function' ? t('sbDeadlineClearSnooze') : 'Clear snooze',
-            action: function() {
-              try {
-                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
-                delete snoozes[snoozeKey];
-                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
-              } catch(ex) {}
-              sbLoadEvents(true);
-            }
-          });
-        } else {
-          menuItems.push({
-            label: typeof t === 'function' ? t('sbDeadlineSnoozeTomorrow') : 'Snooze reminder until tomorrow',
-            action: function() {
-              try {
-                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
-                var d = new Date();
-                d.setDate(d.getDate() + 1);
-                snoozes[snoozeKey] = d.toISOString().slice(0, 10);
-                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
-              } catch(ex) {}
-              sbLoadEvents(true);
-            }
-          });
-          menuItems.push({
-            label: typeof t === 'function' ? t('sbDeadlineSnooze3Days') : 'Snooze reminder for 3 days',
-            action: function() {
-              try {
-                var snoozes = JSON.parse(localStorage.getItem('cmt-deadline-snoozes') || '{}');
-                var d = new Date();
-                d.setDate(d.getDate() + 3);
-                snoozes[snoozeKey] = d.toISOString().slice(0, 10);
-                localStorage.setItem('cmt-deadline-snoozes', JSON.stringify(snoozes));
-              } catch(ex) {}
-              sbLoadEvents(true);
-            }
-          });
-        }
-
-        if (typeof showCtx === 'function') {
-          showCtx(e.clientX, e.clientY, menuItems);
-        }
-        return;
-      }
-
-      if (!window.Pins) return;
-
-      var pinInfo = {
-        type: 'planner-entry',
-        classId: slot.classId || '',
-        date: slot.date,
-        time: slot.time || '',
-        timeEnd: slot.timeEnd || '',
-        entryId: slot.entryId || ''
-      };
-
-      Pins.isPinned(pinInfo).then(function(pinned) {
-        var menuItems = [
-          { label: tl('sbOpenInPlanner', 'Open in Planner'), action: function() {
-            try { localStorage.removeItem('cmt-planner-todo'); localStorage.setItem('cmt-planner-nav', JSON.stringify({ date: slot.date, classId: slot.classId || '', time: slot.time || '' })); } catch(ex) {}
-            openApp('planner.html');
-          }},
-          '-',
-          {
-            label: pinned ? (typeof t === 'function' ? t('ctxUnpinItem') : 'Unpin from sidebar') : (typeof t === 'function' ? t('ctxPinItem') : 'Pin to sidebar'),
-            action: async function() {
-              if (pinned) {
-                await Pins.unpinItem(pinInfo);
-              } else {
-                var displayTitle = (slot.topic || (typeof t === 'function' ? t('pl_emptySlot') : 'Lesson')).trim();
-                var className = sbResolveClassTitle(slot.classId, slot.className);
-                if (className) displayTitle = className + ': ' + displayTitle;
-                await Pins.pinItem(Object.assign({ title: displayTitle }, pinInfo));
-              }
-              sbLoadPinned(true);
-            }
-          }
-        ];
-        showCtx(e.clientX, e.clientY, menuItems);
-      });
+      window.sbShowEventCtx(e.clientX, e.clientY, slot);
     });
   };
 

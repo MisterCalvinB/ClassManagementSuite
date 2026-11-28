@@ -3370,8 +3370,13 @@
           }
         };
 
-        if (destRes && destRes.destination === 'to-print') {
-          pdfReq.target = 'toPrint';
+        var resolvedTarget = destRes
+          ? (typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null))
+          : null;
+        if (resolvedTarget) {
+          pdfReq.target = resolvedTarget;
           pdfReq.filename = targetFilename;
         } else {
           pdfReq.defaultName = targetFilename;
@@ -3493,8 +3498,13 @@
           }
         };
 
-        if (destRes && destRes.destination === 'to-print') {
-          pdfReq.target = 'toPrint';
+        var resolvedTarget = destRes
+          ? (typeof window.cmtResolveExportTarget === 'function'
+              ? window.cmtResolveExportTarget(destRes.destination)
+              : (destRes.destination === 'to-print' ? 'toPrint' : null))
+          : null;
+        if (resolvedTarget) {
+          pdfReq.target = resolvedTarget;
           pdfReq.filename = targetFilename;
         } else {
           pdfReq.defaultName = targetFilename;

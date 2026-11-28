@@ -4265,7 +4265,7 @@
           </div>
 
           <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:2px;">
-            <button type="button" class="action-btn btn-blue" onclick="conLaunchLearningActivity('${boardEscapeHtml(activity.id)}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Open Activity in Learning Tools / Quiz Window">
+            <button type="button" class="action-btn btn-blue" onclick="conLaunchLearningActivity('${boardEscapeHtml(activity.id)}')" style="display:inline-flex; align-items:center; gap:5px; padding:4px 10px; font-size:0.78rem; font-weight:800; border-radius:5px; border:1.5px solid #333333; box-shadow:2px 2px 0 #333333; cursor:pointer;" title="Open Activity in Games / Quiz Window">
               <img src="../assets/icons/play.svg" class="btn-icon" alt="" style="width:14px; height:14px; margin:0; filter:brightness(0) invert(1);" />
               <span>Play Activity</span>
             </button>

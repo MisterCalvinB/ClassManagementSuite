@@ -408,7 +408,7 @@
   "conMergeAsSingleNode": "Zu einem einzelnen Knoten zusammenführen",
   "conMergeAsSingleNodeDesc": "Alle Wörter durch Leerzeichen getrennt in einem Knoten kombinieren",
   "conConvertToNoteTitle": "Wort in Notiz umwandeln",
-  "conLookUpDictionary": "Im Schnellwörterbuch nachschlagen",
+  "conLookUpDictionary": "Im Wörterbuch nachschlagen",
   "conShowAttachedNote": "Angehängte Notiz anzeigen",
   "conHideAttachedNote": "Angehängte Notiz ausblenden",
   "conSplitTitle": "Wort teilen",

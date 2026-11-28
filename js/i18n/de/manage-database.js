@@ -338,6 +338,7 @@
   "mdbTypeSentences": "Sätze",
   "mdbTypeStories": "Geschichten",
   "mdbTypeQuizzes": "Quizze",
+  "mdbTypeReferences": "Referenzen",
   "mdbBtnAddColumn": "Spalte hinzufügen",
   "mdbModalAddColTitle": "Spalte zur Datenbank hinzufügen",
   "mdbColKey": "Spaltenschlüssel / Feld",

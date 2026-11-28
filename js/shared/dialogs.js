@@ -670,7 +670,7 @@
       'Class Management': 'app_classManagement_title',
       'Group Editor': 'app_groupEditor_title',
       'Grade Sheet': 'app_gradeSheet_title',
-      'Learning Tools': 'app_learningTools_title',
+      'Games': 'app_learningTools_title',
       'Manage Database': 'app_manageDatabase_title',
       'DB Manager v2': 'app_manageDatabase_title',
       'Learning DB': 'app_manageDatabase_title',
