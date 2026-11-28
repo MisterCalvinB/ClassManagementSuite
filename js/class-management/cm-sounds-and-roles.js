@@ -1277,6 +1277,7 @@
             _cmsUpdatePlanChip();
             await applyBadgeSetForClass(groupName);
             await applyModeSetForClass(groupName);
+            await applyRoleSetForClass(groupName);
             renderRoster();
             updateExamSessionBanner();
             renderRanking();
@@ -1812,6 +1813,172 @@
         let rolesLibraryLoaded = false;
         let rolesEditorCollapsed = true;
         let rolesModalMode = 'assignment';
+        let roleSetSettings = { defaultSetId: 'default', classSets: {} };
+        let activeRoleSetId = 'default';
+        let modalEditingRoleSetId = 'default';
+
+        function openManageDatabaseForRoles() {
+            if (window.Desktop && typeof window.Desktop.openTool === 'function') {
+                window.Desktop.openTool('manage-database.html', { query: { type: 'rolebanks' } });
+            } else {
+                window.open('manage-database.html?type=rolebanks', '_blank');
+            }
+        }
+
+        async function populateRoleSetSelector(desiredSetId) {
+            const select = document.getElementById('cm-role-set-select');
+            const defAllCb = document.getElementById('cm-role-set-default-all-cb');
+            if (!select) return;
+
+            const sets = (typeof RoleSets !== 'undefined' && typeof RoleSets.listSets === 'function')
+                ? await RoleSets.listSets()
+                : [{ id: 'default', name: 'Default (config.js)', isDefault: true }];
+
+            const curClassSet = selectedGroupName && roleSetSettings?.classSets
+                ? (roleSetSettings.classSets[selectedGroupName] || roleSetSettings.defaultSetId || 'default')
+                : (roleSetSettings?.defaultSetId || 'default');
+
+            const targetSetId = desiredSetId || (select.value && sets.some(s => s.id === select.value) ? select.value : curClassSet);
+
+            select.innerHTML = sets.map(s => {
+                const label = s.isDefault ? (typeof i18n !== 'undefined' && typeof i18n.t === 'function' ? i18n.t('eb_set_default', 'Default (config.js)') : 'Default (config.js)') : s.name;
+                return `<option value="${escapeRoleHtml(s.id)}" ${s.id === targetSetId ? 'selected' : ''}>${escapeRoleHtml(label)}</option>`;
+            }).join('');
+
+            modalEditingRoleSetId = select.value || targetSetId || 'default';
+            if (defAllCb) {
+                defAllCb.checked = (roleSetSettings?.defaultSetId === modalEditingRoleSetId);
+            }
+        }
+
+        async function onRoleSetChange(newSetId) {
+            modalEditingRoleSetId = newSetId || 'default';
+            const defAllCb = document.getElementById('cm-role-set-default-all-cb');
+            if (defAllCb) {
+                defAllCb.checked = (roleSetSettings?.defaultSetId === modalEditingRoleSetId);
+            }
+
+            if (selectedGroupName) {
+                if (!roleSetSettings.classSets) roleSetSettings.classSets = {};
+                if (modalEditingRoleSetId === (roleSetSettings.defaultSetId || 'default')) {
+                    delete roleSetSettings.classSets[selectedGroupName];
+                } else {
+                    roleSetSettings.classSets[selectedGroupName] = modalEditingRoleSetId;
+                }
+            }
+
+            const loaded = (typeof RoleSets !== 'undefined' && typeof RoleSets.loadSet === 'function')
+                ? await RoleSets.loadSet(modalEditingRoleSetId, getLoadedConfig()?.roleDefinitions)
+                : null;
+
+            if (loaded && Array.isArray(loaded)) {
+                activeRoleSetId = modalEditingRoleSetId;
+                roleDefinitions = loaded.map(r => ({ ...r }));
+                rolesLibraryLoaded = true;
+                syncRoleCollections();
+                renderRolesLibraryInSettings();
+                renderRolesLibrary();
+            }
+            persistSettingsToUserFile().catch(err => console.warn('onRoleSetChange save config:', err));
+        }
+
+        function toggleRoleSetDefaultAll(checked) {
+            if (!roleSetSettings) roleSetSettings = { defaultSetId: 'default', classSets: {} };
+            if (checked) {
+                roleSetSettings.defaultSetId = modalEditingRoleSetId;
+            } else if (roleSetSettings.defaultSetId === modalEditingRoleSetId) {
+                roleSetSettings.defaultSetId = 'default';
+            }
+            persistSettingsToUserFile().catch(err => console.warn('toggleRoleSetDefaultAll save config:', err));
+        }
+
+        async function copyConfigRolesToDatabaseFile() {
+            const promptMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                ? i18n.t('role_copy_to_db_prompt', 'Enter filename for the new custom role database (.js):')
+                : 'Enter filename for the new custom role database (.js):';
+            const rawName = (typeof showPrompt === 'function')
+                ? await showPrompt(promptMsg, 'custom-roles.js')
+                : prompt(promptMsg, 'custom-roles.js');
+            if (!rawName || !String(rawName).trim()) return;
+
+            let filename = String(rawName).trim().replace(/[\\/:*?"<>|]/g, '-');
+            if (!/\.js$/i.test(filename)) filename += '.js';
+
+            const loadedCfg = (typeof getLoadedConfig === 'function') ? getLoadedConfig() : null;
+            const sourceRoles = (activeRoleSetId === 'default' && Array.isArray(roleDefinitions) && roleDefinitions.length > 0)
+                ? roleDefinitions
+                : (Array.isArray(loadedCfg?.roleDefinitions) && loadedCfg.roleDefinitions.length > 0
+                    ? loadedCfg.roleDefinitions
+                    : (typeof RoleSets !== 'undefined' && typeof RoleSets.getCachedDefs === 'function' && RoleSets.getCachedDefs('default')) || DEFAULT_ROLE_DEFINITIONS);
+
+            const normalized = (typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeDefs === 'function')
+                ? RoleSets.normalizeDefs(sourceRoles)
+                : normalizeRoleDefinitions(sourceRoles);
+
+            const fileContent = `// Custom Role Database — Class Management Tools\nconst customRoleBank = ${JSON.stringify(normalized, null, 2)};\n`;
+
+            if (typeof Desktop !== 'undefined' && typeof Desktop.saveText === 'function') {
+                const res = await Desktop.saveText('customRoles', filename, fileContent);
+                if (!res || !res.ok) {
+                    const errMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                        ? i18n.t('role_copy_to_db_error', 'Failed to save custom role database.')
+                        : 'Failed to save custom role database.';
+                    if (typeof showToast === 'function') showToast(res?.error || errMsg, true);
+                    return;
+                }
+            } else {
+                const errMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                    ? i18n.t('role_copy_to_db_error', 'Failed to save custom role database.')
+                    : 'Failed to save custom role database.';
+                if (typeof showToast === 'function') showToast(errMsg, true);
+                return;
+            }
+
+            if (typeof RoleSets !== 'undefined' && typeof RoleSets.clearCache === 'function') {
+                RoleSets.clearCache();
+            }
+            try {
+                if (typeof BroadcastChannel !== 'undefined') {
+                    const ch = new BroadcastChannel('cmt-rolebanks');
+                    ch.postMessage({ type: 'rolebanks-updated', filename: filename, timestamp: Date.now() });
+                    ch.close();
+                }
+            } catch (_) {}
+
+            await populateRoleSetSelector(filename.replace(/\.js$/i, ''));
+            const okMsg = (typeof i18n !== 'undefined' && typeof i18n.t === 'function')
+                ? i18n.t('role_copy_to_db_success', 'Roles copied to')
+                : 'Roles copied to';
+            if (typeof showToast === 'function') showToast(`${okMsg} ${filename}`);
+        }
+
+        async function applyRoleSetForClass(classId) {
+            if (!classId) return;
+            const targetSetId = (typeof RoleSets !== 'undefined' && typeof RoleSets.resolveForClass === 'function')
+                ? RoleSets.resolveForClass(classId, roleSetSettings)
+                : (roleSetSettings?.defaultSetId || 'default');
+
+            const loadedDefs = (typeof RoleSets !== 'undefined' && typeof RoleSets.loadSet === 'function')
+                ? await RoleSets.loadSet(targetSetId, getLoadedConfig()?.roleDefinitions)
+                : null;
+
+            if (loadedDefs && Array.isArray(loadedDefs)) {
+                activeRoleSetId = targetSetId;
+                modalEditingRoleSetId = targetSetId;
+                roleDefinitions = loadedDefs.map(r => ({ ...r }));
+                rolesLibraryLoaded = true;
+                syncRoleCollections();
+            } else if (targetSetId !== 'default') {
+                const defaultDefs = (typeof RoleSets !== 'undefined' && typeof RoleSets.loadSet === 'function')
+                    ? await RoleSets.loadSet('default', getLoadedConfig()?.roleDefinitions)
+                    : DEFAULT_ROLE_DEFINITIONS;
+                activeRoleSetId = 'default';
+                modalEditingRoleSetId = 'default';
+                roleDefinitions = (defaultDefs || DEFAULT_ROLE_DEFINITIONS).map(r => ({ ...r }));
+                rolesLibraryLoaded = true;
+                syncRoleCollections();
+            }
+        }
 
         function normalizeRoleDefinitions(raw) {
             const seen = new Set();
@@ -1862,15 +2029,38 @@
         async function persistRolesLibrary() {
             roleDefinitions = normalizeRoleDefinitions(roleDefinitions);
             syncRoleCollections();
-            if (typeof window !== 'undefined') {
-                window.ROLE_DEFINITIONS = roleDefinitions.map(entry => ({ ...entry }));
+            const setId = (typeof activeRoleSetId !== 'undefined' && activeRoleSetId) ? activeRoleSetId : 'default';
+            if (typeof RoleSets !== 'undefined' && typeof RoleSets.setCachedDefs === 'function') {
+                RoleSets.setCachedDefs(setId, roleDefinitions);
             }
-
-            const result = await persistSettingsToUserFile();
-            if (!result?.ok) {
-                console.warn('Failed to save config.js:', result?.error || 'Unable to save config.js');
+            if (setId === 'default') {
+                if (typeof window !== 'undefined') {
+                    window.ROLE_DEFINITIONS = roleDefinitions.map(entry => ({ ...entry }));
+                }
+                const result = await persistSettingsToUserFile();
+                if (!result?.ok) {
+                    console.warn('Failed to save config.js:', result?.error || 'Unable to save config.js');
+                }
+                return result;
             }
-            return result;
+            // Custom role set: persist directly to user/custom-data/roles/<setId>.js
+            if (typeof Desktop !== 'undefined' && typeof Desktop.saveText === 'function') {
+                const normalized = (typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeDefs === 'function')
+                    ? RoleSets.normalizeDefs(roleDefinitions)
+                    : roleDefinitions;
+                const filename = /\.js$/i.test(setId) ? setId : `${setId}.js`;
+                const fileContent = `// Custom Role Database — Class Management Tools\nconst customRoleBank = ${JSON.stringify(normalized, null, 2)};\n`;
+                const res = await Desktop.saveText('customRoles', filename, fileContent);
+                try {
+                    if (typeof BroadcastChannel !== 'undefined') {
+                        const ch = new BroadcastChannel('cmt-rolebanks');
+                        ch.postMessage({ type: 'rolebanks-updated', filename, timestamp: Date.now() });
+                        ch.close();
+                    }
+                } catch (_) { }
+                return res;
+            }
+            return { ok: false, error: 'Desktop API unavailable' };
         }
 
         async function loadRolesLibrary(forceReload = false) {

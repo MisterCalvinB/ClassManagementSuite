@@ -2683,6 +2683,30 @@
       var handler = function (event) { _remoteStopServer() };
       el.addEventListener('click', handler);
     })();
+    (function () {
+      var el = document.querySelector('[data-cmev-440]');
+      if (!el) return;
+      var handler = function (event) { onRoleSetChange(this.value) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-cmev-441]');
+      if (!el) return;
+      var handler = function (event) { toggleRoleSetDefaultAll(this.checked) };
+      el.addEventListener('change', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-cmev-442]');
+      if (!el) return;
+      var handler = function (event) { openManageDatabaseForRoles() };
+      el.addEventListener('click', handler);
+    })();
+    (function () {
+      var el = document.querySelector('[data-cmev-443]');
+      if (!el) return;
+      var handler = function (event) { copyConfigRolesToDatabaseFile() };
+      el.addEventListener('click', handler);
+    })();
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindEvents);

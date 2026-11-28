@@ -451,6 +451,18 @@
                 classSets: (rawModeSets?.classSets && typeof rawModeSets.classSets === 'object') ? { ...rawModeSets.classSets } : {}
             };
 
+            const rawRoleSets = config?.roleSetSettings;
+            roleSetSettings = {
+                defaultSetId: String(rawRoleSets?.defaultSetId || 'default').trim() || 'default',
+                classSets: (rawRoleSets?.classSets && typeof rawRoleSets.classSets === 'object') ? { ...rawRoleSets.classSets } : {}
+            };
+            if (typeof RoleSets !== 'undefined' && typeof RoleSets.setCachedDefs === 'function') {
+                const cfgRoles = Array.isArray(config?.roleDefinitions) ? config.roleDefinitions : [];
+                RoleSets.setCachedDefs('default', cfgRoles);
+            }
+            activeRoleSetId = 'default';
+            modalEditingRoleSetId = 'default';
+
             const savedBadges = Array.isArray(config?.badgeDefinitions) ? config.badgeDefinitions : DEFAULT_BADGE_DEFINITIONS;
             const normalizedDefaults = normalizeBadgeDefinitions(savedBadges && savedBadges.length ? savedBadges : DEFAULT_BADGE_DEFINITIONS);
             // Ensure builtin + and - entries always exist (inject for backward compat with old configs)
@@ -799,6 +811,10 @@
                     defaultSetId: String(modeSetSettings?.defaultSetId || 'default').trim() || 'default',
                     classSets: { ...(modeSetSettings?.classSets || {}) }
                 },
+                roleSetSettings: {
+                    defaultSetId: String(roleSetSettings?.defaultSetId || 'default').trim() || 'default',
+                    classSets: { ...(roleSetSettings?.classSets || {}) }
+                },
                 classModes: (function () {
                     const defaultDefs = (typeof ModeSets !== 'undefined' && typeof ModeSets.getCachedDefs === 'function')
                         ? ModeSets.getCachedDefs('default')
@@ -808,13 +824,23 @@
                 })(),
                 soundSettings: normalizeSoundSettings(soundSettings),
                 participationSettings: normalizeParticipationSettings(participationSettings),
-                roleDefinitions: (rolesLibraryLoaded && Array.isArray(roleDefinitions))
-                    ? roleDefinitions.map(entry => ({ ...entry }))
-                    : (Array.isArray(loadedConfig.roleDefinitions) && loadedConfig.roleDefinitions.length
-                        ? loadedConfig.roleDefinitions.map(entry => ({ ...entry }))
-                        : (typeof ROLE_DEFINITIONS !== 'undefined' && Array.isArray(ROLE_DEFINITIONS)
-                            ? ROLE_DEFINITIONS.map(entry => ({ ...entry }))
-                            : [])),
+                roleDefinitions: (function () {
+                    const defaultDefs = (typeof RoleSets !== 'undefined' && typeof RoleSets.getCachedDefs === 'function')
+                        ? RoleSets.getCachedDefs('default')
+                        : null;
+                    if (activeRoleSetId === 'default' && rolesLibraryLoaded && Array.isArray(roleDefinitions)) {
+                        return roleDefinitions.map(entry => ({ ...entry }));
+                    }
+                    if (Array.isArray(defaultDefs)) {
+                        return defaultDefs.map(entry => ({ ...entry }));
+                    }
+                    if (Array.isArray(loadedConfig.roleDefinitions) && loadedConfig.roleDefinitions.length) {
+                        return loadedConfig.roleDefinitions.map(entry => ({ ...entry }));
+                    }
+                    return (typeof ROLE_DEFINITIONS !== 'undefined' && Array.isArray(ROLE_DEFINITIONS))
+                        ? ROLE_DEFINITIONS.map(entry => ({ ...entry }))
+                        : [];
+                })(),
                 ...overrides,
                 soundFiles: normalizeSoundFileList(
                     Array.isArray(overrides?.soundFiles)

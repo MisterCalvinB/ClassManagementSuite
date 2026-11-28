@@ -20,6 +20,7 @@
       { key: 'chips', labelKey: 'mdbTypePersonalisedChips', icon: 'speech-bubbles.svg', target: 'customChips', defaultView: 'table' },
       { key: 'badgebanks', labelKey: 'mdbTypeBadges', icon: 'award.svg', target: 'customBadges', defaultView: 'table' },
       { key: 'modebanks', labelKey: 'mdbTypeModes', icon: 'theater.svg', target: 'customModes', defaultView: 'table' },
+      { key: 'rolebanks', labelKey: 'mdbTypeRoles', icon: 'user-check.svg', target: 'customRoles', defaultView: 'table' },
     ];
 
     const DATABASE_SECTIONS = [
@@ -31,7 +32,7 @@
       {
         id: 'assessmentCurriculum',
         labelKey: 'mdbSectionAssessmentCurriculum',
-        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips', 'badgebanks', 'modebanks']
+        types: ['testbanks', 'competences', 'phases', 'criteria', 'scales', 'chips', 'badgebanks', 'modebanks', 'rolebanks']
       }
     ];
 
@@ -44,7 +45,7 @@
       competences: 'customCompetenceBank', descriptors: 'customCompetenceBank',
       phases: 'customPhaseBank', criteria: 'XLSM_CRITERIA',
       scales: 'XLSM_SCALE_MODELS', chips: 'OBSERVATION_CHECKLIST_GROUPS',
-      badgebanks: 'customBadgeBank', modebanks: 'customModeBank'
+      badgebanks: 'customBadgeBank', modebanks: 'customModeBank', rolebanks: 'customRoleBank'
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -573,6 +574,13 @@
           if (typeof ModeSets !== 'undefined' && typeof ModeSets.parseFileContent === 'function') {
             const mRes = ModeSets.parseFileContent(content);
             if (Array.isArray(mRes) && mRes.length > 0) return mRes;
+          }
+        } catch (_) {}
+      } else if (typeKey === 'rolebanks') {
+        try {
+          if (typeof RoleSets !== 'undefined' && typeof RoleSets.parseFileContent === 'function') {
+            const rRes = RoleSets.parseFileContent(content);
+            if (Array.isArray(rRes) && rRes.length > 0) return rRes;
           }
         } catch (_) {}
       }
@@ -1321,8 +1329,9 @@
         let useSelect = false;
         const isBadgeTextField = (S.typeKey === 'badgebanks' && ['icon', 'label', 'meaning', 'coefficient'].includes(key));
         const isModeTextField = (S.typeKey === 'modebanks' && ['icon', 'name', 'shortcutKey', 'title', 'subtitle', 'pictureSrc', 'soundFile', 'soundVol'].includes(key));
+        const isRoleTextField = (S.typeKey === 'rolebanks' && ['role', 'explanation'].includes(key));
         const isCriteriaType = (S.typeKey === 'criteria');
-        if (!isWordbankPicField && !isWordbankEtyField && !isBadgeTextField && !isModeTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
+        if (!isWordbankPicField && !isWordbankEtyField && !isBadgeTextField && !isModeTextField && !isRoleTextField && !isCriteriaType && (type === 'string' || type === 'number')) {
           const valSet = new Set();
           for (let i = 0; i < records.length; i++) {
             const v = records[i]?.[key];
@@ -1509,6 +1518,9 @@
         addStr('soundFile');
         addNum('soundVol');
         addBool('soundChime');
+      } else if (typeKey === 'rolebanks') {
+        addStr('role');
+        addStr('explanation', { isLong: true });
       }
 
       const customCols = getCustomColumns(typeKey);
@@ -1689,6 +1701,12 @@
       } else if (typeKey === 'modebanks') {
         if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeDefs === 'function') {
           const norm = ModeSets.normalizeDefs(records);
+          records.length = 0;
+          records.push(...norm);
+        }
+      } else if (typeKey === 'rolebanks') {
+        if (typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeDefs === 'function') {
+          const norm = RoleSets.normalizeDefs(records);
           records.length = 0;
           records.push(...norm);
         }
@@ -3991,6 +4009,8 @@
       else if (S.typeKey === 'modebanks' && field.key === 'soundFile') fieldLabel = t('mdbColSoundFile', 'Audio File');
       else if (S.typeKey === 'modebanks' && field.key === 'soundVol') fieldLabel = t('mdbColSoundVol', 'Audio Volume (%)');
       else if (S.typeKey === 'modebanks' && field.key === 'soundChime') fieldLabel = t('mdbColSoundChime', 'Chime on Start');
+      else if (S.typeKey === 'rolebanks' && field.key === 'role') fieldLabel = t('mdbColRoleTitle', 'Role Title');
+      else if (S.typeKey === 'rolebanks' && field.key === 'explanation') fieldLabel = t('mdbColRoleExplanation', 'Explanation / Expectations');
 
       return `<div class="form-field" style="margin-bottom:12px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
@@ -4042,6 +4062,17 @@
             const item = map.get(k);
             item.useSelect = false;
             item.uniqueVals = [];
+          }
+        });
+      }
+
+      if (S.typeKey === 'rolebanks') {
+        ['role', 'explanation'].forEach(k => {
+          if (map.has(k)) {
+            const item = map.get(k);
+            item.useSelect = false;
+            item.uniqueVals = [];
+            item.isLong = (k === 'explanation');
           }
         });
       }
@@ -4344,6 +4375,14 @@
           </div>
           <div>Configure full-screen classroom working modes for <strong>Class Management</strong>. Define mode <strong>icon</strong>, <strong>name</strong>, keyboard <strong>shortcut</strong> (1–9), display <strong>title</strong>, visual <strong>animation</strong>, background <strong>sound</strong>, and volume. Modes project onto the presentation screen overlay.</div>
         </div>`;
+      } else if (S.typeKey === 'rolebanks') {
+        infoBanner = `<div style="background:#f8fafc;border:1.5px solid #cbd5e1;border-radius:6px;padding:10px 12px;margin-bottom:14px;font-size:0.78rem;color:#334155;line-height:1.45;">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:2px;display:flex;align-items:center;justify-content:space-between;">
+            <span>Custom Roles Database Guide</span>
+            <span style="font-size:0.7rem;background:#e2e8f0;padding:2px 6px;border-radius:4px;color:#475569;">Class Management Roles</span>
+          </div>
+          <div>Manage custom classroom role sets that can be assigned per class in <strong>Class Management</strong>. Define each role's <strong>role</strong> title and <strong>explanation</strong> / expectations for students.</div>
+        </div>`;
       }
 
       if (isAdd) {
@@ -4523,6 +4562,14 @@
           if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeMode === 'function') {
             values = ModeSets.normalizeMode(values, S.files[fi].records.length);
           }
+        } else if (S.typeKey === 'rolebanks') {
+          const role = String(values.role || '').trim();
+          if (!role) { showToast(t('mdbErrRoleTitleReq', 'Role title is required.'), true); return; }
+          const exists = S.files[fi].records.some(r => String(r.role || '').trim().toLowerCase() === role.toLowerCase());
+          if (exists) { showToast(t('mdbErrRoleDuplicate', 'A role with this title already exists in this file.'), true); return; }
+          if (typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeRole === 'function') {
+            values = RoleSets.normalizeRole(values) || { role, explanation: String(values.explanation || '').trim() };
+          }
         }
 
         indexRecord(values);
@@ -4563,6 +4610,14 @@
           if (exists) { showToast(t('mdbErrModeDuplicate', 'A mode with this name already exists in this file.'), true); return; }
           if (typeof ModeSets !== 'undefined' && typeof ModeSets.normalizeMode === 'function') {
             values = ModeSets.normalizeMode(values, ri);
+          }
+        } else if (S.typeKey === 'rolebanks') {
+          const role = String(values.role || '').trim();
+          if (!role) { showToast(t('mdbErrRoleTitleReq', 'Role title is required.'), true); return; }
+          const exists = S.files[fi].records.some((r, idx) => idx !== ri && String(r.role || '').trim().toLowerCase() === role.toLowerCase());
+          if (exists) { showToast(t('mdbErrRoleDuplicate', 'A role with this title already exists in this file.'), true); return; }
+          if (typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeRole === 'function') {
+            values = RoleSets.normalizeRole(values) || { role, explanation: String(values.explanation || '').trim() };
           }
         }
 
@@ -6501,6 +6556,16 @@
           modesSeedWrap.classList.add('hidden');
         }
       }
+      const rolesSeedWrap = $('nf-roles-seed-wrap');
+      if (rolesSeedWrap) {
+        if (S.typeKey === 'rolebanks') {
+          rolesSeedWrap.classList.remove('hidden');
+          const seedCb = $('nf-seed-default-roles');
+          if (seedCb) seedCb.checked = true;
+        } else {
+          rolesSeedWrap.classList.add('hidden');
+        }
+      }
       $('nf-bg').classList.remove('hidden');
       setTimeout(() => $('nf-name').focus(), 80);
     }
@@ -6529,6 +6594,18 @@
             initialRecords = ModeSets.normalizeDefs(cfgModes);
           } else if (typeof ModeSets !== 'undefined' && typeof ModeSets.getDefaultDefs === 'function') {
             initialRecords = ModeSets.getDefaultDefs();
+          }
+        }
+      } else if (S.typeKey === 'rolebanks') {
+        const seedCb = $('nf-seed-default-roles');
+        if (seedCb && seedCb.checked) {
+          const cfgRoles = (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && Array.isArray(window.CLASS_MANAGEMENT_CONFIG.roleDefinitions) && window.CLASS_MANAGEMENT_CONFIG.roleDefinitions.length > 0)
+            ? window.CLASS_MANAGEMENT_CONFIG.roleDefinitions
+            : (typeof window !== 'undefined' && Array.isArray(window.ROLE_DEFINITIONS) && window.ROLE_DEFINITIONS.length > 0 ? window.ROLE_DEFINITIONS : null);
+          if (cfgRoles && typeof RoleSets !== 'undefined' && typeof RoleSets.normalizeDefs === 'function') {
+            initialRecords = RoleSets.normalizeDefs(cfgRoles);
+          } else if (typeof RoleSets !== 'undefined' && typeof RoleSets.getDefaultDefs === 'function') {
+            initialRecords = RoleSets.getDefaultDefs();
           }
         }
       }
@@ -6563,6 +6640,14 @@
           if (typeof BroadcastChannel !== 'undefined') {
             const ch = new BroadcastChannel('cmt-modebanks');
             ch.postMessage({ type: 'modebanks-updated', filename: name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
+      } else if (S.typeKey === 'rolebanks') {
+        try {
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-rolebanks');
+            ch.postMessage({ type: 'rolebanks-updated', filename: name, timestamp: Date.now() });
             ch.close();
           }
         } catch (_) {}
@@ -7223,6 +7308,18 @@
             ch.close();
           }
         } catch (_) {}
+      } else if (S.typeKey === 'rolebanks') {
+        try {
+          if (typeof RoleSets !== 'undefined' && typeof RoleSets.clearCache === 'function') {
+            const setId = file.name.replace(/\.(js|json)$/i, '');
+            RoleSets.clearCache(setId);
+          }
+          if (typeof BroadcastChannel !== 'undefined') {
+            const ch = new BroadcastChannel('cmt-rolebanks');
+            ch.postMessage({ type: 'rolebanks-updated', filename: file.name, timestamp: Date.now() });
+            ch.close();
+          }
+        } catch (_) {}
       }
       return true;
     }
@@ -7748,6 +7845,22 @@ Rules:
 - "pictureType": emoji, speech_bubbles, group_icons, custom_url, custom_file.
 - "pictureAnim": none, pulse, float, bounce, rotate, shush, bubbles, gradient-shift, shimmer-dots, aurora-waves, floating-shapes, breathing-halo, ripple-rings, starfield-twinkle, lava-blobs, confetti-drift, horizon-glow.
 - "soundType": none, white, pink, brown, file, whitenoise, binaural, custom_audio.
+- No markdown or explanation text.`,
+
+      rolebanks: `Generate JSON for classroom student/team roles.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "role": "Timekeeper",
+    "explanation": "Tracks remaining time and keeps the group on schedule."
+  }
+]
+
+Rules:
+- "role" (string) is required.
+- "explanation" (string) describes the student's responsibilities.
 - No markdown or explanation text.`,
     };
     window.AI_PROMPTS = AI_PROMPTS;

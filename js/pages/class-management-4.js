@@ -1075,6 +1075,35 @@
                             }
                         }
                     };
+
+                    var _roleCh = new BroadcastChannel('cmt-rolebanks');
+                    _roleCh.onmessage = function (e) {
+                        if (e.data && e.data.type === 'rolebanks-updated') {
+                            if (typeof RoleSets !== 'undefined' && typeof RoleSets.clearCache === 'function') {
+                                if (e.data.filename) {
+                                    RoleSets.clearCache(e.data.filename.replace(/\.(js|json)$/i, ''));
+                                } else {
+                                    RoleSets.clearCache();
+                                }
+                            }
+                            var modal = document.getElementById('cms-settings-modal');
+                            if (modal && modal.style.display !== 'none' && typeof populateRoleSetSelector === 'function') {
+                                populateRoleSetSelector();
+                            }
+                            if (typeof applyRoleSetForClass === 'function' && typeof selectedGroupName !== 'undefined' && selectedGroupName) {
+                                applyRoleSetForClass(selectedGroupName).then(function () {
+                                    if (typeof renderRolesLibraryInSettings === 'function' && modal && modal.style.display !== 'none') {
+                                        renderRolesLibraryInSettings();
+                                    }
+                                    if (typeof renderRolesLibrary === 'function') {
+                                        var rolesModal = document.getElementById('roles-modal');
+                                        if (rolesModal && rolesModal.style.display !== 'none') renderRolesLibrary();
+                                    }
+                                    if (typeof renderRoster === 'function') renderRoster();
+                                });
+                            }
+                        }
+                    };
                 } catch (_) {}
             }
 

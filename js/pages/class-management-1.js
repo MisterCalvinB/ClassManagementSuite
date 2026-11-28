@@ -1550,6 +1550,7 @@
             } else if (tabName === 'roles') {
                 try {
                     if (typeof loadRolesLibrary === 'function') await loadRolesLibrary();
+                    if (typeof populateRoleSetSelector === 'function') await populateRoleSetSelector();
                     renderRolesLibraryInSettings();
                 } catch (err) {
                     console.warn('Error initializing roles tab:', err);
