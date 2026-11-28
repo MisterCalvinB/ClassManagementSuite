@@ -1108,6 +1108,15 @@
       el.addEventListener('input', handler);
     })();
     (function () {
+      var el = document.getElementById('con-ctx-font-size-chips');
+      if (!el) return;
+      el.addEventListener('click', function (event) {
+        var chip = event.target.closest('.con-ctx-size-chip[data-size]');
+        if (!chip || typeof window.conCtxSelectFontSizeChip !== 'function') return;
+        window.conCtxSelectFontSizeChip(chip.dataset.size);
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-bev-184]');
       if (!el) return;
       var handler = function (event) { conCtxApplyMaxWidth(this.value); document.getElementById('con-ctx-max-width-display').textContent = (parseInt(this.value) > 0 ? this.value + 'px' : '\u2014'); };

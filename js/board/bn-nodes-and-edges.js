@@ -3426,6 +3426,7 @@
           sizeSlider.value = String(uVal);
           const sizeDisplay = document.getElementById('con-ctx-font-size-display');
           if (sizeDisplay) sizeDisplay.textContent = uVal + ' ' + window.conFontUnit;
+          _conSyncCtxFontSizeChips(uVal);
         }
         _conSyncUnitToggleButtons();
 
@@ -3533,6 +3534,23 @@
         }
       };
 
+      function _conSyncCtxFontSizeChips(val) {
+        const num = parseFloat(val);
+        document.querySelectorAll('#con-ctx-font-size-chips .con-ctx-size-chip').forEach(chip => {
+          chip.classList.toggle('active', !isNaN(num) && parseFloat(chip.dataset.size) === num);
+        });
+      }
+      window._conSyncCtxFontSizeChips = _conSyncCtxFontSizeChips;
+
+      window.conCtxSelectFontSizeChip = function (sizeVal) {
+        const slider = document.getElementById('con-ctx-font-size');
+        if (!slider) return;
+        slider.value = String(sizeVal);
+        _conApplySizeUndoPushed = false;
+        window.conCtxApplySize();
+        _conApplySizeUndoPushed = false;
+      };
+
       window.conCtxApplySize = function () {
         if (!_conApplySizeUndoPushed) { conPushUndo(); _conApplySizeUndoPushed = true; }
         const rawVal = document.getElementById('con-ctx-font-size') ? parseFloat(document.getElementById('con-ctx-font-size').value) : 12;
@@ -3540,6 +3558,7 @@
         const fontSize = numFontSize + 'px';
         const display = document.getElementById('con-ctx-font-size-display');
         if (display) display.textContent = rawVal + ' ' + window.conFontUnit;
+        _conSyncCtxFontSizeChips(rawVal);
         // Apply to multi-selected set if there are multiple; otherwise just the ctx node
         const targets = (conMultiSelected.size > 1)
           ? conNodes.filter(n => conMultiSelected.has(n.id))

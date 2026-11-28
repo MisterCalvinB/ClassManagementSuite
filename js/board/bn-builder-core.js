@@ -810,6 +810,7 @@
           const unitVal = conPxToFontUnit(px, window.conFontUnit);
           ctxSlider.value = String(unitVal);
           if (ctxDisplay) ctxDisplay.textContent = unitVal + ' ' + window.conFontUnit;
+          if (typeof window._conSyncCtxFontSizeChips === 'function') window._conSyncCtxFontSizeChips(unitVal);
         }
         // 3. Word note style popup font size slider and display
         const wnSlider = document.getElementById('wn-sp-size-slider');
@@ -1393,9 +1394,9 @@
           btn.style.background = p.bg;
           btn.style.color = p.color;
           btn.style.borderColor = p.borderColor;
-          btn.style.borderWidth = (p.borderWidth || 2) + 'px';
+          btn.style.borderWidth = Math.min(2, Math.max(1, p.borderWidth != null ? p.borderWidth : 1.5)) + 'px';
           btn.style.borderStyle = p.borderStyle || 'solid';
-          if (p.highlight) btn.style.boxShadow = `0 0 0 2px ${p.highlight}`;
+          if (p.highlight) btn.style.boxShadow = `0 0 0 1px ${p.highlight}`;
           conApplyTextStrokeStyle(btn, p.textStrokeWidth, p.textStrokeColor);
           if (p.fmt) {
             btn.style.fontWeight = p.fmt.bold ? 'bold' : '';
@@ -1407,7 +1408,7 @@
         });
         container.style.display = 'flex';
         container.style.flexWrap = 'wrap';
-        container.style.gap = '3px';
+        container.style.gap = '2px';
         container.style.gridTemplateColumns = '';
         container.style.justifyContent = '';
       }
@@ -1539,7 +1540,7 @@
         });
 
         const addBtn = document.getElementById('con-preset-add-btn');
-        if (addBtn) addBtn.disabled = _conPresetEditorDraft.length >= 15;
+        if (addBtn) addBtn.disabled = _conPresetEditorDraft.length >= 30;
         _conPresetEditorEnableDrag(list);
       }
       window._conPresetEditorRender = _conPresetEditorRender;
@@ -1661,7 +1662,7 @@
       };
 
       window.conPresetEditorAddRow = function () {
-        if (_conPresetEditorDraft.length >= 15) return;
+        if (_conPresetEditorDraft.length >= 30) return;
         _conPresetEditorFlushDOM();
         const newPreset = { key: 'new', label: 'New', bg: '#ffffff', color: '#111111', borderColor: '#111111', borderWidth: 2, borderWidthUnit: 'px', borderStyle: 'solid', highlight: '', shape: 'rectangle', fontFamily: '', fontSize: null, fontSizeUnit: 'px', textStrokeColor: '', textStrokeWidth: 0, textStrokeWidthUnit: 'px', isNodeAct: false, fmt: { bold: false, italic: false, underline: false, strike: false } };
         _conPresetEditorDraft.push(newPreset);

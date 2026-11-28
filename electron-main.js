@@ -4652,7 +4652,9 @@ const { registerDocExportIpc } = require('./js/main/ipc-doc-export');
 registerDocExportIpc({ app, clipboard, dialog, ipcMain, fs, path, getSaveTargets });
 // ─────────────────────────────────────────────────────────────────────────────
 
-const gotSingleInstanceLock = app.requestSingleInstanceLock();
+const gotSingleInstanceLock = process.env.CMT_TEST_ALLOW_MULTI_INSTANCE === '1'
+  ? true
+  : app.requestSingleInstanceLock();
 
 if (!gotSingleInstanceLock) {
   app.quit();
