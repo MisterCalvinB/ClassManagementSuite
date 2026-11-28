@@ -564,8 +564,8 @@
         sub: 'user/to-print/' + relPath,
         icon: 'printer.svg'
       };
-      if (/\.pdf$/i.test(fileName)) {
-        printItem.url = _pageHref('pdf-viewer.html') + '?openTarget=toPrint&openRelPath=' + encodeURIComponent(relPath);
+      if (/\.(pdf|epub|png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(fileName)) {
+        printItem.url = _pageHref('viewer.html') + '?openTarget=toPrint&openRelPath=' + encodeURIComponent(relPath);
       } else if (/\.(md|markdown|html|htm|txt)$/i.test(fileName)) {
         printItem.url = _pageHref('document-editor.html') + '?editTarget=toPrint&editRelPath=' + encodeURIComponent(relPath);
       } else {
@@ -601,8 +601,8 @@
           sub: 'user/' + rFolder + '/' + relPath,
           icon: 'folder.svg'
         };
-        if (/\.pdf$/i.test(fileName)) {
-          item.url = _pageHref('pdf-viewer.html') + '?openTarget=' + encodeURIComponent(rTarget) + '&openRelPath=' + encodeURIComponent(relPath);
+        if (/\.(pdf|epub|png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(fileName)) {
+          item.url = _pageHref('viewer.html') + '?openTarget=' + encodeURIComponent(rTarget) + '&openRelPath=' + encodeURIComponent(relPath);
         } else if (/\.(md|markdown|html|htm|txt)$/i.test(fileName)) {
           item.url = _pageHref('document-editor.html') + '?editTarget=' + encodeURIComponent(rTarget) + '&editRelPath=' + encodeURIComponent(relPath);
         } else {

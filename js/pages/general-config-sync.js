@@ -30,7 +30,7 @@
 
   var SYNC_CAT_RULES = {
     classdata: function (p) {
-      return /^(config|export-config|app-settings|class-groups|roles|ui-prefs|correction-criteria|grade-scale-models|students)\./.test(p)
+      return /^(config|export-config|app-settings|class-groups|roles|ui-prefs|correction-criteria|grade-scale-models|students|launcher-config|remote-config|participation-tracker-config|admin-groups-config|report-options)\./.test(p)
         || p.startsWith('grades/')
         || p.startsWith('log/grade-sheet/')
         || p.startsWith('group-participation/')
@@ -105,6 +105,7 @@
   var _syncExpandedGroups = new Set();
   var _syncSubGroupItems = new Map();
   var _syncSubGroupChildren = new Map();
+  var _pendingMerges = new Map();
   var _syncConflictTbody = null;
   var _syncSortCol = 'name';
   var _syncSortAsc = true;
@@ -544,6 +545,12 @@
       statusHtml = badgeHtml;
       var actConfLeaf = _getSyncActionOptions(c.kind, c.side, false);
       actionSelectHtml = _buildSelectHtml(nameEsc, actConfLeaf);
+      if (c.kind === 'conflict') {
+        var cmpLbl = typeof t === 'function' ? t('gcSyncCompareBtn') : 'Compare';
+        actionSelectHtml = '<div class="sync-action-wrap">' + actionSelectHtml +
+          '<button type="button" class="sync-compare-trigger" data-path="' + pathEsc.replace(/"/g, '&quot;') + '" title="' + cmpLbl.replace(/"/g, '&quot;') + '">' +
+          '<img src="../assets/icons/eye.svg" alt="" />' + cmpLbl + '</button></div>';
+      }
     }
 
     tr.innerHTML = '<td class="conflict-path-cell">' + nameHtml + '</td>' +
@@ -651,6 +658,12 @@
     var nameEsc = CSS.escape(c.relativePath);
     var actConf = _getSyncActionOptions(c.kind, c.side, true);
     var actionSelectHtml = _buildSelectHtml(nameEsc, actConf);
+    if (c.kind === 'conflict') {
+      var cmpLblChild = typeof t === 'function' ? t('gcSyncCompareBtn') : 'Compare';
+      actionSelectHtml = '<div class="sync-action-wrap">' + actionSelectHtml +
+        '<button type="button" class="sync-compare-trigger" data-path="' + escHtml(c.relativePath).replace(/"/g, '&quot;') + '" title="' + cmpLblChild.replace(/"/g, '&quot;') + '">' +
+        '<img src="../assets/icons/eye.svg" alt="" />' + cmpLblChild + '</button></div>';
+    }
 
     tr.innerHTML = '<td class="conflict-path-cell ' + pathClass + '">' + escHtml(displayPath) + '</td>' +
       '<td class="size-cell ' + (srcNewer && !srcAbsent && !isSrcDeleted ? 'newer-cell' : '') + '">' + srcSizeHtml + '</td>' +
@@ -683,6 +696,7 @@
     _syncExpandedGroups.clear();
     _syncSubGroupItems.clear();
     _syncSubGroupChildren.clear();
+    _pendingMerges.clear();
     syncConflictSearch.value = '';
     _syncDaysVal = '0'; setChipActive(syncChipsDays, '0');
     _syncCatVal = ''; setChipActive(syncChipsCat, '');
@@ -936,7 +950,13 @@
               if (leafAct === 'keep-newer') {
                 leafAct = (leaf.srcMtimeMs || 0) >= (leaf.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
               }
-              decisions.push({ relativePath: leaf.relativePath, action: leafAct });
+              if (leafAct === 'merge') {
+                var m1 = _pendingMerges.get(leaf.relativePath);
+                if (m1) decisions.push({ relativePath: leaf.relativePath, action: 'merge', mergedContent: m1.mergedContent, backupBeforeMerge: m1.backupBeforeMerge });
+                else decisions.push({ relativePath: leaf.relativePath, action: 'skip' });
+              } else {
+                decisions.push({ relativePath: leaf.relativePath, action: leafAct });
+              }
             }
           } else {
             var leafData = ch.data;
@@ -946,7 +966,13 @@
             if (leafAct2 === 'keep-newer') {
               leafAct2 = (leafData.srcMtimeMs || 0) >= (leafData.destMtimeMs || 0) ? 'keep-source' : 'keep-target';
             }
-            decisions.push({ relativePath: leafData.relativePath, action: leafAct2 });
+            if (leafAct2 === 'merge') {
+              var m2 = _pendingMerges.get(leafData.relativePath);
+              if (m2) decisions.push({ relativePath: leafData.relativePath, action: 'merge', mergedContent: m2.mergedContent, backupBeforeMerge: m2.backupBeforeMerge });
+              else decisions.push({ relativePath: leafData.relativePath, action: 'skip' });
+            } else {
+              decisions.push({ relativePath: leafData.relativePath, action: leafAct2 });
+            }
           }
         }
       } else {
@@ -955,7 +981,13 @@
         if (act2 === 'keep-newer') {
           act2 = (entry && (entry.srcMtimeMs || 0) >= (entry.destMtimeMs || 0)) ? 'keep-source' : 'keep-target';
         }
-        decisions.push({ relativePath: relPath, action: act2 });
+        if (act2 === 'merge') {
+          var m3 = _pendingMerges.get(relPath);
+          if (m3) decisions.push({ relativePath: relPath, action: 'merge', mergedContent: m3.mergedContent, backupBeforeMerge: m3.backupBeforeMerge });
+          else decisions.push({ relativePath: relPath, action: 'skip' });
+        } else {
+          decisions.push({ relativePath: relPath, action: act2 });
+        }
       }
     }
     return decisions;
@@ -976,7 +1008,60 @@
   });
   syncConflictSinceLastSync.addEventListener('change', applySyncConflictFilters);
 
+  function _findSelectForPath(relPath) {
+    var topRow = _syncConflictItems.get(relPath);
+    if (topRow) return topRow.querySelector('select.action-select');
+    for (var [, children] of _syncChildRows) {
+      for (var i = 0; i < children.length; i++) {
+        if (!children[i].isSubGroup && children[i].data && children[i].data.relativePath === relPath) {
+          return children[i].tr.querySelector('select.child-action-select');
+        }
+      }
+    }
+    for (var [, subLeaves] of _syncSubGroupChildren) {
+      for (var j = 0; j < subLeaves.length; j++) {
+        if (subLeaves[j].dataset.path === relPath) {
+          return subLeaves[j].querySelector('select.child-action-select');
+        }
+      }
+    }
+    return null;
+  }
+
   syncConflictList.addEventListener('click', function (e) {
+    var cmpBtn = e.target.closest('.sync-compare-trigger');
+    if (cmpBtn) {
+      var relPath = cmpBtn.dataset.path;
+      if (relPath && window.SyncCompareModal && typeof window.SyncCompareModal.open === 'function') {
+        window.SyncCompareModal.open(relPath, {
+          onChooseAction: function (p, action) {
+            _pendingMerges.delete(p);
+            var sel = _findSelectForPath(p);
+            if (sel && sel.querySelector('option[value="' + action + '"]')) {
+              sel.value = action;
+            }
+          },
+          onSaveMerge: function (res) {
+            _pendingMerges.set(res.relativePath, {
+              mergedContent: res.mergedContent,
+              backupBeforeMerge: res.backupBeforeMerge
+            });
+            var sel = _findSelectForPath(res.relativePath);
+            if (sel) {
+              var opt = sel.querySelector('option[value="merge"]');
+              if (!opt) {
+                opt = document.createElement('option');
+                opt.value = 'merge';
+                opt.textContent = typeof t === 'function' ? t('gcSyncActionMerged') : 'Merged (ready)';
+                sel.insertBefore(opt, sel.firstChild);
+              }
+              sel.value = 'merge';
+            }
+          }
+        });
+      }
+      return;
+    }
     var btn = e.target.closest('.sync-expand-btn');
     if (!btn) return;
     var groupKey = btn.closest('tr').dataset.path;
@@ -1229,7 +1314,7 @@
           ul.className = 'sync-log-files';
           savedArr.forEach(function (f) {
             var li = document.createElement('li');
-            var dirLabel = f.direction === 'to-source' ? '<- ' : '-> ';
+            var dirLabel = f.action === 'merged' ? '[merged] ' : (f.direction === 'to-source' ? '<- ' : '-> ');
             li.textContent = dirLabel + (f.path || '');
             ul.appendChild(li);
           });

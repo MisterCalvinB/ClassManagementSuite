@@ -591,10 +591,10 @@
     },
     {
       id: 'pdfViewer',
-      pageFile: 'pdf-viewer.html',
-      icon: 'assets/icons/pdf-viewer.svg',
-      title: 'PDF Viewer',
-      desc: 'Open, annotate with pen and highlighter, add notes, search app PDFs, and present on secondary display.'
+      pageFile: 'viewer.html',
+      icon: 'assets/icons/viewer.svg',
+      title: 'Viewer',
+      desc: 'Open and present PDF, image, EPUB, HTML, TXT, and Markdown files with annotations and dictionary lookup.'
     },
     {
       id: 'planner',
@@ -700,17 +700,16 @@
   function saveLauncherConfigFile(groups, immediate) {
     clearTimeout(_saveLauncherConfigTimer);
     var doSave = async function() {
-      if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+      if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
         try {
           var payload = {
             version: 1,
             groups: groups || getGroups() || [],
             cardConfigs: getAllCardConfigs()
           };
-          var content = '// Launcher Configuration\n// Automatically updated\nwindow.LAUNCHER_CONFIG = ' + JSON.stringify(payload, null, 2) + ';\n';
-          await Desktop.saveText('user', 'launcher-config.js', content);
+          await Desktop.saveJson('user', 'launcher-config.json', payload);
         } catch (e) {
-          console.warn('launcher: Failed to save user/launcher-config.js:', e);
+          console.warn('launcher: Failed to save user/launcher-config.json:', e);
         }
       }
     };
@@ -722,48 +721,55 @@
   }
 
   async function loadLauncherConfigFile() {
-    if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+    if (window.Desktop && Desktop.isElectron && Desktop.isElectron()) {
       try {
-        var r = await Desktop.readText('user', 'launcher-config.js');
-        if (r && r.ok && r.content) {
-          var match = r.content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
-          if (match) {
-            var parsed = JSON.parse(match[1]);
-            if (parsed) {
-              window.LAUNCHER_CONFIG = parsed;
-              if (parsed.cardConfigs && typeof parsed.cardConfigs === 'object') {
-                for (var appId in parsed.cardConfigs) {
-                  if (Object.prototype.hasOwnProperty.call(parsed.cardConfigs, appId)) {
-                    try {
-                      localStorage.setItem('cmt-card-config-' + appId, JSON.stringify(parsed.cardConfigs[appId]));
-                    } catch (_) {}
-                  }
-                }
-              } else {
-                var currentCardConfigs = getAllCardConfigs();
-                if (Object.keys(currentCardConfigs).length > 0) {
-                  window.LAUNCHER_CONFIG.cardConfigs = currentCardConfigs;
-                  saveLauncherConfigFile(parsed.groups, true);
-                }
+        var parsed = null;
+        if (typeof Desktop.readJson === 'function') {
+          var rJson = await Desktop.readJson('user', 'launcher-config.json');
+          if (rJson && rJson.ok && rJson.data && typeof rJson.data === 'object') {
+            parsed = rJson.data;
+          }
+        }
+        if (!parsed && typeof Desktop.readText === 'function') {
+          var rLegacy = await Desktop.readText('user', 'launcher-config.js');
+          if (rLegacy && rLegacy.ok && rLegacy.content) {
+            var match = rLegacy.content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+            if (match) parsed = JSON.parse(match[1]);
+          }
+        }
+        if (parsed) {
+          window.LAUNCHER_CONFIG = parsed;
+          if (parsed.cardConfigs && typeof parsed.cardConfigs === 'object') {
+            for (var appId in parsed.cardConfigs) {
+              if (Object.prototype.hasOwnProperty.call(parsed.cardConfigs, appId)) {
+                try {
+                  localStorage.setItem('cmt-card-config-' + appId, JSON.stringify(parsed.cardConfigs[appId]));
+                } catch (_) {}
               }
-              if (Array.isArray(parsed.groups) && parsed.groups.length > 0) {
-                var currentRaw = localStorage.getItem('cmt-launcher-groups');
-                var newRaw = JSON.stringify(parsed.groups);
-                if (currentRaw !== newRaw) {
-                  localStorage.setItem('cmt-launcher-groups', newRaw);
-                  renderSections();
-                }
-              }
-              return true;
+            }
+          } else {
+            var currentCardConfigs = getAllCardConfigs();
+            if (Object.keys(currentCardConfigs).length > 0) {
+              window.LAUNCHER_CONFIG.cardConfigs = currentCardConfigs;
+              saveLauncherConfigFile(parsed.groups, true);
             }
           }
+          if (Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+            var currentRaw = localStorage.getItem('cmt-launcher-groups');
+            var newRaw = JSON.stringify(parsed.groups);
+            if (currentRaw !== newRaw) {
+              localStorage.setItem('cmt-launcher-groups', newRaw);
+              renderSections();
+            }
+          }
+          return true;
         } else {
-          // File does not exist yet: persist current groups to user/launcher-config.js
+          // File does not exist yet: persist current groups to user/launcher-config.json
           var initialGroups = resolveGroups();
           saveLauncherConfigFile(initialGroups, true);
         }
       } catch (e) {
-        console.warn('launcher: could not load user/launcher-config.js:', e);
+        console.warn('launcher: could not load user/launcher-config.json:', e);
       }
     }
     return false;
@@ -1209,6 +1215,15 @@
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  function withBoardCardConfig(opts) {
+    const out = Object.assign({}, opts || {});
+    const cardCfg = getCardConfig('board');
+    const size = cardCfg ? Number(cardCfg.windowSize) : 0;
+    if (!out.windowSizeRatio && size >= 20 && size <= 100) out.windowSizeRatio = size / 100;
+    if (!out.windowPosition && cardCfg && cardCfg.windowPosition) out.windowPosition = cardCfg.windowPosition;
+    return out;
   }
 
   function openApp(pageFile, cardCfg) {
@@ -2303,7 +2318,7 @@
         btn.textContent = (typeof t === 'function' ? t('fmOpenInPdfStudio') : 'Open in PDF Viewer');
         btn.addEventListener('click', function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
-          Desktop.openTool('pdf-viewer.html', { query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename } });
+          Desktop.openTool('viewer.html', { query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename } });
         });
       } else {
         btn.textContent = (typeof t === 'function' ? (t('fmOpenInSystem') || t('fmOpenNative')) : 'Open file in system');
@@ -2374,7 +2389,7 @@
 
   function rfOpenFile(target, filename, relativePath) {
     if (!window.Desktop || !Desktop.isElectron()) { showToast(typeof t === 'function' ? t('rfElectronRequired') : 'Opening files requires the Electron desktop app.', true); return; }
-    Desktop.openTool('board.html', { query: { openSession: '1', openTarget: target, openFilename: filename, openRelPath: relativePath || filename } });
+    Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: target, openFilename: filename, openRelPath: relativePath || filename } }));
   }
 
   async function rfLoadRecentSources() {
@@ -3179,7 +3194,7 @@
       el.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
         if (item.type === 'mindmap') {
-          Desktop.openTool('board.html', { query: { openSession: '1', openTarget: item.target || 'mindmaps', openFilename: item.relativePath.split('/').pop(), openRelPath: item.relativePath } });
+          Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: item.target || 'mindmaps', openFilename: item.relativePath.split('/').pop(), openRelPath: item.relativePath } }));
         } else if (item.type === 'doc') {
           Desktop.openTool('document-editor.html', { query: { editTarget: item.target || 'docEditorDocs', editRelPath: item.relativePath } });
         } else if (item.type === 'schedule') {
@@ -3213,13 +3228,13 @@
           menuItems.push({
             label: typeof t === 'function' ? (t('rfOpenInBoard') || 'Open in Board') : 'Open in Board',
             action: function() {
-              Desktop.openTool('board.html', { query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath } });
+              Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath } }));
             }
           });
           menuItems.push({
             label: typeof t === 'function' ? (t('rfOpenInNewWindow') || 'Open in New Window') : 'Open in New Window',
             action: function() {
-              Desktop.openTool('board.html', { query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath }, forceNewWindow: true });
+              Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: pTarget, openFilename: pRelPath.split('/').pop(), openRelPath: pRelPath }, forceNewWindow: true }));
             }
           });
         } else if (item.type === 'doc') {
@@ -3571,7 +3586,7 @@
         item.addEventListener('click', function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
           if (fileData._type === 'mindmap') {
-            Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: fileData.relativePath || fileData.filename } });
+            Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: fileData.relativePath || fileData.filename } }));
           } else {
             Desktop.openTool('document-editor.html', { query: { editTarget: 'docEditorDocs', editRelPath: fileData.relativePath || fileData.filename } });
           }
@@ -3590,6 +3605,10 @@
   async function sbReadTodosFile() {
     if (!window.Desktop || !Desktop.isElectron()) return [];
     try {
+      if (typeof Desktop.readJson === 'function') {
+        var rJson = await Desktop.readJson('user', 'todos.json');
+        if (rJson && rJson.ok && Array.isArray(rJson.data)) return rJson.data;
+      }
       var r = await Desktop.readByPath('user', 'todos.js');
       if (r && r.content) {
         var m = r.content.match(/TODOS\s*=\s*(\[[\s\S]*\])\s*;/);
@@ -3601,7 +3620,11 @@
 
   async function sbSaveTodosFile(todos) {
     if (!window.Desktop || !Desktop.isElectron()) return;
-    await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+    if (typeof Desktop.saveJson === 'function') {
+      await Desktop.saveJson('user', 'todos.json', todos);
+    } else {
+      await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+    }
     if (Desktop.reloadPlannerReminders) Desktop.reloadPlannerReminders();
   }
 
@@ -4023,6 +4046,7 @@
     var isPlannerRelated = (
       data.filename === 'planner-config.js' ||
       data.filename === 'todos.js' ||
+      data.filename === 'todos.json' ||
       data.filename === 'class-groups.js' ||
       dataSubdir === 'planner' ||
       dataRel.indexOf('planner/') === 0 ||
@@ -4213,15 +4237,15 @@
         // Open in Tool
         if (isMm) {
           items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
-            Desktop.openTool('board.html', {
+            Desktop.openTool('board.html', withBoardCardConfig({
               query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath }
-            });
+            }));
           }});
           items.push({ label: tl('rfOpenInNewWindow', 'Open in New Window'), action: function() {
-            Desktop.openTool('board.html', {
+            Desktop.openTool('board.html', withBoardCardConfig({
               query: { openSession:'1', openTarget: target, openFilename: fileObj.filename, openRelPath: relPath },
               forceNewWindow: true
-            });
+            }));
           }});
         } else if (isDoc) {
           items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {
@@ -4229,9 +4253,9 @@
               query: { editTarget: target, editRelPath: relPath }
             });
           }});
-        } else if (isPdf || /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(fileObj.filename || '')) {
-          items.push({ label: tl('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
-            Desktop.openTool('pdf-viewer.html', {
+        } else if (isPdf || /\.(png|jpe?g|gif|webp|svg|bmp|avif|epub)$/i.test(fileObj.filename || '')) {
+          items.push({ label: tl('fmOpenInPdfStudio', 'Open in Viewer'), action: function() {
+            Desktop.openTool('viewer.html', {
               query: { openTarget: target, openRelPath: relPath }
             });
           }});
@@ -4378,14 +4402,14 @@
 
         if (isMm) {
           items.push({ label: tl('rfOpenInBoard', 'Open in Board'), action: function() {
-            Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } });
+            Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath } }));
           }});
           items.push({ label: tl('rfOpenInNewWindow', 'Open in New Window'), action: function() {
-            Desktop.openTool('board.html', { query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath }, forceNewWindow: true });
+            Desktop.openTool('board.html', withBoardCardConfig({ query: { openSession: '1', openTarget: 'mindmaps', openFilename: fileData.filename, openRelPath: relPath }, forceNewWindow: true }));
           }});
-        } else if (/\.(pdf|png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(fileData.filename || '')) {
-          items.push({ label: tl('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
-            Desktop.openTool('pdf-viewer.html', { query: { openTarget: target, openRelPath: relPath } });
+        } else if (/\.(pdf|png|jpe?g|gif|webp|svg|bmp|avif|epub)$/i.test(fileData.filename || '')) {
+          items.push({ label: tl('fmOpenInPdfStudio', 'Open in Viewer'), action: function() {
+            Desktop.openTool('viewer.html', { query: { openTarget: target, openRelPath: relPath } });
           }});
         } else {
           items.push({ label: tl('sbOpenInDocEditor', 'Open in Doc Editor'), action: function() {

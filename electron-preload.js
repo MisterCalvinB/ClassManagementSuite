@@ -233,6 +233,9 @@ const exposedApi = {
   runSync(request) {
     return invoke('app:run-sync', request);
   },
+  readSyncPair(request) {
+    return invoke('app:read-sync-pair', request);
+  },
   applySyncChoices(request) {
     return invoke('app:apply-sync-choices', request);
   },

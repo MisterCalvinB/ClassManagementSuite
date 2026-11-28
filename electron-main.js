@@ -69,7 +69,8 @@ const PAGE_FILES = {
   classPlan: 'class-plan.html',
   documentEditor: 'document-editor.html',
   referenceBuilder: 'reference-builder.html',
-  pdfViewer: 'pdf-viewer.html',
+  pdfViewer: 'viewer.html',
+  viewer: 'viewer.html',
   planner: 'planner.html',
   lessonCreator: 'lesson-creator.html',
   importTool: 'import-tool.html',
@@ -123,6 +124,7 @@ const PAGE_ARG_MAP = {
   markdownkatex: PAGE_FILES.documentEditor,
   markdown: PAGE_FILES.documentEditor,
   pdfviewer: PAGE_FILES.pdfViewer,
+  viewer: PAGE_FILES.pdfViewer,
   pdf: PAGE_FILES.pdfViewer,
   pdfstudio: PAGE_FILES.pdfViewer,
   planner: PAGE_FILES.planner,
@@ -176,7 +178,7 @@ const PAGE_LABELS = {
   [PAGE_FILES.scheduleMaker]: 'Schedule Maker',
   [PAGE_FILES.classPlan]: 'Class Plan',
   [PAGE_FILES.documentEditor]: 'Document Editor',
-  [PAGE_FILES.pdfViewer]: 'PDF Viewer',
+  [PAGE_FILES.pdfViewer]: 'Viewer',
   [PAGE_FILES.planner]: 'Planner',
   [PAGE_FILES.lessonCreator]: 'Lesson Creator',
   [PAGE_FILES.administrativeGroups]: 'Administrative Groups',
@@ -711,6 +713,7 @@ function getInitialPageFile(argv = process.argv.slice(1)) {
 }
 
 function getToolPath(pageFile) {
+  if (pageFile === 'pdf-viewer.html') pageFile = PAGE_FILES.pdfViewer;
   if (!Object.values(PAGE_FILES).includes(pageFile)) {
     throw new Error(`Unknown page: ${pageFile}`);
   }
@@ -1281,7 +1284,7 @@ function isPdfViewerWindow(win) {
   if (win === pdfPresentationWindow) return true;
   try {
     const u = win.webContents.getURL() || '';
-    return /(?:^|[\\/])pdf-viewer\.html(?:[?#]|$)/i.test(u);
+    return /(?:^|[\\/])(?:pdf-)?viewer\.html(?:[?#]|$)/i.test(u);
   } catch (_) {
     return false;
   }
@@ -3105,9 +3108,16 @@ async function normalizeAndAdoptDataLocation(selectedPath) {
     'students.js',
     'planner-config.js',
     'board-config.js',
+    'board-config.json',
+    'report-options.json',
     'participation-tracker-config.js',
+    'participation-tracker-config.json',
     'ui-prefs.json',
     'remote-config.js',
+    'remote-config.json',
+    'launcher-config.json',
+    'admin-groups-config.json',
+    'todos.json',
     'roles.js',
     'sync-baseline.json',
     'board-sessions-backup.json',
@@ -3461,10 +3471,23 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
   const mergedQuery = Object.assign({}, inlineQuery, (request && typeof request.query === 'object' && request.query) ? request.query : {});
   const query = Object.keys(mergedQuery).length > 0 ? mergedQuery : null;
 
-  const winSizeRatio = Number(request.windowSizeRatio) || 0;
-  const winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';
+  let winSizeRatio = Number(request.windowSizeRatio) || 0;
+  let winPosition  = typeof request.windowPosition === 'string' ? request.windowPosition : '';
+  if (pageFile === PAGE_FILES.board && (!winSizeRatio || !winPosition)) {
+    const boardCardCfg = readUserLauncherCardConfig('board');
+    if (boardCardCfg) {
+      if (!winSizeRatio) {
+        const cfgSize = Number(boardCardCfg.windowSize) || 0;
+        if (cfgSize >= 20 && cfgSize <= 100) winSizeRatio = cfgSize / 100;
+      }
+      if (!winPosition && boardCardCfg.windowPosition) {
+        winPosition = String(boardCardCfg.windowPosition);
+      }
+    }
+  }
   const hasCustomSize = winSizeRatio >= 0.1 && winSizeRatio <= 1.0;
-  const hasCustomPos  = !!(winPosition && winPosition !== 'default');
+  const hasCustomPos  = !!(winPosition && winPosition !== 'default' && winPosition !== 'maximize');
+  const shouldMaximize = !!(request.maximize || (winPosition === 'maximize' && !request.sideBySide && !request.openOnSecondScreen));
 
   const senderWin = BrowserWindow.fromWebContents(event.sender);
   const senderBounds = senderWin && !senderWin.isDestroyed() ? senderWin.getBounds() : null;
@@ -3473,7 +3496,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
     : screen.getPrimaryDisplay();
 
   let targetBounds = null;
-  if (!request.sideBySide && !request.maximize && !request.openOnSecondScreen && (hasCustomSize || hasCustomPos)) {
+  if (!request.sideBySide && !shouldMaximize && !request.openOnSecondScreen && (hasCustomSize || hasCustomPos)) {
     const wa = targetDisplay.workArea;
 
     let vW = hasCustomSize ? Math.max(400, Math.round(wa.width  * winSizeRatio)) : Math.min(1600, wa.width);
@@ -3521,6 +3544,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       if (sameFileWin) {
         if (targetBounds) _applySafeBounds(sameFileWin, targetBounds);
         if (sameFileWin.isMinimized()) sameFileWin.restore();
+        if (shouldMaximize) sameFileWin.maximize();
         sameFileWin.focus();
         return { ok: true, windowId: sameFileWin.id, alreadyOpen: true };
       }
@@ -3541,6 +3565,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
           }
           if (targetBounds) _applySafeBounds(blankWin, targetBounds);
           if (blankWin.isMinimized()) blankWin.restore();
+          if (shouldMaximize) blankWin.maximize();
           blankWin.focus();
           return { ok: true, windowId: blankWin.id, reusedBlank: true };
         }
@@ -3642,7 +3667,7 @@ ipcMain.handle('app:open-tool', async (event, request = {}) => {
       _arrangeSideBySide(senderWin, toolWin, mainFrac, cmOnRight);
     }
   }
-  if (request.maximize && !toolWin.isDestroyed()) {
+  if (shouldMaximize && !toolWin.isDestroyed()) {
     toolWin.maximize();
   }
   return { ok: true, windowId: toolWin.id };
@@ -3697,7 +3722,7 @@ function _isCrossAppDataChange(payload = {}) {
   if (target === 'grades' || target === 'gradeSheet') return true;
 
   if (target === 'user') {
-    if (['class-groups.js', 'config.js', 'export-config.json', 'app-settings.json', 'planner-config.js', 'todos.js'].includes(filename)) return true;
+    if (['class-groups.js', 'config.js', 'export-config.json', 'app-settings.json', 'planner-config.js', 'todos.js', 'todos.json'].includes(filename)) return true;
     if (subdir === 'planner' || relativePath.startsWith('planner/') || oldRelativePath.startsWith('planner/') || newRelativePath.startsWith('planner/')) return true;
     if (subdir === 'custom-data' || subdir.startsWith('custom-data/') || relativePath.startsWith('custom-data/') || oldRelativePath.startsWith('custom-data/') || newRelativePath.startsWith('custom-data/')) return true;
     if (subdir === 'grades' || subdir.startsWith('grades/') || relativePath.startsWith('grades/') || oldRelativePath.startsWith('grades/') || newRelativePath.startsWith('grades/')) return true;
@@ -4257,12 +4282,19 @@ function dockTargetWindow(targetWindow, edge, ratio = 0.2, sourceWindow = null) 
 
 function readUserLauncherCardConfig(toolId) {
   try {
-    const configPath = path.join(getWritableRootDir(), 'user', 'launcher-config.js');
-    if (!fs.existsSync(configPath)) return null;
-    const content = fs.readFileSync(configPath, 'utf8');
-    const match = content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
-    if (!match) return null;
-    const parsed = JSON.parse(match[1]);
+    const userDir = path.join(getWritableRootDir(), 'user');
+    const jsonPath = path.join(userDir, 'launcher-config.json');
+    let parsed = null;
+    if (fsSync.existsSync(jsonPath)) {
+      parsed = JSON.parse(fsSync.readFileSync(jsonPath, 'utf8'));
+    } else {
+      const legacyPath = path.join(userDir, 'launcher-config.js');
+      if (!fsSync.existsSync(legacyPath)) return null;
+      const content = fsSync.readFileSync(legacyPath, 'utf8');
+      const match = content.match(/window\.LAUNCHER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+      if (!match) return null;
+      parsed = JSON.parse(match[1]);
+    }
     if (parsed && parsed.cardConfigs && typeof parsed.cardConfigs === 'object') {
       return parsed.cardConfigs[toolId] || null;
     }

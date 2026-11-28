@@ -1943,17 +1943,16 @@
       const bc = (typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG) ? BOARD_CONFIG : {};
       bc.notePresets = result;
       window.BOARD_CONFIG = bc;
-      const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
-      if (window.Desktop && typeof Desktop.saveText === 'function') {
-        try { await Desktop.saveText('user', 'board-config.js', lines); mdbToast(' Note presets saved to board-config.js'); }
+      if (window.Desktop && typeof Desktop.saveJson === 'function') {
+        try { await Desktop.saveJson('user', 'board-config.json', bc); mdbToast(' Note presets saved to board-config.json'); }
         catch (err) { mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err))); }
       } else {
-        const blob = new Blob([lines], { type: 'text/javascript' });
+        const blob = new Blob([JSON.stringify(bc, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'board-config.js'; a.click();
+        a.href = url; a.download = 'board-config.json'; a.click();
         URL.revokeObjectURL(url);
-        mdbToast(' board-config.js downloaded — replace the file in user/');
+        mdbToast(' board-config.json downloaded — replace the file in user/');
       }
       noteClosePresetEditor();
     };

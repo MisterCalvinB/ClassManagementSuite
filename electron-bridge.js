@@ -378,6 +378,15 @@
     return getDesktopApi().runSync(request);
   }
 
+  async function readSyncPair(request) {
+    if (!isElectron()) return { ok: false, error: 'Not running in Electron' };
+    var api = getDesktopApi();
+    if (!api || typeof api.readSyncPair !== 'function') {
+      return { ok: false, error: 'readSyncPair API unavailable' };
+    }
+    return api.readSyncPair(request);
+  }
+
   async function getSyncLog() {
     if (!isElectron()) return { ok: true, entries: [], logPath: null };
     var api = getDesktopApi();
@@ -1542,6 +1551,7 @@
     checkSyncAccessibility,
     setStartupSync,
     runSync,
+    readSyncPair,
     getSyncLog,
     clearSyncLog,
     statByPath,
@@ -1979,7 +1989,7 @@
 
   function isPdfViewerPage() {
     try {
-      return /(?:^|[\\/])pdf-viewer\.html(?:[?#]|$)/i.test(window.location.pathname || window.location.href || '');
+      return /(?:^|[\\/])(?:pdf-)?viewer\.html(?:[?#]|$)/i.test(window.location.pathname || window.location.href || '');
     } catch (_) {
       return false;
     }

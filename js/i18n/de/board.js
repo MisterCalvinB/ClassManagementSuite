@@ -683,7 +683,7 @@
   "conSpDup": "Duplizieren",
   "conSpCrop": "Zuschneiden",
   "conSpOpen": "Öffnen",
-  "conSpOpenPdfViewer": "Im PDF-Viewer öffnen",
+  "conSpOpenPdfViewer": "Im Betrachter öffnen",
   "conSpFolder": "Ordner",
   "conSpDelete": "Löschen",
   "conSpFit": "Anpassen",

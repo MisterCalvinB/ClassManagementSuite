@@ -195,10 +195,9 @@
         boardCustomHeightPx: layout.customHeight
       });
       window.BOARD_CONFIG = next;
-      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function')) return;
+      if (!(window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function')) return;
       try {
-        const lines = 'const BOARD_CONFIG = ' + JSON.stringify(next, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
-        await Desktop.saveText('user', 'board-config.js', lines);
+        await Desktop.saveJson('user', 'board-config.json', next);
       } catch (e) {
         // Non-blocking: layout still applies in-memory even if persistence fails.
       }
@@ -1721,19 +1720,19 @@
               menu.appendChild(b);
             };
             addRowItem(
-              'pdf-viewer.svg',
-              (typeof t === 'function' ? t('fmOpenInPdfStudio') : '') || 'Open in PDF Viewer',
+              'viewer.svg',
+              (typeof t === 'function' ? t('fmOpenInPdfStudio') : '') || 'Open in Viewer',
               () => {
                 if (att.relativePath && window.Desktop && Desktop.isElectron()) {
-                  Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'mindmaps', openRelPath: att.relativePath } });
+                  Desktop.openTool('viewer.html', { query: { openTarget: 'mindmaps', openRelPath: att.relativePath } });
                 } else if (att.dataUrl) {
                   const key = 'cmt_pdf_open_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
                   try {
                     localStorage.setItem(key, JSON.stringify({ dataUrl: att.dataUrl, filename: att.name || 'image.png' }));
                     if (window.Desktop && Desktop.isElectron()) {
-                      Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+                      Desktop.openTool('viewer.html', { query: { openStorageKey: key } });
                     } else {
-                      window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+                      window.open('viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
                     }
                   } catch (_) {}
                 }

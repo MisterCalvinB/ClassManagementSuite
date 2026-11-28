@@ -3,9 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' file: blob:; style-src 'self' 'unsafe-inline' file:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
-  <title>PDF Viewer</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' file: data: blob:; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' file: blob:; style-src 'self' 'unsafe-inline' file:; frame-src 'self' data: blob:; media-src 'self' file: data: blob:; img-src 'self' file: data: blob:;">
+  <title>Viewer</title>
   <link rel="stylesheet" href="../modules/lexend/lexend.css">
+  <link rel="stylesheet" href="../modules/katex/dist/katex.min.css">
   <link rel="stylesheet" href="../css/neo-ui.css">
   <link rel="stylesheet" href="../css/menus.css">
   <style>
@@ -1148,6 +1149,167 @@
       border-color: var(--laser-color, #ff2200) !important;
       box-shadow: 0 0 7px 2px var(--laser-glow, rgba(255, 34, 0, 0.55)) !important;
     }
+
+    /* ── Reflowable Document Sheet (EPUB, HTML, TXT, Markdown) ── */
+    .viewer-doc-sheet {
+      background: #ffffff;
+      border: 2px solid var(--border-dark);
+      border-radius: var(--radius-lg);
+      box-shadow: 4px 4px 0 #555555;
+      width: 100%;
+      max-width: 880px;
+      margin: 0 auto 32px auto;
+      padding: 36px 44px;
+      color: var(--charcoal);
+      line-height: 1.65;
+      font-size: 16px;
+      user-select: text;
+      -webkit-user-select: text;
+      overflow-wrap: break-word;
+    }
+
+    .viewer-doc-sheet.is-html-sheet {
+      padding: 0;
+      overflow: hidden;
+      max-width: 1020px;
+    }
+
+    .viewer-html-frame {
+      width: 100%;
+      min-height: 520px;
+      border: none;
+      display: block;
+      background: #ffffff;
+    }
+
+    .viewer-doc-body h1,
+    .viewer-doc-body h2,
+    .viewer-doc-body h3,
+    .viewer-doc-body h4 {
+      margin: 1.25em 0 0.5em 0;
+      line-height: 1.25;
+      font-weight: 800;
+      color: #222222;
+    }
+    .viewer-doc-body h1:first-child,
+    .viewer-doc-body h2:first-child {
+      margin-top: 0;
+    }
+    .viewer-doc-body p {
+      margin: 0 0 0.9em 0;
+    }
+    .viewer-doc-body ul,
+    .viewer-doc-body ol {
+      margin: 0 0 0.9em 1.5em;
+    }
+    .viewer-doc-body blockquote {
+      border-left: 4px solid var(--accent-gold);
+      background: #faf9f4;
+      padding: 10px 16px;
+      margin: 0 0 1em 0;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    }
+    .viewer-doc-body pre {
+      background: #f5f5f0;
+      border: 1.5px solid #cccccc;
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88em;
+      margin: 0 0 1em 0;
+    }
+    .viewer-doc-body code {
+      background: #f0efe8;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+    }
+    .viewer-doc-body pre code {
+      background: transparent;
+      padding: 0;
+    }
+    .viewer-doc-body table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 1em 0;
+    }
+    .viewer-doc-body th,
+    .viewer-doc-body td {
+      border: 1.5px solid #333333;
+      padding: 7px 10px;
+      text-align: left;
+    }
+    .viewer-doc-body th {
+      background: #f5f5f0;
+      font-weight: 700;
+    }
+    .viewer-doc-body img,
+    .viewer-doc-body svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .viewer-txt-body {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: 1.65;
+    }
+    .viewer-txt-body.is-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    .viewer-txt-body.is-nowrap {
+      white-space: pre;
+      overflow-x: auto;
+    }
+
+    .toc-item {
+      padding: 8px 10px;
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--charcoal);
+      cursor: pointer;
+      transition: background 0.12s ease, border-color 0.12s ease;
+      word-break: break-word;
+    }
+    .toc-item:hover {
+      background: #eef2f7;
+      border-color: #cccccc;
+    }
+    .toc-item.active {
+      background: var(--accent-gold);
+      border-color: var(--border-dark);
+      font-weight: 800;
+    }
+
+    .modal-format-tabs {
+      display: flex;
+      gap: 6px;
+      padding: 0 18px 10px 18px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid #e6e6e0;
+    }
+    .format-chip {
+      background: #f5f5f0;
+      border: 1.5px solid #cccccc;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--charcoal);
+    }
+    .format-chip.active {
+      background: var(--charcoal);
+      color: #ffffff;
+      border-color: var(--charcoal);
+    }
   </style>
 </head>
 <body data-neo-hover-all="1">
@@ -1155,8 +1317,8 @@
   <!-- ── Top Header / App Nav ── -->
   <header id="app-nav">
     <a class="nav-brand" id="brandBtn" data-hover-help="Class Management Tools">
-      <img src="../assets/icons/pdf-viewer.svg" class="nav-brand-icon" alt="">
-      <span data-i18n="pdfViewerTitle">PDF Viewer</span>
+      <img src="../assets/icons/viewer.svg" class="nav-brand-icon" alt="">
+      <span data-i18n="pdfViewerTitle">Viewer</span>
     </a>
 
     <!-- Files Menu Dropdown -->
@@ -1166,12 +1328,12 @@
       </button>
       <div class="dropdown-menu" id="filesDropdown">
         <div class="dropdown-item" id="menuNewWindow">
-          <img src="../assets/icons/pdf-viewer.svg" class="item-icon" alt="">
+          <img src="../assets/icons/viewer.svg" class="item-icon" alt="">
           <span data-i18n="pdfOpenInNewWindow">New Window</span>
         </div>
         <div class="dropdown-item" id="menuSearchPdfs">
           <img src="../assets/icons/search.svg" class="item-icon" alt="">
-          <span data-i18n="pdfSearchAppModalTitle">Search App PDFs...</span>
+          <span data-i18n="pdfSearchAppModalTitle">Search App Files...</span>
         </div>
         <div class="dropdown-item" id="menuOpenLocal">
           <img src="../assets/icons/saved-files.svg" class="item-icon" alt="">
@@ -1258,25 +1420,25 @@
     </button>
   </div>
 
-  <!-- ── Annotation Tool Palette ── -->
+  <!-- ── Annotation & Reading Tool Palette ── -->
   <div id="tool-bar" style="display:none;">
     <button type="button" class="tool-btn active" id="toolPan" data-tool="pan" data-hover-help="Pan / Navigate">
       <img src="../assets/icons/arrow-right.svg" alt="">
       <span data-i18n="pdfToolPan">Pan</span>
     </button>
-    <button type="button" class="tool-btn" id="toolPen" data-tool="pen" data-hover-help="Pen (Draw Freehand)">
+    <button type="button" class="tool-btn ink-only-control" id="toolPen" data-tool="pen" data-hover-help="Pen (Draw Freehand)">
       <img src="../assets/icons/pen.svg" alt="">
       <span data-i18n="pdfToolPen">Pen</span>
     </button>
-    <button type="button" class="tool-btn" id="toolHighlight" data-tool="highlight" data-hover-help="Highlighter">
+    <button type="button" class="tool-btn ink-only-control" id="toolHighlight" data-tool="highlight" data-hover-help="Highlighter">
       <img src="../assets/icons/draw.svg" alt="">
       <span data-i18n="pdfToolHighlight">Highlighter</span>
     </button>
-    <button type="button" class="tool-btn" id="toolText" data-tool="text" data-hover-help="Add Text Note">
+    <button type="button" class="tool-btn ink-only-control" id="toolText" data-tool="text" data-hover-help="Add Text Note">
       <img src="../assets/icons/edit.svg" alt="">
       <span data-i18n="pdfToolText">Text</span>
     </button>
-    <button type="button" class="tool-btn" id="toolEraser" data-tool="eraser" data-hover-help="Eraser">
+    <button type="button" class="tool-btn ink-only-control" id="toolEraser" data-tool="eraser" data-hover-help="Eraser">
       <img src="../assets/icons/eraser.svg" alt="">
       <span data-i18n="pdfToolEraser">Eraser</span>
     </button>
@@ -1285,10 +1447,10 @@
       <span data-i18n="pdfToolLaser">Laser</span>
     </button>
 
-    <div class="tool-sep"></div>
+    <div class="tool-sep ink-only-control"></div>
 
     <!-- Active Inking Settings: Color Swatches & Stroke Width -->
-    <div class="palette-popover" id="colorPalette">
+    <div class="palette-popover ink-only-control" id="colorPalette">
       <div class="color-swatch active" data-color="#333333" style="background:#333333;" data-hover-help="Charcoal"></div>
       <div class="color-swatch" data-color="#c96b6b" style="background:#c96b6b;" data-hover-help="Crimson"></div>
       <div class="color-swatch" data-color="#5b8fcc" style="background:#5b8fcc;" data-hover-help="Slate Blue"></div>
@@ -1298,32 +1460,44 @@
       <input type="color" id="pdfCustomColorInput" value="#333333" style="width:24px;height:24px;" data-hover-help="Custom colour & opacity" />
     </div>
 
-    <select class="size-picker" id="strokeSizeSelect" data-hover-help="Stroke Thickness">
+    <select class="size-picker ink-only-control" id="strokeSizeSelect" data-hover-help="Stroke Thickness">
       <option value="2">Fine (2px)</option>
       <option value="4" selected>Medium (4px)</option>
       <option value="8">Thick (8px)</option>
       <option value="16">Broad (16px)</option>
     </select>
 
-    <div class="tool-sep"></div>
+    <div class="tool-sep ink-only-control"></div>
 
-    <button type="button" class="tool-btn" id="undoBtn" data-hover-help="Undo (Ctrl+Z)">
+    <button type="button" class="tool-btn ink-only-control" id="undoBtn" data-hover-help="Undo (Ctrl+Z)">
       <span style="font-size:14px;">↩</span>
       <span data-i18n="pdfToolUndo">Undo</span>
     </button>
-    <button type="button" class="tool-btn" id="redoBtn" data-hover-help="Redo (Ctrl+Y)">
+    <button type="button" class="tool-btn ink-only-control" id="redoBtn" data-hover-help="Redo (Ctrl+Y)">
       <span style="font-size:14px;">↪</span>
       <span data-i18n="pdfToolRedo">Redo</span>
     </button>
-    <button type="button" class="tool-btn" id="clearPageBtn" data-hover-help="Clear Page Annotations">
+    <button type="button" class="tool-btn ink-only-control" id="clearPageBtn" data-hover-help="Clear Page Annotations">
       <img src="../assets/icons/trash.svg" alt="">
+    </button>
+
+    <!-- Reflowable Document Controls (MD / TXT) -->
+    <button type="button" class="tool-btn" id="mdRawToggleBtn" style="display:none;">
+      <img src="../assets/icons/document-editor.svg" alt="">
+      <span data-i18n="viewerMdRawToggle">Raw Markdown</span>
+    </button>
+    <button type="button" class="tool-btn active" id="txtWrapToggleBtn" style="display:none;">
+      <span data-i18n="viewerTxtWrapToggle">Wrap Lines</span>
+    </button>
+    <button type="button" class="tool-btn" id="txtMonoToggleBtn" style="display:none;">
+      <span data-i18n="viewerTxtMonoToggle">Monospace</span>
     </button>
 
     <div class="nav-spacer"></div>
 
-    <!-- Toggle Thumbnails Sidebar -->
+    <!-- Toggle Thumbnails / Chapters Sidebar -->
     <button type="button" class="tool-btn" id="toggleThumbBtn" data-hover-help="Toggle Thumbnails">
-      <span>◨</span> Thumbnails
+      <span>◨</span> <span id="toggleThumbLabel">Thumbnails</span>
     </button>
   </div>
 
@@ -1342,13 +1516,13 @@
     <!-- Empty State -->
     <div id="empty-state">
       <div class="empty-card">
-        <img src="../assets/icons/pdf-viewer.svg" class="empty-icon" alt="">
-        <h2 class="empty-title" data-i18n="pdfViewerTitle">PDF Viewer</h2>
-        <p class="empty-desc">Open any PDF worksheet, textbook, or exam to draw, highlight, add notes, and present to your class.</p>
+        <img src="../assets/icons/viewer.svg" class="empty-icon" alt="">
+        <h2 class="empty-title" data-i18n="pdfViewerTitle">Viewer</h2>
+        <p class="empty-desc" data-i18n="viewerEmptyDesc">Open any PDF, image, EPUB, HTML, TXT, or Markdown file to read, annotate, look up words, and present to your class.</p>
         <div class="empty-actions">
           <button type="button" class="empty-btn primary" id="emptySearchBtn">
             <img src="../assets/icons/search.svg" style="width:16px;height:16px;" alt="">
-            <span data-i18n="pdfSearchAppModalTitle">Search App PDFs</span>
+            <span data-i18n="pdfSearchAppModalTitle">Search App Files</span>
           </button>
           <button type="button" class="empty-btn secondary" id="emptyOpenBtn">
             <img src="../assets/icons/saved-files.svg" style="width:16px;height:16px;" alt="">
@@ -1356,19 +1530,19 @@
           </button>
         </div>
         <div class="empty-drop-zone" id="emptyDropZone">
-          <span data-i18n="pdfDragDropPrompt">Drag & drop a PDF file here to begin</span>
+          <span data-i18n="pdfDragDropPrompt">Drag & drop a PDF, image, EPUB, HTML, TXT, or MD file here to begin</span>
         </div>
       </div>
     </div>
   </main>
 
-  <!-- ── App PDF Search & Browse Modal ── -->
+  <!-- ── App File Search & Browse Modal ── -->
   <div id="search-modal-backdrop">
     <div class="search-modal">
       <div class="modal-header">
         <div class="modal-title">
           <img src="../assets/icons/search.svg" style="width:20px;height:20px;" alt="">
-          <span data-i18n="pdfSearchAppModalTitle">Search App PDFs</span>
+          <span data-i18n="pdfSearchAppModalTitle">Search App Files</span>
         </div>
         <button type="button" class="modal-close-btn neo-icon-btn neo-close-btn" id="closeSearchModalBtn" aria-label="Close"><img src="../assets/icons/close.svg" class="neo-icon" alt="" /></button>
       </div>
@@ -1378,14 +1552,22 @@
       </div>
 
       <div class="modal-filter-tabs">
-        <button type="button" class="filter-tab active" data-filter="all">All PDFs</button>
+        <button type="button" class="filter-tab active" data-filter="all" data-i18n="viewerFilterAllFolders">All Folders</button>
         <button type="button" class="filter-tab" data-filter="user">User Data</button>
         <button type="button" class="filter-tab" data-filter="toPrint">To-Print / Exports</button>
         <button type="button" class="filter-tab" data-filter="docEditorDocs">Doc Editor</button>
       </div>
 
+      <div class="modal-format-tabs" id="modalFormatTabs">
+        <button type="button" class="format-chip active" data-fmt="all" data-i18n="viewerFilterFmtAll">All</button>
+        <button type="button" class="format-chip" data-fmt="pdf">PDF</button>
+        <button type="button" class="format-chip" data-fmt="image" data-i18n="viewerFilterFmtImages">Images</button>
+        <button type="button" class="format-chip" data-fmt="epub">EPUB</button>
+        <button type="button" class="format-chip" data-fmt="text">HTML / MD / TXT</button>
+      </div>
+
       <div class="modal-list" id="pdfItemsList">
-        <div class="modal-empty-msg">Scanning application folders for PDFs...</div>
+        <div class="modal-empty-msg">Scanning application folders for files...</div>
       </div>
 
       <div class="modal-footer">
@@ -1407,27 +1589,29 @@
   <script src="../js/shared/color-picker.js"></script>
   <script src="../js/shared/menus.js"></script>
   <script src="../js/shared/tutorial.js"></script>
+  <script src="../modules/marked/marked.umd.js"></script>
+  <script src="../modules/katex/dist/katex.min.js"></script>
+  <script src="../js/viewer/viewer-formats.js"></script>
 
   <script type="module">
     import * as pdfjsLib from '../modules/pdf.min.mjs';
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('../modules/pdf.worker.min.mjs', location.href).href;
 
     // ── Application State ──
-    const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif'];
+    const IMAGE_EXTS = (window.ViewerFormats && window.ViewerFormats.IMAGE_EXTS) || ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.svg', '.avif'];
     function isImageFilename(name) {
-      const lower = String(name || '').toLowerCase();
-      return IMAGE_EXTS.some(ext => lower.endsWith(ext));
+      return window.ViewerFormats
+        ? window.ViewerFormats.detectFormat(name) === 'image'
+        : IMAGE_EXTS.some(ext => String(name || '').toLowerCase().endsWith(ext));
     }
     function guessImageMime(name) {
-      const lower = String(name || '').toLowerCase();
-      if (lower.endsWith('.png')) return 'image/png';
-      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
-      if (lower.endsWith('.webp')) return 'image/webp';
-      if (lower.endsWith('.gif')) return 'image/gif';
-      if (lower.endsWith('.bmp')) return 'image/bmp';
-      if (lower.endsWith('.svg')) return 'image/svg+xml';
-      if (lower.endsWith('.avif')) return 'image/avif';
-      return 'image/png';
+      return window.ViewerFormats ? window.ViewerFormats.guessMime(name) : 'image/png';
+    }
+    function detectDocFormat(name, mime) {
+      return window.ViewerFormats ? window.ViewerFormats.detectFormat(name, mime) : (isImageFilename(name) ? 'image' : 'pdf');
+    }
+    function isReflowableFormat(fmt) {
+      return fmt === 'epub' || fmt === 'html' || fmt === 'txt' || fmt === 'md';
     }
 
     const state = {
@@ -1437,6 +1621,12 @@
       pdfTarget: null,
       pdfRelPath: null,
       pdfArrayBuffer: null,
+      docFormat: null, // 'pdf' | 'image' | 'epub' | 'html' | 'txt' | 'md'
+      docTextContent: null,
+      epubData: null,
+      mdShowRaw: false,
+      txtWrap: true,
+      txtMono: false,
       isImage: false,
       imageDataUrl: null,
       numPages: 0,
@@ -1457,6 +1647,77 @@
       undoStack: [],
       redoStack: []
     };
+
+    async function destroyActiveDocument() {
+      if (state.pdfDoc) {
+        try { await state.pdfDoc.destroy(); } catch (_) {}
+        state.pdfDoc = null;
+      }
+      if (state.epubData && typeof state.epubData.destroy === 'function') {
+        try { state.epubData.destroy(); } catch (_) {}
+      }
+      state.epubData = null;
+      state.docTextContent = null;
+      state.docFormat = null;
+      state.isImage = false;
+      state.imageDataUrl = null;
+    }
+
+    function applyToolbarMode(format) {
+      const reflow = isReflowableFormat(format);
+      document.querySelectorAll('.ink-only-control').forEach(el => {
+        el.style.display = reflow ? 'none' : '';
+      });
+      const menuSaveAnnot = document.getElementById('menuSaveAnnot');
+      const menuExportPdf = document.getElementById('menuExportPdf');
+      if (menuSaveAnnot) menuSaveAnnot.style.display = reflow ? 'none' : '';
+      if (menuExportPdf) menuExportPdf.style.display = reflow ? 'none' : '';
+
+      const mdRawBtn = document.getElementById('mdRawToggleBtn');
+      const txtWrapBtn = document.getElementById('txtWrapToggleBtn');
+      const txtMonoBtn = document.getElementById('txtMonoToggleBtn');
+      if (mdRawBtn) {
+        mdRawBtn.style.display = (format === 'md') ? 'inline-flex' : 'none';
+        mdRawBtn.classList.toggle('active', !!state.mdShowRaw);
+      }
+      if (txtWrapBtn) {
+        txtWrapBtn.style.display = (format === 'txt') ? 'inline-flex' : 'none';
+        txtWrapBtn.classList.toggle('active', !!state.txtWrap);
+      }
+      if (txtMonoBtn) {
+        txtMonoBtn.style.display = (format === 'txt') ? 'inline-flex' : 'none';
+        txtMonoBtn.classList.toggle('active', !!state.txtMono);
+      }
+
+      const toggleThumbBtn = document.getElementById('toggleThumbBtn');
+      const toggleThumbLabel = document.getElementById('toggleThumbLabel');
+      const showSidebarToggle = (format === 'pdf' || format === 'epub');
+      if (toggleThumbBtn) toggleThumbBtn.style.display = showSidebarToggle ? 'inline-flex' : 'none';
+      if (toggleThumbLabel) {
+        toggleThumbLabel.textContent = (format === 'epub')
+          ? ((window.i18n && i18n.t('viewerChapters')) || 'Chapters')
+          : ((window.i18n && i18n.t('viewerThumbnails')) || 'Thumbnails');
+      }
+      if (!showSidebarToggle && thumbSidebar) {
+        thumbSidebar.classList.add('collapsed');
+      }
+      if (reflow && state.activeTool !== 'pan' && state.activeTool !== 'laser') {
+        setTool('pan');
+      }
+    }
+
+    async function openDocumentBuffer(buf, filename, mimeType = '') {
+      const fmt = detectDocFormat(filename, mimeType) || 'pdf';
+      if (fmt === 'image') {
+        await initImageDocument(buf, filename);
+        await loadSidecarAnnotations();
+      } else if (isReflowableFormat(fmt)) {
+        await initReflowableDocument(fmt, buf, filename);
+      } else {
+        await initPdfDocument(buf, filename);
+        await loadSidecarAnnotations();
+      }
+    }
 
     // BroadcastChannel for live mirroring on presentation display
     const syncChannel = new BroadcastChannel('cmt-pdf-presentation');
@@ -1637,7 +1898,7 @@
         menuNewWin.addEventListener('click', () => {
           filesMenuWrap.classList.remove('open');
           if (window.Desktop && Desktop.isElectron()) {
-            Desktop.openTool('pdf-viewer.html', { newWindow: true });
+            Desktop.openTool('viewer.html', { newWindow: true });
           }
         });
       }
@@ -1783,10 +2044,48 @@
         }
       });
 
-      // Toggle Thumbnails
+      // Toggle Thumbnails / Chapters
       document.getElementById('toggleThumbBtn').addEventListener('click', () => {
         thumbSidebar.classList.toggle('collapsed');
       });
+
+      // Reflowable Document Toggles (Markdown Raw / TXT Wrap / TXT Mono)
+      const mdRawBtn = document.getElementById('mdRawToggleBtn');
+      if (mdRawBtn) {
+        mdRawBtn.addEventListener('click', () => {
+          if (state.docFormat !== 'md') return;
+          state.mdShowRaw = !state.mdShowRaw;
+          mdRawBtn.classList.toggle('active', state.mdShowRaw);
+          renderActiveReflowableView();
+          if (!state.isPresentation) {
+            syncChannel.postMessage({ action: 'md-raw-toggle', mdShowRaw: state.mdShowRaw });
+          }
+        });
+      }
+      const txtWrapBtn = document.getElementById('txtWrapToggleBtn');
+      if (txtWrapBtn) {
+        txtWrapBtn.addEventListener('click', () => {
+          if (state.docFormat !== 'txt') return;
+          state.txtWrap = !state.txtWrap;
+          txtWrapBtn.classList.toggle('active', state.txtWrap);
+          renderActiveReflowableView();
+          if (!state.isPresentation) {
+            syncChannel.postMessage({ action: 'txt-opts-toggle', txtWrap: state.txtWrap, txtMono: state.txtMono });
+          }
+        });
+      }
+      const txtMonoBtn = document.getElementById('txtMonoToggleBtn');
+      if (txtMonoBtn) {
+        txtMonoBtn.addEventListener('click', () => {
+          if (state.docFormat !== 'txt') return;
+          state.txtMono = !state.txtMono;
+          txtMonoBtn.classList.toggle('active', state.txtMono);
+          renderActiveReflowableView();
+          if (!state.isPresentation) {
+            syncChannel.postMessage({ action: 'txt-opts-toggle', txtWrap: state.txtWrap, txtMono: state.txtMono });
+          }
+        });
+      }
 
       // Projector Presentation Window Toggle
       projectorBtn.addEventListener('click', togglePresentationMode);
@@ -1810,6 +2109,17 @@
           filterTabsContainer.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
           tab.classList.add('active');
           filterModalList(pdfSearchInput.value, tab.getAttribute('data-filter'));
+        });
+      }
+
+      const formatTabsContainer = document.getElementById('modalFormatTabs');
+      if (formatTabsContainer) {
+        formatTabsContainer.addEventListener('click', (e) => {
+          const chip = e.target && e.target.closest ? e.target.closest('.format-chip') : null;
+          if (!chip) return;
+          formatTabsContainer.querySelectorAll('.format-chip').forEach(c => c.classList.remove('active'));
+          chip.classList.add('active');
+          filterModalList(pdfSearchInput.value);
         });
       }
 
@@ -2037,27 +2347,30 @@
       return false;
     }
 
-    // ── PDF Document Loading ──
+    // ── Document Loading ──
     async function loadPdfFromTarget(target, relPath) {
       try {
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
           try {
             const check = await Desktop.checkFileOpen({
-              pageFile: 'pdf-viewer.html',
+              pageFile: 'viewer.html',
               target: target,
               relativePath: relPath
             });
             if (check && check.isOpen) {
               const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
                 ? i18n.t('pdfFileAlreadyOpenToast')
-                : 'This PDF is already open in another window.';
+                : 'This file is already open in another window.';
               showToast(msg);
               return;
             }
           } catch (_) {}
         }
 
-        if (!state.isPresentation && window.Desktop && Desktop.isElectron() && typeof Desktop.statByPath === 'function') {
+        const filename = relPath.split('/').pop();
+        const fmt = detectDocFormat(filename);
+
+        if (!state.isPresentation && fmt === 'pdf' && window.Desktop && Desktop.isElectron() && typeof Desktop.statByPath === 'function') {
           try {
             const statRes = await Desktop.statByPath(target, relPath);
             const fileSize = statRes?.file?.size || statRes?.size || 0;
@@ -2071,7 +2384,7 @@
         state.pdfTarget = target;
         state.pdfRelPath = relPath;
         state.pdfPath = null;
-        state.pdfFilename = relPath.split('/').pop();
+        state.pdfFilename = filename;
 
         let res;
         if (window.Desktop && Desktop.isElectron()) {
@@ -2082,24 +2395,19 @@
           }
         }
         if (!res || !res.ok) {
-          showToast('Could not load PDF: ' + (res?.error || 'Target read failed'), true);
+          showToast('Could not load file: ' + (res?.error || 'Target read failed'), true);
           return;
         }
 
         const bytes = _toUint8Array(res.content);
         const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-        if (isImageFilename(state.pdfFilename)) {
-          await initImageDocument(buf, state.pdfFilename);
-        } else {
-          await initPdfDocument(buf, state.pdfFilename);
-        }
-        await loadSidecarAnnotations();
+        await openDocumentBuffer(buf, state.pdfFilename);
       } catch (err) {
         console.error('loadPdfFromTarget error:', err);
-        if (!state.isPresentation && await _promptOpenInSystemViewer({ target, relPath, isError: true })) {
+        if (!state.isPresentation && detectDocFormat(relPath) === 'pdf' && await _promptOpenInSystemViewer({ target, relPath, isError: true })) {
           return;
         }
-        showToast('Error opening PDF document', true);
+        showToast('Error opening document', true);
       }
     }
 
@@ -2108,13 +2416,13 @@
         if (window.Desktop && Desktop.isElectron() && typeof Desktop.checkFileOpen === 'function') {
           try {
             const check = await Desktop.checkFileOpen({
-              pageFile: 'pdf-viewer.html',
+              pageFile: 'viewer.html',
               diskPath: absPath
             });
             if (check && check.isOpen) {
               const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
                 ? i18n.t('pdfFileAlreadyOpenToast')
-                : 'This PDF is already open in another window.';
+                : 'This file is already open in another window.';
               showToast(msg);
               return;
             }
@@ -2125,9 +2433,10 @@
         state.pdfTarget = null;
         state.pdfRelPath = null;
         state.pdfFilename = absPath.split(/[\/\\]/).pop();
+        const fmt = detectDocFormat(state.pdfFilename);
 
         if (window.Desktop && Desktop.isElectron()) {
-          let res = await Desktop.readDiskFile(absPath, 'binary', state.isPresentation ? {} : { maxBytes: LARGE_PDF_WARN_BYTES });
+          let res = await Desktop.readDiskFile(absPath, 'binary', (state.isPresentation || fmt !== 'pdf') ? {} : { maxBytes: LARGE_PDF_WARN_BYTES });
           if (res && res.tooLarge) {
             const openedExternal = await _promptOpenInSystemViewer({ absPath, fileSizeBytes: res.size });
             if (openedExternal) return;
@@ -2143,27 +2452,19 @@
           }
           const bytes = _toUint8Array(res.content);
           const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-          if (isImageFilename(state.pdfFilename)) {
-            await initImageDocument(buf, state.pdfFilename);
-          } else {
-            await initPdfDocument(buf, state.pdfFilename);
-          }
-          await loadSidecarAnnotations();
+          await openDocumentBuffer(buf, state.pdfFilename);
         }
       } catch (err) {
         console.error('loadPdfFromDisk error:', err);
-        if (!state.isPresentation && await _promptOpenInSystemViewer({ absPath, isError: true })) {
+        if (!state.isPresentation && detectDocFormat(absPath) === 'pdf' && await _promptOpenInSystemViewer({ absPath, isError: true })) {
           return;
         }
-        showToast('Failed to load local PDF', true);
+        showToast('Failed to load local file', true);
       }
     }
 
     async function initPdfDocument(arrayBuffer, title, optBase64 = null) {
-      if (state.pdfDoc) {
-        try { await state.pdfDoc.destroy(); } catch (_) {}
-        state.pdfDoc = null;
-      }
+      await destroyActiveDocument();
 
       // Clone before passing to PDF.js worker (worker detaches ArrayBuffer)
       const workerBuffer = (arrayBuffer && typeof arrayBuffer.slice === 'function')
@@ -2173,6 +2474,7 @@
       state.pdfBufferBase64 = optBase64 || null;
       state.pdfFilename = title;
       state.pdfArrayBuffer = arrayBuffer;
+      state.docFormat = 'pdf';
       state.isImage = false;
       state.imageDataUrl = null;
       state.pdfDoc = await pdfjsLib.getDocument({
@@ -2204,6 +2506,7 @@
         docBadge.style.display = 'inline-flex';
         docBadgeName.textContent = title;
         setDirty(false);
+        applyToolbarMode('pdf');
       }
 
       updatePageLabel();
@@ -2241,10 +2544,7 @@
     }
 
     async function initImageDocument(source, title) {
-      if (state.pdfDoc) {
-        try { await state.pdfDoc.destroy(); } catch (_) {}
-        state.pdfDoc = null;
-      }
+      await destroyActiveDocument();
 
       let objectUrlToRevoke = null;
       let imgSrc = '';
@@ -2279,6 +2579,7 @@
       state.pdfBufferBase64 = null;
       state.pdfFilename = title || 'image.png';
       state.pdfArrayBuffer = arrayBuffer;
+      state.docFormat = 'image';
       state.isImage = true;
       state.imageDataUrl = dataUrl;
       state.pdfDoc = {
@@ -2334,6 +2635,7 @@
         docBadge.style.display = 'inline-flex';
         docBadgeName.textContent = state.pdfFilename;
         setDirty(false);
+        applyToolbarMode('image');
       }
 
       updatePageLabel();
@@ -2341,6 +2643,188 @@
       await renderAllPages();
       if (!state.isPresentation) {
         buildThumbnails();
+        syncChannel.postMessage(_buildOpenDocMessage());
+      }
+    }
+
+    // ── Reflowable Document Rendering (EPUB, HTML, TXT, Markdown) ──
+    function renderEpubToc() {
+      if (!thumbSidebar || state.docFormat !== 'epub' || !state.epubData) return;
+      thumbSidebar.innerHTML = '';
+      const toc = state.epubData.toc || [];
+      toc.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'toc-item' + ((item.chapterIndex + 1) === state.currentPage ? ' active' : '');
+        div.dataset.chapterNum = String(item.chapterIndex + 1);
+        div.textContent = item.title || ('Chapter ' + (item.chapterIndex + 1));
+        div.addEventListener('click', () => {
+          jumpToPage(item.chapterIndex + 1);
+        });
+        thumbSidebar.appendChild(div);
+      });
+    }
+
+    function applyReflowableScaleInPlace() {
+      const sheet = viewport ? viewport.querySelector('.viewer-doc-sheet') : null;
+      if (!sheet) return;
+      if (state.docFormat === 'html') {
+        const frame = sheet.querySelector('.viewer-html-frame');
+        if (frame) frame.style.zoom = String(state.scale);
+      } else {
+        sheet.style.fontSize = Math.round(16 * state.scale) + 'px';
+      }
+    }
+
+    function renderActiveReflowableView() {
+      if (!viewport || !isReflowableFormat(state.docFormat)) return;
+      viewport.innerHTML = '';
+      const sheet = document.createElement('div');
+      sheet.className = 'viewer-doc-sheet' + (state.docFormat === 'html' ? ' is-html-sheet' : '');
+
+      if (state.docFormat === 'epub' && state.epubData) {
+        const chIdx = Math.max(0, Math.min(state.epubData.chapters.length - 1, (state.currentPage || 1) - 1));
+        const ch = state.epubData.chapters[chIdx];
+        const body = document.createElement('div');
+        body.className = 'viewer-doc-body';
+        body.innerHTML = ch ? ch.html : '';
+        body.querySelectorAll('a[data-epub-chapter]').forEach(a => {
+          a.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetIdx = parseInt(a.getAttribute('data-epub-chapter'), 10);
+            if (!isNaN(targetIdx)) jumpToPage(targetIdx + 1);
+          });
+        });
+        sheet.appendChild(body);
+        sheet.style.fontSize = Math.round(16 * state.scale) + 'px';
+      } else if (state.docFormat === 'md') {
+        const body = document.createElement('div');
+        body.className = 'viewer-doc-body';
+        if (state.mdShowRaw) {
+          const pre = document.createElement('pre');
+          pre.textContent = state.docTextContent || '';
+          body.appendChild(pre);
+        } else if (window.ViewerFormats) {
+          window.ViewerFormats.renderMarkdownToElement(state.docTextContent || '', body);
+        } else {
+          body.textContent = state.docTextContent || '';
+        }
+        sheet.appendChild(body);
+        sheet.style.fontSize = Math.round(16 * state.scale) + 'px';
+      } else if (state.docFormat === 'txt') {
+        const body = document.createElement('div');
+        if (window.ViewerFormats) {
+          window.ViewerFormats.renderTextToElement(state.docTextContent || '', body, {
+            wrap: state.txtWrap,
+            mono: state.txtMono
+          });
+        } else {
+          body.className = 'viewer-txt-body';
+          body.textContent = state.docTextContent || '';
+        }
+        sheet.appendChild(body);
+        sheet.style.fontSize = Math.round(16 * state.scale) + 'px';
+      } else if (state.docFormat === 'html') {
+        const dictPill = document.getElementById('pdf-dict-selection-pill');
+        const onIframeSelection = (sel, iframe) => {
+          if (!dictPill || state.isPresentation) return;
+          if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+            dictPill.style.display = 'none';
+            return;
+          }
+          try {
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            const fRect = iframe.getBoundingClientRect();
+            if (rect.width > 0 && rect.height > 0) {
+              dictPill.style.left = (fRect.left + rect.left + rect.width / 2) + 'px';
+              dictPill.style.top = Math.max(10, fRect.top + rect.top) + 'px';
+              dictPill.style.display = 'flex';
+              return;
+            }
+          } catch (_) {}
+          dictPill.style.display = 'none';
+        };
+        const iframe = window.ViewerFormats
+          ? window.ViewerFormats.createHtmlSandboxIframe(state.docTextContent || '', onIframeSelection)
+          : document.createElement('iframe');
+        iframe.style.zoom = String(state.scale);
+        sheet.appendChild(iframe);
+      }
+
+      viewport.appendChild(sheet);
+      viewport.scrollTop = 0;
+    }
+
+    async function initReflowableDocument(format, source, title, options = {}) {
+      await destroyActiveDocument();
+
+      let arrayBuffer = null;
+      let textContent = null;
+      if (source instanceof ArrayBuffer) {
+        arrayBuffer = source;
+        if (format !== 'epub') {
+          textContent = new TextDecoder('utf-8').decode(new Uint8Array(source));
+        }
+      } else if (typeof source === 'string') {
+        textContent = source;
+      }
+
+      state.pdfBufferBase64 = options.optBase64 || null;
+      state.pdfFilename = title || ('document.' + format);
+      state.pdfArrayBuffer = arrayBuffer;
+      state.docFormat = format;
+      state.docTextContent = textContent;
+      state.isImage = false;
+      state.imageDataUrl = null;
+      state.annotations = {};
+      state.undoStack = [];
+      state.redoStack = [];
+      state.mdShowRaw = !!options.mdShowRaw;
+      state.txtWrap = options.txtWrap !== undefined ? !!options.txtWrap : true;
+      state.txtMono = !!options.txtMono;
+      state.scale = typeof options.scale === 'number' ? options.scale : 1.0;
+
+      if (format === 'epub') {
+        if (!window.ViewerFormats || typeof window.ViewerFormats.parseEpubArchive !== 'function') {
+          throw new Error('EPUB parser not available');
+        }
+        state.epubData = await window.ViewerFormats.parseEpubArchive(arrayBuffer);
+        state.numPages = Math.max(1, state.epubData.chapters.length);
+        state.currentPage = Math.max(1, Math.min(state.numPages, options.chapterIndex || 1));
+      } else {
+        state.numPages = 1;
+        state.currentPage = 1;
+      }
+
+      emptyState.style.display = 'none';
+      if (state.isPresentation) {
+        toolBar.style.display = 'none';
+        pageStepperGroup.style.display = 'none';
+        zoomGroup.style.display = 'none';
+        projectorBtn.style.display = 'none';
+        docBadge.style.display = 'none';
+      } else {
+        toolBar.style.display = 'flex';
+        pageStepperGroup.style.display = (format === 'epub') ? 'inline-flex' : 'none';
+        zoomGroup.style.display = 'inline-flex';
+        projectorBtn.style.display = 'inline-flex';
+        docBadge.style.display = 'inline-flex';
+        docBadgeName.textContent = state.pdfFilename;
+        setDirty(false);
+        applyToolbarMode(format);
+      }
+
+      updatePageLabel();
+      zoomLabel.textContent = Math.round(state.scale * 100) + '%';
+      renderActiveReflowableView();
+      if (!state.isPresentation && format === 'epub') {
+        renderEpubToc();
+        thumbSidebar.classList.remove('collapsed');
+      } else if (!state.isPresentation && thumbSidebar) {
+        thumbSidebar.innerHTML = '';
+      }
+
+      if (!state.isPresentation) {
         syncChannel.postMessage(_buildOpenDocMessage());
       }
     }
@@ -3201,6 +3685,35 @@
     function jumpToPage(pageNum) {
       const targetPage = parseInt(pageNum, 10);
       if (isNaN(targetPage) || targetPage < 1 || targetPage > state.numPages) return;
+
+      if (state.docFormat === 'epub' && state.epubData) {
+        state.currentPage = targetPage;
+        updatePageLabel();
+        renderActiveReflowableView();
+        if (!state.isPresentation) {
+          let activeToc = null;
+          document.querySelectorAll('.toc-item').forEach(el => {
+            const isMatch = parseInt(el.dataset.chapterNum, 10) === targetPage;
+            el.classList.toggle('active', isMatch);
+            if (isMatch) activeToc = el;
+          });
+          if (activeToc) activeToc.scrollIntoView({ block: 'nearest' });
+          syncChannel.postMessage({
+            action: 'page-turn',
+            pageNum: targetPage,
+            vW: viewport.clientWidth,
+            vH: viewport.clientHeight,
+            sx: 0,
+            sy: 0
+          });
+        } else {
+          _msx = 0;
+          _msy = 0;
+          _mirrorScheduleApplyViewport();
+        }
+        return;
+      }
+
       const prevPage = state.currentPage || 1;
       state.currentPage = targetPage;
       updatePageLabel();
@@ -3347,6 +3860,24 @@
     async function setScale(newScale, targetPageToScroll = null, options = {}) {
       // Allow scaling down to 0.15 so any large page fits completely on any screen
       const clamped = Math.max(0.15, Math.min(3.5, newScale));
+
+      if (isReflowableFormat(state.docFormat)) {
+        state.scale = clamped;
+        zoomLabel.textContent = Math.round(clamped * 100) + '%';
+        applyReflowableScaleInPlace();
+        if (!state.isPresentation) {
+          syncChannel.postMessage({
+            action: 'scale-change',
+            scale: state.scale,
+            vW: viewport.clientWidth,
+            vH: viewport.clientHeight,
+            sx: viewport.scrollLeft,
+            sy: viewport.scrollTop
+          });
+        }
+        return;
+      }
+
       const pages = Array.from(viewport.querySelectorAll('.page-container'));
 
       if (pages.length === 0) {
@@ -3426,6 +3957,10 @@
     }
 
     async function fitToWidth() {
+      if (isReflowableFormat(state.docFormat)) {
+        await setScale(1.0);
+        return;
+      }
       const curPageEl = viewport.querySelector(`.page-container[data-page-num="${state.currentPage}"]`) || viewport.querySelector('.page-container');
       if (!curPageEl) return;
       const unscaledW = parseFloat(curPageEl.dataset.unscaledW) || 612;
@@ -3436,6 +3971,10 @@
     }
 
     async function fitToPage() {
+      if (isReflowableFormat(state.docFormat)) {
+        await setScale(1.0);
+        return;
+      }
       const curPageEl = viewport.querySelector(`.page-container[data-page-num="${state.currentPage}"]`) || viewport.querySelector('.page-container');
       if (!curPageEl) return;
       const unscaledW = parseFloat(curPageEl.dataset.unscaledW) || 612;
@@ -3820,7 +4359,7 @@
       state.isDirty = dirty;
       docDirtyDot.style.display = dirty ? 'inline-block' : 'none';
       if (state.pdfFilename) {
-        document.title = (dirty ? '● ' : '') + state.pdfFilename + ' — PDF Viewer';
+        document.title = (dirty ? '● ' : '') + state.pdfFilename + ' — Viewer';
       }
       if (window.Desktop && typeof Desktop.updateSessionContext === 'function') {
         Desktop.updateSessionContext({
@@ -3969,7 +4508,7 @@
     }
 
     async function scanAppPdfs() {
-      pdfItemsList.innerHTML = '<div class="modal-empty-msg">Scanning app folders for PDFs...</div>';
+      pdfItemsList.innerHTML = '<div class="modal-empty-msg">Scanning app folders for files...</div>';
       appPdfsCache = [];
 
       if (!window.Desktop || !Desktop.isElectron()) {
@@ -4009,17 +4548,20 @@
           } catch (_) {}
         }
 
+        const supportedExts = (window.ViewerFormats && window.ViewerFormats.ALL_EXTS) || ['.pdf', ...IMAGE_EXTS, '.epub', '.html', '.htm', '.xhtml', '.txt', '.md', '.markdown'];
         for (const tg of targets) {
           try {
-            const res = await Desktop.listByPath(tg.target, '', { extensions: ['.pdf', ...IMAGE_EXTS], recursive: true });
+            const res = await Desktop.listByPath(tg.target, '', { extensions: supportedExts, recursive: true });
             if (res && res.ok && Array.isArray(res.files)) {
               res.files.forEach(f => {
-                if (!f.isDirectory && (f.filename.toLowerCase().endsWith('.pdf') || isImageFilename(f.filename))) {
+                if (!f.isDirectory && detectDocFormat(f.filename)) {
                   appPdfsCache.push({
                     target: tg.target,
                     targetLabel: tg.label,
                     filename: f.filename,
                     relativePath: f.relativePath || f.filename,
+                    format: detectDocFormat(f.filename),
+                    formatCat: window.ViewerFormats ? window.ViewerFormats.getFormatCategory(f.filename) : 'pdf',
                     size: f.size || 0,
                     mtimeMs: f.mtimeMs || 0
                   });
@@ -4029,7 +4571,7 @@
           } catch (_) {}
         }
 
-        renderModalList(appPdfsCache);
+        filterModalList(pdfSearchInput ? pdfSearchInput.value : '');
       } catch (err) {
         console.error('scanAppPdfs error:', err);
         pdfItemsList.innerHTML = '<div class="modal-empty-msg">Error scanning folders.</div>';
@@ -4038,7 +4580,7 @@
 
     function renderModalList(list) {
       if (list.length === 0) {
-        pdfItemsList.innerHTML = '<div class="modal-empty-msg">No PDF documents found in app folders.</div>';
+        pdfItemsList.innerHTML = '<div class="modal-empty-msg">No supported files found in app folders.</div>';
         return;
       }
 
@@ -4049,16 +4591,18 @@
 
         const kb = item.size ? (item.size / 1024).toFixed(1) + ' KB' : '';
         const dateStr = item.mtimeMs ? new Date(item.mtimeMs).toLocaleDateString() : '';
+        const fmtBadge = (item.format || 'file').toUpperCase();
 
         const openLabel = (window.i18n && typeof i18n.t === 'function' && i18n.t('btnOpen')) || 'Open';
         const newWinLabel = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfOpenInNewWindowShort')) || 'New Window';
         const newWinTitle = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfOpenInNewWindow')) || 'Open in New Window';
 
         row.innerHTML = `
-          <img src="../assets/icons/pdf-viewer.svg" class="pdf-item-icon" alt="">
+          <img src="../assets/icons/viewer.svg" class="pdf-item-icon" alt="">
           <div class="pdf-item-info">
             <div class="pdf-item-name" title="${item.relativePath}">${item.filename}</div>
             <div class="pdf-item-meta">
+              <span class="pdf-annot-badge">${fmtBadge}</span>
               <span class="pdf-annot-badge">${item.targetLabel}</span>
               <span>${item.relativePath}</span>
               <span>${kb}</span>
@@ -4085,7 +4629,7 @@
             e.stopPropagation();
             closeSearchModal();
             if (window.Desktop && Desktop.isElectron()) {
-              Desktop.openTool('pdf-viewer.html', {
+              Desktop.openTool('viewer.html', {
                 newWindow: true,
                 query: { openTarget: item.target, openRelPath: item.relativePath }
               });
@@ -4105,11 +4649,13 @@
     function filterModalList(query, filterCategory) {
       const q = (query || '').toLowerCase().trim();
       const cat = filterCategory || document.querySelector('.filter-tab.active')?.getAttribute('data-filter') || 'all';
+      const fmtCat = document.querySelector('#modalFormatTabs .format-chip.active')?.getAttribute('data-fmt') || 'all';
 
       const filtered = appPdfsCache.filter(item => {
         const matchesCat = (cat === 'all') || (item.target === cat);
+        const matchesFmt = (fmtCat === 'all') || (item.formatCat === fmtCat);
         const matchesText = !q || item.filename.toLowerCase().includes(q) || item.relativePath.toLowerCase().includes(q);
-        return matchesCat && matchesText;
+        return matchesCat && matchesFmt && matchesText;
       });
 
       renderModalList(filtered);
@@ -4120,22 +4666,23 @@
       if (window.Desktop && Desktop.isElectron()) {
         try {
           const res = await Desktop.pickAndReadFile([
-            { name: 'PDF & Images', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'] },
+            { name: 'All Supported Files', extensions: ['pdf', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif', 'epub', 'html', 'htm', 'xhtml', 'txt', 'md', 'markdown'] },
             { name: 'PDF Documents', extensions: ['pdf'] },
-            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'] }
+            { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg', 'avif'] },
+            { name: 'Books & Documents', extensions: ['epub', 'html', 'htm', 'xhtml', 'txt', 'md', 'markdown'] }
           ]);
           if (res && res.ok && res.name) {
             const diskPath = res.path || res.filePath;
             if (diskPath && typeof Desktop.checkFileOpen === 'function') {
               try {
                 const check = await Desktop.checkFileOpen({
-                  pageFile: 'pdf-viewer.html',
+                  pageFile: 'viewer.html',
                   diskPath: diskPath
                 });
                 if (check && check.isOpen) {
                   const msg = (window.i18n && typeof i18n.t === 'function' && i18n.t('pdfFileAlreadyOpenToast'))
                     ? i18n.t('pdfFileAlreadyOpenToast')
-                    : 'This PDF is already open in another window.';
+                    : 'This file is already open in another window.';
                   showToast(msg);
                   return;
                 }
@@ -4149,12 +4696,7 @@
             if (res.content) {
               const bytes = _toUint8Array(res.content);
               const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-              if (isImageFilename(res.name)) {
-                await initImageDocument(buf, res.name);
-              } else {
-                await initPdfDocument(buf, res.name);
-              }
-              await loadSidecarAnnotations();
+              await openDocumentBuffer(buf, res.name);
             }
           }
         } catch (err) {
@@ -4164,25 +4706,22 @@
         // Browser fallback: file input
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = 'application/pdf,image/*';
+        input.accept = '.pdf,image/*,.epub,.html,.htm,.xhtml,.txt,.md,.markdown';
         input.onchange = async () => {
           if (input.files && input.files[0]) {
             const file = input.files[0];
-            if (isImageFilename(file.name) || (file.type && file.type.startsWith('image/'))) {
-              const buffer = await file.arrayBuffer();
-              await initImageDocument(buffer, file.name);
-              return;
-            }
-            if (file.size > LARGE_PDF_WARN_BYTES) {
-              const buf = await file.arrayBuffer();
-              if (await _promptOpenInSystemViewer({ blobBuffer: buf, fileSizeBytes: file.size })) {
-                return;
-              }
-              initPdfDocument(buf, file.name);
+            const fmt = detectDocFormat(file.name, file.type);
+            if (!fmt) {
+              showToast('Unsupported file type.', true);
               return;
             }
             const buffer = await file.arrayBuffer();
-            initPdfDocument(buffer, file.name);
+            if (fmt === 'pdf' && file.size > LARGE_PDF_WARN_BYTES) {
+              if (await _promptOpenInSystemViewer({ blobBuffer: buffer, fileSizeBytes: file.size })) {
+                return;
+              }
+            }
+            await openDocumentBuffer(buffer, file.name, file.type);
           }
         };
         input.click();
@@ -4195,29 +4734,21 @@
 
       if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const file = e.dataTransfer.files[0];
-        const isImg = isImageFilename(file.name) || (file.type && file.type.startsWith('image/'));
-        if (file.name.toLowerCase().endsWith('.pdf') || isImg) {
+        const fmt = detectDocFormat(file.name, file.type);
+        if (fmt) {
           if (window.Desktop && Desktop.isElectron() && file.path) {
             await loadPdfFromDisk(file.path);
             return;
           }
-          if (isImg) {
-            const buffer = await file.arrayBuffer();
-            await initImageDocument(buffer, file.name);
-            return;
-          }
-          if (file.size > LARGE_PDF_WARN_BYTES) {
-            const buffer = await file.arrayBuffer();
+          const buffer = await file.arrayBuffer();
+          if (fmt === 'pdf' && file.size > LARGE_PDF_WARN_BYTES) {
             if (await _promptOpenInSystemViewer({ blobBuffer: buffer, fileSizeBytes: file.size })) {
               return;
             }
-            initPdfDocument(buffer, file.name);
-            return;
           }
-          const buffer = await file.arrayBuffer();
-          initPdfDocument(buffer, file.name);
+          await openDocumentBuffer(buffer, file.name, file.type);
         } else {
-          showToast('Please drop a valid PDF or image file.', true);
+          showToast('Please drop a valid PDF, image, EPUB, HTML, TXT, or Markdown file.', true);
         }
       }
     }
@@ -4262,10 +4793,14 @@
       const msg = {
         action: 'open-doc',
         filename: state.pdfFilename,
+        docFormat: state.docFormat || (state.isImage ? 'image' : 'pdf'),
         isImage: !!state.isImage,
         currentPage: state.currentPage || 1,
         annotations: state.annotations,
         scale: state.scale,
+        mdShowRaw: !!state.mdShowRaw,
+        txtWrap: !!state.txtWrap,
+        txtMono: !!state.txtMono,
         vW: viewport ? viewport.clientWidth : window.innerWidth,
         vH: viewport ? viewport.clientHeight : window.innerHeight,
         sx: viewport ? viewport.scrollLeft : 0,
@@ -4278,6 +4813,8 @@
         msg.diskPath = state.pdfPath;
       } else if (state.isImage && state.imageDataUrl) {
         msg.imageDataUrl = state.imageDataUrl;
+      } else if (isReflowableFormat(state.docFormat) && state.docFormat !== 'epub' && state.docTextContent !== null) {
+        msg.docTextContent = state.docTextContent;
       } else if (state.pdfBufferBase64 || state.pdfArrayBuffer) {
         if (!state.pdfBufferBase64 && state.pdfArrayBuffer) {
           state.pdfBufferBase64 = arrayBufferToBase64(state.pdfArrayBuffer);
@@ -4294,7 +4831,7 @@
 
         if (msg.action === 'mirror-ready' || msg.action === 'request-viewport') {
           projectorBtn.classList.add('projector-active');
-          if (state.pdfDoc) {
+          if (state.pdfDoc || isReflowableFormat(state.docFormat)) {
             syncChannel.postMessage(_buildOpenDocMessage());
           }
           _mirrorSendViewport();
@@ -4357,14 +4894,22 @@
             _msy = typeof msg.sy === 'number' ? msg.sy : 0;
           }
 
-          // If document already loaded with same name, simply update annotations and apply viewport
-          if (state.pdfDoc && state.pdfFilename === msg.filename) {
-            for (let p = 1; p <= state.numPages; p++) {
-              redrawPageAnnotations(p);
+          // If document already loaded with same name, simply update annotations/chapter and apply viewport
+          if ((state.pdfDoc || isReflowableFormat(state.docFormat)) && state.pdfFilename === msg.filename) {
+            if (isReflowableFormat(state.docFormat)) {
+              if (state.docFormat === 'epub' && msg.currentPage && msg.currentPage !== state.currentPage) {
+                jumpToPage(msg.currentPage);
+              }
+            } else {
+              for (let p = 1; p <= state.numPages; p++) {
+                redrawPageAnnotations(p);
+              }
             }
             _mirrorScheduleApplyViewport();
             return;
           }
+
+          const fmt = msg.docFormat || (msg.isImage ? 'image' : detectDocFormat(msg.filename));
 
           if (msg.target && msg.relPath && window.Desktop && Desktop.isElectron()) {
             let res = await Desktop.readByPath(msg.target, msg.relPath, { encoding: 'binary' });
@@ -4374,8 +4919,16 @@
             if (res && res.ok) {
               const bytes = _toUint8Array(res.content);
               const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-              if (msg.isImage || isImageFilename(msg.filename)) {
+              if (fmt === 'image') {
                 await initImageDocument(buf, msg.filename);
+              } else if (isReflowableFormat(fmt)) {
+                await initReflowableDocument(fmt, buf, msg.filename, {
+                  chapterIndex: msg.currentPage,
+                  scale: msg.scale,
+                  mdShowRaw: msg.mdShowRaw,
+                  txtWrap: msg.txtWrap,
+                  txtMono: msg.txtMono
+                });
               } else {
                 await initPdfDocument(buf, msg.filename);
               }
@@ -4391,8 +4944,16 @@
             if (res && res.ok) {
               const bytes = _toUint8Array(res.content);
               const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-              if (msg.isImage || isImageFilename(msg.filename)) {
+              if (fmt === 'image') {
                 await initImageDocument(buf, msg.filename);
+              } else if (isReflowableFormat(fmt)) {
+                await initReflowableDocument(fmt, buf, msg.filename, {
+                  chapterIndex: msg.currentPage,
+                  scale: msg.scale,
+                  mdShowRaw: msg.mdShowRaw,
+                  txtWrap: msg.txtWrap,
+                  txtMono: msg.txtMono
+                });
               } else {
                 await initPdfDocument(buf, msg.filename);
               }
@@ -4405,12 +4966,31 @@
             _mirrorScheduleApplyViewport();
             return;
           }
+          if (typeof msg.docTextContent === 'string' && isReflowableFormat(fmt)) {
+            await initReflowableDocument(fmt, msg.docTextContent, msg.filename, {
+              scale: msg.scale,
+              mdShowRaw: msg.mdShowRaw,
+              txtWrap: msg.txtWrap,
+              txtMono: msg.txtMono
+            });
+            _mirrorScheduleApplyViewport();
+            return;
+          }
           if (!msg.bufferBase64) return;
           const binary = atob(msg.bufferBase64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          if (msg.isImage || isImageFilename(msg.filename)) {
+          if (fmt === 'image') {
             await initImageDocument(bytes.buffer, msg.filename);
+          } else if (isReflowableFormat(fmt)) {
+            await initReflowableDocument(fmt, bytes.buffer, msg.filename, {
+              chapterIndex: msg.currentPage,
+              scale: msg.scale,
+              mdShowRaw: msg.mdShowRaw,
+              txtWrap: msg.txtWrap,
+              txtMono: msg.txtMono,
+              optBase64: msg.bufferBase64
+            });
           } else {
             await initPdfDocument(bytes.buffer, msg.filename, msg.bufferBase64);
           }
@@ -4425,16 +5005,24 @@
           if (msg.currentPage) state.currentPage = msg.currentPage;
           if (typeof msg.scale === 'number' && Math.abs(msg.scale - state.scale) > 0.001) {
             state.scale = msg.scale;
-            const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
-            if (mirrorPages.length > 0) {
-              _resizePagesInPlace(mirrorPages, msg.scale);
-              _scheduleZoomRerender(msg.scale, 140);
+            if (isReflowableFormat(state.docFormat)) {
+              applyReflowableScaleInPlace();
             } else {
-              await renderAllPages(state.currentPage);
+              const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
+              if (mirrorPages.length > 0) {
+                _resizePagesInPlace(mirrorPages, msg.scale);
+                _scheduleZoomRerender(msg.scale, 140);
+              } else {
+                await renderAllPages(state.currentPage);
+              }
             }
           }
           _mirrorScheduleApplyViewport();
         } else if (msg.action === 'page-turn') {
+          if (state.docFormat === 'epub') {
+            jumpToPage(msg.pageNum);
+            return;
+          }
           state.currentPage = msg.pageNum;
           if (typeof msg.sx === 'number' && typeof msg.sy === 'number') {
             _msx = msg.sx;
@@ -4453,15 +5041,32 @@
           }
           if (typeof msg.scale === 'number' && Math.abs(msg.scale - state.scale) > 0.001) {
             state.scale = msg.scale;
-            const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
-            if (mirrorPages.length > 0) {
-              _resizePagesInPlace(mirrorPages, msg.scale);
-              _scheduleZoomRerender(msg.scale, 140);
+            if (isReflowableFormat(state.docFormat)) {
+              applyReflowableScaleInPlace();
             } else {
-              await renderAllPages(state.currentPage);
+              const mirrorPages = Array.from(viewport.querySelectorAll('.page-container'));
+              if (mirrorPages.length > 0) {
+                _resizePagesInPlace(mirrorPages, msg.scale);
+                _scheduleZoomRerender(msg.scale, 140);
+              } else {
+                await renderAllPages(state.currentPage);
+              }
             }
           }
           _mirrorScheduleApplyViewport();
+        } else if (msg.action === 'md-raw-toggle') {
+          if (state.docFormat === 'md') {
+            state.mdShowRaw = !!msg.mdShowRaw;
+            renderActiveReflowableView();
+            _mirrorScheduleApplyViewport();
+          }
+        } else if (msg.action === 'txt-opts-toggle') {
+          if (state.docFormat === 'txt') {
+            state.txtWrap = !!msg.txtWrap;
+            state.txtMono = !!msg.txtMono;
+            renderActiveReflowableView();
+            _mirrorScheduleApplyViewport();
+          }
         } else if (msg.action === 'stroke-segment') {
           const pageWrap = viewport.querySelector(`.page-container[data-page-num="${msg.pageNum}"]`);
           if (!pageWrap) return;
@@ -4540,7 +5145,7 @@
     }
 
     function applyPdfZoomAction(action) {
-      if (state.isPresentation || !state.pdfDoc) return;
+      if (state.isPresentation || (!state.pdfDoc && !isReflowableFormat(state.docFormat))) return;
       if (action === 'in') {
         setScale(state.scale * 1.2, state.currentPage, { debounceMs: 80 });
       } else if (action === 'out') {
@@ -4566,7 +5171,7 @@
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'N' || e.key === 'n')) {
         e.preventDefault();
         if (window.Desktop && Desktop.isElectron()) {
-          Desktop.openTool('pdf-viewer.html', { newWindow: true });
+          Desktop.openTool('viewer.html', { newWindow: true });
         }
         return;
       }
@@ -4656,6 +5261,14 @@
       const winSel = window.getSelection();
       if (winSel && winSel.toString().trim()) {
         candidate = winSel.toString();
+      }
+
+      if (!candidate && state.docFormat === 'html' && viewport) {
+        const htmlFrame = viewport.querySelector('.viewer-html-frame');
+        if (htmlFrame && htmlFrame.contentDocument && htmlFrame.contentDocument.getSelection) {
+          const fSel = htmlFrame.contentDocument.getSelection();
+          if (fSel && fSel.toString().trim()) candidate = fSel.toString();
+        }
       }
 
       if (!candidate && document.activeElement && document.activeElement.classList.contains('pdf-text-box-content')) {

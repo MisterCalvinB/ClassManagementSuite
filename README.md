@@ -52,7 +52,7 @@ Welcome to the **Class Management Tools** comprehensive documentation. This guid
   - [Administrative Groups (`administrative-groups.html`)](#administrative-groupshtml)
   - [Document Editor (`document-editor.html`)](#document-editorhtml)
   - [Reference Builder (`reference-builder.html`)](#reference-builderhtml)
-  - [PDF Viewer (`pdf-viewer.html`)](#pdf-viewerhtml)
+  - [Viewer (`viewer.html`)](#viewerhtml)
   - [How-To Guide (`how-to.html`)](#how-tohtml)
   - [Data Location (Legacy) (`data-location.html`)](#data-locationhtml)
 
@@ -111,8 +111,8 @@ If you downloaded a ZIP file, extract the entire folder before launching. Double
 | [`class-plan.html`](#class-planhtml) | Interactive seating plan designer (Grid, U-Shape, Pods) with PDF, DOCX, XLSX, and CSV export | Shared with [Class Management](#class-managementhtml) |
 | [`schedule-maker.html`](#schedule-makerhtml) | Plan oral exam sessions with concurrent prep/exam timing, SEN accommodations, and saved schedules | Feeds into [Oral Marking](#oral-markinghtml) |
 | [`oral-marking.html`](#oral-markinghtml) | Run live oral exam sessions with prep/exam timers, criteria scoring, and presenter view | Saves grades directly to [Grade Sheet](#grade-sheethtml) |
-| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml), [Document Editor](#document-editorhtml) & [PDF Viewer](#pdf-viewerhtml) |
-| [`pdf-viewer.html`](#pdf-viewerhtml) | Dedicated PDF Viewer & Annotator: open, view, draw freehand with pen, highlight text, insert movable notes, search all app PDFs, and present on secondary display | Links directly to [File Manager](#file-managerhtml) & Presentation screens |
+| [`file-manager.html`](#file-managerhtml) | Data file browser, rename, move/copy, sync, and backup tool supporting `.cstz` single-file constellation archives | Links directly to [Board](#boardhtml), [Document Editor](#document-editorhtml) & [Viewer](#viewerhtml) |
+| [`viewer.html`](#viewerhtml) | Multi-format **Viewer & Annotator**: open and present PDF, image, EPUB, HTML, TXT, and Markdown files with pen/highlighter annotations (PDF/images), TOC navigation (EPUB), dictionary lookup, and secondary display presentation | Links directly to [File Manager](#file-managerhtml) & Presentation screens |
 | [`class-management.html`](#class-managementhtml) | Live classroom session runner (timer, SVG class modes, ambient soundscapes, scoring, badges, random picker, phone remote (beta)) | Broadcasts to [Board](#boardhtml) & Presentation screens |
 | [`board.html`](#boardhtml) | Infinite mind-map canvas, `.cstz` zipped archive storage, autosave, voice recordings with trimming, clock constellation widget, compact presentation mirror toolbar, custom keyboard shortcuts, fit-text, blink animation, student input notes (beta) | Links to [Planner](#plannerhtml), [Class Management](#class-managementhtml) |
 | [`learning-tools.html`](#learning-toolshtml) | Student-facing vocabulary and grammar games, multiplayer host (beta), and team mode | Sourced from [Manage Database](#manage-databasehtml) |
@@ -179,12 +179,12 @@ Classes and students are linked by persistent UUIDs (`st-…` for students, UUID
 </details>
 
 <details>
-<summary><strong>Universal Export Standards & Document / PDF Viewer Workflow</strong></summary>
+<summary><strong>Universal Export Standards & Document / Viewer Workflow</strong></summary>
 
 Whenever files are exported from any tool across the suite:
 - **"Open File"**: Launches the exported file in the default operating system viewer.
 - **"Open with Document Editor"**: Displayed automatically for Markdown (`.md`) and HTML (`.html`) files to open directly in [Document Editor](#document-editorhtml) with Monaco syntax highlighting and live preview. Edits can be saved directly back to the file with `Ctrl+S`.
-- **"Open with PDF Viewer"**: Displayed automatically for PDF (`.pdf`) files to open directly in [PDF Viewer](#pdf-viewerhtml) with high-fidelity PDF.js rendering, annotation pens/highlighters, and presentation display modes.
+- **"Open with Viewer"**: Displayed automatically for PDF (`.pdf`), image, EPUB (`.epub`), HTML, TXT, and Markdown files to open directly in [Viewer](#viewerhtml) with high-fidelity rendering, annotations (PDF/images), dictionary lookup, and presentation display modes.
 - **"Open Folder"**: Reveals and highlights the exported file or folder in the system file explorer.
 - **Semantic HTML & Stylesheets**: HTML exports across all tools adhere to the `export-standards` skill, using clean semantic CSS classes and embedded `<style>` blocks rather than repetitive inline styles, enabling rapid re-styling in Document Editor.
 </details>
@@ -492,10 +492,10 @@ Five tools support multi-monitor presentation modes:
 The central entry point for the suite. Opens on app launch and provides quick navigation, upcoming agenda items, and card customization.
 
 #### Key Features
-- **Collapsible Tool Sections & Disk Sync**: Organize apps into custom or default categories (*Classroom*, *Students*, *Content*, *System*). Collapse secondary sections into compact bars with tool count pills to keep primary tools front and center. Toggling or reordering sections automatically persists to `user/launcher-config.js` and synchronizes across teacher workstations. Typing in the search bar (`/`) temporarily expands matching collapsed sections.
-- **Automatic Post-Sync Live Updates**: Performing a sync (via the header **Sync** button, General Config, remote cloud sync, or background auto-sync) immediately and seamlessly refreshes the Launcher in real-time. Synced configurations (`config.js`), card settings/notes (`launcher-config.js`), recent documents and mindmaps, pending to-dos (`todos.js`), upcoming schedule events and tests, tags, and class rosters are reloaded and rendered in place without requiring a window reload.
+- **Collapsible Tool Sections & Disk Sync**: Organize apps into custom or default categories (*Classroom*, *Students*, *Content*, *System*). Collapse secondary sections into compact bars with tool count pills to keep primary tools front and center. Toggling or reordering sections automatically persists to `user/launcher-config.json` and synchronizes across teacher workstations. Typing in the search bar (`/`) temporarily expands matching collapsed sections.
+- **Automatic Post-Sync Live Updates**: Performing a sync (via the header **Sync** button, General Config, remote cloud sync, or background auto-sync) immediately and seamlessly refreshes the Launcher in real-time. Synced configurations (`app-settings.json`, `export-config.json`, `config.js`), card settings/notes (`launcher-config.json`), recent documents and mindmaps, pending to-dos (`todos.json`), upcoming schedule events and tests, tags, and class rosters are reloaded and rendered in place without requiring a window reload.
 - **Instant Tool Search (`/` or `Ctrl+K`) & Global Quick Switcher (`Ctrl+K`)**: On the Launcher, typing `/` filters tool cards across all sections (`Enter` launches the top match; `Escape` clears). Across **every** tool window and the Launcher, pressing `Ctrl+K` opens the **Global Quick Switcher** (`js/shared/quick-switcher.js`, auto-loaded by `js/shared/menus.js`), indexing tools, classes and students from `class-groups.js`, recent documents/constellations, and live Dictionary word bank results (selecting a word opens or focuses Dictionary on that entry) with full keyboard navigation.
-- **Window Reorder Helper (`Ctrl+Shift+W`)**: Global Light Neobrutalist modal (`js/shared/window-helper.js`, also accessible from the hamburger menu, Quick Switcher, and Board / Class Management presentation bars) to drag-to-reorder, focus, minimize, pin, maximize, center, ratio-snap (**20%–80%** or custom % left/right/top/bottom), move across displays, or tile (**50/50**, **20/80**, **25/75**, **30/70**, **70/30**, **75/25**, **80/20**, **Main + Stack**, **Grid**, **Stack**, **Cascade** with configurable **Gap** and target display) open **Main View** and **Mirrored / Presentation View** windows, swap Main and Mirror displays in one click, and save/duplicate/apply persisted custom app+geometry presets (`user/window-presets.json`, saved as **% ratio by default** with optional pixel mode).
+- **Window Reorder Helper (`Ctrl+Shift+W`)**: Global Light Neobrutalist modal (`js/shared/window-helper.js`, also accessible from the hamburger menu, Quick Switcher, and Board / Class Management presentation bars) to drag-to-reorder open **Main View** and **Mirrored / Presentation View** windows, snap (**25%–80%** left/right/top/bottom/center), focus, minimize, pin, maximize, move across displays, or tile (**Split** with selectable **50/50**, **30/70**, **70/30**, **20/80**, **80/20**, **25/75**, **75/25** ratios, **Main + Stack**, **Grid**, **Stack**, **Cascade** with configurable **Gap** and target display), swap Main and Mirror displays in one click, and save/pin/apply persisted layout presets (`user/window-presets.json`, saved as **% ratio**).
 - **View Density Switcher (Compact Tiles vs. Detailed Cards)**: Switch between a sleek, streamlined **Compact** view (distraction-free app tiles with centered icons, bold typography, descriptions in hover tooltips, and hidden drag handles) and **Detailed** view (full descriptive paragraphs) with preference saved in `localStorage`.
 - **Decluttered Light Neobrutalist Card Styling**: Refined warm neutral canvas (`#f5f5f0`), soft dark charcoal borders (`2px solid #333333`), tactile zero-blur offset shadows (`3px 3px 0 #555555`), and subtle hover-only controls for settings (⚙), tool documentation (**?**), and reordering handles (⠿).
 - **Instant Tool Documentation (? Button)**: Hovering over any app card in either Compact or Detailed view reveals a tactile **?** button. Clicking it immediately launches the built-in [How To](#how-tohtml) manual scrolled and highlighted directly to that tool's documentation section.
@@ -941,7 +941,7 @@ Lesson, assessment, and holiday scheduling tool with export capabilities.
   - **Grade Sheet Test Sync**: Linking a test in Planner automatically registers and establishes bidirectional graph edges with [Grade Sheet](#grade-sheethtml).
 - **Linked Board Files**: Right-click any entry to generate or open an attached [Board](#boardhtml) constellation map (`.cstz`).
 - **Weeks Navigation Drawer**: Collapsible left sidebar displaying all weeks in the active term with auto-dimming of past weeks and smooth scrolling.
-- **To-do Drawer & Multi-Class Tasks**: Integrated task drawer synced with `user/todos.js`, the central link graph engine (`LinksService`), and Launcher sidebar. Supports linking multiple classes per task with interactive tactile toggle chips, due dates, custom reminders, subtasks, 12x12 SVG link headers with descriptor subtext, and automatic bi-directional graph synchronization connecting tasks (`cmt:todo:...`) to Planner entries (`cmt:slot:...`), Board mindmaps (`cmt:board:...`), Grade Sheets (`cmt:gradesheet:...`), and Class groups (`cmt:class:...`).
+- **To-do Drawer & Multi-Class Tasks**: Integrated task drawer synced with `user/todos.json`, the central link graph engine (`LinksService`), and Launcher sidebar. Supports linking multiple classes per task with interactive tactile toggle chips, due dates, custom reminders, subtasks, 12x12 SVG link headers with descriptor subtext, and automatic bi-directional graph synchronization connecting tasks (`cmt:todo:...`) to Planner entries (`cmt:slot:...`), Board mindmaps (`cmt:board:...`), Grade Sheets (`cmt:gradesheet:...`), and Class groups (`cmt:class:...`).
 - **Export Options**: Export schedule to **ICS**, **PDF**, **CSV**, **HTML Table**, or **DOCX** with universal export modals providing direct **Open File**, **Open Folder**, and **Open with Document Editor** (for HTML) actions.
 
 ---
@@ -1003,7 +1003,7 @@ Data file manager with built-in search, rename, move, and synchronization featur
 - **Tags & Units Tab**: Suite-wide explorer to browse, search, and aggregate resources linked to any `#tag` (e.g. `#unit-1`, `#revision`, `#oral-exam`). Features quick tag pills, real-time search filtering, category tabs (`[ALL]`, `[DOCS]`, `[LESSONS]`, `[MINDMAPS]`, `[TESTS]`, `[PLANNER]`, `[GRADES]`, `[360° DOSSIER]`), and 1-click `[OPEN]`, `[360° DOSSIER]`, and `[LINKS & TAGS]` modals.
 - **Archive & Rollover Tab**: Complete year-end and term rollover suite. Teachers can archive completed school years, clean up obsolete sessions, and reset rosters safely.
 - **Data Health Tab**: Cross-tool integrity scanner (`tab-health`, `js/file-manager/health-check.js`) that inspects `class-groups.js`, `user/grades/`, `planner-config.js`, and `user/constellations/` for orphaned class UUIDs and unreadable files, with summary actions (**Auto-Relink All**, **Open Group Editor**, **Re-scan**) and per-issue controls (**Relink** by matching name or class selector, **Unlink Class**, **Open in Tool**, **Open File**, **Show in Folder**, **Remove Entry** / **Delete File**).
-- **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs. Automatically handles `.cstz` board archives under the `mindmaps` category.
+- **Sync Tab**: Local and background auto-sync configuration with conflict resolution dialogs, including side-by-side **Compare & Merge** (with JSON/JS pretty-printing, per-hunk resolution, manual editing, and optional `.bak` archiving) when both copies have been modified since the last sync. Automatically handles `.cstz` board archives under the `mindmaps` category.
 
 <details>
 <summary><strong>Keyboard Shortcuts</strong></summary>
@@ -1617,28 +1617,27 @@ Multi-format desktop document editor and typesetting suite supporting **Typst (`
 
 ---
 
-### pdf-viewer.html
+### viewer.html
 
-Dedicated desktop **PDF Viewer & Annotator** designed for classroom worksheets, textbooks, exam review, and reading materials.
+Dedicated desktop **Viewer & Annotator** designed for classroom worksheets, textbooks, ebooks, notes, and reading materials across **PDF, images, EPUB, HTML, TXT, and Markdown (`.md`)**.
 
 #### Features
-- **High-DPI PDF Rendering & Selectable Text Layer**: Offline PDF rendering powered by Mozilla PDF.js at native device pixel ratio with continuous vertical scroll, zoom controls (50% to 300%, Fit Width, Fit Page), and a native selectable text layer for selecting and copying page text.
-- **Dictionary Lookup (`Ctrl+Shift+D`)**: Select any text on a page or inside text notes to display a floating Light Neobrutalist lookup pill (`🔍 Look up in Dictionary`). Also accessible via right-click, the top **Files** dropdown menu, and the header **Dictionary** button (<kbd>Ctrl+Shift+D</kbd>) to search words in [Dictionary](#dictionaryhtml) companion window.
-- **Interactive Annotation Engine**:
-  - **Pen**: Smooth Bézier inking with teacher color palette (Charcoal, Crimson, Slate Blue, Emerald, Purple, Warm Gold) and configurable stroke widths (2px to 16px).
-  - **Highlighter**: Semi-transparent multiply blend highlighting that preserves sharp text legibility underneath.
-  - **Text Boxes**: Click anywhere on a page to insert movable, resizable, and editable text boxes.
-  - **Eraser & Undo**: Click-to-erase strokes and complete undo/redo stack (`Ctrl+Z`, `Ctrl+Y`).
-  - **Laser Pointer (`L`)**: Interactive Board-style laser pointer with glowing cursor dot, click-to-leave-mark (auto-fading), drag-to-trail, and double-click pulse ring—mirrored live to Presentation Mode at 60fps (`Esc` to exit).
-- **Picture & Image Support**: Open, zoom, annotate (pen, highlighter, text boxes, laser pointer), present on secondary display, and export `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.svg`, and `.avif` images alongside PDFs.
+- **Multi-Format Support**:
+  - **PDF (`.pdf`)**: Offline high-DPI rendering powered by Mozilla PDF.js with continuous vertical scroll, zoom controls, selectable text layer, and non-destructive sidecar annotations.
+  - **Images (`.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.svg`, `.avif`)**: Zoom, pan, annotate, and present on secondary display.
+  - **EPUB (`.epub`)**: Built-in zero-dependency EPUB reader with chapter/TOC sidebar navigation, embedded image extraction, and chapter stepping.
+  - **HTML (`.html`, `.htm`, `.xhtml`)**: Sandboxed HTML rendering preserving embedded styles with script isolation and dictionary text selection.
+  - **Markdown (`.md`, `.markdown`) & Plain Text (`.txt`)**: Rendered Markdown with KaTeX math support and a Raw/Rendered toggle; clean TXT reader with line-wrap and monospace toggles.
+- **Dictionary Lookup (`Ctrl+Shift+D`)**: Select any text on a page, document, or inside text notes to display a floating Light Neobrutalist lookup pill. Also accessible via the **Files** dropdown menu and header **Dictionary** button (<kbd>Ctrl+Shift+D</kbd>) to search words in [Dictionary](#dictionaryhtml).
+- **Interactive Annotation Engine (PDF & Images)**:
+  - **Pen**, **Highlighter**, **Text Boxes**, **Eraser & Undo** (`Ctrl+Z`, `Ctrl+Y`), and **Laser Pointer (`L`)** (available across all formats).
 - **Suite-Wide Context Menu & Modal Shortcuts**:
-  - Direct opening from **File Manager** (`pages/file-manager.html`) and **Launcher** (`launcher.html`) via "Open in PDF Viewer ↗" buttons and right-click context menus for both PDFs and images.
-  - **Board** (`pages/board.html`): Right-click any canvas image, Manage Media item, or page thumbnail to open it in PDF Viewer.
-  - **Document Editor** (`pages/document-editor.html`): Right-click any image in the Preview or WYSIWYG pane to open it in PDF Viewer.
-  - **Export Modal, Quick Switcher & Tag/Link Preview**: Exported images, To-Print images, and linked/dossier pictures include direct "Open with PDF Viewer" shortcuts.
-  - Double-click on any `.pdf` row in File Manager launches PDF Viewer immediately.
-- **App PDF Search Modal**:
-  - Top "Files" menu contains **Search App PDFs...**, scanning all user folders (`user/`, `user/to-print/`, `user/doceditor/`) in real-time with instant text filtering, folder categories, file size, modification dates, and "Annotated" indicators.
+  - Direct opening from **File Manager** (`pages/file-manager.html`) and **Launcher** (`launcher.html`) via "Open in Viewer ↗" buttons and right-click context menus.
+  - **Board** (`pages/board.html`) & **Document Editor** (`pages/document-editor.html`): Right-click images to open in Viewer.
+  - **Export Modal, Quick Switcher & Tag/Link Preview**: Direct "Open with Viewer" shortcuts.
+  - Double-click on `.pdf`, `.epub`, or image rows in File Manager launches Viewer immediately.
+- **App File Search Modal**:
+  - Top "Files" menu contains **Search App Files...**, scanning user folders (`user/`, `user/to-print/`, `user/doceditor/`, and custom export roots) with folder tabs and format filter chips (`All`, `PDF`, `Images`, `EPUB`, `HTML / MD / TXT`).
 - **Non-Destructive Sidecar Persistence**:
   - Annotations are stored as normalized vector coordinates `[0.0, 1.0]` in companion `.cmt-annot.json` files, leaving original PDFs 100% untouched while allowing annotations to be reloaded and edited anytime.
 - **Multi-Window PDF Architecture & Collision Protection**:

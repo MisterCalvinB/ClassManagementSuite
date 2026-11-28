@@ -2,6 +2,7 @@
 'use strict';
 
 const { runBackupWorker } = require('./backup-worker-client');
+const { readSyncPair, writeMergedSyncFile } = require('./sync-diff-merge');
 
 function registerBackupSyncIpc(ctx) {
   const {
@@ -1931,6 +1932,43 @@ function registerBackupSyncIpc(ctx) {
     return { ok: true, copied: result.copied, deleted: allDeleted.length, deletedFiles: allDeleted, errors: allErrors, conflicts: allConflicts, newFiles: allNewFiles, added: allAdded, syncLocation };
   });
 
+  ipcMain.handle('app:read-sync-pair', async (_event, { relativePath } = {}) => {
+    const syncLocation = await loadSavedSyncLocation();
+    if (!syncLocation) {
+      return { ok: false, error: 'No sync location configured.' };
+    }
+    try {
+      await fs.access(syncLocation, fsSync.constants.R_OK);
+    } catch {
+      return { ok: false, error: 'Sync folder is not accessible.' };
+    }
+
+    const relPath = String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
+    if (!relPath || relPath.split('/').some(seg => seg === '..' || seg === '.')) {
+      return { ok: false, error: 'Invalid path.' };
+    }
+
+    const writableRoot = getWritableRootDir();
+    const srcDir = path.resolve(path.join(writableRoot, 'user'));
+    const destDir = path.resolve(await resolveSyncDestDir(syncLocation));
+    const srcPath = path.resolve(path.join(srcDir, relPath));
+    const destPath = path.resolve(path.join(destDir, relPath));
+
+    if (!srcPath.startsWith(srcDir + path.sep) && srcPath !== srcDir) {
+      return { ok: false, error: 'Path is outside data root.' };
+    }
+    if (!destPath.startsWith(destDir + path.sep) && destPath !== destDir) {
+      return { ok: false, error: 'Path is outside sync root.' };
+    }
+
+    try {
+      const pair = await readSyncPair({ fs, path, crypto }, srcPath, destPath);
+      return { ...pair, relativePath: relPath };
+    } catch (err) {
+      return { ok: false, error: String(err?.message || err) };
+    }
+  });
+
   ipcMain.handle('app:apply-sync-choices', async (_event, { decisions = [] } = {}) => {
     const syncLocation = await loadSavedSyncLocation();
     if (!syncLocation) {
@@ -2126,6 +2164,25 @@ function registerBackupSyncIpc(ctx) {
           } else {
             archivedAllPaths.push(relPath);
           }
+          applied++;
+        } else if (decision.action === 'merge') {
+          if (typeof decision.mergedContent !== 'string') {
+            errors.push({ relativePath: relPath, error: 'Missing merged content.' });
+            continue;
+          }
+          const backupBeforeMerge = Boolean(decision.backupBeforeMerge);
+          const stat = await writeMergedSyncFile(
+            { fs, path },
+            srcPath,
+            destPath,
+            decision.mergedContent,
+            { backupBeforeMerge, bakIfExists }
+          );
+          if (backupBeforeMerge) {
+            archivedFiles.push({ path: relPath, side: 'both' });
+          }
+          _pendingBaselineEntries.push({ relativePath: relPath, mtimeMs: stat.mtimeMs, size: stat.size });
+          savedFiles.push({ path: relPath, direction: 'both', action: 'merged', size: stat.size });
           applied++;
         }
       } catch (err) {

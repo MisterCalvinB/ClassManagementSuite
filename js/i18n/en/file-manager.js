@@ -64,7 +64,7 @@
   "fmDuplicate": "Duplicate",
   "fmDuplicateFailed": "Could not duplicate file.",
   "fmEditInDocEditor": "Edit in Doc Editor",
-  "fmOpenInPdfStudio": "Open in PDF Viewer",
+  "fmOpenInPdfStudio": "Open in Viewer",
   "fmRenameEmpty": "Name cannot be empty.",
   "fmRenameInvalidChars": "Name contains invalid characters (\\ / : * ? \" < > |).",
   "fmRenameNameTooLong": "Name is too long (max 255 characters).",

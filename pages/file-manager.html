@@ -436,6 +436,9 @@ var IMAGE_EXTS = ['.png','.jpg','.jpeg','.gif','.webp','.svg','.bmp','.avif'];
 function isImageFile(name) {
   return /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i.test(String(name || ''));
 }
+function isViewerSupportedFile(name) {
+  return /\.(pdf|png|jpe?g|gif|webp|svg|bmp|avif|epub|html?|xhtml|txt|md|markdown)$/i.test(String(name || ''));
+}
 var SOUND_EXTS = ['.mp3','.wav','.ogg','.m4a','.aac'];
 var DOC_EXTS = IMAGE_EXTS.concat(SOUND_EXTS, ['.pdf','.epub']);
 
@@ -1047,8 +1050,8 @@ function makeRfRow(file, isSession, snippet, isArchived) {
           Desktop.openTool('board.html', {
             query: { openSession:'1', openTarget:f.target, openFilename:f.filename, openRelPath:f.relativePath||f.filename }
           });
-        } else if (/\.pdf$/i.test(f.filename)) {
-          Desktop.openTool('pdf-viewer.html', {
+        } else if (/\.(pdf|epub)$/i.test(f.filename) || isImageFile(f.filename)) {
+          Desktop.openTool('viewer.html', {
             query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename }
           });
         } else {
@@ -1112,16 +1115,16 @@ function makeRfRow(file, isSession, snippet, isArchived) {
       });
     })(file);
     acts.appendChild(openBtn);
-  } else if (/\.pdf$/i.test(file.filename)) {
+  } else if (isViewerSupportedFile(file.filename)) {
     var pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn-open';
-    pdfBtn.textContent = tt('rfOpenInPdfStudio', 'Open in PDF Viewer ↗');
+    pdfBtn.textContent = tt('rfOpenInPdfStudio', 'Open in Viewer ↗');
     (function(f) {
       pdfBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) {
           showToast(tt('rfElectronRequired','Requires Electron app.'), true); return;
         }
-        Desktop.openTool('pdf-viewer.html', {
+        Desktop.openTool('viewer.html', {
           query: { openTarget: f.target || 'user', openRelPath: f.relativePath || f.filename }
         });
       });
@@ -1446,10 +1449,17 @@ var SYSTEM_FOLDERS = new Set([
 var SYSTEM_FILES = new Set([
   'config.js',
   'launcher-config.js',
+  'launcher-config.json',
+  'remote-config.json',
+  'participation-tracker-config.json',
+  'admin-groups-config.json',
+  'todos.json',
   'report-options.js',
+  'report-options.json',
   'class-groups.js',
   'roles.js',
   'board-config.js',
+  'board-config.json',
   'board-sessions-backup.json',
   'ui-prefs.json'
 ]);
@@ -2466,9 +2476,9 @@ function makeBrowseRow(file) {
 
   row.addEventListener('dblclick', function(ev) {
     if (ev.target.closest('button,input,a')) return;
-    if (/\.pdf$/i.test(file.filename)) {
+    if (/\.(pdf|epub)$/i.test(file.filename) || isImageFile(file.filename)) {
       if (window.Desktop && Desktop.isElectron()) {
-        Desktop.openTool('pdf-viewer.html', {
+        Desktop.openTool('viewer.html', {
           query: { openTarget: file.target || browseTarget, openRelPath: file.relativePath || file.filename }
         });
       }
@@ -2563,14 +2573,14 @@ function makeBrowseRow(file) {
     acts.appendChild(boardBtn);
   }
 
-  if (/\.pdf$/i.test(file.filename) || isImageFile(file.filename)) {
+  if (isViewerSupportedFile(file.filename)) {
     var pdfBtn = document.createElement('button');
     pdfBtn.className = 'btn-open';
-    pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in PDF Viewer') + ' ↗';
+    pdfBtn.textContent = tt('fmOpenInPdfStudio', 'Open in Viewer') + ' ↗';
     (function(f) {
       pdfBtn.addEventListener('click', function() {
         if (!window.Desktop || !Desktop.isElectron()) return;
-        Desktop.openTool('pdf-viewer.html', {
+        Desktop.openTool('viewer.html', {
           query: { openTarget: f.target || browseTarget, openRelPath: f.relativePath || f.filename }
         });
       });
@@ -3112,11 +3122,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
       }
 
-      var isPdfOrImg = /\.pdf$/i.test(file.filename) || isImageFile(file.filename);
-      if (isPdfOrImg) {
-        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
+      if (isViewerSupportedFile(file.filename)) {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
-          Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
+          Desktop.openTool('viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
         }});
       }
 
@@ -3276,11 +3285,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }});
       }
 
-      var isPdfOrImg = /\.pdf$/i.test(file.filename) || isImageFile(file.filename);
-      if (isPdfOrImg) {
-        items.push({ label: tt('fmOpenInPdfStudio', 'Open in PDF Viewer'), action: function() {
+      if (isViewerSupportedFile(file.filename)) {
+        items.push({ label: tt('fmOpenInPdfStudio', 'Open in Viewer'), action: function() {
           if (!window.Desktop || !Desktop.isElectron()) return;
-          Desktop.openTool('pdf-viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
+          Desktop.openTool('viewer.html', { query: { openTarget: file.target, openRelPath: relPath } });
         }});
       }
 

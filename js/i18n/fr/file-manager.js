@@ -64,7 +64,7 @@
   "fmDuplicate": "Dupliquer",
   "fmDuplicateFailed": "Impossible de dupliquer le fichier.",
   "fmEditInDocEditor": "Modifier dans l'éditeur de documents",
-  "fmOpenInPdfStudio": "Ouvrir dans PDF Viewer",
+  "fmOpenInPdfStudio": "Ouvrir dans la Visionneuse",
   "fmRenameEmpty": "Le nom ne peut pas être vide.",
   "fmRenameInvalidChars": "Le nom contient des caractères invalides (\\ / : * ? \" < > |).",
   "fmRenameNameTooLong": "Le nom est trop long (255 caractères max).",

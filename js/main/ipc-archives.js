@@ -189,6 +189,7 @@ function registerArchiveIpc(ctx) {
 
         const plannerDirCount = await moveDirContentsToArchive('planner', 'planner');
         recordCounts.plannerEntries += plannerDirCount;
+        await moveFileToArchive('todos.json', '');
         await moveFileToArchive('todos.js', '');
       }
 

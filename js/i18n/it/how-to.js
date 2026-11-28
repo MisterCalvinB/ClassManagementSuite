@@ -254,7 +254,7 @@
   "ht_de_a2": "<p>Scegli un modello pronto o apri il pannello <strong>Stile / CSS</strong>. Clicca su <strong>Guida CSS</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> nella barra CSS (o in <strong>Strumenti</strong>) per aprire il tutorial CSS interattivo ed esplorare proprietà CSS, tag HTML, opzioni e relativi significati.</p>",
   "ht_de_q3": "Come esporto il documento?",
   "ht_de_a3": "<p>Clicca <strong>Esporta PDF</strong> o <strong>Esporta HTML</strong> per un file pronto per la stampa.</p>",
-  "ht_sec_pdf_title": "Lettore PDF",
+  "ht_sec_pdf_title": "Visualizzatore",
   "ht_sec_pdf_desc": "Apri, annota e proietta qualsiasi PDF dentro l'app.",
   "ht_pdf_q1": "Come scrivo o evidenzio su un PDF?",
   "ht_pdf_a1": "<p>Apri un PDF, scegli <strong>Penna</strong> o <strong>Evidenziatore</strong> e disegna. Le annotazioni si salvano da sole. Usa lo strumento <strong>Laser</strong> (<code>L</code>) per puntare, cliccare per lasciare un segno temporaneo, trascinare per creare una scia o fare doppio clic per un impulso — sincronizzato dal vivo con la Modalità presentazione.</p>",

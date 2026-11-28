@@ -1679,6 +1679,17 @@
       }
     }
 
+    function withBoardCardConfig(opts) {
+      var out = Object.assign({}, opts || {});
+      try {
+        var cardCfg = JSON.parse(localStorage.getItem('cmt-card-config-board') || '{}');
+        var size = cardCfg ? Number(cardCfg.windowSize) : 0;
+        if (!out.windowSizeRatio && size >= 20 && size <= 100) out.windowSizeRatio = size / 100;
+        if (!out.windowPosition && cardCfg && cardCfg.windowPosition) out.windowPosition = cardCfg.windowPosition;
+      } catch (_) {}
+      return out;
+    }
+
     function openLinkedBoard(entryId) {
       var sessions = boardSessionsByEntryId[entryId];
       if (!sessions || !sessions.length) return;
@@ -1686,17 +1697,17 @@
       var s = (files.length ? files : sessions).slice().sort(function (a, b) { return b.savedAt - a.savedAt; })[0];
       if (!window.Desktop || !Desktop.isElectron()) return;
       if (s.openKind === 'file' && s.target && s.relativePath) {
-        Desktop.openTool('board.html', {
+        Desktop.openTool('board.html', withBoardCardConfig({
           query: {
             openSession: '1',
             openTarget: s.target,
             openFilename: s.filename || (String(s.relativePath).split('/').pop() || ''),
             openRelPath: s.relativePath
           }
-        });
+        }));
         return;
       }
-      Desktop.openTool('board.html', { query: { openLocalSession: '1', openLocalMode: s.section, openLocalEntryId: s.id } });
+      Desktop.openTool('board.html', withBoardCardConfig({ query: { openLocalSession: '1', openLocalMode: s.section, openLocalEntryId: s.id } }));
     }
 
     function plannerBoardLinkId(slot, entry) {
@@ -10250,7 +10261,11 @@
     async function persistTodos() {
       if (!window.Desktop || !Desktop.isElectron()) return;
       window.TODOS = todos;
-      await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+      if (typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'todos.json', todos);
+      } else {
+        await Desktop.saveText('user', 'todos.js', 'window.TODOS = ' + JSON.stringify(todos, null, 2) + ';\n');
+      }
       if (Desktop.reloadPlannerReminders) Desktop.reloadPlannerReminders();
     }
 

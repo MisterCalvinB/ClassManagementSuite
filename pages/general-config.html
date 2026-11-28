@@ -178,7 +178,7 @@
           <!-- ── Export Root Folders ────────────────────────── -->
           <section class="config-section" id="gcExportRootsSection">
             <h2 data-i18n="gcSecExportRoots">Export Root Folders</h2>
-            <p class="section-desc" data-i18n="gcSecExportRootsDesc">Manage quick-save root folders (modeled after user/to-print) available in export dialogs, Quick Switcher, and PDF Viewer.</p>
+            <p class="section-desc" data-i18n="gcSecExportRootsDesc">Manage quick-save root folders (modeled after user/to-print) available in export dialogs, Quick Switcher, and Viewer.</p>
             <div style="display:flex;justify-content:flex-end;margin-top:10px;">
               <button type="button" class="neo-btn neo-btn-sm neo-btn-primary" id="gcAddExportRootBtn" style="display:inline-flex;align-items:center;gap:6px;">
                 <img src="../assets/icons/plus.svg" style="width:14px;height:14px;" alt="">
@@ -1104,6 +1104,64 @@
       <div class="modal-footer">
         <button type="button" class="btn-cancel" id="syncConflictCancel" data-i18n="gcCancel">Cancel</button>
         <button type="button" class="btn-apply" id="syncConflictApply" data-i18n="gcApply">Apply</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── sync compare & merge modal ─────────────────────── -->
+  <div class="overlay" id="syncCompareOverlay" role="dialog" aria-modal="true" aria-labelledby="syncCompareTitle">
+    <div class="modal sync-compare-modal">
+      <div class="sync-compare-header">
+        <div class="sync-compare-title-wrap">
+          <h2 id="syncCompareTitle" data-i18n="gcSyncCompareTitle">Compare &amp; Merge</h2>
+          <code id="syncComparePath" class="sync-compare-path"></code>
+        </div>
+        <button type="button" class="sync-compare-close-btn" id="syncCompareCloseBtn" aria-label="Close">
+          <img src="../assets/icons/close.svg" class="btn-icon" alt="" />
+        </button>
+      </div>
+      <div class="sync-compare-meta-bar" id="syncCompareMetaBar"></div>
+      <div class="sync-compare-toolbar">
+        <label id="syncCompareFormatLbl" class="sync-compare-chk">
+          <input type="checkbox" id="syncCompareFormatChk" checked>
+          <span data-i18n="gcSyncFormatJson">Format JSON / JS</span>
+        </label>
+        <label class="sync-compare-chk">
+          <input type="checkbox" id="syncCompareUnchangedChk">
+          <span data-i18n="gcSyncShowUnchanged">Show unchanged lines</span>
+        </label>
+        <div class="sync-compare-toolbar-spacer"></div>
+        <button type="button" class="btn btn-outline sync-cmp-btn" id="syncCompareAllAppBtn" data-i18n="gcSyncAllApp">All App</button>
+        <button type="button" class="btn btn-outline sync-cmp-btn" id="syncCompareAllSyncBtn" data-i18n="gcSyncAllSync">All Sync</button>
+        <button type="button" class="btn btn-outline sync-cmp-btn" id="syncComparePrevDiffBtn" data-i18n-help="gcSyncPrevDiff" title="Previous difference">
+          <img src="../assets/icons/arrow-up.svg" class="btn-icon" alt="" />
+        </button>
+        <span id="syncCompareDiffCount" class="sync-compare-diff-count"></span>
+        <button type="button" class="btn btn-outline sync-cmp-btn" id="syncCompareNextDiffBtn" data-i18n-help="gcSyncNextDiff" title="Next difference">
+          <img src="../assets/icons/arrow-down.svg" class="btn-icon" alt="" />
+        </button>
+      </div>
+      <div class="sync-compare-col-headers">
+        <div class="sync-compare-col-head" data-i18n="gcSyncCurrentApp">Current (App)</div>
+        <div class="sync-compare-col-head" data-i18n="gcSyncFolderCol">Sync Folder</div>
+      </div>
+      <div class="sync-compare-diff-body" id="syncCompareDiffBody"></div>
+      <div class="sync-compare-merge-section" id="syncCompareMergeSection">
+        <div class="sync-compare-merge-head">
+          <strong data-i18n="gcSyncMergedResult">Merged Result (Editable)</strong>
+          <span id="syncCompareMergeStatus" class="sync-compare-merge-status"></span>
+        </div>
+        <textarea id="syncCompareMergedText" class="sync-compare-merged-text" spellcheck="false"></textarea>
+        <label class="sync-compare-chk sync-compare-bak-chk">
+          <input type="checkbox" id="syncCompareBackupChk">
+          <span data-i18n="gcSyncBackupBeforeMerge">Archive originals (.bak) before merging</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-cancel" id="syncCompareCancelBtn" data-i18n="gcCancel">Cancel</button>
+        <button type="button" class="btn btn-outline" id="syncCompareKeepAppBtn" data-i18n="gcActionKeepApp">Keep current (App)</button>
+        <button type="button" class="btn btn-outline" id="syncCompareKeepSyncBtn" data-i18n="gcActionKeepSync">Keep sync folder</button>
+        <button type="button" class="btn-apply" id="syncCompareSaveMergeBtn" data-i18n="gcSyncMergeSave">Save Merge</button>
       </div>
     </div>
   </div>
@@ -2683,6 +2741,7 @@
       if (typeof gcRefreshSlmModel === 'function') gcRefreshSlmModel();
     });
   </script>
+  <script src="../js/pages/general-config-sync-compare.js"></script>
   <script src="../js/pages/general-config-sync.js"></script>
   <script>
     function startGcTutorial() {

@@ -776,10 +776,9 @@
         if (!window.BOARD_CONFIG || typeof window.BOARD_CONFIG !== 'object') window.BOARD_CONFIG = {};
         window.BOARD_CONFIG.quickActions = [...list];
       }
-      if (!(opts && opts.skipPersist) && typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveText === 'function' && window.BOARD_CONFIG) {
+      if (!(opts && opts.skipPersist) && typeof window !== 'undefined' && window.Desktop && typeof window.Desktop.saveJson === 'function' && window.BOARD_CONFIG) {
         try {
-          const lines = 'const BOARD_CONFIG = ' + JSON.stringify(window.BOARD_CONFIG, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
-          window.Desktop.saveText('user', 'board-config.js', lines).catch(() => {});
+          window.Desktop.saveJson('user', 'board-config.json', window.BOARD_CONFIG).catch(() => {});
         } catch (_) {}
       }
     }
@@ -1963,7 +1962,10 @@
         : ((typeof BOARD_CONFIG !== 'undefined' && BOARD_CONFIG && Object.keys(BOARD_CONFIG).length) ? BOARD_CONFIG : {});
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
-          const _bcResult = await Desktop.readJson('user', 'board-config.js');
+          let _bcResult = await Desktop.readJson('user', 'board-config.json');
+          if (!(_bcResult && _bcResult.ok && _bcResult.data && Object.keys(_bcResult.data).length)) {
+            _bcResult = await Desktop.readJson('user', 'board-config.js');
+          }
           if (_bcResult && _bcResult.ok && _bcResult.data && Object.keys(_bcResult.data).length) {
             bc = _bcResult.data;
             window.BOARD_CONFIG = bc;
@@ -3473,22 +3475,20 @@
       _boardCustomiseApply(bc);
       if (typeof BoardAudioService !== 'undefined') BoardAudioService.init(bc.soundEffects);
 
-      const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
-
-      if (window.Desktop && typeof Desktop.saveText === 'function') {
+      if (window.Desktop && typeof Desktop.saveJson === 'function') {
         try {
-          await Desktop.saveText('user', 'board-config.js', lines);
-          mdbToast(' Customise settings saved to board-config.js');
+          await Desktop.saveJson('user', 'board-config.json', bc);
+          mdbToast(' Customise settings saved to board-config.json');
         } catch (err) {
           mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err)));
         }
       } else {
-        const blob = new Blob([lines], { type: 'text/javascript' });
+        const blob = new Blob([JSON.stringify(bc, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = 'board-config.js'; a.click();
+        a.href = url; a.download = 'board-config.json'; a.click();
         URL.revokeObjectURL(url);
-        mdbToast(' board-config.js downloaded — replace the file in user/');
+        mdbToast(' board-config.json downloaded — replace the file in user/');
       }
       boardCustomiseClose();
     }
@@ -3862,7 +3862,10 @@
             ? CLASS_MANAGEMENT_CONFIG.boardCustomise : null));
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
-          const _bcR = await Desktop.readJson('user', 'board-config.js');
+          let _bcR = await Desktop.readJson('user', 'board-config.json');
+          if (!(_bcR && _bcR.ok && _bcR.data && Object.keys(_bcR.data).length)) {
+            _bcR = await Desktop.readJson('user', 'board-config.js');
+          }
           if (_bcR && _bcR.ok && _bcR.data && Object.keys(_bcR.data).length) {
             bc = _bcR.data;
             window.BOARD_CONFIG = bc;

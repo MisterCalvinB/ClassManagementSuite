@@ -170,11 +170,17 @@
           try { state.adminData = JSON.parse(admRes.content); } catch (e) {}
         }
 
-        // 4. Read custom config if present
-        var cfgRes = await Desktop.readText('user', 'admin-groups-config.js');
-        if (cfgRes && cfgRes.ok && cfgRes.content) {
-          evalInContext(cfgRes.content);
+        // 4. Read custom config if present (prefer .json, fallback to legacy .js)
+        var cfgJsonRes = (typeof Desktop.readJson === 'function') ? await Desktop.readJson('user', 'admin-groups-config.json') : null;
+        if (cfgJsonRes && cfgJsonRes.ok && cfgJsonRes.data && typeof cfgJsonRes.data === 'object') {
+          window.ADMIN_GROUPS_CONFIG = cfgJsonRes.data;
           initDefaults();
+        } else {
+          var cfgRes = await Desktop.readText('user', 'admin-groups-config.js');
+          if (cfgRes && cfgRes.ok && cfgRes.content) {
+            evalInContext(cfgRes.content);
+            initDefaults();
+          }
         }
       } else {
         try {
@@ -3640,11 +3646,10 @@
       localStorage.setItem('cmt-admin-groups-config', JSON.stringify(state.config));
     } catch (e) {}
 
-    // Save to user/admin-groups-config.js
-    var fileContent = 'window.ADMIN_GROUPS_CONFIG = ' + JSON.stringify(state.config, null, 2) + ';\n';
+    // Save to user/admin-groups-config.json
     try {
-      if (window.Desktop && Desktop.isElectron()) {
-        await Desktop.saveText('user', 'admin-groups-config.js', fileContent);
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
+        await Desktop.saveJson('user', 'admin-groups-config.json', state.config);
       }
     } catch (e) {
       console.warn('Failed to save config file:', e);

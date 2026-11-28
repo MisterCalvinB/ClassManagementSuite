@@ -12,7 +12,7 @@
   "fmTagsFilterPlaceholder": "Tags filtern…",
   "fmTagsNoActive": "Noch keine Tags im System gefunden. Weisen Sie Tags über die Schaltfläche Links & Tags zu.",
   "fmTargetExportCss": "Export-Stile (CSS)",
-  "fmOpenInPdfStudio": "In PDF Viewer öffnen",
+  "fmOpenInPdfStudio": "Im Betrachter öffnen",
   "fmOpenNative": "Datei im System öffnen",
   "fmOpenInSystem": "Datei im System öffnen",
   "fmOpenFolderInSystem": "Ordner im System öffnen",

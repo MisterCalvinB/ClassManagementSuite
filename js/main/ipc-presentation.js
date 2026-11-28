@@ -508,14 +508,14 @@ function registerPresentationIpc(ctx) {
         || { x: secondDisplay.workArea.x, y: secondDisplay.workArea.y, width: 1200, height: 800 };
       winOpts = {
         x: mappedBounds.x, y: mappedBounds.y, width: mappedBounds.width, height: mappedBounds.height,
-        autoHideMenuBar: true, title: 'PDF Viewer – Presentation Mode',
+        autoHideMenuBar: true, title: 'Viewer – Presentation Mode',
         webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
       };
     } else {
       const width = sBounds ? sBounds.width : 1200;
       const height = sBounds ? sBounds.height : 800;
       winOpts = {
-        width, height, autoHideMenuBar: true, title: 'PDF Viewer – Presentation Mode',
+        width, height, autoHideMenuBar: true, title: 'Viewer – Presentation Mode',
         webPreferences: { preload: path.join(ROOT_DIR, 'electron-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, backgroundThrottling: false }
       };
       if (sBounds) { winOpts.x = sBounds.x + sBounds.width + 10; winOpts.y = sBounds.y; }

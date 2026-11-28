@@ -12,7 +12,7 @@
   "fmTagsFilterPlaceholder": "Filtra tag…",
   "fmTagsNoActive": "Nessun tag ancora trovato nel sistema. Assegna tag agli elementi tramite il pulsante Collegamenti & Tag.",
   "fmTargetExportCss": "Stili di esportazione (CSS)",
-  "fmOpenInPdfStudio": "Apri in PDF Viewer",
+  "fmOpenInPdfStudio": "Apri in Visualizzatore",
   "fmOpenNative": "Apri file nel sistema",
   "fmOpenInSystem": "Apri file nel sistema",
   "fmOpenFolderInSystem": "Apri cartella nel sistema",

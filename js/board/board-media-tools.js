@@ -1044,7 +1044,7 @@
       window.conImgStyleDismiss();
       if (!item) return;
       if (item.relativePath && window.Desktop && Desktop.isElectron()) {
-        Desktop.openTool('pdf-viewer.html', { query: { openTarget: 'mindmaps', openRelPath: item.relativePath } });
+        Desktop.openTool('viewer.html', { query: { openTarget: 'mindmaps', openRelPath: item.relativePath } });
         return;
       }
       var imgEl = wrap ? wrap.querySelector('img') : null;
@@ -1055,9 +1055,9 @@
         localStorage.setItem(key, JSON.stringify({ dataUrl: src, filename: item.name || 'image.png' }));
       } catch (_) { return; }
       if (window.Desktop && Desktop.isElectron()) {
-        Desktop.openTool('pdf-viewer.html', { query: { openStorageKey: key } });
+        Desktop.openTool('viewer.html', { query: { openStorageKey: key } });
       } else {
-        window.open('pdf-viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
+        window.open('viewer.html?openStorageKey=' + encodeURIComponent(key), '_blank');
       }
     };
     window.conImgSpOpenFolder = function () {

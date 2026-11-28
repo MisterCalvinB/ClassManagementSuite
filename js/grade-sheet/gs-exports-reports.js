@@ -3648,12 +3648,11 @@
 
       clearTimeout(_saveReportOptionsTimer);
       _saveReportOptionsTimer = setTimeout(async function() {
-        if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveText === 'function') {
+        if (window.Desktop && Desktop.isElectron() && typeof Desktop.saveJson === 'function') {
           try {
-            const content = '// Grade Sheet Report Options Configuration\n// Automatically updated\nwindow.GRADE_SHEET_REPORT_OPTIONS = ' + JSON.stringify(opts, null, 2) + ';\n';
-            await Desktop.saveText('user', 'report-options.js', content);
+            await Desktop.saveJson('user', 'report-options.json', opts);
           } catch (e) {
-            console.warn('grade-sheet: Failed to save user/report-options.js:', e);
+            console.warn('grade-sheet: Failed to save user/report-options.json:', e);
           }
         }
       }, 250);
@@ -3665,27 +3664,31 @@
         applyReportOptions(window.GRADE_SHEET_REPORT_OPTIONS);
         return true;
       }
-      // 2. Read from Desktop if in Electron
-      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+      // 2. Read from Desktop if in Electron (prefer report-options.json, fallback to legacy report-options.js)
+      if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
-          const r = await Desktop.readText('user', 'report-options.js');
-          if (r && r.ok && r.content) {
-            const match = r.content.match(/window\.GRADE_SHEET_REPORT_OPTIONS\s*=\s*(\{[\s\S]*?\});/);
-            if (match) {
-              const parsed = JSON.parse(match[1]);
-              if (parsed && typeof parsed === 'object') {
-                window.GRADE_SHEET_REPORT_OPTIONS = parsed;
-                window.REPORT_OPTIONS = parsed;
-                applyReportOptions(parsed);
-                return true;
-              }
+          let parsed = null;
+          const rJson = await Desktop.readJson('user', 'report-options.json');
+          if (rJson && rJson.ok && rJson.data && typeof rJson.data === 'object') {
+            parsed = rJson.data;
+          } else if (typeof Desktop.readText === 'function') {
+            const r = await Desktop.readText('user', 'report-options.js');
+            if (r && r.ok && r.content) {
+              const match = r.content.match(/window\.GRADE_SHEET_REPORT_OPTIONS\s*=\s*(\{[\s\S]*?\});/);
+              if (match) parsed = JSON.parse(match[1]);
             }
+          }
+          if (parsed && typeof parsed === 'object') {
+            window.GRADE_SHEET_REPORT_OPTIONS = parsed;
+            window.REPORT_OPTIONS = parsed;
+            applyReportOptions(parsed);
+            return true;
           } else {
             // File doesn't exist yet: initialize with current options and persist
             saveReportOptionsConfigFile();
           }
         } catch (e) {
-          console.warn('grade-sheet: could not load user/report-options.js:', e);
+          console.warn('grade-sheet: could not load user/report-options.json:', e);
         }
       }
       return false;

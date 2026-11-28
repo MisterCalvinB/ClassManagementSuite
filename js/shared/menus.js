@@ -68,7 +68,7 @@
     { href: 'schedule-maker.html',   icon: 'schedule-maker.svg',   label: 'Schedule Maker'   },
     { href: 'document-editor.html',  icon: 'document-editor.svg',  label: 'Document Editor'  },
     { href: 'reference-builder.html', icon: 'reference-builder.svg', label: 'Reference Builder' },
-    { href: 'pdf-viewer.html',       icon: 'pdf-viewer.svg',       label: 'PDF Viewer'       },
+    { href: 'viewer.html',           icon: 'viewer.svg',           label: 'Viewer'           },
     { href: 'file-manager.html',     icon: 'file-manager.svg',     label: 'File Manager'     },
     { href: 'database-converter.html', icon: 'table.svg',          label: 'Data Studio'      },
     { href: 'media-converter.html',  icon: 'media-converter.svg',  label: 'Media Converter'  },

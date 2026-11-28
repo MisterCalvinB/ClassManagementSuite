@@ -1699,23 +1699,21 @@
         bc.constellationPresets = result;
         window.BOARD_CONFIG = bc;
 
-        // Persist to board-config.js (Electron) or download (browser)
-        const lines = 'const BOARD_CONFIG = ' + JSON.stringify(bc, null, 2) + ';\nwindow.BOARD_CONFIG = BOARD_CONFIG;\n';
-
-        if (window.Desktop && typeof Desktop.saveText === 'function') {
+        // Persist to board-config.json (Electron) or download (browser)
+        if (window.Desktop && typeof Desktop.saveJson === 'function') {
           try {
-            await Desktop.saveText('user', 'board-config.js', lines);
-            mdbToast(' Presets saved to board-config.js');
+            await Desktop.saveJson('user', 'board-config.json', bc);
+            mdbToast(' Presets saved to board-config.json');
           } catch (err) {
             mdbToast(' Could not save: ' + (err && err.message ? err.message : String(err)));
           }
         } else {
-          const blob = new Blob([lines], { type: 'text/javascript' });
+          const blob = new Blob([JSON.stringify(bc, null, 2)], { type: 'application/json' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
-          a.href = url; a.download = 'board-config.js'; a.click();
+          a.href = url; a.download = 'board-config.json'; a.click();
           URL.revokeObjectURL(url);
-          mdbToast(' board-config.js downloaded — replace the file in user/');
+          mdbToast(' board-config.json downloaded — replace the file in user/');
         }
         if (typeof conInitPresetButtons === 'function') conInitPresetButtons();
         conClosePresetEditor();

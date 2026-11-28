@@ -238,31 +238,37 @@ function savePtColumnsConfig() {
 
     clearTimeout(_savePtConfigTimer);
     _savePtConfigTimer = setTimeout(async () => {
-        if (window.Desktop && typeof Desktop.saveText === 'function') {
+        if (window.Desktop && typeof Desktop.saveJson === 'function') {
             try {
-                const jsContent = `// Participation Tracker Configuration\n// Automatically updated\nwindow.PARTICIPATION_TRACKER_CONFIG = ${JSON.stringify(filePayload, null, 2)};\n`;
-                await Desktop.saveText('user', 'participation-tracker-config.js', jsContent);
+                await Desktop.saveJson('user', 'participation-tracker-config.json', filePayload);
             } catch (err) {
-                console.warn('Failed to save user/participation-tracker-config.js:', err);
+                console.warn('Failed to save user/participation-tracker-config.json:', err);
             }
         }
     }, 400);
 }
 
 async function loadPtColumnsConfigFile() {
-    if (window.Desktop && typeof Desktop.readText === 'function') {
+    if (window.Desktop && typeof Desktop.readJson === 'function') {
         try {
-            const r = await Desktop.readText('user', 'participation-tracker-config.js');
-            if (r && r.ok && r.content) {
-                const match = r.content.match(/window\.PARTICIPATION_TRACKER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
-                if (match) {
-                    window.PARTICIPATION_TRACKER_CONFIG = JSON.parse(match[1]);
-                    _initPtColumnsState();
-                    renderTableHeader('historyTable');
-                    renderTableHeader('classOverviewTable');
-                    renderTableHeader('studentTable');
-                    if (classOverviewData && classOverviewData.length) renderClassOverviewRows();
+            let parsed = null;
+            const rJson = await Desktop.readJson('user', 'participation-tracker-config.json');
+            if (rJson && rJson.ok && rJson.data && typeof rJson.data === 'object') {
+                parsed = rJson.data;
+            } else if (typeof Desktop.readText === 'function') {
+                const rLegacy = await Desktop.readText('user', 'participation-tracker-config.js');
+                if (rLegacy && rLegacy.ok && rLegacy.content) {
+                    const match = rLegacy.content.match(/window\.PARTICIPATION_TRACKER_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+                    if (match) parsed = JSON.parse(match[1]);
                 }
+            }
+            if (parsed) {
+                window.PARTICIPATION_TRACKER_CONFIG = parsed;
+                _initPtColumnsState();
+                renderTableHeader('historyTable');
+                renderTableHeader('classOverviewTable');
+                renderTableHeader('studentTable');
+                if (classOverviewData && classOverviewData.length) renderClassOverviewRows();
             }
         } catch (_) {}
     }

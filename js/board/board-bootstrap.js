@@ -119,8 +119,20 @@
     try { await loadUserScript('students.js'); }
     catch (e) { /* students.js may not exist yet */ }
 
-    try { await loadUserScript('board-config.js'); }
-    catch (e) { console.warn('Failed to load user/board-config.js:', e); }
+    try {
+      let bcLoaded = false;
+      if (global.Desktop && global.Desktop.isElectron() && typeof global.Desktop.readJson === 'function') {
+        try {
+          const bcRes = await global.Desktop.readJson('user', 'board-config.json');
+          if (bcRes && bcRes.ok && bcRes.data && typeof bcRes.data === 'object') {
+            global.BOARD_CONFIG = bcRes.data;
+            bcLoaded = true;
+          }
+        } catch (_) {}
+      }
+      if (!bcLoaded) await loadUserScript('board-config.js');
+    }
+    catch (e) { console.warn('Failed to load user/board-config.json:', e); }
 
     // Load planner config + entries for timeslot picker
     global.PLANNER_ENTRIES_BY_CLASS = global.PLANNER_ENTRIES_BY_CLASS || {};

@@ -1667,7 +1667,7 @@
       '<div class="cmt-dialog-btns" style="display: flex; flex-direction: column; gap: 8px; align-items: stretch; justify-content: center; width: 100%;">' +
       '<button type="button" class="cmt-btn-open-file neo-btn neo-btn-dark" style="width: 100%; justify-content: center;">Open File</button>' +
       '<button type="button" class="cmt-btn-open-doc-editor neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with Document Editor</button>' +
-      '<button type="button" class="cmt-btn-open-pdf-viewer neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with PDF Viewer</button>' +
+      '<button type="button" class="cmt-btn-open-pdf-viewer neo-btn neo-btn-primary" style="display: none; width: 100%; justify-content: center;">Open with Viewer</button>' +
       '<button type="button" class="cmt-btn-show-in-folder neo-btn" style="width: 100%; justify-content: center;">Open Folder</button>' +
       '<button type="button" class="cmt-btn-close-export neo-btn neo-btn-ghost" style="width: 100%; justify-content: center; margin-top: 2px;">Close</button>' +
       '</div>' +
@@ -1750,7 +1750,7 @@
     }
 
     var isDoc = !isFolder && (ext === 'md' || ext === 'html' || ext === 'typ' || ext === 'odt');
-    var isPdf = !isFolder && (ext === 'pdf');
+    var isPdf = !isFolder && (ext === 'pdf' || ext === 'epub' || ext === 'html' || ext === 'htm' || ext === 'txt' || ext === 'md' || ext === 'markdown' || /^(png|jpe?g|webp|gif|bmp|svg|avif)$/i.test(ext));
 
     if (isFolder) {
       openBtn.style.display = 'none';
@@ -1773,7 +1773,7 @@
 
       if (isPdf) {
         pdfViewerBtn.style.display = 'block';
-        pdfViewerBtn.textContent = _getExportText('exportOpenWithPdfViewerBtn', 'Open with PDF Viewer');
+        pdfViewerBtn.textContent = _getExportText('exportOpenWithPdfViewerBtn', 'Open with Viewer');
       } else {
         pdfViewerBtn.style.display = 'none';
       }
@@ -1847,7 +1847,7 @@
           query.openTarget = target;
           query.openRelPath = relativePath;
         }
-        Desktop.openTool('pdf-viewer.html', { query: query });
+        Desktop.openTool('viewer.html', { query: query });
       }
     });
 

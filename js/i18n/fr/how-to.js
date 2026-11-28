@@ -256,7 +256,7 @@
   "ht_de_a2": "<p>Choisissez un modèle prêt à l'emploi ou ouvrez le panneau <strong>Style / CSS</strong> pour ajuster les polices, marges et en-têtes. Cliquez sur <strong>Aide CSS</strong> <img src=\"../assets/icons/lightbulb.svg\" class=\"ht-inline-icon\" alt=\"\" /> dans la barre CSS (ou dans <strong>Outils</strong>) pour ouvrir le tutoriel CSS interactif et parcourir chaque propriété, balise HTML et option avec sa signification.</p>",
   "ht_de_q3": "Comment exporter mon document ?",
   "ht_de_a3": "<p>Cliquez sur <strong>Exporter PDF</strong> ou <strong>Exporter HTML</strong> pour obtenir un document prêt à imprimer.</p>",
-  "ht_sec_pdf_title": "Lecteur PDF",
+  "ht_sec_pdf_title": "Visionneuse",
   "ht_sec_pdf_desc": "Ouvrir, annoter et projeter vos PDF directement dans l'application.",
   "ht_pdf_q1": "Comment écrire ou surligner sur un PDF ?",
   "ht_pdf_a1": "<p>Ouvrez un PDF, sélectionnez le <strong>Stylo</strong> ou le <strong>Surligneur</strong> et annotez la page. Les annotations sont sauvegardées automatiquement. Utilisez l'outil <strong>Laser</strong> (<code>L</code>) pour pointer, cliquer pour laisser une marque temporaire, glisser pour tracer une traînée ou double-cliquer pour faire pulser — synchronisé en direct avec le mode Présentation.</p>",

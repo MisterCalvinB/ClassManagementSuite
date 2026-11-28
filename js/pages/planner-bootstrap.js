@@ -11,14 +11,17 @@
 
         var pClassGroups = Desktop.readText('user', 'class-groups.js').catch(function () { return null; });
         var pPlannerConfig = Desktop.readText('user', 'planner-config.js').catch(function () { return null; });
+        var pTodosJson = (typeof Desktop.readJson === 'function')
+          ? Desktop.readJson('user', 'todos.json').catch(function () { return null; })
+          : Promise.resolve(null);
         var pTodos = Desktop.readText('user', 'todos.js').catch(function () { return null; });
         var pStudents = Desktop.readText('user', 'students.js').catch(function () { return null; });
         var pAdmin = Desktop.readText('user', 'administrative-groups.json').catch(function () { return null; });
         var pSubCache = Desktop.readByPath('user', 'planner/subscription-cache.json').catch(function () { return null; });
         var pListPlanner = Desktop.listByPath('user', 'planner', { recursive: false, extensions: ['.js'] }).catch(function () { return null; });
 
-        var res = await Promise.all([pClassGroups, pPlannerConfig, pTodos, pStudents, pAdmin, pSubCache, pListPlanner]);
-        var rGroups = res[0], rCfg = res[1], rTodos = res[2], rStudents = res[3], rAdmin = res[4], rSub = res[5], _lr = res[6];
+        var res = await Promise.all([pClassGroups, pPlannerConfig, pTodos, pStudents, pAdmin, pSubCache, pListPlanner, pTodosJson]);
+        var rGroups = res[0], rCfg = res[1], rTodos = res[2], rStudents = res[3], rAdmin = res[4], rSub = res[5], _lr = res[6], rTodosJson = res[7];
 
         if (rGroups && rGroups.ok && rGroups.content) {
           injectScript(rGroups.content, 'user/class-groups.js');
@@ -33,7 +36,11 @@
           } catch (_) { }
         }
         if (rCfg && rCfg.ok && rCfg.content) injectScript(rCfg.content, 'user/planner-config.js');
-        if (rTodos && rTodos.ok && rTodos.content) injectScript(rTodos.content, 'user/todos.js');
+        if (rTodosJson && rTodosJson.ok && Array.isArray(rTodosJson.data)) {
+          window.TODOS = rTodosJson.data;
+        } else if (rTodos && rTodos.ok && rTodos.content) {
+          injectScript(rTodos.content, 'user/todos.js');
+        }
         if (rStudents && rStudents.ok && rStudents.content) injectScript(rStudents.content, 'user/students.js');
         if (rAdmin && rAdmin.ok && rAdmin.content) {
           try { window.ADMINISTRATIVE_DATA = JSON.parse(rAdmin.content); } catch (_) { }

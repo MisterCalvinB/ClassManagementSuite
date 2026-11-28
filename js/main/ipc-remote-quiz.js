@@ -392,8 +392,14 @@ function registerRemoteQuizIpc(ctx) {
   ipcMain.handle('app:remote-config-read', async (event) => {
     const pageFile = getRequestingPage(event);
     try {
-      const { fullPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.js');
-      const raw = await fs.readFile(fullPath, 'utf8');
+      const { fullPath: jsonPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.json');
+      try {
+        const rawJson = await fs.readFile(jsonPath, 'utf8');
+        const parsed = JSON.parse(rawJson);
+        if (parsed && typeof parsed === 'object') return { ok: true, config: parsed };
+      } catch (_) {}
+      const { fullPath: legacyPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.js');
+      const raw = await fs.readFile(legacyPath, 'utf8');
       const match = raw.match(/globalThis\.__REMOTE_CONFIG\s*=\s*(\{[\s\S]*?\});/);
       if (match) {
         try { return { ok: true, config: JSON.parse(match[1]) }; } catch (_) { }
@@ -407,14 +413,10 @@ function registerRemoteQuizIpc(ctx) {
   ipcMain.handle('app:remote-config-save', async (event, config) => {
     const pageFile = getRequestingPage(event);
     const safe = config && typeof config === 'object' ? config : {};
-    const content =
-      'globalThis.__REMOTE_CONFIG = ' + JSON.stringify(safe, null, 2) + ';\n' +
-      'if (typeof module !== "undefined" && module.exports) ' +
-      '{ module.exports = { __REMOTE_CONFIG: globalThis.__REMOTE_CONFIG }; }\n';
     try {
-      const { fullPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.js');
+      const { fullPath } = resolveAllowedTargetPath(pageFile, 'user', 'remote-config.json');
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
-      await fs.writeFile(fullPath, content, 'utf8');
+      await fs.writeFile(fullPath, JSON.stringify(safe, null, 2) + '\n', 'utf8');
       return { ok: true };
     } catch (err) {
       return { ok: false, error: err && err.message ? err.message : 'Write failed' };
