@@ -18,6 +18,23 @@
   var _answerLength = 'brief'; // 'brief' | 'long'
   var _genStartTime = 0;
   var _timerInterval = null;
+  var _promptEditorOpen = false;
+  var _SYS_PROMPT_STORAGE_KEY = 'cmt-board-ai-custom-system-prompt';
+  var _QUICK_PROMPTS_STORAGE_KEY = 'cmt-board-ai-custom-quick-prompts';
+  var _customSystemPrompt = '';
+  var _customQuickPrompts = {};
+
+  try {
+    var savedSys = localStorage.getItem(_SYS_PROMPT_STORAGE_KEY);
+    if (typeof savedSys === 'string' && savedSys.trim()) _customSystemPrompt = savedSys;
+  } catch (_) {}
+  try {
+    var savedQuick = localStorage.getItem(_QUICK_PROMPTS_STORAGE_KEY);
+    if (savedQuick) {
+      var parsedQuick = JSON.parse(savedQuick);
+      if (parsedQuick && typeof parsedQuick === 'object') _customQuickPrompts = parsedQuick;
+    }
+  } catch (_) {}
 
   function _t(key, fallback) {
     if (typeof window !== 'undefined' && window.i18n && typeof window.i18n.t === 'function') {
@@ -234,6 +251,68 @@
         '  justify-content: center;',
         '}',
         '.bai-close-btn:hover { background: #f2dede; }',
+        '.bai-icon-btn {',
+        '  width: 26px;',
+        '  height: 26px;',
+        '  background: #ffffff;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 6px;',
+        '  box-shadow: 1.5px 1.5px 0 #555555;',
+        '  cursor: pointer;',
+        '  display: inline-flex;',
+        '  align-items: center;',
+        '  justify-content: center;',
+        '}',
+        '.bai-icon-btn:hover { background: #e2c96e; }',
+        '.bai-icon-btn.active { background: #e2c96e; }',
+        '.bai-prompt-editor {',
+        '  display: none;',
+        '  flex-direction: column;',
+        '  gap: 6px;',
+        '  padding: 8px 12px;',
+        '  background: #eaeae4;',
+        '  border-bottom: 1.5px solid #333333;',
+        '}',
+        '.bai-prompt-editor.visible { display: flex; }',
+        '.bai-pe-row {',
+        '  display: flex;',
+        '  align-items: center;',
+        '  justify-content: space-between;',
+        '  gap: 6px;',
+        '}',
+        '.bai-pe-label {',
+        '  font-size: 0.68rem;',
+        '  font-weight: 800;',
+        '  text-transform: uppercase;',
+        '  letter-spacing: 0.3px;',
+        '  color: #1e1e1e;',
+        '}',
+        '.bai-pe-select {',
+        '  padding: 2px 6px;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 4px;',
+        '  background: #ffffff;',
+        '  font-family: inherit;',
+        '  font-size: 0.68rem;',
+        '  font-weight: 700;',
+        '  color: #1e1e1e;',
+        '}',
+        '.bai-pe-textarea {',
+        '  width: 100%;',
+        '  box-sizing: border-box;',
+        '  padding: 5px 8px;',
+        '  background: #ffffff;',
+        '  border: 1.5px solid #333333;',
+        '  border-radius: 5px;',
+        '  font-family: inherit;',
+        '  font-size: 0.72rem;',
+        '  line-height: 1.35;',
+        '  color: #1e1e1e;',
+        '  resize: vertical;',
+        '  min-height: 44px;',
+        '  max-height: 100px;',
+        '}',
+        '.bai-pe-textarea:focus { outline: none; border-color: #5b8fcc; }',
         '.bai-context-bar {',
         '  display: none;',
         '  align-items: center;',
@@ -458,10 +537,41 @@
       '      <img src="../assets/icons/brain.svg" style="width:12px;height:12px;" alt="" />',
       '      <span id="bai-model-chip-label">AI Model</span>',
       '    </button>',
+      '    <button type="button" class="bai-icon-btn" id="bai-edit-prompt-btn" title="' + _escapeHtml(_t('boardAiEditPromptsBtn', 'Edit prompts')) + '" aria-expanded="false">',
+      '      <img src="../assets/icons/edit.svg" style="width:12px;height:12px;" alt="" />',
+      '    </button>',
       '    <button type="button" class="bai-close-btn" id="bai-close-btn" title="' + _escapeHtml(_t('slmClose', 'Close')) + '">',
       '      <img src="../assets/icons/close.svg" style="width:12px;height:12px;" alt="" />',
       '    </button>',
       '  </div>',
+      '</div>',
+      '<div class="bai-prompt-editor" id="bai-prompt-editor">',
+      '  <div class="bai-pe-row">',
+      '    <span class="bai-pe-label">' + _escapeHtml(_t('boardAiSystemPromptLabel', 'System Prompt')) + '</span>',
+      '    <button type="button" class="bai-btn bai-btn-sm" id="bai-reset-sys-prompt-btn" title="' + _escapeHtml(_t('boardAiResetPromptBtn', 'Reset')) + '">',
+      '      <img src="../assets/icons/refresh.svg" style="width:10px;height:10px;" alt="" />',
+      '      <span>' + _escapeHtml(_t('boardAiResetPromptBtn', 'Reset')) + '</span>',
+      '    </button>',
+      '  </div>',
+      '  <textarea class="bai-pe-textarea" id="bai-sys-prompt-input" rows="2"></textarea>',
+      '  <div class="bai-pe-row">',
+      '    <div style="display:flex;align-items:center;gap:6px;">',
+      '      <span class="bai-pe-label">' + _escapeHtml(_t('boardAiQuickPromptLabel', 'Quick Prompt')) + '</span>',
+      '      <select class="bai-pe-select" id="bai-quick-prompt-select">',
+      '        <option value="meaning">' + _escapeHtml(_t('boardAiQuickMeaning', 'Meaning')) + '</option>',
+      '        <option value="explain">' + _escapeHtml(_t('boardAiQuickExplain', 'Explain')) + '</option>',
+      '        <option value="translate">' + _escapeHtml(_t('boardAiQuickTranslate', 'Translate')) + '</option>',
+      '        <option value="example">' + _escapeHtml(_t('boardAiQuickExample', 'Example')) + '</option>',
+      '        <option value="synonyms">' + _escapeHtml(_t('boardAiQuickSynonyms', 'Synonyms')) + '</option>',
+      '        <option value="antonyms">' + _escapeHtml(_t('boardAiQuickAntonyms', 'Antonyms')) + '</option>',
+      '      </select>',
+      '    </div>',
+      '    <button type="button" class="bai-btn bai-btn-sm" id="bai-reset-quick-prompt-btn" title="' + _escapeHtml(_t('boardAiResetPromptBtn', 'Reset')) + '">',
+      '      <img src="../assets/icons/refresh.svg" style="width:10px;height:10px;" alt="" />',
+      '      <span>' + _escapeHtml(_t('boardAiResetPromptBtn', 'Reset')) + '</span>',
+      '    </button>',
+      '  </div>',
+      '  <textarea class="bai-pe-textarea" id="bai-quick-prompt-input" rows="2"></textarea>',
       '</div>',
       '<div class="bai-context-bar" id="bai-context-bar">',
       '  <div class="bai-context-pills" id="bai-context-pills"></div>',
@@ -546,7 +656,7 @@
       _renderContextBar();
     });
 
-    var QUICK_PROMPTS = {
+    var DEFAULT_QUICK_PROMPTS = {
       meaning: _t('boardAiQuickMeaningPrompt', 'Give a clear, simple definition of this word:'),
       explain: _t('boardAiQuickExplainPrompt', 'Explain this concept clearly in simple terms:'),
       translate: _t('boardAiQuickTranslatePrompt', 'Translate this into French (or English if already French) and note its part of speech:'),
@@ -555,19 +665,106 @@
       antonyms: _t('boardAiQuickAntonymsPrompt', 'List 4-5 common antonyms for this word:')
     };
 
+    function _getQuickPromptText(key) {
+      if (_customQuickPrompts && typeof _customQuickPrompts[key] === 'string' && _customQuickPrompts[key].trim()) {
+        return _customQuickPrompts[key];
+      }
+      return DEFAULT_QUICK_PROMPTS[key] || '';
+    }
+
+    function _getCurrentLimitWords() {
+      var chk = document.getElementById('bai-word-limit-chk');
+      var num = document.getElementById('bai-word-limit-num');
+      if (chk && chk.checked && num) {
+        return Math.max(5, Math.min(500, parseInt(num.value, 10) || 30));
+      }
+      return 0;
+    }
+
+    function _syncPromptEditorFields() {
+      var sysInput = document.getElementById('bai-sys-prompt-input');
+      var quickSel = document.getElementById('bai-quick-prompt-select');
+      var quickInput = document.getElementById('bai-quick-prompt-input');
+      if (sysInput) {
+        sysInput.value = _customSystemPrompt
+          ? _customSystemPrompt
+          : _buildSystemPrompt(_answerLength === 'long', _hasActiveContext(), _getCurrentLimitWords());
+      }
+      if (quickSel && quickInput) {
+        quickInput.value = _getQuickPromptText(quickSel.value);
+      }
+    }
+
     function _stripTrailingColon(text) {
       return String(text || '').replace(/[:：\s]+$/, '').trim();
     }
+
+    document.getElementById('bai-edit-prompt-btn').addEventListener('click', function () {
+      _promptEditorOpen = !_promptEditorOpen;
+      var editor = document.getElementById('bai-prompt-editor');
+      this.classList.toggle('active', _promptEditorOpen);
+      this.setAttribute('aria-expanded', _promptEditorOpen ? 'true' : 'false');
+      if (editor) editor.classList.toggle('visible', _promptEditorOpen);
+      if (_promptEditorOpen) _syncPromptEditorFields();
+      _clampPopoverToViewport();
+    });
+
+    document.getElementById('bai-sys-prompt-input').addEventListener('input', function () {
+      _customSystemPrompt = this.value;
+      try {
+        if (_customSystemPrompt.trim()) {
+          localStorage.setItem(_SYS_PROMPT_STORAGE_KEY, _customSystemPrompt);
+        } else {
+          localStorage.removeItem(_SYS_PROMPT_STORAGE_KEY);
+        }
+      } catch (_) {}
+    });
+
+    document.getElementById('bai-reset-sys-prompt-btn').addEventListener('click', function () {
+      _customSystemPrompt = '';
+      try { localStorage.removeItem(_SYS_PROMPT_STORAGE_KEY); } catch (_) {}
+      _syncPromptEditorFields();
+    });
+
+    document.getElementById('bai-quick-prompt-select').addEventListener('change', function () {
+      _syncPromptEditorFields();
+    });
+
+    document.getElementById('bai-quick-prompt-input').addEventListener('input', function () {
+      var sel = document.getElementById('bai-quick-prompt-select');
+      if (!sel) return;
+      var key = sel.value;
+      var val = this.value;
+      if (val.trim() && val.trim() !== (DEFAULT_QUICK_PROMPTS[key] || '').trim()) {
+        _customQuickPrompts[key] = val;
+      } else {
+        delete _customQuickPrompts[key];
+      }
+      try { localStorage.setItem(_QUICK_PROMPTS_STORAGE_KEY, JSON.stringify(_customQuickPrompts)); } catch (_) {}
+    });
+
+    document.getElementById('bai-reset-quick-prompt-btn').addEventListener('click', function () {
+      var sel = document.getElementById('bai-quick-prompt-select');
+      if (!sel) return;
+      delete _customQuickPrompts[sel.value];
+      try { localStorage.setItem(_QUICK_PROMPTS_STORAGE_KEY, JSON.stringify(_customQuickPrompts)); } catch (_) {}
+      _syncPromptEditorFields();
+    });
 
     document.getElementById('bai-quick-prompts').addEventListener('click', function (e) {
       var btn = e.target.closest('.bai-quick-pill');
       if (!btn || _isGenerating) return;
       var key = btn.getAttribute('data-prompt-key');
-      var promptText = QUICK_PROMPTS[key];
+      var promptText = _getQuickPromptText(key);
       if (!promptText) return;
+      var quickSel = document.getElementById('bai-quick-prompt-select');
+      if (quickSel) {
+        quickSel.value = key;
+        if (_promptEditorOpen) _syncPromptEditorFields();
+      }
       var qInput = document.getElementById('bai-question-input');
       var hasCtx = !_contextDismissed && _activeContext && (_activeContext.nodes.length > 0 || _activeContext.notes.length > 0);
-      if (key === 'example' && hasCtx && _activeContext.nodes.length > 0) {
+      if (key === 'example' && hasCtx && _activeContext.nodes.length > 0 && !_customQuickPrompts[key]) {
         var targetWords = _activeContext.nodes.slice(0, 3).map(function (n) {
           return (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
         }).filter(Boolean);
@@ -581,7 +778,7 @@
       }
       if (qInput) {
         qInput.value = hasCtx ? promptText : (promptText + ' ');
-        if (hasCtx) {
+        if (hasCtx && !_promptEditorOpen) {
           boardAiAskQuestion();
         } else {
           qInput.focus();
@@ -597,11 +794,17 @@
       Array.from(document.querySelectorAll('#bai-length-toggle .bai-length-btn')).forEach(function (b) {
         b.classList.toggle('active', b.getAttribute('data-length') === _answerLength);
       });
+      if (_promptEditorOpen) _syncPromptEditorFields();
     });
 
     document.getElementById('bai-word-limit-num').addEventListener('input', function () {
       var chk = document.getElementById('bai-word-limit-chk');
       if (chk && !chk.checked) chk.checked = true;
+      if (_promptEditorOpen) _syncPromptEditorFields();
+    });
+
+    document.getElementById('bai-word-limit-chk').addEventListener('change', function () {
+      if (_promptEditorOpen) _syncPromptEditorFields();
     });
 
     document.getElementById('bai-question-input').addEventListener('keydown', function (e) {
@@ -977,7 +1180,9 @@
       limitWords = Math.max(5, Math.min(500, parseInt(wordLimitNum.value, 10) || 30));
       maxTokens = Math.max(40, Math.ceil(limitWords * 1.8) + 20);
     }
-    var sysPrompt = _buildSystemPrompt(isLong, _hasActiveContext(), limitWords);
+    var sysPrompt = (_customSystemPrompt && _customSystemPrompt.trim())
+      ? _customSystemPrompt.trim()
+      : _buildSystemPrompt(isLong, _hasActiveContext(), limitWords);
     var temp = isLong ? 0.2 : 0.0;
     var compactPrompt = _buildCompactPrompt(question);
     _lastSysPrompt = sysPrompt;

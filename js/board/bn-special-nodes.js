@@ -807,7 +807,7 @@
             if (typeof conBlinkNodeAttention === 'function' && node.el) {
               conBlinkNodeAttention(node.el, 3000);
             }
-            conPlayTimerChime();
+            // Do not play board chime here: Class Management plays its own timer sound.
           }
           _conActiveCmsTimerNodeId = null;
           window._conActiveCmsTimerNodeId = null;
@@ -844,7 +844,7 @@
               if (typeof conBlinkNodeAttention === 'function' && node.el) {
                 conBlinkNodeAttention(node.el, 3000);
               }
-              conPlayTimerChime();
+              // Do not play board chime here: Class Management plays its own timer sound.
             }
           }
         }
