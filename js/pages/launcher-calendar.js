@@ -156,6 +156,28 @@
         var end = h.dateTo || h.date;
         if (ds >= h.date && ds <= end) return true;
       }
+      var ncs = (sems[i] && sems[i].noClassRanges) || [];
+      for (var k = 0; k < ncs.length; k++) {
+        var nc = ncs[k];
+        if (!nc || !nc.date || (Array.isArray(nc.classIds) && nc.classIds.length)) continue;
+        var ncEnd = nc.dateTo || nc.date;
+        if (ds >= nc.date && ds <= ncEnd) return true;
+      }
+    }
+    return false;
+  }
+
+  function isClassNoClassDate(ds, cid, semInfo) {
+    var cfg = state.cfg;
+    var sems = semInfo && semInfo.sem ? [semInfo.sem] : (cfg && Array.isArray(cfg.semesters) ? cfg.semesters : []);
+    for (var i = 0; i < sems.length; i++) {
+      var ncs = (sems[i] && sems[i].noClassRanges) || [];
+      for (var k = 0; k < ncs.length; k++) {
+        var nc = ncs[k];
+        if (!nc || !nc.date || !Array.isArray(nc.classIds) || !nc.classIds.length) continue;
+        var ncEnd = nc.dateTo || nc.date;
+        if (ds >= nc.date && ds <= ncEnd && nc.classIds.indexOf(cid) !== -1) return true;
+      }
     }
     return false;
   }
@@ -191,6 +213,7 @@
       for (var c = 0; c < classIds.length; c++) {
         var cid = classIds[c];
         if (state.classMeta[cid] && state.classMeta[cid].archived) continue;
+        if (isClassNoClassDate(ds, cid, semInfo)) continue;
         var cCfg = cfg.classes[cid] || {};
         if (semKey && cCfg.semesters && cCfg.semesters[semKey] === false) continue;
         var sched = cCfg.schedule || [];

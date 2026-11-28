@@ -405,6 +405,37 @@
       el.addEventListener('click', handler);
     })();
     (function () {
+      var el = document.getElementById('add-noclass-range-btn');
+      if (!el) return;
+      el.addEventListener('click', function () { addNoClassRow(); });
+    })();
+    (function () {
+      var list = document.getElementById('noclass-list');
+      if (!list) return;
+      list.addEventListener('click', function (e) {
+        var chip = e.target.closest('.pl-pick-chip');
+        if (!chip) return;
+        var row = chip.closest('.noclass-cls-row');
+        if (!row) return;
+        var allChip = row.querySelector('[data-nc-all="1"]');
+        var clsChips = Array.from(row.querySelectorAll('[data-nc-cid]'));
+        if (chip.getAttribute('data-nc-all') === '1') {
+          if (chip.classList.contains('selected') && clsChips.length) {
+            // Clicking "All classes" while already active: select all individual chips so user can uncheck specific ones
+            chip.classList.remove('selected');
+            clsChips.forEach(function (c) { c.classList.add('selected'); });
+          } else {
+            clsChips.forEach(function (c) { c.classList.remove('selected'); });
+            chip.classList.add('selected');
+          }
+        } else {
+          chip.classList.toggle('selected');
+          var anySelected = clsChips.some(function (c) { return c.classList.contains('selected'); });
+          if (allChip) allChip.classList.toggle('selected', !anySelected);
+        }
+      });
+    })();
+    (function () {
       var el = document.querySelector('[data-plev-68]');
       if (!el) return;
       var handler = function (event) { deleteActiveSem() };
@@ -1177,15 +1208,17 @@
       el.addEventListener('click', handler);
     })();
 
-    // Delegated handlers for dynamically rendered planner UI
+    // Delegated remove-row handler (capture phase so modal-box stopPropagation() never blocks it)
     document.addEventListener('click', function (e) {
       var rmBtn = e.target.closest('button[data-pl-rm]');
-      if (rmBtn) {
-        var sel = rmBtn.getAttribute('data-pl-rm');
-        var parent = rmBtn.closest(sel);
-        if (parent) parent.remove();
-        return;
-      }
+      if (!rmBtn) return;
+      var sel = rmBtn.getAttribute('data-pl-rm');
+      var parent = rmBtn.closest(sel);
+      if (parent) parent.remove();
+    }, true);
+
+    // Delegated handlers for dynamically rendered planner UI
+    document.addEventListener('click', function (e) {
 
       var el = e.target.closest('[data-pl-action]');
       if (!el) return;

@@ -1667,7 +1667,7 @@
         // Collect all holiday dates across semesters
         const holDates = new Set();
         (cfg.semesters || []).forEach(sem => {
-          (sem.holidays || []).forEach(h => {
+          (sem.holidays || []).concat(sem.noClassRanges || []).forEach(h => {
             if (!h.date) return;
             let hd = new Date(h.date + 'T12:00:00');
             const he = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : new Date(hd);

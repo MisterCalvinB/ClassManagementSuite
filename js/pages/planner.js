@@ -968,6 +968,7 @@
             sem.semesterStart = raw.semesterStart || '';
             sem.semesterEnd = raw.semesterEnd || '';
             sem.holidays = raw.holidays || [];
+            sem.noClassRanges = raw.noClassRanges || [];
             cfg.semesters = [sem];
             activeSemId = sem.id;
           }
@@ -2295,7 +2296,7 @@
     }
 
     function makeSem(label) {
-      return { id: 'sem-' + uid(), label: label || '', semesterStart: '', semesterEnd: '', holidays: [] };
+      return { id: 'sem-' + uid(), label: label || '', semesterStart: '', semesterEnd: '', holidays: [], noClassRanges: [] };
     }
 
     function getTotalWeeks(sem) {
@@ -2715,8 +2716,12 @@
 
     function renderSlot(s) {
       if (s.isGlobalHoliday) {
-        var hlabel = s.holidayLabel || t('pl_typeHoliday');
+        var hlabel = s.holidayLabel || (s.isNoClassRange ? t('pl_noClassRangeDefault') : t('pl_typeHoliday'));
         var hhtml = '<div class="holiday-row">' + esc(hlabel);
+        if (s.isNoClassRange && Array.isArray(s.classIds) && s.classIds.length) {
+          var clsNames = s.classIds.map(plannerClassDisplayName).filter(Boolean);
+          if (clsNames.length) hhtml += '<span class="nc-cls-tag">' + esc(clsNames.join(', ')) + '</span>';
+        }
         if (s.dateTo) {
           var hd1 = new Date(s.date + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
           var hd2 = new Date(s.dateTo + 'T12:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -2925,19 +2930,37 @@
       var end = new Date(activeSem.semesterEnd + 'T12:00:00');
       var today = new Date(); today.setHours(12, 0, 0, 0);
 
-      // Build holiday data: holDates blocks individual days; holRanges supplies one collapsed slot each
+      // Build blocked date data (holidays + exam/no-class ranges):
+      // holDates blocks entire days; noClassAllDates removes scheduled lesson slots for all classes;
+      // noClassByClass[cid] removes scheduled lesson slots only for specific classes;
+      // holRanges supplies one collapsed banner slot each
       var holDates = new Set();
+      var noClassAllDates = new Set();
+      var noClassByClass = Object.create(null);
       var holRanges = [];
-      (activeSem.holidays || []).forEach(function (h) {
-        if (!h.date) return;
+      function collectBlockedRange(h, isNoClassRange) {
+        if (!h || !h.date) return;
         var hStart = new Date(h.date + 'T12:00:00');
         var hEnd = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : hStart;
         var visStart = new Date(Math.max(hStart.getTime(), start.getTime()));
         var visEnd = new Date(Math.min(hEnd.getTime(), end.getTime()));
         if (visStart > visEnd) return;
-        // Block every day in the semester-clamped range
+        var scopedCids = (isNoClassRange && Array.isArray(h.classIds) && h.classIds.length) ? h.classIds : null;
         var hd = new Date(visStart);
-        while (hd <= visEnd) { holDates.add(hd.toISOString().slice(0, 10)); hd.setDate(hd.getDate() + 1); }
+        while (hd <= visEnd) {
+          var hds = hd.toISOString().slice(0, 10);
+          if (!isNoClassRange) {
+            holDates.add(hds);
+          } else if (scopedCids) {
+            scopedCids.forEach(function (cid) {
+              if (!noClassByClass[cid]) noClassByClass[cid] = new Set();
+              noClassByClass[cid].add(hds);
+            });
+          } else {
+            noClassAllDates.add(hds);
+          }
+          hd.setDate(hd.getDate() + 1);
+        }
         // First visible day (respects showPast)
         var dispStart = effectiveShowPast ? visStart : new Date(Math.max(visStart.getTime(), today.getTime()));
         if (dispStart > visEnd) return;
@@ -2945,9 +2968,13 @@
         var ds1 = visEnd.toISOString().slice(0, 10);
         holRanges.push({
           date: ds0, dateTo: ds1 !== ds0 ? ds1 : null,
-          isGlobalHoliday: true, holidayLabel: h.label
+          isGlobalHoliday: true, isNoClassRange: !!isNoClassRange,
+          classIds: scopedCids ? scopedCids.slice() : [],
+          holidayLabel: h.label
         });
-      });
+      }
+      (activeSem.holidays || []).forEach(function (h) { collectBlockedRange(h, false); });
+      (activeSem.noClassRanges || []).forEach(function (h) { collectBlockedRange(h, true); });
 
       var emap = {}, consumed = {};
       var allCombinedEntries = entries.slice();
@@ -3008,9 +3035,10 @@
 
         if (!effectiveShowPast && d < today) { d.setDate(d.getDate() + 1); continue; }
 
-        if (holDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
+        if (holDates.has(ds) || noClassAllDates.has(ds)) { d.setDate(d.getDate() + 1); continue; }
 
         classIds.forEach(function (cid) {
+          if (noClassByClass[cid] && noClassByClass[cid].has(ds)) return;
           var todaySlots = classSchedByDow[cid] ? classSchedByDow[cid][dow] : null;
           if (todaySlots && todaySlots.length > 0) {
             var k = ds + '|' + cid;
@@ -3154,7 +3182,15 @@
 
       var list = document.getElementById('hol-list');
       list.innerHTML = '';
-      (sem ? sem.holidays : []).forEach(function (h) { list.appendChild(makeHolRow(h.date, h.dateTo || '', h.label)); });
+      (sem ? (sem.holidays || []) : []).forEach(function (h) { list.appendChild(makeHolRow(h.date, h.dateTo || '', h.label)); });
+
+      var ncList = document.getElementById('noclass-list');
+      if (ncList) {
+        ncList.innerHTML = '';
+        (sem ? (sem.noClassRanges || []) : []).forEach(function (h) {
+          ncList.appendChild(makeNoClassRow(h.date, h.dateTo || '', h.label, h.classIds || []));
+        });
+      }
 
       // Show Group Editor date hint only when creating (not editing)
       var cgd = (typeof CLASS_GROUPS_DATA !== 'undefined' && CLASS_GROUPS_DATA) ? CLASS_GROUPS_DATA : (window.CLASS_GROUPS_DATA || null);
@@ -3181,7 +3217,7 @@
       document.getElementById('pl-cgd-hint').style.display = 'none';
     }
 
-    function makeHolRow(date, dateTo, label) {
+    function makeHolRow(date, dateTo, label, placeholderKey) {
       var div = document.createElement('div');
       div.className = 'hol-item';
       div.innerHTML =
@@ -3189,11 +3225,69 @@
         '<span class="range-sep">–</span>' +
         '<input type="date" class="field-input hol-date-end" value="' + esc(dateTo || '') + '">' +
         '<input type="text" class="field-input hol-label" value="' + esc(label || '') +
-        '" placeholder="' + esc(t('pl_holidayLabelPlaceholder')) + '">' +
+        '" placeholder="' + esc(t(placeholderKey || 'pl_holidayLabelPlaceholder')) + '">' +
         '<button class="rm-btn" data-pl-rm=".hol-item"><img src="../assets/icons/close.svg" class="btn-icon" alt="" style="width:12px;height:12px;" /></button>';
       return div;
     }
     function addHolRow() { document.getElementById('hol-list').appendChild(makeHolRow('', '', '')); }
+
+    function makeNoClassRow(date, dateTo, label, selectedClassIds) {
+      var wrap = document.createElement('div');
+      wrap.className = 'noclass-item';
+      var top = makeHolRow(date, dateTo, label, 'pl_noClassRangeLabelPlaceholder');
+      var rmBtn = top.querySelector('.rm-btn');
+      if (rmBtn) rmBtn.setAttribute('data-pl-rm', '.noclass-item');
+      wrap.appendChild(top);
+
+      var selSet = new Set(Array.isArray(selectedClassIds) ? selectedClassIds : []);
+      var clsRow = document.createElement('div');
+      clsRow.className = 'noclass-cls-row';
+      var allChip = document.createElement('button');
+      allChip.type = 'button';
+      allChip.className = 'pl-pick-chip' + (selSet.size === 0 ? ' selected' : '');
+      allChip.setAttribute('data-nc-all', '1');
+      allChip.textContent = t('pl_allClasses');
+      clsRow.appendChild(allChip);
+
+      getPlannerClassIds().forEach(function (cid) {
+        if ((classGroupsMeta[cid] || {}).archived) return;
+        var chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'pl-pick-chip' + (selSet.has(cid) ? ' selected' : '');
+        chip.setAttribute('data-nc-cid', cid);
+        chip.textContent = plannerClassDisplayName(cid);
+        clsRow.appendChild(chip);
+      });
+      wrap.appendChild(clsRow);
+      return wrap;
+    }
+
+    function addNoClassRow() {
+      var el = document.getElementById('noclass-list');
+      if (el) el.appendChild(makeNoClassRow('', '', '', []));
+    }
+
+    function collectDateRangesFromList(selector, withClasses) {
+      var items = [];
+      document.querySelectorAll(selector).forEach(function (item) {
+        var d = item.querySelector('.hol-date').value;
+        var d2 = item.querySelector('.hol-date-end').value;
+        var l = item.querySelector('.hol-label').value.trim();
+        if (!d) return;
+        var obj = { date: d, dateTo: d2 || d, label: l };
+        if (withClasses) {
+          var allChip = item.querySelector('[data-nc-all="1"]');
+          if (!allChip || !allChip.classList.contains('selected')) {
+            var cids = Array.from(item.querySelectorAll('[data-nc-cid].selected'))
+              .map(function (c) { return c.getAttribute('data-nc-cid'); })
+              .filter(Boolean);
+            if (cids.length) obj.classIds = cids;
+          }
+        }
+        items.push(obj);
+      });
+      return items;
+    }
 
     function saveSemModal() {
       var label = document.getElementById('sem-label').value.trim();
@@ -3201,20 +3295,15 @@
       var start = document.getElementById('sem-start').value;
       var end = document.getElementById('sem-end').value;
       if (!PL_YEAR_RE.test(year)) { showToast(t('cpToastInvalidYear')); document.getElementById('sem-year').focus(); return; }
-      var hols = [];
-      document.querySelectorAll('#hol-list .hol-item').forEach(function (item) {
-        var d = item.querySelector('.hol-date').value;
-        var d2 = item.querySelector('.hol-date-end').value;
-        var l = item.querySelector('.hol-label').value.trim();
-        if (d) hols.push({ date: d, dateTo: d2 || d, label: l });
-      });
+      var hols = collectDateRangesFromList('#hol-list .hol-item', false);
+      var noClassRanges = collectDateRangesFromList('#noclass-list .noclass-item', true);
 
       if (editingSemId) {
         var sem = cfg.semesters.find(function (s) { return s.id === editingSemId; });
-        if (sem) { sem.label = label; sem.year = year; sem.semesterStart = start; sem.semesterEnd = end; sem.holidays = hols; }
+        if (sem) { sem.label = label; sem.year = year; sem.semesterStart = start; sem.semesterEnd = end; sem.holidays = hols; sem.noClassRanges = noClassRanges; }
       } else {
         var newSem = makeSem(label || t('pl_semDefault'));
-        newSem.year = year; newSem.semesterStart = start; newSem.semesterEnd = end; newSem.holidays = hols;
+        newSem.year = year; newSem.semesterStart = start; newSem.semesterEnd = end; newSem.holidays = hols; newSem.noClassRanges = noClassRanges;
         cfg.semesters.push(newSem);
         activeSemId = newSem.id;
       }
@@ -3374,6 +3463,9 @@
             if (!filterTypes.has('lesson')) return false;
           }
         }
+        if (s.isGlobalHoliday && s.isNoClassRange && Array.isArray(s.classIds) && s.classIds.length && filterClasses.size > 0) {
+          if (!s.classIds.some(function (cid) { return filterClasses.has(cid); })) return false;
+        }
 
         // 2. Search Query
         if (q) {
@@ -3416,17 +3508,27 @@
     function getHolidayDatesMap(activeSem) {
       var map = Object.create(null);
       if (!activeSem || viewOpts.holidays === false) return map;
-      (activeSem.holidays || []).forEach(function (h) {
-        if (!h.date) return;
+      function addRangeToMap(h, fallbackLabel, isNoClass) {
+        if (!h || !h.date) return;
+        if (isNoClass && Array.isArray(h.classIds) && h.classIds.length && filterClasses.size > 0) {
+          if (!h.classIds.some(function (cid) { return filterClasses.has(cid); })) return;
+        }
+        var lbl = h.label || fallbackLabel;
+        if (isNoClass && Array.isArray(h.classIds) && h.classIds.length) {
+          var cNames = h.classIds.map(plannerClassDisplayName).filter(Boolean);
+          if (cNames.length) lbl += ' (' + cNames.join(', ') + ')';
+        }
         var d = new Date(h.date + 'T12:00:00');
         var end = h.dateTo ? new Date(h.dateTo + 'T12:00:00') : d;
         var guard = 0;
         while (d <= end && guard++ < 400) {
           var ds = d.toISOString().slice(0, 10);
-          map[ds] = h.label || t('pl_typeHoliday');
+          map[ds] = lbl;
           d.setDate(d.getDate() + 1);
         }
-      });
+      }
+      (activeSem.holidays || []).forEach(function (h) { addRangeToMap(h, t('pl_typeHoliday'), false); });
+      (activeSem.noClassRanges || []).forEach(function (h) { addRangeToMap(h, t('pl_noClassRangeDefault'), true); });
       return map;
     }
 
@@ -6151,15 +6253,24 @@
         return true;
       }).forEach(function (e) { rows.push({ date: e.date, kind: 'entry', entry: e }); });
 
-      // Holidays — one row per holiday (range kept as dateTo)
+      // Holidays & no-class ranges — one row per period (range kept as dateTo)
       if (sem && (!typeFilter || typeFilter.holiday)) {
-        (sem.holidays || []).forEach(function (h) {
+        (sem.holidays || []).concat(sem.noClassRanges || []).forEach(function (h, idx) {
           if (!h.date) return;
           if (semStart && h.date < semStart && (!h.dateTo || h.dateTo < semStart)) return;
           if (semEnd && h.date > semEnd) return;
           if (dateFrom && (h.dateTo || h.date) < dateFrom) return;
           if (dateTo && h.date > dateTo) return;
-          rows.push({ date: h.date, dateTo: (h.dateTo && h.dateTo !== h.date) ? h.dateTo : null, kind: 'holiday', label: h.label });
+          if (Array.isArray(h.classIds) && h.classIds.length && clsFilter && clsFilter !== 'all') {
+            if (!h.classIds.includes(clsFilter)) return;
+          }
+          var fallbackLbl = idx >= (sem.holidays || []).length ? t('pl_noClassRangeDefault') : t('pl_typeHoliday');
+          var lbl = h.label || fallbackLbl;
+          if (Array.isArray(h.classIds) && h.classIds.length) {
+            var cNames = h.classIds.map(plannerClassDisplayName).filter(Boolean);
+            if (cNames.length) lbl += ' (' + cNames.join(', ') + ')';
+          }
+          rows.push({ date: h.date, dateTo: (h.dateTo && h.dateTo !== h.date) ? h.dateTo : null, kind: 'holiday', label: lbl });
         });
       }
 
@@ -6222,6 +6333,19 @@
             : ';VALUE=DATE:' + datePlus1(h.date);
           vevent('hol-' + h.date + '-' + (h.dateTo || h.date),
             ';VALUE=DATE:' + h.date.replace(/-/g, ''), holDtend, h.label || t('pl_typeHoliday'), '');
+        });
+        (s.noClassRanges || []).forEach(function (h) {
+          if (!inIcsRange(h.date, h.dateTo || h.date)) return;
+          var ncDtend = h.dateTo && h.dateTo !== h.date
+            ? ';VALUE=DATE:' + datePlus1(h.dateTo)
+            : ';VALUE=DATE:' + datePlus1(h.date);
+          var ncSummary = h.label || t('pl_noClassRangeDefault');
+          if (Array.isArray(h.classIds) && h.classIds.length) {
+            var ncCls = h.classIds.map(plannerClassDisplayName).filter(Boolean);
+            if (ncCls.length) ncSummary += ' (' + ncCls.join(', ') + ')';
+          }
+          vevent('noclass-' + h.date + '-' + (h.dateTo || h.date),
+            ';VALUE=DATE:' + h.date.replace(/-/g, ''), ncDtend, ncSummary, '');
         });
       });
 

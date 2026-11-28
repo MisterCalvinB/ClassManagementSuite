@@ -1189,6 +1189,8 @@
                     if (activeSem.semesterEnd && todayStr > activeSem.semesterEnd) return;
                     var onHoliday = (activeSem.holidays || []).some(function (h) {
                         return h.date && todayStr >= h.date && todayStr <= (h.dateTo || h.date);
+                    }) || (activeSem.noClassRanges || []).some(function (h) {
+                        return h.date && (!Array.isArray(h.classIds) || !h.classIds.length) && todayStr >= h.date && todayStr <= (h.dateTo || h.date);
                     });
                     if (onHoliday) return;
                 }
@@ -1197,6 +1199,9 @@
                 var matchedId = null, matchedSlot = null;
                 Object.keys(classes).filter(k => !k.startsWith('_')).find(function (cid) {
                     if (rawMeta[cid] && rawMeta[cid].archived) return false;
+                    if (activeSem && (activeSem.noClassRanges || []).some(function (h) {
+                        return h.date && Array.isArray(h.classIds) && h.classIds.indexOf(cid) !== -1 && todayStr >= h.date && todayStr <= (h.dateTo || h.date);
+                    })) return false;
                     var slot = (classes[cid].schedule || []).find(function (s) {
                         if (parseInt(s.day) !== dow) return false;
                         var start = s.time || '';

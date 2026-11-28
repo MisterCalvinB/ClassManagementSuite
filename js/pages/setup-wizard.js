@@ -624,7 +624,8 @@
       year: year,
       semesterStart: s1Start,
       semesterEnd: s1End,
-      holidays: (prevS1 && Array.isArray(prevS1.holidays)) ? prevS1.holidays : []
+      holidays: (prevS1 && Array.isArray(prevS1.holidays)) ? prevS1.holidays : [],
+      noClassRanges: (prevS1 && Array.isArray(prevS1.noClassRanges)) ? prevS1.noClassRanges : []
     };
     var newS2 = {
       id: (prevS2 && prevS2.id) || ('sem-s2-' + Date.now()),
@@ -632,7 +633,8 @@
       year: year,
       semesterStart: s2Start,
       semesterEnd: s2End,
-      holidays: (prevS2 && Array.isArray(prevS2.holidays)) ? prevS2.holidays : []
+      holidays: (prevS2 && Array.isArray(prevS2.holidays)) ? prevS2.holidays : [],
+      noClassRanges: (prevS2 && Array.isArray(prevS2.noClassRanges)) ? prevS2.noClassRanges : []
     };
 
     cfg.semesters = otherSemesters.concat([newS1, newS2]);

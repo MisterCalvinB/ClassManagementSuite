@@ -924,7 +924,7 @@ Lesson, assessment, and holiday scheduling tool with export capabilities.
   - **Year**: 12-month overview with daily activity/test/to-do/holiday indicators and click-to-drill-down to Month or Day view.
   - **Period Navigation**: `Prev` / `Today` / `Next` controls in Day, Week, Month, and Year views.
 - **Granular Display Toggles (`Display ▾`)**: Independently toggle **Entry Elements** (Time range, Class pill, Type badges, Topic, Linked badges, Detail fields, Custom fields) and **Calendar Layers** (Empty scheduled slots, Global holidays, Calendar feed events, Due to-dos, Show weekends).
-- **Term Management**: Create terms, define weekly schedules, and flag holidays.
+- **Term Management**: Create terms, define weekly schedules, and flag holidays as well as exam sessions / no-regular-class date ranges.
 - **Class Schedules**: Color-coded classes with lesson slot auto-population.
 - **Entries & Reminders**: Lesson, Test, and Assignment entries. Configurable pre-start and end-of-lesson reminder alerts.
 - **Universal Tagging & Linking Engine Integration (`cmt:planner:<entryId>`)**:
