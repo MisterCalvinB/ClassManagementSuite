@@ -562,13 +562,13 @@ Centralized settings page organized into **four dedicated tabs** for intuitive n
 
 #### 1. General Tab (`data-tab="general"`)
 
-- **App Identity**: Customize the global **App Title** (displayed in launcher headers and window title bars) and configure the **Teacher's Name**, which automatically persists to `user/config.js` (`launcherSettings.teacherName`) and injects into document and report export footers across the suite (Lesson Creator, Weekly Planner, Class Plan, Class Management, Schedule Maker, Participation Tracker, Grade Sheet, and Test Creator).
+- **App Identity**: Customize the global **App Title** (displayed in launcher headers and window title bars) and configure the **Teacher's Name**, which automatically persists to `user/app-settings.json` (with legacy `user/config.js` fallback) and injects into document and report export footers across the suite (Lesson Creator, Weekly Planner, Class Plan, Class Management, Schedule Maker, Participation Tracker, Grade Sheet, and Test Creator).
 - **Language**: Select interface language (**English 🇬🇧**, **Français 🇫🇷**, **Deutsch 🇩🇪**, **Italiano 🇮🇹**). Updates menus, UI strings, help text, and default translation columns in [Games](#learning-toolshtml).
 - **PDF Export Settings**:
   - **Page Size**: Select default paper format (**A4**, **Letter**, **A5**, **Legal**, **A3**).
   - **Margin Space**: Define page margins using standard CSS margin syntax (e.g., `16mm 14mm` or `15mm`).
   - **Page Orientation**: Choose default layout orientation (**Portrait** or **Landscape**). Applied automatically across all suite export operations (Planner, Grade Sheet, Participation Tracker, Schedule Maker, Class Plan, Board, Lesson Creator, Test Creator, Administrative Groups, Manage Database, Document Editor).
-- **Export Root Folders**: Create, edit, and remove custom quick-save root folders under `user/` (modeled after `user/to-print/`, stored in `user/config.js` under `export.customRoots`). Custom export roots are also creatable directly inside export destination dialogs, manageable in **File Manager**, indexed in **Quick Switcher** (`Ctrl+K`), and filterable in **PDF Viewer -> Search App PDFs**.
+- **Export Root Folders**: Create, edit, and remove custom quick-save root folders under `user/` (modeled after `user/to-print/`, stored in `user/export-config.json` alongside PDF export defaults, with automatic fallback from legacy `user/config.js`). Custom export roots are also creatable directly inside export destination dialogs, manageable in **File Manager**, indexed in **Quick Switcher** (`Ctrl+K`), and filterable in **PDF Viewer -> Search App PDFs**.
 - **Startup & Launch**:
   - **Apps to open at startup**: Select tools to auto-launch when the app starts.
   - **Window arrangement**: Choose layout mode:

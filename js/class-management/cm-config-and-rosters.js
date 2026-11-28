@@ -531,8 +531,13 @@
                 if (typeof ui.planAbbrevLen === 'number' && ui.planAbbrevLen >= 1 && ui.planAbbrevLen <= 20) planAbbrevLen = Math.round(ui.planAbbrevLen);
                 if (typeof ui.nameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(ui.nameDisplayMode)) {
                     nameDisplayMode = ui.nameDisplayMode;
-                } else if (typeof config?.launcherSettings?.defaultNameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(config.launcherSettings.defaultNameDisplayMode)) {
-                    nameDisplayMode = config.launcherSettings.defaultNameDisplayMode;
+                } else {
+                    const appSettings = (typeof window !== 'undefined' && window.CMT_APP_SETTINGS && typeof window.CMT_APP_SETTINGS === 'object')
+                        ? window.CMT_APP_SETTINGS
+                        : config?.launcherSettings;
+                    if (typeof appSettings?.defaultNameDisplayMode === 'string' && ['full', 'first', 'last', 'custom'].includes(appSettings.defaultNameDisplayMode)) {
+                        nameDisplayMode = appSettings.defaultNameDisplayMode;
+                    }
                 }
                 if (typeof ui.rosterSortOrder === 'string' && ['first', 'last'].includes(ui.rosterSortOrder)) {
                     rosterSortOrder = ui.rosterSortOrder;
@@ -630,7 +635,9 @@
                     localStorage.setItem(CMS_SHORTCUTS_STORAGE_KEY, JSON.stringify(config.customShortcuts));
                 } catch (_) { }
             }
-            if (config?.classPlans && typeof config.classPlans === 'object') {
+            if (typeof window !== 'undefined' && window.CMT_CLASS_PLANS && typeof window.CMT_CLASS_PLANS === 'object') {
+                classPlans = window.CMT_CLASS_PLANS;
+            } else if (config?.classPlans && typeof config.classPlans === 'object') {
                 classPlans = config.classPlans;
             } else {
                 // fall back to localStorage if no disk data
@@ -862,14 +869,9 @@
                     lessonRunnerLayout: lessonRunnerLayout,
                     presSettings: { ...presSettings }
                 },
-                launcherSettings: loadedConfig.launcherSettings || {},
-                export: (overrides && overrides.export !== undefined)
-                    ? overrides.export
-                    : (loadedConfig.export || {}),
                 shortcuts: (overrides && overrides.shortcuts !== undefined)
                     ? overrides.shortcuts
                     : (typeof getCmsCustomShortcutsMap === 'function' ? getCmsCustomShortcutsMap() : (loadedConfig.shortcuts || {})),
-                classPlans: _cpSerializablePlans(),
                 intervalSequences: (typeof _getSerializableIntervalSequences === 'function')
                     ? _getSerializableIntervalSequences()
                     : (loadedConfig.intervalSequences || undefined)
@@ -1230,9 +1232,34 @@
         async function initApp() {
             if (typeof _cmsInitGradesSync === 'function') _cmsInitGradesSync();
             await Promise.resolve(window.__cmUserBootstrapPromise).catch(function () { });
+            if (window.Desktop && typeof window.Desktop.readJson === 'function') {
+                try {
+                    const appRes = await window.Desktop.readJson('user', 'app-settings.json');
+                    if (appRes && appRes.ok && appRes.data && typeof appRes.data === 'object') {
+                        window.CMT_APP_SETTINGS = appRes.data;
+                    }
+                } catch (_) { }
+            }
+            if (window.Desktop && typeof window.Desktop.readText === 'function') {
+                try {
+                    const plansRes = await window.Desktop.readText('classPlans', 'plans.js');
+                    if (plansRes && plansRes.ok && plansRes.content) {
+                        const m = plansRes.content.match(/var\s+SAVED_CLASS_PLANS\s*=\s*(\{[\s\S]*?\});/);
+                        if (m) {
+                            const parsedPlans = JSON.parse(m[1]);
+                            if (parsedPlans && typeof parsedPlans === 'object') {
+                                window.CMT_CLASS_PLANS = parsedPlans;
+                            }
+                        }
+                    }
+                } catch (_) { }
+            }
             await loadConfigFromDisk();
 
-            let showDevFeatures = !!(getLoadedConfig()?.launcherSettings?.showDevFeatures);
+            const appSettings = (typeof window !== 'undefined' && window.CMT_APP_SETTINGS && typeof window.CMT_APP_SETTINGS === 'object')
+                ? window.CMT_APP_SETTINGS
+                : getLoadedConfig()?.launcherSettings;
+            let showDevFeatures = !!(appSettings?.showDevFeatures);
             if (!showDevFeatures) {
                 try {
                     const generalCfg = JSON.parse(localStorage.getItem('cmt-general-config') || '{}');

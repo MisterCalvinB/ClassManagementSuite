@@ -740,7 +740,6 @@ function deleteOrphanedGroup() {
         'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';\n' +
         'var SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(classroomLayouts, null, 2) + ';';
       await Desktop.saveText('classPlans', 'plans.js', plansContent);
-      await syncToConfigJs();
       toast(t('cpToastGroupDeleted'));
     } catch (e) {
       toast(t('cpToastErrorSaving') + e.message);
@@ -1228,9 +1227,6 @@ async function doSave(showFeedback) {
       'var SAVED_CLASS_PLANS = ' + JSON.stringify(classPlans, null, 2) + ';\n' +
       'var SAVED_CLASSROOM_LAYOUTS = ' + JSON.stringify(classroomLayouts, null, 2) + ';';
     await Desktop.saveText('classPlans', 'plans.js', plansContent);
-
-    // 2. Sync to user/config.js so class-management.html sees the changes
-    await syncToConfigJs();
 
     markSaved();
     if (showFeedback) toast(t('cpToastPlanSaved'));

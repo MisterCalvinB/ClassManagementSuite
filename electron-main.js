@@ -454,32 +454,54 @@ function sanitizeExportRootFolderName(raw) {
   return s;
 }
 
-let _exportRootsCache = { root: '', mtimeMs: -1, roots: [] };
+let _exportRootsCache = { key: '', mtimeMs: -1, roots: [] };
 
 function invalidateExportRootsCache() {
-  _exportRootsCache = { root: '', mtimeMs: -1, roots: [] };
+  _exportRootsCache = { key: '', mtimeMs: -1, roots: [] };
 }
 
 function getCustomExportRoots() {
   const writableRoot = getWritableRootDir();
-  const configPath = path.join(writableRoot, 'user', 'config.js');
+  const exportCfgPath = path.join(writableRoot, 'user', 'export-config.json');
+  const legacyCfgPath = path.join(writableRoot, 'user', 'config.js');
   try {
-    const st = fsSync.statSync(configPath);
-    if (_exportRootsCache.root === writableRoot && _exportRootsCache.mtimeMs === st.mtimeMs) {
-      return _exportRootsCache.roots;
+    let parsedExport = null;
+    let sourcePath = '';
+    let st = null;
+
+    if (fsSync.existsSync(exportCfgPath)) {
+      sourcePath = exportCfgPath;
+      st = fsSync.statSync(exportCfgPath);
+      const cacheKey = 'json:' + writableRoot;
+      if (_exportRootsCache.key === cacheKey && _exportRootsCache.mtimeMs === st.mtimeMs) {
+        return _exportRootsCache.roots;
+      }
+      const rawJson = fsSync.readFileSync(exportCfgPath, 'utf8');
+      parsedExport = JSON.parse(rawJson);
+    } else if (fsSync.existsSync(legacyCfgPath)) {
+      sourcePath = legacyCfgPath;
+      st = fsSync.statSync(legacyCfgPath);
+      const cacheKey = 'legacy:' + writableRoot;
+      if (_exportRootsCache.key === cacheKey && _exportRootsCache.mtimeMs === st.mtimeMs) {
+        return _exportRootsCache.roots;
+      }
+      const content = fsSync.readFileSync(legacyCfgPath, 'utf8');
+      let parsed = null;
+      try {
+        const vm = require('vm');
+        const sandbox = { window: {}, globalThis: {} };
+        vm.runInNewContext(content.replace(/^\s*(const|let)\s+/gm, 'var '), sandbox, { timeout: 200 });
+        parsed = sandbox.CLASS_MANAGEMENT_CONFIG || sandbox.window.CLASS_MANAGEMENT_CONFIG || sandbox.globalThis.CLASS_MANAGEMENT_CONFIG || null;
+      } catch (_) {
+        const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+        if (match) parsed = JSON.parse(match[1]);
+      }
+      parsedExport = (parsed && parsed.export && typeof parsed.export === 'object') ? parsed.export : null;
+    } else {
+      return [];
     }
-    const content = fsSync.readFileSync(configPath, 'utf8');
-    let parsed = null;
-    try {
-      const vm = require('vm');
-      const sandbox = { window: {}, globalThis: {} };
-      vm.runInNewContext(content.replace(/^\s*(const|let)\s+/gm, 'var '), sandbox, { timeout: 200 });
-      parsed = sandbox.CLASS_MANAGEMENT_CONFIG || null;
-    } catch (_) {
-      const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
-      if (match) parsed = JSON.parse(match[1]);
-    }
-    const rawRoots = (parsed && parsed.export && Array.isArray(parsed.export.customRoots)) ? parsed.export.customRoots : [];
+
+    const rawRoots = (parsedExport && Array.isArray(parsedExport.customRoots)) ? parsedExport.customRoots : [];
     const seen = new Set();
     const roots = [];
     for (const item of rawRoots) {
@@ -492,7 +514,8 @@ function getCustomExportRoots() {
       seen.add(id);
       roots.push({ id, label, folderName });
     }
-    _exportRootsCache = { root: writableRoot, mtimeMs: st.mtimeMs, roots };
+    const cacheKey = (sourcePath === exportCfgPath ? 'json:' : 'legacy:') + writableRoot;
+    _exportRootsCache = { key: cacheKey, mtimeMs: st.mtimeMs, roots };
     return roots;
   } catch (_) {
     return [];
@@ -3077,6 +3100,8 @@ async function normalizeAndAdoptDataLocation(selectedPath) {
   const keyMarkers = [
     'class-groups.js',
     'config.js',
+    'export-config.json',
+    'app-settings.json',
     'students.js',
     'planner-config.js',
     'board-config.js',
@@ -3672,7 +3697,7 @@ function _isCrossAppDataChange(payload = {}) {
   if (target === 'grades' || target === 'gradeSheet') return true;
 
   if (target === 'user') {
-    if (['class-groups.js', 'config.js', 'planner-config.js', 'todos.js'].includes(filename)) return true;
+    if (['class-groups.js', 'config.js', 'export-config.json', 'app-settings.json', 'planner-config.js', 'todos.js'].includes(filename)) return true;
     if (subdir === 'planner' || relativePath.startsWith('planner/') || oldRelativePath.startsWith('planner/') || newRelativePath.startsWith('planner/')) return true;
     if (subdir === 'custom-data' || subdir.startsWith('custom-data/') || relativePath.startsWith('custom-data/') || oldRelativePath.startsWith('custom-data/') || newRelativePath.startsWith('custom-data/')) return true;
     if (subdir === 'grades' || subdir.startsWith('grades/') || relativePath.startsWith('grades/') || oldRelativePath.startsWith('grades/') || newRelativePath.startsWith('grades/')) return true;

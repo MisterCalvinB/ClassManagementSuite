@@ -1417,7 +1417,11 @@
 
         function _applyAppTitle() {
             let label = '';
-            try { const t = CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim(); if (t) label = t; } catch { }
+            try {
+                const appTitle = (typeof window !== 'undefined' && window.CMT_APP_SETTINGS && window.CMT_APP_SETTINGS.appTitle && String(window.CMT_APP_SETTINGS.appTitle).trim())
+                    || (CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle && CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim());
+                if (appTitle) label = appTitle;
+            } catch { }
             const titleEl = document.getElementById('main-title');
             const fullTitle = label ? (label + ': Class Management') : 'Class Management';
             if (titleEl) titleEl.textContent = fullTitle;

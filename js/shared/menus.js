@@ -80,15 +80,22 @@
   ];
 
   // ── Nav brand ─────────────────────────────────────────────────────────────
-  // Async: loads user/config.js if needed, then sets .nav-brand to appTitle.
+  // Async: loads user/app-settings.json (falling back to user/config.js), then sets .nav-brand to appTitle.
   // Also prefixes document.title. Safe to call from any page with 'user' permission.
   var _navBrandConfigPromise = null;
+  var _navBrandAppTitle = '';
   window._cmtApplyNavBrand = async function () {
-    if (typeof CLASS_MANAGEMENT_CONFIG === 'undefined') {
-      if (!_navBrandConfigPromise) {
-        _navBrandConfigPromise = (async function () {
-          try {
-            if (window.Desktop && Desktop.isElectron() && typeof Desktop.readText === 'function') {
+    if (!_navBrandConfigPromise) {
+      _navBrandConfigPromise = (async function () {
+        try {
+          if (window.Desktop && Desktop.isElectron()) {
+            if (typeof Desktop.readJson === 'function') {
+              var appRes = await Desktop.readJson('user', 'app-settings.json');
+              if (appRes && appRes.ok && appRes.data && appRes.data.appTitle) {
+                _navBrandAppTitle = String(appRes.data.appTitle).trim();
+              }
+            }
+            if (!_navBrandAppTitle && typeof CLASS_MANAGEMENT_CONFIG === 'undefined' && typeof Desktop.readText === 'function') {
               var r = await Desktop.readText('user', 'config.js');
               if (r && r.ok && r.content && typeof CLASS_MANAGEMENT_CONFIG === 'undefined') {
                 var s = document.createElement('script');
@@ -97,18 +104,20 @@
                 if (s.parentNode) s.parentNode.removeChild(s);
               }
             }
-          } catch (e) {}
-        })();
-      }
-      await _navBrandConfigPromise;
+          }
+        } catch (e) {}
+      })();
     }
-    var appTitle = '';
-    try {
-      appTitle = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' &&
-        CLASS_MANAGEMENT_CONFIG.launcherSettings &&
-        CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle &&
-        CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || '';
-    } catch (e) {}
+    await _navBrandConfigPromise;
+    var appTitle = _navBrandAppTitle;
+    if (!appTitle) {
+      try {
+        appTitle = (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' &&
+          CLASS_MANAGEMENT_CONFIG.launcherSettings &&
+          CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle &&
+          CLASS_MANAGEMENT_CONFIG.launcherSettings.appTitle.trim()) || '';
+      } catch (e) {}
+    }
     if (!appTitle) return;
     var el = document.querySelector('.nav-brand');
     if (el && el.children.length === 0) el.textContent = appTitle;

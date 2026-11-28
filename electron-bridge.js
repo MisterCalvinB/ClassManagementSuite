@@ -863,7 +863,9 @@
   function getPdfExportSettings(overrides) {
     overrides = overrides || {};
     let exp = {};
-    if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.export) {
+    if (typeof window !== 'undefined' && window.CMT_EXPORT_CONFIG && typeof window.CMT_EXPORT_CONFIG === 'object') {
+      exp = window.CMT_EXPORT_CONFIG;
+    } else if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG && CLASS_MANAGEMENT_CONFIG.export) {
       exp = CLASS_MANAGEMENT_CONFIG.export;
     } else if (typeof window !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG && window.CLASS_MANAGEMENT_CONFIG.export) {
       exp = window.CLASS_MANAGEMENT_CONFIG.export;
@@ -1456,6 +1458,14 @@
   function getAppTeacherName() {
     try {
       if (typeof window !== 'undefined') {
+        if (window.CMT_APP_SETTINGS && window.CMT_APP_SETTINGS.teacherName) {
+          return String(window.CMT_APP_SETTINGS.teacherName).trim();
+        }
+        var raw = window.localStorage ? window.localStorage.getItem('cmt-general-config') : null;
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
+        }
         if (typeof window.CLASS_MANAGEMENT_CONFIG !== 'undefined' && window.CLASS_MANAGEMENT_CONFIG) {
           if (window.CLASS_MANAGEMENT_CONFIG.launcherSettings && window.CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName) {
             return String(window.CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName).trim();
@@ -1463,11 +1473,6 @@
           if (window.CLASS_MANAGEMENT_CONFIG.teacherName) {
             return String(window.CLASS_MANAGEMENT_CONFIG.teacherName).trim();
           }
-        }
-        var raw = window.localStorage ? window.localStorage.getItem('cmt-general-config') : null;
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
         }
       }
     } catch (_) {}

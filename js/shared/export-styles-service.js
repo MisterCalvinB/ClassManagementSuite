@@ -183,6 +183,14 @@
         return window.getAppTeacherName();
       }
       try {
+        if (typeof window !== 'undefined' && window.CMT_APP_SETTINGS && window.CMT_APP_SETTINGS.teacherName) {
+          return String(window.CMT_APP_SETTINGS.teacherName).trim();
+        }
+        var raw = localStorage.getItem('cmt-general-config');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
+        }
         if (typeof CLASS_MANAGEMENT_CONFIG !== 'undefined' && CLASS_MANAGEMENT_CONFIG) {
           if (CLASS_MANAGEMENT_CONFIG.launcherSettings && CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName) {
             return String(CLASS_MANAGEMENT_CONFIG.launcherSettings.teacherName).trim();
@@ -190,11 +198,6 @@
           if (CLASS_MANAGEMENT_CONFIG.teacherName) {
             return String(CLASS_MANAGEMENT_CONFIG.teacherName).trim();
           }
-        }
-        var raw = localStorage.getItem('cmt-general-config');
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          if (parsed && parsed.teacherName) return String(parsed.teacherName).trim();
         }
       } catch (_) {}
       return '';

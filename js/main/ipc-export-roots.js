@@ -32,8 +32,9 @@ function registerExportRootsIpc(ctx) {
     try {
       const normalized = content.replace(/^\s*(const|let)\s+/gm, 'var ');
       vm.runInNewContext(normalized, sandbox, { timeout: 250 });
-      if (sandbox.CLASS_MANAGEMENT_CONFIG && typeof sandbox.CLASS_MANAGEMENT_CONFIG === 'object') {
-        return sandbox.CLASS_MANAGEMENT_CONFIG;
+      const cfg = sandbox.CLASS_MANAGEMENT_CONFIG || sandbox.window.CLASS_MANAGEMENT_CONFIG || sandbox.globalThis.CLASS_MANAGEMENT_CONFIG;
+      if (cfg && typeof cfg === 'object') {
+        return cfg;
       }
     } catch (_) {}
     try {
@@ -113,24 +114,38 @@ function registerExportRootsIpc(ctx) {
         }
       }
 
-      // Persist to user/config.js
-      const configPath = path.join(userDir, 'config.js');
-      let configData = {};
+      // Persist to user/export-config.json (lazily seeding from legacy user/config.js if needed)
+      const exportConfigPath = path.join(userDir, 'export-config.json');
+      const legacyConfigPath = path.join(userDir, 'config.js');
+      let exportData = {};
+      let loadedFromNew = false;
       try {
-        const existing = await fs.readFile(configPath, 'utf8');
-        configData = parseConfigJs(existing);
+        const existingJson = await fs.readFile(exportConfigPath, 'utf8');
+        const parsedJson = JSON.parse(existingJson);
+        if (parsedJson && typeof parsedJson === 'object') {
+          exportData = parsedJson;
+          loadedFromNew = true;
+        }
       } catch (_) {}
-      if (!configData || typeof configData !== 'object') configData = {};
-      if (!configData.export || typeof configData.export !== 'object') configData.export = {};
-      configData.export.customRoots = cleanRoots;
+      if (!loadedFromNew) {
+        try {
+          const existingLegacy = await fs.readFile(legacyConfigPath, 'utf8');
+          const legacyCfg = parseConfigJs(existingLegacy);
+          if (legacyCfg && legacyCfg.export && typeof legacyCfg.export === 'object') {
+            exportData = Object.assign({}, legacyCfg.export);
+          }
+        } catch (_) {}
+      }
+      if (!exportData || typeof exportData !== 'object') exportData = {};
+      exportData.customRoots = cleanRoots;
 
-      await fs.writeFile(configPath, buildConfigJsContent(configData), 'utf8');
+      await fs.writeFile(exportConfigPath, JSON.stringify(exportData, null, 2) + '\n', 'utf8');
       invalidateExportRootsCache();
 
       _broadcastDataChanged(event, pageFile, {
         action: 'save-export-roots',
         target: 'user',
-        filename: 'config.js'
+        filename: 'export-config.json'
       });
 
       return { ok: true, roots: cleanRoots };

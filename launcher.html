@@ -2821,32 +2821,35 @@
     _refreshSyncTimer = setTimeout(async function () {
       _refreshSyncTimer = null;
       try {
-        // 1. Reload General Config from disk (config.js)
+        // 1. Reload General Config from disk (app-settings.json, fallback to legacy config.js)
         if (window.Desktop && Desktop.isElectron && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
           try {
-            var cfgResult = await Desktop.readJson('user', 'config.js');
-            if (cfgResult && cfgResult.ok && cfgResult.data) {
-              var cfgData = cfgResult.data;
-              if (cfgData.launcherSettings) {
-                var baseConfig = getGeneralConfig() || {};
-                var settings = (typeof cfgData.launcherSettings === 'object' && cfgData.launcherSettings) ? cfgData.launcherSettings : {};
-                var merged = Object.assign({}, baseConfig, settings);
-                localStorage.setItem('cmt-general-config', JSON.stringify(merged));
-                applyTitle();
-                var curLang = typeof getLang === 'function' ? getLang() : null;
-                if (settings.language && curLang && settings.language !== curLang) {
-                  if (typeof setLang === 'function') setLang(settings.language);
-                  localStorage.setItem('cmt-lang-launcher', settings.language);
-                  if (typeof applyTranslations === 'function') applyTranslations();
-                  if (typeof applyTitle === 'function') applyTitle();
-                  if (typeof sbRender === 'function') sbRender();
-                  if (typeof rfRender === 'function') rfRender();
-                  if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
-                }
+            var appRes = await Desktop.readJson('user', 'app-settings.json');
+            var settings = (appRes && appRes.ok && appRes.data && typeof appRes.data === 'object') ? appRes.data : null;
+            if (!settings) {
+              var cfgResult = await Desktop.readJson('user', 'config.js');
+              if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings && typeof cfgResult.data.launcherSettings === 'object') {
+                settings = cfgResult.data.launcherSettings;
+              }
+            }
+            if (settings) {
+              var baseConfig = getGeneralConfig() || {};
+              var merged = Object.assign({}, baseConfig, settings);
+              localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+              applyTitle();
+              var curLang = typeof getLang === 'function' ? getLang() : null;
+              if (settings.language && curLang && settings.language !== curLang) {
+                if (typeof setLang === 'function') setLang(settings.language);
+                localStorage.setItem('cmt-lang-launcher', settings.language);
+                if (typeof applyTranslations === 'function') applyTranslations();
+                if (typeof applyTitle === 'function') applyTitle();
+                if (typeof sbRender === 'function') sbRender();
+                if (typeof rfRender === 'function') rfRender();
+                if (typeof sbUpdateHeaderDate === 'function') sbUpdateHeaderDate();
               }
             }
           } catch (e) {
-            console.warn('launcher: could not refresh config.js:', e);
+            console.warn('launcher: could not refresh app-settings.json / config.js:', e);
           }
         }
 
@@ -2945,15 +2948,26 @@
 
     // Async sync config from disk in background without blocking launcher render
     if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
-      Desktop.readJson('user', 'config.js').then(function(cfgResult) {
-        if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings) {
-          const baseConfig = getGeneralConfig() || {};
-          const settings = (typeof cfgResult.data.launcherSettings === 'object' && cfgResult.data.launcherSettings) ? cfgResult.data.launcherSettings : {};
-          const merged = Object.assign({}, baseConfig, settings);
-          localStorage.setItem('cmt-general-config', JSON.stringify(merged));
-          applyTitle();
-        }
-      }).catch(function(e) { console.warn('launcher: could not read config.js:', e); });
+      (async function () {
+        try {
+          let settings = null;
+          const appRes = await Desktop.readJson('user', 'app-settings.json');
+          if (appRes && appRes.ok && appRes.data && typeof appRes.data === 'object') {
+            settings = appRes.data;
+          } else {
+            const cfgResult = await Desktop.readJson('user', 'config.js');
+            if (cfgResult && cfgResult.ok && cfgResult.data && cfgResult.data.launcherSettings && typeof cfgResult.data.launcherSettings === 'object') {
+              settings = cfgResult.data.launcherSettings;
+            }
+          }
+          if (settings) {
+            const baseConfig = getGeneralConfig() || {};
+            const merged = Object.assign({}, baseConfig, settings);
+            localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+            applyTitle();
+          }
+        } catch (e) { console.warn('launcher: could not read app-settings.json / config.js:', e); }
+      })();
     }
 
     // Sidebar

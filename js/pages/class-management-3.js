@@ -33,7 +33,22 @@
         function cpSavePlans() {
             const clean = _cpSerializablePlans();
             try { localStorage.setItem('cms-class-plans', JSON.stringify(clean)); } catch (_) { }
-            persistSettingsToUserFile().catch(() => { });
+            if (window.Desktop && typeof window.Desktop.saveText === 'function') {
+                (async function () {
+                    try {
+                        let layoutsSuffix = '';
+                        if (typeof window.Desktop.readText === 'function') {
+                            const existing = await window.Desktop.readText('classPlans', 'plans.js').catch(() => null);
+                            if (existing && existing.ok && existing.content) {
+                                const m = existing.content.match(/var\s+SAVED_CLASSROOM_LAYOUTS\s*=[\s\S]*/);
+                                if (m) layoutsSuffix = '\n' + m[0];
+                            }
+                        }
+                        const plansContent = 'var SAVED_CLASS_PLANS = ' + JSON.stringify(clean, null, 2) + ';' + layoutsSuffix;
+                        await window.Desktop.saveText('classPlans', 'plans.js', plansContent);
+                    } catch (_) { }
+                })();
+            }
         }
 
         function _cpPlanSlotLabel(slot) {

@@ -55,21 +55,29 @@ function registerPrintIpc(ctx) {
 
   function getDefaultPdfExportOptions() {
     try {
-      const configPath = path.join(getWritableRootDir(), 'user', 'config.js');
-      if (fsSync.existsSync(configPath)) {
-        const content = fsSync.readFileSync(configPath, 'utf8');
-        const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
-        if (match) {
-          const parsed = JSON.parse(match[1]);
-          if (parsed && parsed.export) {
-            const exp = parsed.export;
-            const isLandscape = (exp.orientation || exp.pdfOrientation || '').toLowerCase() === 'landscape';
-            return {
-              pageSize: (exp.pageSize || exp.size || 'A4').trim(),
-              landscape: isLandscape
-            };
+      const userDir = path.join(getWritableRootDir(), 'user');
+      const exportConfigPath = path.join(userDir, 'export-config.json');
+      let exp = null;
+      if (fsSync.existsSync(exportConfigPath)) {
+        const parsed = JSON.parse(fsSync.readFileSync(exportConfigPath, 'utf8'));
+        if (parsed && typeof parsed === 'object') exp = parsed;
+      } else {
+        const configPath = path.join(userDir, 'config.js');
+        if (fsSync.existsSync(configPath)) {
+          const content = fsSync.readFileSync(configPath, 'utf8');
+          const match = content.match(/CLASS_MANAGEMENT_CONFIG\s*=\s*(\{[\s\S]*?\});/);
+          if (match) {
+            const parsed = JSON.parse(match[1]);
+            if (parsed && parsed.export && typeof parsed.export === 'object') exp = parsed.export;
           }
         }
+      }
+      if (exp) {
+        const isLandscape = (exp.orientation || exp.pdfOrientation || '').toLowerCase() === 'landscape';
+        return {
+          pageSize: (exp.pageSize || exp.size || 'A4').trim(),
+          landscape: isLandscape
+        };
       }
     } catch (err) {
       // ignore

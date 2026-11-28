@@ -30,7 +30,7 @@
 
   var SYNC_CAT_RULES = {
     classdata: function (p) {
-      return /^(config|class-groups|roles|ui-prefs|correction-criteria|grade-scale-models|students)\./.test(p)
+      return /^(config|export-config|app-settings|class-groups|roles|ui-prefs|correction-criteria|grade-scale-models|students)\./.test(p)
         || p.startsWith('grades/')
         || p.startsWith('log/grade-sheet/')
         || p.startsWith('group-participation/')

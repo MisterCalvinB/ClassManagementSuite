@@ -1250,16 +1250,31 @@
       const lsCfg = getGeneralConfig();
       Object.assign(lsCfg, patch);
       localStorage.setItem('cmt-general-config', JSON.stringify(lsCfg));
-      // Write to config.js
-      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.readJson !== 'function') return;
+      if (typeof window !== 'undefined') {
+        if (!window.CMT_APP_SETTINGS || typeof window.CMT_APP_SETTINGS !== 'object') window.CMT_APP_SETTINGS = {};
+        Object.assign(window.CMT_APP_SETTINGS, patch);
+      }
+      // Write to user/app-settings.json (lazily seeding from legacy user/config.js if needed)
+      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.saveJson !== 'function') return;
       try {
-        const result = await Desktop.readJson('user', 'config.js');
-        if (!result || !result.ok || !result.data) return;
-        const data = result.data;
-        if (!data.launcherSettings) data.launcherSettings = {};
-        Object.assign(data.launcherSettings, patch);
-        await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
-      } catch (e) { console.warn('general-config: could not patch config.js:', e); }
+        let data = {};
+        let loadedFromNew = false;
+        if (typeof Desktop.readJson === 'function') {
+          const appRes = await Desktop.readJson('user', 'app-settings.json');
+          if (appRes && appRes.ok && appRes.data && typeof appRes.data === 'object') {
+            data = appRes.data;
+            loadedFromNew = true;
+          }
+          if (!loadedFromNew) {
+            const legacyRes = await Desktop.readJson('user', 'config.js');
+            if (legacyRes && legacyRes.ok && legacyRes.data && typeof legacyRes.data.launcherSettings === 'object' && legacyRes.data.launcherSettings) {
+              data = Object.assign({}, legacyRes.data.launcherSettings);
+            }
+          }
+        }
+        Object.assign(data, patch);
+        await Desktop.saveJson('user', 'app-settings.json', data);
+      } catch (e) { console.warn('general-config: could not patch app-settings.json:', e); }
     }
 
     async function patchExportSettings(patch) {
@@ -1283,20 +1298,27 @@
         Object.assign(window.CLASS_MANAGEMENT_CONFIG.export, patch);
       }
 
-      // 2. Persist to user/config.js in Electron
-      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.saveText !== 'function') return;
+      // 2. Persist to user/export-config.json in Electron (seeding from legacy user/config.js if needed)
+      if (!window.Desktop || !Desktop.isElectron() || typeof Desktop.saveJson !== 'function') return;
       try {
         let data = {};
+        let loadedFromNew = false;
         if (typeof Desktop.readJson === 'function') {
-          const result = await Desktop.readJson('user', 'config.js');
-          if (result && result.ok && result.data && typeof result.data === 'object') {
-            data = result.data;
+          const expRes = await Desktop.readJson('user', 'export-config.json');
+          if (expRes && expRes.ok && expRes.data && typeof expRes.data === 'object') {
+            data = expRes.data;
+            loadedFromNew = true;
+          }
+          if (!loadedFromNew) {
+            const legacyRes = await Desktop.readJson('user', 'config.js');
+            if (legacyRes && legacyRes.ok && legacyRes.data && typeof legacyRes.data.export === 'object' && legacyRes.data.export) {
+              data = Object.assign({}, legacyRes.data.export);
+            }
           }
         }
-        if (!data.export) data.export = {};
-        Object.assign(data.export, patch);
-        await Desktop.saveText('user', 'config.js', buildConfigJsContent(data));
-      } catch (e) { console.warn('general-config: could not patch export in config.js:', e); }
+        Object.assign(data, patch);
+        await Desktop.saveJson('user', 'export-config.json', data);
+      } catch (e) { console.warn('general-config: could not patch export-config.json:', e); }
     }
     function getCardConfig(id) {
       try { return JSON.parse(localStorage.getItem('cmt-card-config-' + id) || '{}'); } catch { return {}; }
@@ -1397,9 +1419,12 @@
       return fallback;
     }
 
+    var _gcExportRootsRenderSeq = 0;
     async function renderGcExportRoots() {
       if (!gcExportRootsList || !window.ExportRootsService) return;
+      var seq = ++_gcExportRootsRenderSeq;
       var roots = await ExportRootsService.list();
+      if (seq !== _gcExportRootsRenderSeq) return;
       gcExportRootsList.innerHTML = '';
 
       // Built-in default to-print row
@@ -1500,7 +1525,7 @@
     renderGcExportRoots();
     if (window.Desktop && typeof Desktop.onDataChanged === 'function') {
       Desktop.onDataChanged(function (ev) {
-        if (ev && ev.filename === 'config.js') renderGcExportRoots();
+        if (ev && (ev.filename === 'export-config.json' || ev.filename === 'config.js')) renderGcExportRoots();
       });
     }
 
@@ -2169,27 +2194,50 @@
 
     async function init() {
       var expLoaded = false;
+      var appSettingsLoaded = false;
       if (window.Desktop && Desktop.isElectron() && typeof Desktop.readJson === 'function') {
         try {
-          var cfgResult = await Desktop.readJson('user', 'config.js');
-          if (cfgResult && cfgResult.ok && cfgResult.data) {
-            if (cfgResult.data.launcherSettings) {
-              // Populate localStorage from config.js so i18n.js and startup IIFE stay in sync
-              var merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
-              localStorage.setItem('cmt-general-config', JSON.stringify(merged));
-            }
-            if (cfgResult.data.export) {
-              var expCfg = cfgResult.data.export;
-              if (expCfg.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, expCfg.pageSize);
-              if (expCfg.pdfMargin && pdfMarginInput) pdfMarginInput.value = expCfg.pdfMargin;
-              if (expCfg.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, expCfg.orientation);
-              expLoaded = true;
-              try {
-                localStorage.setItem('cmt-pdf-export-config', JSON.stringify(expCfg));
-              } catch (_) { }
-            }
+          var appResult = await Desktop.readJson('user', 'app-settings.json');
+          if (appResult && appResult.ok && appResult.data && typeof appResult.data === 'object') {
+            var mergedApp = Object.assign(getGeneralConfig(), appResult.data);
+            localStorage.setItem('cmt-general-config', JSON.stringify(mergedApp));
+            window.CMT_APP_SETTINGS = appResult.data;
+            appSettingsLoaded = true;
           }
-        } catch (e) { console.warn('general-config: could not read config.js:', e); }
+        } catch (e) { console.warn('general-config: could not read app-settings.json:', e); }
+        try {
+          var expResult = await Desktop.readJson('user', 'export-config.json');
+          if (expResult && expResult.ok && expResult.data && typeof expResult.data === 'object') {
+            var expCfgNew = expResult.data;
+            if (expCfgNew.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, expCfgNew.pageSize);
+            if (expCfgNew.pdfMargin && pdfMarginInput) pdfMarginInput.value = expCfgNew.pdfMargin;
+            if (expCfgNew.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, expCfgNew.orientation);
+            expLoaded = true;
+            try { localStorage.setItem('cmt-pdf-export-config', JSON.stringify(expCfgNew)); } catch (_) { }
+          }
+        } catch (e) { console.warn('general-config: could not read export-config.json:', e); }
+        if (!appSettingsLoaded || !expLoaded) {
+          try {
+            var cfgResult = await Desktop.readJson('user', 'config.js');
+            if (cfgResult && cfgResult.ok && cfgResult.data) {
+              if (!appSettingsLoaded && cfgResult.data.launcherSettings) {
+                // Populate localStorage from config.js so i18n.js and startup IIFE stay in sync
+                var merged = Object.assign(getGeneralConfig(), cfgResult.data.launcherSettings);
+                localStorage.setItem('cmt-general-config', JSON.stringify(merged));
+              }
+              if (!expLoaded && cfgResult.data.export) {
+                var expCfg = cfgResult.data.export;
+                if (expCfg.pageSize && pdfPageSizeSelect) setSelectValue(pdfPageSizeSelect, expCfg.pageSize);
+                if (expCfg.pdfMargin && pdfMarginInput) pdfMarginInput.value = expCfg.pdfMargin;
+                if (expCfg.orientation && pdfOrientationSelect) setSelectValue(pdfOrientationSelect, expCfg.orientation);
+                expLoaded = true;
+                try {
+                  localStorage.setItem('cmt-pdf-export-config', JSON.stringify(expCfg));
+                } catch (_) { }
+              }
+            }
+          } catch (e) { console.warn('general-config: could not read config.js:', e); }
+        }
       }
       if (!expLoaded) {
         try {
