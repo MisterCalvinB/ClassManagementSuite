@@ -1811,7 +1811,15 @@
         const field = sf === '_src' ? { type: 'string' } : S.schema.find(f => f.key === sf);
         rows = [...rows].sort((a, b) => {
           let va = a[sf], vb = b[sf];
-          if (field?.type === 'array') { va = (va ?? []).join(''); vb = (vb ?? []).join(''); }
+          if (field?.type === 'array') {
+            const toArraySortStr = v => {
+              if (Array.isArray(v)) return v.join('');
+              if (v && typeof v === 'object') return Object.entries(v).map(([k, val]) => `${k} ${val}`).join(' ');
+              return String(v ?? '');
+            };
+            va = toArraySortStr(va).toLowerCase();
+            vb = toArraySortStr(vb).toLowerCase();
+          }
           else if (field?.type === 'number') { va = Number(va) || 0; vb = Number(vb) || 0; }
           else if (typeof va === 'object' || typeof vb === 'object') {
             va = (typeof va === 'object' && va) ? Object.entries(va).map(([k, v]) => `${k} ${v}`).join(' ') : String(va ?? '');
@@ -7245,7 +7253,8 @@ Format:
     "antonyms": ["fragile"],
     "otherForms": ["resilience", "resiliently"],
     "hypernym": ["trait", "quality"],
-    "hyponym": []
+    "hyponym": [],
+    "keywords": ["character", "psychology"]
   }
 ]
 
@@ -7256,9 +7265,9 @@ Rules:
 - "partOfSpeech" should be lowercase (noun, verb, adjective, adverb, preposition, conjunction, pronoun, interjection, determiner).
 - "english" is the English form of the word (same as "word" when the source is English).
 - "french", "german", "italian" are translation strings; use "" if unknown.
-- "synonyms", "antonyms", "otherForms", "hypernym", and "hyponym" must be arrays.
-- "hypernym": broader/more general category terms (e.g. "resilient" → ["trait", "quality"]).
-- "hyponym": more specific subcategory terms (e.g. "emotion" → ["joy", "fear", "anger"]).
+- "synonyms", "antonyms", "otherForms", "hypernym", "hyponym", and "keywords" must be arrays.
+- "hypernym": broader/more general category terms (e.g. "resilient" -> ["trait", "quality"]).
+- "hyponym": more specific subcategory terms (e.g. "emotion" -> ["joy", "fear", "anger"]).
 - No markdown, no comments, no explanation text.
 - exampleSentence should be a single sentence illustrating the word in context, not a definition or translation, and it must not use the actual word in the sentence.`,
 
@@ -7516,6 +7525,8 @@ Return ONLY valid JSON (array of objects), no markdown.
 Format:
 [
   {
+    "section": "General Observations",
+    "color": "#5b8fcc",
     "type": "Oral Fluency & Participation",
     "items": [
       "Speaks clearly with good volume",
@@ -7526,6 +7537,8 @@ Format:
     ]
   },
   {
+    "section": "General Observations",
+    "color": "#6abf8e",
     "type": "Work Habits & Effort",
     "items": [
       "Stays focused throughout individual tasks",
@@ -7537,7 +7550,7 @@ Format:
 ]
 
 Rules:
-- Each item must have "type" (string, category name) and "items" (array of short observation phrases).
+- Each item must have "section" (string, e.g. "General Observations"), "color" (hex string or ""), "type" (string, category name), and "items" (array of short observation phrases).
 - No markdown or explanation text.`,
 
       criteria: `Generate JSON for assessment criteria and grading rubric descriptors.
@@ -7591,6 +7604,150 @@ Rules:
 - "colors" must map each grade in "grades" to a hex color code.
 - "competenceIds" is an array of linked curriculum competence IDs (e.g. ["LAN-01"]) or empty array [].
 - "scoringDecisions" is an array of guidelines or empty array [].
+- No markdown or explanation text.`,
+
+      references: `Generate JSON for reference manual entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "ref-passive-voice",
+    "manualTitle": "English Grammar Reference",
+    "topic": "Passive Voice",
+    "moduleTitle": "Formation and Usage",
+    "typeId": "rule",
+    "level": "B1",
+    "year": "2026",
+    "subDiscipline": "Grammar",
+    "content": "Use be + past participle when the focus is on the action rather than the agent."
+  }
+]
+
+Rules:
+- "topic", "moduleTitle", and "content" are required.
+- "level" should be a CEFR level (A1-C2) or "".
+- No markdown or explanation text.`,
+
+      testbanks: `Generate JSON for test and exercise bank entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "ex-reading-1",
+    "title": "Renewable Energy Reading Comprehension",
+    "type": "reading",
+    "subject": "English",
+    "instructions": "Read the passage carefully and answer the questions in complete sentences.",
+    "points": 10,
+    "pointsPerItem": 2,
+    "content": {
+      "passage": "Solar and wind power have grown rapidly over the past decade...",
+      "questions": [
+        { "prompt": "What are two advantages mentioned in paragraph 1?", "points": 2 }
+      ]
+    },
+    "markingRubric": [
+      "2 pts: Accurate answer in own words",
+      "1 pt: Partially accurate or copied verbatim"
+    ],
+    "answerKey": "1. Lower emissions and decreasing installation costs.",
+    "tags": ["reading", "environment", "B1"]
+  }
+]
+
+Rules:
+- "title", "type", "instructions", and "points" are required.
+- "type" should be one of: cloze, mcq, reading, writing, speaking, listening, matching, grammar.
+- "tags" and "markingRubric" must be arrays.
+- No markdown or explanation text.`,
+
+      competences: `Generate JSON for curriculum competence and descriptor entries.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "id": "comp-oc-01",
+    "code": "OC.1",
+    "title": "Sustained Spoken Interaction",
+    "subjectId": "english",
+    "category": "Oral Communication",
+    "subCategory": "Interaction",
+    "yearLevel": "Grade 10",
+    "semester": "S1",
+    "level": "B1",
+    "description": "Can enter unprepared into conversation on topics that are familiar or of personal interest.",
+    "detailedDescription": [
+      "Maintains interaction with natural turn-taking.",
+      "Asks follow-up questions to clarify meaning."
+    ],
+    "tags": ["speaking", "interaction", "cefr-b1"],
+    "linkedCompetenceIds": [],
+    "comments": "Assess during pair dialogues and class debates.",
+    "sampleTasks": "Role-play a travel booking or debate a school policy."
+  }
+]
+
+Rules:
+- "code", "title", and "description" are required.
+- "detailedDescription", "tags", and "linkedCompetenceIds" must be arrays of strings.
+- No markdown or explanation text.`,
+
+      badgebanks: `Generate JSON for custom classroom reward/feedback badges.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "icon": "STAR",
+    "label": "Great Idea",
+    "tone": "positive",
+    "meaning": "Shared an insightful contribution during class discussion.",
+    "coefficient": 1,
+    "scope": "individual",
+    "inlineInRoster": false,
+    "strikeOnAward": false,
+    "hidden": false
+  }
+]
+
+Rules:
+- "icon" (short text/code, max 8 chars), "label", "tone" ("positive" or "negative"), "meaning", "coefficient" (number), and "scope" ("individual", "team", or "both") are required.
+- "inlineInRoster", "strikeOnAward", and "hidden" must be booleans.
+- No markdown or explanation text.`,
+
+      modebanks: `Generate JSON for classroom working modes.
+Return ONLY valid JSON (array of objects), no markdown.
+
+Format:
+[
+  {
+    "icon": "Q",
+    "name": "Silent Reading",
+    "shortcutKey": "4",
+    "title": "Silent Reading",
+    "subtitle": "Read independently without talking",
+    "textSize": "large",
+    "textColor": "#222222",
+    "pictureType": "speech_bubbles",
+    "pictureSrc": "",
+    "pictureAnim": "pulse",
+    "pictureFit": "fit",
+    "soundType": "whitenoise",
+    "soundFile": "",
+    "soundVol": 15,
+    "soundChime": true
+  }
+]
+
+Rules:
+- "name", "title", "pictureType", "pictureAnim", "soundType", and "soundVol" (0-100) are required.
+- "textSize": normal, medium, large, xlarge.
+- "pictureType": emoji, speech_bubbles, group_icons, custom_url, custom_file.
+- "pictureAnim": none, pulse, float, bounce, rotate, shush, bubbles, gradient-shift, shimmer-dots, aurora-waves, floating-shapes, breathing-halo, ripple-rings, starfield-twinkle, lava-blobs, confetti-drift, horizon-glow.
+- "soundType": none, white, pink, brown, file, whitenoise, binaural, custom_audio.
 - No markdown or explanation text.`,
     };
     window.AI_PROMPTS = AI_PROMPTS;
@@ -11939,6 +12096,14 @@ Rules:
         }
 
         // 3. Higher z-index modals / subdialogs
+        if ($('ai-prompt-bg') && !$('ai-prompt-bg').classList.contains('hidden')) {
+          if (typeof closeAiPromptModal === 'function') closeAiPromptModal();
+          else $('ai-prompt-bg').classList.add('hidden');
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+          return;
+        }
         if ($('ai-studio-bg') && !$('ai-studio-bg').classList.contains('hidden')) {
           if (typeof closeMdbAiStudio === 'function') closeMdbAiStudio();
           else $('ai-studio-bg').classList.add('hidden');

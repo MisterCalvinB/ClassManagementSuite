@@ -6,6 +6,18 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "mdbFileLinks": "Link del file: {count}",
+  "mdbAiPromptModalTitle": "Personalizza prompt IA",
+  "mdbAiPromptCustomBadge": "Predefinito personalizzato",
+  "mdbAiPromptTopicLabel": "Argomento / Parole / Focus",
+  "mdbAiPromptTopicPlaceholder": "es. Viaggi in aeroporto, sostenibilità o incolla parole...",
+  "mdbAiPromptCountDefault": "Predefinito",
+  "mdbAiPromptPreviewLabel": "Anteprima prompt (modificabile)",
+  "mdbAiPromptBtnReset": "Ripristina predefinito",
+  "mdbAiPromptBtnSaveDefault": "Salva come predefinito",
+  "mdbAiPromptBtnCopy": "Copia prompt",
+  "mdbAiPromptUnavailable": "Nessun modello di prompt IA disponibile per questo tipo di database.",
+  "mdbAiPromptSavedDefault": "Salvato come predefinito personalizzato per questo tipo di database.",
+  "mdbAiPromptResetDone": "Prompt ripristinato al valore predefinito.",
   "mdbCtxLink": "Tag ed elementi collegati",
   "mdbBtnRecordLinks": "Link: {count}",
   "mdbSectionLearningContent": "Apprendimento & Contenuti",

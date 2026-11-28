@@ -6,6 +6,18 @@
   if (typeof module === 'object' && module.exports) module.exports = dict;
 })({
   "mdbBtnBatchAutofill": "Stapel-Autovervollständigung",
+  "mdbAiPromptModalTitle": "KI-Prompt anpassen",
+  "mdbAiPromptCustomBadge": "Eigene Vorlage",
+  "mdbAiPromptTopicLabel": "Thema / Wörter / Fokus",
+  "mdbAiPromptTopicPlaceholder": "z. B. Flughafenreise, Nachhaltigkeit oder Wörter einfügen...",
+  "mdbAiPromptCountDefault": "Standard",
+  "mdbAiPromptPreviewLabel": "Prompt-Vorschau (bearbeitbar)",
+  "mdbAiPromptBtnReset": "Zurücksetzen",
+  "mdbAiPromptBtnSaveDefault": "Als Standard speichern",
+  "mdbAiPromptBtnCopy": "Prompt kopieren",
+  "mdbAiPromptUnavailable": "Keine KI-Prompt-Vorlage für diesen Datenbanktyp verfügbar.",
+  "mdbAiPromptSavedDefault": "Als benutzerdefinierte Vorlage für diesen Datenbanktyp gespeichert.",
+  "mdbAiPromptResetDone": "Prompt auf Standardvorlage zurückgesetzt.",
   "mdbBatchAutofillModalTitle": "Einstellungen für Stapel-Autovervollständigung",
   "mdbBatchAutofillScopeLabel": "Zieldatensätze",
   "mdbBatchAutofillScopeSelected": "Ausgewählte Datensätze ({n})",

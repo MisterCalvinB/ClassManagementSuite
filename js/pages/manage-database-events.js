@@ -59,7 +59,10 @@
     (function () {
       var el = document.querySelector('[data-mdbev-9]');
       if (!el) return;
-      var handler = function (event) { copyAIPrompt(this) };
+      var handler = function (event) {
+        if (typeof openAiPromptModal === 'function') openAiPromptModal();
+        else copyAIPrompt(this);
+      };
       el.addEventListener('click', handler);
     })();
     (function () {
@@ -836,6 +839,50 @@
         img.style.display = 'none';
       }
     }, true);
+
+    // AI Prompt Customizer Modal events
+    var aiPromptBg = document.getElementById('ai-prompt-bg');
+    if (aiPromptBg) {
+      aiPromptBg.addEventListener('click', function (e) {
+        if (e.target === aiPromptBg && typeof closeAiPromptModal === 'function') closeAiPromptModal();
+      });
+    }
+    ['ai-prompt-close', 'ai-prompt-cancel-btn'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', function () {
+        if (typeof closeAiPromptModal === 'function') closeAiPromptModal();
+      });
+    });
+    var aiPromptCopyBtn = document.getElementById('ai-prompt-copy-btn');
+    if (aiPromptCopyBtn) {
+      aiPromptCopyBtn.addEventListener('click', function () {
+        if (typeof copyAiPromptFromModal === 'function') copyAiPromptFromModal(this);
+      });
+    }
+    var aiPromptResetBtn = document.getElementById('ai-prompt-reset-btn');
+    if (aiPromptResetBtn) {
+      aiPromptResetBtn.addEventListener('click', function () {
+        if (typeof resetAiPromptDefault === 'function') resetAiPromptDefault();
+      });
+    }
+    var aiPromptSaveBtn = document.getElementById('ai-prompt-save-default-btn');
+    if (aiPromptSaveBtn) {
+      aiPromptSaveBtn.addEventListener('click', function () {
+        if (typeof saveCustomAiPromptDefault === 'function') saveCustomAiPromptDefault();
+      });
+    }
+    ['ai-prompt-topic', 'ai-prompt-extra'].forEach(function (id) {
+      var inp = document.getElementById(id);
+      if (inp) inp.addEventListener('input', function () {
+        if (typeof rebuildAiPromptText === 'function') rebuildAiPromptText();
+      });
+    });
+    ['ai-prompt-count', 'ai-prompt-level'].forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (sel) sel.addEventListener('change', function () {
+        if (typeof rebuildAiPromptText === 'function') rebuildAiPromptText();
+      });
+    });
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bindEvents);

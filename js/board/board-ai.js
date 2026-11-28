@@ -555,6 +555,10 @@
       antonyms: _t('boardAiQuickAntonymsPrompt', 'List 4-5 common antonyms for this word:')
     };
 
+    function _stripTrailingColon(text) {
+      return String(text || '').replace(/[:：\s]+$/, '').trim();
+    }
+
     document.getElementById('bai-quick-prompts').addEventListener('click', function (e) {
       var btn = e.target.closest('.bai-quick-pill');
       if (!btn || _isGenerating) return;
@@ -572,6 +576,8 @@
           var tpl = _t('boardAiQuickExampleWithWord', 'Write 2 short, natural example sentences that each contain {word}.');
           promptText = tpl.replace('{word}', wordList);
         }
+      } else if (hasCtx) {
+        promptText = _stripTrailingColon(promptText) + '.';
       }
       if (qInput) {
         qInput.value = hasCtx ? promptText : (promptText + ' ');
@@ -864,24 +870,60 @@
     return true;
   }
 
+  function _trimAtWordBoundary(str, maxLen) {
+    var s = String(str || '').replace(/\s+/g, ' ').trim();
+    if (s.length <= maxLen) return s;
+    var cut = s.slice(0, maxLen);
+    var lastSpace = cut.lastIndexOf(' ');
+    if (lastSpace > Math.floor(maxLen * 0.6)) {
+      cut = cut.slice(0, lastSpace);
+    }
+    return cut.trim() + ' [...]';
+  }
+
+  function _hasActiveContext() {
+    return Boolean(!_contextDismissed && _activeContext && (_activeContext.nodes.length > 0 || _activeContext.notes.length > 0));
+  }
+
   function _buildCompactPrompt(question) {
     var ctxParts = [];
-    if (!_contextDismissed && _activeContext) {
+    if (_hasActiveContext()) {
       var words = _activeContext.nodes.slice(0, 6).map(function (n) {
         return (n.baseWord || (n.el && n.el.textContent.trim()) || '').trim();
       }).filter(Boolean);
       if (words.length > 0) {
-        ctxParts.push('Words: ' + words.join(', '));
+        ctxParts.push('Selected word(s): ' + words.map(function (w) { return '"' + w + '"'; }).join(', '));
       }
       var noteSnippets = _activeContext.notes.slice(0, 2).map(function (nt) {
-        return (nt.text || _stripHtml(nt.html) || '').trim().slice(0, 180);
+        return _trimAtWordBoundary(nt.text || _stripHtml(nt.html) || '', 700);
       }).filter(Boolean);
       if (noteSnippets.length > 0) {
-        ctxParts.push('Note: ' + noteSnippets.join(' | '));
+        ctxParts.push('Selected note: "' + noteSnippets.join('" | "') + '"');
       }
     }
-    if (ctxParts.length === 0) return question;
-    return ctxParts.join('\n') + '\n\nQuestion: ' + question;
+    var cleanQuestion = String(question || '').trim().replace(/[:：\s]+$/, '');
+    if (ctxParts.length === 0) return String(question || '').trim();
+    return ctxParts.join('\n') + '\n\nTask: ' + cleanQuestion;
+  }
+
+  function _buildSystemPrompt(isLong, hasCtx, limitWords) {
+    var parts = [
+      'You are a precise classroom assistant. Follow instructions strictly.',
+      'Only state facts you are certain of. If something is unknown or not stated in the provided context, say so briefly instead of guessing or inventing details.',
+      'Do not add greetings, filler, or meta-commentary.'
+    ];
+    if (hasCtx) {
+      parts.push('Base your answer strictly on the selected word(s) or note provided.');
+    }
+    if (isLong) {
+      parts.push('Answer clearly and accurately in 3-5 complete sentences. Stay strictly on topic.');
+    } else {
+      parts.push('Be concise. For definitions or explanations: 1 short, complete sentence. For synonyms or antonyms: output only real, comma-separated words (never repeat the target word or invent words). For translations: give the translation followed by its part of speech in parentheses.');
+    }
+    if (limitWords) {
+      parts.push('Strict limit: at most ' + limitWords + ' words.');
+    }
+    return parts.join(' ');
   }
 
   async function boardAiAskQuestion() {
@@ -927,18 +969,16 @@
     }
 
     var isLong = _answerLength === 'long';
-    var sysPrompt = isLong
-      ? 'Answer clearly and thoroughly in 3-5 complete sentences.'
-      : 'Be concise. No intro or filler. For definitions or explanations: 1 short, complete sentence. For synonyms, antonyms, or translations: comma-separated words only.';
     var maxTokens = isLong ? 360 : 120;
+    var limitWords = 0;
     var wordLimitChk = document.getElementById('bai-word-limit-chk');
     var wordLimitNum = document.getElementById('bai-word-limit-num');
     if (wordLimitChk && wordLimitChk.checked && wordLimitNum) {
-      var limitWords = Math.max(5, Math.min(500, parseInt(wordLimitNum.value, 10) || 30));
-      sysPrompt += ' Limit your answer to at most ' + limitWords + ' words.';
+      limitWords = Math.max(5, Math.min(500, parseInt(wordLimitNum.value, 10) || 30));
       maxTokens = Math.max(40, Math.ceil(limitWords * 1.8) + 20);
     }
-    var temp = isLong ? 0.3 : 0.15;
+    var sysPrompt = _buildSystemPrompt(isLong, _hasActiveContext(), limitWords);
+    var temp = isLong ? 0.2 : 0.0;
     var compactPrompt = _buildCompactPrompt(question);
     _lastSysPrompt = sysPrompt;
     _lastUserPrompt = compactPrompt;
@@ -948,6 +988,9 @@
         systemPrompt: sysPrompt,
         userPrompt: compactPrompt,
         temperature: temp,
+        doSample: isLong,
+        topK: 20,
+        repetitionPenalty: 1.15,
         maxNewTokens: maxTokens,
         promptDownloadIfMissing: false,
         onToken: function (delta, fullSoFar) {
@@ -1020,17 +1063,20 @@
 
     var isLong = _answerLength === 'long';
     var maxTokens = isLong ? 360 : 120;
-    var temp = isLong ? 0.3 : 0.15;
+    var temp = isLong ? 0.2 : 0.0;
 
     try {
       var res = await window.SlmService.generateText({
         messages: [
-          { role: 'system', content: _lastSysPrompt || 'Complete the response concisely without repeating previous text.' },
+          { role: 'system', content: _lastSysPrompt || 'Continue the response concisely, staying strictly factual and on topic without repeating previous text.' },
           { role: 'user', content: _lastUserPrompt || 'Answer the question.' },
           { role: 'assistant', content: baseText },
-          { role: 'user', content: 'Go on and complete the incomplete sentence or thought from where you stopped, without repeating what you already wrote.' }
+          { role: 'user', content: 'Continue directly from where you stopped to finish the incomplete thought. Do not repeat any already-written text and do not invent unrelated details.' }
         ],
         temperature: temp,
+        doSample: isLong,
+        topK: 20,
+        repetitionPenalty: 1.15,
         maxNewTokens: maxTokens,
         promptDownloadIfMissing: false,
         onToken: function (delta, fullSoFar) {

@@ -1152,13 +1152,21 @@
       const lix = state.stylistics ? state.stylistics.readability.lix : 'N/A';
       const mattr = state.stylistics ? state.stylistics.lexical.mattr : 'N/A';
 
-      const prompt = 'Provide a concise 4-bullet literary distant-reading synthesis for "' + (state.bookLabel || 'this text') +
-        '" (Language: ' + state.lang.toUpperCase() + '). Metrics: Flesch-Kincaid Grade=' + fk +
-        ', LIX=' + lix + ', MATTR=' + mattr + ', Top Characters=' + topChars + ', Top Themes=' + topThemes + '.';
+      const sysPrompt = 'You are a literary analysis assistant. Write exactly 4 concise bullet points summarizing only the provided text metrics, top characters, and top themes. Do not invent plot events, quotes, or facts not shown in the metrics.';
+      const prompt = 'Title: "' + (state.bookLabel || 'this text') + '"\n' +
+        'Language: ' + state.lang.toUpperCase() + '\n' +
+        'Metrics: Flesch-Kincaid Grade=' + fk + ', LIX=' + lix + ', MATTR=' + mattr + '\n' +
+        'Top Characters: ' + topChars + '\n' +
+        'Top Themes: ' + topThemes + '\n\n' +
+        'Provide a 4-bullet distant-reading synthesis based strictly on the data above.';
 
       const result = await global.SlmService.generateText({
-        prompt,
-        maxTokens: 280,
+        systemPrompt: sysPrompt,
+        userPrompt: prompt,
+        temperature: 0.15,
+        topK: 20,
+        repetitionPenalty: 1.15,
+        maxNewTokens: 280,
         onToken: (_tok, partial) => {
           if (outEl && partial) outEl.textContent = partial;
         }
